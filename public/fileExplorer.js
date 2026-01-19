@@ -1196,11 +1196,17 @@ removeNodeFromTree(treeData, deletePath);
       allExplorers.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || `Explorer ${i + 1}`;
-        item.style.padding = "6px 10px";
-        item.style.cursor = "pointer";
-        item.style.maxWidth = "185px";
-        item.style.maxHeight = "15px";
-        item.style.overflow = "hidden";
+
+        Object.assign(item.style, {
+            padding: "6px 10px",
+            cursor: "pointer",
+            maxWidth: "185px",
+
+            whiteSpace: "nowrap",      // ⬅️ prevent wrapping
+            overflow: "hidden",        // ⬅️ hide overflow
+            textOverflow: "ellipsis",  // ⬅️ show …
+        });
+
 
         item.addEventListener("click", () => {
           // Bring to front

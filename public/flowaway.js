@@ -238,8 +238,8 @@ const styleTag = document.createElement("style");
   let sysScript = document.createElement('script');
   sysScript.src = `${goldenbodywebsite}system.js`;
   document.body.appendChild(sysScript);
-const zmcdserver = "http://localhost:8082/server/zmcd";
-let SERVER = "http://localhost:8083";
+
+
 let username = data[0];
 document.addEventListener("fullscreenchange", async () => {
   if (document.fullscreenElement) {

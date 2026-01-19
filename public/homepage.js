@@ -1,3 +1,6 @@
+const { protocol, hostname } = window.location;
+const zmcdserver = `${protocol}//${hostname}:8082/server/zmcd`;
+let SERVER = `${protocol}//${hostname}:8083`;
 // homepage
 window.onload = function () {
   if (
@@ -90,7 +93,7 @@ box.innerHTML = `
       needNewAcc
     };
 
-    fetch("http://localhost:8082/server/zmcd", {
+    fetch(zmcdserver, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)

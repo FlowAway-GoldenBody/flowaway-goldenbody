@@ -24,7 +24,7 @@ async function walkDir(dir, base = dir) {
   return files;
 }
 
-const directoryPath = '/Users/baoer/Dev/projects/rammerhead/src/server/zmcdfiles/';
+let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
 
 // ─────────────────────────────

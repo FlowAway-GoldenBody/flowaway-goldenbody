@@ -8,8 +8,12 @@ const RammerheadSession = require('../classes/RammerheadSession');
 
 const logger = new RammerheadLogging({ logLevel: 'debug' });
 const store = new RammerheadSessionFileCache({ logger });
-        const directoryPath = '/Users/baoer/Dev/projects/rammerhead/src/server/zmcdfiles/';
-        const sessionPath = '/Users/baoer/Dev/projects/rammerhead/sessions/'
+let directoryPath = path.resolve(__dirname, './zmcdfiles');
+directoryPath += '/';
+console.log(directoryPath)
+let sessionPath = path.resolve(__dirname, '../../sessions');
+sessionPath += '/'
+console.log(sessionPath)
 
 const fsp = require('fs/promises');
 
@@ -69,14 +73,14 @@ const server = http.createServer((req, res) => {
       let responseContent = null; // will store final response to send
       try {
         const data = JSON.parse(body);
-        console.log('Data from client:', data);
+        // console.log('Data from client:', data);
         let filecontents;
         let originalId;
         if(data.needID) {
           const foldernames = getFolderNamesSync(directoryPath + data.username);
             const content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
-            console.log(content.username);
-            console.log(data.username);
+            // console.log(content.username);
+            // console.log(data.username);
 
               // responseContent = content; // return existing user
               filecontents = content;
@@ -93,11 +97,11 @@ const server = http.createServer((req, res) => {
               needNewAcc: false,
               taskbuttons: filecontents.taskbuttons
             };
-            console.log(newContent);
+            // console.log(newContent);
             const sfiles = fs.readdirSync(sessionPath).filter(f => !f.startsWith('.'));
             for(const sfileName of sfiles) {
               if(sfileName == originalId + '.rhfsession') {
-                console.log(sfileName)
+                // console.log(sfileName)
                 deleteFile(sessionPath + originalId + '.rhfsession');
               }
             }
@@ -147,9 +151,9 @@ return; // VERY IMPORTANT
             let content;
             try {
               content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
-              console.log(content);
+              // console.log(content);
             } catch (e) {
-              responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
+              responseContent = 'error: invalid username or password' + ', original error: ' + e;
               break;
             }
             if (content.username === data.username && content.password === data.password) {

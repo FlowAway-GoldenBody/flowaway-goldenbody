@@ -130,7 +130,7 @@ if (config.enableWorkers) {
 if (cluster.isMaster) {
   let zmcd = require('./zmcd');
   let fetchfiles = require('./fetchfiles')
-  let sfcp = require('./sfcp');
-  let sfcws = require('./sfcws')
+//   let sfcp = require('./sfcp');
+//   let sfcws = require('./sfcws')
 }
 module.exports = proxyServer;
