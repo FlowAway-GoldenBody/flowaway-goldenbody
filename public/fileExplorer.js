@@ -5,8 +5,7 @@
     item: null, // tree node reference
     path: null, // full path string
   };
-fileExplorer = function (startPath = "/", posX = 50, posY = 50) {
-    let activatedTab = 0;
+fileExplorer = function (posX = 50, posY = 50) {
     let isMaximized = false;
     let _isMinimized = false;
     atTop = "fileExplorer";
@@ -557,6 +556,7 @@ function handleSelection(e, item, items, index) {
         if (!node || !node[1]) return;
 
         node[1].forEach((item, index) => {
+          if(item[0] == '.DS_Store') return;
           const isFolder = Array.isArray(item[1]);
           const div = document.createElement("div");
 

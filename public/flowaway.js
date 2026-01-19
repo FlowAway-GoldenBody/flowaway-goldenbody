@@ -1,16 +1,5 @@
 // plz define all your apps here first, dont give any values to the vars, or it will break
-let browser = function(    preloadlink = null,
-    preloadsize = 100,
-    posX = 20,
-    posY = 20,
-){
-  if(browser) {browser(    preloadlink = null,
-    preloadsize = 100,
-    posX = 20,
-    posY = 20,
-)}
-};
-let fileExplorer = function(startPath = "/", posX = 50, posY = 50){if(fileExplorer) {fileExplorer(startPath = "/", posX = 50, posY = 50)}};
+
 // helpers global
   function getStringAfterChar(str, char) {
     const index = str.indexOf(char);
@@ -115,15 +104,15 @@ const styleTag = document.createElement("style");
         <span style="font-size:14px;">File Explorer</span>
     </div>
 
-    <div class="app" data-app="Notes" style="
+    <div class="app" id="settingsapp" data-app="Settings" style="
         padding: 10px;
         background: #333;
         border-radius: 6px;
         text-align: center;
         cursor: pointer;
     ">
-        📝<br>
-        <span style="font-size:14px;">Notes</span>
+        ⚙<br>
+        <span style="font-size:14px;">Settings</span>
     </div>
 
     <div class="app" id="browserapp" data-app="Browser" style="
@@ -197,6 +186,10 @@ const styleTag = document.createElement("style");
       } else if (atTop == "fileExplorer") {
         fileExplorer();
       }
+      else if (atTop == "settings") {
+        settings();
+      }
+
     } else if (e.ctrlKey && e.shiftKey && e.key === "W" && atTop == "browser") {
       let allIds = [];
       for (let i = 0; i < allBrowsers.length; i++) {
@@ -227,6 +220,23 @@ const styleTag = document.createElement("style");
           allExplorers.splice(i, 1);
         }
       }
+    }  else if (
+      e.ctrlKey &&
+      e.shiftKey &&
+      e.key === "W" &&
+      atTop == "settings"
+    ) {
+      let allIds = [];
+      for (let i = 0; i < allSettings.length; i++) {
+        allIds.push(allSettings[i].explorerId);
+      }
+      let maxId = Math.max(...allIds);
+      for (let i = 0; i < allSettings.length; i++) {
+        if (allSettings[i].settingsId == maxId) {
+          allSettings[i].rootElement.remove();
+          allSettings.splice(i, 1);
+        }
+      }
     }
   });
   let feApp = document.createElement('script');
@@ -235,9 +245,16 @@ const styleTag = document.createElement("style");
   let bApp = document.createElement('script');
   bApp.src = `${goldenbodywebsite}browser.js`;
   document.body.appendChild(bApp);
-  let sysScript = document.createElement('script');
+  let settingsApp = document.createElement('script');
+  settingsApp.src = `${goldenbodywebsite}settings.js`;
+  document.body.appendChild(settingsApp);
+  let sysScript;
+  setTimeout(()=>{
+  sysScript = document.createElement('script');
   sysScript.src = `${goldenbodywebsite}system.js`;
   document.body.appendChild(sysScript);
+  });
+
 
 
 let username = data[0];

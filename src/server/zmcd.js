@@ -175,6 +175,26 @@ return; // VERY IMPORTANT
           content.taskbuttons = data.data;
           fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
         }
+        else if (data.updatePassword) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt'
+
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          if (data.oldPassword !== userData.password) {
+            return res.end(JSON.stringify({ error: "old password is wrong" }));
+          }
+
+          userData.password = data.newPassword;
+
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+          return res.end(JSON.stringify({ success: true }));
+        }
+
       } catch (err) {
         console.error(err);
         responseContent = { error: 'Invalid JSON or server error' };

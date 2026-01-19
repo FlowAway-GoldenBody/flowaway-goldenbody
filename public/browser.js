@@ -2269,7 +2269,7 @@ try{        if (
           urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
           return;
         }
-        if (!rawUrl.startsWith("https://") || !isUrl(rawUrl)) {
+        if (!rawUrl.startsWith("https://") && !rawUrl.startsWith('http://')) {
           if (!rawUrl.startsWith("goldenbody://")) {
             const encoded = encodeURIComponent(rawUrl);
             tab.iframe.src =

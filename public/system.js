@@ -20,6 +20,8 @@
         postdata.push("browser");
       } else if (b.textContent === "🗂") {
         postdata.push("fileExplorer");
+      } else if (b.textContent === "⚙") {
+        postdata.push("settings");
       }
     }
     posttaskbuttons(postdata);
@@ -110,16 +112,20 @@
   for (const taskbutton of data[4]) {
     if (taskbutton === "browser") addTaskButton("🌐", browser);
     else if (taskbutton === "fileExplorer") addTaskButton("🗂", fileExplorer);
+    else if (taskbutton === "settings") addTaskButton("⚙", settings);
   }
   taskbuttons = [...taskbar.querySelectorAll("button")];
   function purgeButtons() {
     explorerButtons = [];
     browserButtons = [];
+    settingsButtons = [];
   for (let i = 0; i < taskbuttons.length; i++) {
     if (taskbuttons[i].textContent === "🌐") {
       browserButtons.push(taskbuttons[i]);
     } else if (taskbuttons[i].textContent === "🗂") {
       explorerButtons.push(taskbuttons[i]);
+    } else if (taskbuttons[i].textContent === "⚙") {
+      settingsButtons.push(taskbuttons[i]);
     }
   }
   }
