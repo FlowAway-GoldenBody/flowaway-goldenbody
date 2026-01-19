@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+        .search-box {
+            margin-top: -200px; /* move upward */
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            width: 700px;
+            text-align: center;
+        }
+
+        </style>
+    </head>
+    <body background="gold">
+        <script>
+            let container = document.createElement('div');
+            container.className = '.search-box';
+            document.body.appendChild(container);
+            let username = document.createElement('input');
+            username.type = 'text';
+            username.placeholder = 'username';
+            container.appendChild(username);
+            container.appendChild(document.createElement('br'));
+            container.appendChild(document.createElement('br'));
+            let password = document.createElement('input');
+            password.type = 'text';
+            password.placeholder = 'password';
+            container.appendChild(password);
+            container.appendChild(document.createElement('br'));
+            let login = document.createElement('button');
+            login.textContent = 'login';
+            login.onclick = function() {
+                console.log('sent ' + username.value + ', ' + password.value);
+            };
+            container.appendChild(login);
+        </script>
+    </body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Tab</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+                transform: scale(1.1); /* 1.0 = normal, 1.1 = 110% */
+    transform-origin: top center; /* keeps page centered */
+            background: #f4f6f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .search-box {
+            margin-top: -200px; /* move upward */
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            width: 700px;
+            text-align: center;
+        }
+
+        input {
+            width: 600px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        button {
+                        width: 650px;
+
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #0078ff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005fcc;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="search-box">
+        <h2>Search the Web</h2>
+        <input 
+            type="text" 
+            id="query" 
+            placeholder="Search or Type URL..."
+            onkeydown="if(event.key === 'Enter') searchRedirect();"
+        />
+<br>
+<br>
+
+        <button onclick="searchRedirect()">Search</button>
+    </div>
+
+
+    <script>
+        document.getElementById('query').addEventListener('keydown', function(e){
+            if(e.key === 'Enter') {
+                searchRedirect();
+            }
+        });
+                    let id = 0;
+            let goldenbodywebsite = '';
+            window.addEventListener('message', function(e) {
+                let data = e.data;
+                if (data?.message === "GOLDENBODY_id") {
+                    goldenbodywebsite = data.website;
+                    id = data.value;
+                }
+            });
+
+        function searchRedirect() {
+            const query = document.getElementById("query").value.trim();
+
+            if (!query) return;
+
+            // Encode the query for safe URL usage
+            const encoded = encodeURIComponent(query);
+
+            // Redirect to Bing search results
+            if(query.startsWith('https://') || query.startsWith('http://')) {
+                window.location.href = id + '/' + query;
+            }
+            else {
+            window.location.href = id + '/' + "https://www.bing.com/search?q=" + encoded;
+            }
+        }
+    </script>
+
+</body>
+</html>
