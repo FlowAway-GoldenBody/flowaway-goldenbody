@@ -2,7 +2,7 @@
 
 **A web-based operating system that provides a full desktop and browser experience inside the browser — designed for restricted or managed environments.**
 
-FlowAway + GoldenBody delivers a real OS-like environment (windows, taskbar, file system, settings, and a powerful embedded browser) entirely as a web application, without requiring local installation.
+FlowAway GoldenBody delivers a real OS-like environment (windows, taskbar, file system, settings, and a powerful embedded browser) entirely as a web application, without requiring local installation.
 
 ---
 
@@ -75,11 +75,11 @@ This project is intended for **trusted environments** and does not attempt to pr
 
 ## What this is NOT
 
-- ❌ Not malware
-- ❌ Not a keylogger
-- ❌ Not exploiting browser vulnerabilities
-- ❌ Not bypassing OS-level security controls
-- ❌ Not designed for hostile multi-tenant public use
+-  Not malware
+-  Not a keylogger
+-  Not exploiting browser vulnerabilities
+-  Not bypassing OS-level security controls
+-  Not designed for hostile multi-tenant public use
 
 All functionality operates within standard web platform capabilities.
 
