@@ -444,6 +444,9 @@ let settings = function (posX = 50, posY = 50) {
     try {
       browsermenu.remove();
       browsermenu = null;
+      explorermenu.remove();
+      explorermenu = null;
+
     } catch (e) {}
     menu.className = "explorer-menu";
     Object.assign(menu.style, {
@@ -624,7 +627,16 @@ let settings = function (posX = 50, posY = 50) {
     settings();
   });
   sbtn.addEventListener("contextmenu", ehl1);
+try {
   sysScript.addEventListener('load', () => {
     for (const settingsButton of settingsButtons) {
     settingsButton.addEventListener("contextmenu", settingsContextMenu);
   }});
+} catch(e) {
+    console.error('failed to add contextmenu, retrying in 1 second');
+    setTimeout(() => {
+    for (const settingsButton of settingsButtons) {
+    settingsButton.addEventListener("contextmenu", settingsContextMenu);
+    }
+}, 1000);
+}

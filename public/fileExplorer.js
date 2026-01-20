@@ -1068,6 +1068,8 @@ removeNodeFromTree(treeData, deletePath);
     try {
       browsermenu.remove();
       browsermenu = null;
+      settingsmenu.remove();
+      settingsmenu = null;
     } catch (e) {}
     menu.className = "explorer-menu";
     Object.assign(menu.style, {
@@ -1248,7 +1250,16 @@ removeNodeFromTree(treeData, deletePath);
     fileExplorer();
   });
   ebtn.addEventListener("contextmenu", ehl1);
+  try {
   sysScript.addEventListener('load', () => {
     for (const explorerButton of explorerButtons) {
     explorerButton.addEventListener("contextmenu", fileExplorerContextMenu);
   }});
+} catch(e) {
+    console.error('failed to add contextmenu, retrying in 1 second');
+    setTimeout(() => {
+    for (const explorerButton of explorerButtons) {
+    explorerButton.addEventListener("contextmenu", fileExplorerContextMenu);
+    }
+}, 1000);
+}
