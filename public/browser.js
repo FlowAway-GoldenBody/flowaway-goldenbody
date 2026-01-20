@@ -2145,7 +2145,7 @@ try{        if (
           if (reloadBtn.textContent === "x") {
             tab.iframe.contentWindow.stop();
           } else {
-            tab.iframe.contentWindow.location.reload();
+            openUrlInActiveTab(tab.url);
           }
         };
         activeTabId = id;

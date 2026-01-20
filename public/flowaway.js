@@ -248,10 +248,13 @@ const styleTag = document.createElement("style");
   let settingsApp = document.createElement('script');
   settingsApp.src = `${goldenbodywebsite}settings.js`;
   document.body.appendChild(settingsApp);
-  let sysScript;
-  sysScript = document.createElement('script');
+  let sysScript = document.createElement('script');
+
+setTimeout(() => {
   sysScript.src = `${goldenbodywebsite}system.js`;
   document.body.appendChild(sysScript);
+}, 100);
+
 
 
 
