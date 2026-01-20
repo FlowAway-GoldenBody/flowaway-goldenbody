@@ -2638,6 +2638,8 @@ try{        if (
     try {
       explorermenu.remove();
       explorermenu = null;
+      settingsmenu.remove();
+      settingsmenu = null;
     } catch (e) {}
     menu.className = "browser-menu";
     Object.assign(menu.style, {
@@ -2814,8 +2816,16 @@ try{        if (
   }
   let babtn = document.getElementById("browserapp");
   babtn.addEventListener("contextmenu", bhl1);
+  try {
   sysScript.addEventListener('load', () => {
     for (const browserButton of browserButtons) {
     browserButton.addEventListener("contextmenu", browsermenuhandler);
+  }});
+} catch(e) {
+    console.error('failed to add contextmenu, retrying in 1 second');
+    setTimeout(() => {
+    for (const browserButton of browserButtons) {
+    browserButton.addEventListener("contextmenu", browsermenuhandler);
     }
-   });  
+}, 1000);
+}
