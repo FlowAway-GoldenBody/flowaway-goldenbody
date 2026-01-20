@@ -137,7 +137,9 @@ return; // VERY IMPORTANT
               password: data.password,
               id: sessionId,
               needNewAcc: false,
-              taskbuttons: ['browser', 'fileExplorer']
+              taskbuttons: ['browser', 'fileExplorer', 'settings'],
+              brightness: 100,
+              volume: 40
             };
             fs.mkdirSync(directoryPath + data.username, { recursive: true });
             let userDirectoryPath = directoryPath + data.username + '/';
@@ -153,12 +155,12 @@ return; // VERY IMPORTANT
               content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
               // console.log(content);
             } catch (e) {
-              responseContent = 'error: invalid username or password' + ', original error: ' + e;
+              responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
               break;
             }
             if (content.username === data.username && content.password === data.password) {
               if(!content.taskbuttons) {
-                  content.taskbuttons = ['browser', 'fileExplorer'];
+                  content.taskbuttons = ['browser', 'fileExplorer', 'settings'];
                   fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
               }
               responseContent = content;
@@ -169,6 +171,7 @@ return; // VERY IMPORTANT
               break;
             }
           }
+
         }
         if(data.edittaskbuttons) {
           let content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt'));
@@ -193,6 +196,46 @@ return; // VERY IMPORTANT
 
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
           return res.end(JSON.stringify({ success: true }));
+        }
+        else if(data.deleteAcc) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          if(data.password !== userData.password) {
+            return res.end(JSON.stringify({ error: "wrong password" }));
+          }
+          fs.unlinkSync(sessionPath + userData.id + '.rhfsession');
+          fs.rmSync(directoryPath + data.username, { recursive: true, force: true });
+          console.log(`Directory deleted: ${directoryPath}`);
+          return res.end(JSON.stringify({ success: true }));
+        } else if(data.changeBrightness) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          userData.brightness = data.brightness;
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+        }
+        else if(data.changeVolume) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          userData.volume = data.volume;
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
         }
 
       } catch (err) {

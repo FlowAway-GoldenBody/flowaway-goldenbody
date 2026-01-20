@@ -86,6 +86,11 @@ box.innerHTML = `
       return;
     }
 
+    if(username.length > 20 || username.length < 3) {      
+      msg.textContent = "username is 3 to 20 characters";
+      msg.style.color = "red";
+      return;
+    }
     const payload = {
       username,
       password,
@@ -109,7 +114,6 @@ box.innerHTML = `
           return;
         }
 
-        zmcdata = Object.values(zmcdata);
         msg.textContent = "Success!";
         msg.style.color = "lime";
         data = zmcdata
@@ -121,7 +125,7 @@ box.innerHTML = `
       })
       .catch(err => {
         console.error(err);
-        msg.textContent = "Server error";
+        msg.textContent = "Server error, try create acc first before login!";
         msg.style.color = "red";
       });
   }

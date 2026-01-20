@@ -1,5 +1,85 @@
 // plz define all your apps here first, dont give any values to the vars, or it will break
+window.data = data;
+let worldvolume = 0.5;
+function mainRecurseFrames(doc) {
+  if (!doc) return null;
 
+  const frames = doc.querySelectorAll("iframe");
+
+  for (const frame of frames) {
+      const childDoc = frame.contentDocument;
+    function setAllMediaVolume(newVolume) {
+      // Ensure the volume is between 0.0 and 1.0
+      newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
+
+      // Select all audio and video elements
+      const mediaElements = childDoc.querySelectorAll('audio, video');
+
+      mediaElements.forEach(element => {
+        element.volume = newVolume;
+      });
+    }
+      setAllMediaVolume(data.volume / 100);
+      // Recurse into child document if accessible
+      if (childDoc) {
+        mainRecurseFrames(childDoc);
+      }
+  }
+
+  return null;
+}
+
+    document.documentElement.style.filter =
+      `brightness(${data.brightness}%)`;
+function setAllMediaVolume(newVolume) {
+  // Ensure the volume is between 0.0 and 1.0
+  newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
+
+  // Select all audio and video elements
+  const mediaElements = document.querySelectorAll('audio, video');
+
+  mediaElements.forEach(element => {
+    element.volume = newVolume;
+  });
+}
+    window.addEventListener('system-volume', (e) => {
+      setAllMediaVolume(e.detail / 100);
+    });
+// 1. Create a new MutationObserver instance with a callback function
+const observer = new MutationObserver((mutationsList, observer) => {
+  if(mutationsList) {
+      setAllMediaVolume(data.volume / 100);
+      mainRecurseFrames(document);
+      document.documentElement.style.filter =
+      `brightness(${data.brightness}%)`;
+  }
+});
+
+// 2. Select the target node you want to observe (e.g., the entire document body)
+const targetNode = document.body;
+
+// 3. Configure the observer with an options object
+const config = {
+    childList: true, // Observe direct children addition/removal
+    attributes: true, // Observe attribute changes
+    characterData: true, // Observe changes to text content
+    subtree: true, // Observe changes in the entire subtree (children, grandchildren, etc.)
+    attributeOldValue: true, // Record the old value of the attribute
+    characterDataOldValue: true // Record the old value of the character data
+};
+
+// 4. Start observing the target node with the specified configuration
+observer.observe(targetNode, config);
+
+// To stop observing later:
+// observer.disconnect();
+      
+    setAllMediaVolume(parseInt(data.volume) / 100);
+    let backgroundMusic = document.createElement('audio');
+    backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
+    backgroundMusic.loop = true;
+    document.body.prepend(backgroundMusic);
+    window.addEventListener('mousedown', () => {backgroundMusic.play();}, {once: true});
 // helpers global
   function getStringAfterChar(str, char) {
     const index = str.indexOf(char);
@@ -258,7 +338,7 @@ setTimeout(() => {
 
 
 
-let username = data[0];
+let username = data.username;
 document.addEventListener("fullscreenchange", async () => {
   if (document.fullscreenElement) {
     // Lock when entering fullscreen

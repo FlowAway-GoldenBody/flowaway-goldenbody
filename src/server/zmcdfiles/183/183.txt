@@ -1,11 +1,13 @@
 {
   "username": "183",
-  "password": "sjdwwvjejbc",
-  "id": "3141675916e14119835c7fff262d6634",
+  "password": "183",
+  "id": "a1c1c41377a840e68b15fb61c95e67c0",
   "needNewAcc": false,
   "taskbuttons": [
     "browser",
     "fileExplorer",
     "settings"
-  ]
+  ],
+  "brightness": "100",
+  "volume": "0"
 }

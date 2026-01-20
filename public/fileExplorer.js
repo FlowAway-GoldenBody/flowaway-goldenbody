@@ -308,7 +308,7 @@ fileExplorer = function (posX = 50, posY = 50) {
       let directions = [];
 
       // --- CONFIG ---
-      const username = data[0];
+      const username = data.username;
       let currentPath = ["root"];
 
       // --- UTILS ---
@@ -345,7 +345,7 @@ fileExplorer = function (posX = 50, posY = 50) {
       sidebar.style.gap = "6px";
       container.appendChild(sidebar);
       let text = document.createElement("h3");
-      text.textContent = data[0];
+      text.textContent = data.username;
       sidebar.appendChild(text);
       sidebar.appendChild(document.createElement("br"));
 
@@ -556,7 +556,7 @@ function handleSelection(e, item, items, index) {
         if (!node || !node[1]) return;
 
         node[1].forEach((item, index) => {
-          if(item[0] == '.DS_Store') return;
+          if(item[0] == '.DS_Store' || item[0].startsWith('.temp')) return;
           const isFolder = Array.isArray(item[1]);
           const div = document.createElement("div");
 
@@ -806,7 +806,6 @@ function handleSelection(e, item, items, index) {
         }
         targetPath.splice(0, 1);
         directions.push({paste: true, path: targetPath.join("/")})
-        handlesave();
         render();
         }
       };
@@ -979,11 +978,8 @@ removeNodeFromTree(treeData, deletePath);
           saveSnapshot: true,
           directions: directions
         });
-        let found = false;
-        for(let i = directions.length - 1; i >= 0; i--) {
-          if(!directions[i].copy) directions.splice(i, 1);
-          else {if(found){directions.splice(i, 1);} else{found = true;}}
-        }
+        directions = [];
+        clipboard = [];
         saveBtn.textContent = "💾 Saved!";
         setTimeout(() => (saveBtn.textContent = "💾 Save"), 1000);
       };

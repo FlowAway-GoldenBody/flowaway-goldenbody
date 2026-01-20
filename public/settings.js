@@ -3,6 +3,7 @@
   let settingsId = 0;
 
 let settings = function (posX = 50, posY = 50) {
+    startMenu.style.display = 'none';
       async function post(data) {
         const res = await fetch(zmcdserver, {
           method: "POST",
@@ -400,6 +401,117 @@ let settings = function (posX = 50, posY = 50) {
   section.append(label, oldinput, input, confirm, button, status);
   root.append(title, section);
 
+
+    function sectionTitle(text) {
+    const d = document.createElement("div");
+    d.textContent = text;
+    d.style.fontSize = "14px";
+    d.style.fontWeight = "600";
+    d.style.margin = "14px 0 6px";
+    return d;
+  }
+
+  function statusLine() {
+    const d = document.createElement("div");
+    d.style.fontSize = "12px";
+    d.style.marginTop = "6px";
+    return d;
+  }
+ /* =========================================================
+     🔊 SOUND — VOLUME
+  ========================================================= */
+
+  root.appendChild(sectionTitle("Sound"));
+
+  const volumeLabel = document.createElement("div");
+  volumeLabel.textContent = "Volume";
+
+  const volume = document.createElement("input");
+  volume.type = "range";
+  volume.min = 0;
+  volume.max = 100;
+  volume.value = data.volume;
+  volume.style.width = "100%";
+
+  volume.oninput = async () => {
+    await post({changeVolume: true, volume: volume.value});
+    data.volume = volume.value;
+    // Optional global hook
+    window.dispatchEvent(
+      new CustomEvent("system-volume", {
+        detail: volume.value
+      })
+    );
+  };
+
+  root.append(volumeLabel, volume);
+
+  /* =========================================================
+     🌞 DISPLAY — BRIGHTNESS
+  ========================================================= */
+
+  root.appendChild(sectionTitle("Display"));
+
+  const brightLabel = document.createElement("div");
+  brightLabel.textContent = "Brightness";
+
+  const brightness = document.createElement("input");
+  brightness.type = "range";
+  brightness.min = 0;
+  brightness.max = 100;
+  brightness.value = data.brightness;
+  brightness.style.width = "100%";
+
+  brightness.oninput = async () => {
+    // Simple global brightness effect
+    document.documentElement.style.filter =
+      `brightness(${brightness.value}%)`;
+      data.brightness = brightness.value;
+    await post({
+        changeBrightness: true,
+        brightness: brightness.value
+    });
+  };
+
+  root.append(brightLabel, brightness);
+
+  /* =========================================================
+     🗑️ DANGER ZONE — DELETE ACCOUNT
+  ========================================================= */
+
+  root.appendChild(sectionTitle("Danger Zone"));
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "Delete Account";
+  deleteBtn.style.background = "#c0392b";
+  deleteBtn.style.color = "white";
+
+  const deleteStatus = statusLine();
+
+  deleteBtn.onclick = async () => {
+
+    deleteBtn.disabled = true;
+
+    try {
+      const res = await post({ deleteAcc: true, username: username, password: oldinput.value });
+
+      if (!res.success) {
+        throw new Error();
+      } 
+
+      deleteStatus.textContent = "Account deleted.";
+      deleteStatus.style.color = "green";
+
+      // Optional: force logout / reload
+      setTimeout(() => location.reload(), 1000);
+    } catch {
+        deleteStatus.textContent = "Wrong password in old password input.";
+        deleteStatus.style.color = "red";
+        deleteBtn.disabled = false;
+    }
+  };
+
+  root.append(deleteBtn, deleteStatus);
 
 
 

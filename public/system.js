@@ -109,7 +109,7 @@
   addTaskButton("⤢", _fullscreen);
   addTaskButton("💾", save);
   addTaskButton("▶", starthandler);
-  for (const taskbutton of data[4]) {
+  for (const taskbutton of data.taskbuttons) {
     if (taskbutton === "browser") addTaskButton("🌐", browser);
     else if (taskbutton === "fileExplorer") addTaskButton("🗂", fileExplorer);
     else if (taskbutton === "settings") addTaskButton("⚙", settings);

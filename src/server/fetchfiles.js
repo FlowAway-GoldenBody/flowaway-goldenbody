@@ -193,7 +193,6 @@ async function applyDirections(rootPath, directions) {
 
   const resolvePath = (p) =>
     path.join(rootPath, ...p.split('/').slice(1)); // drop "root"
-
   for (const dir of directions) {
  if (dir.addFolder) {
   const parentPath = resolvePath(dir.path);
@@ -237,14 +236,24 @@ async function applyDirections(rootPath, directions) {
 
     if (dir.copy) {
         clipboard = dir.directions;
+        if(fs.existsSync(path.join(userRoot, '.tempfolder_copy'))) fs.rmSync(path.join(userRoot, '.tempfolder_copy'), {recursive: true, force: true});
+        await fsp.mkdir(path.join(userRoot, '.tempfolder_copy'));
+        for(let i = 0; i < dir.directions.length; i++) {
+        let src = path.join(userRoot, dir.directions[i].path);
+        let dest = path.join(userRoot, '.tempfolder_copy', path.basename(dir.directions[i].path));
+        await fsp.cp(src, dest, {
+            recursive: true,
+            force: false
+        });
+        }
       continue;
     }
 
     if (dir.paste && clipboard) {
-        const destinationDir = resolvePath(dir.path);
+        const destinationDir = path.join(userRoot, dir.path);
 
         for (const item of clipboard) {
-        const src = path.join(userRoot, item.path);
+        const src = path.join(userRoot, '.tempfolder_copy', path.basename(item.path));
 
         let dest = path.join(
             destinationDir,

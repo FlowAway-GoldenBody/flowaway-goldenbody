@@ -2,7 +2,7 @@
   var allBrowsers = [];
   var browserId = 0;
   var atTop = "";
-  var id = data[2];
+  var id = data.id;
   let zTop = 10;
   var proxyurl = goldenbodywebsite;
   let dragstartwindow;
@@ -295,7 +295,7 @@ browser = function (
         fetch(zmcdserver, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: data[0], needID: true }),
+          body: JSON.stringify({ username: data.username, needID: true }),
         })
           .then((res) => res.json())
           .then((result) => {
@@ -664,7 +664,7 @@ browser = function (
             {
               message: "GOLDENBODY_id",
               website: goldenbodywebsite,
-              value: data[2],
+              value: data.id,
             },
             "*",
           );
@@ -1766,6 +1766,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
               frame.contentDocument.getElementById('VFS').remove();
             } catch {}
           }
+          let mediaInterval;
           function recurseFrames(doc, event = null) {
             if (!doc) return;
 
@@ -1774,6 +1775,17 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
 
             for (const frame of frames) {
               try {
+                function setAllMediaVolume(newVolume) {
+                // Ensure the volume is between 0.0 and 1.0
+                newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
+
+                // Select all audio and video elements
+                const mediaElements = frame.contentDocument.querySelectorAll('audio, video');
+
+                mediaElements.forEach(element => {
+                    element.volume = newVolume;
+                });
+                }
                 if(event) {
                   if(event.source == iframe.contentWindow) {return iframe}
                   if(event.source == frame.contentWindow) {
