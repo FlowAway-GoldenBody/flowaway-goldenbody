@@ -49,7 +49,7 @@ This is an **early-stage, power-user project**, meaning expect bugs 4 now.
 - Same-origin proxy to eliminate iframe and sandbox limitations
 - Fixes for nested iframe issues common in browser-in-browser setups
 
-### File System
+### File System and showOpenFilePicker/file input support
 - File explorer with backend-backed persistence
 - Upload files and entire directories
 - Saved state across sessions
