@@ -253,7 +253,7 @@ const styleTag = document.createElement("style");
   sysScript = document.createElement('script');
   sysScript.src = `${goldenbodywebsite}system.js`;
   document.body.appendChild(sysScript);
-  });
+  }, 100);
 
 
 
