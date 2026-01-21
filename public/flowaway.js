@@ -1,6 +1,62 @@
 // plz define all your apps here first, dont give any values to the vars, or it will break
+
 window.data = data;
+  var atTop = "";
+  let zTop = 10;
+
 let worldvolume = 0.5;
+
+// function toggleStyles() {
+//   data.dark = !data.dark;
+//   for(const b of allBrowsers) {
+//     b.rootElement.classList.toggle('dark', data.dark);
+//     b.rootElement.classList.toggle('light', !data.dark);
+//   }
+//   for(const b of allExplorers) {
+//     b.rootElement.classList.toggle('dark', data.dark);
+//     b.rootElement.classList.toggle('light', !data.dark);
+//   }
+//   for(const b of allSettings) {
+//     b.rootElement.classList.toggle('dark', data.dark);
+//     b.rootElement.classList.toggle('light', !data.dark);
+//   }
+//   if(document.body.style.background === 'white') {
+//   document.body.style.background = "#444";
+//   document.body.style.color = "white";
+//   } else {
+//   document.body.style.background = "white";
+//   document.body.style.color = "black";
+//   }
+//   startMenu.classList.toggle("dark", data.dark);
+//   startMenu.classList.toggle("light", !data.dark);
+// }
+function applyStyles() {
+  for(const b of allBrowsers) {
+    b.rootElement.classList.toggle('dark', data.dark);
+    b.rootElement.classList.toggle('light', !data.dark);
+    b.rootElement.dispatchEvent(new CustomEvent('styleapplied', {}));
+  }
+  for(const b of allExplorers) {
+    b.rootElement.classList.toggle('dark', data.dark);
+    b.rootElement.classList.toggle('light', !data.dark);
+  }
+  for(const b of allSettings) {
+    b.rootElement.classList.toggle('dark', data.dark);
+    b.rootElement.classList.toggle('light', !data.dark);
+  }
+  if(data.dark) {
+  document.body.style.background = "#444";
+  document.body.style.color = "white";
+  } else {
+  document.body.style.background = "white";
+  document.body.style.color = "black";
+  }
+  startMenu.classList.toggle("dark", data.dark);
+  startMenu.classList.toggle("light", !data.dark);
+}
+setTimeout(() => {
+  applyStyles();
+}, 100);
 function mainRecurseFrames(doc) {
   if (!doc) return null;
 
@@ -93,47 +149,337 @@ observer.observe(targetNode, config);
   }
   const style = document.createElement("style");
   style.textContent = `
-  .sim-chrome-root * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-  .sim-chrome-top { background: linear-gradient(#f6f7f8,#ededf0); height: 44px; display:flex; align-items:center; padding:0 8px; gap:8px; }
-  .sim-chrome-tabs { display:flex; gap:2px;
-      ms-overflow-style: none; scrollbar-width: none; align-items:center; padding:0; height: 32px; }
-      .sim-chrome-tabs::-webkit-scrollbar {
-      display:none;
-      }
-  .sim-tab { display:flex; align-items:center; gap:8px; padding:6px 10px; background:transparent; border-radius:6px; cursor:pointer; user-select:none; font-size:13px; color:#333; max-width:200px;
-min-width:185px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
-  .sim-tab.active { background: rgba(0,0,0,0.06); box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04); }
-  .sim-tab .close { font-weight:700; color:#777; cursor:pointer; padding-left:6px; margin-left: auto;}
-  .sim-address-row { display:flex; align-items:center; gap:8px; flex:1; margin: 0 8px; }
-  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
-.sim-proxy-input { flex:0.1; size:10; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
-  .sim-open-btn, .sim-fullscreen-btn, .sim-netab-btn { height:28px; padding:0 12px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:#fff; cursor:pointer; font-size:13px; }
-  .sim-toolbar { display:flex; align-items:center; gap:8px; padding:8px; background: #fff; border-top: 1px solid rgba(0,0,0,0.06); }
-  .sim-iframe { width:100%; height: calc(100% - 84px); border:0; background:#fff; padding:10}
-  .sim-status { font-size:12px; color:#666; margin-left:8px; }
-  /* Tiny responsive */
-  @media (max-width: 600px) {
-    .sim-chrome-root { left:6px; right:6px; width:auto; height:480px; }
+
+/* =========================================================
+   🌞 LIGHT THEME (default)
+========================================================= */
+.sim-chrome-root * {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+ .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
+.sim-chrome-top {
+  background: linear-gradient(#f6f7f8,#ededf0);
+  height: 44px;
+  display:flex;
+  align-items:center;
+  padding:0 8px;
+  gap:8px;
+}
+
+.sim-chrome-tabs {
+  display:flex;
+  gap:2px;
+  align-items:center;
+  height:32px;
+  scrollbar-width:none;
+}
+.sim-chrome-tabs::-webkit-scrollbar { display:none; }
+
+.sim-tab {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  user-select:none;
+  font-size:13px;
+  color:#333;
+  max-width:200px;
+  min-width:185px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.sim-tab.active {
+  background: rgba(0,0,0,0.06);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
+}
+
+.sim-tab .close {
+  font-weight:700;
+  color:#777;
+  cursor:pointer;
+  margin-left:auto;
+}
+
+.sim-address-row {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  margin: 0 8px;
+}
+
+.sim-open-btn,
+.sim-fullscreen-btn,
+.sim-netab-btn {
+  height:28px;
+  padding:0 12px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.12);
+  background:#fff;
+  cursor:pointer;
+  font-size:13px;
+}
+
+.sim-toolbar {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px;
+  background:#fff;
+  border-top:1px solid rgba(0,0,0,0.06);
+}
+
+.sim-iframe {
+  width:100%;
+  height:calc(100% - 84px);
+  border:0;
+  background:#fff;
+}
+
+.sim-status {
+  font-size:12px;
+  color:#666;
+  margin-left:8px;
+}
+
+.browserTopBar {
+  background: #ccc
+}
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   ☀️ LIGHT THEME
+========================================================= */
+
+.sim-chrome-root.light {
+  background: #f4f5f7;
+  color: #222;
+}
+
+.sim-chrome-root.light .sim-chrome-top {
+  background: linear-gradient(#f6f7f8, #ededf0);
+}
+
+.sim-chrome-root.light .sim-chrome-tabs {
+  background: transparent;
+}
+
+.sim-chrome-root.light .sim-tab {
+  color: #333;
+}
+
+.sim-chrome-root.light .sim-tab.active {
+  background: rgba(0,0,0,0.06);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
+}
+
+.sim-chrome-root.light .sim-tab .close {
+  color: #777;
+}
+
+/* Address row */
+.sim-chrome-root.light .sim-address-row {
+  background: transparent;
+  margin: 0 8px;
+}
+
+/* URL / proxy inputs */
+.sim-chrome-root.light .sim-url-input,
+.sim-chrome-root.light .sim-proxy-input {
+  background: #fff;
+  color: #222;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+/* Buttons */
+.sim-chrome-root.light .sim-open-btn,
+.sim-chrome-root.light .sim-fullscreen-btn,
+.sim-chrome-root.light .sim-netab-btn {
+  background: #fff;
+  color: #222;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+/* Toolbar */
+.sim-chrome-root.light .sim-toolbar {
+  background: #fff;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Iframe area */
+.sim-chrome-root.light .sim-iframe {
+  background: #fff;
+}
+
+/* Status text */
+.sim-chrome-root.light .sim-status {
+  color: #666;
+}
+
+/* Top draggable bar */
+.sim-chrome-root.light .browserTopBar {
+  background: #ccc;
+}
+
+/* Window control buttons */
+.sim-chrome-root.light .btnMaxColor,
+.sim-chrome-root.light .btnMinColor {
+  background: white;
+  color: #000;
+}
+
+.sim-chrome-root.light .misc {
+  background: white;
+  color: black;
+}
+
+.sim-chrome-root.light .misc2 {
+  background: black;
+  color: #eee;
+}
+
+.browser-menu.light {
+  background: white;
+  color: black;
+}
+
+/* =========================================================
+   🌙 DARK THEME
+========================================================= */
+.sim-chrome-root.dark .sim-address-row {
+  background: #111; margin: 0px;/* explicit, avoids inherited light bg */
+}
+
+/* Iframe background */
+.sim-chrome-root.dark .sim-iframe {
+  background: #111; /* deep dark, matches content area */
+}
+.sim-chrome-root.dark {
+  background:#1e1e1e;
+  color:#ddd;
+}
+
+.sim-chrome-root.dark .sim-chrome-top {
+  background: linear-gradient(#2a2a2a,#1f1f1f);
+}
+
+.sim-chrome-root.dark .sim-tab {
+  color:#ddd;
+}
+
+.sim-chrome-root.dark .sim-tab.active {
+  background: rgba(255,255,255,0.08);
+}
+
+.sim-chrome-root.dark .sim-tab .close {
+  color:rgba(251, 248, 248, 1);
+}
+  .sim-chrome-root.dark .sim-url-input { flex:1; height:32px; background-color: "black"; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
+.sim-chrome-root.dark .sim-url-input,
+.sim-chrome-root.dark .sim-proxy-input {
+  background:#2a2a2a;
+  color:#eee;
+  border:1px solid rgba(255,255,255,0.15);
+}
+
+.sim-chrome-root.dark .sim-open-btn,
+.sim-chrome-root.dark .sim-fullscreen-btn,
+.sim-chrome-root.dark .sim-netab-btn {
+  background:#2a2a2a;
+  color:#eee;
+  border:1px solid rgba(255,255,255,0.15);
+}
+
+.sim-chrome-root.dark .sim-toolbar {
+  background:#1e1e1e;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+
+.sim-chrome-root.dark .sim-iframe {
+  background:#111;
+}
+
+.sim-chrome-root.dark .sim-status {
+  color:#aaa;
+}
+
+.sim-chrome-root.dark .browser-menu {
+  color: black;
+}
+
+.sim-chrome-root.dark .btnMaxColor {
+  color: white;
+  background: black;
+}
+
+.sim-chrome-root.dark .btnMinColor {
+  color: white;
+  background: black;
+}
+
+.sim-chrome-root.dark .browserTopBar {
+  background: #444;
+}
+
+.sim-chrome-root.dark .misc {
+  background: black;
+  color: white;
+}
+
+.sim-chrome-root.dark .misc2 {
+  background: #444;
+  color: white;
+}
+
+.browser-menu.dark {
+  background: black;
+  color: white;
+}
+
+/* =========================================================
+   📱 Responsive
+========================================================= */
+@media (max-width: 600px) {
+  .sim-chrome-root {
+    left:6px;
+    right:6px;
+    width:auto;
+    height:480px;
   }
-      .sim-explorer-root * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+}
+
+
+
+
 `;
+
   document.head.appendChild(style);
   const css = `
 
-    #startMenu {
+    .startMenu {
         position: fixed;
         bottom: 60px;
         left: 10px;
         width: 400px;
         height: 500px;
-        background: #1f1f1f;
-        color: white;
         border-radius: 6px;
         padding: 10px;
         display: none;
     }
 
-    #startMenu h3 {
+    .startMenu h3 {
         margin-top: 0;
     }
 
@@ -144,15 +490,28 @@ min-width:185px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
 
     .app {
         padding: 8px;
-        background: #333;
         margin: 4px 0;
         border-radius: 4px;
         cursor: pointer;
         transition: 0.2s;
     }
 
-    .app:hover {
-        background: #555;
+    /* dark */
+    .startMenu.dark {
+       background: #1f1f1f;
+       color: white;
+    }
+    .startMenu.dark .app {
+      background: #333;
+    }
+    
+    /* light */
+    .startMenu.light {
+       background: lightgray;
+       color: black;
+    }
+    .startMenu.light .app {
+      background: #f8f4f4ff;
     }
 `;
 const styleTag = document.createElement("style");
@@ -164,6 +523,7 @@ const styleTag = document.createElement("style");
   // ----------------- CREATE START MENU -----------------
   const startMenu = document.createElement("div");
   startMenu.id = "startMenu";
+  startMenu.className = 'startMenu';
   startMenu.style.zIndex = 999;
   startMenu.innerHTML = `
 <h3 style="margin:0 0 10px 0; font-size:18px;">Apps</h3>
@@ -175,7 +535,6 @@ const styleTag = document.createElement("style");
 ">
     <div class="app" id="explorerapp" data-app="File Explorer" style="
         padding: 10px;
-        background: #333;
         border-radius: 6px;
         text-align: center;
         cursor: pointer;
@@ -186,7 +545,6 @@ const styleTag = document.createElement("style");
 
     <div class="app" id="settingsapp" data-app="Settings" style="
         padding: 10px;
-        background: #333;
         border-radius: 6px;
         text-align: center;
         cursor: pointer;
@@ -197,7 +555,6 @@ const styleTag = document.createElement("style");
 
     <div class="app" id="browserapp" data-app="Browser" style="
         padding: 10px;
-        background: #333;
         border-radius: 6px;
         text-align: center;
         cursor: pointer;
@@ -208,7 +565,6 @@ const styleTag = document.createElement("style");
 
     <div class="app" data-app="Music" style="
         padding: 10px;
-        background: #333;
         border-radius: 6px;
         text-align: center;
         cursor: pointer;
@@ -249,10 +605,12 @@ const styleTag = document.createElement("style");
   });
 
   function bringToFront(el) {
-    if (el.classList.contains("sim-chrome-root")) {
+    if (el.classList.contains("browser")) {
       atTop = "browser";
-    } else if (el.classList.contains("sim-explorer-root")) {
+    } else if (el.classList.contains("fileExplorer")) {
       atTop = "fileExplorer";
+    } else if (el.classList.contains("settings")) {
+      atTop = "settings";
     }
     if (!el) return;
     el.style.zIndex = String(++zTop);

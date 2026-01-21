@@ -10,7 +10,7 @@ fileExplorer = function (posX = 50, posY = 50) {
     let _isMinimized = false;
     atTop = "fileExplorer";
     const root = document.createElement("div");
-    root.className = "sim-explorer-root";
+    root.className = "sim-chrome-root";
     Object.assign(root.style, {
       position: "fixed",
       top: posY + "px",
@@ -20,13 +20,12 @@ fileExplorer = function (posX = 50, posY = 50) {
       boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
       borderRadius: "10px",
       overflow: "hidden",
-      background: "#f0f0f0",
       display: "flex",
       flexDirection: "column",
       fontFamily: "sans-serif",
       zIndex: 1000,
     });
-
+root.classList.add('fileExplorer');
     bringToFront(root);
     document.body.appendChild(root);
     explorerId++;
@@ -42,7 +41,6 @@ fileExplorer = function (posX = 50, posY = 50) {
       topBar.style.alignItems = "center";
       topBar.style.padding = "2px";
       topBar.style.marginTop = "3px";
-      topBar.style.background = "#ccc";
       topBar.style.cursor = "move";
       topBar.style.flexShrink = "0";
       topBar.style.position = "absolute";
@@ -75,17 +73,20 @@ fileExplorer = function (posX = 50, posY = 50) {
 
     var btnMin = document.createElement("button");
     btnMin.innerText = "‎    –    ‎";
+    btnMin.className = 'btnMinColor';
     btnMin.title = "Minimize";
     topBar.appendChild(btnMin);
 
     var btnMax = document.createElement("button");
     btnMax.innerText = "‎     □    ‎ ";
+    btnMax.className = 'btnMaxColor';
     btnMax.style.fontSize = "20px";
     btnMax.title = "Maximize/Restore";
     topBar.appendChild(btnMax);
 
     var btnClose = document.createElement("button");
     btnClose.innerText = "‎     x    ‎ ";
+    btnClose.className = 'btnCloseColor';
     btnClose.title = "Close";
     btnClose.style.color = "white";
     btnClose.style.backgroundColor = "red";
@@ -188,7 +189,7 @@ fileExplorer = function (posX = 50, posY = 50) {
 
         window.addEventListener("mousemove", (ev) => {
           if (!dragging) return;
-          if (ev.clientX - currentX > 1 || ev.clientY - currentY > 1) {
+          if (ev.clientX - currentX != 1 || ev.clientY - currentY != 1) {
             applyBounds(savedBounds);
             if (isMaximized) {
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
@@ -331,14 +332,13 @@ fileExplorer = function (posX = 50, posY = 50) {
       const container = document.createElement("div");
       container.style.display = "flex";
       container.style.height = "100%";
-      container.style.background = "#f4f4f4";
       root.appendChild(container);
 
       // Sidebar
       const sidebar = document.createElement("div");
       sidebar.style.width = "180px";
       sidebar.style.background = "#1e293b";
-      sidebar.style.color = "white";
+      sidebar.style.color = 'white';
       sidebar.style.padding = "10px";
       sidebar.style.display = "flex";
       sidebar.style.flexDirection = "column";
@@ -391,7 +391,7 @@ fileExplorer = function (posX = 50, posY = 50) {
 
       const contextMenu = document.createElement("div");
       contextMenu.style.position = "absolute";
-      contextMenu.style.background = "white";
+      contextMenu.className = 'misc';
       contextMenu.style.border = "1px solid #ccc";
       contextMenu.style.display = "none";
       contextMenu.style.zIndex = "1000";
@@ -847,11 +847,10 @@ function handleSelection(e, item, items, index) {
           div.textContent = label;
           div.style.padding = "6px 10px";
           div.style.cursor = disabled ? "not-allowed" : "pointer";
-          div.style.color = disabled ? "#999" : "#000";
-
+          div.className = 'misc';
           if (!disabled) {
-            div.onmouseenter = () => (div.style.background = "#eee");
-            div.onmouseleave = () => (div.style.background = "white");
+            div.onmouseenter = () => {div.className = 'misc2'};
+            div.onmouseleave = () => (div.className = 'misc');
             div.onclick = () => {
               hideContextMenu();
               action();
@@ -1031,6 +1030,8 @@ removeNodeFromTree(treeData, deletePath);
         applyBounds,
         explorerId,
       });
+          applyStyles();
+
       return {
         rootElement: root,
         btnMax,
@@ -1067,11 +1068,10 @@ removeNodeFromTree(treeData, deletePath);
       settingsmenu.remove();
       settingsmenu = null;
     } catch (e) {}
-    menu.className = "explorer-menu";
+    menu.className = "browser-menu";
     Object.assign(menu.style, {
       position: "fixed",
       left: `${e.clientX}px`,
-      background: "#fff",
       border: "1px solid #ccc",
       borderRadius: "4px",
       boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
@@ -1081,7 +1081,7 @@ removeNodeFromTree(treeData, deletePath);
       fontSize: "13px",
       visibility: "hidden", // hide temporarily so offsetHeight works
     });
-
+      data.dark ? menu.classList.toggle('dark', true) : menu.classList.toggle('light', true);
     // --- Menu items ---
     const closeAll = document.createElement("div");
     closeAll.textContent = "Close all";

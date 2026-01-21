@@ -1,9 +1,7 @@
 //browser global vars
   var allBrowsers = [];
   var browserId = 0;
-  var atTop = "";
   var id = data.id;
-  let zTop = 10;
   var proxyurl = goldenbodywebsite;
   let dragstartwindow;
   window.__vfsMessageListenerAdded = false;
@@ -75,13 +73,16 @@ browser = function (
         boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
         borderRadius: "10px",
         overflow: "hidden",
-        background: "#ffffff",
       });
       bringToFront(root);
       browserId++;
       root._goldenbodyId = browserId;
       root.tabIndex = "0";
-      //what ifs
+      root.addEventListener('styleapplied', () => {
+        for(const tab of tabs) {
+            tab.iframe.contentWindow.postMessage({__goldenbodyChangeTheme__: true, dark: data.dark});
+        }
+      })
       root.addEventListener("keydown", (e) => {
         // e.target is the element that actually has focus
 
@@ -92,7 +93,7 @@ browser = function (
           addTab("goldenbody://newtab/", "New Tab");
         }
       });
-
+      root.classList.add('browser');
       // --- Top area ---
       const top = document.createElement("div");
       top.className = "sim-chrome-top";
@@ -110,7 +111,6 @@ browser = function (
         topBar.style.justifyContent = "flex-end";
         topBar.style.alignItems = "center";
         topBar.style.padding = "2px";
-        topBar.style.background = "#ccc";
         topBar.style.cursor = "move";
         topBar.style.flexShrink = "0";
       }
@@ -118,9 +118,11 @@ browser = function (
       var btnMin = document.createElement("button");
       btnMin.innerText = "‎    –    ‎";
       btnMin.title = "Minimize";
+      btnMin.className = 'btnMinColor';
       topBar.appendChild(btnMin);
 
       var btnMax = document.createElement("button");
+      btnMax.className = 'btnMaxColor';
       btnMax.innerText = "‎     □    ‎ ";
       btnMax.title = "Maximize/Restore";
       topBar.appendChild(btnMax);
@@ -665,6 +667,7 @@ browser = function (
               message: "GOLDENBODY_id",
               website: goldenbodywebsite,
               value: data.id,
+              dark: data.dark
             },
             "*",
           );
@@ -2373,8 +2376,8 @@ try{        if (
           }
 
           if (
-            (ev.clientX - currentX > 1 && dragging) ||
-            (ev.clientY - currentY > 1 && dragging)
+            (ev.clientX - currentX != 1 && dragging) ||
+            (ev.clientY - currentY != 1 && dragging)
           ) {
             applyBounds(savedBounds);
             if (isMaximized) {
@@ -2599,6 +2602,7 @@ try{        if (
     }, 1000 * nhjd);
     chromeWindow.rootElement.setAttribute("data-title", chromeWindow.title);
     allBrowsers.push(chromeWindow); // Add to global tracking
+          applyStyles();
 
     function a(url, proxyurl) {
       function encodeUV(str) {
@@ -2658,7 +2662,6 @@ try{        if (
       position: "fixed",
       top: `0px`,
       left: `${e.clientX}px`,
-      background: "#fff",
       border: "1px solid #ccc",
       borderRadius: "4px",
       boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
@@ -2668,6 +2671,7 @@ try{        if (
       fontSize: "13px",
       visibility: "hidden", // so layout isn't disrupted before positioning
     });
+      data.dark ? menu.classList.toggle('dark', true) : menu.classList.toggle('light', true);
 
     requestAnimationFrame(() => {
       const menuHeight = menu.offsetHeight;

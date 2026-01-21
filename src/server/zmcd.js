@@ -139,7 +139,8 @@ return; // VERY IMPORTANT
               needNewAcc: false,
               taskbuttons: ['browser', 'fileExplorer', 'settings'],
               brightness: 100,
-              volume: 40
+              volume: 40,
+              dark: false
             };
             fs.mkdirSync(directoryPath + data.username, { recursive: true });
             let userDirectoryPath = directoryPath + data.username + '/';
@@ -237,7 +238,18 @@ return; // VERY IMPORTANT
           userData.volume = data.volume;
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
         }
-
+        else if(data.setTheme) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          userData.dark = data.dark;
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+        }
       } catch (err) {
         console.error(err);
         responseContent = { error: 'Invalid JSON or server error' };

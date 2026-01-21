@@ -17,7 +17,7 @@ let settings = function (posX = 50, posY = 50) {
     let _isMinimized = false;
     atTop = "settings";
     const root = document.createElement("div");
-    root.className = "sim-explorer-root";
+    root.className = "sim-chrome-root";
     Object.assign(root.style, {
       position: "fixed",
       top: posY + "px",
@@ -27,13 +27,12 @@ let settings = function (posX = 50, posY = 50) {
       boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
       borderRadius: "10px",
       overflow: "hidden",
-      background: "#f0f0f0",
       display: "flex",
       flexDirection: "column",
       fontFamily: "sans-serif",
       zIndex: 1000,
     });
-
+    root.classList.add('settings');
     bringToFront(root);
     document.body.appendChild(root);
     settingsId++;
@@ -49,7 +48,6 @@ let settings = function (posX = 50, posY = 50) {
       topBar.style.alignItems = "center";
       topBar.style.padding = "2px";
       topBar.style.marginTop = "3px";
-      topBar.style.background = "#ccc";
       topBar.style.cursor = "move";
       topBar.style.flexShrink = "0";
       topBar.style.position = "absolute";
@@ -82,11 +80,13 @@ let settings = function (posX = 50, posY = 50) {
 
     var btnMin = document.createElement("button");
     btnMin.innerText = "‎    –    ‎";
+    btnMin.className = 'btnMinColor';
     btnMin.title = "Minimize";
     topBar.appendChild(btnMin);
 
     var btnMax = document.createElement("button");
     btnMax.innerText = "‎     □    ‎ ";
+    btnMax.className = 'btnMaxColor';
     btnMax.style.fontSize = "20px";
     btnMax.title = "Maximize/Restore";
     topBar.appendChild(btnMax);
@@ -195,7 +195,7 @@ let settings = function (posX = 50, posY = 50) {
 
         window.addEventListener("mousemove", (ev) => {
           if (!dragging) return;
-          if (ev.clientX - currentX > 1 || ev.clientY - currentY > 1) {
+          if (ev.clientX - currentX != 1 || ev.clientY - currentY != 1) {
             applyBounds(savedBounds);
             if (isMaximized) {
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
@@ -474,7 +474,42 @@ let settings = function (posX = 50, posY = 50) {
   };
 
   root.append(brightLabel, brightness);
+/* =========================================================
+   🌗 APPEARANCE — THEME
+========================================================= */
 
+root.appendChild(sectionTitle("Appearance"));
+
+const themeRow = document.createElement("div");
+themeRow.style.display = "flex";
+themeRow.style.alignItems = "center";
+themeRow.style.justifyContent = "space-between";
+themeRow.style.marginTop = "8px";
+
+const themeLabel = document.createElement("div");
+themeLabel.textContent = "Dark Mode";
+themeLabel.style.fontSize = "13px";
+
+const themeToggle = document.createElement("input");
+themeToggle.type = "checkbox";
+themeToggle.checked = !!data.dark;
+
+/* Toggle handler */
+themeToggle.onchange = async () => {
+  data.dark = themeToggle.checked;
+
+  // Apply theme immediately
+  applyStyles();
+
+  // Persist to backend (optional but recommended)
+  await post({
+    setTheme: true,
+    dark: data.dark
+  });
+};
+
+themeRow.append(themeLabel, themeToggle);
+root.appendChild(themeRow);
   /* =========================================================
      🗑️ DANGER ZONE — DELETE ACCOUNT
   ========================================================= */
@@ -525,6 +560,8 @@ let settings = function (posX = 50, posY = 50) {
         applyBounds,
         settingsId,
       });
+          applyStyles();
+
       return {
         rootElement: root,
         btnMax,
@@ -564,7 +601,6 @@ let settings = function (posX = 50, posY = 50) {
     Object.assign(menu.style, {
       position: "fixed",
       left: `${e.clientX}px`,
-      background: "#fff",
       border: "1px solid #ccc",
       borderRadius: "4px",
       boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
@@ -574,6 +610,7 @@ let settings = function (posX = 50, posY = 50) {
       fontSize: "13px",
       visibility: "hidden", // hide temporarily so offsetHeight works
     });
+      data.dark ? menu.classList.toggle('dark', true) : menu.classList.toggle('light', true);
 
     // --- Menu items ---
     const closeAll = document.createElement("div");

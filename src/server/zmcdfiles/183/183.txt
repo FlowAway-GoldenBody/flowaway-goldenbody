@@ -9,5 +9,6 @@
     "settings"
   ],
   "brightness": "100",
-  "volume": "0"
+  "volume": "64",
+  "dark": true
 }
