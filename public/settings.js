@@ -586,7 +586,7 @@ root.appendChild(themeRow);
     e.preventDefault();
 
     // Remove any existing menus
-    document.querySelectorAll(".explorer-menu").forEach((m) => m.remove());
+    document.querySelectorAll(".browser-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
     settingsmenu = menu;
@@ -597,7 +597,7 @@ root.appendChild(themeRow);
       explorermenu = null;
 
     } catch (e) {}
-    menu.className = "explorer-menu";
+    menu.className = "browser-menu";
     Object.assign(menu.style, {
       position: "fixed",
       left: `${e.clientX}px`,

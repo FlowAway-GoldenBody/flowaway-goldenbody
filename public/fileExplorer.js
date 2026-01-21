@@ -1058,7 +1058,7 @@ removeNodeFromTree(treeData, deletePath);
     e.preventDefault();
 
     // Remove any existing menus
-    document.querySelectorAll(".explorer-menu").forEach((m) => m.remove());
+    document.querySelectorAll(".browser-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
     explorermenu = menu;
