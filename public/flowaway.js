@@ -53,6 +53,12 @@ function applyStyles() {
   }
   startMenu.classList.toggle("dark", data.dark);
   startMenu.classList.toggle("light", !data.dark);
+  taskbar.classList.toggle("dark", data.dark);
+  taskbar.classList.toggle("light", !data.dark);
+  for(const button of taskbuttons) {
+    button.classList.toggle("dark", data.dark);
+    button.classList.toggle("light", !data.dark);
+  }
 }
 setTimeout(() => {
   applyStyles();
@@ -461,6 +467,34 @@ observer.observe(targetNode, config);
 }
 
 
+
+
+
+
+
+
+
+
+/* taskbar/system */
+.taskbar {}
+.taskbutton{}
+.taskbar.light {
+  background: lightgray;
+  color: black;
+}
+.taskbutton.dark {
+  background: #444 !important;
+  color: white !important;
+}
+
+.taskbutton.light {
+  background: white !important;
+  color: black !important;
+}
+.taskbar.dark {
+  background: #222;
+  color: white;
+}
 
 
 `;
