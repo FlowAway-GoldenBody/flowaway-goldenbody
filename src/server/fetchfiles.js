@@ -281,6 +281,10 @@ async function applyDirections(rootPath, directions) {
       await fsp.writeFile(filePath, buffer);
       continue;
     }
+    if(dir.end) {
+        console.log(path.join(userRoot, '.tempfolder_copy'));
+        fs.rmSync(path.join(userRoot, '.tempfolder_copy'), {recursive: true, force: true});
+    }
   }
 }
 function copyRecursive(src, dest) {

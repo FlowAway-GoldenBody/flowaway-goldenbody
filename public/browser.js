@@ -9,37 +9,297 @@
   let draggedtab = 0;
 // browser global functions
   function mainWebsite(string) {
-    let afterString = "";
-    let i = 0;
-    if (string.startsWith("https://")) {
-      afterString = "https://";
-      i = 8;
-    } else if (string.startsWith("http://")) {
-      afterString = "http://";
-      i = 7;
-    } else {
-      console.error(
-        "invalid link: make sure it starts with either http:// or https://",
-      );
-      return;
-    }
-    for (; i < string.length; i++) {
-      if (string[i] == "/") {
-        afterString += string[i];
-        return afterString;
+    let s = '';
+    for (let i = 0; i < string.length; i++) {
+      if (string[i] === "?" || string[i] === '&') {
+        return s;
       } else {
-        afterString += string[i];
+        s += string[i];
       }
     }
-    return afterString;
+    return s;
   }
 
-browser = function (
+let browser = function (
     preloadlink = null,
     preloadsize = 100,
     posX = 20,
     posY = 20,
   ) {
+    let status;
+          async function post(data) {
+            const res = await fetch(zmcdserver, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, ...data }),
+            });
+            return res.json();
+          }
+async function updateSiteSettings(iframe, content) {
+    content.updateSiteSettings = true;
+    content.url = mainWebsite(unshuffleURL(iframe.src));
+    await post(content);
+    iframe.sandbox = content.newSandbox;
+    iframe.allow = content.newAllow;
+    iframe.allowFullscreen = content.newFullscreen;
+    data.siteSettings = await post({requestSiteSettings: true});
+    data.siteSettings = data.siteSettings.siteSettings;
+}
+function createPermInput(iframe, url) {
+    url = mainWebsite(url);
+  // --- DEFAULTS (used if site not found)
+  let allow = `
+    accelerometer;
+    autoplay;
+    camera;
+    clipboard-read;
+    clipboard-write;
+    display-capture;
+    encrypted-media;
+    fullscreen;
+    geolocation;
+    gyroscope;
+    magnetometer;
+    microphone;
+    midi;
+    payment;
+    picture-in-picture;
+    publickey-credentials-get;
+    screen-wake-lock;
+    serial;
+    sync-xhr;
+    usb;
+    web-share;
+    xr-spatial-tracking;
+    idle-detection;
+  `.trim();
+
+  let sandbox = `
+    allow-forms
+    allow-modals
+    allow-orientation-lock
+    allow-pointer-lock
+    allow-presentation
+    allow-same-origin
+    allow-scripts
+  `.trim();
+
+  let fullscreen = true;
+  let addTheSite = true;
+    let siteSettings = data.siteSettings;
+    for(const site of siteSettings) {
+        if(url === site[0]) {
+            allow = site[1];
+            sandbox = site[2];
+            fullscreen = site[3];
+            addTheSite = false;
+        }
+    }
+    iframe.allow = allow; iframe.sandbox = sandbox; iframe.allowFullscreen = fullscreen;
+        return {allow, sandbox, fullscreen, addTheSite};
+}
+function openPermissionsUI(url, iframe, anchorRect = null) {
+  const perms = createPermInput(iframe, url) || {
+    allow: "",
+    sandbox: "",
+    fullscreen: false
+  };
+
+  // --- Cleanup old UI
+  document.getElementById("perm-ui")?.remove();
+
+  // --- Overlay (click outside to close)
+  const overlay = document.createElement("div");
+  overlay.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:999999;
+  `;
+  overlay.onclick = () => overlay.remove();
+
+  // --- Floating panel
+  const panel = document.createElement("div");
+  panel.id = "perm-ui";
+  panel.onclick = e => e.stopPropagation();
+  panel.className = 'panel';
+  panel.classList.toggle('dark', data.dark);
+  panel.classList.toggle('light', !data.dark);
+  panel.style.cssText = `
+    position:fixed;
+    width:320px;
+    border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+    padding:14px;
+    font-family:system-ui;
+    font-size:13px;
+    max-height:400px;
+    overflow:auto;
+  `;
+
+  if (anchorRect) {
+    panel.style.left = anchorRect.left + "px";
+    panel.style.top = (anchorRect.bottom + 6) + "px";
+  } else {
+    panel.style.left = "50%";
+    panel.style.top = "50%";
+    panel.style.transform = "translate(-50%,-50%)";
+  }
+
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  // --- Helpers
+  const allowSet = new Set(
+    perms.allow?.split(";").map(v => v.trim()).filter(Boolean)
+  );
+
+  const sandboxSet = new Set(
+    perms.sandbox?.split(" ").map(v => v.trim()).filter(Boolean)
+  );
+
+  function section(title) {
+    const d = document.createElement("div");
+    d.style.marginBottom = "10px";
+    d.innerHTML = `<div style="font-weight:600;margin-bottom:6px">${title}</div>`;
+    panel.appendChild(d);
+    return d;
+  }
+
+  function checkbox(parent, label, checked, disabled = false) {
+    const row = document.createElement("label");
+    row.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:4px;opacity:" + (disabled ? 0.5 : 1);
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = checked;
+    cb.disabled = disabled;
+    row.append(cb, document.createTextNode(label));
+    parent.appendChild(row);
+    return cb;
+  }
+
+  // ===============================
+  // FULLSCREEN
+  // ===============================
+  let website = mainWebsite(unshuffleURL(iframe.src));
+  let secure = website.startsWith('https://') ? 'Connection is Secure' : 'Not Secure';
+  if(website.startsWith('goldenbody://')) secure = 'You are viewing a secure official goldenbody webpage'
+  section(website);
+  section(secure);
+  section("If you notice the site dosen't match the url bar its because only user-initiated navigations get new permissions.")
+  const fs = section("Fullscreen");
+  const fsToggle = checkbox(fs, "Allow fullscreen", !!perms.fullscreen);
+
+  // ===============================
+  // ALLOW
+  // ===============================
+  const allowSec = section("Allow permissions");
+
+  const ALLOW_LIST = [
+    "camera","microphone","geolocation","clipboard-read","clipboard-write",
+    "autoplay","fullscreen","payment","usb","serial","display-capture",
+    "picture-in-picture","screen-wake-lock","web-share","xr-spatial-tracking"
+  ];
+
+  const allowCheckboxes = {};
+
+  for (const perm of ALLOW_LIST) {
+    allowCheckboxes[perm] = checkbox(
+      allowSec,
+      perm,
+      allowSet.has(perm)
+    );
+  }
+
+  // ===============================
+  // SANDBOX
+  // ===============================
+  const sandboxSec = section("Sandbox");
+
+  const SANDBOX_LIST = [
+    "allow-forms",
+    "allow-modals",
+    "allow-orientation-lock",
+    "allow-pointer-lock",
+    "allow-presentation",
+    "allow-scripts",
+    "allow-same-origin" // LOCKED
+  ];
+
+  const sandboxCheckboxes = {};
+
+  for (const perm of SANDBOX_LIST) {
+    const locked = perm === "allow-same-origin";
+    sandboxCheckboxes[perm] = checkbox(
+      sandboxSec,
+      perm + (locked ? " (locked)" : ""),
+      sandboxSet.has(perm),
+      locked
+    );
+  }
+
+  // Warning
+  const warn = document.createElement("div");
+  warn.style.cssText = `
+    margin-top:6px;
+    font-size:11px;
+    color:#aaa;
+  `;
+  warn.textContent =
+    "allow-same-origin cannot be changed.";
+  sandboxSec.appendChild(warn);
+
+  // ===============================
+  // ACTIONS
+  // ===============================
+  const actions = document.createElement("div");
+  actions.style.cssText = `
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:12px;
+  `;
+
+  const cancel = document.createElement("button");
+  cancel.textContent = "Cancel";
+  cancel.onclick = () => overlay.remove();
+
+  const apply = document.createElement("button");
+  apply.textContent = "Apply";
+  apply.style.background = "#4c8bf5";
+  apply.style.color = "#fff";
+
+  apply.onclick = () => {
+    // ===== LOGIC HOOK (YOU IMPLEMENT) =====
+    status.innerText = "reload this page to apply your updated settings!";
+    setTimeout(() => (status.innerText = ""), 2000);
+
+    const newAllow = Object.entries(allowCheckboxes)
+      .filter(([_, cb]) => cb.checked)
+      .map(([k]) => k)
+      .join("; ");
+
+    const newSandbox = Object.entries(sandboxCheckboxes)
+      .filter(([_, cb]) => cb.checked)
+      .map(([k]) => k)
+      .join(" ");
+
+    const newFullscreen = fsToggle.checked;
+
+
+      updateSiteSettings(iframe, {
+        newAllow: newAllow,
+        newSandbox: newSandbox,
+        newFullscreen: newFullscreen,
+        addTheSite: perms.addTheSite
+      });
+
+    // await post()
+    overlay.remove();
+  };
+
+  actions.append(cancel, apply);
+  panel.appendChild(actions);
+}
     function unshuffleURL(url) {
       if (url === goldenbodywebsite + "newtab.html") {
         return "goldenbody://newtab/";
@@ -271,6 +531,11 @@ browser = function (
       openBtn.innerText = "Open";
       addressRow.appendChild(openBtn);
 
+      var sitesettingsbtn = document.createElement("button");
+      sitesettingsbtn.textContent = "A";
+      sitesettingsbtn.className = "sim-open-btn";
+      addressRow.prepend(sitesettingsbtn);
+
       var reloadBtn = document.createElement("button");
       reloadBtn.textContent = "⟳";
       reloadBtn.className = "sim-open-btn";
@@ -307,7 +572,7 @@ browser = function (
       };
       addressRow.appendChild(clear);
 
-      const status = document.createElement("div");
+      status = document.createElement("div");
       status.className = "sim-status";
       status.style.flex = "0 0 auto";
       status.innerText = "";
@@ -790,37 +1055,10 @@ browser = function (
           previousTabTitle = tab.title;
         }, 1000 * nhjd);
 
+
+        createPermInput(iframe, url);
         iframe.tabIndex = "0";
         iframe.className = "sim-iframe";
-        iframe.allow = `
-  accelerometer; 
-  autoplay; 
-  camera; 
-  clipboard-read; 
-  clipboard-write; 
-  cross-origin-isolated; 
-  display-capture; 
-  encrypted-media; 
-  fullscreen; 
-  geolocation; 
-  gyroscope; 
-  magnetometer; 
-  microphone; 
-  midi; 
-  payment; 
-  picture-in-picture; 
-  publickey-credentials-get; 
-  screen-wake-lock; 
-  serial; 
-  sync-xhr; 
-  usb; 
-  web-share; 
-  xr-spatial-tracking; 
-  idle-detection; 
-`;
-        iframe.allowFullscreen = true;
-        iframe.sandbox =
-          "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts";
         iframe.onload = function () {
           // Get the document inside the iframe
           const iframeDocument =
@@ -1184,14 +1422,7 @@ browser = function (
           // ----------------------------
             let sentreqframe;
 
-          async function post(data) {
-            const res = await fetch(SERVER, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username, ...data }),
-            });
-            return res.json();
-          }
+
           function annotateTreeWithPaths(tree, basePath = '') {
             const [name, children, meta = {}] = tree;
 
@@ -2163,6 +2394,9 @@ try{        if (
             openUrlInActiveTab(tab.url);
           }
         };
+        sitesettingsbtn.onclick = () => {
+            openPermissionsUI(unshuffleURL(tab.iframe.src), tab.iframe, sitesettingsbtn.getBoundingClientRect());
+        }
         activeTabId = id;
         urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
         let previousUrl = unshuffleURL(tab.iframe.contentWindow.location.href);
@@ -2298,9 +2532,10 @@ try{        if (
         tab.loadedurl = url;
         tab.title = "Loading...";
         if (tabs[tabIndex].iframe) {
+        createPermInput(tab.iframe, url);
           if (!url.startsWith("goldenbody://")) {
             try {
-              tabs[tabIndex].iframe.contentWindow.location.href = a(
+              tabs[tabIndex].iframe.src = a(
                 url,
                 proxyurl,
               );
@@ -2310,7 +2545,7 @@ try{        if (
             }
           } else {
             try {
-              tabs[tabIndex].iframe.contentWindow.location.href = a(
+              tabs[tabIndex].src = a(
                 url,
                 proxyurl,
               );
