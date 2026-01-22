@@ -532,8 +532,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       addressRow.appendChild(openBtn);
 
       var sitesettingsbtn = document.createElement("button");
-      sitesettingsbtn.textContent = "A";
+      sitesettingsbtn.textContent = "⚙";
       sitesettingsbtn.className = "sim-open-btn";
+      sitesettingsbtn.style.fontSize = "20px";
+      sitesettingsbtn.style.justifyContent = "center";
+
       addressRow.prepend(sitesettingsbtn);
 
       var reloadBtn = document.createElement("button");
