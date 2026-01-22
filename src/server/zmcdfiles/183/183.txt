@@ -9,8 +9,8 @@
     "settings"
   ],
   "brightness": 100,
-  "volume": 40,
-  "dark": false,
+  "volume": "100",
+  "dark": true,
   "siteSettings": [
     [
       "goldenbody://newtab/",

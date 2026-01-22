@@ -1540,7 +1540,7 @@ async function fetchFileContent(username, fileFullPath) {
           }
 
           // Send file to iframe
-async function sendFileNodeToIframe(username, node, iframe) {
+async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
   const fullPath = node[2].path;
   const base64 = await fetchFileContent(username, fullPath);
   const buffer = base64ToArrayBuffer(base64);
@@ -1553,14 +1553,14 @@ async function sendFileNodeToIframe(username, node, iframe) {
       name: node[0],
       type,
       buffer,
-      expectmore: false
+      expectmore: false,
     },
     "*",
     [buffer]
   );
 }
 
-async function sendFolderNodeToIframe(username, folderNode, iframe) {
+async function sendFolderNodeToIframe(username, folderNode, iframe, lastOne = false) {
   const filesToSend = [];
 
 function walk(node) {
@@ -1582,9 +1582,10 @@ function walk(node) {
 }
 
   walk(folderNode);
-
+let i = 0;
   // 2️⃣ Fetch + send each file
   for (const file of filesToSend) {
+    i++;
     const base64 = await fetchFileContent(username, file.fullPath);
     const buffer = base64ToArrayBuffer(base64);
     const type = getMimeType(file.name);
@@ -1603,7 +1604,23 @@ function walk(node) {
     for(let i = 0; i < fileParts.length; i++) {
       if(first) {first = false; file.fullPath += fileParts[i];} else{file.fullPath += '/' + fileParts[i];}
     }
-
+if(i == filesToSend.length) {
+        iframe.contentWindow.postMessage(
+      {
+        __VFS__: true,
+        kind: 'file',
+        name: file.name,
+        type,
+        buffer,
+        webkitRelativePath: file.fullPath,
+        expectmore: true,
+        lastOne: lastOne
+      },
+      '*',
+      [buffer]
+    );
+}
+else {
     iframe.contentWindow.postMessage(
       {
         __VFS__: true,
@@ -1612,35 +1629,38 @@ function walk(node) {
         type,
         buffer,
         webkitRelativePath: file.fullPath,
-        expectmore: true
+        expectmore: true,
+        lastOne: false
       },
       '*',
       [buffer]
     );
   }
-
-  // 3️⃣ Signal completion
-  iframe.contentWindow.postMessage(
-    { __VFS__: true, kind: 'folderDone' },
-    '*'
-  );
+  }
 }
 
-
+          async function post(data) {
+            const res = await fetch(SERVER, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, ...data }),
+            });
+            return res.json();
+          }
           // ----------------------------
           // 3. Custom picker overlay
           // ----------------------------
           let pickerOverlay = null;
-          let pickerSelection = null;
+let pickerSelection = [];
           let pickerCurrentPath = ["root"];
           let pickerTree = null;
 
           function openCustomPickerUI() {
-            if (!window.treeData) return alert("File tree not ready");
+            if (!window.treeData) {window.loadTree();}
 
             pickerTree = JSON.parse(JSON.stringify(window.treeData));
             pickerCurrentPath = ["root"];
-            pickerSelection = null;
+            pickerSelection = [];
 
             // Create overlay if it doesn't exist
             if (!pickerOverlay) {
@@ -1660,11 +1680,12 @@ function walk(node) {
               document.body.appendChild(pickerOverlay);
 
               const pickerBox = document.createElement("div");
+              pickerBox.className = 'pickerBox';
               Object.assign(pickerBox.style, {
                 width: "600px",
                 height: "400px",
-                background: "#fff",
                 borderRadius: "8px",
+                background: data.dark ? '#222' : '#fff',
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -1722,13 +1743,28 @@ function walk(node) {
                     (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
                   div.style.padding = "4px";
                   div.style.cursor = "pointer";
-                  div.onclick = () => {
-                    pickerSelection = item;
-                    fileArea
-                      .querySelectorAll("div")
-                      .forEach((d) => (d.style.background = ""));
-                    div.style.background = "#d0e6ff";
-                  };
+div.onclick = (e) => {
+  const isToggle = e.ctrlKey || e.metaKey;
+
+  if (!isToggle) {
+    // single select
+    pickerSelection = [item];
+    fileArea.querySelectorAll("div")
+      .forEach(d => (d.style.background = ""));
+    div.style.background = "#d0e6ff";
+  } else {
+    // toggle select
+    const idx = pickerSelection.indexOf(item);
+    if (idx >= 0) {
+      pickerSelection.splice(idx, 1);
+      div.style.background = "";
+    } else {
+      pickerSelection.push(item);
+      div.style.background = "#d0e6ff";
+    }
+  }
+};
+
                   if (Array.isArray(item[1])) {
                     div.ondblclick = () => {
                       pickerCurrentPath.push(item[0]);
@@ -1756,39 +1792,39 @@ function walk(node) {
                 pickerOverlay = null;
                 pickerSelection = null;
               };
-              btnOpen.onclick = async (e) => {
-                if (!pickerSelection) {
-                  alert("Select a file or folder");
-                  return;
-                }
+btnOpen.onclick = async () => {
+  const selections = [...pickerSelection]; // snapshot immediately
+  const targetFrame = sentreqframe;        // snapshot iframe
 
-                // Resolve the picker promise *before* removing the overlay
-                if (pickerOverlay.resolvePicker) {
-                  pickerOverlay.resolvePicker([pickerSelection]);
-                  pickerOverlay.resolvePicker = null;
-                }
+  if (!selections.length) return alert("Select a file or folder");
+  if (!targetFrame) {
+    console.warn("No iframe found");
+    return;
+  }
 
-                pickerOverlay.remove();
-                pickerOverlay = null;
+  // remove picker
+  if (pickerOverlay.resolvePicker) {
+    pickerOverlay.resolvePicker(selections);
+    pickerOverlay.resolvePicker = null;
+  }
+  pickerOverlay.remove();
+  pickerOverlay = null;
+  pickerSelection = [];
 
-                // If you have a target iframe
+  // send all selections
+  let i = 0;
+  for (const sel of selections) {
+    i++;
+    if (Array.isArray(sel[1])) {
+      if(i == selections.length) {await sendFolderNodeToIframe(username, sel, targetFrame, true); continue;}
+      await sendFolderNodeToIframe(username, sel, targetFrame);
+    } else {
+      if(i == selections.length) {await sendFileNodeToIframe(username, sel, targetFrame, true); continue;}
+      await sendFileNodeToIframe(username, sel, targetFrame);
+    }
+  }
+};
 
-                if (!sentreqframe) {
-                  console.warn("No iframe found to send file to");
-                } else {
-                  if (Array.isArray(pickerSelection[1])) {
-                    // It's a folder
-                    await sendFolderNodeToIframe(username, pickerSelection, sentreqframe);
-                  } else {
-                    // It's a single file
-                    await sendFileNodeToIframe(
-                      username,
-                      pickerSelection,
-                      sentreqframe,
-                    );
-                  }
-                }
-              };
             } else {
               pickerOverlay.style.display = "flex";
             }
@@ -1883,7 +1919,7 @@ function walk(node) {
       if(!d.expectmore) injectIntoActiveInput();
     }
 
-    if (d.kind === 'folderDone') {
+    if (d.lastOne) {
       if (pickerMode === 'input') {
         injectIntoActiveInput();
       }
@@ -2544,17 +2580,17 @@ try{        if (
               );
             } catch (e) {
               console.error(e);
-              tabs[tabIndex].src = a(url, proxyurl);
+              tabs[tabIndex].iframe.src = a(url, proxyurl);
             }
           } else {
             try {
-              tabs[tabIndex].src = a(
+              tabs[tabIndex].iframe.src = a(
                 url,
                 proxyurl,
               );
             } catch (e) {
               console.error(e);
-              tabs[tabIndex].src = a(url, proxyurl);
+              tabs[tabIndex].iframe.src = a(url, proxyurl);
             }
           }
         }
