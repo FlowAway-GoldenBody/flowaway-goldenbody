@@ -257,7 +257,7 @@ observer.observe(targetNode, config);
   background: #ccc
 }
 
-
+.panel {}
 
 
 
@@ -269,6 +269,10 @@ observer.observe(targetNode, config);
    ☀️ LIGHT THEME
 ========================================================= */
 
+.panel.light {
+  background: #ededf0;
+  color: black;
+}
 .sim-chrome-root.light {
   background: #f4f5f7;
   color: #222;
@@ -364,6 +368,10 @@ observer.observe(targetNode, config);
 /* =========================================================
    🌙 DARK THEME
 ========================================================= */
+.panel.dark {
+  background: #444;
+  color: #fff;
+}
 .sim-chrome-root.dark .sim-address-row {
   background: #111; margin: 0px;/* explicit, avoids inherited light bg */
 }

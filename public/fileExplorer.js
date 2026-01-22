@@ -643,6 +643,12 @@ function handleSelection(e, item, items, index) {
 
           fileArea.appendChild(div);
         });
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
 
         // Blank area drop
         fileArea.ondragover = (e) => e.preventDefault();
@@ -973,6 +979,7 @@ removeNodeFromTree(treeData, deletePath);
       };
       let handlesave = async (e) => {
         // console.log(directions);
+        directions.push({end: true});
         await post({
           saveSnapshot: true,
           directions: directions

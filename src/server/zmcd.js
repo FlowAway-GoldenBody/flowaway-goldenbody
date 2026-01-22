@@ -140,7 +140,8 @@ return; // VERY IMPORTANT
               taskbuttons: ['browser', 'fileExplorer', 'settings'],
               brightness: 100,
               volume: 40,
-              dark: false
+              dark: false,
+              siteSettings: []
             };
             fs.mkdirSync(directoryPath + data.username, { recursive: true });
             let userDirectoryPath = directoryPath + data.username + '/';
@@ -250,6 +251,45 @@ return; // VERY IMPORTANT
           userData.dark = data.dark;
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
         }
+        else if(data.updateSiteSettings) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          console.log(data)
+          for(let i = 0; i < userData.siteSettings.length; i++) {
+            if(userData.siteSettings[i][0] === data.url) {
+              userData.siteSettings[i][1] = data.newAllow;
+              userData.siteSettings[i][2] = data.newSandbox;
+              userData.siteSettings[i][3] = data.newFullscreen; 
+            }
+          }
+          if(data.addTheSite) {
+            let a = [];
+            a.push(data.url);
+            a.push(data.newAllow);
+            a.push(data.newSandbox);
+            a.push(data.newFullscreen);
+            userData.siteSettings.push(a);
+          }
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+        }
+      else if (data.requestSiteSettings) {
+        console.log('req site settings');
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          responseContent = {siteSettings: userData.siteSettings};
+      }
       } catch (err) {
         console.error(err);
         responseContent = { error: 'Invalid JSON or server error' };
