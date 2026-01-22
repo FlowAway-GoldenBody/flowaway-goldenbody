@@ -16,7 +16,7 @@
       "goldenbody://newtab/",
       "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
       "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      false
+      true
     ],
     [
       "https://shellshock.io/",
