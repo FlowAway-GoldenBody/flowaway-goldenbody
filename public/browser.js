@@ -2583,8 +2583,8 @@ try{        if (
           }
 
           if (
-            (ev.clientX - currentX != 1 && dragging) ||
-            (ev.clientY - currentY != 1 && dragging)
+            ((ev.clientX - currentX < -1 || ev.clientX - currentX > 1) && dragging) ||
+            ((ev.clientY - currentY < -1 || ev.clientY - currentY > 1) && dragging)
           ) {
             applyBounds(savedBounds);
             if (isMaximized) {
