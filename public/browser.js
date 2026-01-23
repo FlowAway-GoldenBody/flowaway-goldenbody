@@ -40,39 +40,11 @@ async function updateSiteSettings(iframe, content) {
     content.url = mainWebsite(unshuffleURL(iframe.src));
     await post(content);
     iframe.sandbox = content.newSandbox;
-    iframe.allow = content.newAllow;
-    iframe.allowFullscreen = content.newFullscreen;
     data.siteSettings = await post({requestSiteSettings: true});
     data.siteSettings = data.siteSettings.siteSettings;
 }
 function createPermInput(iframe, url) {
     url = mainWebsite(url);
-  // --- DEFAULTS (used if site not found)
-  let allow = `
-    accelerometer;
-    autoplay;
-    camera;
-    clipboard-read;
-    clipboard-write;
-    display-capture;
-    encrypted-media;
-    fullscreen;
-    geolocation;
-    gyroscope;
-    magnetometer;
-    microphone;
-    midi;
-    payment;
-    picture-in-picture;
-    publickey-credentials-get;
-    screen-wake-lock;
-    serial;
-    sync-xhr;
-    usb;
-    web-share;
-    xr-spatial-tracking;
-    idle-detection;
-  `.trim();
 
   let sandbox = `
     allow-forms
@@ -89,20 +61,16 @@ function createPermInput(iframe, url) {
     let siteSettings = data.siteSettings;
     for(const site of siteSettings) {
         if(url === site[0]) {
-            allow = site[1];
-            sandbox = site[2];
-            fullscreen = site[3];
+            sandbox = site[1];
             addTheSite = false;
         }
     }
-    iframe.allow = allow; iframe.sandbox = sandbox; iframe.allowFullscreen = fullscreen;
-        return {allow, sandbox, fullscreen, addTheSite};
+iframe.sandbox = sandbox;
+        return {sandbox, addTheSite};
 }
 function openPermissionsUI(url, iframe, anchorRect = null) {
   const perms = createPermInput(iframe, url) || {
-    allow: "",
     sandbox: "",
-    fullscreen: false
   };
 
   // --- Cleanup old UI
@@ -149,10 +117,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   document.body.appendChild(overlay);
 
   // --- Helpers
-  const allowSet = new Set(
-    perms.allow?.split(";").map(v => v.trim()).filter(Boolean)
-  );
-
   const sandboxSet = new Set(
     perms.sandbox?.split(" ").map(v => v.trim()).filter(Boolean)
   );
@@ -186,29 +150,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   section(website);
   section(secure);
   section("If you notice the site dosen't match the url bar its because only user-initiated navigations get new permissions.")
-  const fs = section("Fullscreen");
-  const fsToggle = checkbox(fs, "Allow fullscreen", !!perms.fullscreen);
-
-  // ===============================
-  // ALLOW
-  // ===============================
-  const allowSec = section("Allow permissions");
-
-  const ALLOW_LIST = [
-    "camera","microphone","geolocation","clipboard-read","clipboard-write",
-    "autoplay","fullscreen","payment","usb","serial","display-capture",
-    "picture-in-picture","screen-wake-lock","web-share","xr-spatial-tracking"
-  ];
-
-  const allowCheckboxes = {};
-
-  for (const perm of ALLOW_LIST) {
-    allowCheckboxes[perm] = checkbox(
-      allowSec,
-      perm,
-      allowSet.has(perm)
-    );
-  }
 
   // ===============================
   // SANDBOX
@@ -273,23 +214,15 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
     status.innerText = "reload this page to apply your updated settings!";
     setTimeout(() => (status.innerText = ""), 2000);
 
-    const newAllow = Object.entries(allowCheckboxes)
-      .filter(([_, cb]) => cb.checked)
-      .map(([k]) => k)
-      .join("; ");
-
     const newSandbox = Object.entries(sandboxCheckboxes)
       .filter(([_, cb]) => cb.checked)
       .map(([k]) => k)
       .join(" ");
 
-    const newFullscreen = fsToggle.checked;
 
 
       updateSiteSettings(iframe, {
-        newAllow: newAllow,
         newSandbox: newSandbox,
-        newFullscreen: newFullscreen,
         addTheSite: perms.addTheSite
       });
 

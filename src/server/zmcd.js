@@ -90,13 +90,7 @@ const server = http.createServer((req, res) => {
               store.add(sessionId, session);
               filecontents.id = sessionId;
               responseContent = {id: sessionId};
-            const newContent = {
-              username: filecontents.username,
-              password: filecontents.password,
-              id: sessionId,
-              needNewAcc: false,
-              taskbuttons: filecontents.taskbuttons
-            };
+              filecontents.siteSettings = [];
             // console.log(newContent);
             const sfiles = fs.readdirSync(sessionPath).filter(f => !f.startsWith('.'));
             for(const sfileName of sfiles) {
@@ -105,7 +99,7 @@ const server = http.createServer((req, res) => {
                 deleteFile(sessionPath + originalId + '.rhfsession');
               }
             }
-            fs.writeFileSync(directoryPath + filecontents.username + '/' + filecontents.username + '.txt', JSON.stringify(newContent));
+            fs.writeFileSync(directoryPath + filecontents.username + '/' + filecontents.username + '.txt', JSON.stringify(filecontents));
 
 res.end(JSON.stringify(responseContent));
 return; // VERY IMPORTANT
@@ -263,17 +257,13 @@ return; // VERY IMPORTANT
           console.log(data)
           for(let i = 0; i < userData.siteSettings.length; i++) {
             if(userData.siteSettings[i][0] === data.url) {
-              userData.siteSettings[i][1] = data.newAllow;
-              userData.siteSettings[i][2] = data.newSandbox;
-              userData.siteSettings[i][3] = data.newFullscreen; 
+              userData.siteSettings[i][1] = data.newSandbox;
             }
           }
           if(data.addTheSite) {
             let a = [];
             a.push(data.url);
-            a.push(data.newAllow);
             a.push(data.newSandbox);
-            a.push(data.newFullscreen);
             userData.siteSettings.push(a);
           }
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
