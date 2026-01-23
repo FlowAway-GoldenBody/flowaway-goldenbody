@@ -1,7 +1,7 @@
 {
   "username": "183",
   "password": "183",
-  "id": "13c7c0c390d748d2946faff1512e33e6",
+  "id": "73f9fb8a05c049ca9f5cac222d5f89a4",
   "needNewAcc": false,
   "taskbuttons": [
     "browser",
@@ -9,80 +9,12 @@
     "settings"
   ],
   "brightness": 100,
-  "volume": "100",
+  "volume": "0",
   "dark": true,
   "siteSettings": [
     [
       "goldenbody://newtab/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://shellshock.io/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-pointer-lock allow-scripts allow-same-origin",
-      false
-    ],
-    [
-      "https://www.google.com/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin",
-      true
-    ],
-    [
-      "https://www.hero-wars.com/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://hero-wars.com/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://4399.com/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://my.4399.com/yxssjj2/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin",
-      true
-    ],
-    [
-      "https://my.4399.com/zhuanti/ssjj2/jxsc",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://community.hero-wars.com/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin",
-      true
-    ],
-    [
-      "https://community.hero-wars.com/feed/all/1",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://www.4399.com/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
-    ],
-    [
-      "https://krunker.io/",
-      "camera; microphone; geolocation; clipboard-read; clipboard-write; autoplay; fullscreen; payment; usb; serial; display-capture; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking",
-      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin",
-      true
+      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin"
     ]
   ]
 }
