@@ -195,7 +195,7 @@ let settings = function (posX = 50, posY = 50) {
 
         window.addEventListener("mousemove", (ev) => {
           if (!dragging) return;
-          if (ev.clientX - currentX != 1 || ev.clientY - currentY != 1) {
+          if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
             applyBounds(savedBounds);
             if (isMaximized) {
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
