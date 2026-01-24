@@ -925,8 +925,10 @@ removeNodeFromTree(treeData, deletePath);
                 newName = '"." is not allowed in folder names!'; 
               }
               for(let i = 0; i < fileArea.children.length; i++) {
+                try{
                 if(fileArea.children[i].children[1].textContent === newName)
                 newName = getUniqueName(newName);
+                } catch(e) {}
               }
 
               // Update treeData locally
@@ -942,6 +944,7 @@ removeNodeFromTree(treeData, deletePath);
               render();
             const targetPath = [...currentPath]; // current folder path array
             directions.push({rename: true, path: targetPath.join("/") + '/' + oldName, newName: newName});
+            handlesave();
             };
 
             input.onblur = finish;

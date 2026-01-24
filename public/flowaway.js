@@ -709,7 +709,7 @@ const styleTag = document.createElement("style");
     ) {
       let allIds = [];
       for (let i = 0; i < allSettings.length; i++) {
-        allIds.push(allSettings[i].explorerId);
+        allIds.push(allSettings[i].settingsId);
       }
       let maxId = Math.max(...allIds);
       for (let i = 0; i < allSettings.length; i++) {
