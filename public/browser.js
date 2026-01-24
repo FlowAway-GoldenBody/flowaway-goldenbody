@@ -154,7 +154,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   section(website);
   section(secure);
   if(!data.enableURLSync)
-  section("If you notice the site dosen't match the url bar its because only user-initiated navigations get new permissions. To disable this, open sync perms below.")
+  section("Only user-initiated navigations get new permissions. To disable this, open sync perms below.")
   // perms
   const syncpermsSec = section("Sync Perms");
   let syncperms = checkbox(syncpermsSec, 'sync perms', data.enableURLSync);
@@ -174,7 +174,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   // ===============================
   // SANDBOX
   // ===============================
-  const sandboxSec = section("Sandbox");
+  const sandboxSec = section("Site Settings");
   const SANDBOX_LIST = [
     "allow-forms",
     "allow-modals",
@@ -257,7 +257,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       if (url === goldenbodywebsite + "newtab.html") {
         return "goldenbody://newtab/";
       }
-
+      else if (url === goldenbodywebsite + "ai.html") {
+        return "goldenbody://ai/";
+      }
       return url.slice(55, url.length);
     }
 
@@ -1507,7 +1509,9 @@ async function fetchFileContent(username, fileFullPath) {
 
           // Send file to iframe
 async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
-  const fullPath = node[2].path;
+    let currentPath = [...pickerCurrentPath];
+    currentPath.splice(0, 1);
+  const fullPath = node[2].path || currentPath.join('/') + '/' + node[0];
   const base64 = await fetchFileContent(username, fullPath);
   const buffer = base64ToArrayBuffer(base64);
   const type = getMimeType(node[0]);
@@ -1519,7 +1523,7 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
       name: node[0],
       type,
       buffer,
-      expectmore: false,
+      lastOne: lastOne,
     },
     "*",
     [buffer]
@@ -1882,7 +1886,7 @@ btnOpen.onclick = async () => {
       }
 
       injectedFiles.push(file);
-      if(!d.expectmore) injectIntoActiveInput();
+      if(d.lastOne) injectIntoActiveInput();
     }
 
     if (d.lastOne) {
@@ -2842,6 +2846,9 @@ try{        if (
       function encodeRammerHead(str, proxylink) {
         if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
           return goldenbodywebsite + "newtab.html";
+        }
+        else if (str === "goldenbody://ai/" || str === "goldenbody://ai") {
+          return goldenbodywebsite + "ai.html";
         }
         return proxylink + id + "/" + url;
       }

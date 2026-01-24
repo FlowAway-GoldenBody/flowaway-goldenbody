@@ -222,9 +222,11 @@ async function applyDirections(rootPath, directions) {
     }
 
     if (dir.rename) {
+        try {
       const oldPath = resolvePath(dir.path);
       const newPath = path.join(path.dirname(oldPath), dir.newName);
       await fsp.rename(oldPath, newPath);
+        } catch(e) {console.log(e)}
       continue;
     }
 

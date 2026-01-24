@@ -1,1 +1,29 @@
-{"username":"183","password":"183","id":"77aa44e9012c4e049646518d74f9b8ed","needNewAcc":false,"taskbuttons":["browser","fileExplorer","settings"],"brightness":100,"volume":"0","dark":true,"siteSettings":[["goldenbody://newtab/","allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin"],["https://sites.google.com/","allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin"]],"enableURLSync":true}
+{
+  "username": "183",
+  "password": "183",
+  "id": "77aa44e9012c4e049646518d74f9b8ed",
+  "needNewAcc": false,
+  "taskbuttons": [
+    "browser",
+    "fileExplorer",
+    "settings"
+  ],
+  "brightness": 100,
+  "volume": "0",
+  "dark": true,
+  "siteSettings": [
+    [
+      "goldenbody://newtab/",
+      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin"
+    ],
+    [
+      "https://sites.google.com/",
+      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin"
+    ],
+    [
+      "https://www.htmlelements.com/",
+      "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-scripts allow-same-origin"
+    ]
+  ],
+  "enableURLSync": false
+}

@@ -129,7 +129,8 @@ if (config.enableWorkers) {
 // easily do so using this. mainly used for debugging
 if (cluster.isMaster) {
   let zmcd = require('./zmcd');
-  let fetchfiles = require('./fetchfiles')
+  let fetchfiles = require('./fetchfiles');
+  require("./ask");
 //   let sfcp = require('./sfcp');
 //   let sfcws = require('./sfcws')
 }
