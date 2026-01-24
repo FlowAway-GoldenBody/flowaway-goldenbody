@@ -311,6 +311,17 @@ let settings = function (posX = 50, posY = 50) {
 
 
 
+// Assuming you already have a root container like:
+// const root = document.getElementById("root");
+
+// Make mainContainer fill the root and add padding
+let mainContainer = document.createElement('div');
+mainContainer.style.width = "calc(100% - 30px)";
+mainContainer.style.height = "100%";
+mainContainer.style.boxSizing = "border-box"; // ensures padding is included
+mainContainer.style.margin = "0 15px"; // top/bottom 0, left/right 8px
+mainContainer.style.overflowY = "auto"; // optional: adds scroll if content overflows
+root.appendChild(mainContainer);
 
   const title = document.createElement("div");
   title.textContent = "Account Settings";
@@ -329,21 +340,21 @@ let settings = function (posX = 50, posY = 50) {
   const oldinput = document.createElement("input");
   oldinput.type = "password";
   oldinput.placeholder = "Old password";
-  oldinput.style.width = "100%";
+  oldinput.style.width = "calc(100% - 60%)";
   oldinput.style.boxSizing = "border-box";
   oldinput.style.padding = "6px";
 
   const input = document.createElement("input");
   input.type = "password";
   input.placeholder = "New password";
-  input.style.width = "100%";
+  input.style.width = "calc(100% - 60%)";
   input.style.boxSizing = "border-box";
   input.style.padding = "6px";
 
   const confirm = document.createElement("input");
   confirm.type = "password";
   confirm.placeholder = "Confirm password";
-  confirm.style.width = "100%";
+  confirm.style.width = "calc(100% - 60%)";
   confirm.style.boxSizing = "border-box";
   confirm.style.padding = "6px";
   confirm.style.marginTop = "6px";
@@ -398,8 +409,8 @@ let settings = function (posX = 50, posY = 50) {
     button.textContent = "Save Password";
   };
 
-  section.append(label, oldinput, input, confirm, button, status);
-  root.append(title, section);
+  section.append(label, oldinput, document.createElement('br'), input, document.createElement('br'), confirm, document.createElement('br'), button, status);
+  mainContainer.append(title, section);
 
 
     function sectionTitle(text) {
@@ -421,7 +432,7 @@ let settings = function (posX = 50, posY = 50) {
      🔊 SOUND — VOLUME
   ========================================================= */
 
-  root.appendChild(sectionTitle("Sound"));
+  mainContainer.appendChild(sectionTitle("Sound"));
 
   const volumeLabel = document.createElement("div");
   volumeLabel.textContent = "Volume";
@@ -431,7 +442,7 @@ let settings = function (posX = 50, posY = 50) {
   volume.min = 0;
   volume.max = 100;
   volume.value = data.volume;
-  volume.style.width = "100%";
+  volume.style.width = "calc(100% - 67%)";
 
   volume.oninput = async () => {
     await post({changeVolume: true, volume: volume.value});
@@ -444,13 +455,13 @@ let settings = function (posX = 50, posY = 50) {
     );
   };
 
-  root.append(volumeLabel, volume);
+  mainContainer.append(volumeLabel, volume);
 
   /* =========================================================
      🌞 DISPLAY — BRIGHTNESS
   ========================================================= */
 
-  root.appendChild(sectionTitle("Display"));
+  mainContainer.appendChild(sectionTitle("Display"));
 
   const brightLabel = document.createElement("div");
   brightLabel.textContent = "Brightness";
@@ -460,7 +471,7 @@ let settings = function (posX = 50, posY = 50) {
   brightness.min = 0;
   brightness.max = 100;
   brightness.value = data.brightness;
-  brightness.style.width = "100%";
+  brightness.style.width = "calc(100% - 67%)";
 
   brightness.oninput = async () => {
     // Simple global brightness effect
@@ -473,17 +484,15 @@ let settings = function (posX = 50, posY = 50) {
     });
   };
 
-  root.append(brightLabel, brightness);
+  mainContainer.append(brightLabel, brightness);
 /* =========================================================
    🌗 APPEARANCE — THEME
 ========================================================= */
 
-root.appendChild(sectionTitle("Appearance"));
+mainContainer.appendChild(sectionTitle("Appearance"));
 
 const themeRow = document.createElement("div");
-themeRow.style.display = "flex";
 themeRow.style.alignItems = "center";
-themeRow.style.justifyContent = "space-between";
 themeRow.style.marginTop = "8px";
 
 const themeLabel = document.createElement("div");
@@ -509,12 +518,12 @@ themeToggle.onchange = async () => {
 };
 
 themeRow.append(themeLabel, themeToggle);
-root.appendChild(themeRow);
+mainContainer.appendChild(themeRow);
   /* =========================================================
      🗑️ DANGER ZONE — DELETE ACCOUNT
   ========================================================= */
 
-  root.appendChild(sectionTitle("Danger Zone"));
+  mainContainer.appendChild(sectionTitle("Danger Zone"));
 
   const deleteBtn = document.createElement("button");
   deleteBtn.textContent = "Delete Account";
@@ -546,7 +555,7 @@ root.appendChild(themeRow);
     }
   };
 
-  root.append(deleteBtn, deleteStatus);
+  mainContainer.append(deleteBtn, deleteStatus);
 
 
 
