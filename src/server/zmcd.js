@@ -266,6 +266,7 @@ return; // VERY IMPORTANT
             a.push(data.newSandbox);
             userData.siteSettings.push(a);
           }
+          userData.enableURLSync = data.enableURLSync;
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
         }
       else if (data.requestSiteSettings) {

@@ -75,7 +75,8 @@ function mainRecurseFrames(doc) {
       newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
       // Select all audio and video elements
-      const mediaElements = childDoc.querySelectorAll('audio, video');
+      let mediaElements = [];
+      try{mediaElements = childDoc.querySelectorAll('audio, video');}catch(e){}
 
       mediaElements.forEach(element => {
         element.volume = newVolume;
