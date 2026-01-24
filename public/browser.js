@@ -10,8 +10,11 @@
 // browser global functions
   function mainWebsite(string) {
     let s = '';
+    let anti_numtots = 0;
     for (let i = 0; i < string.length; i++) {
-      if (string[i] === "?" || string[i] === '&') {
+      if(string[i] === '/') anti_numtots++;
+      if (string[i] === "?" || string[i] === '&' || anti_numtots === 3) {
+        s += string[i];
         return s;
       } else {
         s += string[i];
@@ -36,6 +39,7 @@ let browser = function (
             return res.json();
           }
 async function updateSiteSettings(iframe, content) {
+    data.enableURLSync = content.enableURLSync;
     content.updateSiteSettings = true;
     content.url = mainWebsite(unshuffleURL(iframe.src));
     await post(content);
@@ -149,13 +153,28 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   if(website.startsWith('goldenbody://')) secure = 'You are viewing a secure official goldenbody webpage'
   section(website);
   section(secure);
-  section("If you notice the site dosen't match the url bar its because only user-initiated navigations get new permissions.")
+  if(!data.enableURLSync)
+  section("If you notice the site dosen't match the url bar its because only user-initiated navigations get new permissions. To disable this, open sync perms below.")
+  // perms
+  const syncpermsSec = section("Sync Perms");
+  let syncperms = checkbox(syncpermsSec, 'sync perms', data.enableURLSync);
+  const info = document.createElement("div");
+  info.style.cssText = `
+    margin-top:6px;
+    font-size:11px;
+    color:#aaa;
+  `;
+  info.textContent =
+    "This is only for people with privacy needs, may cause bugs when many redirects happens at 1 time";
+  syncpermsSec.appendChild(info);
+
+
+
 
   // ===============================
   // SANDBOX
   // ===============================
   const sandboxSec = section("Sandbox");
-
   const SANDBOX_LIST = [
     "allow-forms",
     "allow-modals",
@@ -223,7 +242,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
       updateSiteSettings(iframe, {
         newSandbox: newSandbox,
-        addTheSite: perms.addTheSite
+        addTheSite: perms.addTheSite,
+        enableURLSync: syncperms.checked
       });
 
     // await post()
@@ -505,6 +525,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             console.log("id now:", result);
             id = result.id;
           });
+        status.innerText = "site data cleared! please close all browser windows!";
+        setTimeout(() => (status.innerText = ""), 2000);
       };
       addressRow.appendChild(clear);
 
@@ -692,7 +714,10 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       }
       window.addEventListener("message", messageHandler);
       window.addEventListener("mouseup", onMouseUpAnywhere);
-
+      let renderInterval = setInterval(() => {
+        if(!root) {clearInterval(renderInterval); console.warn('interval cleared, root missing!')};
+        renderTabs();
+      }, 10000);
       function renderTabs() {
         var ids = 0;
         while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
@@ -863,6 +888,15 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           }
         };
         iframe.addEventListener("load", function () {
+            if (!iframe.contentWindow.eruda) {
+                const script = iframe.contentDocument.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/eruda";
+                script.onload = () => {
+                  iframe.contentWindow.eruda.init();
+                  iframe.contentWindow.eruda.get("entryBtn").hide();
+                };
+                iframe.contentDocument.head.appendChild(script);
+              }
           tab.iframe.contentWindow.postMessage(
             {
               message: "GOLDENBODY_id",
@@ -965,7 +999,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           // Attach handler
           win.addEventListener("keydown", win.erudaKeyHandler);
         });
-
         const titleInterval = setInterval(() => {
           try {
             if (!iframe || !iframe.contentDocument) {
@@ -2363,7 +2396,7 @@ try{        if (
           if (reloadBtn.textContent === "x") {
             tab.iframe.contentWindow.stop();
           } else {
-            openUrlInActiveTab(tab.url);
+            tab.iframe.contentWindow.location.reload();
           }
         };
         sitesettingsbtn.onclick = () => {
@@ -2386,6 +2419,8 @@ try{        if (
             if (currentUrl !== previousUrl) {
               previousUrl = currentUrl;
               urlInput.value = currentUrl;
+              if(data.enableURLSync)
+              openUrlInActiveTab(currentUrl);
             }
             resizeDiv.innerText = tab.resizeP + "%";
             activatedTab = tab;
@@ -2490,15 +2525,6 @@ try{        if (
           urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
           return;
         }
-        if (!rawUrl.startsWith("https://") && !rawUrl.startsWith('http://')) {
-          if (!rawUrl.startsWith("goldenbody://")) {
-            const encoded = encodeURIComponent(rawUrl);
-            tab.iframe.src =
-              id + "/" + "https://www.bing.com/search?q=" + encoded;
-            url = tab.iframe.src;
-            return;
-          }
-        }
         url = new URL(rawUrl).href;
         tab.url = url;
         tab.loadedurl = url;
@@ -2506,25 +2532,15 @@ try{        if (
         if (tabs[tabIndex].iframe) {
         createPermInput(tab.iframe, url);
           if (!url.startsWith("goldenbody://")) {
-            try {
               tabs[tabIndex].iframe.src = a(
                 url,
                 proxyurl,
               );
-            } catch (e) {
-              console.error(e);
-              tabs[tabIndex].iframe.src = a(url, proxyurl);
-            }
           } else {
-            try {
               tabs[tabIndex].iframe.src = a(
                 url,
                 proxyurl,
               );
-            } catch (e) {
-              console.error(e);
-              tabs[tabIndex].iframe.src = a(url, proxyurl);
-            }
           }
         }
 
@@ -2824,7 +2840,7 @@ try{        if (
       }
 
       function encodeRammerHead(str, proxylink) {
-        if (str === "goldenbody://newtab/") {
+        if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
           return goldenbodywebsite + "newtab.html";
         }
         return proxylink + id + "/" + url;
