@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>New Tab</title>
+
+<style>
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --text: #111;
+  --input-bg: #ffffff;
+  --input-border: #ccc;
+  --button-bg: #0078ff;
+  --button-hover: #005fcc;
+  --shadow: rgba(0,0,0,0.1);
+}
+
+body.dark {
+  --bg: #0f1115;
+  --card: #1a1d24;
+  --text: #e6e6e6;
+  --input-bg: #11141a;
+  --input-border: #2a2f3a;
+  --button-bg: #3b82f6;
+  --button-hover: #2563eb;
+  --shadow: rgba(0,0,0,0.6);
+}
+
+body {
+  font-family: Arial, sans-serif;
+  transform: scale(1.1);
+  transform-origin: top center;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  color: var(--text);
+}
+
+.search-box {
+  margin-top: -200px;
+  background: var(--card);
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px var(--shadow);
+  width: 700px;
+  text-align: center;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+input {
+  width: 600px;
+  padding: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 5px;
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+input::placeholder {
+  color: #888;
+}
+
+button {
+  width: 650px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background: var(--button-bg);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--button-hover);
+}
+</style>
+</head>
+
+<body>
+
+<div class="search-box">
+  <h2>Search the Web</h2>
+  <input
+    type="text"
+    id="query"
+    placeholder="Search or Type URL..."
+  />
+  <br><br>
+  <button onclick="searchRedirect()">Search</button>
+</div>
+
+<script>
+  let id = 0;
+  let goldenbodywebsite = '';
+
+  // Theme + ID listener
+  window.addEventListener('message', function(e) {
+    const data = e.data;
+
+    if (data?.message === "GOLDENBODY_id") {
+      goldenbodywebsite = data.website;
+      id = data.value;
+    }
+
+    // ✅ DARK MODE SUPPORT
+    if (typeof data?.dark === "boolean") {
+      document.body.classList.toggle("dark", data.dark);
+    }
+  });
+
+  document.getElementById('query').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchRedirect();
+  });
+
+  function searchRedirect() {
+    const query = document.getElementById("query").value.trim();
+    if (!query) return;
+
+    const encoded = encodeURIComponent(query);
+
+    if (query.startsWith('https://') || query.startsWith('http://')) {
+      window.location.href = id + '/' + query;
+    } else {
+      window.location.href =
+        id + '/' + "https://www.bing.com/search?q=" + encoded;
+    }
+  }
+</script>
+
+</body>
+</html>

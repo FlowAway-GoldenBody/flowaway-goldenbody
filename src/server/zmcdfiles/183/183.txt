@@ -1,0 +1,1 @@
+{"username":"183","password":"183","id":"90b141d98a87445b98270ea96b5c2fa5","needNewAcc":false,"taskbuttons":["browser","fileExplorer","settings"],"brightness":"100","volume":"100","dark":true,"siteSettings":[],"enableURLSync":false,"online":true,"maxSpace":5}
