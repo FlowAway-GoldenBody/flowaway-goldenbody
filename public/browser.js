@@ -30,14 +30,31 @@ let browser = function (
     posY = 20,
   ) {
     let status;
+<<<<<<< HEAD
 
+=======
+          async function post(data) {
+            const res = await fetch(zmcdserver, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, ...data }),
+            });
+            return res.json();
+          }
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 async function updateSiteSettings(iframe, content) {
     data.enableURLSync = content.enableURLSync;
     content.updateSiteSettings = true;
     content.url = mainWebsite(unshuffleURL(iframe.src));
+<<<<<<< HEAD
     await zmcdpost(content);
     iframe.sandbox = content.newSandbox;
     data.siteSettings = await zmcdpost({requestSiteSettings: true});
+=======
+    await post(content);
+    iframe.sandbox = content.newSandbox;
+    data.siteSettings = await post({requestSiteSettings: true});
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
     data.siteSettings = data.siteSettings.siteSettings;
 }
 function createPermInput(iframe, url) {
@@ -239,6 +256,10 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         enableURLSync: syncperms.checked
       });
 
+<<<<<<< HEAD
+=======
+    // await post()
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
     overlay.remove();
   };
 
@@ -252,6 +273,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       else if (url === goldenbodywebsite + "ai.html") {
         return "goldenbody://ai/";
       }
+<<<<<<< HEAD
       url = url.split('/');
       if(url) {
         if(typeof url === 'string') {
@@ -271,6 +293,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
       }
       return newUrl;
+=======
+      return url.slice(55, url.length);
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
     }
 
     var checkInterval = null;
@@ -608,7 +633,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       const onMouseUpAnywhere = (ev, notontab) => {
         if (!tabisDragging) return;
         for (let i = 0; i < allBrowsers.length; i++)
+<<<<<<< HEAD
           // console.log(allBrowsers[i].rootElement);
+=======
+          console.log(allBrowsers[i].rootElement);
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
         try {
           const draggedelement = root.querySelector(`#${dragid}`);
         } catch (e) {
@@ -683,7 +712,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             ev.clientX - 100,
             ev.clientY - 20,
           ); // your custom function
+<<<<<<< HEAD
           // console.log(root);
+=======
+          console.log(root);
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
           dragstartwindow.closeTab(draggedtab.id);
         }
 
@@ -1404,7 +1437,37 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             let sentreqframe;
 
 
+<<<<<<< HEAD
 
+=======
+          function annotateTreeWithPaths(tree, basePath = '') {
+            const [name, children, meta = {}] = tree;
+
+            const path =
+              name === 'root'
+                ? ''
+                : basePath
+                ? `${basePath}/${name}`
+                : name;
+
+            tree[2] = { ...meta, path };
+
+            if (Array.isArray(children)) {
+              for (const child of children) {
+                annotateTreeWithPaths(child, path);
+              }
+            }
+          }
+
+          window.loadTree = async function () {
+            const data = await post({ initFE: true });
+            treeData = data.tree;
+
+            annotateTreeWithPaths(treeData); // ✅ ADD THIS LINE
+
+            // render();
+          };
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 
           loadTree();
 
@@ -1593,7 +1656,18 @@ else {
   }
 }
 
+<<<<<<< HEAD
 
+=======
+          async function post(data) {
+            const res = await fetch(SERVER, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, ...data }),
+            });
+            return res.json();
+          }
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
           // ----------------------------
           // 3. Custom picker overlay
           // ----------------------------
@@ -1934,7 +2008,11 @@ while (w.parent !== w.top) {
 const layer1Window = w;
 const layer1Iframe = w.frameElement;
 let allbrowserindex = 0;
+<<<<<<< HEAD
 // console.log(layer1Iframe); // ✅ the first iframe under the main page
+=======
+console.log(layer1Iframe); // ✅ the first iframe under the main page
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 for(let i = 0; i < window.top.allBrowsers.length; i++) {
     if(window.top.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
 }
@@ -2859,7 +2937,14 @@ try{        if (
     const menu = document.createElement("div");
     browsermenu = menu;
     try {
+<<<<<<< HEAD
       removeotherMenus('browser');
+=======
+      explorermenu.remove();
+      explorermenu = null;
+      settingsmenu.remove();
+      settingsmenu = null;
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
     } catch (e) {}
     menu.className = "browser-menu";
     Object.assign(menu.style, {
@@ -2944,7 +3029,11 @@ try{        if (
       remove.style.padding = "6px 10px";
       remove.style.cursor = "pointer";
       remove.addEventListener("click", function () {
+<<<<<<< HEAD
         saveTaskButtons();
+=======
+        save();
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
         for (let i = taskbuttons.length; i > 0; i--) {
           i--;
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
@@ -2979,7 +3068,11 @@ try{        if (
       remove.style.cursor = "pointer";
       remove.addEventListener("click", function () {
         addTaskButton("🌐", browser);
+<<<<<<< HEAD
         saveTaskButtons();
+=======
+        save();
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
         purgeButtons();
         for (const browserButton of browserButtons) {
           browserButton.addEventListener("contextmenu", browsermenuhandler);

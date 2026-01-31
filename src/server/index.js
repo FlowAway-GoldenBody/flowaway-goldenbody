@@ -130,8 +130,16 @@ if (config.enableWorkers) {
 if (cluster.isMaster) {
   let zmcd = require('./zmcd');
   let fetchfiles = require('./fetchfiles');
+<<<<<<< HEAD
   require("./verification");
 //   let sfcp = require('./sfcp');
 //   let sfcws = require('./sfcws')
 }
 module.exports = proxyServer;
+=======
+  require("./ask");
+//   let sfcp = require('./sfcp');
+//   let sfcws = require('./sfcws')
+}
+module.exports = proxyServer;
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
