@@ -197,23 +197,43 @@ async function ensureDir(p) {
 async function getUniquePath(destPath) {
   const dir = path.dirname(destPath);
   const ext = path.extname(destPath);
-  const base = path.basename(destPath, ext);
+  let base = path.basename(destPath, ext);
 
-  let attempt = 0;
-  let candidate = destPath;
+  // Strip any leading numeric prefix of the form "(n) " to avoid nesting like "(1)(24) name.ext"
+  const leadMatch = base.match(/^\((\d+)\)\s*(.*)$/);
+  if (leadMatch) base = leadMatch[2] || '';
 
-  while (true) {
-    try {
-      await fsp.access(candidate);
-      attempt++;
-      candidate = path.join(
-        dir,
-        `(${attempt}) ${base}${ext}`
-      );
-    } catch {
-      return candidate; // does not exist
+  const compareName = base + ext;
+
+  // Read existing entries in the directory and determine the maximum numeric prefix for compareName
+  let entries = [];
+  try {
+    entries = await fsp.readdir(dir);
+  } catch (e) {
+    // Directory may not exist yet; fall back to returning the original candidate
+    return path.join(dir, compareName);
+  }
+
+  let found = false;
+  let maxNum = -Infinity;
+  for (const name of entries) {
+    if (name === compareName) {
+      found = true;
+      maxNum = Math.max(maxNum, 0);
+      continue;
+    }
+    const m = name.match(/^\((\d+)\)\s*(.*)$/);
+    if (m && m[2] === compareName) {
+      found = true;
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n)) maxNum = Math.max(maxNum, n);
     }
   }
+
+  if (!found) return path.join(dir, compareName);
+
+  const newName = `(${maxNum + 1}) ${base}${ext}`;
+  return path.join(dir, newName);
 }
 
 async function applyDirections(rootPath, directions) {
@@ -336,17 +356,10 @@ async function applyDirections(rootPath, directions) {
     }
 
     if (dir.copy) {
+        // Store the list of items to clipboard and avoid creating on-disk temp copies.
+        // Copy will be performed at paste time from the live location; if the source
+        // no longer exists when pasting, the operation will fail (matching real cloud drive behavior).
         clipboard = dir.directions;
-        if(fs.existsSync(path.join(userRoot, '.tempfolder_copy'))) fs.rmSync(path.join(userRoot, '.tempfolder_copy'), {recursive: true, force: true});
-        await fsp.mkdir(path.join(userRoot, '.tempfolder_copy'));
-        for(let i = 0; i < dir.directions.length; i++) {
-        let src = path.join(userRoot, dir.directions[i].path);
-        let dest = path.join(userRoot, '.tempfolder_copy', path.basename(dir.directions[i].path));
-        await fsp.cp(src, dest, {
-            recursive: true,
-            force: false
-        });
-        }
       continue;
     }
 
@@ -356,9 +369,14 @@ async function applyDirections(rootPath, directions) {
         const quota = await getUserQuotaBytes(userRoot);
         let currentUsed = await getDirSizeBytes(userRoot);
 
-        // Check and copy each item; abort the whole paste if any item would exceed quota
+        // Check and copy/move each item; abort the whole paste if any item would exceed quota
         for (const item of clipboard) {
-          const src = path.join(userRoot, '.tempfolder_copy', path.basename(item.path));
+          const src = path.join(userRoot, item.path);
+
+          // ensure source still exists
+          if (!fs.existsSync(src)) {
+            continue; // skip missing source
+          }
 
           // compute size of src (could be folder)
           const srcSize = await getDirSizeBytes(src);
@@ -372,13 +390,28 @@ async function applyDirections(rootPath, directions) {
           // 🔑 collision handling
           dest = await getUniquePath(dest);
 
-          console.log("SRC :", src);
-          console.log("DEST:", dest);
+          // If this is a cut/move operation and moving a folder, prevent moving into itself
+          if (item.isCut) {
+            const st = await fsp.stat(src);
+            if (st.isDirectory()) {
+              const rel = path.relative(src, dest);
+              if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) {
+                throw new Error(`Cannot move folder into itself or a subfolder: ${item.path}`);
+              }
+            }
+          }
 
-          await fsp.cp(src, dest, {
-            recursive: true,
-            force: false
-          });
+          if (item.isCut) {
+            // Move/rename
+            await fsp.mkdir(path.dirname(dest), { recursive: true });
+            await fsp.rename(src, dest);
+          } else {
+            // Copy
+            await fsp.cp(src, dest, {
+              recursive: true,
+              force: false
+            });
+          }
 
           // increase currentUsed so subsequent items are checked correctly
           currentUsed += srcSize;
@@ -502,8 +535,8 @@ async function applyDirections(rootPath, directions) {
       continue;
     }
     if(dir.end) {
-        console.log(path.join(userRoot, '.tempfolder_copy'));
-        fs.rmSync(path.join(userRoot, '.tempfolder_copy'), {recursive: true, force: true});
+        // Clear any server-side clipboard reference (no disk temp copies used)
+        clipboard = null;
     }
   }
   // return any collected results (e.g., checkParts)

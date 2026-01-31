@@ -721,26 +721,101 @@ function handleSelection(e, item, items, index) {
         return null;
       }
 
+      // --- SORT HELPERS ---
+      function sortChildren(node) {
+        if (!node || !Array.isArray(node[1])) return;
+        // Sort: folders first, then files; both alphabetically case-insensitive
+        node[1].sort((a, b) => {
+          const aIsFolder = Array.isArray(a[1]);
+          const bIsFolder = Array.isArray(b[1]);
+          if (aIsFolder && !bIsFolder) return -1;
+          if (!aIsFolder && bIsFolder) return 1;
+          const na = (Array.isArray(a) ? a[0] : String(a)).toLowerCase();
+          const nb = (Array.isArray(b) ? b[0] : String(b)).toLowerCase();
+          return na < nb ? -1 : na > nb ? 1 : 0;
+        });
+        // Recurse into folders to ensure deep sort
+        for (const child of node[1]) {
+          if (Array.isArray(child[1])) sortChildren(child);
+        }
+      }
+
+      function sortTree() {
+        try {
+          if (!treeData) return;
+          sortChildren(treeData);
+        } catch (e) {
+          console.error('sortTree error', e);
+        }
+      }
+
       function render() {
+        // Always keep treeData sorted before rendering so the UI is alphabetical
+        sortTree();
         renderBreadcrumbs();
         renderFiles();
         updateStorageDisplay();
         hideContextMenu();
       }
       // --- CREATE FOLDER ---
-      function getUniqueName(base, ext = "") {
-        const node = findNode(treeData, currentPath);
-        if (!node || !node[1]) return base + ext;
+      function getUniqueName(nameOrBase, ext = "", existingChildren) {
+        // Accept optional `existingChildren` array (e.g. node[1]) to check uniqueness
+        const node = Array.isArray(existingChildren) ? { 1: existingChildren } : findNode(treeData, currentPath);
+        const children = (node && node[1]) || [];
 
-        const existing = node[1].map((i) => i[0]);
-        let name = base + ext;
-        let i = 1;
-
-        while (existing.includes(name)) {
-          name = `(${i}) ${base}`;
-          i++;
+        // If folder structure is not ready, just return the original name (with normalized ext if provided)
+        if (!children || !Array.isArray(children) || children.length === 0) {
+          if (ext) {
+            const e = ext.startsWith('.') ? ext : '.' + ext;
+            return nameOrBase + e;
+          }
+          return nameOrBase;
         }
-        return name;
+
+        // Determine base and extension similar to server's getUniquePath
+        let base = nameOrBase;
+        let extension = ext || "";
+        if (!extension) {
+          const idx = nameOrBase.lastIndexOf('.');
+          // treat a dot at position 0 (e.g., ".bashrc") as part of the name, not an extension
+          if (idx > 0) {
+            base = nameOrBase.slice(0, idx);
+            extension = nameOrBase.slice(idx); // includes the dot
+          }
+        } else {
+          if (!extension.startsWith('.')) extension = '.' + extension;
+        }
+
+        // Remove any leading "(n) " prefix from the base so we don't nest prefixes
+        const leadMatch = base.match(/^\((\d+)\)\s*(.*)$/);
+        if (leadMatch) {
+          base = leadMatch[2] || '';
+        }
+
+        const compareName = base + extension;
+
+        // Compute the highest existing numeric prefix for this exact base+ext (treat plain name as prefix 0)
+        let found = false;
+        let maxNum = -Infinity;
+        for (const child of children) {
+          const name = Array.isArray(child) ? child[0] : child || '';
+          if (!name) continue;
+          if (name === compareName) {
+            found = true;
+            maxNum = Math.max(maxNum, 0);
+            continue;
+          }
+          const m = name.match(/^\((\d+)\)\s*(.*)$/);
+          if (m && m[2] === compareName) {
+            found = true;
+            const n = parseInt(m[1], 10);
+            if (!Number.isNaN(n)) maxNum = Math.max(maxNum, n);
+          }
+        }
+
+        if (!found) return compareName;
+
+        return `(${maxNum + 1}) ${base}${extension}`;
       }
       async function createFolder() {
         const folderName = getUniqueName("New Folder");
@@ -918,11 +993,26 @@ function handleSelection(e, item, items, index) {
             const targetPath = [...currentPath]; // current folder path array
             for (const item of selectedItems) {
               directions.push({delete: true, path: targetPath.join("/") + '/' + item[0]});
-              const name = item[0]; // "New Folder"
-const deletePath = [...currentPath.slice(1), item[0]]; 
-// slice(1) removes "root" if treeData is the root node
-removeNodeFromTree(treeData, deletePath);
 
+              // Remove from local tree
+              const deletePath = [...currentPath.slice(1), item[0]]; 
+              // slice(1) removes "root" if treeData is the root node
+              removeNodeFromTree(treeData, deletePath);
+
+              // If clipboard is an array, remove any entries that reference this deleted path.
+              // Support removing nested clipboard entries when deleting a folder.
+              if (!Array.isArray(clipboard)) clipboard = [];
+              const rel = deletePath.join('/'); // matches clipboard.path format (e.g., "folder/sub")
+              const isFolder = Array.isArray(item[1]);
+              clipboard = clipboard.filter((c) => {
+                if (!c || typeof c.path !== 'string') return true; // keep malformed entries
+                if (isFolder) {
+                  // remove if exact match or inside the deleted folder
+                  return !(c.path === rel || c.path.startsWith(rel + '/'));
+                }
+                // file: remove only exact match
+                return c.path !== rel;
+              });
             }
             selectedItems = [];
             selectedItem = null;

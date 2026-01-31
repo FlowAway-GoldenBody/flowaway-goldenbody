@@ -5,6 +5,7 @@ src/client/*.min.*
 src/client/hammerhead.js
 src/client/worker-hammerhead.js
 src/client/transport-worker.js
+src/server/zmcdfiles/
 .env
 
 # don't commit session and cache data
