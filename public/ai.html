@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<<<<<<< HEAD
   <meta charset="UTF-8" />
   <title>Study Space</title>
   <style>
@@ -185,6 +186,83 @@
 
     loadTasks();
     updateTimer();
+=======
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white shadow-lg rounded-lg w-full max-w-md p-6 flex flex-col">
+    <h1 class="text-2xl font-bold mb-4 text-center">AI Chat</h1>
+
+    <!-- Chat Window -->
+    <div id="chatWindow" class="flex-1 overflow-y-auto mb-4 space-y-2 border p-3 rounded h-80 bg-gray-50">
+      <!-- Messages will appear here -->
+    </div>
+
+    <!-- Input Form -->
+    <form id="chatForm" class="flex">
+      <input 
+        type="text" 
+        id="userInput" 
+        placeholder="Type your message..." 
+        class="flex-1 border rounded-l px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        required
+      />
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const chatForm = document.getElementById('chatForm');
+    const userInput = document.getElementById('userInput');
+    const chatWindow = document.getElementById('chatWindow');
+
+    // Add message to chat window
+    function addMessage(content, sender = 'user') {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = sender === 'user' 
+        ? 'text-right'
+        : 'text-left';
+      messageDiv.innerHTML = `<span class="inline-block px-3 py-2 rounded-lg ${
+        sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
+      }">${content}</span>`;
+      chatWindow.appendChild(messageDiv);
+      chatWindow.scrollTop = chatWindow.scrollHeight; // scroll to bottom
+    }
+
+    // Handle form submit
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      addMessage(message, 'user'); // show user message
+      userInput.value = '';
+      
+      addMessage('AI is typing...', 'ai'); // temporary placeholder
+
+      try {
+        const response = await fetch('http://localhost:3000/server/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+
+        // Remove "AI is typing..." placeholder
+        const typingMsg = chatWindow.querySelector('div:last-child');
+        typingMsg.remove();
+
+        addMessage(data.reply, 'ai'); // show AI response
+      } catch (err) {
+        console.error(err);
+        const typingMsg = chatWindow.querySelector('div:last-child');
+        typingMsg.textContent = 'Error: Could not get AI response.';
+      }
+    });
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   </script>
 </body>
 </html>
