@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
   CONTRIBUTING: Adding a new App
 
@@ -58,10 +59,16 @@
 */
 window.data = data;
 
+=======
+// plz define all your apps here first, dont give any values to the vars, or it will break
+
+window.data = data;
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   var atTop = "";
   let zTop = 10;
 
 let worldvolume = 0.5;
+<<<<<<< HEAD
 let verificationsocketSecure = location.protocol === 'https:' ? 'wss://' : 'ws://';
 let vsURL = verificationsocketSecure + location.hostname + ':3000';
 // global vars
@@ -351,6 +358,33 @@ function connectVerificationSocket() {
 
 // Auto-start verification socket but safe-guarded in case server not present
 try { connectVerificationSocket(); } catch (e) {}
+=======
+
+// function toggleStyles() {
+//   data.dark = !data.dark;
+//   for(const b of allBrowsers) {
+//     b.rootElement.classList.toggle('dark', data.dark);
+//     b.rootElement.classList.toggle('light', !data.dark);
+//   }
+//   for(const b of allExplorers) {
+//     b.rootElement.classList.toggle('dark', data.dark);
+//     b.rootElement.classList.toggle('light', !data.dark);
+//   }
+//   for(const b of allSettings) {
+//     b.rootElement.classList.toggle('dark', data.dark);
+//     b.rootElement.classList.toggle('light', !data.dark);
+//   }
+//   if(document.body.style.background === 'white') {
+//   document.body.style.background = "#444";
+//   document.body.style.color = "white";
+//   } else {
+//   document.body.style.background = "white";
+//   document.body.style.color = "black";
+//   }
+//   startMenu.classList.toggle("dark", data.dark);
+//   startMenu.classList.toggle("light", !data.dark);
+// }
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 function applyStyles() {
   for(const b of allBrowsers) {
     b.rootElement.classList.toggle('dark', data.dark);
@@ -475,6 +509,7 @@ observer.observe(targetNode, config);
       return str;
     }
   }
+<<<<<<< HEAD
 
   // Global notification helper: call notification("message") to show a temporary toast for 3s
 function notification (message) {
@@ -541,6 +576,8 @@ function notification (message) {
       console.error('notify error', e);
     }
   };
+=======
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   const style = document.createElement("style");
   style.textContent = `
 
@@ -943,6 +980,7 @@ function notification (message) {
     .startMenu.light .app {
       background: #f8f4f4ff;
     }
+<<<<<<< HEAD
 
 .statusBar {
     position: absolute;
@@ -975,6 +1013,8 @@ function notification (message) {
 }
 
 
+=======
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 `;
 const styleTag = document.createElement("style");
   styleTag.textContent = css;
@@ -988,7 +1028,10 @@ const styleTag = document.createElement("style");
   startMenu.className = 'startMenu';
   startMenu.style.zIndex = 999;
   startMenu.innerHTML = `
+<<<<<<< HEAD
 
+=======
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 <h3 style="margin:0 0 10px 0; font-size:18px;">Apps</h3>
 
 <div style="
@@ -1035,6 +1078,7 @@ const styleTag = document.createElement("style");
         🎵<br>
         <span style="font-size:14px;">Music</span>
     </div>
+<<<<<<< HEAD
     <div class="statusBar">
     <div class="statusLeft">
         <span id="wifiStatus">📶</span>
@@ -1046,10 +1090,13 @@ const styleTag = document.createElement("style");
     </div>
 </div>
 
+=======
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 </div>
 `;
 
   document.body.appendChild(startMenu);
+<<<<<<< HEAD
 // -------- TIME --------
 function updateTime() {
     const now = new Date();
@@ -1094,6 +1141,8 @@ function updateWiFi() {
 updateWiFi();
 window.addEventListener("online", updateWiFi);
 window.addEventListener("offline", updateWiFi);
+=======
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 
   // ----------------- TOGGLE START MENU -----------------
   let starthandler = () => {
@@ -1122,7 +1171,83 @@ window.addEventListener("offline", updateWiFi);
     }
   });
 
+<<<<<<< HEAD
 
+=======
+  function bringToFront(el) {
+    if (el.classList.contains("browser")) {
+      atTop = "browser";
+    } else if (el.classList.contains("fileExplorer")) {
+      atTop = "fileExplorer";
+    } else if (el.classList.contains("settings")) {
+      atTop = "settings";
+    }
+    if (!el) return;
+    el.style.zIndex = String(++zTop);
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.ctrlKey && e.key === "n") {
+      e.preventDefault();
+      if (atTop == "browser" || atTop == "") {
+        browser();
+      } else if (atTop == "fileExplorer") {
+        fileExplorer();
+      }
+      else if (atTop == "settings") {
+        settings();
+      }
+
+    } else if (e.ctrlKey && e.shiftKey && e.key === "W" && atTop == "browser") {
+      let allIds = [];
+      for (let i = 0; i < allBrowsers.length; i++) {
+        allIds.push(allBrowsers[i].rootElement._goldenbodyId);
+      }
+      let maxId = Math.max(...allIds);
+      for (let i = 0; i < allBrowsers.length; i++) {
+        if (allBrowsers[i].rootElement._goldenbodyId == maxId) {
+          allBrowsers[i].rootElement.remove();
+          allBrowsers[i].rootElement = null;
+          allBrowsers.splice(i, 1);
+        }
+      }
+    } else if (
+      e.ctrlKey &&
+      e.shiftKey &&
+      e.key === "W" &&
+      atTop == "fileExplorer"
+    ) {
+      let allIds = [];
+      for (let i = 0; i < allExplorers.length; i++) {
+        allIds.push(allExplorers[i].explorerId);
+      }
+      let maxId = Math.max(...allIds);
+      for (let i = 0; i < allExplorers.length; i++) {
+        if (allExplorers[i].explorerId == maxId) {
+          allExplorers[i].rootElement.remove();
+          allExplorers.splice(i, 1);
+        }
+      }
+    }  else if (
+      e.ctrlKey &&
+      e.shiftKey &&
+      e.key === "W" &&
+      atTop == "settings"
+    ) {
+      let allIds = [];
+      for (let i = 0; i < allSettings.length; i++) {
+        allIds.push(allSettings[i].settingsId);
+      }
+      let maxId = Math.max(...allIds);
+      for (let i = 0; i < allSettings.length; i++) {
+        if (allSettings[i].settingsId == maxId) {
+          allSettings[i].rootElement.remove();
+          allSettings.splice(i, 1);
+        }
+      }
+    }
+  });
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   let feApp = document.createElement('script');
   feApp.src = `${goldenbodywebsite}fileExplorer.js`;
   document.body.appendChild(feApp);
@@ -1137,4 +1262,55 @@ window.addEventListener("offline", updateWiFi);
 setTimeout(() => {
   sysScript.src = `${goldenbodywebsite}system.js`;
   document.body.appendChild(sysScript);
+<<<<<<< HEAD
 }, 100);
+=======
+}, 100);
+
+
+
+
+let username = data.username;
+document.addEventListener("fullscreenchange", async () => {
+  if (document.fullscreenElement) {
+    // Lock when entering fullscreen
+    if (navigator.keyboard && typeof navigator.keyboard.lock === "function") {
+      await navigator.keyboard.lock(["Escape"]);
+    }
+  } else {
+    // Unlock when exiting fullscreen
+    if (
+      navigator.keyboard &&
+      typeof navigator.keyboard.unlock === "function"
+    ) {
+      navigator.keyboard.unlock();
+    }
+  }
+});
+// global vars
+let savedScrollX = 0;
+let savedScrollY = 0;
+let nhjd = 1;
+
+window.addEventListener("scroll", () => {
+  window.scrollTo(savedScrollX, savedScrollY);
+});
+
+
+savedScrollX = window.scrollX;
+savedScrollY = window.scrollY;
+
+// body restrictions
+let bodyStyle = document.createElement("style");
+bodyStyle.textContent = `body {
+overflow: hidden;
+}`;
+document.body.appendChild(bodyStyle);
+window.addEventListener("contextmenu", function (e) {
+  e.preventDefault();
+});
+// content
+window.addEventListener("beforeunload", function (event) {
+  event.preventDefault();
+});
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933

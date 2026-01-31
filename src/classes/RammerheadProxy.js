@@ -89,9 +89,13 @@ class RammerheadProxy extends Proxy {
     constructor({
         loggerGetIP = (req) => req.socket.remoteAddress,
         logger = new RammerheadLogging({ logLevel: 'disabled' }),
+<<<<<<< HEAD
     // bindingAddress: hostname/address to bind the proxy to. If not provided, reads
     // from env var BINDING_ADDRESS, otherwise defaults to 0.0.0.0 (all interfaces).
     bindingAddress = process.env.BINDING_ADDRESS || '0.0.0.0',
+=======
+        bindingAddress = '127.0.0.1',
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
         port = 8080,
         crossDomainPort = 8081,
         dontListen = false,
@@ -139,9 +143,13 @@ class RammerheadProxy extends Proxy {
             const originalListen = http.Server.prototype.listen;
             http.Server.prototype.listen = function (_proxyPort) {
                 if (dontListen) return;
+<<<<<<< HEAD
                 // If bindingAddress is truthy, pass it to listen(), otherwise let OS choose
                 if (bindingAddress) originalListen.call(this, port, bindingAddress);
                 else originalListen.call(this, port);
+=======
+                originalListen.call(this, port, bindingAddress);
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
             };
 
             // actual proxy initialization
@@ -163,8 +171,12 @@ class RammerheadProxy extends Proxy {
             const originalListen = http.Server.prototype.listen;
             http.Server.prototype.listen = function (portArg) {
                 if (dontListen) return;
+<<<<<<< HEAD
                 if (bindingAddress) originalListen.call(this, portArg, bindingAddress);
                 else originalListen.call(this, portArg);
+=======
+                originalListen.call(this, portArg, bindingAddress);
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
             };
             super.start({
                 hostname: 'doesntmatter',

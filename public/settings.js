@@ -316,7 +316,11 @@ let settings = function (posX = 50, posY = 50) {
 
 // Make mainContainer fill the root and add padding
 let mainContainer = document.createElement('div');
+<<<<<<< HEAD
 mainContainer.style.width = "calc(100% - 50%)";
+=======
+mainContainer.style.width = "calc(100% - 30px)";
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 mainContainer.style.height = "100%";
 mainContainer.style.boxSizing = "border-box"; // ensures padding is included
 mainContainer.style.margin = "0 15px"; // top/bottom 0, left/right 8px
@@ -340,21 +344,33 @@ root.appendChild(mainContainer);
   const oldinput = document.createElement("input");
   oldinput.type = "password";
   oldinput.placeholder = "Old password";
+<<<<<<< HEAD
   oldinput.style.width = "calc(100% - 10px)";
+=======
+  oldinput.style.width = "calc(100% - 60%)";
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   oldinput.style.boxSizing = "border-box";
   oldinput.style.padding = "6px";
 
   const input = document.createElement("input");
   input.type = "password";
   input.placeholder = "New password";
+<<<<<<< HEAD
   input.style.width = "calc(100% - 10px)";
+=======
+  input.style.width = "calc(100% - 60%)";
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   input.style.boxSizing = "border-box";
   input.style.padding = "6px";
 
   const confirm = document.createElement("input");
   confirm.type = "password";
   confirm.placeholder = "Confirm password";
+<<<<<<< HEAD
   confirm.style.width = "calc(100% - 10px)";
+=======
+  confirm.style.width = "calc(100% - 60%)";
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
   confirm.style.boxSizing = "border-box";
   confirm.style.padding = "6px";
   confirm.style.marginTop = "6px";
@@ -442,7 +458,11 @@ root.appendChild(mainContainer);
   volume.min = 0;
   volume.max = 100;
   volume.value = data.volume;
+<<<<<<< HEAD
   volume.style.width = "calc(100% - 10px)";
+=======
+  volume.style.width = "calc(100% - 67%)";
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 
   volume.oninput = async () => {
     await post({changeVolume: true, volume: volume.value});
@@ -471,7 +491,11 @@ root.appendChild(mainContainer);
   brightness.min = 0;
   brightness.max = 100;
   brightness.value = data.brightness;
+<<<<<<< HEAD
   brightness.style.width = "calc(100% - 10px)";
+=======
+  brightness.style.width = "calc(100% - 67%)";
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
 
   brightness.oninput = async () => {
     // Simple global brightness effect
@@ -600,7 +624,15 @@ mainContainer.appendChild(themeRow);
     const menu = document.createElement("div");
     settingsmenu = menu;
     try {
+<<<<<<< HEAD
         removeOtherMenus('settings');
+=======
+      browsermenu.remove();
+      browsermenu = null;
+      explorermenu.remove();
+      explorermenu = null;
+
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
     } catch (e) {}
     menu.className = "browser-menu";
     Object.assign(menu.style, {
@@ -673,7 +705,11 @@ mainContainer.appendChild(themeRow);
       remove.style.cursor = "pointer";
       remove.addEventListener("click", () => {
         // Remove the setting’s taskbar button if it exists
+<<<<<<< HEAD
         saveTaskButtons();
+=======
+        save();
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
         for (let i = taskbuttons.length; i > 0; i--) {
           i--;
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
@@ -709,7 +745,11 @@ mainContainer.appendChild(themeRow);
       add.style.cursor = "pointer";
       add.addEventListener("click", function () {
         let settingsButton = addTaskButton("⚙", settings);
+<<<<<<< HEAD
         saveTaskButtons();
+=======
+        save();
+>>>>>>> 55215956420d290fa708c947255db92dc23a9933
         purgeButtons();
         for (const fb of settingsButtons) {
           fb.addEventListener("contextmenu", settingsContextMenu);
