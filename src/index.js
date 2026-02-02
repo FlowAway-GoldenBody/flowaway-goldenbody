@@ -13,10 +13,7 @@ const RammerheadJSFileCache = require('./classes/RammerheadJSFileCache.js');
 const RammerheadJSMemCache = require('./classes/RammerheadJSMemCache.js');
 console.log("Before require");
 const zmcd = require('./server/zmcd.js');
-<<<<<<< HEAD
 const verification = require('./server/verification.js');
-=======
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
 console.log("After require");
 module.exports = {
     RammerheadProxy,
@@ -32,10 +29,6 @@ module.exports = {
     generateId,
     addStaticFilesToProxy,
     URLPath,
-<<<<<<< HEAD
     zmcd,
     verification
-=======
-    zmcd
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
 };

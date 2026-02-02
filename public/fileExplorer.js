@@ -348,6 +348,9 @@ root.classList.add('fileExplorer');
       text.textContent = data.username;
       sidebar.appendChild(text);
       sidebar.appendChild(document.createElement("br"));
+      const refreshBtn = document.createElement("button");
+      refreshBtn.textContent = "🔄 Refresh";
+      sidebar.appendChild(refreshBtn);
 
       const uploadBtn = document.createElement("button");
       uploadBtn.textContent = "⬆ Upload";
@@ -592,13 +595,13 @@ function handleSelection(e, item, items, index) {
           // Click selection
           div.onclick = (e) => handleSelection(e, item, node[1], index);
 
-          // Double-click folder open
+          // Double-click folder open (or file open in text editor)
           div.ondblclick = () => {
             selectedItems = [];
             if (isFolder) {
               currentPath.push(item[0]);
               render();
-            }
+            } 
           };
 
           // Context menu
@@ -1067,10 +1070,51 @@ function handleSelection(e, item, items, index) {
                 if (child) child[0] = newName;
               }
 
+              // Update local clipboard entries that reference this path (files or nested inside folders)
+              try {
+                const oldRel = [...currentPath.slice(1), oldName].join('/');
+                const newRel = [...currentPath.slice(1), newName].join('/');
+                if (!Array.isArray(clipboard)) clipboard = [];
+                clipboard = clipboard.map((c) => {
+                  if (!c || typeof c.path !== 'string') return c;
+                  if (c.path === oldRel) {
+                    const updated = { ...c, path: newRel };
+                    if (updated.name) updated.name = newName;
+                    if (updated.node && updated.node === selectedItem) updated.node[0] = newName;
+                    return updated;
+                  }
+                  if (c.path.startsWith(oldRel + '/')) {
+                    return { ...c, path: newRel + c.path.slice(oldRel.length) };
+                  }
+                  return c;
+                });
+
+                // Update any pending copy/delete directions that reference the old path
+                for (const d of directions) {
+                  if (d && d.copy && Array.isArray(d.directions)) {
+                    d.directions = d.directions.map((p) => {
+                      if (!p || typeof p.path !== 'string') return p;
+                      if (p.path === oldRel) return { ...p, path: newRel };
+                      if (p.path.startsWith(oldRel + '/')) return { ...p, path: newRel + p.path.slice(oldRel.length) };
+                      return p;
+                    });
+                  }
+                  if (d && d.delete && typeof d.path === 'string') {
+                    // d.path could be "folder/file" or "folder/sub/file"
+                    if (d.path === oldRel) d.path = newRel;
+                    else if (d.path.startsWith(oldRel + '/')) d.path = newRel + d.path.slice(oldRel.length);
+                    else if (d.path.endsWith('/' + oldName)) {
+                      d.path = d.path.slice(0, d.path.length - oldName.length) + newName;
+                    }
+                  }
+                }
+              } catch (e) {
+                // ignore update errors
+              }
+
               render();
             const targetPath = [...currentPath]; // current folder path array
             directions.push({rename: true, path: targetPath.join("/") + '/' + oldName, newName: newName});
-            handlesave();
             };
 
             input.onblur = finish;
@@ -1090,6 +1134,97 @@ function handleSelection(e, item, items, index) {
           addItem("Paste", () => handlepaste('cmp'));
         }
 
+        // "Open with" submenu for files (always show Text Editor option)
+        if (!isFolder && !isBlank) {
+          const openWithParent = document.createElement('div');
+          openWithParent.textContent = 'Open with ‎▶';
+          openWithParent.style.padding = '6px 10px';
+          openWithParent.style.cursor = 'pointer';
+          openWithParent.className = 'misc';
+
+          let submenu;
+          openWithParent.addEventListener('mouseenter', () => {
+            if (submenu) return; // already open
+            // Create submenu positioned to the right of the main menu
+            submenu = document.createElement('div');
+            submenu.style.position = 'absolute';
+            submenu.style.border = '1px solid #ccc';
+            submenu.style.background = data && data.dark ? 'black' : 'white';
+            submenu.style.zIndex = 2000;
+
+            const textEditorItem = document.createElement('div');
+            textEditorItem.textContent = 'Text Editor';
+            textEditorItem.style.padding = '6px 10px';
+            textEditorItem.style.cursor = 'pointer';
+            textEditorItem.className = 'misc';
+            textEditorItem.onclick = async () => {
+              try {
+                hideContextMenu();
+                // support multi-selection: open each selected file, otherwise the single selectedItem
+                const toOpen = selectedItems.length ? selectedItems.slice() : [selectedItem];
+                for (const node of toOpen) {
+                  if (!node || Array.isArray(node[1])) continue; // skip folders
+                  // Determine path: prefer node[2].path if present
+                  let path = (node[2] && node[2].path) || getItemPath(node) || '';
+                  try {
+                    textEditor(path);
+                  } catch (e) {
+                    console.error('decode/open error', e);
+                  }
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            };
+
+            submenu.appendChild(textEditorItem);
+            // append to `root` so positioning is relative to the explorer window
+            root.appendChild(submenu);
+
+            // Position the submenu relative to `root` and keep it inside the window
+            requestAnimationFrame(() => {
+              try {
+                const parentRect = openWithParent.getBoundingClientRect();
+                const menuRect = contextMenu.getBoundingClientRect();
+                const rootRect = root.getBoundingClientRect();
+
+                // Compute coordinates relative to root's top-left
+                const left = menuRect.right - rootRect.left;
+                let top = parentRect.top - rootRect.top;
+
+                const sh = submenu.offsetHeight || 0;
+                const rw = rootRect.width || root.clientWidth;
+                const rh = rootRect.height || root.clientHeight;
+
+                // Keep submenu inside root horizontally
+                if (left + submenu.offsetWidth > rw - 8) {
+                  // position to the left of the main menu if it would overflow
+                  const altLeft = menuRect.left - rootRect.left - submenu.offsetWidth;
+                  if (altLeft > 8) left = altLeft;
+                }
+
+                // If submenu would go off bottom of root, move it up
+                if (top + sh > rh - 8) {
+                  top = Math.max(8, rh - sh - 8);
+                }
+
+                submenu.style.left = left + 'px';
+                submenu.style.top = top + 'px';
+              } catch (e) {}
+            });
+          });
+
+          document.addEventListener('pointerdown', (e) => {
+            setTimeout(() => {
+            if (submenu) {
+              root.removeChild(submenu);
+              submenu = null;
+            }
+          }, 1000);
+          }, { capture: true, once: true });
+          contextMenu.appendChild(openWithParent);
+        }
+
         contextMenu.style.left = x + "px";
         contextMenu.style.top = y + "px";
         contextMenu.style.display = "block";
@@ -1101,6 +1236,10 @@ function handleSelection(e, item, items, index) {
       document.addEventListener("click", hideContextMenu);
 
       // --- BUTTONS ---
+      refreshBtn.onclick = async () => {
+        window.treeData = loadTree();
+        render();
+      }
       uploadBtn.onclick = () => fileInput.click();
       homeBtn.onclick = () => {
         currentPath = ["root"];
@@ -1464,11 +1603,11 @@ function handleSelection(e, item, items, index) {
 
         item.addEventListener("click", () => {
           // Bring to front
-          bringToFront(instance);
+          bringToFront(instance.rootElement);
 
           // Unminimize if hidden
-          if (instance.style.display === "none") {
-            instance.style.display = "flex";
+          if (instance.rootElement.style.display === "none") {
+            instance.rootElement.style.display = "flex";
             instance._isMinimized = false;
             instance.isMaximized = false;
           }

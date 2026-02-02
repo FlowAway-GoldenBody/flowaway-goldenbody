@@ -1,34 +1,5 @@
   // taskbar
   let taskbuttons;
-<<<<<<< HEAD
-=======
-  async function posttaskbuttons(data) {
-    const res = await fetch(zmcdserver, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: username,
-        data: data,
-        edittaskbuttons: true,
-      }),
-    });
-    return res.json();
-  }
-  function save() {
-    let taskbuttons = [...taskbar.querySelectorAll("button")];
-    let postdata = [];
-    for (const b of taskbuttons) {
-      if (b.textContent === "🌐") {
-        postdata.push("browser");
-      } else if (b.textContent === "🗂") {
-        postdata.push("fileExplorer");
-      } else if (b.textContent === "⚙") {
-        postdata.push("settings");
-      }
-    }
-    posttaskbuttons(postdata);
-  }
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
   // Create the taskbar
   var taskbar = document.createElement("div");
   taskbar.className = 'taskbar';
@@ -111,33 +82,8 @@
     applyStyles();
   }
   addTaskButton("⤢", _fullscreen);
-<<<<<<< HEAD
   addTaskButton("💾", saveTaskButtons);
   addTaskButton("▶", starthandler);
   applyTaskButtons();
-=======
-  addTaskButton("💾", save);
-  addTaskButton("▶", starthandler);
-  for (const taskbutton of data.taskbuttons) {
-    if (taskbutton === "browser") addTaskButton("🌐", browser);
-    else if (taskbutton === "fileExplorer") addTaskButton("🗂", fileExplorer);
-    else if (taskbutton === "settings") addTaskButton("⚙", settings);
-  }
-  taskbuttons = [...taskbar.querySelectorAll("button")];
-  function purgeButtons() {
-    explorerButtons = [];
-    browserButtons = [];
-    settingsButtons = [];
-  for (let i = 0; i < taskbuttons.length; i++) {
-    if (taskbuttons[i].textContent === "🌐") {
-      browserButtons.push(taskbuttons[i]);
-    } else if (taskbuttons[i].textContent === "🗂") {
-      explorerButtons.push(taskbuttons[i]);
-    } else if (taskbuttons[i].textContent === "⚙") {
-      settingsButtons.push(taskbuttons[i]);
-    }
-  }
-  }
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
   purgeButtons();
 
