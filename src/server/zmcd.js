@@ -135,12 +135,8 @@ return; // VERY IMPORTANT
               brightness: 100,
               volume: 40,
               dark: false,
-<<<<<<< HEAD
               siteSettings: [],
               maxSpace: 5, // in GB
-=======
-              siteSettings: []
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
             };
             fs.mkdirSync(directoryPath + data.username, { recursive: true });
             let userDirectoryPath = directoryPath + data.username + '/';
@@ -154,11 +150,7 @@ return; // VERY IMPORTANT
             let content;
             try {
               content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
-<<<<<<< HEAD
               console.log(content);
-=======
-              // console.log(content);
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
             } catch (e) {
               responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
               break;
@@ -169,10 +161,7 @@ return; // VERY IMPORTANT
                   fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
               }
               responseContent = content;
-<<<<<<< HEAD
               if(content.online) {responseContent = 'error: it looks like another tab is online, if you believe thats a mistake, ask alawgeo in hydrosphere!'; break;}
-=======
->>>>>>> 55215956420d290fa708c947255db92dc23a9933
               break;
             }
             else {
@@ -293,7 +282,18 @@ return; // VERY IMPORTANT
             return res.end(JSON.stringify({ error: "User file not found" }));
           }
           responseContent = {siteSettings: userData.siteSettings};
-      }
+      } else if (data.setEditorSettings) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          userData.editorSettings = data.editorSettings;
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+        }    
       } catch (err) {
         console.error(err);
         responseContent = { error: 'Invalid JSON or server error' };

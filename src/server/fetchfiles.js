@@ -343,8 +343,29 @@ async function applyDirections(rootPath, directions) {
     if (dir.rename) {
         try {
       const oldPath = resolvePath(dir.path);
+      const oldRel = dir.path.split('/').slice(1).join('/');
       const newPath = path.join(path.dirname(oldPath), dir.newName);
+      const newRel = path.join(path.dirname(oldRel), dir.newName).replace(/\\/g, '/');
       await fsp.rename(oldPath, newPath);
+
+      // Update any server-side clipboard entries that reference the renamed path
+      try {
+        if (clipboard && Array.isArray(clipboard)) {
+          clipboard = clipboard.map((c) => {
+            if (!c || typeof c.path !== 'string') return c;
+            if (c.path === oldRel) {
+              return { ...c, path: newRel, name: dir.newName };
+            }
+            if (c.path.startsWith(oldRel + '/')) {
+              return { ...c, path: newRel + c.path.slice(oldRel.length) };
+            }
+            return c;
+          });
+        }
+      } catch (e) {
+        // ignore clipboard update failures
+      }
+
         } catch(e) {console.log(e)}
       continue;
     }
@@ -352,6 +373,21 @@ async function applyDirections(rootPath, directions) {
     if (dir.delete) {
       const targetPath = resolvePath(dir.path);
       await fsp.rm(targetPath, { recursive: true, force: true });
+
+      // Clean up any server-side clipboard entries that reference this path
+      try {
+        const rel = dir.path.split('/').slice(1).join('/'); // remove leading "root"
+        if (clipboard && Array.isArray(clipboard)) {
+          clipboard = clipboard.filter((c) => {
+            if (!c || typeof c.path !== 'string') return true;
+            // If deleting a folder, remove entries inside it as well
+            return !(c.path === rel || c.path.startsWith(rel + '/'));
+          });
+        }
+      } catch (e) {
+        // ignore cleanup failures
+      }
+
       continue;
     }
 
