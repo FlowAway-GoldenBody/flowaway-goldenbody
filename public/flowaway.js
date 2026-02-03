@@ -147,6 +147,174 @@ window.loadTree = async function () {
   // render();
 };
 
+// --- Global picker helpers ---
+function base64ToArrayBuffer(base64) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function fetchFileContentByPath(path) {
+  if (!path) throw new Error('No path');
+  const res = await filePost({ requestFile: true, requestFileName: path });
+  if (res && res.filecontent) return res.filecontent;
+  throw new Error('Could not fetch file: ' + path);
+}
+async function makeFlowawayFileHandle(name, path, filecontent = null) {
+  await filePost({ saveSnapshot: true, directions: [{ edit: true, contents: filecontent, path, replace: true }, { end: true }] });
+  return {
+    kind: 'file',
+    name,
+    path,
+    async getFile() {
+      const b64 = await fetchFileContentByPath(path);
+      const buf = base64ToArrayBuffer(b64);
+      const type = (function (n) { const ext = n.split('.').pop().toLowerCase(); const m = { txt: 'text/plain', js: 'application/javascript', json: 'application/json', html: 'text/html' }; return m[ext] || 'application/octet-stream'; })(name);
+      return new File([buf], name, { type });
+    }
+  };
+}
+
+function createPickerModal(tree, options = {}) {
+  const { allowDirectory = false, multiple = false, save = false, suggestedName = '', filecontent = null } = options;
+  const overlay = document.createElement('div');
+  Object.assign(overlay.style, { position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000 });
+  const box = document.createElement('div');
+  Object.assign(box.style, { width: '700px', height: '500px', background: data.dark ? '#1e1e1e' : '#fff', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
+  overlay.appendChild(box);
+  const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '8px'; box.appendChild(breadcrumb);
+  const fileArea = document.createElement('div'); Object.assign(fileArea.style, { flex: '1', overflow: 'auto', padding: '8px', borderTop: '1px solid #ddd' }); box.appendChild(fileArea);
+  const saveContainer = document.createElement('div'); saveContainer.style.padding = '8px'; box.appendChild(saveContainer);
+  const bar = document.createElement('div'); bar.style.padding = '8px'; bar.style.display = 'flex'; bar.style.justifyContent = 'flex-end'; box.appendChild(bar);
+  const cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel'; bar.appendChild(cancelBtn);
+  const okBtn = document.createElement('button'); okBtn.textContent = save ?'Save' : 'Open'; okBtn.style.marginLeft = '8px'; bar.appendChild(okBtn);
+
+  let currentPath = ['root'];
+  let selection = [];
+  let filenameInput = null;
+
+  function render() {
+    breadcrumb.innerHTML = '';
+    currentPath.forEach((p, i) => {
+      const span = document.createElement('span'); span.textContent = i === 0 ? 'Home' : ' / ' + p; span.style.cursor = 'pointer'; span.onclick = () => { currentPath = currentPath.slice(0, i + 1); render(); }; breadcrumb.appendChild(span);
+    });
+    fileArea.innerHTML = '';
+    let node = JSON.parse(JSON.stringify(tree));
+    for (let i = 1; i < currentPath.length; i++) {
+      node = (node[1] || []).find(c => c[0] === currentPath[i]);
+      if (!node) return;
+    }
+    if (!node || !node[1]) return;
+    node[1].forEach(item => {
+      const isDir = Array.isArray(item[1]);
+      const div = document.createElement('div'); div.style.padding = '6px'; div.style.cursor = 'pointer'; div.textContent = (isDir ? '📁 ' : '📄 ') + item[0];
+      div.onclick = (e) => {
+        const toggle = e.ctrlKey || e.metaKey;
+
+        // If this is a directory and the picker does NOT allow directory selection,
+        // don't treat single clicks as selecting the directory. Double-click will
+        // still navigate into the directory (see ondblclick below).
+        if (isDir && !allowDirectory) {
+          // Optionally provide a light hover/preview effect but do not add to selection
+          fileArea.querySelectorAll('div').forEach(d => d.style.background = '');
+          div.style.background = '#f0f0f0';
+          return;
+        }
+
+        if (!toggle || !multiple) {
+          selection = [item];
+          fileArea.querySelectorAll('div').forEach(d => d.style.background = '');
+          div.style.background = '#d0e6ff';
+        } else {
+          const idx = selection.indexOf(item);
+          if (idx >= 0) { selection.splice(idx, 1); div.style.background = ''; } else { selection.push(item); div.style.background = '#d0e6ff'; }
+        }
+      };
+      if (isDir) div.ondblclick = () => { currentPath.push(item[0]); render(); };
+      fileArea.appendChild(div);
+    });
+    // If this modal is a Save dialog, render filename input
+    saveContainer.innerHTML = '';
+    if (save) {
+      const lbl = document.createElement('div'); lbl.textContent = 'Filename:'; lbl.style.marginBottom = '6px'; saveContainer.appendChild(lbl);
+      filenameInput = document.createElement('input');
+      filenameInput.style.width = '100%';
+      filenameInput.placeholder = 'filename.txt';
+      filenameInput.value = suggestedName || '';
+      saveContainer.appendChild(filenameInput);
+    }
+  }
+
+  render();
+
+  document.body.appendChild(overlay);
+
+  return new Promise((resolve) => {
+    cancelBtn.onclick = () => { overlay.remove(); resolve(null); };
+    okBtn.onclick = async () => {
+      // Save flow: return a chosen full path string
+      if (save) {
+        // determine selected folder (prefer selected dir, otherwise currentPath)
+        let folderPath = currentPath.slice(1).join('/');
+        if (selection.length && Array.isArray(selection[0][1])) {
+          const sel = selection[0];
+          folderPath = (sel[2] && sel[2].path) ? sel[2].path : (currentPath.slice(1).join('/'));
+        }
+        const fname = (filenameInput && filenameInput.value || '').trim();
+        if (!fname) { alert('Enter filename'); return; }
+        overlay.remove();
+        const chosen = folderPath ? ('/' + folderPath + '/' + fname) : fname;
+        let returnValue = {path: chosen, name: fname, filecontent: filecontent};
+        return resolve(returnValue);
+      }
+
+        overlay.remove();
+        if (!selection.length) return resolve(null);
+        // If directory-only requested, return selected folder node(s)
+        if (allowDirectory) {
+          const dirs = selection.filter(s => Array.isArray(s[1]));
+          if (multiple) return resolve(dirs);
+          return resolve(dirs[0] || null);
+        }
+      // otherwise return file nodes
+      const files = selection.filter(s => !Array.isArray(s[1]));
+      // map to handles with full path from annotated tree
+      const handles = files.map(f => {
+        // f is [name, null, meta]
+        const path = (f[2] && f[2].path) ? f[2].path : (currentPath.slice(1).concat([f[0]]).join('/'));
+        return makeFlowawayFileHandle(f[0], path);
+      });
+      resolve(handles);
+    };
+  });
+}
+
+// Global functions
+window.flowawayOpenFilePicker = async function (options = {}) {
+  if (!window.treeData) await window.loadTree();
+  const res = await createPickerModal(window.treeData, { allowDirectory: false, multiple: !!options.multiple });
+  return res; // array of handles or null
+};
+
+window.flowawayDirectoryPicker = async function (options = {}) {
+  if (!window.treeData) await window.loadTree();
+  options.allowDirectory = true;
+  console.log(options)
+  const sel = await createPickerModal(window.treeData, options);
+  // return folder node (the array structure)
+  return sel; // may be null
+};
+
+window.flowawaySaveFilePicker = async function (options = {}, suggestedPath = '') {
+  if (!window.treeData) await window.loadTree();
+  // Use the picker modal with save input enabled for consistent UI
+  const chosen = await createPickerModal(window.treeData, { allowDirectory: true, save: true, suggestedName: suggestedPath.split('/').pop() || '', filecontent: options.filecontent || null });
+  console.log(chosen)
+  return makeFlowawayFileHandle(chosen.name, chosen.path, chosen.filecontent);
+};
+
 
 // Verification websocket with reconnect/backoff. call connectVerificationSocket() to (re)connect.
 let verificationsocket = null;
