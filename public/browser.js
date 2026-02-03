@@ -1767,7 +1767,7 @@ btnOpen.onclick = async () => {
   const selections = [...pickerSelection]; // snapshot immediately
   const targetFrame = sentreqframe;        // snapshot iframe
 
-  if (!selections.length) return alert("Select a file or folder");
+  if (!selections.length) return notification("Select a file or folder");
   if (!targetFrame) {
     console.warn("No iframe found");
     return;
@@ -1858,7 +1858,7 @@ btnOpen.onclick = async () => {
               const selections = [...savePickerSelection];
               const basePath = savePickerCurrentPath.slice(1).join('/');
               const fname = (nameInput.value || '').trim();
-              if (!fname) { alert('Enter a filename'); return; }
+              if (!fname) { notification('Enter a filename'); return; }
               let chosen;
               if (!selections.length) chosen = basePath ? (basePath + '/' + fname) : fname;
               else {
@@ -1963,7 +1963,7 @@ btnOpen.onclick = async () => {
                 if (Array.isArray(sel[1])) {
                   chosen = (basePath !== 'root' ? basePath + '/' : '') + sel[0];
                 } else {
-                  alert('Please select a directory');
+                  notification('Please select a directory');
                   return;
                 }
               } else {

@@ -695,7 +695,7 @@ let textEditor = function (path, posX = 50, posY = 50) {
 
         renderPicker();
 
-        const getUIMessage = (msg) => { if (typeof notification === 'function') notification(msg); else alert(msg); };
+        const getUIMessage = (msg) => { if (typeof notification === 'function') notification(msg); else notification(msg); };
 
         return new Promise((resolve) => {
           btnCancel.onclick = () => { resolve(null); pickerOverlay.remove(); };
