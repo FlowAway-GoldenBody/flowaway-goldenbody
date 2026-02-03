@@ -462,6 +462,24 @@ async function applyDirections(rootPath, directions) {
       const destRel = dir.path || '';
       const filePath = resolvePath(destRel);
 
+      // If caller requests replace:true, remove existing file and any temp parts
+      if (dir.replace) {
+        try {
+          // remove existing final file if present
+          await fsp.rm(filePath, { force: true, recursive: false });
+        } catch (e) {
+          // ignore errors
+        }
+        try {
+          // remove temp part files for this target
+          const safeName = destRel.replace(/\\/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');
+          const parts = (await fsp.readdir(userTempDir)).filter(f => f.startsWith(`${safeName}.part.`));
+          for (const p of parts) await fsp.rm(path.join(userTempDir, p), { force: true });
+        } catch (e) {
+          // ignore cleanup errors
+        }
+      }
+
       // Special request: check which part files already exist for resume support
       if (dir.checkParts) {
         const destRel = dir.path || '';

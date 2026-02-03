@@ -1499,6 +1499,18 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
   const base64 = await fetchFileContent(username, fullPath);
   const buffer = base64ToArrayBuffer(base64);
   const type = getMimeType(node[0]);
+  // Compute a webkitRelativePath-like relative path for the file so the
+  // injector can reconstruct directory structure (remove picker base)
+  const fileParts = (fullPath || '').split('/').filter(Boolean);
+  const origPicker = Array.from(pickerCurrentPath || []);
+  const pickerBase = origPicker.slice(1); // drop leading 'root'
+  // remove matching leading segments
+  let relParts = Array.from(fileParts);
+  for (let i = 0; i < pickerBase.length; i++) {
+    if (relParts.length && relParts[0] === pickerBase[i]) relParts.shift();
+    else break;
+  }
+  const webkitRelativePath = relParts.join('/') || node[0];
 
   iframe.contentWindow.postMessage(
     {
@@ -1507,6 +1519,8 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
       name: node[0],
       type,
       buffer,
+      path: fullPath,
+      webkitRelativePath,
       lastOne: lastOne,
     },
     "*",
@@ -1517,20 +1531,30 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
 async function sendFolderNodeToIframe(username, folderNode, iframe, lastOne = false) {
   const filesToSend = [];
 
-function walk(node) {
+function walk(node, prefix = '') {
   const [name, children] = node;
+
+  // If node has a precomputed path use it; otherwise build from prefix
+  let nodePath;
+  if (node && node[2] && node[2].path) {
+    nodePath = node[2].path;
+  } else {
+    nodePath = (prefix ? (prefix + '/' + name) : name);
+    console.warn('VFS: computed missing node.path for', name, '->', nodePath);
+  }
 
   if (children === null) {
     filesToSend.push({
       name,
-      fullPath: node[2].path // ✅ use precomputed path
+      fullPath: nodePath
     });
     return;
   }
 
   if (Array.isArray(children)) {
+    const nextPrefix = nodePath;
     for (const child of children) {
-      walk(child);
+      walk(child, nextPrefix);
     }
   }
 }
@@ -1780,6 +1804,82 @@ btnOpen.onclick = async () => {
           }
 
           // ----------------------------
+          // 3b. Custom save-as overlay
+          // ----------------------------
+          let post = filePost;
+          function openCustomSaveUI() {
+            if (!window.treeData) { window.loadTree(); }
+
+            const savePickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
+            let savePickerCurrentPath = ["root"];
+            let savePickerSelection = [];
+
+            const overlay = document.createElement('div');
+            Object.assign(overlay.style, {
+              position: 'fixed', top: '0', left: '0', right: '0', bottom: '0',
+              background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+            });
+            document.body.appendChild(overlay);
+
+            const box = document.createElement('div');
+            Object.assign(box.style, { width: '600px', height: '460px', borderRadius: '8px', background: data.dark ? '#222' : '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
+            overlay.appendChild(box);
+
+            const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '6px'; box.appendChild(breadcrumb);
+            const fileArea = document.createElement('div'); fileArea.style.flex = '1'; fileArea.style.overflowY = 'auto'; fileArea.style.borderTop = '1px solid #ccc'; box.appendChild(fileArea);
+
+            const row = document.createElement('div'); row.style.padding = '8px'; row.style.display = 'flex'; row.style.gap = '8px'; box.appendChild(row);
+            const nameInput = document.createElement('input'); Object.assign(nameInput.style, {flex: '1', padding: '6px'}); nameInput.placeholder = 'filename.txt'; row.appendChild(nameInput);
+
+            const btnBar = document.createElement('div'); btnBar.style.padding = '6px'; btnBar.style.display = 'flex'; btnBar.style.justifyContent = 'flex-end'; box.appendChild(btnBar);
+            const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnBar.appendChild(btnCancel);
+            const btnSave = document.createElement('button'); btnSave.textContent = 'Save'; btnBar.appendChild(btnSave);
+
+            function render() {
+              breadcrumb.innerHTML = '';
+              savePickerCurrentPath.forEach((p, i) => { const s = document.createElement('span'); s.textContent = i===0 ? 'Home' : ' / ' + p; s.style.cursor = 'pointer'; s.onclick = () => { savePickerCurrentPath = savePickerCurrentPath.slice(0, i+1); render(); }; breadcrumb.appendChild(s); });
+              fileArea.innerHTML = '';
+              let node = savePickerTree;
+              for (let i = 1; i < savePickerCurrentPath.length; i++) { if (!node || !node[1]) break; node = node[1].find(c=>c[0]===savePickerCurrentPath[i]); }
+              if (!node || !node[1]) return;
+              node[1].forEach(item => {
+                const div = document.createElement('div'); div.textContent = (Array.isArray(item[1]) ? '📁 ' : '📄 ') + item[0]; div.style.padding = '6px'; div.style.cursor='pointer';
+                div.onclick = (e) => { const isToggle = e.ctrlKey || e.metaKey; if (!isToggle) { savePickerSelection = [item]; fileArea.querySelectorAll('div').forEach(d=>d.style.background=''); div.style.background='#d0e6ff'; } else { const idx = savePickerSelection.indexOf(item); if (idx>=0){ savePickerSelection.splice(idx,1); div.style.background=''; } else { savePickerSelection.push(item); div.style.background='#d0e6ff'; } } };
+                if (Array.isArray(item[1])) div.ondblclick = () => { savePickerCurrentPath.push(item[0]); render(); };
+                fileArea.appendChild(div);
+              });
+            }
+
+            render();
+
+            btnCancel.onclick = () => { overlay.remove(); };
+
+            btnSave.onclick = () => {
+              const selections = [...savePickerSelection];
+              const basePath = savePickerCurrentPath.slice(1).join('/');
+              const fname = (nameInput.value || '').trim();
+              if (!fname) { alert('Enter a filename'); return; }
+              let chosen;
+              if (!selections.length) chosen = basePath ? (basePath + '/' + fname) : fname;
+              else {
+                const sel = selections[0];
+                const isFolder = Array.isArray(sel[1]);
+                if (isFolder) chosen = (basePath ? basePath + '/' : '') + fname;
+                else notification('Select a folder to save into');
+              }
+
+              // send response to requesting iframe
+              try {
+                if (sentreqframe && sentreqframe.contentWindow) {
+                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'saveTarget', path: chosen }, '*');
+                }
+              } catch (e) {}
+
+              overlay.remove();
+            };
+          }
+
+          // ----------------------------
           // 4. Listen for iframe requests
           // ----------------------------
 
@@ -1787,10 +1887,171 @@ btnOpen.onclick = async () => {
             root.__vfsMessageListenerAdded = true;
 
             window.addEventListener("message", (e) => {
-              try{if(!root || !root.contains(document.activeElement)) return;} catch(e){return;}
+              try {
+                // Allow `saveFile` messages to be processed even when the browser root
+                // doesn't have focus. Previously the OR made the whole condition true
+                // whenever a saveFile arrived, causing the handler to return early.
+                const isSaveFile = (e.data?.__VFS__ && e.data.kind === "saveFile");
+                if ((!root || !root.contains(document.activeElement)) && !isSaveFile) return;
+              } catch (e) { return; }
               if (e.data?.__VFS__ && e.data.kind === "requestPicker") {
                 openCustomPickerUI();
                 sentreqframe = recurseFrames(document, e);
+              }
+              if (e.data?.__VFS__ && e.data.kind === "requestSavePicker") {
+                // open save-as UI and record requesting frame
+                openCustomSaveUI();
+                sentreqframe = recurseFrames(document, e);
+              }
+              if (e.data?.__VFS__ && e.data.kind === "saveFile") {
+                try {
+                  // Robust save handling that mirrors fileExplorer upload behaviour.
+                  const MAX_INLINE_BASE64 = 250 * 1024 * 1024; // 250MB
+                  const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+
+                  // pendingSaves stores { chunks: [ArrayBuffer], bytes: number, source: MessageEvent.source }
+                  root.__pendingSaves = root.__pendingSaves || {};
+
+                  const incomingPath = e.data.path || e.data.name || 'unnamed';
+                  const fullPath = incomingPath.startsWith('root/') ? incomingPath : ('root/' + incomingPath);
+
+                  // Ensure entry
+                  if (!root.__pendingSaves[fullPath]) {
+                    root.__pendingSaves[fullPath] = { chunks: [], bytes: 0, source: e.source };
+                  }
+
+                  const entry = root.__pendingSaves[fullPath];
+                  // Accept either raw ArrayBuffer in `buffer` or base64 string in `base64`.
+                  if (e.data.buffer) {
+                    // Normalize to ArrayBuffer
+                    const ab = e.data.buffer instanceof ArrayBuffer ? e.data.buffer : e.data.buffer.buffer;
+                    entry.chunks.push(ab);
+                    entry.bytes += (ab.byteLength || 0);
+                  } else if (e.data.base64) {
+                    // convert base64 to ArrayBuffer and store
+                    const binary = atob(e.data.base64);
+                    const len = binary.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+                    entry.chunks.push(bytes.buffer);
+                    entry.bytes += bytes.byteLength;
+                  }
+
+                  const finalize = !!e.data.lastOne;
+
+                  if (!finalize) {
+                    // waiting for more data
+                    return;
+                  }
+
+                  // Assemble full ArrayBuffer
+                  const totalBytes = entry.bytes;
+                  let combined;
+                  if (entry.chunks.length === 1) {
+                    combined = entry.chunks[0];
+                  } else {
+                    combined = new Uint8Array(totalBytes);
+                    let offset = 0;
+                    for (const c of entry.chunks) {
+                      const arr = new Uint8Array(c);
+                      combined.set(arr, offset);
+                      offset += arr.length;
+                    }
+                    combined = combined.buffer;
+                  }
+
+                  // Helper to convert ArrayBuffer slice to base64
+                  function arrayBufferToBase64(buffer) {
+                    let binary = '';
+                    const bytes = new Uint8Array(buffer);
+                    const chunk = 0x8000;
+                    for (let i = 0; i < bytes.length; i += chunk) {
+                      const sub = bytes.subarray(i, i + chunk);
+                      binary += String.fromCharCode.apply(null, sub);
+                    }
+                    return btoa(binary);
+                  }
+
+                  (async () => {
+                    try {
+                      if (totalBytes <= MAX_INLINE_BASE64) {
+                        const base64 = arrayBufferToBase64(combined);
+                        await post({ saveSnapshot: true, directions: [{ edit: true, path: fullPath, contents: base64, replace:true}, { end: true }] });
+                      } else {
+                        // Large file: chunk it similarly to fileExplorer
+                        const total = Math.ceil(totalBytes / CHUNK_SIZE);
+
+                        // ensure file placeholder
+                        await post({ saveSnapshot: true, directions: [{ addFile: true, path: fullPath, replace: true }, { end: true }] });
+
+                        // Optionally check existing parts (skip for now)
+
+                        // Check which parts already exist on server (resume support)
+                        let presentParts = [];
+                        try {
+                          const chk = await post({ saveSnapshot: true, directions: [{ checkParts: true, path: fullPath }, { end: true }] });
+                          presentParts = (chk && chk.result && chk.result.checkParts && chk.result.checkParts[fullPath]) || [];
+                        } catch (e) {
+                          presentParts = [];
+                        }
+
+                        const presentSet = new Set(presentParts);
+
+                        const MAX_CHUNK_RETRIES = 3;
+                        const CHUNK_RETRY_BASE_MS = 500;
+
+                        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+                        async function uploadChunkWithRetries(path, chunkBase64, index, total) {
+                          let attempts = 0;
+                          while (true) {
+                            try {
+                              await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total, replace: true }, { end: true }] });
+                              return;
+                            } catch (err) {
+                              attempts++;
+                              if (attempts > MAX_CHUNK_RETRIES) throw err;
+                              const backoff = CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
+                              await sleep(backoff);
+                            }
+                          }
+                        }
+
+                        let uploadedCount = presentSet.size;
+                        for (let i = 0; i < total; i++) {
+                          if (presentSet.has(i)) continue; // already uploaded
+                          const start = i * CHUNK_SIZE;
+                          const end = Math.min(totalBytes, start + CHUNK_SIZE);
+                          const slice = combined.slice(start, end);
+                          const chunkBase64 = arrayBufferToBase64(slice);
+                          try {
+                            await uploadChunkWithRetries(fullPath, chunkBase64, i, total);
+                            uploadedCount++;
+                          } catch (err) {
+                            console.error(`Failed to upload chunk ${i} for ${fullPath}:`, err);
+                            throw err;
+                          }
+                        }
+
+                        // finalize
+                        await post({ saveSnapshot: true, directions: [{ edit: true, path: fullPath, finalize: true, replace: true }, { end: true }] });
+                      }
+
+                      // ACK back to source
+                      try {
+                        e.source.postMessage({ __VFS__: true, kind: 'saved', path: incomingPath, ok: true }, '*');
+                      } catch (err) {}
+                    } catch (err) {
+                      console.error('saveFile handling error', err);
+                      try { e.source.postMessage({ __VFS__: true, kind: 'saved', path: incomingPath, ok: false, error: (err && err.message) || String(err) }, '*'); } catch (err) {}
+                    } finally {
+                      // cleanup
+                      delete root.__pendingSaves[fullPath];
+                    }
+                  })();
+                } catch (err) {
+                  console.error('saveFile outer error', err);
+                }
               }
             });
           }
@@ -1802,6 +2063,123 @@ btnOpen.onclick = async () => {
           script.id = 'VFS';
           script.textContent = `(() => {
   console.log('VFS injector active');
+
+          // Provide synthetic FileSystemHandle classes so libraries that use instanceof
+          // checks (e.g., FileSystemObserver) accept our synthetic handles.
+          function FileSystemHandle() {}
+          function FileSystemFileHandle() { FileSystemHandle.call(this); }
+          FileSystemFileHandle.prototype = Object.create(FileSystemHandle.prototype);
+          FileSystemFileHandle.prototype.constructor = FileSystemFileHandle;
+          function FileSystemDirectoryHandle() { FileSystemHandle.call(this); }
+          FileSystemDirectoryHandle.prototype = Object.create(FileSystemHandle.prototype);
+          FileSystemDirectoryHandle.prototype.constructor = FileSystemDirectoryHandle;
+
+          // Polyfill common methods on prototypes so returned handles behave like
+          // native FileSystemHandle objects.
+          FileSystemFileHandle.prototype.getFile = async function () {
+            if (this._file) return this._file;
+            // fallback: attempt to read from injectedFiles map if available
+            if (this.path) {
+              // try to locate a matching injected File by path
+              try {
+                const list = (window.injectedFiles || []);
+                for (const f of list) if ((f.fullPath || f.webkitRelativePath || f.name) === this.path) { this._file = f; return f; }
+              } catch (e) {}
+            }
+            throw new Error('File not available');
+          };
+          FileSystemFileHandle.prototype.createWritable = async function () {
+            // Prefer delegating to an underlying injected File's handle if present
+            try {
+              if (this._file && (this._file.handle || this._file.fileHandle)) {
+                const existing = this._file.handle || this._file.fileHandle;
+                if (existing.createWritable) return await existing.createWritable();
+              }
+            } catch (e) {}
+            // If this handle was returned from a save picker it will have a \`path\`.
+            // In that case create a writer that posts saveFile chunks to the top frame.
+            if (this.path) {
+              const path = this.path;
+              const name = this.name;
+              return {
+                write: async (data) => {
+                  let buffer = null;
+                  if (typeof data === 'string') buffer = new TextEncoder().encode(data).buffer;
+                  else if (data instanceof ArrayBuffer) buffer = data;
+                  else if (data && data.buffer) buffer = data.buffer;
+                  try { window.top.postMessage({ __VFS__: true, kind: 'saveFile', path, name, buffer }, '*'); } catch (e) {}
+                },
+                close: async () => {
+                  try { window.top.postMessage({ __VFS__: true, kind: 'saveFile', path, name, lastOne: true }, '*'); } catch (e) {}
+                }
+              };
+            }
+
+            const remote = await window.showSaveFilePicker({ suggestedName: this.name });
+            return await remote.createWritable();
+          };
+          FileSystemFileHandle.prototype.queryPermission = async function () { return 'granted'; };
+          FileSystemFileHandle.prototype.requestPermission = async function () { return 'granted'; };
+          FileSystemFileHandle.prototype.isSameEntry = async function (other) {
+            try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
+          };
+
+          FileSystemDirectoryHandle.prototype.isSameEntry = async function (other) {
+            try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
+          };
+
+          function makeFileHandle(file) {
+            const h = new FileSystemFileHandle();
+            h.kind = 'file';
+            h.name = file.name;
+            h.path = file.fullPath || file.webkitRelativePath || file.name;
+            // Store a reference for the prototype methods to use; avoid attaching
+            // functions as own properties so the object can be structured-cloned.
+            h._file = file;
+            return h;
+          }
+
+          // Shim FileSystemObserver so sites that call new FileSystemObserver(...).observe(handle)
+          // with our synthetic handles won't throw a TypeError. When a synthetic handle is
+          // observed we forward an observe request to the top frame so the host can watch
+          // the underlying path if desired.
+          (function installFSObserverShim() {
+            const NativeFSObserver = window.FileSystemObserver;
+            function isSyntheticHandle(h) {
+              return !!(h && (h.path || h.name) && typeof h.getFile === 'function');
+            }
+
+            class FileSystemObserverShim {
+              constructor(cb) {
+                this.cb = cb;
+                this._native = NativeFSObserver ? new NativeFSObserver(cb) : null;
+                this._regs = new Map();
+              }
+              observe(handle) {
+                if (isSyntheticHandle(handle)) {
+                  const path = handle.path || handle.name || '/';
+                  this._regs.set(handle, path);
+                  try { window.top.postMessage({ __VFS__: true, kind: 'observePath', path }, '*'); } catch(e){}
+                  return;
+                }
+                if (this._native) return this._native.observe(handle);
+                throw new TypeError('Failed to execute "observe" on "FileSystemObserver": parameter 1 is not of type "FileSystemHandle"');
+              }
+              unobserve(handle) {
+                if (this._regs.has(handle)) {
+                  const path = this._regs.get(handle);
+                  this._regs.delete(handle);
+                  try { window.top.postMessage({ __VFS__: true, kind: 'unobservePath', path }, '*'); } catch(e){}
+                  return;
+                }
+                if (this._native) return this._native.unobserve(handle);
+              }
+            }
+
+            try {
+              window.FileSystemObserver = FileSystemObserverShim;
+            } catch (e) {}
+          })();
 
   let injectedFiles = [];
   let activeInput = null;
@@ -1862,6 +2240,25 @@ btnOpen.onclick = async () => {
         });
       }
 
+      // Create a synthetic FileSystem-like handle so sites that expect a handle
+      // with createWritable()/queryPermission() work when given this file.
+      // Normalize path: strip leading slash to avoid absolute paths like '/a.TXT'
+      const rawPath = (d.path || d.webkitRelativePath || d.name) || d.name;
+      const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
+      // attach a canonical path property so consumers don't see undefined
+      file.fullPath = normPath;
+      // Create a minimal, serializable handle descriptor to attach to the File
+      // so libraries that inspect \`file.fileHandle\` don't crash during cloning.
+      // Do NOT attach functions as own properties to avoid DataCloneError.
+      const syntheticHandle = {
+        kind: 'file',
+        name: d.name,
+        path: normPath
+      };
+
+      // Attach minimal handle descriptor to the File object.
+      try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
+
       injectedFiles.push(file);
       if(d.lastOne) injectIntoActiveInput();
     }
@@ -1888,11 +2285,150 @@ btnOpen.onclick = async () => {
     injectedFiles = [];
     pickerMode = null;
 
-    return files.map(file => ({
-      kind: 'file',
-      name: file.name,
-      getFile: async () => file
-    }));
+    return files.map(file => makeFileHandle(file));
+  };
+
+  // 📁 showDirectoryPicker
+  window.showDirectoryPicker = async () => {
+    pickerMode = 'picker';
+
+    window.top.postMessage(
+      { __VFS__: true, kind: 'requestPicker', allowDirectory: true, directory: true },
+      '*'
+    );
+
+    await waitUntilFiles();
+
+    const files = injectedFiles.slice();
+    injectedFiles = [];
+    pickerMode = null;
+
+    // Build a map of relativePath -> File and also register variants so callers
+    // can request by full relative path, path-without-base, or just basename.
+    const map = {};
+    const rels = files.map(f => f.webkitRelativePath || f.name);
+    function commonPrefix(arr) {
+      if (!arr.length) return '';
+      const a = arr.slice().sort();
+      const s1 = a[0];
+      const s2 = a[a.length - 1];
+      let i = 0;
+      while (i < s1.length && s1[i] === s2[i]) i++;
+      const pref = s1.slice(0, i);
+      const idx = pref.lastIndexOf('/');
+      return idx >= 0 ? pref.slice(0, idx) : '';
+    }
+    const base = commonPrefix(rels);
+    for (const f of files) {
+      const rel = f.webkitRelativePath || f.name;
+      f.fullPath = rel;
+      map[rel] = f;
+      const withoutBase = base && rel.startsWith(base + '/') ? rel.slice(base.length + 1) : rel;
+      map[withoutBase] = f;
+      map[f.name] = f;
+    }
+
+    const dirHandle = new FileSystemDirectoryHandle();
+    dirHandle.kind = 'directory';
+    dirHandle.name = files[0] ? (files[0].webkitRelativePath || files[0].name).split('/')[0] : '';
+    dirHandle.path = base || dirHandle.name || '/';
+    dirHandle.getFileHandle = async (name, opts = {}) => {
+      let key = name;
+      if (typeof key === 'string' && key.startsWith('/')) key = key.slice(1);
+      if (map[key]) {
+        const file = map[key];
+        const fh = new FileSystemFileHandle();
+        fh.kind = 'file';
+        fh.name = file.name;
+        fh._file = file;
+        fh.path = file.fullPath;
+        return fh;
+      }
+      if (opts.create) {
+        const remote = await window.showSaveFilePicker({ suggestedName: name });
+        const fh = new FileSystemFileHandle();
+        fh.kind = 'file'; fh.name = name;
+        fh._file = new File([], name);
+        fh.path = name;
+        return fh;
+      }
+      const err = new Error('NotFoundError'); err.name = 'NotFoundError';
+      throw err;
+    };
+    // Provide async-iterable entries/keys/values to match FileSystemDirectoryHandle
+    dirHandle.entries = async function* () {
+      const seen = new Set();
+      for (const f of files) {
+        const rel = f.fullPath || (f.webkitRelativePath || f.name);
+        if (seen.has(rel)) continue;
+        seen.add(rel);
+        yield [rel, makeFileHandle(f)];
+      }
+    };
+    dirHandle.keys = async function* () {
+      const seen = new Set();
+      for (const f of files) {
+        const rel = f.fullPath || (f.webkitRelativePath || f.name);
+        if (seen.has(rel)) continue;
+        seen.add(rel);
+        yield rel;
+      }
+    };
+    dirHandle.values = async function* () {
+      const seen = new Set();
+      for (const f of files) {
+        const rel = f.fullPath || (f.webkitRelativePath || f.name);
+        if (seen.has(rel)) continue;
+        seen.add(rel);
+        yield makeFileHandle(f);
+      }
+    };
+    dirHandle.getDirectoryHandle = async (name, opts = {}) => {
+      // This synthetic directory handle only exposes files; nested directories
+      // are not represented separately here. If requested, return a NotFound
+      // unless create is true (then create a placeholder directory handle).
+      const key = (typeof name === 'string' && name.startsWith('/')) ? name.slice(1) : name;
+      if (!opts.create) {
+        const err = new Error('NotFoundError'); err.name = 'NotFoundError';
+        throw err;
+      }
+      const sub = new FileSystemDirectoryHandle();
+      sub.kind = 'directory';
+      sub.name = name;
+      sub.path = (dirHandle.path ? (dirHandle.path + '/' + name) : name);
+      sub.entries = async function* () { return; };
+      sub.keys = async function* () { return; };
+      sub.values = async function* () { return; };
+      return sub;
+    };
+
+    return dirHandle;
+  };
+
+  // 💾 showSaveFilePicker
+  let pendingSaveResolvers = [];
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || d.__VFS__ !== true) return;
+    if (d.kind === 'saveTarget') {
+      for (const r of pendingSaveResolvers) try { r(d.path); } catch(e){}
+      pendingSaveResolvers = [];
+    }
+  });
+
+  window.showSaveFilePicker = async (options) => {
+    return new Promise((resolve) => {
+      pendingSaveResolvers.push((path) => {
+        const h = new FileSystemFileHandle();
+        h.name = path.split('/').pop();
+        h.kind = 'file';
+        // store the resolved path for prototype methods to use; avoid
+        // attaching functions directly to the instance to remain cloneable.
+        h.path = path;
+        resolve(h);
+      });
+      window.top.postMessage({ __VFS__: true, kind: 'requestSavePicker' }, '*');
+    });
   };
 
   // 📎 <input type="file">
@@ -2514,6 +3050,10 @@ try{        if (
         createPermInput(tab.iframe, url);
           if (!url.startsWith("goldenbody://")) {
               tabs[tabIndex].iframe.src = a(
+                url,
+                proxyurl,
+              );
+              tabs[tabIndex].iframe.contentWindow.location = a(
                 url,
                 proxyurl,
               );

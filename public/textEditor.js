@@ -1033,7 +1033,7 @@ let textEditor = function (path, posX = 50, posY = 50) {
             if (dirPath) {
               try {
                 const base64 = b64EncodeUnicode(textarea.value || '');
-                await post({ saveSnapshot: true, directions: [{ edit: true, path: dirPath, contents: base64 }] });
+                await post({ saveSnapshot: true, directions: [{ edit: true, path: dirPath, contents: base64, replace: true }] });
                 saveBtn.textContent = 'Saved!!!';
                 setTimeout(() => (saveBtn.textContent = 'Save'), 1200);
               } catch (e) {
@@ -1044,7 +1044,7 @@ let textEditor = function (path, posX = 50, posY = 50) {
           }
           else if(auto){
                 const base64 = b64EncodeUnicode(textarea.value || '');
-                await post({ saveSnapshot: true, directions: [{ edit: true, path: dirPath, contents: base64 }] });
+                await post({ saveSnapshot: true, directions: [{ edit: true, path: dirPath, contents: base64, replace: true }] });
           }
         } catch (e) {
           saveBtn.textContent = 'Save failed!!!';

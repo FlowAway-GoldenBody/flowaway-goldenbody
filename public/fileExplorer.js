@@ -1312,7 +1312,7 @@ function handleSelection(e, item, items, index) {
             const end = Math.min(file.size, start + CHUNK_SIZE);
             const blob = file.slice(start, end);
             const chunkBase64 = await readChunkAsBase64(blob);
-            await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total }, { end: true }] });
+            await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total, replace: true }, { end: true }] });
             return true;
           } catch (err) {
             attempts++;
@@ -1355,13 +1355,13 @@ function handleSelection(e, item, items, index) {
           if (f.size <= MAX_INLINE_BASE64) {
             // small file: inline as before
             const content = await fileToBase64(f);
-            directions.push({ edit: true, contents: content, path: cp + '/' + newName });
+            directions.push({ edit: true, contents: content, path: cp + '/' + newName, replace: true });
           } else {
             // large file: chunked upload with resume + per-chunk retries
             const total = Math.ceil(f.size / CHUNK_SIZE);
 
             // ensure server has a file placeholder
-            await post({ saveSnapshot: true, directions: [{ addFile: true, path: cp + '/' + newName }, { end: true }] });
+            await post({ saveSnapshot: true, directions: [{ addFile: true, path: cp + '/' + newName, replace: true }, { end: true }] });
 
             // Ask server which parts already exist (resume)
             let presentParts = [];
@@ -1403,7 +1403,7 @@ function handleSelection(e, item, items, index) {
 
             // finalize assembly on server (safe even if all parts were already present)
             try {
-              await post({ saveSnapshot: true, directions: [{ edit: true, path: cp + '/' + newName, finalize: true }, { end: true }] });
+              await post({ saveSnapshot: true, directions: [{ edit: true, path: cp + '/' + newName, finalize: true, replace: true }, { end: true }] });
             } catch (e) {
               console.error('finalize failed for', newName, e);
               notification(`Failed to finalize upload for "${newName}".`);

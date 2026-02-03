@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VFS Nested Save Test</title>
+  <style>
+    body{font-family:system-ui;margin:16px;background:#f6f8fb}
+    .panel{max-width:980px;margin:0 auto;background:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+    button{padding:8px 12px;margin:8px}
+    iframe{width:100%;height:520px;border:1px solid #ddd}
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2>Nested VFS Save Test</h2>
+    <p>This page embeds three nested frames and can trigger a large multi-write save from the deepest frame.</p>
+    <div>
+      <button id="btn-start">Start Large Save Test (deepest iframe)</button>
+      <button id="btn-manual">Open Deepest Test Page</button>
+    </div>
+
+    <h4>Nested Frames</h4>
+    <iframe id="level1" src="/nested1.html"></iframe>
+
+    <p style="margin-top:8px;font-size:13px;color:#444">Note: the test will call <code>showSaveFilePicker()</code> inside the deepest frame and perform several writes (8MB chunks) then close() to exercise transfer and server-side chunking logic.</p>
+  </div>
+
+  <script>
+    function getDeepestFrame() {
+      try {
+        const l1 = document.getElementById('level1').contentWindow;
+        const l2iframe = l1.document.querySelector('iframe');
+        if (!l2iframe) return null;
+        const l2 = l2iframe.contentWindow;
+        const l3iframe = l2.document.querySelector('iframe');
+        if (!l3iframe) return null;
+        const l3 = l3iframe.contentWindow; // this should be test-save.html
+        return l3;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    document.getElementById('btn-manual').addEventListener('click', () => {
+      const f = getDeepestFrame();
+      if (!f) { alert('Deepest frame not ready'); return; }
+      // open developer view of deepest frame
+      window.open('/test-save.html', '_blank');
+    });
+
+    document.getElementById('btn-start').addEventListener('click', async () => {
+      const deep = getDeepestFrame();
+      if (!deep) return alert('Deepest frame not ready yet — wait a moment and try again');
+
+      try {
+        // Try to call showSaveFilePicker on the deepest frame
+        if (typeof deep.showSaveFilePicker !== 'function') return alert('showSaveFilePicker not available in deepest frame');
+
+        const handle = await deep.showSaveFilePicker();
+        const writer = await handle.createWritable();
+
+        // Build a chunk of ~8MB and write it several times to produce a large payload
+        const chunkSize = 8 * 1024 * 1024; // 8MB
+        const repeats = 6; // ~48MB total
+        const chunk = new Uint8Array(chunkSize);
+        for (let i = 0; i < chunkSize; i++) chunk[i] = 65 + (i % 26); // A..Z pattern
+
+        for (let r = 0; r < repeats; r++) {
+          await writer.write(chunk.buffer);
+          console.log('wrote chunk', r+1);
+        }
+
+        await writer.close();
+        alert('Wrote ' + (chunkSize * repeats / (1024*1024)).toFixed(1) + ' MB and closed');
+      } catch (err) {
+        console.error(err);
+        alert('Error during save test: ' + (err && err.message ? err.message : err));
+      }
+    });
+  </script>
+</body>
+</html>
