@@ -1880,6 +1880,117 @@ btnOpen.onclick = async () => {
           }
 
           // ----------------------------
+          // 3c. Custom directory picker overlay
+          // ----------------------------
+          function openCustomDirectoryPickerUI() {
+            if (!window.treeData) { window.loadTree(); }
+
+            const dirPickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
+            let dirPickerCurrentPath = ["root"];
+            let dirPickerSelection = [];
+
+            const overlay = document.createElement('div');
+            Object.assign(overlay.style, {
+              position: 'fixed', top: '0', left: '0', right: '0', bottom: '0',
+              background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+            });
+            document.body.appendChild(overlay);
+
+            const box = document.createElement('div');
+            Object.assign(box.style, { width: '600px', height: '420px', borderRadius: '8px', background: data.dark ? '#222' : '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
+            overlay.appendChild(box);
+
+            const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '6px'; box.appendChild(breadcrumb);
+            const fileArea = document.createElement('div'); fileArea.style.flex = '1'; fileArea.style.overflowY = 'auto'; fileArea.style.borderTop = '1px solid #ccc'; box.appendChild(fileArea);
+            
+            const infoRow = document.createElement('div'); infoRow.style.padding = '6px'; infoRow.style.fontSize = '12px'; infoRow.style.color = '#666'; infoRow.textContent = 'Select a folder'; box.appendChild(infoRow);
+
+            const btnBar = document.createElement('div'); btnBar.style.padding = '6px'; btnBar.style.display = 'flex'; btnBar.style.justifyContent = 'flex-end'; box.appendChild(btnBar);
+            const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnBar.appendChild(btnCancel);
+            const btnOpen = document.createElement('button'); btnOpen.textContent = 'Select'; btnBar.appendChild(btnOpen);
+
+            function render() {
+              breadcrumb.innerHTML = '';
+              dirPickerCurrentPath.forEach((p, i) => { const s = document.createElement('span'); s.textContent = i===0 ? 'Home' : ' / ' + p; s.style.cursor = 'pointer'; s.onclick = () => { dirPickerCurrentPath = dirPickerCurrentPath.slice(0, i+1); render(); }; breadcrumb.appendChild(s); });
+              fileArea.innerHTML = '';
+              let node = dirPickerTree;
+              for (let i = 1; i < dirPickerCurrentPath.length; i++) { if (!node || !node[1]) break; node = node[1].find(c=>c[0]===dirPickerCurrentPath[i]); }
+              if (!node || !node[1]) return;
+              node[1].forEach(item => {
+                const isFolder = Array.isArray(item[1]);
+                const div = document.createElement('div'); 
+                div.textContent = (isFolder ? '📁 ' : '📄 ') + item[0]; 
+                div.style.padding = '6px'; 
+                div.style.cursor='pointer';
+                div.onclick = (e) => { 
+                  // Only allow selecting folders
+                  if (isFolder) {
+                    const isToggle = e.ctrlKey || e.metaKey;
+                    if (!isToggle) { 
+                      dirPickerSelection = [item]; 
+                      fileArea.querySelectorAll('div').forEach(d=>d.style.background=''); 
+                      div.style.background='#d0e6ff'; 
+                    } else { 
+                      const idx = dirPickerSelection.indexOf(item); 
+                      if (idx>=0){ 
+                        dirPickerSelection.splice(idx,1); 
+                        div.style.background=''; 
+                      } else { 
+                        dirPickerSelection.push(item); 
+                        div.style.background='#d0e6ff'; 
+                      } 
+                    } 
+                  }
+                };
+                if (isFolder) {
+                  div.ondblclick = () => { dirPickerCurrentPath.push(item[0]); render(); };
+                }
+                fileArea.appendChild(div);
+              });
+            }
+
+            render();
+
+            btnCancel.onclick = () => { overlay.remove(); };
+
+            btnOpen.onclick = () => {
+              const basePath = dirPickerCurrentPath.slice(1).join('/') || 'root';
+              let chosen;
+              
+              if (dirPickerSelection.length > 0) {
+                // A specific folder was selected
+                const sel = dirPickerSelection[0];
+                if (Array.isArray(sel[1])) {
+                  chosen = (basePath !== 'root' ? basePath + '/' : '') + sel[0];
+                } else {
+                  alert('Please select a directory');
+                  return;
+                }
+              } else {
+                // Use current path as the selected directory
+                chosen = basePath;
+              }
+
+              // Find the actual tree node for the selected path
+              let selectedNode = dirPickerTree;
+              const pathParts = chosen.split('/').filter(p => p && p !== 'root');
+              for (const part of pathParts) {
+                if (!selectedNode || !selectedNode[1]) break;
+                selectedNode = selectedNode[1].find(c => c[0] === part);
+              }
+
+              // send response to requesting iframe
+              try {
+                if (sentreqframe && sentreqframe.contentWindow) {
+                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'directoryTarget', path: chosen, treeNode: selectedNode }, '*');
+                }
+              } catch (e) {}
+
+              overlay.remove();
+            };
+          }
+
+          // ----------------------------
           // 4. Listen for iframe requests
           // ----------------------------
 
@@ -1901,6 +2012,11 @@ btnOpen.onclick = async () => {
               if (e.data?.__VFS__ && e.data.kind === "requestSavePicker") {
                 // open save-as UI and record requesting frame
                 openCustomSaveUI();
+                sentreqframe = recurseFrames(document, e);
+              }
+              if (e.data?.__VFS__ && e.data.kind === "requestDirectoryPicker") {
+                // open directory picker UI and record requesting frame
+                openCustomDirectoryPickerUI();
                 sentreqframe = recurseFrames(document, e);
               }
               if (e.data?.__VFS__ && e.data.kind === "saveFile") {
@@ -2128,16 +2244,25 @@ btnOpen.onclick = async () => {
             try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
           };
 
-          function makeFileHandle(file) {
-            const h = new FileSystemFileHandle();
-            h.kind = 'file';
-            h.name = file.name;
-            h.path = file.fullPath || file.webkitRelativePath || file.name;
-            // Store a reference for the prototype methods to use; avoid attaching
-            // functions as own properties so the object can be structured-cloned.
-            h._file = file;
-            return h;
-          }
+function makeFileHandle(file) {
+  const h = new FileSystemFileHandle();
+
+  h.kind = 'file';
+  h.name = file.name;
+
+  // Non-standard, VFS-only (informational)
+  h.path = file.fullPath || file.webkitRelativePath || file.name;
+
+  // Internal backing file
+  h._file = file;
+
+  // Required by File System Access consumers
+  h.getFile = async function () {
+    return this._file;
+  };
+
+  return h;
+}
 
           // Shim FileSystemObserver so sites that call new FileSystemObserver(...).observe(handle)
           // with our synthetic handles won't throw a TypeError. When a synthetic handle is
@@ -2288,122 +2413,6 @@ btnOpen.onclick = async () => {
     return files.map(file => makeFileHandle(file));
   };
 
-  // 📁 showDirectoryPicker
-  window.showDirectoryPicker = async () => {
-    pickerMode = 'picker';
-
-    window.top.postMessage(
-      { __VFS__: true, kind: 'requestPicker', allowDirectory: true, directory: true },
-      '*'
-    );
-
-    await waitUntilFiles();
-
-    const files = injectedFiles.slice();
-    injectedFiles = [];
-    pickerMode = null;
-
-    // Build a map of relativePath -> File and also register variants so callers
-    // can request by full relative path, path-without-base, or just basename.
-    const map = {};
-    const rels = files.map(f => f.webkitRelativePath || f.name);
-    function commonPrefix(arr) {
-      if (!arr.length) return '';
-      const a = arr.slice().sort();
-      const s1 = a[0];
-      const s2 = a[a.length - 1];
-      let i = 0;
-      while (i < s1.length && s1[i] === s2[i]) i++;
-      const pref = s1.slice(0, i);
-      const idx = pref.lastIndexOf('/');
-      return idx >= 0 ? pref.slice(0, idx) : '';
-    }
-    const base = commonPrefix(rels);
-    for (const f of files) {
-      const rel = f.webkitRelativePath || f.name;
-      f.fullPath = rel;
-      map[rel] = f;
-      const withoutBase = base && rel.startsWith(base + '/') ? rel.slice(base.length + 1) : rel;
-      map[withoutBase] = f;
-      map[f.name] = f;
-    }
-
-    const dirHandle = new FileSystemDirectoryHandle();
-    dirHandle.kind = 'directory';
-    dirHandle.name = files[0] ? (files[0].webkitRelativePath || files[0].name).split('/')[0] : '';
-    dirHandle.path = base || dirHandle.name || '/';
-    dirHandle.getFileHandle = async (name, opts = {}) => {
-      let key = name;
-      if (typeof key === 'string' && key.startsWith('/')) key = key.slice(1);
-      if (map[key]) {
-        const file = map[key];
-        const fh = new FileSystemFileHandle();
-        fh.kind = 'file';
-        fh.name = file.name;
-        fh._file = file;
-        fh.path = file.fullPath;
-        return fh;
-      }
-      if (opts.create) {
-        const remote = await window.showSaveFilePicker({ suggestedName: name });
-        const fh = new FileSystemFileHandle();
-        fh.kind = 'file'; fh.name = name;
-        fh._file = new File([], name);
-        fh.path = name;
-        return fh;
-      }
-      const err = new Error('NotFoundError'); err.name = 'NotFoundError';
-      throw err;
-    };
-    // Provide async-iterable entries/keys/values to match FileSystemDirectoryHandle
-    dirHandle.entries = async function* () {
-      const seen = new Set();
-      for (const f of files) {
-        const rel = f.fullPath || (f.webkitRelativePath || f.name);
-        if (seen.has(rel)) continue;
-        seen.add(rel);
-        yield [rel, makeFileHandle(f)];
-      }
-    };
-    dirHandle.keys = async function* () {
-      const seen = new Set();
-      for (const f of files) {
-        const rel = f.fullPath || (f.webkitRelativePath || f.name);
-        if (seen.has(rel)) continue;
-        seen.add(rel);
-        yield rel;
-      }
-    };
-    dirHandle.values = async function* () {
-      const seen = new Set();
-      for (const f of files) {
-        const rel = f.fullPath || (f.webkitRelativePath || f.name);
-        if (seen.has(rel)) continue;
-        seen.add(rel);
-        yield makeFileHandle(f);
-      }
-    };
-    dirHandle.getDirectoryHandle = async (name, opts = {}) => {
-      // This synthetic directory handle only exposes files; nested directories
-      // are not represented separately here. If requested, return a NotFound
-      // unless create is true (then create a placeholder directory handle).
-      const key = (typeof name === 'string' && name.startsWith('/')) ? name.slice(1) : name;
-      if (!opts.create) {
-        const err = new Error('NotFoundError'); err.name = 'NotFoundError';
-        throw err;
-      }
-      const sub = new FileSystemDirectoryHandle();
-      sub.kind = 'directory';
-      sub.name = name;
-      sub.path = (dirHandle.path ? (dirHandle.path + '/' + name) : name);
-      sub.entries = async function* () { return; };
-      sub.keys = async function* () { return; };
-      sub.values = async function* () { return; };
-      return sub;
-    };
-
-    return dirHandle;
-  };
 
   // 💾 showSaveFilePicker
   let pendingSaveResolvers = [];
@@ -2431,7 +2440,121 @@ btnOpen.onclick = async () => {
     });
   };
 
-  // 📎 <input type="file">
+  // � showDirectoryPicker
+  let pendingDirectoryResolvers = [];
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || d.__VFS__ !== true) return;
+    if (d.kind === 'directoryTarget') {
+      for (const r of pendingDirectoryResolvers) try { r(d.path, d.treeNode); } catch(e){}
+      pendingDirectoryResolvers = [];
+    }
+  });
+
+  window.showDirectoryPicker = async (options) => {
+    return new Promise((resolve) => {
+      pendingDirectoryResolvers.push((path, treeNode) => {
+        const h = new FileSystemDirectoryHandle();
+        h.name = path.split('/').pop() || 'root';
+        h.kind = 'directory';
+        h.path = path;
+        h._treeNode = treeNode; // store for entries() iteration
+        
+        // entries() method to iterate over directory contents
+        h.entries = async function* () {
+          if (!this._treeNode || !Array.isArray(this._treeNode[1])) return;
+          for (const child of this._treeNode[1]) {
+            const name = child[0];
+            const isFolder = Array.isArray(child[1]);
+            if (isFolder) {
+              const dirHandle = new FileSystemDirectoryHandle();
+              dirHandle.name = name;
+              dirHandle.kind = 'directory';
+              dirHandle.path = (this.path ? this.path + '/' : '') + name;
+              dirHandle._treeNode = child;
+              dirHandle.entries = h.entries; // inherit entries method
+              dirHandle.getDirectoryHandle = h.getDirectoryHandle;
+              dirHandle.getFileHandle = h.getFileHandle;
+              yield [name, dirHandle];
+            } else {
+              const fileHandle = new FileSystemFileHandle();
+              fileHandle.name = name;
+              fileHandle.kind = 'file';
+              fileHandle.path = (this.path ? this.path + '/' : '') + name;
+              yield [name, fileHandle];
+            }
+          }
+        };
+
+        // values() method
+        h.values = async function* () {
+          for (const [name, handle] of await this.entries()) {
+            yield handle;
+          }
+        };
+
+        // keys() method
+        h.keys = async function* () {
+          for (const [name, handle] of await this.entries()) {
+            yield name;
+          }
+        };
+
+        // getDirectoryHandle(name) method
+        h.getDirectoryHandle = async function(name, options = {}) {
+          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
+            throw new DOMException(\`$\{this.name} is not a directory\`, 'NotADirectoryError');
+          }
+          const child = this._treeNode[1].find(c => c[0] === name);
+          if (!child) {
+            if (options.create) {
+              throw new DOMException('Creating directories is not supported', 'NotSupportedError');
+            }
+            throw new DOMException(\`A directory with the name "\${name}" was not found.\`, 'NotFoundError');
+          }
+          if (!Array.isArray(child[1])) {
+            throw new DOMException(\`"\${name}" is not a directory\`, 'TypeMismatchError');
+          }
+          const dirHandle = new FileSystemDirectoryHandle();
+          dirHandle.name = name;
+          dirHandle.kind = 'directory';
+          dirHandle.path = this.path + '/' + name;
+          dirHandle._treeNode = child;
+          dirHandle.entries = this.entries;
+          dirHandle.values = this.values;
+          dirHandle.keys = this.keys;
+          dirHandle.getDirectoryHandle = this.getDirectoryHandle;
+          dirHandle.getFileHandle = this.getFileHandle;
+          dirHandle.isSameEntry = this.isSameEntry;
+          return dirHandle;
+        };
+
+        // getFileHandle(name) method
+        h.getFileHandle = async function(name, options = {}) {
+          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
+            throw new DOMException(\`$\{this.name} is not a directory\`, 'NotADirectoryError');
+          }
+          const child = this._treeNode[1].find(c => c[0] === name);
+          if (!child) {
+            throw new DOMException(\`A file with the name "\${name}" was not found.\`, 'NotFoundError');
+          }
+          if (Array.isArray(child[1])) {
+            throw new DOMException(\`"\${name}" is not a file\`, 'TypeMismatchError');
+          }
+          const fileHandle = new FileSystemFileHandle();
+          fileHandle.name = name;
+          fileHandle.kind = 'file';
+          fileHandle.path = this.path + '/' + name;
+          return fileHandle;
+        };
+
+        resolve(h);
+      });
+      window.top.postMessage({ __VFS__: true, kind: 'requestDirectoryPicker' }, '*');
+    });
+  };
+
+  // �📎 <input type="file">
   document.addEventListener(
     'click',
     e => {

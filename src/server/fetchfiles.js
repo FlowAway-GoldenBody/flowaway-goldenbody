@@ -460,10 +460,13 @@ async function applyDirections(rootPath, directions) {
       // 1) Small inline edit: dir.contents (base64 string)
       // 2) Chunked upload: dir.chunk (single part), dir.chunks (array of parts), and dir.finalize/dir.finalizeUpload to assemble
       const destRel = dir.path || '';
+      console.log(destRel)
       const filePath = resolvePath(destRel);
+      console.log(filePath)
 
       // If caller requests replace:true, remove existing file and any temp parts
       if (dir.replace) {
+        console.log(dir.path)
         try {
           // remove existing final file if present
           await fsp.rm(filePath, { force: true, recursive: false });
