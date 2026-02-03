@@ -906,7 +906,7 @@ function handleSelection(e, item, items, index) {
             item.isFolder &&
             targetFullPath.startsWith(sourceFullPath + "/")
           ) {
-            alert(
+            notification(
               `Cannot paste folder "${item.name}" into itself or a subfolder.`,
             );
             continue;

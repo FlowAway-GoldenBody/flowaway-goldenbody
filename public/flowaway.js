@@ -263,7 +263,7 @@ function createPickerModal(tree, options = {}) {
           folderPath = (sel[2] && sel[2].path) ? sel[2].path : (currentPath.slice(1).join('/'));
         }
         const fname = (filenameInput && filenameInput.value || '').trim();
-        if (!fname) { alert('Enter filename'); return; }
+        if (!fname) { notification('Enter filename'); return; }
         overlay.remove();
         const chosen = folderPath ? ('/' + folderPath + '/' + fname) : fname;
         let returnValue = {path: chosen, name: fname, filecontent: filecontent};
