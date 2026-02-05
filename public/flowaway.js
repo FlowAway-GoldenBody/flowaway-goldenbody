@@ -29,14 +29,14 @@
        Add new key combos (Ctrl/Cmd + key) in that handler so the app opens the focused
        window or creates a new instance. Follow the existing structure (check for `atTop`)
        and call your app function (e.g. `myApp()`). Keep shortcuts discoverable and avoid
-       collisions with browser defaults.
+       collisions with environment defaults.
 
   5) Context / integration points
      - If your app needs to appear in the taskbar, add its id to `data.taskbuttons` and
        update any UI that enumerates `taskbuttons` when rendering the taskbar.
      - If your app needs saved user settings, store them in the user's `${username}.txt`
        file (see `zmcd.js`) or extend `siteSettings`. For quota or file access, use the
-       existing `fileExplorer` APIs and server endpoints.
+       existing file APIs and server endpoints.
 
   6) Notifications & server messages
      - Use the global `notification(message)` helper (defined later in this file) to show
@@ -57,7 +57,7 @@
     - verification WS: src/server/verification.js (notifies and updates online flag)
 */
 window.data = data;
-
+window.loaded = false;
   var atTop = "";
   let zTop = 10;
 
@@ -154,6 +154,19 @@ function base64ToArrayBuffer(base64) {
   const bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes.buffer;
+}
+
+// UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
+function base64ToUtf8(b64) {
+  try {
+    const buf = base64ToArrayBuffer(b64);
+    return new TextDecoder('utf-8').decode(buf);
+  } catch (e) {
+    // fallback to atob for environments without TextDecoder support
+    try {
+      return atob(b64);
+    } catch (ee) { return ''; }
+  }
 }
 
 async function fetchFileContentByPath(path) {
@@ -315,6 +328,161 @@ window.flowawaySaveFilePicker = async function (options = {}, suggestedPath = ''
   return makeFlowawayFileHandle(chosen.name, chosen.path, chosen.filecontent);
 };
 
+// ----------------- DYNAMIC AP LOADER -----------------
+window.apps = window.apps || [];
+
+async function getFolderListing(relPath) {
+  try {
+    const r = await filePost({ requestFile: true, requestFileName: relPath });
+    if (r && r.kind === 'folder' && Array.isArray(r.files)) return r.files;
+  } catch (e) { console.error('getFolderListing error', e); }
+  return null;
+}
+
+async function loadAppsFromTree() {
+  if(loaded) return;
+  loaded = true;
+  window.apps = [];
+  if (!window.treeData) await window.loadTree();
+  try {
+    const rootChildren = (window.treeData && window.treeData[1]) || [];
+    const appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
+    if (!appsNode) return;
+    for (const appFolder of appsNode[1]) {
+      const folderName = appFolder[0];
+      const folderPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
+      const files = await getFolderListing(folderPath);
+      if (!files) continue;
+      // find files
+      const jsFile = files.find(f => f.name.toLowerCase().endsWith('.js'))?.relativePath || null;
+      const txtFile = files.find(f => f.name.toLowerCase().endsWith('.txt'))?.relativePath || null;
+      const iconFile = files.find(f => f.name.toLowerCase().startsWith('icon') || f.name.toLowerCase().endsWith('.png') || f.name.toLowerCase().endsWith('.svg'))?.relativePath || null;
+
+      let entryName = null;
+      let label = folderName;
+      let icon = '🔧';
+
+      if (txtFile) {
+        try {
+          const b64 = await fetchFileContentByPath(`${folderPath}/${txtFile}`);
+          const txt = base64ToUtf8(b64).trim();
+          // interpret txt lines: first line may be entry name, second line label, etc.
+          const lines = txt.split('\n').map(s => s.trim()).filter(Boolean);
+          if (lines.length) entryName = lines[0];
+          if (lines.length > 1) label = lines[1];
+          if (lines.length > 2) startbtnid = lines[2];
+        } catch (e) { console.error('read txt', e); }
+      }
+
+      if (iconFile) {
+        if (iconFile.toLowerCase().endsWith('.png') || iconFile.toLowerCase().endsWith('.svg')) {
+          icon = `<img src="${goldenbodywebsite}download?username=${encodeURIComponent(username)}&path=${encodeURIComponent(folderPath + '/' + iconFile)}" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto;"/>`;
+        } else {
+          try {
+            const b64 = await fetchFileContentByPath(`${folderPath}/${iconFile}`);
+            icon = base64ToUtf8(b64).trim() || icon;
+          } catch (e) { console.error('read icon txt', e); }
+        }
+      }
+
+      window.apps.push({ id: folderName, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false });
+    }
+
+    // render
+    renderAppsGrid();
+    // reapply task buttons now that apps may be present
+    applyTaskButtons();
+    purgeButtons();
+  } catch (e) { console.error('loadAppsFromTree error', e); }
+}
+
+async function renderAppsGrid() {
+  const container = document.getElementById('appsGrid');
+  if (!container) return;
+  // Remove all current children to render fresh
+  container.innerHTML = '';
+  for (const app of window.apps) {
+    const div = document.createElement('div');
+    div.className = 'app';
+    div.dataset.appId = app.id;
+    div.id = app.id + 'app';
+    div.style.padding = '10px';
+    div.style.borderRadius = '6px';
+    div.style.textAlign = 'center';
+    div.style.cursor = 'pointer';
+    div.id = app.startbtnid;
+    div.innerHTML = `${app.icon}<br><span style="font-size:14px;">${app.label}</span>`;
+    container.appendChild(div);
+      if (!app.scriptLoaded && app.jsFile) {
+    try {
+      const b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+      const scriptText = base64ToUtf8(b64);
+      const s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.textContent = scriptText;
+      document.body.appendChild(s);
+      app.scriptLoaded = true;
+    } catch (e) { console.error('failed to load app script', e); }
+  }
+
+  }
+}
+
+async function launchApp(appId) {
+  const app = (window.apps || []).find(a => a.id === appId);
+  if (!app) {
+    // fallback: try to call a global function named like the appId (or the id listed in entry)
+    try {
+      const globalFn = window[appId] || null;
+      if (typeof globalFn === 'function') return globalFn();
+    } catch (e) {}
+    console.warn('App not found:', appId);
+    return;
+  }
+
+  if (!app.scriptLoaded && app.jsFile) {
+    try {
+      const b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+      const scriptText = base64ToUtf8(b64);
+      const s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.textContent = scriptText;
+      document.body.appendChild(s);
+      app.scriptLoaded = true;
+    } catch (e) { console.error('failed to load app script', e); }
+  }
+
+  try {
+    if (app.entry && typeof window[app.entry] === 'function') {
+      window[app.entry]();
+    } else if (typeof window[app.id] === 'function') {
+      window[app.id]();
+    }
+    // After the app constructs its UI, try to tag the new top-level window(s) with appId
+    setTimeout(() => {
+      try {
+        const roots = Array.from(document.querySelectorAll('.sim-chrome-root'));
+        // find ones without app id yet
+        const untagged = roots.filter(r => !r.dataset || !r.dataset.appId);
+        if (untagged.length) {
+          // tag the most recently added
+          const candidate = untagged[untagged.length - 1];
+          candidate.dataset.appId = app.id;
+        }
+      } catch (e) {}
+    }, 40);
+    return;
+  } catch (e) { console.error('launchApp error', e); }
+}
+
+// Ensure loadAppsFromTree runs after initial tree load
+const oldLoadTree = window.loadTree;
+window.loadTree = async function () {
+  await oldLoadTree();
+  await loadAppsFromTree();
+};
+
+// ----------------- END dynamic app loader -----------------
 
 // Verification websocket with reconnect/backoff. call connectVerificationSocket() to (re)connect.
 let verificationsocket = null;
@@ -346,166 +514,126 @@ document.addEventListener("fullscreenchange", async () => {
 
 window.removeotherMenus = function(except) {
   try {
-    if(except !== 'browser') {
-      browsermenu.remove();
-      browsermenu = null;
-    }
-    else if(except !== 'fileExplorer') {
-      explorermenu.remove();
-      explorermenu = null;
-    }
-    else if(except !== 'settings') {
-      settingsmenu.remove();
-      settingsmenu = null;
+    // Remove any menus with the shared .app-menu class (used across apps)
+    const menus = document.querySelectorAll('.app-menu');
+    for (const m of menus) {
+      try {
+        if (except && m.dataset && m.dataset.appId === except) continue;
+      } catch (e) {}
+      try { m.remove(); } catch (e) {}
     }
   } catch (e) {}
 };
   function applyTaskButtons() {
+    if(window.apps.length === 0 || window.appsButtonsApplied) return;
+    window.appsButtonsApplied = true;
+  // Prefer dynamic apps discovered in /apps
   for (const taskbutton of data.taskbuttons) {
-    if (taskbutton === "browser") addTaskButton("🌐", browser);
-    else if (taskbutton === "fileExplorer") addTaskButton("🗂", fileExplorer);
-    else if (taskbutton === "settings") addTaskButton("⚙", settings);
-    else if (taskbutton === "textEditor") addTaskButton("📝", textEditor);
+    const app = (window.apps || []).find(a => a.id === taskbutton);
+    if (app) {
+      const btn = addTaskButton(app.icon || '🔧', () => launchApp(app.id));
+      if (btn) btn.dataset.appId = app.id;
+    } 
   }
   taskbuttons = [...taskbar.querySelectorAll("button")];
  }
   function purgeButtons() {
-    explorerButtons = [];
-    browserButtons = [];
-    settingsButtons = [];
-    textEditorButtons = [];
-  for (let i = 0; i < taskbuttons.length; i++) {
-    if (taskbuttons[i].textContent === "🌐") {
-      browserButtons.push(taskbuttons[i]);
-    } else if (taskbuttons[i].textContent === "🗂") {
-      explorerButtons.push(taskbuttons[i]);
-    } else if (taskbuttons[i].textContent === "⚙") {
-      settingsButtons.push(taskbuttons[i]);
-    } else if (taskbuttons[i].textContent === "📝") {
-      textEditorButtons.push(taskbuttons[i]);
+    // Build a generic map from appId -> [buttons]
+    window.appButtons = window.appButtons || {};
+    window.appButtons = {};
+    for (let i = 0; i < taskbuttons.length; i++) {
+      const tb = taskbuttons[i];
+      const id = tb.dataset.appId || tb.value || tb.textContent;
+      if (!id) continue;
+      window.appButtons[id] = window.appButtons[id] || [];
+      window.appButtons[id].push(tb);
     }
-  }
   }
 
   function saveTaskButtons() {
-    let taskbuttons = [...taskbar.querySelectorAll("button")];
+    let buttons = [...taskbar.querySelectorAll("button")];
     let postdata = [];
-    for (const b of taskbuttons) {
-      if (b.textContent === "🌐") {
-        postdata.push("browser");
-      } else if (b.textContent === "🗂") {
-        postdata.push("fileExplorer");
-      } else if (b.textContent === "⚙") {
-        postdata.push("settings");
-      } else if (b.textContent === "📝") {
-        postdata.push("textEditor");
+    for (const b of buttons) {
+        if (b.dataset && b.dataset.appId) {
+        postdata.push(b.dataset.appId);
+      } else {
+        // If no dataset, try to infer id from value or textContent
+        const inferred = (b.value && String(b.value).trim()) || (b.textContent && String(b.textContent).trim());
+        if (inferred) postdata.push(inferred);
       }
     }
     posttaskbuttons(postdata);
   }
   function bringToFront(el) {
-    if (el.classList.contains("browser")) {
-      atTop = "browser";
-    } else if (el.classList.contains("fileExplorer")) {
-      atTop = "fileExplorer";
-    } else if (el.classList.contains("settings")) {
-      atTop = "settings";
-    } else if (el.classList.contains("textEditor")) {
-      atTop = "textEditor";
-    }
     if (!el) return;
+    // Prefer explicit dataset app id
+    let appId = el.dataset && el.dataset.appId;
+    // fallback: data-app-id attribute
+    if (!appId) appId = el.getAttribute && el.getAttribute('data-app-id');
+    // fallback: check classes against discovered app ids
+    if (!appId && window.apps && Array.isArray(window.apps)) {
+      for (const a of window.apps) {
+        try {
+          if (el.classList.contains(a.id) || el.id === (a.id + 'app') || el.id === a.id) {
+            appId = a.id; break;
+          }
+        } catch (e) {}
+      }
+    }
+    atTop = appId || '';
     el.style.zIndex = String(++zTop);
   }
 
   window.addEventListener("keydown", function (e) {
-    if (e.ctrlKey && e.key === "e") {
-      e.preventDefault();
-      if (typeof textEditor === 'function') {
-        textEditor();
-      } else {
-        const s = document.createElement('script');
-        s.src = `${goldenbodywebsite}textEditor.js`;
-        document.body.appendChild(s);
-        s.onload = () => { if (typeof textEditor === 'function') textEditor(); };
-      }
-    } else if (e.ctrlKey && e.key === "n") {
-      e.preventDefault();
-      if (atTop == "browser" || atTop == "") {
-        browser();
-      } else if (atTop == "fileExplorer") {
-        fileExplorer();
-      }
-      else if (atTop == "settings") {
-        settings();
-      }
-      else if (atTop == "textEditor") {
-        textEditor();
-      }
+    // Build normalized combo e.g. 'Ctrl+Shift+N'
+    const parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.shiftKey) parts.push('Shift');
+    const keyPart = String(e.key).toUpperCase();
+    parts.push(keyPart);
+    const combo = parts.join('+');
 
-    } else if (e.ctrlKey && e.shiftKey && e.key === "W" && atTop == "browser") {
-      let allIds = [];
-      for (let i = 0; i < allBrowsers.length; i++) {
-        allIds.push(allBrowsers[i].rootElement._goldenbodyId);
+    // Check user-defined shortcuts first
+    if (data && data.shortcuts && data.shortcuts[combo]) {
+      e.preventDefault();
+      launchApp(data.shortcuts[combo]);
+      return;
+    }
+
+    // Default: Ctrl+N -> open new instance of focused app or a sensible default
+    if (e.ctrlKey && keyPart === 'N') {
+      e.preventDefault();
+      const focusedApp = atTop || '';
+      if (focusedApp && typeof launchApp === 'function') {
+        // attempt to open another instance of focused app
+        launchApp(focusedApp);
+        return;
       }
-      let maxId = Math.max(...allIds);
-      for (let i = 0; i < allBrowsers.length; i++) {
-        if (allBrowsers[i].rootElement._goldenbodyId == maxId) {
-          allBrowsers[i].rootElement.remove();
-          allBrowsers[i].rootElement = null;
-          allBrowsers.splice(i, 1);
+      // fallback: first taskbutton or first discovered app
+      const fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && window.apps[0].id);
+      if (fallback) launchApp(fallback);
+      return;
+    } else if (e.ctrlKey && e.shiftKey && e.key === "W") {
+      // Close topmost window for the focused app (atTop)
+      if (!atTop) return;
+      try {
+        // Prefer elements explicitly tagged with data-app-id
+        const candidates = Array.from(document.querySelectorAll(`[data-app-id="${atTop}"]`));
+        // fallback: match elements with class name equal to app id
+        if (!candidates.length) {
+          const byClass = Array.from(document.getElementsByClassName(atTop));
+          for (const el of byClass) candidates.push(el);
         }
-      }
-    } else if (
-      e.ctrlKey &&
-      e.shiftKey &&
-      e.key === "W" &&
-      atTop == "fileExplorer"
-    ) {
-      let allIds = [];
-      for (let i = 0; i < allExplorers.length; i++) {
-        allIds.push(allExplorers[i].explorerId);
-      }
-      let maxId = Math.max(...allIds);
-      for (let i = 0; i < allExplorers.length; i++) {
-        if (allExplorers[i].explorerId == maxId) {
-          allExplorers[i].rootElement.remove();
-          allExplorers.splice(i, 1);
-        }
-      }
-    }  else if (
-      e.ctrlKey &&
-      e.shiftKey &&
-      e.key === "W" &&
-      atTop == "settings"
-    ) {
-      let allIds = [];
-      for (let i = 0; i < allSettings.length; i++) {
-        allIds.push(allSettings[i].settingsId);
-      }
-      let maxId = Math.max(...allIds);
-      for (let i = 0; i < allSettings.length; i++) {
-        if (allSettings[i].settingsId == maxId) {
-          allSettings[i].rootElement.remove();
-          allSettings.splice(i, 1);
-        }
-      }
-    } else if (
-      e.ctrlKey &&
-      e.shiftKey &&
-      e.key === "W" &&
-      atTop == "textEditor"
-    ) {
-      let allIds = [];
-      for (let i = 0; i < alltextEditor.length; i++) {
-        allIds.push(alltextEditor[i].editorId);
-      }
-      let maxId = Math.max(...allIds);
-      for (let i = 0; i < alltextEditor.length; i++) {
-        if (alltextEditor[i].editorId == maxId) {
-          alltextEditor[i].rootElement.remove();
-          alltextEditor.splice(i, 1);
-        }
-      } 
+        if (!candidates.length) return;
+        // Choose the one with highest z-index or last in document
+        candidates.sort((a, b) => {
+          const za = parseInt(a.style.zIndex) || 0;
+          const zb = parseInt(b.style.zIndex) || 0;
+          return za - zb;
+        });
+        const top = candidates[candidates.length - 1];
+        if (top) top.remove();
+      } catch (e) { console.error('close focused app window error', e); }
     }
   });
 function connectVerificationSocket() {
@@ -558,29 +686,21 @@ function connectVerificationSocket() {
 // Auto-start verification socket but safe-guarded in case server not present
 try { connectVerificationSocket(); } catch (e) {}
 function applyStyles() {
-  for(const b of allBrowsers) {
-    b.rootElement.classList.toggle('dark', data.dark);
-    b.rootElement.classList.toggle('light', !data.dark);
-    b.rootElement.dispatchEvent(new CustomEvent('styleapplied', {}));
-  }
-  for(const b of allExplorers) {
-    b.rootElement.classList.toggle('dark', data.dark);
-    b.rootElement.classList.toggle('light', !data.dark);
-  }
-  for(const b of allSettings) {
-    b.rootElement.classList.toggle('dark', data.dark);
-    b.rootElement.classList.toggle('light', !data.dark);
-  }
-  for(const b of alltextEditor) {
-    b.rootElement.classList.toggle('dark', data.dark);
-    b.rootElement.classList.toggle('light', !data.dark);
-  }
+  try {
+    const roots = document.querySelectorAll('.sim-chrome-root');
+    for (const r of roots) {
+      r.classList.toggle('dark', data.dark);
+      r.classList.toggle('light', !data.dark);
+      try { r.dispatchEvent(new CustomEvent('styleapplied', {})); } catch (e) {}
+    }
+  } catch (e) {}
+
   if(data.dark) {
-  document.body.style.background = "#444";
-  document.body.style.color = "white";
+    document.body.style.background = "#444";
+    document.body.style.color = "white";
   } else {
-  document.body.style.background = "white";
-  document.body.style.color = "black";
+    document.body.style.background = "white";
+    document.body.style.color = "black";
   }
   startMenu.classList.toggle("dark", data.dark);
   startMenu.classList.toggle("light", !data.dark);
@@ -594,6 +714,9 @@ function applyStyles() {
 setTimeout(() => {
   applyStyles();
 }, 100);
+
+// Ensure apps are loaded shortly after startup (safe-guard if tree already present)
+setTimeout(() => { try { loadAppsFromTree(); } catch (e) {} }, 200);
 function mainRecurseFrames(doc) {
   if (!doc) return null;
 
@@ -851,7 +974,7 @@ function notification (message) {
   margin-left:8px;
 }
 
-.browserTopBar {
+.appTopBar {
   background: #ccc
 }
 
@@ -937,7 +1060,7 @@ function notification (message) {
 }
 
 /* Top draggable bar */
-.sim-chrome-root.light .browserTopBar {
+.sim-chrome-root.light .appTopBar {
   background: #ccc;
 }
 
@@ -958,7 +1081,7 @@ function notification (message) {
   color: #eee;
 }
 
-.browser-menu.light {
+.app-menu.light {
   background: white;
   color: black;
 }
@@ -1027,7 +1150,7 @@ function notification (message) {
   color:#aaa;
 }
 
-.sim-chrome-root.dark .browser-menu {
+.sim-chrome-root.dark .app-menu {
   color: black;
 }
 
@@ -1041,7 +1164,7 @@ function notification (message) {
   background: black;
 }
 
-.sim-chrome-root.dark .browserTopBar {
+.sim-chrome-root.dark .appTopBar {
   background: #444;
 }
 
@@ -1055,7 +1178,7 @@ function notification (message) {
   color: white;
 }
 
-.browser-menu.dark {
+.app-menu.dark {
   background: black;
   color: white;
 }
@@ -1206,45 +1329,8 @@ const styleTag = document.createElement("style");
     grid-template-columns: 1fr 1fr;
     gap: 8px;
 ">
-    <div class="app" id="explorerapp" data-app="File Explorer" style="
-        padding: 10px;
-        border-radius: 6px;
-        text-align: center;
-        cursor: pointer;
-    ">
-        🗂<br>
-        <span style="font-size:14px;">File Explorer</span>
-    </div>
-
-    <div class="app" id="settingsapp" data-app="Settings" style="
-        padding: 10px;
-        border-radius: 6px;
-        text-align: center;
-        cursor: pointer;
-    ">
-        ⚙<br>
-        <span style="font-size:14px;">Settings</span>
-    </div>
-
-    <div class="app" id="browserapp" data-app="Browser" style="
-        padding: 10px;
-        border-radius: 6px;
-        text-align: center;
-        cursor: pointer;
-    ">
-        🌐<br>
-        <span style="font-size:14px;">Browser</span>
-    </div>
-
-    <div class="app" id="editorapp" data-app="Text Editor" style="
-        padding: 10px;
-        border-radius: 6px;
-        text-align: center;
-        cursor: pointer;
-    ">
-        📝<br>
-        <span style="font-size:14px;">Text Editor</span>
-    </div>
+    <!-- Dynamic apps grid (populated from user's /apps folder) -->
+    <div id="appsGrid" style="display: contents;"></div>
 
     <div class="statusBar">
     <div class="statusLeft">
@@ -1261,6 +1347,9 @@ const styleTag = document.createElement("style");
 `;
 
   document.body.appendChild(startMenu);
+
+
+
 // -------- TIME --------
 function updateTime() {
     const now = new Date();
@@ -1313,23 +1402,15 @@ window.addEventListener("offline", updateWiFi);
   };
 
   // ----------------- OPEN APP ACTION -----------------
+  // Delegated click handler: apps rendered dynamically will set data-app-id to the app id
   startMenu.addEventListener("click", (e) => {
-    if (e.target.classList.contains("app")) {
-      const appName = e.target.getAttribute("data-app");
-      if (appName === "Browser") {
-        browser();
-      } else if (appName === "Text Editor") {
-        if (typeof textEditor === 'function') {
-          textEditor();
-        } else {
-          const s = document.createElement('script');
-          s.src = `${goldenbodywebsite}textEditor.js`;
-          document.body.appendChild(s);
-          s.onload = () => { if (typeof textEditor === 'function') textEditor(); };
-        }
-      }
-      startMenu.style.display = "none";
-    }
+    let el = e.target;
+    while (el && !el.classList.contains('app')) el = el.parentElement;
+    if (!el) return;
+    const appId = el.dataset.appId;
+    if (!appId) return;
+    launchApp(appId);
+    startMenu.style.display = "none";
   });
 
   // ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
@@ -1343,18 +1424,8 @@ window.addEventListener("offline", updateWiFi);
   });
 
 
-  let feApp = document.createElement('script');
-  feApp.src = `${goldenbodywebsite}fileExplorer.js`;
-  document.body.appendChild(feApp);
-  let bApp = document.createElement('script');
-  bApp.src = `${goldenbodywebsite}browser.js`;
-  document.body.appendChild(bApp);
-  let settingsApp = document.createElement('script');
-  settingsApp.src = `${goldenbodywebsite}settings.js`;
-  document.body.appendChild(settingsApp);
-  let editorApp = document.createElement('script');
-  editorApp.src = `${goldenbodywebsite}textEditor.js`;
-  document.body.appendChild(editorApp);
+  // Do not pre-load specific app scripts here; apps are loaded from the user's `apps/` folder dynamically.
+  // Only load system helper script.
   let sysScript = document.createElement('script');
 
 setTimeout(() => {

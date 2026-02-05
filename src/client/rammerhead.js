@@ -384,12 +384,13 @@
         // call is just not viable (mainly memory issues as the garbage collector is sometimes not fast enough)
 
         const getLocHost = win => (new URL(hammerhead.utils.url.parseProxyUrl(win.location.href).destUrl)).host;
-        const prefix = win => `rammerhead|storage-wrapper|${hammerhead.settings._settings.sessionId}|${getLocHost(win)}|`;
+        const prefix = win => `rammerhead|storage-wrapper|${hammerhead.settings._settings.sessionId}|${
+            getLocHost(win)
+        }|`;
         const toRealStorageKey = (key = '', win = window) => prefix(win) + key;
         const fromRealStorageKey = (key = '', win = window) => {
-            const p = prefix(win);
-            if (!key.startsWith(p)) return null;
-            return key.slice(p.length);
+            if (!key.startsWith(prefix(win))) return null;
+            return key.slice(prefix.length);
         };
 
         const replaceStorageInstance = (storageProp, realStorage) => {
@@ -406,49 +407,41 @@
                             return Reflect.get(target, prop, receiver);
                         } else if (prop === 'length') {
                             let len = 0;
-                            const ctx = (target && target.internal && target.internal.ctx) || window;
                             for (const [key] of Object.entries(realStorage)) {
-                                if (fromRealStorageKey(key, ctx)) len++;
+                                if (fromRealStorageKey(key)) len++;
                             }
                             return len;
                         } else {
-                            const ctx = (target && target.internal && target.internal.ctx) || window;
-                            return realStorage[toRealStorageKey(prop, ctx)];
+                            return realStorage[toRealStorageKey(prop)];
                         }
                     },
-                    set(target, prop, value, receiver) {
+                    set(_, prop, value) {
                         if (!reservedProps.includes(prop)) {
-                            const ctx = (target && target.internal && target.internal.ctx) || window;
-                            realStorage[toRealStorageKey(prop, ctx)] = value;
+                            realStorage[toRealStorageKey(prop)] = value;
                         }
                         return true;
                     },
-                    deleteProperty(target, prop) {
-                        const ctx = (target && target.internal && target.internal.ctx) || window;
-                        delete realStorage[toRealStorageKey(prop, ctx)];
+                    deleteProperty(_, prop) {
+                        delete realStorage[toRealStorageKey(prop)];
                         return true;
                     },
                     has(target, prop) {
-                        const ctx = (target && target.internal && target.internal.ctx) || window;
-                        return toRealStorageKey(prop, ctx) in realStorage || prop in target;
+                        return toRealStorageKey(prop) in realStorage || prop in target;
                     },
-                    ownKeys(target) {
+                    ownKeys() {
                         const list = [];
-                        const ctx = (target && target.internal && target.internal.ctx) || window;
                         for (const [key] of Object.entries(realStorage)) {
-                            const proxyKey = fromRealStorageKey(key, ctx);
+                            const proxyKey = fromRealStorageKey(key);
                             if (proxyKey && !reservedProps.includes(proxyKey)) list.push(proxyKey);
                         }
                         return list;
                     },
-                    getOwnPropertyDescriptor(target, prop) {
-                        const ctx = (target && target.internal && target.internal.ctx) || window;
-                        return Object.getOwnPropertyDescriptor(realStorage, toRealStorageKey(prop, ctx));
+                    getOwnPropertyDescriptor(_, prop) {
+                        return Object.getOwnPropertyDescriptor(realStorage, toRealStorageKey(prop));
                     },
-                    defineProperty(target, prop, desc) {
+                    defineProperty(_, prop, desc) {
                         if (!reservedProps.includes(prop)) {
-                            const ctx = (target && target.internal && target.internal.ctx) || window;
-                            Object.defineProperty(realStorage, toRealStorageKey(prop, ctx), desc);
+                            Object.defineProperty(realStorage, toRealStorageKey(prop), desc);
                         }
                         return true;
                     }
