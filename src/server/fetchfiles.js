@@ -372,6 +372,9 @@ async function applyDirections(rootPath, directions) {
 
     if (dir.delete) {
       const targetPath = resolvePath(dir.path);
+      if(targetPath.split('/').at(-1) === 'apps') {
+        continue; // prevent deleting 'apps' folder
+      }
       await fsp.rm(targetPath, { recursive: true, force: true });
 
       // Clean up any server-side clipboard entries that reference this path

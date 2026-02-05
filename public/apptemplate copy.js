@@ -1,21 +1,12 @@
-//settings global vars
-  let allSettings = [];
-  let settingsId = 0;
+//your_app_name global vars
+  let allyour_app_name = [];
+  let your_app_nameId = 0;
 
-settings = function (posX = 50, posY = 50) {
+your_app_name = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
-      async function post(data) {
-        const res = await fetch(zmcdserver, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, ...data }),
-        });
-        return res.json();
-      }
-
     let isMaximized = false;
     let _isMinimized = false;
-    atTop = "settings";
+    atTop = "your_app_name";
     const root = document.createElement("div");
     root.className = "sim-chrome-root";
     Object.assign(root.style, {
@@ -32,11 +23,11 @@ settings = function (posX = 50, posY = 50) {
       fontFamily: "sans-serif",
       zIndex: 1000,
     });
-    root.classList.add('settings');
+    root.classList.add('your_app_name');
     bringToFront(root);
     document.body.appendChild(root);
-    settingsId++;
-    root._settingsId = settingsId;
+    your_app_nameId++;
+    root._your_app_nameId = your_app_nameId;
 
     // --- Top bar ---
     var topBar = false;
@@ -146,12 +137,12 @@ settings = function (posX = 50, posY = 50) {
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < allSettings.length; i++) {
-        if (allSettings[i].rootElement == root) {
+      for (let i = 0; i < allyour_app_name.length; i++) {
+        if (allyour_app_name[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) allSettings.splice(index, 1);
+      if (index !== false) allyour_app_name.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -309,265 +300,14 @@ settings = function (posX = 50, posY = 50) {
       resize();
       root.tabIndex = "0";
 
-
-
-// Assuming you already have a root container like:
-// const root = document.getElementById("root");
-
-// Make mainContainer fill the root and add padding
-let mainContainer = document.createElement('div');
-mainContainer.style.width = "calc(100% - 50%)";
-mainContainer.style.height = "100%";
-mainContainer.style.boxSizing = "border-box"; // ensures padding is included
-mainContainer.style.margin = "0 15px"; // top/bottom 0, left/right 8px
-mainContainer.style.overflowY = "auto"; // optional: adds scroll if content overflows
-root.appendChild(mainContainer);
-
-  const title = document.createElement("div");
-  title.textContent = "Account Settings";
-  title.style.fontSize = "16px";
-  title.style.fontWeight = "600";
-  title.style.marginBottom = "12px";
-
-  const section = document.createElement("div");
-  section.style.marginBottom = "16px";
-
-  const label = document.createElement("div");
-  label.textContent = "Change Password";
-  label.style.fontSize = "13px";
-  label.style.marginBottom = "6px";
-
-  const oldinput = document.createElement("input");
-  oldinput.type = "password";
-  oldinput.placeholder = "Old password";
-  oldinput.style.width = "calc(100% - 10px)";
-  oldinput.style.boxSizing = "border-box";
-  oldinput.style.padding = "6px";
-
-  const input = document.createElement("input");
-  input.type = "password";
-  input.placeholder = "New password";
-  input.style.width = "calc(100% - 10px)";
-  input.style.boxSizing = "border-box";
-  input.style.padding = "6px";
-
-  const confirm = document.createElement("input");
-  confirm.type = "password";
-  confirm.placeholder = "Confirm password";
-  confirm.style.width = "calc(100% - 10px)";
-  confirm.style.boxSizing = "border-box";
-  confirm.style.padding = "6px";
-  confirm.style.marginTop = "6px";
-
-  const button = document.createElement("button");
-  button.textContent = "Save Password";
-  button.style.marginTop = "10px";
-
-  const status = document.createElement("div");
-  status.style.marginTop = "8px";
-  status.style.fontSize = "12px";
-
-  button.onclick = async () => {
-    status.textContent = "";
-
-    if (!input.value || !confirm.value) {
-      status.textContent = "Password cannot be empty.";
-      status.style.color = "red";
-      return;
-    }
-
-    if (input.value !== confirm.value) {
-      status.textContent = "Passwords do not match.";
-      status.style.color = "red";
-      return;
-    }
-
-    button.disabled = true;
-    button.textContent = "Saving...";
-
-    try {
-      const res = await post({
-        updatePassword: true,
-        oldPassword: oldinput.value,
-        newPassword: input.value
-      });
-
-      if (res.success) {
-        status.textContent = "Password updated successfully.";
-        status.style.color = "green";
-        input.value = "";
-        confirm.value = "";
-      } else {
-        throw new Error(res.error || "Failed");
-      }
-    } catch (e) {
-      status.textContent = "Failed to update password.";
-      status.style.color = "red";
-    }
-
-    button.disabled = false;
-    button.textContent = "Save Password";
-  };
-
-  section.append(label, oldinput, document.createElement('br'), input, document.createElement('br'), confirm, document.createElement('br'), button, status);
-  mainContainer.append(title, section);
-
-
-    function sectionTitle(text) {
-    const d = document.createElement("div");
-    d.textContent = text;
-    d.style.fontSize = "14px";
-    d.style.fontWeight = "600";
-    d.style.margin = "14px 0 6px";
-    return d;
-  }
-
-  function statusLine() {
-    const d = document.createElement("div");
-    d.style.fontSize = "12px";
-    d.style.marginTop = "6px";
-    return d;
-  }
- /* =========================================================
-     🔊 SOUND — VOLUME
-  ========================================================= */
-
-  mainContainer.appendChild(sectionTitle("Sound"));
-
-  const volumeLabel = document.createElement("div");
-  volumeLabel.textContent = "Volume";
-
-  const volume = document.createElement("input");
-  volume.type = "range";
-  volume.min = 0;
-  volume.max = 100;
-  volume.value = data.volume;
-  volume.style.width = "calc(100% - 10px)";
-
-  volume.oninput = async () => {
-    await post({changeVolume: true, volume: volume.value});
-    data.volume = volume.value;
-    // Optional global hook
-    window.dispatchEvent(
-      new CustomEvent("system-volume", {
-        detail: volume.value
-      })
-    );
-  };
-
-  mainContainer.append(volumeLabel, volume);
-
-  /* ========================================================="}
-     🌞 DISPLAY — BRIGHTNESS
-  ========================================================= */
-
-  mainContainer.appendChild(sectionTitle("Display"));
-
-  const brightLabel = document.createElement("div");
-  brightLabel.textContent = "Brightness";
-
-  const brightness = document.createElement("input");
-  brightness.type = "range";
-  brightness.min = 0;
-  brightness.max = 100;
-  brightness.value = data.brightness;
-  brightness.style.width = "calc(100% - 10px)";
-
-  brightness.oninput = async () => {
-    // Simple global brightness effect
-    document.documentElement.style.filter =
-      `brightness(${brightness.value}%)`;
-      data.brightness = brightness.value;
-    await post({
-        changeBrightness: true,
-        brightness: brightness.value
-    });
-  };
-
-  mainContainer.append(brightLabel, brightness);
-/* =========================================================
-   🌗 APPEARANCE — THEME
-========================================================= */
-
-mainContainer.appendChild(sectionTitle("Appearance"));
-
-const themeRow = document.createElement("div");
-themeRow.style.alignItems = "center";
-themeRow.style.marginTop = "8px";
-
-const themeLabel = document.createElement("div");
-themeLabel.textContent = "Dark Mode";
-themeLabel.style.fontSize = "13px";
-
-const themeToggle = document.createElement("input");
-themeToggle.type = "checkbox";
-themeToggle.checked = !!data.dark;
-
-/* Toggle handler */
-themeToggle.onchange = async () => {
-  data.dark = themeToggle.checked;
-
-  // Apply theme immediately
-  applyStyles();
-
-  // Persist to backend (optional but recommended)
-  await post({
-    setTheme: true,
-    dark: data.dark
-  });
-};
-
-themeRow.append(themeLabel, themeToggle);
-mainContainer.appendChild(themeRow);
-  /* =========================================================
-     🗑️ DANGER ZONE — DELETE ACCOUNT
-  ========================================================= */
-
-  mainContainer.appendChild(sectionTitle("Danger Zone"));
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "Delete Account";
-  deleteBtn.style.background = "#c0392b";
-  deleteBtn.style.color = "white";
-
-  const deleteStatus = statusLine();
-
-  deleteBtn.onclick = async () => {
-
-    deleteBtn.disabled = true;
-
-    try {
-      const res = await post({ deleteAcc: true, username: username, password: oldinput.value });
-
-      if (!res.success) {
-        throw new Error();
-      } 
-
-      deleteStatus.textContent = "Account deleted.";
-      deleteStatus.style.color = "green";
-
-      // Optional: force logout / reload
-      setTimeout(() => location.reload(), 1000);
-    } catch {
-        deleteStatus.textContent = "Wrong password in old password input.";
-        deleteStatus.style.color = "red";
-        deleteBtn.disabled = false;
-    }
-  };
-
-  mainContainer.append(deleteBtn, deleteStatus);
-
-
-
-
-      allSettings.push({
+      allyour_app_name.push({
         rootElement: root,
         btnMax,
         _isMinimized,
         isMaximized,
         getBounds,
         applyBounds,
-        settingsId,
+        your_app_nameId,
       });
           applyStyles();
 
@@ -578,7 +318,7 @@ mainContainer.appendChild(themeRow);
         isMaximized,
         getBounds,
         applyBounds,
-        settingsId,
+        your_app_nameId,
       };
     }
 }
@@ -589,18 +329,18 @@ mainContainer.appendChild(themeRow);
 
 
   //app stuff
-  let settingsButtons = [];
-  let settingsmenu;
-  function settingsContextMenu(e, needRemove = true) {
+  let your_app_nameButtons = [];
+  let your_app_namemenu;
+  function your_app_nameContextMenu(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    settingsmenu = menu;
+    your_app_namemenu = menu;
     try {
-        removeOtherMenus('settings');
+        removeOtherMenus('your_app_name');
     } catch (e) {}
     menu.className = "app-menu";
     Object.assign(menu.style, {
@@ -623,11 +363,11 @@ mainContainer.appendChild(themeRow);
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of allSettings) {
+      for (const i of allyour_app_name) {
         i.rootElement.remove();
       }
 
-      allSettings = [];
+      allyour_app_name = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -637,7 +377,7 @@ mainContainer.appendChild(themeRow);
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of allSettings) {
+      for (const i of allyour_app_name) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -649,7 +389,7 @@ mainContainer.appendChild(themeRow);
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
-      for (const i of allSettings) {
+      for (const i of allyour_app_name) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -662,7 +402,7 @@ mainContainer.appendChild(themeRow);
     newWindow.style.padding = "6px 10px";
     newWindow.style.cursor = "pointer";
     newWindow.addEventListener("click", () => {
-      settings(50, 50);
+      your_app_name("/", 50, 50);
       menu.remove();
     });
     menu.appendChild(newWindow);
@@ -708,11 +448,11 @@ mainContainer.appendChild(themeRow);
       add.style.padding = "6px 10px";
       add.style.cursor = "pointer";
       add.addEventListener("click", function () {
-        let settingsButton = addTaskButton("⚙", settings);
+        let your_app_nameButton = addTaskButton("⚙", your_app_name);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of settingsButtons) {
-          fb.addEventListener("contextmenu", settingsContextMenu);
+        for (const fb of your_app_nameButtons) {
+          fb.addEventListener("contextmenu", your_app_nameContextMenu);
         }
       });
       menu.appendChild(add);
@@ -720,15 +460,15 @@ mainContainer.appendChild(themeRow);
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allSettings.length === 0) {
+    if (allyour_app_name.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allSettings.forEach((instance, i) => {
+      allyour_app_name.forEach((instance, i) => {
         const item = document.createElement("div");
-        item.textContent = instance.title || `Settings ${i + 1}`;
+        item.textContent = instance.title || `your_app_name ${i + 1}`;
 
         Object.assign(item.style, {
             padding: "6px 10px",
@@ -774,28 +514,28 @@ mainContainer.appendChild(themeRow);
   }
 
   function ehl1(e) {
-    settingsContextMenu(e, (needremove = false));
+    your_app_nameContextMenu(e, (needremove = false));
   }
-  let sbtn = document.getElementById("settingsapp");
-  sbtn.addEventListener("contextmenu", ehl1);
+  let your_app_abb_btn = document.getElementById("your_app_nameapp");
+  your_app_abb_btn.addEventListener("contextmenu", ehl1);
 
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Settings
+// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for your_app_name
 try {
-  function attachSettingsContext(btn) {
+  function attachyour_app_nameContext(btn) {
     try {
       if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.settingsContextBound) return;
+      if (btn.dataset && btn.dataset.your_app_nameContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === 'settings' || String(aid) === 'settingsapp')) return;
-      btn.addEventListener('contextmenu', settingsContextMenu);
-      if (btn.dataset) btn.dataset.settingsContextBound = '1';
-      settingsButtons.push(btn);
+      if (!(String(aid) === 'your_app_name' || String(aid) === 'your_app_nameapp')) return;
+      btn.addEventListener('contextmenu', your_app_nameContextMenu);
+      if (btn.dataset) btn.dataset.your_app_nameContextBound = '1';
+      your_app_nameButtons.push(btn);
     } catch (e) {}
   }
 
   try {
     const existing = (typeof taskbar !== 'undefined' && taskbar) ? taskbar.querySelectorAll('button') : document.querySelectorAll('button');
-    for (const b of existing) attachSettingsContext(b);
+    for (const b of existing) attachyour_app_nameContext(b);
   } catch (e) {}
 
   const observerTarget = (typeof taskbar !== 'undefined' && taskbar) ? taskbar : document.body;
@@ -803,14 +543,14 @@ try {
     for (const m of mutations) {
       for (const n of m.addedNodes) {
         if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches('button')) attachSettingsContext(n);
+        if (n.matches && n.matches('button')) attachyour_app_nameContext(n);
         else {
-          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachSettingsContext); } catch (e) {}
+          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachyour_app_nameContext); } catch (e) {}
         }
       }
     }
   });
   mo.observe(observerTarget, { childList: true, subtree: true });
 } catch (e) {
-  console.error('failed to attach settings context handlers', e);
+  console.error('failed to attach your_app_name context handlers', e);
 }

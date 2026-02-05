@@ -1214,7 +1214,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     newWindow.style.padding = "6px 10px";
     newWindow.style.cursor = "pointer";
     newWindow.addEventListener("click", () => {
-      textEditor("/", 50, 50);
+      textEditor(50, 50);
       menu.remove();
     });
     menu.appendChild(newWindow);
