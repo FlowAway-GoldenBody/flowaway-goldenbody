@@ -131,7 +131,7 @@ return; // VERY IMPORTANT
               password: data.password,
               id: sessionId,
               needNewAcc: false,
-              taskbuttons: ['browser', 'fileExplorer', 'settings'],
+              taskbuttons: ['browser', 'fileExplorer', 'settings', 'textEditor'],
               brightness: 100,
               volume: 40,
               dark: false,
@@ -141,6 +141,14 @@ return; // VERY IMPORTANT
             fs.mkdirSync(directoryPath + data.username, { recursive: true });
             let userDirectoryPath = directoryPath + data.username + '/';
             fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent));
+            fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
+fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
+// Don't create 'apps' — let cpSync do it
+fs.cpSync(
+  path.join(__dirname, 'apps'),
+  path.join(userDirectoryPath, 'root', 'apps'),
+  { recursive: true }
+);
             responseContent = newContent;
           }
         } else {
