@@ -1,10 +1,22 @@
 //textEditor global vars
   let alltextEditor = [];
   let textEditorId = 0;
-
+let __textEditorStyle = document.createElement("style");
+__textEditorStyle.textContent = `
+.texteditor-topbar.dark{
+  background: #111;
+  color: #eee;
+}
+.texteditor-topbar.light {
+  background: #fafafa;
+  color: #000;
+}
+`;
+document.head.appendChild(__textEditorStyle);
 textEditor = function (path, posX = 50, posY = 50) {
   let hasFileOpen = false;
   let editorName;
+  debugger;
     if (!window.treeData) {window.loadTree();}
     startMenu.style.display = 'none';
       async function post(data) {
@@ -331,14 +343,18 @@ textEditor = function (path, posX = 50, posY = 50) {
         gap: '8px',
         padding: '6px 8px',
         borderBottom: '1px solid rgba(0,0,0,0.06)',
-        background: data && data.dark ? '#111' : '#fafafa'
       });
-
+      toolbar.className = 'texteditor-topbar';
+    root.addEventListener("styleapplied", () => {
+      debugger;
+      toolbar.classList.toggle('dark', data.dark);
+      toolbar.classList.toggle('light', !data.dark);
+    });
       // Title: prefer editorName (if set) then path then fallback
       const titleLabel = document.createElement('div');
       const visibleName = `Untitled text`;
       titleLabel.textContent = visibleName;
-      Object.assign(titleLabel.style, { fontWeight: '600', fontSize: '14px', color: data.dark ? '#fff' : '#000' });
+      Object.assign(titleLabel.style, { fontWeight: '600', fontSize: '14px' });
 
       const newBtn = document.createElement('button');
       newBtn.textContent = 'New';
@@ -1214,7 +1230,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     newWindow.style.padding = "6px 10px";
     newWindow.style.cursor = "pointer";
     newWindow.addEventListener("click", () => {
-      textEditor("/", 50, 50);
+      textEditor(50, 50);
       menu.remove();
     });
     menu.appendChild(newWindow);
