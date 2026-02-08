@@ -5,6 +5,35 @@
     item: null, // tree node reference
     path: null, // full path string
   };
+        function findNodeByPath(relPath) {
+        const parts = relPath.split("/");
+        let current = treeData;
+        for (let i = 1; i < parts.length; i++) {
+          if (!current[1]) return null;
+          current = current[1].find((c) => c[0] === parts[i]);
+        }
+        return current;
+      }
+      function removeNodeFromTree(node, pathParts) {
+  if (!node || !Array.isArray(node[1])) return false;
+
+  const [target, ...rest] = pathParts;
+
+  for (let i = 0; i < node[1].length; i++) {
+    const child = node[1][i];
+
+    if (child[0] === target) {
+      if (rest.length === 0) {
+        node[1].splice(i, 1); // delete node
+        return true;
+      } else {
+        return removeNodeFromTree(child, rest); // go deeper
+      }
+    }
+  }
+
+  return false; // not found
+}
 fileExplorer = function (posX = 50, posY = 50) {
     let isMaximized = false;
     let _isMinimized = false;
@@ -1646,7 +1675,7 @@ try {
       if (!btn || !(btn instanceof HTMLElement)) return;
       if (btn.dataset && btn.dataset.fileExplorerContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === 'fileExplorer' || String(aid) === 'fileExplorerapp' || String(aid).toLowerCase().includes('explorer'))) return;
+      if (!(String(aid) === '🗂' || String(aid) === 'fileExplorerapp' || String(aid).toLowerCase().includes('explorer'))) return;
       btn.addEventListener('contextmenu', fileExplorerContextMenu);
       if (btn.dataset) btn.dataset.fileExplorerContextBound = '1';
       fileExplorerButtons.push(btn);
@@ -1674,3 +1703,297 @@ try {
 } catch (e) {
   console.error('failed to attach fileExplorer context handlers', e);
 }
+
+// Listen for terminal commands and handle fileExplorer-specific ones
+window.addEventListener('terminalCommand', async (ev) => {
+  try {
+    const d = ev.detail || {};
+    const appName = String(d.app || '').toLowerCase();
+    if (!appName.startsWith('file')) return;
+
+    /* ===============================
+       Terminal targeting + printing
+    =============================== */
+
+    let targetTerminalRoot = null;
+    if (d.terminalId !== undefined) {
+      for (const r of document.querySelectorAll('.sim-chrome-root.terminal')) {
+        if (r._terminalId == d.terminalId) {
+          targetTerminalRoot = r;
+          break;
+        }
+      }
+    }
+    if (!targetTerminalRoot) {
+      const roots = document.querySelectorAll('.sim-chrome-root.terminal');
+      targetTerminalRoot = roots[roots.length - 1] || null;
+    }
+
+    function terminalPrint(msg) {
+      if (!targetTerminalRoot) return console.log('[fileExplorer]', msg);
+      const input = targetTerminalRoot.querySelector('input[placeholder]');
+      const output = input?.closest('div')?.parentElement?.children?.[0];
+      if (!output) return console.log('[fileExplorer]', msg);
+      const el = document.createElement('div');
+      el.textContent = String(msg);
+      output.appendChild(el);
+      output.scrollTop = output.scrollHeight;
+    }
+
+    /* ===============================
+       Argument parsing (supports \ )
+    =============================== */
+
+    function parseArgs(input) {
+      const args = [];
+      let cur = '';
+      let escaped = false;
+
+      for (const ch of input) {
+        if (escaped) {
+          cur += ch;
+          escaped = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (ch === ' ') {
+          if (cur) args.push(cur), cur = '';
+          continue;
+        }
+        cur += ch;
+      }
+      if (cur) args.push(cur);
+      return args;
+    }
+
+    const raw = String(d.raw || '');
+    const parts = Array.isArray(d.parts) ? d.parts : parseArgs(raw);
+
+    const cmd = (parts[1] || '').toLowerCase();
+    const args = parts.slice(2);
+
+    const terminalCwd = targetTerminalRoot?._cwd ?? d.cwd ?? '/';
+
+    /* ===============================
+       Path helpers
+    =============================== */
+
+    function cleanPath(p) {
+      return String(p || '').trim().replace(/^['"]|['"]$/g, '');
+    }
+
+    function resolvePathParts(path, baseCwd) {
+      const cleaned = cleanPath(path);
+      const base = baseCwd.replace(/^\/+/, '').split('/').filter(Boolean);
+
+      let parts;
+      if (!cleaned || cleaned === '.') {
+        parts = base;
+      } else if (cleaned.startsWith('/')) {
+        parts = cleaned.replace(/^\/+/, '').split('/').filter(Boolean);
+      } else {
+        parts = base.concat(cleaned.split('/').filter(Boolean));
+      }
+
+      const resolved = [];
+      for (const p of parts) {
+        if (p === '.' || p === '') continue;
+        if (p === '..') resolved.pop();
+        else resolved.push(p);
+      }
+      return resolved;
+    }
+
+    function resolvePathToNode(path, baseCwd) {
+      const parts = resolvePathParts(path, baseCwd);
+      let current = treeData;
+      for (const seg of parts) {
+        if (!Array.isArray(current[1])) return null;
+        current = current[1].find(c => c[0] === seg);
+        if (!current) return null;
+      }
+      return current;
+    }
+
+    function getNodePathParts(target) {
+      function walk(cur, path) {
+        if (!Array.isArray(cur[1])) return null;
+        for (const child of cur[1]) {
+          if (child === target) return path.concat(child[0]);
+          const found = walk(child, path.concat(child[0]));
+          if (found) return found;
+        }
+        return null;
+      }
+      return walk(treeData, []);
+    }
+
+    const toAbs = (parts) => '/' + parts.join('/');
+
+    /* ===============================
+       Commands
+    =============================== */
+    if (cmd === 'ls' || cmd === 'list') {
+      const node = resolvePathToNode(args[0], terminalCwd);
+      if (!node) return terminalPrint('Path not found');
+      if (!Array.isArray(node[1])) return terminalPrint('Not a folder');
+      node[1].forEach(c =>
+        terminalPrint((Array.isArray(c[1]) ? '📁 ' : '📄 ') + c[0])
+      );
+      return;
+    }
+
+    if (cmd === 'open') {
+      const p = args[0];
+      if (!p) return terminalPrint('Usage: fileExplorer open <path>');
+      const node = resolvePathToNode(p, terminalCwd);
+      if (!node) return terminalPrint('Not found: ' + p);
+      if (node[1] !== null) return terminalPrint('Path is a folder');
+      if (typeof window.textEditor === 'function') {
+        window.textEditor(p);
+        terminalPrint('Opened: ' + p);
+      } else {
+        terminalPrint('Text editor not available');
+      }
+      return;
+    }
+    if (cmd === 'mkdir') {
+      const p = args[0];
+      if (!p) return terminalPrint('Usage: fileExplorer mkdir <path>');
+
+      const parts = resolvePathParts(p, terminalCwd);
+      const name = parts.pop();
+      const parent = resolvePathToNode(parts.join('/'), terminalCwd);
+
+      if (!parent || !Array.isArray(parent[1])) {
+        return terminalPrint('Parent folder not found');
+      }
+
+      parent[1].push([name, []]);
+
+      await filePost({
+        saveSnapshot: true,
+        directions: [{ addFolder: true, path: toAbs(parts.concat(name)) }]
+      });
+
+      terminalPrint('Created folder: ' + toAbs(parts.concat(name)));
+      return;
+    }
+
+    if (cmd === 'rm' || cmd === 'del' || cmd === 'remove') {
+      const p = args[0];
+      if (!p) return terminalPrint('Usage: fileExplorer rm <path>');
+
+      const node = resolvePathToNode(p, terminalCwd);
+      if (!node) return terminalPrint('Not found');
+
+      const parts = getNodePathParts(node);
+      if (!parts) return terminalPrint('Failed to resolve path');
+
+      removeNodeFromTree(treeData, parts);
+
+      await filePost({
+        saveSnapshot: true,
+        directions: [{ delete: true, path: toAbs(parts) }]
+      });
+
+      terminalPrint('Removed: ' + toAbs(parts));
+      return;
+    }
+
+    if (cmd === 'mv' || cmd === 'move') {
+      const [src, dst] = args;
+      if (!src || !dst) return terminalPrint('Usage: fileExplorer mv <src> <dst>');
+
+      const node = resolvePathToNode(src, terminalCwd);
+      if (!node) return terminalPrint('Source not found');
+
+      const srcParts = getNodePathParts(node);
+      if (!srcParts) return terminalPrint('Failed to resolve source');
+
+      removeNodeFromTree(treeData, srcParts);
+
+      const dstParts = resolvePathParts(dst, terminalCwd);
+      const dstFolder = resolvePathToNode(dstParts.join('/'), '/');
+      if (!dstFolder || !Array.isArray(dstFolder[1])) {
+        return terminalPrint('Destination not found or not a folder');
+      }
+
+      dstFolder[1].push(node);
+
+      await filePost({
+        saveSnapshot: true,
+        directions: [
+          { copy: true, path: toAbs(srcParts) },
+          { paste: true, path: toAbs(dstParts.concat(node[0])) },
+          { delete: true, path: toAbs(srcParts) }
+        ]
+      });
+
+      terminalPrint(`Moved ${toAbs(srcParts)} → ${toAbs(dstParts.concat(node[0]))}`);
+      return;
+    }
+
+if (cmd === 'cp' || cmd === 'copy') {
+  const [src, dst] = args;
+  if (!src || !dst) {
+    terminalPrint('Usage: fileExplorer cp <src> <dst>');
+    return;
+  }
+
+  const srcNode = resolvePathToNode(src, terminalCwd);
+  if (!srcNode) {
+    terminalPrint('Source not found');
+    return;
+  }
+
+  const srcParts = getNodePathParts(srcNode);
+  if (!srcParts) {
+    terminalPrint('Unable to resolve source path');
+    return;
+  }
+
+  const dstParts = resolvePathParts(dst, terminalCwd);
+  const dstNode = resolvePathToNode(dstParts.join('/'), terminalCwd);
+  if (!dstNode || !Array.isArray(dstNode[1])) {
+    terminalPrint('Destination not found or not a folder');
+    return;
+  }
+
+  // Deep clone the node to avoid sharing references
+  const clonedNode = JSON.parse(JSON.stringify(srcNode));
+  dstNode[1].push(clonedNode);
+
+  await filePost({
+    saveSnapshot: true,
+    directions: [
+      { copy: true, path: toAbs(srcParts) },
+      { paste: true, path: toAbs(dstParts.concat(clonedNode[0])) }
+    ]
+  });
+
+  terminalPrint(`Copied ${toAbs(srcParts)} → ${toAbs(dstParts.concat(clonedNode[0]))}`);
+  return;
+}
+
+
+  } catch (e) {
+    console.error('fileExplorer terminal handler error', e);
+  }
+});
+
+
+// === Terminal command ideas for File Explorer ===
+// Commands follow format: <app> <command> <args>
+// Example usage and purpose (apps listen for 'terminalCommand'):
+// fileExplorer list [path]        -> lists files/folders at [path] or current folder
+// fileExplorer open <path>        -> open a file in text editor or default viewer
+// fileExplorer mkdir <path>       -> create folder at path
+// fileExplorer rm <path>          -> delete a file or folder (use carefully)
+// fileExplorer mv <src> <dst>     -> move/rename
+// fileExplorer cp <src> <dst>     -> copy file or folder
+// Notes for implementers: apps should listen for the global 'terminalCommand' event
+// and check event.detail.app === 'fileExplorer' to handle these commands.

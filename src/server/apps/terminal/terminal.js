@@ -1,13 +1,15 @@
-//your_app_name global vars
-  let allyour_app_name = [];
-  let your_app_nameId = 0;
+// Terminal global vars - dispatch events to running apps to add terminal plugins
+  // Command format: <app> <command> <args>
+  let allTerminals = [];
+  let terminalId = 0;
 
-your_app_name = function (posX = 50, posY = 50) {
+terminal = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
     let isMaximized = false;
     let _isMinimized = false;
-    atTop = "your_app_name";
+    atTop = "terminal";
     const root = document.createElement("div");
+    debugger;
     root.className = "sim-chrome-root";
     Object.assign(root.style, {
       position: "fixed",
@@ -23,11 +25,13 @@ your_app_name = function (posX = 50, posY = 50) {
       fontFamily: "sans-serif",
       zIndex: 1000,
     });
-    root.classList.add('your_app_name');
+    root.classList.add('terminal');
     bringToFront(root);
     document.body.appendChild(root);
-    your_app_nameId++;
-    root._your_app_nameId = your_app_nameId;
+    terminalId++;
+    root._terminalId = terminalId;
+    // per-terminal current working directory (string, e.g. "/" or "/path/to/folder")
+    root._cwd = '/';
 
     // --- Top bar ---
     var topBar = false;
@@ -137,12 +141,12 @@ your_app_name = function (posX = 50, posY = 50) {
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < allyour_app_name.length; i++) {
-        if (allyour_app_name[i].rootElement == root) {
+      for (let i = 0; i < allTerminals.length; i++) {
+        if (allTerminals[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) allyour_app_name.splice(index, 1);
+      if (index !== false) allTerminals.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -300,14 +304,274 @@ your_app_name = function (posX = 50, posY = 50) {
       resize();
       root.tabIndex = "0";
 
-      allyour_app_name.push({
+      // --- Terminal UI: output + input ---
+      const terminalContent = document.createElement('div');
+      Object.assign(terminalContent.style, {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: '1',
+        padding: '12px',
+        gap: '8px',
+        overflow: 'hidden'
+      });
+
+      const output = document.createElement('div');
+      Object.assign(output.style, {
+        flex: '1',
+        overflow: 'auto',
+        background: 'rgba(0,0,0,0.04)',
+        padding: '8px',
+        borderRadius: '6px',
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        whiteSpace: 'pre-wrap'
+      });
+
+      const inputRow = document.createElement('div');
+      Object.assign(inputRow.style, { display: 'flex', gap: '8px', alignItems: 'center' });
+      const prompt = document.createElement('div');
+      prompt.textContent = root._cwd || '/';
+      Object.assign(prompt.style, { fontFamily: 'monospace', fontSize: '13px' });
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Type command: <app> <command> <args>';
+      Object.assign(input.style, { flex: '1', padding: '6px 8px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.12)', fontFamily: 'monospace' });
+
+      inputRow.appendChild(prompt);
+      inputRow.appendChild(input);
+      terminalContent.appendChild(output);
+      terminalContent.appendChild(inputRow);
+      // insert before any other children so it fills the window
+      root.appendChild(terminalContent);
+
+      // handle command entry
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          const raw = String(input.value || '').trim();
+          if (!raw) return;
+          // echo
+          const echo = document.createElement('div');
+          echo.textContent = `$ ${raw}`;
+          echo.style.color = 'var(--cmd-color, #111)';
+          output.appendChild(echo);
+          output.scrollTop = output.scrollHeight;
+
+          // parse into parts supporting quoted args, escaped chars, and backslash-space for literal spaces
+          // e.g. cd '/my folder', app 'arg\ with\ space', app "double quoted"
+          function splitArgs(str) {
+            const out = [];
+            let cur = '';
+            let inSingleQuote = false;
+            let inDoubleQuote = false;
+            let isEscaped = false;
+
+            for (let i = 0; i < str.length; i++) {
+              const ch = str[i];
+
+              // Handle escaped characters: backslash followed by any character (including space)
+              if (isEscaped) {
+                cur += ch;
+                isEscaped = false;
+                continue;
+              }
+
+              // Mark next character as escaped
+              if (ch === '\\') {
+                isEscaped = true;
+                continue;
+              }
+
+              // Handle single-quoted strings (preserve everything inside)
+              if (inSingleQuote) {
+                if (ch === "'") {
+                  inSingleQuote = false;
+                } else {
+                  cur += ch;
+                }
+                continue;
+              }
+
+              // Handle double-quoted strings (preserve everything inside)
+              if (inDoubleQuote) {
+                if (ch === '"') {
+                  inDoubleQuote = false;
+                } else {
+                  cur += ch;
+                }
+                continue;
+              }
+
+              // Start single quote
+              if (ch === "'") {
+                inSingleQuote = true;
+                continue;
+              }
+
+              // Start double quote
+              if (ch === '"') {
+                inDoubleQuote = true;
+                continue;
+              }
+
+              // Split on whitespace when not quoted/escaped
+              if (/\s/.test(ch)) {
+                if (cur.length) {
+                  out.push(cur);
+                  cur = '';
+                }
+                continue;
+              }
+
+              // Regular character
+              cur += ch;
+            }
+
+            if (cur.length) out.push(cur);
+            return out;
+          }
+
+          const parts = splitArgs(raw);
+          const appName = parts[0] || '';
+          const cmd = parts[1] || '';
+          const args = parts.slice(2);
+
+          // built-in terminal commands: cd, pwd
+          const normalizePath = (base, rel) => {
+            // returns normalized path with leading '/' (root = '/')
+            const baseParts = String(base || '/').split('/').filter(Boolean);
+            let partsArr = [];
+            if (typeof rel === 'string' && rel.startsWith('/')) {
+              partsArr = rel.split('/').filter(Boolean);
+            } else if (typeof rel === 'string' && rel.length > 0) {
+              partsArr = baseParts.concat(rel.split('/').filter(Boolean));
+            } else {
+              partsArr = baseParts.slice();
+            }
+            const out = [];
+            for (const p of partsArr) {
+              if (p === '.' || p === '') continue;
+              if (p === '..') { out.pop(); } else out.push(p);
+            }
+            return '/' + out.join('/');
+          };
+    function cleanPath(p) {
+      return String(p || '').trim().replace(/^['"]|['"]$/g, '');
+    }
+function resolvePathParts(path, baseCwd) {
+  const cleaned = cleanPath(path);
+
+  const base =
+    baseCwd && baseCwd !== '/'
+      ? String(baseCwd).replace(/^\/+/, '').split('/').filter(Boolean)
+      : [];
+
+  let parts;
+  if (!cleaned || cleaned === '.') {
+    parts = base;
+  } else if (cleaned.startsWith('/')) {
+    parts = cleaned.replace(/^\/+/, '').split('/').filter(Boolean);
+  } else {
+    parts = base.concat(cleaned.split('/').filter(Boolean));
+  }
+
+  const resolved = [];
+  for (const p of parts) {
+    if (p === '.' || p === '') continue;
+    if (p === '..') resolved.pop();
+    else resolved.push(p);
+  }
+
+  // 🚨 Guard against "root" ever leaking
+  if (resolved[0] === 'root') {
+    throw new Error('BUG: frontend path resolved to "root"');
+  }
+
+  return resolved;
+}
+
+
+    function resolvePathToNode(path, baseCwd) {
+      const parts = resolvePathParts(path, baseCwd);
+      let current = treeData;
+      for (const seg of parts) {
+        if (!Array.isArray(current[1])) return null;
+        current = current[1].find(c => c[0] === seg);
+        if (!current) return null;
+      }
+      return current;
+    }
+
+
+// If the command itself is 'cd' (user typed: cd <path>)
+if (appName === 'cd') {
+  const appendOutput = (text, isError = false) => {
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    if (isError) div.style.color = 'var(--error-color, #d32f2f)';
+    output.appendChild(div);
+    output.scrollTop = output.scrollHeight;
+  };
+
+  try {
+    // parts already come from splitArgs(), so escaped chars are handled
+    const rawTarget = parts[1] ?? '/';
+
+    // Resolve target relative to current cwd, handling .., ., and top-level absolute paths
+    const resolvedParts = resolvePathParts(rawTarget, root._cwd || '');
+    const node = resolvePathToNode(resolvedParts.join('/'), '');
+
+    if (!node || !Array.isArray(node[1])) {
+      appendOutput(`cd: no such directory: ${rawTarget}`, true);
+      input.value = '';
+      return;
+    }
+
+    // Update cwd: store without leading "/" (canonical form)
+    const normalized =
+      resolvedParts.length === 0
+        ? ''
+        : resolvedParts.join('/');
+
+    root._cwd = normalized;
+    prompt.textContent = '/' + (normalized || '');
+    appendOutput(`cwd -> /${normalized || ''}`);
+  } catch (e) {
+    appendOutput(`cd error: ${e.message || e}`, true);
+  }
+
+  input.value = '';
+  return;
+}
+
+
+          if (appName === 'pwd') {
+            const pdiv = document.createElement('div');
+            pdiv.textContent = root._cwd || '/';
+            output.appendChild(pdiv);
+            output.scrollTop = output.scrollHeight;
+            input.value = '';
+            return;
+          }
+
+          // Dispatch global event for apps to handle: include terminalId and cwd
+          try {
+            window.dispatchEvent(new CustomEvent('terminalCommand', {
+              detail: { terminalId: root._terminalId, cwd: root._cwd, raw, parts, app: appName, command: cmd, args }
+            }));
+          } catch (e) { console.error('dispatch terminalCommand', e); }
+
+          input.value = '';
+        }
+      });
+
+      allTerminals.push({
         rootElement: root,
         btnMax,
         _isMinimized,
         isMaximized,
         getBounds,
         applyBounds,
-        your_app_nameId,
+        terminalId,
       });
           applyStyles();
 
@@ -318,7 +582,7 @@ your_app_name = function (posX = 50, posY = 50) {
         isMaximized,
         getBounds,
         applyBounds,
-        your_app_nameId,
+        terminalId,
       };
     }
 }
@@ -328,19 +592,19 @@ your_app_name = function (posX = 50, posY = 50) {
 
 
 
-  //app stuff
-  let your_app_nameButtons = [];
-  let your_app_namemenu;
-  function your_app_nameContextMenu(e, needRemove = true) {
+  // Terminal context menu
+  let terminalButtons = [];
+  let terminalMenu;
+  function terminalContextMenu(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    your_app_namemenu = menu;
+    terminalMenu = menu;
     try {
-        removeOtherMenus('your_app_name');
+        removeOtherMenus('terminal');
     } catch (e) {}
     menu.className = "app-menu";
     Object.assign(menu.style, {
@@ -363,11 +627,11 @@ your_app_name = function (posX = 50, posY = 50) {
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of allyour_app_name) {
+      for (const i of allTerminals) {
         i.rootElement.remove();
       }
 
-      allyour_app_name = [];
+      allTerminals = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -377,7 +641,7 @@ your_app_name = function (posX = 50, posY = 50) {
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of allyour_app_name) {
+      for (const i of allTerminals) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -389,7 +653,7 @@ your_app_name = function (posX = 50, posY = 50) {
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
-      for (const i of allyour_app_name) {
+      for (const i of allTerminals) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -402,7 +666,7 @@ your_app_name = function (posX = 50, posY = 50) {
     newWindow.style.padding = "6px 10px";
     newWindow.style.cursor = "pointer";
     newWindow.addEventListener("click", () => {
-      your_app_name("/", 50, 50);
+      terminal(50, 50);
       menu.remove();
     });
     menu.appendChild(newWindow);
@@ -419,7 +683,7 @@ your_app_name = function (posX = 50, posY = 50) {
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
           if (
             index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-            taskbuttons[i].id.startsWith("⚙")
+            taskbuttons[i].id.startsWith("🖥️")
           ) {
             taskbuttons[i].remove();
             iconid = 0;
@@ -448,11 +712,11 @@ your_app_name = function (posX = 50, posY = 50) {
       add.style.padding = "6px 10px";
       add.style.cursor = "pointer";
       add.addEventListener("click", function () {
-        let your_app_nameButton = addTaskButton("⚙", your_app_name);
+        let terminalButton = addTaskButton("🖥️", terminal);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of your_app_nameButtons) {
-          fb.addEventListener("contextmenu", your_app_nameContextMenu);
+        for (const fb of terminalButtons) {
+          fb.addEventListener("contextmenu", terminalContextMenu);
         }
       });
       menu.appendChild(add);
@@ -460,15 +724,15 @@ your_app_name = function (posX = 50, posY = 50) {
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allyour_app_name.length === 0) {
+    if (allTerminals.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allyour_app_name.forEach((instance, i) => {
+      allTerminals.forEach((instance, i) => {
         const item = document.createElement("div");
-        item.textContent = instance.title || `your_app_name ${i + 1}`;
+        item.textContent = instance.title || `Terminal ${i + 1}`;
 
         Object.assign(item.style, {
             padding: "6px 10px",
@@ -514,28 +778,29 @@ your_app_name = function (posX = 50, posY = 50) {
   }
 
   function ehl1(e) {
-    your_app_nameContextMenu(e, (needremove = false));
+    terminalContextMenu(e, (needremove = false));
   }
-  let your_app_abb_btn = document.getElementById("your_app_nameapp");
-  your_app_abb_btn.addEventListener("contextmenu", ehl1);
+  debugger;
+  let terminalBtn = document.getElementById("terminalapp");
+  terminalBtn.addEventListener("contextmenu", ehl1);
 
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for your_app_name
+// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for terminal
 try {
-  function attachyour_app_nameContext(btn) {
+  function attachTerminalContext(btn) {
     try {
       if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.your_app_nameContextBound) return;
+      if (btn.dataset && btn.dataset.terminalContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === 'your_app_name' || String(aid) === 'your_app_nameapp')) return;
-      btn.addEventListener('contextmenu', your_app_nameContextMenu);
-      if (btn.dataset) btn.dataset.your_app_nameContextBound = '1';
-      your_app_nameButtons.push(btn);
+      if (!(String(aid) === '🖥️' || String(aid) === 'terminal')) return;
+      btn.addEventListener('contextmenu', terminalContextMenu);
+      if (btn.dataset) btn.dataset.terminalContextBound = '1';
+      terminalButtons.push(btn);
     } catch (e) {}
   }
 
   try {
     const existing = (typeof taskbar !== 'undefined' && taskbar) ? taskbar.querySelectorAll('button') : document.querySelectorAll('button');
-    for (const b of existing) attachyour_app_nameContext(b);
+    for (const b of existing) attachTerminalContext(b);
   } catch (e) {}
 
   const observerTarget = (typeof taskbar !== 'undefined' && taskbar) ? taskbar : document.body;
@@ -543,14 +808,14 @@ try {
     for (const m of mutations) {
       for (const n of m.addedNodes) {
         if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches('button')) attachyour_app_nameContext(n);
+        if (n.matches && n.matches('button')) attachTerminalContext(n);
         else {
-          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachyour_app_nameContext); } catch (e) {}
+          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachTerminalContext); } catch (e) {}
         }
       }
     }
   });
   mo.observe(observerTarget, { childList: true, subtree: true });
 } catch (e) {
-  console.error('failed to attach your_app_name context handlers', e);
+  console.error('failed to attach terminal context handlers', e);
 }

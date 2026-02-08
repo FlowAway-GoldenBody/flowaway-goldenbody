@@ -1,61 +1,3 @@
-/*
-  CONTRIBUTING: Adding a new App
-
-  This file bootstraps the client UI (start menu, taskbar, apps). When adding a new
-  application, follow these steps so other contributors can find and wire it correctly:
-
-  1) App script file
-     - Put the app's client-side JS under `public/` (e.g. `public/myApp.js`). The app should
-       expose a top-level function (e.g. `myApp()`) that creates and returns the window root
-       element or registers itself with the global runtime.
-     - Load the script from `flowaway.js` near the other app loaders (search for `feApp`,
-       `bApp`, `settingsApp`, `sysScript`). Example:
-         let myAppScript = document.createElement('script');
-         myAppScript.src = `${goldenbodywebsite}myApp.js`;
-         document.body.appendChild(myAppScript);
-
-  2) Start menu entry (visible in the app launcher)
-     - Add a clickable `.app` block inside `startMenu.innerHTML` (search for "File Explorer" in
-       this file to see examples). Use a unique `id` and `data-app` attribute. The click handler
-       below maps `data-app` to the app opener function (see `startMenu.addEventListener('click', ...)`).
-
-  3) Taskbar button
-     - `data.taskbuttons` in the user's file determines which quick-launch buttons appear.
-       When creating a new user in `src/server/zmcd.js`, include your app id in the default
-       `taskbuttons` array so it appears by default for new users.
-
-  4) Keyboard shortcuts
-     - Global shortcuts live inside the `window.addEventListener('keydown', ...)` handler.
-       Add new key combos (Ctrl/Cmd + key) in that handler so the app opens the focused
-       window or creates a new instance. Follow the existing structure (check for `atTop`)
-       and call your app function (e.g. `myApp()`). Keep shortcuts discoverable and avoid
-       collisions with environment defaults.
-
-  5) Context / integration points
-     - If your app needs to appear in the taskbar, add its id to `data.taskbuttons` and
-       update any UI that enumerates `taskbuttons` when rendering the taskbar.
-     - If your app needs saved user settings, store them in the user's `${username}.txt`
-       file (see `zmcd.js`) or extend `siteSettings`. For quota or file access, use the
-       existing file APIs and server endpoints.
-
-  6) Notifications & server messages
-     - Use the global `notification(message)` helper (defined later in this file) to show
-       transient messages in the UI. The verification WS also calls this helper for server
-       push messages.
-
-  7) Testing & deployment
-     - Load the client and verify: start menu entry appears, shortcut opens the app, taskbar
-       button created, and app script loads without console errors.
-
-  8) referencing other apps
-    use the global arrays allBrowsers, allExplorers, allSettings to get references to the apps. and please make their root elements accessible via a property like `rootElement` on the app instance. read other apps for examples. make sure to handle the case where there are multiple instances of the app (e.g. multiple browsers opened). also this is the only place where other apps should be referenced directly. please avoid circular dependencies. global functions like __openFile() are real global ones, if the global function isn't used in multiple apps, plz define it inside the app script instead.
-    
-  Quick reference locations in repo:
-    - app scripts: public/*.js
-    - server user file template: src/server/zmcd.js
-    - file explorer integration: src/server/fetchfiles.js
-    - verification WS: src/server/verification.js (notifies and updates online flag)
-*/
 window.data = data;
 window.loaded = false;
   var atTop = "";
@@ -385,8 +327,11 @@ async function loadAppsFromTree() {
         }
       }
 
-      window.apps.push({ id: folderName, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false });
+      window.apps.push({ id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false });
     }
+
+    // Sort apps alphabetically by label
+    window.apps.sort((a, b) => a.label.localeCompare(b.label));
 
     // render
     renderAppsGrid();
@@ -404,7 +349,7 @@ async function renderAppsGrid() {
   for (const app of window.apps) {
     const div = document.createElement('div');
     div.className = 'app';
-    div.dataset.appId = app.id;
+    div.dataset.appId = app.icon;
     div.id = app.id + 'app';
     div.style.padding = '10px';
     div.style.borderRadius = '6px';
@@ -467,7 +412,7 @@ async function launchApp(appId) {
         if (untagged.length) {
           // tag the most recently added
           const candidate = untagged[untagged.length - 1];
-          candidate.dataset.appId = app.id;
+          candidate.dataset.appId = app.entry || app.id;
         }
       } catch (e) {}
     }, 40);
@@ -532,18 +477,26 @@ window.removeotherMenus = function(except) {
     const app = (window.apps || []).find(a => a.id === taskbutton);
     if (app) {
       const btn = addTaskButton(app.icon || '🔧', () => launchApp(app.id));
-      if (btn) btn.dataset.appId = app.id;
+      if (btn) btn.dataset.appId = app.icon;
     } 
   }
   taskbuttons = [...taskbar.querySelectorAll("button")];
  }
   function purgeButtons() {
+    buttons = [...taskbar.querySelectorAll("button")];
+    buttons.splice(0, 3);
+    buttons.forEach(b => {
+      b.dataset.appId = b.textContent;
+    });
     // Build a generic map from appId -> [buttons]
     window.appButtons = window.appButtons || {};
     window.appButtons = {};
     for (let i = 0; i < taskbuttons.length; i++) {
       const tb = taskbuttons[i];
-      const id = tb.dataset.appId || tb.value || tb.textContent;
+      let id;
+      try {
+        id = tb.dataset.appId;
+      } catch (e) {}
       if (!id) continue;
       window.appButtons[id] = window.appButtons[id] || [];
       window.appButtons[id].push(tb);
@@ -552,6 +505,7 @@ window.removeotherMenus = function(except) {
 
   function saveTaskButtons() {
     let buttons = [...taskbar.querySelectorAll("button")];
+    buttons.splice(0, 3);
     let postdata = [];
     for (const b of buttons) {
         if (b.dataset && b.dataset.appId) {

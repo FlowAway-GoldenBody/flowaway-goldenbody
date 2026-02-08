@@ -420,7 +420,7 @@ yourApp = function (posX = 50, posY = 50) {
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
           if (
             index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-            taskbuttons[i].id.startsWith("⚙")
+            taskbuttons[i].id.startsWith("🏠")
           ) {
             taskbuttons[i].remove();
             iconid = 0;
@@ -520,23 +520,23 @@ yourApp = function (posX = 50, posY = 50) {
   let your_app_abb_btn = document.getElementById("your_app_nameapp");
   your_app_abb_btn.addEventListener("contextmenu", ehl1);
 
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for your_app_name
+// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for yourApp
 try {
-  function attachyour_app_nameContext(btn) {
+  function attachYourAppContext(btn) {
     try {
       if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.your_app_nameContextBound) return;
+      if (btn.dataset && btn.dataset.yourAppContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === 'your_app_name' || String(aid) === 'your_app_nameapp')) return;
+      if (!(String(aid) === '🏠' || String(aid) === 'yourApp')) return;
       btn.addEventListener('contextmenu', your_app_nameContextMenu);
-      if (btn.dataset) btn.dataset.your_app_nameContextBound = '1';
+      if (btn.dataset) btn.dataset.yourAppContextBound = '1';
       your_app_nameButtons.push(btn);
     } catch (e) {}
   }
 
   try {
     const existing = (typeof taskbar !== 'undefined' && taskbar) ? taskbar.querySelectorAll('button') : document.querySelectorAll('button');
-    for (const b of existing) attachyour_app_nameContext(b);
+    for (const b of existing) attachYourAppContext(b);
   } catch (e) {}
 
   const observerTarget = (typeof taskbar !== 'undefined' && taskbar) ? taskbar : document.body;
@@ -544,14 +544,14 @@ try {
     for (const m of mutations) {
       for (const n of m.addedNodes) {
         if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches('button')) attachyour_app_nameContext(n);
+        if (n.matches && n.matches('button')) attachYourAppContext(n);
         else {
-          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachyour_app_nameContext); } catch (e) {}
+          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachYourAppContext); } catch (e) {}
         }
       }
     }
   });
   mo.observe(observerTarget, { childList: true, subtree: true });
 } catch (e) {
-  console.error('failed to attach your_app_name context handlers', e);
+  console.error('failed to attach yourApp context handlers', e);
 }

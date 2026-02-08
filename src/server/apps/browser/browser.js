@@ -1952,41 +1952,84 @@ btnOpen.onclick = async () => {
 
             btnCancel.onclick = () => { overlay.remove(); };
 
-            btnOpen.onclick = () => {
-              const basePath = dirPickerCurrentPath.slice(1).join('/') || 'root';
-              let chosen;
-              
-              if (dirPickerSelection.length > 0) {
-                // A specific folder was selected
-                const sel = dirPickerSelection[0];
-                if (Array.isArray(sel[1])) {
-                  chosen = (basePath !== 'root' ? basePath + '/' : '') + sel[0];
-                } else {
-                  notification('Please select a directory');
-                  return;
-                }
-              } else {
-                // Use current path as the selected directory
-                chosen = basePath;
-              }
+btnOpen.onclick = () => {
+  const basePath = dirPickerCurrentPath.slice(1).join('/') || 'root';
+  let chosen;
 
-              // Find the actual tree node for the selected path
-              let selectedNode = dirPickerTree;
-              const pathParts = chosen.split('/').filter(p => p && p !== 'root');
-              for (const part of pathParts) {
-                if (!selectedNode || !selectedNode[1]) break;
-                selectedNode = selectedNode[1].find(c => c[0] === part);
-              }
+  if (dirPickerSelection.length > 0) {
+    const sel = dirPickerSelection[0];
+    if (Array.isArray(sel[1])) {
+      chosen = (basePath !== 'root' ? basePath + '/' : '') + sel[0];
+    } else {
+      notification('Please select a directory');
+      return;
+    }
+  } else {
+    chosen = basePath;
+  }
 
-              // send response to requesting iframe
-              try {
-                if (sentreqframe && sentreqframe.contentWindow) {
-                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'directoryTarget', path: chosen, treeNode: selectedNode }, '*');
-                }
-              } catch (e) {}
+  // Find the actual tree node for the selected path
+  let selectedNode = dirPickerTree;
+  const pathParts = chosen.split('/').filter(p => p && p !== 'root');
+  for (const part of pathParts) {
+    if (!selectedNode || !selectedNode[1]) break;
+    selectedNode = selectedNode[1].find(c => c[0] === part);
+  }
 
-              overlay.remove();
-            };
+  if (!selectedNode) {
+    notification('Selected directory not found');
+    return;
+  }
+
+  // --- NEW: recursively gather files in the directory ---
+  function collectFiles(node, currentPath) {
+    const files = [];
+    if (!node || !Array.isArray(node[1])) return files;
+    for (const item of node[1]) {
+      const [name, child] = item;
+      const itemPath = currentPath ? currentPath + '/' + name : name;
+      if (Array.isArray(child)) {
+        // folder → recurse
+        files.push(...collectFiles(item, itemPath));
+      } else {
+        // file → add as base64 string (or empty placeholder if contents not loaded)
+        files.push({ path: itemPath, contents: child || '' });
+      }
+    }
+    return files;
+  }
+
+const filesToSend = collectFiles(selectedNode, chosen);
+
+// send directory info
+if (sentreqframe && sentreqframe.contentWindow) {
+  sentreqframe.contentWindow.postMessage({
+    __VFS__: true,
+    kind: 'directoryTarget',
+    path: chosen,
+    treeNode: selectedNode
+  }, '*');
+
+  // send each file as fileData
+  for (const f of filesToSend) {
+    const buffer = f.contents instanceof ArrayBuffer 
+      ? f.contents 
+      : new TextEncoder().encode(f.contents).buffer; // convert string to ArrayBuffer
+
+    sentreqframe.contentWindow.postMessage({
+      __VFS__: true,
+      kind: 'fileData',
+      path: f.path,
+      name: f.path.split('/').pop(),
+      type: 'text/plain',
+      buffer
+    }, '*');
+  }
+}
+
+  overlay.remove();
+};
+
           }
 
           // ----------------------------
@@ -2191,48 +2234,109 @@ btnOpen.onclick = async () => {
 
           // Polyfill common methods on prototypes so returned handles behave like
           // native FileSystemHandle objects.
-          FileSystemFileHandle.prototype.getFile = async function () {
-            if (this._file) return this._file;
-            // fallback: attempt to read from injectedFiles map if available
-            if (this.path) {
-              // try to locate a matching injected File by path
-              try {
-                const list = (window.injectedFiles || []);
-                for (const f of list) if ((f.fullPath || f.webkitRelativePath || f.name) === this.path) { this._file = f; return f; }
-              } catch (e) {}
-            }
-            throw new Error('File not available');
-          };
-          FileSystemFileHandle.prototype.createWritable = async function () {
-            // Prefer delegating to an underlying injected File's handle if present
-            try {
-              if (this._file && (this._file.handle || this._file.fileHandle)) {
-                const existing = this._file.handle || this._file.fileHandle;
-                if (existing.createWritable) return await existing.createWritable();
-              }
-            } catch (e) {}
-            // If this handle was returned from a save picker it will have a \`path\`.
-            // In that case create a writer that posts saveFile chunks to the top frame.
-            if (this.path) {
-              const path = this.path;
-              const name = this.name;
-              return {
-                write: async (data) => {
-                  let buffer = null;
-                  if (typeof data === 'string') buffer = new TextEncoder().encode(data).buffer;
-                  else if (data instanceof ArrayBuffer) buffer = data;
-                  else if (data && data.buffer) buffer = data.buffer;
-                  try { window.top.postMessage({ __VFS__: true, kind: 'saveFile', path, name, buffer }, '*'); } catch (e) {}
-                },
-                close: async () => {
-                  try { window.top.postMessage({ __VFS__: true, kind: 'saveFile', path, name, lastOne: true }, '*'); } catch (e) {}
-                }
-              };
-            }
 
-            const remote = await window.showSaveFilePicker({ suggestedName: this.name });
-            return await remote.createWritable();
-          };
+
+FileSystemFileHandle.prototype.createWritable = async function () {
+  const path = this.path;
+  const name = this.name;
+
+  // Delegate to native handle if present
+  try {
+    if (this._file && (this._file.handle || this._file.fileHandle)) {
+      const h = this._file.handle || this._file.fileHandle;
+      if (h.createWritable) return await h.createWritable();
+    }
+  } catch {}
+
+  if (!path) {
+    const remote = await window.showSaveFilePicker({ suggestedName: name });
+    return await remote.createWritable();
+  }
+
+  let closed = false;
+  let pendingWrites = [];
+
+  // ✅ REAL WritableStream with proper async handling
+  const stream = new WritableStream({
+    async write(chunk) {
+      if (closed) return;
+
+      let buffer;
+
+      if (chunk instanceof Blob) {
+        buffer = await chunk.arrayBuffer();
+      } else if (typeof chunk === 'string') {
+        buffer = new TextEncoder().encode(chunk).buffer;
+      } else if (chunk instanceof ArrayBuffer) {
+        buffer = chunk;
+      } else if (ArrayBuffer.isView(chunk)) {
+        buffer = chunk.buffer;
+      } else {
+        buffer = new Uint8Array(chunk).buffer;
+      }
+
+      // Return a promise that resolves when the message is sent
+      return new Promise((resolve) => {
+        window.top.postMessage(
+          { __VFS__: true, kind: 'saveFile', path, name, buffer },
+          '*'
+        );
+        // Resolve immediately after posting (message queued)
+        resolve();
+      });
+    },
+
+    async close() {
+      closed = true;
+      // Give a small delay to ensure previous writes are processed
+      await new Promise(r => setTimeout(r, 10));
+      window.top.postMessage(
+        { __VFS__: true, kind: 'saveFile', path, name, lastOne: true },
+        '*'
+      );
+    },
+
+    async abort(reason) {
+      closed = true;
+      window.top.postMessage(
+        { __VFS__: true, kind: 'saveFileAbort', path, name, reason },
+        '*'
+      );
+    }
+  });
+
+  // 🔧 Patch native-like methods ONTO the stream
+  stream.write = async function (chunk) {
+    const writer = stream.getWriter();
+    try {
+      await writer.write(chunk);
+    } finally {
+      writer.releaseLock();
+    }
+  };
+
+  stream.close = async function () {
+    const writer = stream.getWriter();
+    try {
+      await writer.close();
+    } finally {
+      writer.releaseLock();
+    }
+  };
+
+  stream.abort = async function (reason) {
+    const writer = stream.getWriter();
+    try {
+      await writer.abort(reason);
+    } finally {
+      writer.releaseLock();
+    }
+  };
+
+  return stream;
+};
+
+
           FileSystemFileHandle.prototype.queryPermission = async function () { return 'granted'; };
           FileSystemFileHandle.prototype.requestPermission = async function () { return 'granted'; };
           FileSystemFileHandle.prototype.isSameEntry = async function (other) {
@@ -2308,6 +2412,7 @@ function makeFileHandle(file) {
   let injectedFiles = [];
   let activeInput = null;
   let pickerMode = null; // 'input' | 'picker'
+  let allFilesReceived = false;
 
   function normalizeMimeType(type) {
     if (!type) return 'application/octet-stream';
@@ -2335,12 +2440,13 @@ function makeFileHandle(file) {
     injectedFiles = [];
     activeInput = null;
     pickerMode = null;
+    allFilesReceived = false;
   }
 
   function waitUntilFiles() {
     return new Promise(resolve => {
       const i = setInterval(() => {
-        if (injectedFiles.length) {
+        if (allFilesReceived) {
           clearInterval(i);
           resolve();
         }
@@ -2384,12 +2490,14 @@ function makeFileHandle(file) {
       try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
 
       injectedFiles.push(file);
-      if(d.lastOne) injectIntoActiveInput();
-    }
-
-    if (d.lastOne) {
-      if (pickerMode === 'input') {
-        injectIntoActiveInput();
+      
+      // Check if this is the last file
+      if (d.lastOne) {
+        if (pickerMode === 'input') {
+          injectIntoActiveInput();
+        } else if (pickerMode === 'picker') {
+          allFilesReceived = true;
+        }
       }
     }
   });
@@ -2397,6 +2505,8 @@ function makeFileHandle(file) {
   // 📂 showOpenFilePicker
   window.showOpenFilePicker = async () => {
     pickerMode = 'picker';
+    allFilesReceived = false;
+    injectedFiles = [];
 
     window.top.postMessage(
       { __VFS__: true, kind: 'requestPicker' },
@@ -2407,37 +2517,59 @@ function makeFileHandle(file) {
 
     const files = injectedFiles.slice();
     injectedFiles = [];
+    allFilesReceived = false;
     pickerMode = null;
 
     return files.map(file => makeFileHandle(file));
   };
 
 
-  // 💾 showSaveFilePicker
-  let pendingSaveResolvers = [];
-  window.addEventListener('message', e => {
-    const d = e.data;
-    if (!d || d.__VFS__ !== true) return;
-    if (d.kind === 'saveTarget') {
-      for (const r of pendingSaveResolvers) try { r(d.path); } catch(e){}
-      pendingSaveResolvers = [];
-    }
-  });
+// 💾 showSaveFilePicker (fixed)
+let pendingSaveResolvers = [];
 
-  window.showSaveFilePicker = async (options) => {
-    return new Promise((resolve) => {
-      pendingSaveResolvers.push((path) => {
-        const h = new FileSystemFileHandle();
-        h.name = path.split('/').pop();
-        h.kind = 'file';
-        // store the resolved path for prototype methods to use; avoid
-        // attaching functions directly to the instance to remain cloneable.
-        h.path = path;
-        resolve(h);
-      });
-      window.top.postMessage({ __VFS__: true, kind: 'requestSavePicker' }, '*');
-    });
-  };
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.__VFS__ !== true) return;
+
+  if (d.kind === 'saveTarget') {
+    const next = pendingSaveResolvers.shift();
+    if (!next) return;
+
+    // user canceled
+    if (!d.path) {
+      next.reject(
+        new DOMException('The user aborted a request.', 'AbortError')
+      );
+      return;
+    }
+
+    next.resolve(d.path);
+  }
+});
+
+window.showSaveFilePicker = async (options = {}) => {
+  return new Promise((resolve, reject) => {
+    pendingSaveResolvers.push({ resolve, reject });
+
+    window.top.postMessage(
+      {
+        __VFS__: true,
+        kind: 'requestSavePicker',
+        suggestedName: options.suggestedName || null,
+        types: options.types || null
+      },
+      '*'
+    );
+  }).then(path => {
+    const h = new FileSystemFileHandle();
+    h.kind = 'file';
+    h.path = path;
+    h.name = path.split('/').pop() || options.suggestedName || 'untitled';
+
+    return h;
+  });
+};
+
 
   // � showDirectoryPicker
   let pendingDirectoryResolvers = [];
@@ -2466,15 +2598,22 @@ function makeFileHandle(file) {
             const name = child[0];
             const isFolder = Array.isArray(child[1]);
             if (isFolder) {
-              const dirHandle = new FileSystemDirectoryHandle();
-              dirHandle.name = name;
-              dirHandle.kind = 'directory';
-              dirHandle.path = (this.path ? this.path + '/' : '') + name;
-              dirHandle._treeNode = child;
-              dirHandle.entries = h.entries; // inherit entries method
-              dirHandle.getDirectoryHandle = h.getDirectoryHandle;
-              dirHandle.getFileHandle = h.getFileHandle;
-              yield [name, dirHandle];
+const dirHandle = new FileSystemDirectoryHandle();
+dirHandle.name = name;
+dirHandle.kind = 'directory';
+dirHandle.path = (this.path ? this.path + '/' : '') + name;
+dirHandle._treeNode = child;
+
+// attach ALL directory methods
+dirHandle.entries = this.entries;
+dirHandle.values = this.values;
+dirHandle.keys = this.keys;
+dirHandle.getDirectoryHandle = this.getDirectoryHandle;
+dirHandle.getFileHandle = this.getFileHandle;
+dirHandle.isSameEntry = this.isSameEntry;
+
+yield [name, dirHandle];
+
             } else {
               const fileHandle = new FileSystemFileHandle();
               fileHandle.name = name;
@@ -2487,14 +2626,14 @@ function makeFileHandle(file) {
 
         // values() method
         h.values = async function* () {
-          for (const [name, handle] of await this.entries()) {
+          for await (const [, handle] of this.entries()) {
             yield handle;
           }
         };
 
         // keys() method
         h.keys = async function* () {
-          for (const [name, handle] of await this.entries()) {
+          for await (const [name] of this.entries()) {
             yield name;
           }
         };
@@ -2552,6 +2691,63 @@ function makeFileHandle(file) {
       window.top.postMessage({ __VFS__: true, kind: 'requestDirectoryPicker' }, '*');
     });
   };
+let pendingFileRequests = new Map();
+
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.__VFS__ !== true) return;
+
+  if (d.kind === 'fileData') {
+    const req = pendingFileRequests.get(d.path);
+    if (!req) return;
+
+    pendingFileRequests.delete(d.path);
+
+    const file = new File(
+      [d.buffer],
+      d.name,
+      { type: d.type || 'application/octet-stream' }
+    );
+
+    file.fullPath = d.path;
+    req.resolve(file);
+  }
+});
+
+// ---- now override getFile ----
+FileSystemFileHandle.prototype.getFile = async function () {
+  if (this._file) return this._file;
+
+  if (!this.path) {
+    throw new Error('File not available');
+  }
+
+  const file = await new Promise((resolve, reject) => {
+    pendingFileRequests.set(this.path, { resolve, reject });
+
+    window.top.postMessage(
+      {
+        __VFS__: true,
+        kind: 'requestFile',
+        path: this.path,
+        name: this.name
+      },
+      '*'
+    );
+
+    setTimeout(() => {
+      if (pendingFileRequests.has(this.path)) {
+        pendingFileRequests.delete(this.path);
+        debugger;
+        reject(new Error('File request timed out'));
+      }
+    }, 3000);
+  });
+
+  this._file = file;
+  return file;
+};
+
 
   // �📎 <input type="file">
   document.addEventListener(
@@ -3699,41 +3895,52 @@ try{        if (
   let babtn = document.getElementById("browserapp");
   debugger;
   babtn.addEventListener("contextmenu", bhl1);
-  try {
-    // Use a MutationObserver to attach contextmenu listeners when taskbar buttons appear.
-    // Mark buttons as bound via dataset to avoid duplicate listeners.
-    function attachBrowserContext(btn) {
-      try {
-        if (!btn || !(btn instanceof HTMLElement)) return;
-        if (btn.dataset && btn.dataset.browserContextBound) return;
-        if (!btn.id || !btn.id.startsWith("🌐")) return;
-        btn.addEventListener("contextmenu", browsermenuhandler);
-        if (btn.dataset) btn.dataset.browserContextBound = "1";
-        browserButtons.push(btn);
-      } catch (e) {}
-    }
-
-    // Attach to existing buttons now
+// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for browser
+try {
+  function attachBrowserContext(btn) {
     try {
-      const existing = (typeof taskbar !== 'undefined' && taskbar) ? taskbar.querySelectorAll('button') : document.querySelectorAll('button');
-      for (const b of existing) attachBrowserContext(b);
+      if (!btn || !(btn instanceof HTMLElement)) return;
+      if (btn.dataset && btn.dataset.browserContextBound) return;
+      const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
+      if (!(String(aid) === '🌐' || String(aid) === 'browser')) return;
+      btn.addEventListener('contextmenu', browsermenuhandler);
+      if (btn.dataset) btn.dataset.browserContextBound = '1';
+      browserButtons.push(btn);
     } catch (e) {}
+  }
 
-    // Observe additions under the taskbar (fallback to body if taskbar not present)
-    const observerTarget = (typeof taskbar !== 'undefined' && taskbar) ? taskbar : document.body;
-    const mo = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const n of m.addedNodes) {
-          if (!(n instanceof HTMLElement)) continue;
-          if (n.matches && n.matches('button')) {
-            attachBrowserContext(n);
-          } else {
-            try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachBrowserContext); } catch (e) {}
-          }
+  try {
+    const existing = (typeof taskbar !== 'undefined' && taskbar) ? taskbar.querySelectorAll('button') : document.querySelectorAll('button');
+    for (const b of existing) attachBrowserContext(b);
+  } catch (e) {}
+
+  const observerTarget = (typeof taskbar !== 'undefined' && taskbar) ? taskbar : document.body;
+  const mo = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const n of m.addedNodes) {
+        if (!(n instanceof HTMLElement)) continue;
+        if (n.matches && n.matches('button')) attachBrowserContext(n);
+        else {
+          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachBrowserContext); } catch (e) {}
         }
       }
-    });
-    mo.observe(observerTarget, { childList: true, subtree: true });
-  } catch (e) {
-    console.error('failed to attach browser context handlers', e);
-  }
+    }
+  });
+  mo.observe(observerTarget, { childList: true, subtree: true });
+} catch (e) {
+  console.error('failed to attach browser context handlers', e);
+}
+
+// === Terminal command ideas for Browser ===
+// Commands follow format: <app> <command> <args>
+// Example usage and purpose (apps listen for 'terminalCommand'):
+// browser open <url>               -> open URL in a new tab (or active tab)
+// browser newtab                   -> open a new tab (goldenbody://newtab/)
+// browser close-tab <tabId|index>  -> close the specified tab
+// browser reload [tabId]           -> reload specified or active tab
+// browser find <query>             -> find text in active page (send message to iframe)
+// browser permissions <url>        -> open permissions UI for a site
+// browser proxy <on|off|url>       -> toggle or set proxy for this browser instance
+// Notes: browser instances should listen for 'terminalCommand' and check
+// event.detail.app === 'browser' to respond. Commands may target an active
+// browser window if terminal detail includes terminalId -> resolve mapping.

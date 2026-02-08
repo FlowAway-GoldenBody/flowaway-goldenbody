@@ -1353,7 +1353,7 @@ try {
       if (!btn || !(btn instanceof HTMLElement)) return;
       if (btn.dataset && btn.dataset.textEditorContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === 'textEditor' || String(aid) === 'editorapp')) return;
+      if (!(String(aid) === '📝' || String(aid) === 'editorapp')) return;
       btn.addEventListener('contextmenu', textEditorContextMenu);
       if (btn.dataset) btn.dataset.textEditorContextBound = '1';
       textEditorButtons.push(btn);
@@ -1381,3 +1381,19 @@ try {
 } catch (e) {
   console.error('failed to attach textEditor context handlers', e);
 }
+
+// === Terminal command ideas for Text Editor ===
+// Commands follow format: <app> <command> <args>
+// Example usage and purpose (apps listen for 'terminalCommand'):
+// textEditor open <path>            -> open a file in the editor (or focus existing)
+// textEditor new [path]             -> create a new file, optionally at path
+// textEditor save [path]            -> save current file (or save as path)
+// textEditor close [path|id]        -> close a file or editor window
+// textEditor find <query>           -> search in open file
+// textEditor replace <find> <with>  -> replace in open file (interactive)
+// textEditor goto <line>            -> move cursor to line number
+// textEditor format <path>          -> run beautifier/formatter on file
+// Notes: Text editor should listen for 'terminalCommand' and check
+// event.detail.app === 'textEditor' to process these commands. Provide
+// feedback by dispatching a custom event (e.g., 'terminalResponse') or
+// by writing to the terminal output area if a reference is available.
