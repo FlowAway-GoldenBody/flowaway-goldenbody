@@ -131,7 +131,7 @@ return; // VERY IMPORTANT
               password: data.password,
               id: sessionId,
               needNewAcc: false,
-              taskbuttons: ['browser', 'fileExplorer', 'settings', 'textEditor'],
+              taskbuttons: ["🌐", "🗂", "⚙", "📝", "🏠"],
               brightness: 100,
               volume: 40,
               dark: false,
@@ -165,7 +165,7 @@ fs.cpSync(
             }
             if (content.username === data.username && content.password === data.password) {
               if(!content.taskbuttons) {
-                  content.taskbuttons = ['browser', 'fileExplorer', 'settings'];
+                  content.taskbuttons = ["🌐", "🗂", "⚙", "📝", "🏠"];
                   fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
               }
               responseContent = content;

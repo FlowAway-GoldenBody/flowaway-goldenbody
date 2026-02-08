@@ -241,9 +241,14 @@ async function applyDirections(rootPath, directions) {
   const result = {};
   let clipboard = null; // holds copied path or temp data
 
-  const resolvePath = (p) =>
-    path.join(rootPath, ...p.split('/').slice(1)); // drop "root"
-  
+  const resolvePath = (p) => {
+    if(p.startsWith('root/')) {
+      return path.join(rootPath, ...p.split('/').slice(1)); // drop "root"
+    } else {
+      return path.join(rootPath, p); // support paths without "root" prefix for convenience
+    }
+  }
+
   // Helper: compute total size (bytes) of a directory recursively
   async function getDirSizeBytes(dir) {
     let total = 0;
@@ -314,9 +319,11 @@ async function applyDirections(rootPath, directions) {
 
   for (const dir of directions) {
  if (dir.addFolder) {
+  console.log(dir.path)
   const parentPath = resolvePath(dir.path);
   const folderPath = path.join(parentPath, dir.name);
-
+  console.log('Creating folder', folderPath);
+  console.log('Ensuring parent directory exists', parentPath);
   await ensureDir(parentPath);
 
   // 🚨 Detect file collision

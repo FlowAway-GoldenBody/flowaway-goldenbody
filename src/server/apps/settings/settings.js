@@ -786,7 +786,7 @@ try {
       if (!btn || !(btn instanceof HTMLElement)) return;
       if (btn.dataset && btn.dataset.settingsContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === 'settings' || String(aid) === 'settingsapp')) return;
+      if (!(String(aid) === '⚙' || String(aid) === 'settingsapp')) return;
       btn.addEventListener('contextmenu', settingsContextMenu);
       if (btn.dataset) btn.dataset.settingsContextBound = '1';
       settingsButtons.push(btn);
