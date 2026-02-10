@@ -1,6 +1,6 @@
 //your_app_name global vars
-  let allyour_app_name = [];
-  let your_app_nameId = 0;
+  var allyour_app_name = [];
+  var your_app_nameId = 0;
 
 yourApp = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -330,8 +330,8 @@ yourApp = function (posX = 50, posY = 50) {
 
 
   //app stuff
-  let your_app_nameButtons = [];
-  let your_app_namemenu;
+  var your_app_nameButtons = [];
+  var your_app_namemenu;
   function your_app_nameContextMenu(e, needRemove = true) {
     e.preventDefault();
 
@@ -517,8 +517,12 @@ yourApp = function (posX = 50, posY = 50) {
   function ehl1(e) {
     your_app_nameContextMenu(e, (needremove = false));
   }
-  let your_app_abb_btn = document.getElementById("your_app_nameapp");
-  your_app_abb_btn.addEventListener("contextmenu", ehl1);
+    window.addEventListener("appUpdated", () => {
+  var your_app_abb_btn = document.getElementById("your_app_nameapp");
+  your_app_abb_btn.addEventListener("contextmenu",   function ehl1(e) {
+    your_app_nameContextMenu(e, (needremove = false));
+  });
+  });
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for yourApp
 try {

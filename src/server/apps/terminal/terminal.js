@@ -1,7 +1,7 @@
 // Terminal global vars - dispatch events to running apps to add terminal plugins
   // Command format: <app> <command> <args>
-  let allTerminals = [];
-  let terminalId = 0;
+  var allTerminals = [];
+  var terminalId = 0;
 
 terminal = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -593,9 +593,9 @@ if (appName === 'cd') {
 
 
   // Terminal context menu
-  let terminalButtons = [];
-  let terminalMenu;
-  function terminalContextMenu(e, needRemove = true) {
+  var terminalButtons = [];
+  var terminalMenu;
+  var terminalContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
@@ -777,12 +777,14 @@ if (appName === 'cd') {
     window.addEventListener("click", () => menu.remove(), { once: true });
   }
 
-  function ehl1(e) {
-    terminalContextMenu(e, (needremove = false));
-  }
+
   debugger;
-  let terminalBtn = document.getElementById("terminalapp");
-  terminalBtn.addEventListener("contextmenu", ehl1);
+    window.addEventListener("appUpdated", () => {
+  var terminalBtn = document.getElementById("terminalapp");
+  terminalBtn.addEventListener("contextmenu",   function ehl1(e) {
+    terminalContextMenu(e, (needremove = false));
+  });
+    });
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for terminal
 try {

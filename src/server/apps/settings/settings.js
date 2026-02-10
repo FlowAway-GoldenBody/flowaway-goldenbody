@@ -1,6 +1,6 @@
 //settings global vars
-  let allSettings = [];
-  let settingsId = 0;
+  var allSettings = [];
+  var settingsId = 0;
 
 settings = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -589,8 +589,8 @@ mainContainer.appendChild(themeRow);
 
 
   //app stuff
-  let settingsButtons = [];
-  let settingsmenu;
+  var settingsButtons = [];
+  var settingsmenu;
   function settingsContextMenu(e, needRemove = true) {
     e.preventDefault();
 
@@ -773,11 +773,14 @@ mainContainer.appendChild(themeRow);
     window.addEventListener("click", () => menu.remove(), { once: true });
   }
 
-  function ehl1(e) {
+
+  window.addEventListener("appUpdated"  , () => {
+    var sbtn = document.getElementById("settingsapp");
+    sbtn.addEventListener("contextmenu",   function ehl1(e) {
     settingsContextMenu(e, (needremove = false));
-  }
-  let sbtn = document.getElementById("settingsapp");
-  sbtn.addEventListener("contextmenu", ehl1);
+  });
+  });
+
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Settings
 try {
