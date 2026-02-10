@@ -44,7 +44,9 @@ scriptProcessor.__proto__.processResource = async function processResource(scrip
             ctx.nativeAutomation
         );
         await cacheSet(script, processedScript);
-    } else processedScript = updateScriptImportUrls(processedScript, ctx.serverInfo, ctx.session.id, ctx.windowId);
+    }
+    
+    processedScript = updateScriptImportUrls(processedScript, ctx.serverInfo, ctx.session.id, ctx.windowId);
 
     return processedScript;
 };

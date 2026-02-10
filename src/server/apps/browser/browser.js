@@ -3,10 +3,10 @@
   var browserId = 0;
   var id = data.id;
   var proxyurl = goldenbodywebsite;
-  let dragstartwindow;
+  var dragstartwindow;
   window.__vfsMessageListenerAdded = false;
-  let tabisDragging = false;
-  let draggedtab = 0;
+  var tabisDragging = false;
+  var draggedtab = 0;
 // browser global functions
   function mainWebsite(string) {
     let s = '';
@@ -32,6 +32,8 @@ browser = function (
     let status;
 async function updateSiteSettings(iframe, content) {
     data.enableURLSync = content.enableURLSync;
+    data.lazyloading = content.lazyloading;
+    if(content.lazyloading) allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = 'lazy')); else allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = ''));
     content.updateSiteSettings = true;
     content.url = mainWebsite(unshuffleURL(iframe.src));
     await zmcdpost(content);
@@ -159,7 +161,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   info.textContent =
     "This is only for people with privacy needs, may cause bugs when many redirects happens at 1 time";
   syncpermsSec.appendChild(info);
-
+  let lazyloadingsect = section("Performance");
+  let lazyloading = checkbox(lazyloadingsect, 'Lazy Loading', data.lazyloading);
 
 
 
@@ -235,7 +238,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       updateSiteSettings(iframe, {
         newSandbox: newSandbox,
         addTheSite: perms.addTheSite,
-        enableURLSync: syncperms.checked
+        enableURLSync: syncperms.checked,
+        lazyloading: lazyloading.checked,
       });
 
     overlay.remove();
@@ -437,6 +441,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           allBrowsers.splice(index, 1);
         }
         window.removeEventListener("message", messageHandler);
+        window.removeEventListener("pointerup", onpointerupAnywhere);
 
         _browserCalled = false;
       });
@@ -450,6 +455,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           allBrowsers.splice(index, 1);
         }
         window.removeEventListener("message", messageHandler);
+        window.removeEventListener("pointerup", onpointerupAnywhere);
 
         _browserCalled = false;
       }
@@ -558,7 +564,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
       addressRow.prepend(resizeDiv);
 
-      root.addEventListener("mousedown", function () {
+      root.addEventListener("pointerdown", function () {
         resizeDiv.style.display = "none";
       });
 
@@ -604,17 +610,10 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
       let dragid = "";
       let dragindex = 0;
-      const onMouseUpAnywhere = (ev, notontab) => {
+      const onpointerupAnywhere = (ev, notontab) => {
         if (!tabisDragging) return;
-        for (let i = 0; i < allBrowsers.length; i++)
-          // console.log(allBrowsers[i].rootElement);
-        try {
-          const draggedelement = root.querySelector(`#${dragid}`);
-        } catch (e) {
-          window.removeEventListener("mouseup", onMouseUpAnywhere);
-        }
 
-        // Check if mouseup happened on a tab
+        // Check if pointerup happened on a tab
         let targetTab;
         try {
           targetTab = ev.target.closest(".sim-tab");
@@ -675,7 +674,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           }
         } catch (e) {}
         if (!targetTab || targetTab.id !== dragid) {
-          // Mouseup happened somewhere else
+          // pointerup happened somewhere else
           browser(
             dragstartwindow.tabs[dragindex].url,
             draggedtab.resizeP,
@@ -692,8 +691,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       };
       function messageHandler(event) {
         const data = event.data;
-        if (data?.type === "iframe-mouseup") {
-          // console.log("Mouseup from iframe:");
+        if (data?.type === "iframe-pointerup") {
+          // console.log("pointerup from iframe:");
           // console.log("Coordinates:", data.x, data.y);
           // console.log("Button pressed:", data.button);
 
@@ -710,21 +709,21 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             shiftKey: data.shiftKey,
             metaKey: data.metaKey,
           };
-          onMouseUpAnywhere(e, true);
+          onpointerupAnywhere(e, true);
           // Use pseudoEvent however you want
-          let MOUSEUP = new MouseEvent("mouseup", e);
-          document.dispatchEvent(MOUSEUP);
-          window.dispatchEvent(MOUSEUP);
-          let MOUSEDOWN = new MouseEvent("mousedown", e);
-          document.dispatchEvent(MOUSEDOWN);
-          window.dispatchEvent(MOUSEDOWN);
+          let pointerup = new MouseEvent("pointerup", e);
+          document.dispatchEvent(pointerup);
+          window.dispatchEvent(pointerup);
+          let pointerdown = new MouseEvent("pointerdown", e);
+          document.dispatchEvent(pointerdown);
+          window.dispatchEvent(pointerdown);
           let CLICK = new MouseEvent("click", e);
           document.dispatchEvent(CLICK);
           window.dispatchEvent(CLICK);
         }
       }
       window.addEventListener("message", messageHandler);
-      window.addEventListener("mouseup", onMouseUpAnywhere);
+      window.addEventListener("pointerup", onpointerupAnywhere);
       let renderInterval = setInterval(() => {
         if(!root) {clearInterval(renderInterval); console.warn('interval cleared, root missing!')};
         renderTabs();
@@ -778,14 +777,14 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             debugger;
             return tabs;
           }
-          el.addEventListener("mouseup", function () {
+          el.addEventListener("pointerup", function () {
             root.focus();
           });
-          el.addEventListener("mousedown", (ev) => {
+          el.addEventListener("pointerdown", (ev) => {
             if (ev.target.classList.contains("close")) return;
             activateTab(t.id);
           });
-          el.addEventListener("mouseup", function () {
+          el.addEventListener("pointerup", function () {
             bringToFront(root);
           });
           el.addEventListener("dragstart", () => {
@@ -797,11 +796,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             dragid = el.id;
           });
 
-          el.addEventListener("mousemove", () => {
+          el.addEventListener("pointermove", () => {
             if (tabisDragging) dragMoved = true;
           });
 
-          el.addEventListener("mouseup", (e) => {
+          el.addEventListener("pointerup", (e) => {
             if (
               tabisDragging &&
               dragMoved &&
@@ -833,7 +832,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               dragMoved &&
               dragstartwindow !== chromeWindow
             ) {
-              onMouseUpAnywhere(e);
+              onpointerupAnywhere(e);
             }
 
             tabisDragging = false;
@@ -872,7 +871,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
         const id = "tab-" + ++tabCounter;
         const iframe = document.createElement("iframe");
-
+        if(data.lazyloading) iframe.loading = "lazy";
         iframe.onload = () => {
           try {
             // Try to access its document
@@ -1093,7 +1092,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           menu.style.zIndex = "9999";
           iframeDocument.body.appendChild(menu);
 
-          // window.addEventListener("mousedown", function () {
+          // window.addEventListener("pointerdown", function () {
           //   menu.style.display = "none";
           // });
           // Function to show the menu
@@ -2913,11 +2912,11 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
                   );
 
                   frame.contentDocument.addEventListener("click", hideMenu);
-                  if (!frame.contentWindow.onMouseUp) {
-                    frame.contentWindow.onMouseUp = function (ev) {
+                  if (!frame.contentWindow.onpointerup) {
+                    frame.contentWindow.onpointerup = function (ev) {
                       window.top.postMessage(
                         {
-                          type: "iframe-mouseup",
+                          type: "iframe-pointerup",
                           x: ev.clientX,
                           y: ev.clientY,
                           pageX: ev.pageX,
@@ -3035,12 +3034,12 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
                       frame.contentWindow.handleArrows,
                     );
                     frame.contentWindow.removeEventListener(
-                      "mouseup",
-                      frame.contentWindow.onMouseUp,
+                      "pointerup",
+                      frame.contentWindow.onpointerup,
                     );
                     frame.contentWindow.addEventListener(
-                      "mouseup",
-                      frame.contentWindow.onMouseUp,
+                      "pointerup",
+                      frame.contentWindow.onpointerup,
                     );
                     win.removeEventListener("keydown", win.suberudaKeyHandler);
 
@@ -3412,7 +3411,7 @@ try{        if (
           startY = 0,
           origLeft = 0,
           origTop = 0;
-        top.addEventListener("mousedown", (ev) => {
+        top.addEventListener("pointerdown", (ev) => {
           if (
             ev.target.closest(".sim-tab") ||
             ev.target === newTabBtn ||
@@ -3430,7 +3429,7 @@ try{        if (
           currentX = ev.clientX;
           currentY = ev.clientY;
         });
-        window.addEventListener("mousemove", (ev) => {
+        window.addEventListener("pointermove", (ev) => {
           if (!dragging) {
             startX = 0;
             startY = 0;
@@ -3458,7 +3457,7 @@ try{        if (
           if (origTop + dy > 0) root.style.top = origTop + dy + "px";
           else root.style.top = "0px";
         });
-        window.addEventListener("mouseup", () => {
+        window.addEventListener("pointerup", () => {
           dragging = false;
           document.body.style.userSelect = "";
         });
@@ -3706,8 +3705,8 @@ try{        if (
 
 
   // app stuff
-  let browsermenu;
-  let browserButtons = [];
+  var browsermenu;
+  var browserButtons = [];
   function browsermenuhandler(e, needremove = true) {
     e.preventDefault();
 
@@ -3889,12 +3888,13 @@ try{        if (
     document.body.appendChild(menu);
     window.addEventListener("click", () => menu.remove(), { once: true });
   }
-  function bhl1(e) {
+
+  window.addEventListener("appUpdated", function (e) {
+  var babtn = document.getElementById("browserapp");
+  babtn.addEventListener("contextmenu",   function bhl1(e) {
     browsermenuhandler(e, (needremove = false));
-  }
-  let babtn = document.getElementById("browserapp");
-  debugger;
-  babtn.addEventListener("contextmenu", bhl1);
+  });
+  });
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for browser
 try {
   function attachBrowserContext(btn) {

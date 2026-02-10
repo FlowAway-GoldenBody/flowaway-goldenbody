@@ -1,7 +1,7 @@
 //textEditor global vars
-  let alltextEditor = [];
-  let textEditorId = 0;
-let __textEditorStyle = document.createElement("style");
+  var alltextEditor = [];
+  var textEditorId = 0;
+var __textEditorStyle = document.createElement("style");
 __textEditorStyle.textContent = `
 .texteditor-topbar.dark{
   background: #111;
@@ -1157,8 +1157,8 @@ textEditor = function (path, posX = 50, posY = 50) {
 
 
   //app stuff
-  let textEditorButtons = [];
-  let textEditormenu;
+  var textEditorButtons = [];
+  var textEditormenu;
   function textEditorContextMenu(e, needRemove = true) {
     e.preventDefault();
 
@@ -1247,7 +1247,7 @@ textEditor = function (path, posX = 50, posY = 50) {
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
           if (
             index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-            taskbuttons[i].id.startsWith("⚙")
+            taskbuttons[i].id.startsWith("📝")
           ) {
             taskbuttons[i].remove();
             iconid = 0;
@@ -1341,11 +1341,14 @@ textEditor = function (path, posX = 50, posY = 50) {
     window.addEventListener("click", () => menu.remove(), { once: true });
   }
 
-  function ehl1(e) {
+
+  window.addEventListener("appUpdated", () => {
+  var txtbtn = document.getElementById("editorapp");
+  txtbtn.addEventListener("contextmenu", function ehl1(e) {
     textEditorContextMenu(e, (needremove = false));
-  }
-  let txtbtn = document.getElementById("editorapp");
-  txtbtn.addEventListener("contextmenu", ehl1);
+  });
+  });
+
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Text Editor
 try {
   function attachTextEditorContext(btn) {

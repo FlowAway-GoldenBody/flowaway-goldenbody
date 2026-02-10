@@ -131,7 +131,7 @@ return; // VERY IMPORTANT
               password: data.password,
               id: sessionId,
               needNewAcc: false,
-              taskbuttons: ["🌐", "🗂", "⚙", "📝", "🏠"],
+              taskbuttons: ["🌐", "🗂", "⚙", "📝", "🖥️"],
               brightness: 100,
               volume: 40,
               dark: false,
@@ -165,7 +165,7 @@ fs.cpSync(
             }
             if (content.username === data.username && content.password === data.password) {
               if(!content.taskbuttons) {
-                  content.taskbuttons = ["🌐", "🗂", "⚙", "📝", "🏠"];
+                  content.taskbuttons = ["🌐", "🗂", "⚙", "📝", "🖥️"];
                   fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
               }
               responseContent = content;
@@ -215,7 +215,11 @@ fs.cpSync(
           if(data.password !== userData.password) {
             return res.end(JSON.stringify({ error: "wrong password" }));
           }
-          fs.unlinkSync(sessionPath + userData.id + '.rhfsession');
+          try {
+            fs.unlinkSync(sessionPath + userData.id + '.rhfsession');
+          } catch (e) {
+            console.log(e);
+          }
           fs.rmSync(directoryPath + data.username, { recursive: true, force: true });
           console.log(`Directory deleted: ${directoryPath}`);
           return res.end(JSON.stringify({ success: true }));
