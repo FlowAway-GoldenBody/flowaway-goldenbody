@@ -332,7 +332,7 @@ yourApp = function (posX = 50, posY = 50) {
   //app stuff
   var your_app_nameButtons = [];
   var your_app_namemenu;
-  function your_app_nameContextMenu(e, needRemove = true) {
+  your_app_nameContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus

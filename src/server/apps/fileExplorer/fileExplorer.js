@@ -1481,7 +1481,7 @@ function handleSelection(e, item, items, index) {
   //app stuff
   var explorerButtons = [];
   var explorermenu;
-  function fileExplorerContextMenu(e, needRemove = true) {
+  fileExplorerContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus

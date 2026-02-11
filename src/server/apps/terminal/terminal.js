@@ -595,7 +595,7 @@ if (appName === 'cd') {
   // Terminal context menu
   var terminalButtons = [];
   var terminalMenu;
-  var terminalContextMenu = function(e, needRemove = true) {
+  terminalContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus

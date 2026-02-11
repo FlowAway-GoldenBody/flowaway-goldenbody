@@ -591,7 +591,7 @@ mainContainer.appendChild(themeRow);
   //app stuff
   var settingsButtons = [];
   var settingsmenu;
-  function settingsContextMenu(e, needRemove = true) {
+  settingsContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus

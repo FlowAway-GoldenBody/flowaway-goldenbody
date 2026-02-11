@@ -3707,7 +3707,7 @@ try{        if (
   // app stuff
   var browsermenu;
   var browserButtons = [];
-  function browsermenuhandler(e, needremove = true) {
+  browsermenuhandler = function(e, needremove = true) {
     e.preventDefault();
 
     // Remove existing menus
