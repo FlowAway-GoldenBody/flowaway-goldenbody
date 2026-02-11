@@ -1,6 +1,6 @@
 //your_app_name global vars
-  var allyour_app_name = [];
-  var your_app_nameId = 0;
+  window.allyour_app_name = [];
+  window.your_app_nameId = 0;
 
 yourApp = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -330,8 +330,8 @@ yourApp = function (posX = 50, posY = 50) {
 
 
   //app stuff
-  var your_app_nameButtons = [];
-  var your_app_namemenu;
+  window.your_app_nameButtons = [];
+  window.your_app_namemenu;
   your_app_nameContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 

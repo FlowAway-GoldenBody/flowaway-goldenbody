@@ -4,7 +4,35 @@ window.loaded = false;
   let zTop = 10;
 
 let worldvolume = 0.5;
+window.findNodeByPath = function(relPath) {
+        const parts = relPath.split("/");
+        let current = treeData;
+        for (let i = 1; i < parts.length; i++) {
+          if (!current[1]) return null;
+          current = current[1].find((c) => c[0] === parts[i]);
+        }
+        return current;
+      }
+window.removeNodeFromTree = function(node, pathParts) {
+  if (!node || !Array.isArray(node[1])) return false;
 
+  const [target, ...rest] = pathParts;
+
+  for (let i = 0; i < node[1].length; i++) {
+    const child = node[1][i];
+
+    if (child[0] === target) {
+      if (rest.length === 0) {
+        node[1].splice(i, 1); // delete node
+        return true;
+      } else {
+        return window.removeNodeFromTree(child, rest); // go deeper
+      }
+    }
+  }
+
+  return false; // not found
+}
 // global vars
 let savedScrollX = 0;
 let savedScrollY = 0;
@@ -306,7 +334,7 @@ async function extractAppData(appFolder) {
   let entryName = null;
   let label = folderName;
   let icon = '🔧';
-
+  let appGlobalVarStrings = [];
   if (txtFile) {
     try {
       const b64 = await fetchFileContentByPath(`${folderPath}/${txtFile}`);
@@ -316,6 +344,9 @@ async function extractAppData(appFolder) {
       if (lines.length > 1) label = lines[1];
       if (lines.length > 2) startbtnid = lines[2];
       if (lines.length > 3) cmf = lines[3];
+      for(let i = 2; i < lines.length; i++) {
+        appGlobalVarStrings.push(lines[i]);
+      }
     } catch (e) { console.error('read txt', e); }
   }
 
@@ -330,7 +361,7 @@ async function extractAppData(appFolder) {
     }
   }
 
-  return { id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false, cmf };
+  return { id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false, cmf, appGlobalVarStrings };
 }
 
 async function loadAppsFromTree() {
@@ -392,6 +423,13 @@ async function renderAppsGrid() {
         if (app.cmf && typeof window[app.cmf] !== 'undefined') {
           try { delete window[app.cmf]; } catch (e) {}
         }
+        if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
+          for (const varName of app.appGlobalVarStrings) {
+            if (typeof window[varName] !== 'undefined') {
+              try { delete window[varName]; } catch (e) {}
+            }
+          }
+        }
       } catch (e) {}
       // snapshot globals before injection
       const beforeGlobals = new Set(Object.getOwnPropertyNames(window));
@@ -448,6 +486,13 @@ async function launchApp(appId) {
         }
         if (app.cmf && typeof window[app.cmf] !== 'undefined') {
           try { delete window[app.cmf]; } catch (e) {}
+        }
+        if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
+          for (const varName of app.appGlobalVarStrings) {
+            if (typeof window[varName] !== 'undefined') {
+              try { delete window[varName]; } catch (e) {}
+            }
+          }
         }
       } catch (e) {}
       // snapshot globals before injection
@@ -651,6 +696,13 @@ async function pollAppChanges(forceMetadataCheck = false) {
               window[app.entry] = null;
               delete window[app.entry];
               delete window[app.cmf];
+              if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
+                for (const varName of app.appGlobalVarStrings) {
+                  if (typeof window[varName] !== 'undefined') {
+                    try { delete window[varName]; } catch (e) {}
+                  }
+                }
+              }
               console.log(`[APP POLLING] Cleared entry function: ${app.entry}`);
             } catch (e) {
               console.warn(`[APP POLLING] Could not clear entry function ${app.entry}:`, e);
@@ -731,7 +783,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
           // preserve old names so we can remove their globals safely after reload
           const _oldEntry = existingApp.entry;
           const _oldCmf = existingApp.cmf;
-
+          const _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
           existingApp.entry = newAppData.entry;
           existingApp.jsFile = newAppData.jsFile;
           existingApp.icon = newAppData.icon;
@@ -762,6 +814,13 @@ async function pollAppChanges(forceMetadataCheck = false) {
                 }
                 if (_oldCmf && typeof window[_oldCmf] !== 'undefined') {
                   try { delete window[_oldCmf]; } catch (e) {}
+                }
+                if (_oldAppGlobalVarStrings && Array.isArray(_oldAppGlobalVarStrings)) {
+                  for (const varName of _oldAppGlobalVarStrings) {
+                    if (typeof window[varName] !== 'undefined') {
+                      try { delete window[varName]; } catch (e) {}
+                    }
+                  }
                 }
               } catch (e) {}
               const s = document.createElement('script');
@@ -812,6 +871,13 @@ async function pollAppChanges(forceMetadataCheck = false) {
                 try {
                   if (app.entry && typeof window[app.entry] !== 'undefined') { try { delete window[app.entry]; } catch (e) {} }
                   if (app.cmf && typeof window[app.cmf] !== 'undefined') { try { delete window[app.cmf]; } catch (e) {} }
+                  if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
+                    for (const varName of app.appGlobalVarStrings) {
+                      if (typeof window[varName] !== 'undefined') {
+                        try { delete window[varName]; } catch (e) {}
+                      }
+                    }
+                  }
                 } catch (e) {}
                 const s = document.createElement('script');
                 s.type = 'text/javascript';
@@ -850,7 +916,6 @@ async function pollAppChanges(forceMetadataCheck = false) {
   }
 }
 window.addEventListener('appUpdated', (e) => {
-      rebuildTaskButtons();
       purgeButtons();
   // You can add additional handling here if needed when apps are updated
 });
@@ -930,24 +995,7 @@ window.removeotherMenus = function(except) {
   }
   taskbuttons = [...taskbar.querySelectorAll("button")];
  }
- // add a function that rebuilds taskbuttons
- function rebuildTaskButtons() {
-    // Clear existing task buttons (except first 3)
-    let buttons = [...taskbar.querySelectorAll("button")];
-    buttons.splice(0, 3);
-    buttons.forEach(b => {
-      b.remove();
-    });
-    // add taskbuttons without calling applytaskbuttons to prevent dupes
-    for (const taskbutton of data.taskbuttons) {
-    const app = (window.apps || []).find(a => a.id === taskbutton);
-    if (app) {
-      const btn = addTaskButton(app.icon || '🔧', () => launchApp(app.id));
-      if (btn) btn.dataset.appId = app.icon;
-    } 
-  }
-    purgeButtons();
-  }
+
   function purgeButtons() {
     buttons = [...taskbar.querySelectorAll("button")];
     buttons.splice(0, 3);

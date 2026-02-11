@@ -2,3 +2,8 @@ fileExplorer
 File Explorer
 explorerapp
 fileExplorerContextMenu
+explorerButtons
+explorermenu
+allExplorers
+explorerId
+clipboard
