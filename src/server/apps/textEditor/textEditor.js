@@ -1159,7 +1159,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   //app stuff
   var textEditorButtons = [];
   var textEditormenu;
-  function textEditorContextMenu(e, needRemove = true) {
+textEditorContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus

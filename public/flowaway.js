@@ -4,8 +4,7 @@ window.loaded = false;
   let zTop = 10;
 
 let worldvolume = 0.5;
-let verificationsocketSecure = location.protocol === 'https:' ? 'wss://' : 'ws://';
-let vsURL = verificationsocketSecure + location.hostname + ':3000';
+
 // global vars
 let savedScrollX = 0;
 let savedScrollY = 0;
@@ -316,6 +315,7 @@ async function extractAppData(appFolder) {
       if (lines.length) entryName = lines[0];
       if (lines.length > 1) label = lines[1];
       if (lines.length > 2) startbtnid = lines[2];
+      if (lines.length > 3) cmf = lines[3];
     } catch (e) { console.error('read txt', e); }
   }
 
@@ -330,7 +330,7 @@ async function extractAppData(appFolder) {
     }
   }
 
-  return { id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false };
+  return { id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false, cmf };
 }
 
 async function loadAppsFromTree() {
@@ -384,7 +384,15 @@ async function renderAppsGrid() {
       const scriptText = base64ToUtf8(b64);
       // Store hash for future change detection
       app._lastScriptHash = hashScriptContent(scriptText);
-      
+      // Prefer removing globals created by previous script rather than deleting app metadata
+      try {
+        if (app.entry && typeof window[app.entry] !== 'undefined') {
+          try { delete window[app.entry]; } catch (e) {}
+        }
+        if (app.cmf && typeof window[app.cmf] !== 'undefined') {
+          try { delete window[app.cmf]; } catch (e) {}
+        }
+      } catch (e) {}
       // snapshot globals before injection
       const beforeGlobals = new Set(Object.getOwnPropertyNames(window));
       const s = document.createElement('script');
@@ -433,7 +441,15 @@ async function launchApp(appId) {
       const scriptText = base64ToUtf8(b64);
       // Store hash for future change detection
       app._lastScriptHash = hashScriptContent(scriptText);
-      
+      // Remove any prior globals exposed by a previous version of this app
+      try {
+        if (app.entry && typeof window[app.entry] !== 'undefined') {
+          try { delete window[app.entry]; } catch (e) {}
+        }
+        if (app.cmf && typeof window[app.cmf] !== 'undefined') {
+          try { delete window[app.cmf]; } catch (e) {}
+        }
+      } catch (e) {}
       // snapshot globals before injection
       const beforeGlobals = new Set(Object.getOwnPropertyNames(window));
       const s = document.createElement('script');
@@ -485,8 +501,83 @@ async function launchApp(appId) {
 
 // ===== LIVE APP POLLING =====
 let appPollingActive = false;
+let appPollingSocket = null;
+let appPollingSocketBackoff = 0;
+let appPollingTimer = null;
+let appPollingInFlight = false;
+let appPollingDirty = false;
+const APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
+const APP_POLLING_DEBOUNCE = 300;
 
-async function pollAppChanges() {
+function scheduleAppPoll(reason = 'unknown') {
+  clearTimeout(appPollingTimer);
+  appPollingTimer = setTimeout(async () => {
+    if (appPollingInFlight) {
+      appPollingDirty = true;
+      return;
+    }
+    appPollingInFlight = true;
+    try {
+      // Refresh tree data only when a change was reported
+      await window.loadTree();
+      await pollAppChanges(true);
+    } catch (e) {
+      console.error('[APP POLLING] Scheduled poll error:', e);
+    } finally {
+      appPollingInFlight = false;
+      if (appPollingDirty) {
+        appPollingDirty = false;
+        scheduleAppPoll('coalesced');
+      }
+    }
+  }, APP_POLLING_DEBOUNCE);
+}
+
+function startAppPollingViaWebSocket() {
+  if (typeof WebSocket === 'undefined') return false;
+  if (appPollingSocket && (appPollingSocket.readyState === WebSocket.OPEN || appPollingSocket.readyState === WebSocket.CONNECTING)) {
+    return true;
+  }
+
+  const wsProtocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const appPollingURL = wsProtocol + location.hostname + ':3001';
+  appPollingSocket = new WebSocket(appPollingURL);
+
+  appPollingSocket.onopen = () => {
+    appPollingSocketBackoff = 0;
+    try {
+      appPollingSocket.send(JSON.stringify({ subscribeToAppChanges: true, username: data.username }));
+    } catch (e) {}
+  };
+
+  appPollingSocket.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg && msg.appChanges) {
+        scheduleAppPoll('ws');
+      }
+    } catch (e) {
+      console.error('[APP POLLING] Error parsing WebSocket message:', e);
+    }
+  };
+
+  appPollingSocket.onerror = (err) => {
+    console.warn('[APP POLLING] WebSocket error', err);
+  };
+
+  appPollingSocket.onclose = (e) => {
+    appPollingSocket = null;
+    if (appPollingSocketBackoff < 10) appPollingSocketBackoff++;
+    const delay = Math.min(appPollingSocketBackoff * 1000, APP_POLLING_SOCKET_MAX_BACKOFF);
+    setTimeout(() => {
+      startAppPollingViaWebSocket();
+    }, delay);
+  };
+
+  return true;
+}
+
+async function pollAppChanges(forceMetadataCheck = false) {
   if (!window.treeData) return;
   
   try {
@@ -498,51 +589,132 @@ async function pollAppChanges() {
     const currentAppFolders = appsNode[1] || [];
     let hasChanges = false;
     
-    // Check for new apps and modified apps
-    for (const appFolder of currentAppFolders) {
-      const folderName = appFolder[0];
-      const expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
-      
-      const existingApp = window.apps.find(a => a.path === expectedPath);
-      const newAppData = await extractAppData(appFolder);
-      if (!newAppData) continue;
-      
-      if (!existingApp) {
-        // New app detected!
-        window.apps.push(newAppData);
-        window.apps.sort((a, b) => a.label.localeCompare(b.label));
-        console.log(`[APP POLLING] New app detected: ${newAppData.label}`);
-        hasChanges = true;
-      } else {
-        // Check if app metadata changed (entry, jsFile, icon, label)
-        let appModified = false;
-        let scriptContentChanged = false;
+    // First pass: detect structural changes only (new/deleted folders)
+    const currentFolderNames = new Set(currentAppFolders.map(f => f[0]));
+    const knownFolderNames = new Set(window.apps.map(a => {
+      const path = a.path;
+      return path.split('/').pop(); // Extract folder name from path
+    }));
+    
+    // Check for new folders or deleted folders at folder level
+    const hasStructuralChanges = 
+      currentFolderNames.size !== knownFolderNames.size ||
+      Array.from(currentFolderNames).some(name => !knownFolderNames.has(name));
+    
+    // Handle new and deleted apps (structural changes)
+    if (hasStructuralChanges) {
+      // Check for new apps
+      for (const appFolder of currentAppFolders) {
+        const folderName = appFolder[0];
+        const expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
         
-        if (existingApp.entry !== newAppData.entry) {
+        const existingApp = window.apps.find(a => a.path === expectedPath);
+        
+        if (!existingApp) {
+          // New app detected - fetch its metadata
+          const newAppData = await extractAppData(appFolder);
+          if (newAppData) {
+            window.apps.push(newAppData);
+            window.apps.sort((a, b) => a.label.localeCompare(b.label));
+            console.log(`[APP POLLING] New app detected: ${newAppData.label}`);
+            hasChanges = true;
+          }
+        }
+      }
+      
+      // Check for deleted apps
+      const appsToDelete = [];
+      for (let i = 0; i < window.apps.length; i++) {
+        const app = window.apps[i];
+        const stillExists = currentAppFolders.some(f => {
+          const expectedPath = (f[2] && f[2].path) ? f[2].path : `apps/${f[0]}`;
+          return expectedPath === app.path;
+        });
+        
+        if (!stillExists) {
+          appsToDelete.push(i);
+        }
+      }
+      
+      // Delete apps in reverse order to maintain indices
+      for (let i = appsToDelete.length - 1; i >= 0; i--) {
+        const appIndex = appsToDelete[i];
+        const app = window.apps[appIndex];
+        
+        console.log(`[APP POLLING] App deleted: ${app.label}`);
+        
+        // 0. Clean up global variables and functions
+        try {
+          // Only clear the entry point function if it exists
+          if (app.entry && window[app.entry]) {
+            try {
+              window[app.entry] = null;
+              delete window[app.entry];
+              delete window[app.cmf];
+              console.log(`[APP POLLING] Cleared entry function: ${app.entry}`);
+            } catch (e) {
+              console.warn(`[APP POLLING] Could not clear entry function ${app.entry}:`, e);
+            }
+          }
+        } catch (e) {
+          console.warn(`[APP POLLING] Error cleaning entry function for ${app.label}:`, e);
+        }
+        
+        // 1. Remove script element from DOM if loaded
+        if (app._scriptElement) {
+          app._scriptElement.remove();
+        }
+        
+        // 2. Remove from apps array
+        window.apps.splice(appIndex, 1);
+        
+        // 3. Remove from apps grid
+        const appElement = document.getElementById(app.id + 'app');
+        if (appElement) appElement.remove();
+        
+        // 4. Remove taskbar button
+        const taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn => 
+          (btn.dataset && btn.dataset.appId === app.icon) || 
+          btn.textContent.includes(app.label)
+        );
+        if (taskbarBtn) taskbarBtn.remove();
+        
+        // 5. Close all windows with matching appId
+        const appIdToMatch = app.entry || app.icon;
+        const windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root => 
+          root.dataset && root.dataset.appId === appIdToMatch
+        );
+        for (const windowEl of windowsToClose) {
+          windowEl.remove();
+        }
+        
+        hasChanges = true;
+      }
+    }
+    
+    // Second pass: refresh metadata (entry.txt/icon.txt) on change notifications
+    if (forceMetadataCheck) {
+      for (const appFolder of currentAppFolders) {
+        const folderName = appFolder[0];
+        const expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
+        const existingApp = window.apps.find(a => a.path === expectedPath);
+        if (!existingApp) continue;
+
+        const newAppData = await extractAppData(appFolder);
+        if (!newAppData) continue;
+
+        let appModified = false;
+        const jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
+        const entryChanged = existingApp.entry !== newAppData.entry;
+
+        if (entryChanged) {
           console.log(`[APP POLLING] ${existingApp.label}: entry changed from ${existingApp.entry} to ${newAppData.entry}`);
           appModified = true;
         }
-        if (existingApp.jsFile !== newAppData.jsFile) {
+        if (jsFileChanged) {
           console.log(`[APP POLLING] ${existingApp.label}: JS file changed from ${existingApp.jsFile} to ${newAppData.jsFile}`);
           appModified = true;
         }
-        
-        // Check if JS file content has changed (even if file path is the same)
-        if (existingApp.jsFile && newAppData.jsFile && existingApp.jsFile === newAppData.jsFile && existingApp._lastScriptHash) {
-          try {
-            const b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
-            const scriptText = base64ToUtf8(b64);
-            const currentHash = hashScriptContent(scriptText); // Quick hash for comparison
-            if (currentHash !== existingApp._lastScriptHash) {
-              console.log(`[APP POLLING] ${existingApp.label}: JS file content changed`);
-              scriptContentChanged = true;
-              appModified = true;
-            }
-          } catch (e) {
-            console.error(`[APP POLLING] Failed to check script hash for ${existingApp.label}:`, e);
-          }
-        }
-        
         if (existingApp.icon !== newAppData.icon) {
           console.log(`[APP POLLING] ${existingApp.label}: icon changed`);
           appModified = true;
@@ -551,206 +723,113 @@ async function pollAppChanges() {
           console.log(`[APP POLLING] App label changed from ${existingApp.label} to ${newAppData.label}`);
           appModified = true;
         }
-        
+        if (existingApp.startbtnid !== newAppData.startbtnid) {
+          appModified = true;
+        }
+
         if (appModified) {
-          hasChanges = true;
-          
-          // Store original values for comparison before updating
-          const iconChanged = existingApp.icon !== newAppData.icon;
-          
-          // Clean up old global variables and functions before reloading
-          try {
-            // Only delete the entry point function and app-specific name variants
-            // DO NOT delete _addedGlobals automatically since we can't reliably
-            // distinguish app-specific globals from others added around the same time
-            if (existingApp.entry && window[existingApp.entry]) {
-              window[existingApp.entry] = null;
-              delete window[existingApp.entry];
-            }
-            const variantsToClean = [
-              existingApp.id,
-              existingApp.label,
-              existingApp.label.toLowerCase(),
-              existingApp.label.replace(/\s+/g, ''),
-              existingApp.label.replace(/\s+/g, '').toLowerCase(),
-            ];
-            for (const variant of variantsToClean) {
-              if (window[variant]) {
-                window[variant] = null;
-                delete window[variant];
-              }
-            }
-          } catch (e) {
-            console.warn(`[APP POLLING] Error cleaning old app globals:`, e);
-          }
-          
-          // Remove old script if it was loaded
-          if (existingApp.scriptLoaded && existingApp._scriptElement) {
-            existingApp._scriptElement.remove();
-            existingApp.scriptLoaded = false;
-          }
-          
-          // Update app object with new data
+          // preserve old names so we can remove their globals safely after reload
+          const _oldEntry = existingApp.entry;
+          const _oldCmf = existingApp.cmf;
+
           existingApp.entry = newAppData.entry;
           existingApp.jsFile = newAppData.jsFile;
           existingApp.icon = newAppData.icon;
           existingApp.label = newAppData.label;
           existingApp.startbtnid = newAppData.startbtnid;
           existingApp.id = newAppData.id;
-          
-          console.log(`[APP POLLING] App updated: ${existingApp.label}`);
-          
-          // Immediately re-render the grid icon for this app
+
+          // Update grid icon/label
           const appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app'));
           if (appGridElement) {
             appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
           }
-          
-          // // Update taskbar icon if the icon changed
-          // if (iconChanged) {
-          //   const taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn =>
-          //     (btn.dataset && btn.dataset.appId === existingApp.id) ||
-          //     btn.textContent.includes(existingApp.label)
-          //   );
-          //   if (taskbarBtn) {
-          //     taskbarBtn.innerHTML = `${newAppData.icon}<span style="margin-left:8px;">${newAppData.label}</span>`;
-          //   }
-          // }
-          
-          // Reload script if app has JS file
-          if (existingApp.jsFile) {
+
+          // Reload script if JS file changed
+          if (jsFileChanged && existingApp.jsFile) {
             try {
               const b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
               const scriptText = base64ToUtf8(b64);
-              // Store hash for future change detection
-              existingApp._lastScriptHash = hashScriptContent(scriptText);
-              
-              // snapshot globals before injection
-              const beforeGlobals2 = new Set(Object.getOwnPropertyNames(window));
+              const currentHash = hashScriptContent(scriptText);
+              if (existingApp.scriptLoaded && existingApp._scriptElement) {
+                existingApp._scriptElement.remove();
+                existingApp.scriptLoaded = false;
+              }
+              // remove previous entry/cmf globals if they exist (use preserved names)
+              try {
+                if (_oldEntry && typeof window[_oldEntry] !== 'undefined') {
+                  try { delete window[_oldEntry]; } catch (e) {}
+                }
+                if (_oldCmf && typeof window[_oldCmf] !== 'undefined') {
+                  try { delete window[_oldCmf]; } catch (e) {}
+                }
+              } catch (e) {}
               const s = document.createElement('script');
               s.type = 'text/javascript';
               s.textContent = scriptText;
               document.body.appendChild(s);
               existingApp.scriptLoaded = true;
               existingApp._scriptElement = s;
-              // record any globals introduced
-              try {
-                let added = Object.getOwnPropertyNames(window).filter(k => !beforeGlobals2.has(k));
-                existingApp._addedGlobals = added;
-                setTimeout(() => {
-                  try {
-                    const after2 = Object.getOwnPropertyNames(window);
-                    const newly = after2.filter(k => !beforeGlobals2.has(k) && !(existingApp._addedGlobals || []).includes(k));
-                    if (newly.length) existingApp._addedGlobals = [...new Set([...(existingApp._addedGlobals || []), ...newly])];
-                  } catch (e) {}
-                }, 120);
-              } catch (e) {}
+              existingApp._lastScriptHash = currentHash;
               console.log(`[APP POLLING] Script reloaded for: ${existingApp.label}`);
             } catch (e) {
               console.error(`[APP POLLING] Failed to reload script for ${existingApp.label}:`, e);
             }
           }
-          
+
           hasChanges = true;
         }
       }
     }
-    
-    // Check for deleted apps
-    const appsToDelete = [];
-    for (let i = 0; i < window.apps.length; i++) {
-      const app = window.apps[i];
-      const stillExists = currentAppFolders.some(f => {
-        const expectedPath = (f[2] && f[2].path) ? f[2].path : `apps/${f[0]}`;
-        return expectedPath === app.path;
-      });
-      
-      if (!stillExists) {
-        appsToDelete.push(i);
-      }
-    }
-    
-    // Delete apps in reverse order to maintain indices
-    for (let i = appsToDelete.length - 1; i >= 0; i--) {
-      const appIndex = appsToDelete[i];
-      const app = window.apps[appIndex];
-      
-      console.log(`[APP POLLING] App deleted: ${app.label}`);
-      
-      // 0. Clean up global variables and functions
-      try {
-        // Clear entry point function
-        if (app.entry && window[app.entry]) {
-          window[app.entry] = null;
-          delete window[app.entry];
-          console.log(`[APP POLLING] Cleared function: ${app.entry}`);
-        }
-        
-        // Try to clear other related variables (app id, label variants, etc.)
-        const variantsToClean = [
-          app.id,
-          app.label,
-          app.label.toLowerCase(),
-          app.label.replace(/\s+/g, ''),
-          app.label.replace(/\s+/g, '').toLowerCase(),
-        ];
-        
-        for (const variant of variantsToClean) {
-          if (window[variant]) {
-            window[variant] = null;
-            delete window[variant];
-            console.log(`[APP POLLING] Cleared variable: ${variant}`);
-          }
-        }
-        // Clear any globals recorded when the app loaded
-        try {
-          if (app._addedGlobals && app._addedGlobals.length) {
-            for (const g of app._addedGlobals) {
-              try {
-                if (window[g]) {
-                  window[g] = null;
-                  delete window[g];
-                  console.log(`[APP POLLING] Cleared added global: ${g}`);
-                }
-              } catch (ee) {}
+
+    // Third pass: Check if scripts have changed for existing apps (on change notifications)
+    if (forceMetadataCheck) {
+      for (const app of window.apps) {
+        if (app.jsFile && app._lastScriptHash) {
+          try {
+            const b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+            const scriptText = base64ToUtf8(b64);
+            const currentHash = hashScriptContent(scriptText);
+            
+            if (currentHash !== app._lastScriptHash) {
+              console.log(`[APP POLLING] ${app.label}: JS file content changed`);
+              
+              if (app.scriptLoaded && app._scriptElement) {
+                app._scriptElement.remove();
+                app.scriptLoaded = false;
+              }
+              
+              if (app.entry && window[app.entry]) {
+                try {
+                  window[app.entry] = null;
+                  delete window[app.entry];
+                } catch (e) {}
+              }
+              
+                try {
+                app._lastScriptHash = currentHash;
+                // remove prior globals exposed by this app before re-injecting
+                try {
+                  if (app.entry && typeof window[app.entry] !== 'undefined') { try { delete window[app.entry]; } catch (e) {} }
+                  if (app.cmf && typeof window[app.cmf] !== 'undefined') { try { delete window[app.cmf]; } catch (e) {} }
+                } catch (e) {}
+                const s = document.createElement('script');
+                s.type = 'text/javascript';
+                s.textContent = scriptText;
+                document.body.appendChild(s);
+                app.scriptLoaded = true;
+                app._scriptElement = s;
+                console.log(`[APP POLLING] Script reloaded for: ${app.label}`);
+                hasChanges = true;
+              } catch (e) {
+                console.error(`[APP POLLING] Failed to reload script for ${app.label}:`, e);
+              }
             }
-            app._addedGlobals = null;
-            delete app._addedGlobals;
+          } catch (e) {
+            console.error(`[APP POLLING] Failed to check script hash for ${app.label}:`, e);
           }
-        } catch (ee) {}
-      } catch (e) {
-        console.warn(`[APP POLLING] Error cleaning global variables for ${app.label}:`, e);
+        }
       }
-      
-      // 1. Remove script element from DOM if loaded
-      if (app._scriptElement) {
-        app._scriptElement.remove();
-      }
-      
-      // 2. Remove from apps array
-      window.apps.splice(appIndex, 1);
-      
-      // 3. Remove from apps grid
-      const appElement = document.getElementById(app.id + 'app');
-      if (appElement) appElement.remove();
-      
-      // 4. Remove taskbar button
-      const taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn => 
-        (btn.dataset && btn.dataset.appId === app.icon) || 
-        btn.textContent.includes(app.label)
-      );
-      if (taskbarBtn) taskbarBtn.remove();
-      
-      // 5. Close all windows with matching appId
-      const appIdToMatch = app.entry || app.icon;
-      const windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root => 
-        root.dataset && root.dataset.appId === appIdToMatch
-      );
-      for (const windowEl of windowsToClose) {
-        windowEl.remove();
-      }
-      
-      hasChanges = true;
     }
     
     // If any changes detected, re-render and apply
@@ -778,17 +857,18 @@ window.addEventListener('appUpdated', (e) => {
 function startAppPolling() {
   if (appPollingActive) return;
   appPollingActive = true;
-  
-  // Poll every 7 seconds (5-10 second range)
-  setInterval(() => {
-    try {
-      pollAppChanges();
-    } catch (e) {
-      console.error('[APP POLLING] Poll cycle error:', e);
-    }
-  }, 7000);
-  
-  console.log('[APP POLLING] App polling started (7s interval)');
+
+  const wsStarted = startAppPollingViaWebSocket();
+  if (!wsStarted) {
+    // Fallback: very slow polling if WebSocket isn't supported
+    setInterval(() => {
+      scheduleAppPoll('fallback');
+    }, 60000);
+    console.log('[APP POLLING] WebSocket unavailable; fallback polling every 60s');
+    return;
+  }
+
+  console.log('[APP POLLING] WebSocket polling enabled');
 }
 
 // Ensure loadAppsFromTree runs after initial tree load
@@ -800,10 +880,6 @@ window.loadTree = async function () {
 
 // ----------------- END dynamic app loader -----------------
 
-// Verification websocket with reconnect/backoff. call connectVerificationSocket() to (re)connect.
-let verificationsocket = null;
-let GBSOCKETI = 0; // reconnection attempts
-let GBSOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
 let username = data.username;
 
 
@@ -980,55 +1056,7 @@ window.removeotherMenus = function(except) {
       } catch (e) { console.error('close focused app window error', e); }
     }
   });
-function connectVerificationSocket() {
-  try {
-    if (typeof WebSocket === 'undefined') return;
-    // avoid creating multiple sockets
-    if (verificationsocket && (verificationsocket.readyState === WebSocket.OPEN || verificationsocket.readyState === WebSocket.CONNECTING)) return;
 
-    verificationsocket = new WebSocket(vsURL);
-
-    verificationsocket.onopen = () => {
-      console.log(`[GOLDENBODY]: Connected to ${vsURL}`);
-      GBSOCKETI = 0; // reset backoff on success
-      // send addPerson message with credentials if available
-      try {
-        verificationsocket.send(JSON.stringify({ addPerson: true, username: data.username, password: data.password }));
-      } catch (e) {}
-    };
-
-    verificationsocket.onmessage = (ev) => {
-      // handle any verification messages here if needed
-      try {
-        const msg = JSON.parse(ev.data);
-        // example: show notifications for important server messages
-        if (msg && msg.notify) {
-          try { notification(msg.notify); } catch (e) {}
-        }
-      } catch (e) {
-        // ignore non-json payloads
-      }
-    };
-
-    verificationsocket.onerror = (err) => {
-      // console.warn('[GOLDENBODY] error', err);
-    };
-
-    verificationsocket.onclose = (e) => {
-      if(GBSOCKETI < 10) GBSOCKETI++; // increment interval
-      // exponential backoff for reconnect attempts
-      console.log(`[GOLDENBODY]: Disconnected from ${vsURL} with code ${e.code} - Attempting to reconnect in ${GBSOCKETI} seconds...`);
-      setTimeout(() => {
-        connectVerificationSocket();
-      }, GBSOCKETI * 1000);
-    };
-  } catch (e) {
-    console.error('connectVerificationSocket error', e);
-  }
-}
-
-// Auto-start verification socket but safe-guarded in case server not present
-try { connectVerificationSocket(); } catch (e) {}
 function applyStyles() {
   try {
     const roots = document.querySelectorAll('.sim-chrome-root');

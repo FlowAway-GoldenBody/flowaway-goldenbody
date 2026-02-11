@@ -130,7 +130,7 @@ if (config.enableWorkers) {
 if (cluster.isMaster) {
   let zmcd = require('./zmcd');
   let fetchfiles = require('./fetchfiles');
-  require("./verification");
+  require("./appSocket");
 //   let sfcp = require('./sfcp');
 //   let sfcws = require('./sfcws')
 }

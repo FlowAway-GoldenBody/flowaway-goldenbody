@@ -1,3 +1,4 @@
 fileExplorer
 File Explorer
 explorerapp
+fileExplorerContextMenu

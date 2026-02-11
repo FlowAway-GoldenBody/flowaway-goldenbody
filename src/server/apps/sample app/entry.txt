@@ -1,3 +1,4 @@
 yourApp
 Your App
 your_app_nameapp
+your_app_nameContextMenu
