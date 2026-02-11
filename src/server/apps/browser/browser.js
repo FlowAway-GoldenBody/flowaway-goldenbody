@@ -1,14 +1,14 @@
 //browser global vars
-  var allBrowsers = [];
-  var browserId = 0;
-  var id = data.id;
-  var proxyurl = goldenbodywebsite;
-  var dragstartwindow;
+  window.allBrowsers = [];
+  window.browserId = 0;
+  window.id = data.id;
+  window.proxyurl = goldenbodywebsite;
+  window.dragstartwindow = null;
   window.__vfsMessageListenerAdded = false;
-  var tabisDragging = false;
-  var draggedtab = 0;
+  window.tabisDragging = false;
+  window.draggedtab = 0;
 // browser global functions
-  function mainWebsite(string) {
+  window.mainWebsite = function(string) {
     let s = '';
     let anti_numtots = 0;
     for (let i = 0; i < string.length; i++) {
@@ -23,7 +23,7 @@
     return s;
   }
 
-browser = function (
+window.browser = function (
     preloadlink = null,
     preloadsize = 100,
     posX = 20,
@@ -3705,16 +3705,16 @@ try{        if (
 
 
   // app stuff
-  var browsermenu;
-  var browserButtons = [];
-  browsermenuhandler = function(e, needremove = true) {
+  window.browsermenu = null;
+  window.browserButtons = [];
+  window.browsermenuhandler = function(e, needremove = true) {
     e.preventDefault();
 
     // Remove existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    browsermenu = menu;
+    window.browsermenu = menu;
     try {
       removeotherMenus('browser');
     } catch (e) {}

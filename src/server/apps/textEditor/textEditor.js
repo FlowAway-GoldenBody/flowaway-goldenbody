@@ -1,8 +1,8 @@
 //textEditor global vars
-  var alltextEditor = [];
-  var textEditorId = 0;
-var __textEditorStyle = document.createElement("style");
-__textEditorStyle.textContent = `
+  window.alltextEditor = [];
+  window.textEditorId = 0;
+window.__textEditorStyle = document.createElement("style");
+window.__textEditorStyle.textContent = `
 .texteditor-topbar.dark{
   background: #111;
   color: #eee;
@@ -12,7 +12,7 @@ __textEditorStyle.textContent = `
   color: #000;
 }
 `;
-document.head.appendChild(__textEditorStyle);
+document.head.appendChild(window.__textEditorStyle);
 textEditor = function (path, posX = 50, posY = 50) {
   let hasFileOpen = false;
   let editorName;
@@ -1157,8 +1157,9 @@ textEditor = function (path, posX = 50, posY = 50) {
 
 
   //app stuff
-  var textEditorButtons = [];
-  var textEditormenu;
+  window.textEditorButtons = [];
+  window.AbortControllertextEditormenu;
+  window.textEditormenu;
 textEditorContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
@@ -1166,7 +1167,7 @@ textEditorContextMenu = function(e, needRemove = true) {
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    textEditormenu = menu;
+    window.textEditormenu = menu;
     try {
         removeOtherMenus('textEditor');
     } catch (e) {}
@@ -1351,7 +1352,7 @@ textEditorContextMenu = function(e, needRemove = true) {
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Text Editor
 try {
-  function attachTextEditorContext(btn) {
+  window.attachTextEditorContext = function (btn) {
     try {
       if (!btn || !(btn instanceof HTMLElement)) return;
       if (btn.dataset && btn.dataset.textEditorContextBound) return;

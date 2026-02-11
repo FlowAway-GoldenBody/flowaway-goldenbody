@@ -1,7 +1,7 @@
 // Terminal global vars - dispatch events to running apps to add terminal plugins
   // Command format: <app> <command> <args>
-  var allTerminals = [];
-  var terminalId = 0;
+  window.allTerminals = [];
+  window.terminalId = 0;
 
 terminal = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -593,8 +593,8 @@ if (appName === 'cd') {
 
 
   // Terminal context menu
-  var terminalButtons = [];
-  var terminalMenu;
+  window.terminalButtons = [];
+  window.terminalMenu = null;
   terminalContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
@@ -602,7 +602,7 @@ if (appName === 'cd') {
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    terminalMenu = menu;
+    window.terminalMenu = menu;
     try {
         removeOtherMenus('terminal');
     } catch (e) {}

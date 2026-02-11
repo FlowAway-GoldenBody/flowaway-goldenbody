@@ -1,39 +1,11 @@
 //explorer global vars
-  var allExplorers = [];
-  var explorerId = 0;
-  var clipboard = {
+  window.allExplorers = [];
+  window.explorerId = 0;
+  window.clipboard = {
     item: null, // tree node reference
     path: null, // full path string
   };
-        var findNodeByPath = function(relPath) {
-        const parts = relPath.split("/");
-        let current = treeData;
-        for (let i = 1; i < parts.length; i++) {
-          if (!current[1]) return null;
-          current = current[1].find((c) => c[0] === parts[i]);
-        }
-        return current;
-      }
-      var removeNodeFromTree = function(node, pathParts) {
-  if (!node || !Array.isArray(node[1])) return false;
 
-  const [target, ...rest] = pathParts;
-
-  for (let i = 0; i < node[1].length; i++) {
-    const child = node[1][i];
-
-    if (child[0] === target) {
-      if (rest.length === 0) {
-        node[1].splice(i, 1); // delete node
-        return true;
-      } else {
-        return removeNodeFromTree(child, rest); // go deeper
-      }
-    }
-  }
-
-  return false; // not found
-}
 fileExplorer = function (posX = 50, posY = 50) {
     let isMaximized = false;
     let _isMinimized = false;
@@ -1479,8 +1451,8 @@ function handleSelection(e, item, items, index) {
 
 
   //app stuff
-  var explorerButtons = [];
-  var explorermenu;
+  window.explorerButtons = [];
+  window.explorermenu = null;
   fileExplorerContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
@@ -1488,7 +1460,7 @@ function handleSelection(e, item, items, index) {
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    explorermenu = menu;
+    window.explorermenu = menu;
     try {
         removeOtherMenus('fileExplorer');
     } catch (e) {}

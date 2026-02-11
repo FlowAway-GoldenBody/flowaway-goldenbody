@@ -1,6 +1,6 @@
 //settings global vars
-  var allSettings = [];
-  var settingsId = 0;
+  window.allSettings = [];
+  window.settingsId = 0;
 
 settings = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -589,8 +589,8 @@ mainContainer.appendChild(themeRow);
 
 
   //app stuff
-  var settingsButtons = [];
-  var settingsmenu;
+  window.settingsButtons = [];
+  window.settingsmenu;
   settingsContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
