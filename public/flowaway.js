@@ -126,22 +126,59 @@ function base64ToArrayBuffer(base64) {
 }
 
 // UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
-function base64ToUtf8(b64) {
+function base64ToUtf8(b64OrBuffer) {
   try {
-    const buf = base64ToArrayBuffer(b64);
+    // If caller passed an ArrayBuffer or Uint8Array, decode directly
+    if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {
+      const buf = b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
+      return new TextDecoder('utf-8').decode(buf);
+    }
+
+    // Otherwise assume base64 string
+    const buf = base64ToArrayBuffer(String(b64OrBuffer || ''));
     return new TextDecoder('utf-8').decode(buf);
   } catch (e) {
-    // fallback to atob for environments without TextDecoder support
     try {
-      return atob(b64);
-    } catch (ee) { return ''; }
+      // fallback to atob for environments without TextDecoder support
+      if (typeof b64OrBuffer === 'string') return atob(b64OrBuffer);
+    } catch (ee) {}
+    return '';
   }
 }
 
 async function fetchFileContentByPath(path) {
   if (!path) throw new Error('No path');
   const res = await filePost({ requestFile: true, requestFileName: path });
-  if (res && res.filecontent) return res.filecontent;
+
+  // If server returned a simple base64 payload for small files
+  if (res && typeof res.filecontent === 'string' && (!res.totalChunks || res.totalChunks <= 1)) {
+    return res.filecontent;
+  }
+
+  // If server indicates chunking, fetch all chunks and combine as ArrayBuffer
+  if (res && typeof res.totalChunks === 'number' && res.totalChunks > 1) {
+    const chunks = [];
+    // first chunk
+    if (typeof res.filecontent === 'string') chunks.push(base64ToArrayBuffer(res.filecontent));
+
+    for (let i = 1; i < res.totalChunks; i++) {
+      const part = await filePost({ requestFile: true, requestFileName: path, chunkIndex: i });
+      if (!part || typeof part.filecontent !== 'string') throw new Error('Missing chunk ' + i + ' for ' + path);
+      chunks.push(base64ToArrayBuffer(part.filecontent));
+    }
+
+    // Combine into single ArrayBuffer
+    const total = chunks.reduce((s, c) => s + (c.byteLength || 0), 0);
+    const combined = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) {
+      const u = new Uint8Array(c);
+      combined.set(u, off);
+      off += u.byteLength;
+    }
+    return combined.buffer;
+  }
+
   throw new Error('Could not fetch file: ' + path);
 }
 async function makeFlowawayFileHandle(name, path, filecontent = null) {
@@ -151,8 +188,8 @@ async function makeFlowawayFileHandle(name, path, filecontent = null) {
     name,
     path,
     async getFile() {
-      const b64 = await fetchFileContentByPath(path);
-      const buf = base64ToArrayBuffer(b64);
+      const res = await fetchFileContentByPath(path);
+      const buf = (res instanceof ArrayBuffer || ArrayBuffer.isView(res)) ? res : base64ToArrayBuffer(String(res || ''));
       const type = (function (n) { const ext = n.split('.').pop().toLowerCase(); const m = { txt: 'text/plain', js: 'application/javascript', json: 'application/json', html: 'text/html' }; return m[ext] || 'application/octet-stream'; })(name);
       return new File([buf], name, { type });
     }
