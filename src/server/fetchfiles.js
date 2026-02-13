@@ -156,30 +156,46 @@ const server = http.createServer(async (req, res) => {
       }
 
 
-      // 2️⃣ REQUEST FILE
+      // 2️⃣ REQUEST FILE (supports chunked download for large files)
 if (data.requestFile) {
   const fullPath = path.join(userRoot, data.requestFileName);
-console.log(fullPath)
-
-  // Read as raw buffer
-
-  // Convert to base64
-const stat = await fsp.stat(fullPath);
-console.log(stat)
-if (stat.isFile()) {
+  const stat = await fsp.stat(fullPath);
+  
+  if (stat.isFile()) {
+    const fileSize = stat.size;
+    const chunkSize = 10 * 1024 * 1024; // 10MB chunks
+    const chunkIndex = typeof data.chunkIndex === 'number' ? data.chunkIndex : 0;
+    const start = chunkIndex * chunkSize;
+    const end = Math.min(start + chunkSize, fileSize);
+    const isLastChunk = end >= fileSize;
+    
+    // For small files, send whole file as base64
+    if (fileSize <= chunkSize) {
       const buffer = await fsp.readFile(fullPath);
-  const filecontent = buffer.toString('base64');
-  return res.end(JSON.stringify({ filecontent }));
-}
+      const filecontent = buffer.toString('base64');
+      return res.end(JSON.stringify({ filecontent, fileSize, isLastChunk: true }));
+    }
+    
+    // For large files, send in chunks
+    const buffer = await fsp.readFile(fullPath, { flag: 'r' });
+    const chunk = buffer.slice(start, end);
+    const chunkBase64 = chunk.toString('base64');
+    return res.end(JSON.stringify({ 
+      filecontent: chunkBase64, 
+      fileSize, 
+      chunkIndex, 
+      isLastChunk,
+      totalChunks: Math.ceil(fileSize / chunkSize)
+    }));
+  }
 
-if (stat.isDirectory()) {
-  const files = await walkDir(fullPath);
-  console.log(files)
-  return res.end(JSON.stringify({
-    kind: 'folder',
-    files: files
-  }));
-}
+  if (stat.isDirectory()) {
+    const files = await walkDir(fullPath);
+    return res.end(JSON.stringify({
+      kind: 'folder',
+      files: files
+    }));
+  }
 }
 
 async function exists(p) {
@@ -241,12 +257,15 @@ async function applyDirections(rootPath, directions) {
   const result = {};
   let clipboard = null; // holds copied path or temp data
 
-  const resolvePath = (p) => {
-    if(p.startsWith('root/')) {
-      return path.join(rootPath, ...p.split('/').slice(1)); // drop "root"
-    } else {
-      return path.join(rootPath, p); // support paths without "root" prefix for convenience
-    }
+  const resolvePath = (p = '') => {
+    // Normalize and support several caller conventions:
+    // - empty or 'root' -> rootPath
+    // - 'root/dir/sub' -> drop leading 'root'
+    // - 'dir/sub' -> relative to rootPath
+    if (!p || p === 'root') return rootPath;
+    const parts = p.split('/').filter(Boolean);
+    if (parts[0] === 'root') parts.shift();
+    return path.join(rootPath, ...parts);
   }
 
   // Helper: compute total size (bytes) of a directory recursively
@@ -320,13 +339,31 @@ async function applyDirections(rootPath, directions) {
   for (const dir of directions) {
  if (dir.addFolder) {
   console.log(dir.path)
-  const parentPath = resolvePath(dir.path);
-  const folderPath = path.join(parentPath, dir.name);
-  console.log('Creating folder', folderPath);
-  console.log('Ensuring parent directory exists', parentPath);
+  // dir.path may be either the parent folder (where to create) OR
+  // a full target path that already includes the new folder name.
+  // Normalize: if dir.name provided, treat dir.path as parent; otherwise
+  // try to derive name from path.
+  let parentPath = resolvePath(dir.path || 'root');
+  let folderPath;
+  if (dir.name && dir.name.length) {
+    folderPath = path.join(parentPath, dir.name);
+  } else {
+    // If no explicit name, assume dir.path includes the new name
+    // e.g. 'root/a/newFolder' -> parent = 'root/a' name = 'newFolder'
+    const parts = (dir.path || '').split('/').filter(Boolean);
+    if (parts.length > 1) {
+      const name = parts.pop();
+      parentPath = resolvePath('root/' + parts.join('/'));
+      folderPath = path.join(parentPath, name);
+    } else {
+      // fallback: create under parentPath with a timestamped name
+      folderPath = path.join(parentPath, `new-folder-${Date.now()}`);
+    }
+  }
+
   await ensureDir(parentPath);
 
-  // 🚨 Detect file collision
+  // If an entry exists at the target path, ensure it's a directory.
   if (await exists(folderPath)) {
     const stat = await fsp.stat(folderPath);
     if (!stat.isDirectory()) {
@@ -334,7 +371,7 @@ async function applyDirections(rootPath, directions) {
     }
     // already a folder → OK
   } else {
-    await fsp.mkdir(folderPath);
+    await fsp.mkdir(folderPath, { recursive: true });
   }
 
   continue;
@@ -497,8 +534,42 @@ async function applyDirections(rootPath, directions) {
       if (dir.checkParts) {
         const destRel = dir.path || '';
         const safeName = destRel.replace(/\\/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');
-        const parts = (await fsp.readdir(userTempDir)).filter(f => f.startsWith(`${safeName}.part.`));
-        const indices = parts.map(p => Number(p.split('.').pop())).filter(n => !Number.isNaN(n));
+        let parts = (await fsp.readdir(userTempDir)).filter(f => f.startsWith(`${safeName}.part.`));
+
+        // If no parts found, attempt to discover parts using alternative naming
+        // strategies (sanitization mismatches, omitted leading 'root', or basename-only).
+        if (!parts || parts.length === 0) {
+          try {
+            const all = await fsp.readdir(userTempDir);
+            // write directory snapshot for diagnostics
+            try { await fsp.writeFile(path.join(userTempDir, `${safeName}.tempdir.json`), JSON.stringify(all, null, 2)); } catch (e) {}
+
+            // candidate names to try
+            const candidates = new Set();
+            candidates.add(safeName);
+            if (safeName.startsWith('root_')) candidates.add(safeName.replace(/^root_/, ''));
+            // try using only basename
+            candidates.add(path.basename(destRel).replace(/[^a-zA-Z0-9._-]/g, '_'));
+            // also try url-encoded and decoded variants
+            candidates.add(encodeURIComponent(safeName));
+            candidates.add(decodeURIComponent(safeName));
+
+            for (const c of candidates) {
+              const found = all.filter(f => f.startsWith(`${c}.part.`));
+              if (found && found.length) {
+                parts = found;
+                console.warn('VFS finalize: found parts using alternative candidate', c, 'count', found.length);
+                break;
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        const indices = parts.map(p => {
+          const m = p.match(/\.part\.(\d+)$/);
+          return m ? Number(m[1]) : NaN;
+        }).filter(n => !Number.isNaN(n));
         result.checkParts = result.checkParts || {};
         result.checkParts[destRel] = indices.sort((a, b) => a - b);
         continue;
@@ -507,7 +578,8 @@ async function applyDirections(rootPath, directions) {
       // 2a) Chunk(s) provided as an array
       if (Array.isArray(dir.chunks) && dir.chunks.length) {
         for (const ch of dir.chunks) {
-          const idx = Number.isFinite(ch.index) ? ch.index : 0;
+          const idxNum = Number.isFinite(Number(ch.index)) ? Number(ch.index) : 0;
+          const idx = String(Number(idxNum)).padStart(6, '0');
           const chunkBase64 = ch.chunk || ch.data || ch.contents || '';
           const safeName = destRel.replace(/\\/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');
           const partPath = path.join(userTempDir, `${safeName}.part.${idx}`);
@@ -519,7 +591,8 @@ async function applyDirections(rootPath, directions) {
 
       // 2b) Single chunk entry
       if (dir.chunk) {
-        const idx = Number.isFinite(dir.index) ? dir.index : 0;
+        const idxNum = Number.isFinite(Number(dir.index)) ? Number(dir.index) : 0;
+        const idx = String(Number(idxNum)).padStart(6, '0');
         const chunkBase64 = dir.chunk || '';
         const safeName = destRel.replace(/\\/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');
         const partPath = path.join(userTempDir, `${safeName}.part.${idx}`);
@@ -536,11 +609,30 @@ async function applyDirections(rootPath, directions) {
         const safeName = destRel.replace(/\\/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');
         const parts = (await fsp.readdir(userTempDir)).filter(f => f.startsWith(`${safeName}.part.`));
 
-        // Quota check: sum parts
+        // Quota check: sum parts (also collect diagnostics)
         let partsTotal = 0;
+        const partsInfo = [];
         for (const p of parts) {
-          const s = await fsp.stat(path.join(userTempDir, p));
+          const pth = path.join(userTempDir, p);
+          let s = { size: 0 };
+          try { s = await fsp.stat(pth); } catch (e) { /* ignore stat errors */ }
           partsTotal += s.size || 0;
+          partsInfo.push({ name: p, size: s.size || 0 });
+        }
+
+        // Write diagnostic parts file to help debug zero-byte assembly issues
+        try {
+          await fsp.writeFile(path.join(userTempDir, `${safeName}.parts.json`), JSON.stringify(partsInfo, null, 2));
+        } catch (e) {
+          console.warn('VFS: failed to write parts diagnostic file', e);
+        }
+
+        console.warn('VFS finalize:', { safeName, partsCount: parts.length, partsTotal, filePath });
+
+        if (parts.length === 0 || partsTotal === 0) {
+          console.error('VFS finalize: no parts or zero total bytes for', safeName, filePath);
+          // Throw to surface error to caller so the client can retry instead of creating 0-byte file
+          throw new Error(`No upload parts found for ${safeName}`);
         }
         const quota = await getUserQuotaBytes(rootPath);
         const currentUsed = await getDirSizeBytes(rootPath);
@@ -550,23 +642,31 @@ async function applyDirections(rootPath, directions) {
         }
 
         parts.sort((a, b) => {
-          const ai = Number(a.split('.').pop());
-          const bi = Number(b.split('.').pop());
+          const ma = a.match(/\.part\.(\d+)$/);
+          const mb = b.match(/\.part\.(\d+)$/);
+          const ai = ma ? Number(ma[1]) : 0;
+          const bi = mb ? Number(mb[1]) : 0;
           return ai - bi;
         });
 
         const writeStream = fs.createWriteStream(filePath, { flags: 'w' });
         for (const p of parts) {
           const pth = path.join(userTempDir, p);
+          const buffer = await fsp.readFile(pth);
           await new Promise((resolve, reject) => {
-            const rs = fs.createReadStream(pth);
-            rs.on('end', resolve);
-            rs.on('error', reject);
-            rs.pipe(writeStream, { end: false });
+            writeStream.write(buffer, (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
           });
           await fsp.rm(path.join(userTempDir, p), { force: true });
         }
-        await new Promise((resolve) => writeStream.end(resolve));
+        await new Promise((resolve, reject) => {
+          writeStream.end((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
         continue;
       }
 
@@ -588,9 +688,9 @@ async function applyDirections(rootPath, directions) {
 
         const currentUsed = await getDirSizeBytes(rootPath);
         const delta = newSize - oldSize;
-        if (delta > 0 && currentUsed + delta > DEFAULT_QUOTA_BYTES) {
-          console.error(`Storage quota exceeded: cannot write ${path.basename(filePath)} (${delta} additional bytes)`);
-          continue;
+        const quota = await getUserQuotaBytes(rootPath);
+        if (delta > 0 && currentUsed + delta > quota) {
+          throw new Error(`Storage quota exceeded: cannot write ${path.basename(filePath)} (${delta} additional bytes)`);
         }
 
         console.log(filePath, buffer.length);

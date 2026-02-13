@@ -1430,8 +1430,44 @@ async function fetchFileContent(username, fileFullPath) {
     throw new Error(`Expected a file but got a folder at ${fileFullPath}`);
   }
 
+  // For large files, fetch all chunks and combine directly as ArrayBuffer
+  if (data.totalChunks && data.totalChunks > 1) {
+    const chunks = [];
+    
+    // Convert first chunk to ArrayBuffer
+    chunks.push(base64ToArrayBuffer(data.filecontent));
+    
+    // Fetch remaining chunks and convert each
+    for (let i = 1; i < data.totalChunks; i++) {
+      const chunkRes = await fetch(SERVER, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestFile: true,
+          requestFileName: fileFullPath,
+          chunkIndex: i,
+          username,
+        }),
+      });
+      const chunkData = await chunkRes.json();
+      chunks.push(base64ToArrayBuffer(chunkData.filecontent));
+    }
+    
+    // Combine all ArrayBuffers directly
+    const totalSize = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+    const combined = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(new Uint8Array(chunk), offset);
+      offset += chunk.byteLength;
+    }
+    
+    // Return as ArrayBuffer directly (no base64 conversion)
+    return combined.buffer;
+  }
 
-  return data.filecontent; // Base64 string
+  // For small files, still return base64 from single request
+  return data.filecontent;
 }
 
 
@@ -1494,8 +1530,10 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
     let currentPath = [...pickerCurrentPath];
     currentPath.splice(0, 1);
   const fullPath = node[2].path || currentPath.join('/') + '/' + node[0];
-  const base64 = await fetchFileContent(username, fullPath);
-  const buffer = base64ToArrayBuffer(base64);
+  const result = await fetchFileContent(username, fullPath);
+  
+  // Handle both base64 strings and ArrayBuffers
+  const buffer = typeof result === 'string' ? base64ToArrayBuffer(result) : result;
   const type = getMimeType(node[0]);
   // Compute a webkitRelativePath-like relative path for the file so the
   // injector can reconstruct directory structure (remove picker base)
@@ -1510,20 +1548,55 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
   }
   const webkitRelativePath = relParts.join('/') || node[0];
 
-  iframe.contentWindow.postMessage(
-    {
-      __VFS__: true,
-      kind: "file",
-      name: node[0],
-      type,
-      buffer,
-      path: fullPath,
-      webkitRelativePath,
-      lastOne: lastOne,
-    },
-    "*",
-    [buffer]
-  );
+  // Send in chunks if large to avoid postMessage size limits
+  // Use larger chunks to reduce number of messages, add delays between sends
+  const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
+  if (buffer.byteLength > MAX_MESSAGE_SIZE) {
+    const chunkSize = MAX_MESSAGE_SIZE;
+    const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, buffer.byteLength);
+      const chunk = buffer.slice(start, end);
+      
+      await new Promise(resolve => {
+        iframe.contentWindow.postMessage(
+          {
+            __VFS__: true,
+            kind: "file",
+            name: node[0],
+            type,
+            buffer: chunk,
+            path: fullPath,
+            webkitRelativePath,
+            chunkIndex: i,
+            totalChunks: totalChunks,
+            lastOne: (i === totalChunks - 1) && lastOne,
+          },
+          "*",
+          [chunk]
+        );
+        // Small delay to let iframe process before next chunk
+        setTimeout(resolve, 10);
+      });
+    }
+  } else {
+    iframe.contentWindow.postMessage(
+      {
+        __VFS__: true,
+        kind: "file",
+        name: node[0],
+        type,
+        buffer,
+        path: fullPath,
+        webkitRelativePath,
+        lastOne: lastOne,
+      },
+      "*",
+      [buffer]
+    );
+  }
 }
 
 async function sendFolderNodeToIframe(username, folderNode, iframe, lastOne = false) {
@@ -1558,60 +1631,48 @@ function walk(node, prefix = '') {
 }
 
   walk(folderNode);
-let i = 0;
-  // 2️⃣ Fetch + send each file
+let fileIndex = 0;
+  // 2️⃣ Fetch + send each file with throttling to prevent packet loss
   for (const file of filesToSend) {
-    i++;
-    const base64 = await fetchFileContent(username, file.fullPath);
-    const buffer = base64ToArrayBuffer(base64);
+    fileIndex++;
+    const result = await fetchFileContent(username, file.fullPath);
+    const buffer = typeof result === 'string' ? base64ToArrayBuffer(result) : result;
     const type = getMimeType(file.name);
     let fileParts = file.fullPath.split('/');
     let origpickercurrentpath = Array.from(pickerCurrentPath);
     pickerCurrentPath.splice(0, 1);
     let pickerparts = pickerCurrentPath;
     pickerCurrentPath = origpickercurrentpath;
-    for(let i = 0; i < pickerparts.length; i++) {
-      if(fileParts[0] === pickerparts[i]) {
+    for(let j = 0; j < pickerparts.length; j++) {
+      if(fileParts[0] === pickerparts[j]) {
         fileParts.splice(0, 1);
       }
     }
     file.fullPath = '';
     let first = true;
-    for(let i = 0; i < fileParts.length; i++) {
-      if(first) {first = false; file.fullPath += fileParts[i];} else{file.fullPath += '/' + fileParts[i];}
+    for(let j = 0; j < fileParts.length; j++) {
+      if(first) {first = false; file.fullPath += fileParts[j];} else{file.fullPath += '/' + fileParts[j];}
     }
-if(i == filesToSend.length) {
-        iframe.contentWindow.postMessage(
-      {
-        __VFS__: true,
-        kind: 'file',
-        name: file.name,
-        type,
-        buffer,
-        webkitRelativePath: file.fullPath,
-        expectmore: true,
-        lastOne: lastOne
-      },
-      '*',
-      [buffer]
-    );
-}
-else {
-    iframe.contentWindow.postMessage(
-      {
-        __VFS__: true,
-        kind: 'file',
-        name: file.name,
-        type,
-        buffer,
-        webkitRelativePath: file.fullPath,
-        expectmore: true,
-        lastOne: false
-      },
-      '*',
-      [buffer]
-    );
-  }
+    
+    // Add delay between messages to prevent packet loss
+    await new Promise(resolve => {
+      iframe.contentWindow.postMessage(
+        {
+          __VFS__: true,
+          kind: 'file',
+          name: file.name,
+          type,
+          buffer,
+          webkitRelativePath: file.fullPath,
+          fileIndex: fileIndex - 1,
+          totalFiles: filesToSend.length,
+          lastOne: (fileIndex == filesToSend.length) && lastOne
+        },
+        '*',
+        [buffer]
+      );
+      setTimeout(resolve, 10);
+    });
   }
 }
 
@@ -2102,7 +2163,23 @@ if (sentreqframe && sentreqframe.contentWindow) {
                   }
 
                   // Assemble full ArrayBuffer
-                  const totalBytes = entry.bytes;
+                  let totalBytes = entry.bytes;
+
+                  // Debug: if totalBytes is zero but chunks exist, compute a fallback
+                  if ((!totalBytes || totalBytes === 0) && entry.chunks && entry.chunks.length) {
+                    try {
+                      const computed = entry.chunks.reduce((sum, c) => {
+                        try { return sum + (c && (c.byteLength || (c.byteLength === 0 ? 0 : new Uint8Array(c).byteLength)) || 0); } catch (e) { return sum; }
+                      }, 0);
+                      if (computed > 0) {
+                        console.warn('VFS: computed totalBytes fallback', fullPath, computed, 'from', entry.chunks.length, 'chunks');
+                        totalBytes = computed;
+                      }
+                    } catch (err) {
+                      console.warn('VFS: failed computing fallback totalBytes for', fullPath, err);
+                    }
+                  }
+
                   let combined;
                   if (entry.chunks.length === 1) {
                     combined = entry.chunks[0];
@@ -2279,14 +2356,26 @@ FileSystemFileHandle.prototype.createWritable = async function () {
         buffer = new Uint8Array(chunk).buffer;
       }
 
-      // Return a promise that resolves when the message is sent
+      // Post the chunk as a transferable and wait a short time to provide
+      // backpressure so the top frame and network can keep up. Include a
+      // short-lived chunkId for diagnostics.
       return new Promise((resolve) => {
-        window.top.postMessage(
-          { __VFS__: true, kind: 'saveFile', path, name, buffer },
-          '*'
-        );
-        // Resolve immediately after posting (message queued)
-        resolve();
+        const chunkId = Math.random().toString(36).slice(2);
+        const info = { __VFS__: true, kind: 'saveFile', path, name, buffer, _chunkId: chunkId, _size: (buffer && buffer.byteLength) || 0 };
+        try {
+          window.top.postMessage(info, '*', [buffer]);
+          console.debug('VFS: posted chunk', chunkId, 'size', info._size, 'path', path);
+        } catch (e) {
+          // Transferables may not be supported in some environments — fallback
+          try {
+            window.top.postMessage(info, '*');
+            console.debug('VFS: posted chunk (fallback)', chunkId, 'size', info._size, 'path', path);
+          } catch (err) {
+            console.error('VFS: failed to post chunk', chunkId, err);
+          }
+        }
+        // Small delay to reduce dropped messages / give the receiver time
+        setTimeout(resolve, 20);
       });
     },
 
@@ -2417,6 +2506,7 @@ function makeFileHandle(file) {
   let activeInput = null;
   let pickerMode = null; // 'input' | 'picker'
   let allFilesReceived = false;
+  let fileChunks = {}; // store chunks by path: { path: [buffer1, buffer2, ...] }
 
   function normalizeMimeType(type) {
     if (!type) return 'application/octet-stream';
@@ -2464,6 +2554,81 @@ function makeFileHandle(file) {
     if (!d || d.__VFS__ !== true) return;
 
     if (d.kind === 'file') {
+      // Handle chunked file messages
+        if (d.totalChunks && d.totalChunks > 1) {
+          const pathKey = d.path || d.name;
+          if (!fileChunks[pathKey]) {
+            // use fill(null) to avoid sparse-array holes so .every() checks work
+            fileChunks[pathKey] = {
+              chunks: new Array(d.totalChunks).fill(null),
+              metadata: {
+                name: d.name,
+                type: d.type,
+                path: d.path,
+                webkitRelativePath: d.webkitRelativePath
+              }
+            };
+          }
+
+          // Store chunk at correct index
+          fileChunks[pathKey].chunks[d.chunkIndex] = d.buffer;
+
+          // Check if all chunks received (no null left)
+          const allChunksReceived = fileChunks[pathKey].chunks.every(c => c !== null);
+
+          if (allChunksReceived) {
+            // Combine chunks into single buffer
+            const validChunks = fileChunks[pathKey].chunks; // no nulls remain
+
+            const totalBytes = validChunks.reduce((sum, chunk) => sum + (chunk?.byteLength || 0), 0);
+            const combinedBuffer = new Uint8Array(totalBytes);
+            let offset = 0;
+            for (const chunk of validChunks) {
+              if (chunk && chunk.byteLength > 0) {
+                combinedBuffer.set(new Uint8Array(chunk), offset);
+                offset += chunk.byteLength;
+              }
+            }
+
+            const metadata = fileChunks[pathKey].metadata;
+            const file = new File([combinedBuffer.buffer], metadata.name, {
+              type: normalizeMimeType(metadata.type)
+            });
+
+            if (metadata.webkitRelativePath) {
+              Object.defineProperty(file, 'webkitRelativePath', {
+                value: metadata.webkitRelativePath
+              });
+            }
+
+            const rawPath = (metadata.path || metadata.webkitRelativePath || metadata.name) || metadata.name;
+            const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
+            file.fullPath = normPath;
+
+            const syntheticHandle = {
+              kind: 'file',
+              name: metadata.name,
+              path: normPath
+            };
+
+            try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
+
+            injectedFiles.push(file);
+            delete fileChunks[pathKey];
+
+            // Check if this is the last file
+            if (d.lastOne) {
+              if (pickerMode === 'input') {
+                injectIntoActiveInput();
+              } else if (pickerMode === 'picker') {
+                allFilesReceived = true;
+              }
+            }
+          }
+          return;
+        }
+      
+      // Handle non-chunked files (original path)
       const file = new File([d.buffer], d.name, {
         type: normalizeMimeType(d.type)
       });
@@ -2474,23 +2639,16 @@ function makeFileHandle(file) {
         });
       }
 
-      // Create a synthetic FileSystem-like handle so sites that expect a handle
-      // with createWritable()/queryPermission() work when given this file.
-      // Normalize path: strip leading slash to avoid absolute paths like '/a.TXT'
       const rawPath = (d.path || d.webkitRelativePath || d.name) || d.name;
       const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
-      // attach a canonical path property so consumers don't see undefined
       file.fullPath = normPath;
-      // Create a minimal, serializable handle descriptor to attach to the File
-      // so libraries that inspect \`file.fileHandle\` don't crash during cloning.
-      // Do NOT attach functions as own properties to avoid DataCloneError.
+
       const syntheticHandle = {
         kind: 'file',
         name: d.name,
         path: normPath
       };
 
-      // Attach minimal handle descriptor to the File object.
       try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
 
       injectedFiles.push(file);

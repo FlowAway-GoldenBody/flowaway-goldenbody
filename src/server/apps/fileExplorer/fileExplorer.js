@@ -1313,7 +1313,9 @@ function handleSelection(e, item, items, index) {
             const end = Math.min(file.size, start + CHUNK_SIZE);
             const blob = file.slice(start, end);
             const chunkBase64 = await readChunkAsBase64(blob);
-            await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total, replace: true }, { end: true }] });
+            // Only send replace:true on the first chunk (index 0)
+            const shouldReplace = index === 0;
+            await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total, replace: shouldReplace }, { end: true }] });
             return true;
           } catch (err) {
             attempts++;
@@ -1404,7 +1406,7 @@ function handleSelection(e, item, items, index) {
 
             // finalize assembly on server (safe even if all parts were already present)
             try {
-              await post({ saveSnapshot: true, directions: [{ edit: true, path: cp + '/' + newName, finalize: true, replace: true }, { end: true }] });
+              await post({ saveSnapshot: true, directions: [{ edit: true, path: cp + '/' + newName, finalize: true }, { end: true }] });
             } catch (e) {
               console.error('finalize failed for', newName, e);
               notification(`Failed to finalize upload for "${newName}".`);
