@@ -1068,6 +1068,31 @@ window.removeotherMenus = function(except) {
       return;
     }
 
+    // Keyboard shortcuts: Brightness and Volume
+    // Ctrl+Alt+ArrowUp / Ctrl+Alt+ArrowDown -> brightness +/-5
+    if (e.ctrlKey && !e.shiftKey && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const delta = e.key === 'ArrowUp' ? 5 : -5;
+      data.brightness = Math.min(100, Math.max(0, (parseInt(data.brightness) || 0) + delta));
+      document.documentElement.style.filter = `brightness(${data.brightness}%)`;
+      try { zmcdpost({ changeBrightness: true, brightness: data.brightness }); } catch (err) {}
+      try { notification(`Brightness: ${data.brightness}%`); } catch (e) {}
+      return;
+    }
+
+    // Ctrl+Shift+ArrowUp / Ctrl+Shift+ArrowDown -> volume +/-5
+    if (e.ctrlKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const delta = e.key === 'ArrowUp' ? 5 : -5;
+      data.volume = Math.min(100, Math.max(0, (parseInt(data.volume) || 0) + delta));
+      setAllMediaVolume(data.volume / 100);
+      // inform other parts of UI
+      window.dispatchEvent(new CustomEvent('system-volume', { detail: data.volume }));
+      try { zmcdpost({ changeVolume: true, volume: data.volume }); } catch (err) {}
+      try { notification(`Volume: ${data.volume}%`); } catch (e) {}
+      return;
+    }
+
     // Default: Ctrl+N -> open new instance of focused app or a sensible default
     if (e.ctrlKey && keyPart === 'N') {
       e.preventDefault();
