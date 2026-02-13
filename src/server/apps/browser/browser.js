@@ -2239,11 +2239,16 @@ FileSystemFileHandle.prototype.createWritable = async function () {
   const path = this.path;
   const name = this.name;
 
-  // Delegate to native handle if present
+  // Delegate to native handle ONLY when explicitly allowed. This prevents
+  // untrusted pages from accidentally writing to the real disk when a
+  // native handle is present. Hosts that genuinely intend native writes may
+  // set \`handle.__allowNative = true\` on the backing handle.
   try {
     if (this._file && (this._file.handle || this._file.fileHandle)) {
       const h = this._file.handle || this._file.fileHandle;
-      if (h.createWritable) return await h.createWritable();
+      if (h && h.__allowNative && h.createWritable) {
+        return await h.createWritable();
+      }
     }
   } catch {}
 
@@ -2640,14 +2645,20 @@ yield [name, dirHandle];
         // getDirectoryHandle(name) method
         h.getDirectoryHandle = async function(name, options = {}) {
           if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
-            throw new DOMException(\`$\{this.name} is not a directory\`, 'NotADirectoryError');
+            throw new DOMException(\`\${this.name} is not a directory\`, 'NotADirectoryError');
           }
-          const child = this._treeNode[1].find(c => c[0] === name);
+          let child = this._treeNode[1].find(c => c[0] === name);
           if (!child) {
-            if (options.create) {
-              throw new DOMException('Creating directories is not supported', 'NotSupportedError');
+            if (options && options.create) {
+              // Create a new in-memory directory node so subsequent operations
+              // (entries, getFileHandle, etc.) can operate on it.
+              const newNode = [name, []];
+              if (!Array.isArray(this._treeNode[1])) this._treeNode[1] = [];
+              this._treeNode[1].push(newNode);
+              child = newNode;
+            } else {
+              throw new DOMException(\`A directory with the name "\${name}" was not found.\`, 'NotFoundError');
             }
-            throw new DOMException(\`A directory with the name "\${name}" was not found.\`, 'NotFoundError');
           }
           if (!Array.isArray(child[1])) {
             throw new DOMException(\`"\${name}" is not a directory\`, 'TypeMismatchError');
@@ -2669,10 +2680,20 @@ yield [name, dirHandle];
         // getFileHandle(name) method
         h.getFileHandle = async function(name, options = {}) {
           if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
-            throw new DOMException(\`$\{this.name} is not a directory\`, 'NotADirectoryError');
+            throw new DOMException(\`\${this.name} is not a directory\`, 'NotADirectoryError');
           }
           const child = this._treeNode[1].find(c => c[0] === name);
           if (!child) {
+            // Allow creation of new files when requested. We don't mutate the
+            // host tree here; instead return a handle pointing at the intended
+            // path so \`createWritable()\` will route writes through the VFS.
+            if (options && options.create) {
+              const fileHandle = new FileSystemFileHandle();
+              fileHandle.name = name;
+              fileHandle.kind = 'file';
+              fileHandle.path = this.path + '/' + name;
+              return fileHandle;
+            }
             throw new DOMException(\`A file with the name "\${name}" was not found.\`, 'NotFoundError');
           }
           if (Array.isArray(child[1])) {
