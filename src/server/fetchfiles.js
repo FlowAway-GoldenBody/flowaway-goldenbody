@@ -176,14 +176,23 @@ if (data.requestFile) {
       return res.end(JSON.stringify({ filecontent, fileSize, isLastChunk: true }));
     }
     
-    // For large files, send in chunks
-    const buffer = await fsp.readFile(fullPath, { flag: 'r' });
-    const chunk = buffer.slice(start, end);
-    const chunkBase64 = chunk.toString('base64');
-    return res.end(JSON.stringify({ 
-      filecontent: chunkBase64, 
-      fileSize, 
-      chunkIndex, 
+    // For large files, stream only the requested chunk (avoids loading whole file)
+    async function readChunkStream(fp, s, e) {
+      return new Promise((resolve, reject) => {
+        const parts = [];
+        const rs = fs.createReadStream(fp, { start: s, end: e - 1 });
+        rs.on('data', (c) => parts.push(c));
+        rs.on('end', () => resolve(Buffer.concat(parts)));
+        rs.on('error', (err) => reject(err));
+      });
+    }
+
+    const chunkBuffer = await readChunkStream(fullPath, start, end);
+    const chunkBase64 = chunkBuffer.toString('base64');
+    return res.end(JSON.stringify({
+      filecontent: chunkBase64,
+      fileSize,
+      chunkIndex,
       isLastChunk,
       totalChunks: Math.ceil(fileSize / chunkSize)
     }));

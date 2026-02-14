@@ -1432,38 +1432,9 @@ async function fetchFileContent(username, fileFullPath) {
 
   // For large files, fetch all chunks and combine directly as ArrayBuffer
   if (data.totalChunks && data.totalChunks > 1) {
-    const chunks = [];
-    
-    // Convert first chunk to ArrayBuffer
-    chunks.push(base64ToArrayBuffer(data.filecontent));
-    
-    // Fetch remaining chunks and convert each
-    for (let i = 1; i < data.totalChunks; i++) {
-      const chunkRes = await fetch(SERVER, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestFile: true,
-          requestFileName: fileFullPath,
-          chunkIndex: i,
-          username,
-        }),
-      });
-      const chunkData = await chunkRes.json();
-      chunks.push(base64ToArrayBuffer(chunkData.filecontent));
-    }
-    
-    // Combine all ArrayBuffers directly
-    const totalSize = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-    const combined = new Uint8Array(totalSize);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(new Uint8Array(chunk), offset);
-      offset += chunk.byteLength;
-    }
-    
-    // Return as ArrayBuffer directly (no base64 conversion)
-    return combined.buffer;
+    // Return chunk metadata and first-chunk payload (base64) to caller so
+    // caller can stream chunks instead of allocating a single huge buffer.
+    return data; // { filecontent, fileSize, totalChunks }
   }
 
   // For small files, still return base64 from single request
@@ -1531,9 +1502,11 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
     currentPath.splice(0, 1);
   const fullPath = node[2].path || currentPath.join('/') + '/' + node[0];
   const result = await fetchFileContent(username, fullPath);
-  
-  // Handle both base64 strings and ArrayBuffers
-  const buffer = typeof result === 'string' ? base64ToArrayBuffer(result) : result;
+
+  // If server returned chunk metadata for a large file, stream chunks
+  const isChunked = result && typeof result === 'object' && result.totalChunks && result.totalChunks > 1;
+  // Handle both base64 strings and ArrayBuffers (small-file fast path)
+  const buffer = !isChunked && typeof result === 'string' ? base64ToArrayBuffer(result) : (!isChunked ? result : null);
   const type = getMimeType(node[0]);
   // Compute a webkitRelativePath-like relative path for the file so the
   // injector can reconstruct directory structure (remove picker base)
@@ -1551,51 +1524,57 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
   // Send in chunks if large to avoid postMessage size limits
   // Use larger chunks to reduce number of messages, add delays between sends
   const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
-  if (buffer.byteLength > MAX_MESSAGE_SIZE) {
-    const chunkSize = MAX_MESSAGE_SIZE;
-    const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
-    
+  if (isChunked) {
+    const CHUNK_SIZE = 10 * 1024 * 1024; // server chunk size
+    const totalChunks = result.totalChunks;
+
     for (let i = 0; i < totalChunks; i++) {
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, buffer.byteLength);
-      const chunk = buffer.slice(start, end);
-      
+      // obtain chunk: first chunk provided inline as base64, others fetched
+      let chunkBuf;
+      if (i === 0) {
+        chunkBuf = base64ToArrayBuffer(result.filecontent);
+      } else {
+        const r = await fetch(SERVER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestFile: true, requestFileName: fullPath, chunkIndex: i, username }),
+        });
+        const chunkData = await r.json();
+        chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
+      }
+
       await new Promise(resolve => {
-        iframe.contentWindow.postMessage(
-          {
-            __VFS__: true,
-            kind: "file",
-            name: node[0],
-            type,
-            buffer: chunk,
-            path: fullPath,
-            webkitRelativePath,
-            chunkIndex: i,
-            totalChunks: totalChunks,
-            lastOne: (i === totalChunks - 1) && lastOne,
-          },
-          "*",
-          [chunk]
-        );
-        // Small delay to let iframe process before next chunk
+        iframe.contentWindow.postMessage({
+          __VFS__: true,
+          kind: 'file',
+          name: node[0],
+          type,
+          buffer: chunkBuf,
+          path: fullPath,
+          webkitRelativePath,
+          chunkIndex: i,
+          totalChunks,
+          lastOne: (i === totalChunks - 1) && lastOne,
+        }, '*', [chunkBuf]);
         setTimeout(resolve, 10);
       });
     }
   } else {
-    iframe.contentWindow.postMessage(
-      {
-        __VFS__: true,
-        kind: "file",
-        name: node[0],
-        type,
-        buffer,
-        path: fullPath,
-        webkitRelativePath,
-        lastOne: lastOne,
-      },
-      "*",
-      [buffer]
-    );
+    if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
+      const chunkSize = MAX_MESSAGE_SIZE;
+      const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, buffer.byteLength);
+        const chunk = buffer.slice(start, end);
+        await new Promise(resolve => {
+          iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: node[0], type, buffer: chunk, path: fullPath, webkitRelativePath, chunkIndex: i, totalChunks, lastOne: (i === totalChunks - 1) && lastOne }, '*', [chunk]);
+          setTimeout(resolve, 10);
+        });
+      }
+    } else {
+      iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: node[0], type, buffer, path: fullPath, webkitRelativePath, lastOne: lastOne }, '*', [buffer]);
+    }
   }
 }
 
@@ -1636,7 +1615,8 @@ let fileIndex = 0;
   for (const file of filesToSend) {
     fileIndex++;
     const result = await fetchFileContent(username, file.fullPath);
-    const buffer = typeof result === 'string' ? base64ToArrayBuffer(result) : result;
+    const isChunked = result && typeof result === 'object' && result.totalChunks && result.totalChunks > 1;
+    const buffer = !isChunked && typeof result === 'string' ? base64ToArrayBuffer(result) : (!isChunked ? result : null);
     const type = getMimeType(file.name);
     let fileParts = file.fullPath.split('/');
     let origpickercurrentpath = Array.from(pickerCurrentPath);
@@ -1654,25 +1634,28 @@ let fileIndex = 0;
       if(first) {first = false; file.fullPath += fileParts[j];} else{file.fullPath += '/' + fileParts[j];}
     }
     
-    // Add delay between messages to prevent packet loss
-    await new Promise(resolve => {
-      iframe.contentWindow.postMessage(
-        {
-          __VFS__: true,
-          kind: 'file',
-          name: file.name,
-          type,
-          buffer,
-          webkitRelativePath: file.fullPath,
-          fileIndex: fileIndex - 1,
-          totalFiles: filesToSend.length,
-          lastOne: (fileIndex == filesToSend.length) && lastOne
-        },
-        '*',
-        [buffer]
-      );
-      setTimeout(resolve, 10);
-    });
+    if (isChunked) {
+      const totalChunks = result.totalChunks;
+      for (let ci = 0; ci < totalChunks; ci++) {
+        let chunkBuf;
+        if (ci === 0) chunkBuf = base64ToArrayBuffer(result.filecontent);
+        else {
+          const r = await fetch(SERVER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestFile: true, requestFileName: file.fullPath, chunkIndex: ci, username }) });
+          const cd = await r.json();
+          chunkBuf = base64ToArrayBuffer(cd.filecontent);
+        }
+        await new Promise(resolve => {
+          iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: file.name, type, buffer: chunkBuf, webkitRelativePath: file.fullPath, fileIndex: fileIndex - 1, totalFiles: filesToSend.length, chunkIndex: ci, totalChunks, lastOne: (fileIndex == filesToSend.length) && (ci === totalChunks - 1) && lastOne }, '*', [chunkBuf]);
+          setTimeout(resolve, 10);
+        });
+      }
+    } else {
+      // Add delay between messages to prevent packet loss
+      await new Promise(resolve => {
+        iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: file.name, type, buffer, webkitRelativePath: file.fullPath, fileIndex: fileIndex - 1, totalFiles: filesToSend.length, lastOne: (fileIndex == filesToSend.length) && lastOne }, '*', [buffer]);
+        setTimeout(resolve, 10);
+      });
+    }
   }
 }
 
