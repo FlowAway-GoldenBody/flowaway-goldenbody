@@ -2145,6 +2145,14 @@ if (sentreqframe && sentreqframe.contentWindow) {
                     const ab = e.data.buffer instanceof ArrayBuffer ? e.data.buffer : e.data.buffer.buffer;
                     entry.chunks.push(ab);
                     entry.bytes += (ab.byteLength || 0);
+                    // Acknowledge receipt of this chunk so the writer can apply backpressure
+                    try {
+                      if (e.data._chunkId && e.source && e.source.postMessage) {
+                        e.source.postMessage({ __VFS__: true, kind: 'chunkAck', _chunkId: e.data._chunkId, path: fullPath }, '*');
+                      }
+                    } catch (err) {
+                      console.warn('failed to send chunkAck', err);
+                    }
                   } else if (e.data.base64) {
                     // convert base64 to ArrayBuffer and store
                     const binary = atob(e.data.base64);
@@ -2240,7 +2248,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
                           let attempts = 0;
                           while (true) {
                             try {
-                              await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total, replace: true }, { end: true }] });
+                              await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total}, { end: true }] });
                               return;
                             } catch (err) {
                               attempts++;
@@ -2268,7 +2276,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
                         }
 
                         // finalize
-                        await post({ saveSnapshot: true, directions: [{ edit: true, path: fullPath, finalize: true, replace: true }, { end: true }] });
+                        await post({ saveSnapshot: true, directions: [{ edit: true, path: fullPath, finalize: true }, { end: true }] });
                       }
 
                       // ACK back to source
@@ -2316,16 +2324,11 @@ FileSystemFileHandle.prototype.createWritable = async function () {
   const path = this.path;
   const name = this.name;
 
-  // Delegate to native handle ONLY when explicitly allowed. This prevents
-  // untrusted pages from accidentally writing to the real disk when a
-  // native handle is present. Hosts that genuinely intend native writes may
-  // set \`handle.__allowNative = true\` on the backing handle.
+  // Delegate to native handle if present
   try {
     if (this._file && (this._file.handle || this._file.fileHandle)) {
       const h = this._file.handle || this._file.fileHandle;
-      if (h && h.__allowNative && h.createWritable) {
-        return await h.createWritable();
-      }
+      if (h.createWritable) return await h.createWritable();
     }
   } catch {}
 
@@ -2356,26 +2359,14 @@ FileSystemFileHandle.prototype.createWritable = async function () {
         buffer = new Uint8Array(chunk).buffer;
       }
 
-      // Post the chunk as a transferable and wait a short time to provide
-      // backpressure so the top frame and network can keep up. Include a
-      // short-lived chunkId for diagnostics.
+      // Return a promise that resolves when the message is sent
       return new Promise((resolve) => {
-        const chunkId = Math.random().toString(36).slice(2);
-        const info = { __VFS__: true, kind: 'saveFile', path, name, buffer, _chunkId: chunkId, _size: (buffer && buffer.byteLength) || 0 };
-        try {
-          window.top.postMessage(info, '*', [buffer]);
-          console.debug('VFS: posted chunk', chunkId, 'size', info._size, 'path', path);
-        } catch (e) {
-          // Transferables may not be supported in some environments — fallback
-          try {
-            window.top.postMessage(info, '*');
-            console.debug('VFS: posted chunk (fallback)', chunkId, 'size', info._size, 'path', path);
-          } catch (err) {
-            console.error('VFS: failed to post chunk', chunkId, err);
-          }
-        }
-        // Small delay to reduce dropped messages / give the receiver time
-        setTimeout(resolve, 20);
+        window.top.postMessage(
+          { __VFS__: true, kind: 'saveFile', path, name, buffer },
+          '*'
+        );
+        // Resolve immediately after posting (message queued)
+        resolve();
       });
     },
 
