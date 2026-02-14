@@ -2081,7 +2081,29 @@ if (sentreqframe && sentreqframe.contentWindow) {
 
           if (!root.__vfsMessageListenerAdded) {
             root.__vfsMessageListenerAdded = true;
-
+            window.addEventListener("message", (e) => {
+              if(e.data.type = "[GOLDENBODY]: hammerhead|cross-domain-location-change") {
+                // This message indicates the iframe has tried to navigate the top level window, which is banned.
+                // we will instead make this navigation trigger in the iframe itself, which this time its actually window.top
+                let allFrames = root.querySelectorAll("iframe");
+                for(let i = 0; i < allFrames.length; i++) {
+                  const f = allFrames[i];
+                  debugger;
+            let navigationframe;
+            let tempframes = [];
+            let current = e.source;
+            while (current !== current.parent) {
+            tempframes.push(current);
+            current = current.parent;
+            }
+            navigationframe = tempframes.at(-1);
+                  if(f.contentWindow === e.iframeWindow) {
+                    f.contentWindow.location = e.url;
+                    break;
+                  }
+                }
+              }
+            });
             window.addEventListener("message", (e) => {
               try {
                 // Allow `saveFile` messages to be processed even when the browser root
@@ -3001,17 +3023,6 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
 
             for (const frame of frames) {
               try {
-                function setAllMediaVolume(newVolume) {
-                // Ensure the volume is between 0.0 and 1.0
-                newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
-
-                // Select all audio and video elements
-                const mediaElements = frame.contentDocument.querySelectorAll('audio, video');
-
-                mediaElements.forEach(element => {
-                    element.volume = newVolume;
-                });
-                }
                 if(event) {
                   if(event.source == iframe.contentWindow) {return iframe}
                   if(event.source == frame.contentWindow) {
@@ -3023,6 +3034,16 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
                 // Wait for the iframe to load (so its contentDocument exists)
                 try {
                   const win = frame.contentWindow;
+                            var script = frame.contentDocument.createElement("script");
+          script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+  window.parent.postMessage(
+    { type: "FROM_IFRAME", message: url },
+    "*"
+  );
+}
+
+`;
+          frame.contentDocument.head.appendChild(script);
                   // showOpenFilePicker()
                   if (frame.contentDocument?.readyState === "complete") {
                     if(!frame.contentDocument.getElementById('VFS'))
@@ -4024,7 +4045,7 @@ try{        if (
 
           // Unminimize if needed
           const el = instance.rootElement;
-          if ((el.style.display = "none")) {
+          if (el.style.display === "none") {
             el.style.display = "block";
             instance._isMinimized = false;
             instance.isMaximized = false;

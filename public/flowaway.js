@@ -1363,7 +1363,7 @@ function notification (message) {
    🌞 LIGHT THEME (default)
 ========================================================= */
 .sim-chrome-root * {
-  box-sizing: border-box;
+  /* box-sizing: border-box; */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
