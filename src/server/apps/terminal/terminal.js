@@ -352,7 +352,6 @@ terminal = function (posX = 50, posY = 50) {
           // echo
           const echo = document.createElement('div');
           echo.textContent = `$ ${raw}`;
-          echo.style.color = 'var(--cmd-color, #111)';
           output.appendChild(echo);
           output.scrollTop = output.scrollHeight;
 
