@@ -518,12 +518,12 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       addressRow.prepend(reloadBtn);
 
       var forwardBtn = document.createElement("button");
-      forwardBtn.textContent = "->";
+      forwardBtn.textContent = "→";
       forwardBtn.className = "sim-open-btn";
       addressRow.prepend(forwardBtn);
 
       var backBtn = document.createElement("button");
-      backBtn.textContent = "<-";
+      backBtn.textContent = "←";
       backBtn.className = "sim-open-btn";
       addressRow.prepend(backBtn);
 
@@ -774,7 +774,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             if (fromIndex < toIndex) toIndex--;
 
             tabs.splice(toIndex, 0, moved);
-            debugger;
             return tabs;
           }
           el.addEventListener("pointerup", function () {
@@ -2081,29 +2080,16 @@ if (sentreqframe && sentreqframe.contentWindow) {
 
           if (!root.__vfsMessageListenerAdded) {
             root.__vfsMessageListenerAdded = true;
-            window.addEventListener("message", (e) => {
-              if(e.data.type = "[GOLDENBODY]: hammerhead|cross-domain-location-change") {
-                // This message indicates the iframe has tried to navigate the top level window, which is banned.
-                // we will instead make this navigation trigger in the iframe itself, which this time its actually window.top
-                let allFrames = root.querySelectorAll("iframe");
-                for(let i = 0; i < allFrames.length; i++) {
-                  const f = allFrames[i];
-                  debugger;
-            let navigationframe;
-            let tempframes = [];
-            let current = e.source;
-            while (current !== current.parent) {
-            tempframes.push(current);
-            current = current.parent;
-            }
-            navigationframe = tempframes.at(-1);
-                  if(f.contentWindow === e.iframeWindow) {
-                    f.contentWindow.location = e.url;
-                    break;
-                  }
-                }
+        root.addEventListener("keydown", function (e) {
+          if (e.ctrlKey && e.key === "w") {
+            for(const tab of tabs) {
+              if (tab.iframe.style.display !== "none") {
+                closeTab(tab.id);
               }
-            });
+            }
+          }
+        });
+        root.focus();
             window.addEventListener("message", (e) => {
               try {
                 // Allow `saveFile` messages to be processed even when the browser root
@@ -3280,6 +3266,14 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
         let loadedurl = url;
         let donotm = false;
         const tab = { id, url, title, iframe, resizeP, loadedurl, donotm };
+        tab.iframe.contentWindow.addEventListener("keydown", function (e) {
+          if (e.ctrlKey && e.key === "w") {
+            if (tab.iframe.style.display !== "none") {
+              closeTab(tab.id);
+            }
+          }
+        });
+
         if (preloadsize !== 100) {
           preloadsize = 100;
         }
@@ -3376,21 +3370,6 @@ try{        if (
         const tab = tabs.find((t) => t.id === id);
         if (!tab) return;
 
-        tab.iframe.contentWindow.addEventListener("keydown", function (e) {
-          if (e.ctrlKey && e.key === "w") {
-            if (tab.iframe.style.display !== "none") {
-              closeTab(id);
-            }
-          }
-        });
-        root.addEventListener("keydown", function (e) {
-          if (e.ctrlKey && e.key === "w") {
-            if (tab.iframe.style.display !== "none") {
-              closeTab(id);
-            }
-          }
-        });
-        root.focus();
         // Hide all iframes, show only active
         tabs.forEach((t) => (t.iframe.style.display = "none"));
         tab.iframe.style.display = "block";

@@ -444,7 +444,7 @@ async function renderAppsGrid() {
     div.style.textAlign = 'center';
     div.style.cursor = 'pointer';
     div.id = app.startbtnid;
-    div.innerHTML = `${app.icon}<br><span style="font-size:14px;">${app.label}</span>`;
+    div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
     container.appendChild(div);
       if (!app.scriptLoaded && app.jsFile) {
     try {
@@ -1808,7 +1808,7 @@ const styleTag = document.createElement("style");
 
 <div style="
     display: grid;
-    grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
     gap: 8px;
 ">
     <!-- Dynamic apps grid (populated from user's /apps folder) -->
