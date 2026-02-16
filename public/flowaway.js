@@ -621,8 +621,16 @@ function startAppPollingViaWebSocket() {
     return true;
   }
 
-  const wsProtocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
-  const appPollingURL = wsProtocol + location.hostname + ':3001';
+const baseOrigin =
+  window.opener?.location?.origin ||
+  window.location.origin;
+
+const wsProtocol = baseOrigin.startsWith('https')
+  ? 'wss://'
+  : 'ws://';
+
+const hostname = new URL(baseOrigin).hostname;
+const appPollingURL = `${wsProtocol}${hostname}:3001`;
   appPollingSocket = new WebSocket(appPollingURL);
 
   appPollingSocket.onopen = () => {

@@ -1,15 +1,9 @@
-const { protocol, hostname } = window.location;
-const zmcdserver = `${protocol}//${hostname}:8082/server/zmcd`;
-let SERVER = `${protocol}//${hostname}:8083`;
-// homepage
-window.onload = function () {
-  if (
-    window.top.location.href !== goldenbodywebsite + "goldenbody.html" &&
-    window.top.location.href !== goldenbodywebsite + "admin.html"
-  ) {
-    window.location.replace(goldenbodywebsite + "goldenbody.html");
-  }
-};
+const BASE = window.origin.slice(0, -5);
+let goldenbodywebsite = window.origin + "/";
+const zmcdserver = `${BASE}:8082/server/zmcd`;
+let SERVER = `${BASE}:8083`;
+
+
 let zmcdata;
 let data;
 // ce7bade715c14ddaaea9ad31b7a3b252/ d09120b5745a4d49a090cf5ac33221b0

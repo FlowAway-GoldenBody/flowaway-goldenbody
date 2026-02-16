@@ -5,8 +5,9 @@ dotenv.config();
 const PORT = 3000;
 
 const server = http.createServer((req, res) => {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8080');
+  // Enable CORS: prefer explicit env var, fall back to request origin, otherwise allow all
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -85,4 +86,8 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  const host = process.env.SERVER_HOSTNAME || process.env.HOST || '0.0.0.0';
+  const protocol = process.env.SERVER_PROTOCOL || 'http:';
+  console.log(`Server running on ${protocol}//${host}:${PORT}`);
+});

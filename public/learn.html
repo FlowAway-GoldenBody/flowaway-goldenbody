@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Learn</title>
+    <style>
+        :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.4;color:#222}
+        body{margin:0;padding:32px;background:#f7f7fb}
+        header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+        h1{font-size:20px;margin:0}
+        .container{max-width:900px;margin:0 auto;background:#fff;padding:24px;border-radius:10px;box-shadow:0 6px 20px rgba(18,22,35,0.06)}
+        nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+        .btn{background:transparent;border:1px solid #e6e9ef;padding:8px 12px;border-radius:8px;cursor:pointer}
+        .lesson{border-top:1px dashed #eef;padding-top:16px;margin-top:16px}
+        .code{background:#0f1724;color:#e6edf3;padding:12px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap}
+        footer{margin-top:18px;color:#6b7280;font-size:13px}
+        a.link{color:#0b5fff;text-decoration:none}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="favicon.ico" alt="logo" width="36" height="36">
+            <div>
+                <h1>Learn — JavaScript & Rammerhead</h1>
+                <div style="color:#6b7280;font-size:13px">Short interactive lessons and examples</div>
+            </div>
+        </header>
+
+        <nav>
+            <button class="btn" onclick="document.getElementById('lesson-1').scrollIntoView()">Intro</button>
+            <button class="btn" onclick="document.getElementById('lesson-2').scrollIntoView()">DOM</button>
+            <button class="btn" onclick="document.getElementById('lesson-3').scrollIntoView()">Events</button>
+            <a class="btn link" href="/" title="Home">Home</a>
+        </nav>
+
+        <section id="lesson-1" class="lesson">
+            <h2>1 — Intro to variables</h2>
+            <p>Use <code>let</code> and <code>const</code> to store values. Try the example below.</p>
+            <div class="code" id="output-1">Click <strong>Run</strong> to execute.</div>
+            <div style="margin-top:8px">
+                <button class="btn" onclick="runLesson1()">Run</button>
+            </div>
+        </section>
+
+        <section id="lesson-2" class="lesson">
+            <h2>2 — Manipulating the DOM</h2>
+            <p>Create elements and update content dynamically.</p>
+            <div class="code" id="output-2">Click <strong>Create</strong> to add an item.</div>
+            <div style="margin-top:8px">
+                <button class="btn" onclick="createItem()">Create</button>
+            </div>
+        </section>
+
+        <section id="lesson-3" class="lesson">
+            <h2>3 — Events & listeners</h2>
+            <p>Attach event listeners and handle user input.</p>
+            <input id="nameInput" placeholder="Type your name" style="padding:8px;border:1px solid #e6e9ef;border-radius:8px;margin-right:8px">
+            <button class="btn" onclick="greet()">Greet</button>
+            <div id="greeting" style="margin-top:12px;color:#0b5fff"></div>
+        </section>
+
+        <footer>
+            Examples run locally in your browser. This page does not call any external launch routines.
+        </footer>
+    </div>
+
+    <script>
+        function runLesson1(){
+            const a = 5;
+            const b = 7;
+            const sum = a + b;
+            document.getElementById('output-1').textContent = `let a = 5; let b = 7; a + b = ${sum}`;
+        }
+
+        function createItem(){
+            const out = document.getElementById('output-2');
+            const el = document.createElement('div');
+            el.textContent = `Item — ${new Date().toLocaleTimeString()}`;
+            el.style.padding = '6px 8px';
+            el.style.borderTop = '1px solid #eef';
+            out.appendChild(el);
+        }
+
+        function greet(){
+            const name = document.getElementById('nameInput').value.trim() || 'friend';
+            document.getElementById('greeting').textContent = `Hello, ${name}!`;
+        }
+        function launchHomepage() {
+            try {
+                let a = window.open('about:blank', '_blank');
+                let script = a.document.createElement('script');
+                script.src = 'homepage.js';
+                a.document.body.appendChild(script);
+            } catch (e) {
+                alert('Popup blocked! Please allow popups for this site to launch the homepage.');
+            }
+        }
+
+        // Sequence detection: left (button=0) x3 then right (button=2) x3
+        let coordinates = [];
+        const expectedButtons = [0, 0, 0, 2, 2, 2];
+        let seqIndex = 0;
+
+        // Small on-page status indicator
+        (function createStatus() {
+            const status = document.createElement('div');
+            status.id = 'sequenceStatus';
+            status.style.marginTop = '12px';
+            status.style.color = '#6b7280';
+            status.textContent = `Progress: ${seqIndex}/${expectedButtons.length}`;
+            const container = document.querySelector('.container');
+            if (container) container.appendChild(status);
+        })();
+
+        function updateStatus() {
+            const s = document.getElementById('sequenceStatus');
+            if (s) s.textContent = `Progress: ${seqIndex}/${expectedButtons.length}`;
+        }
+
+        // Use mousedown so right-clicks are detected reliably
+        window.addEventListener('mousedown', (e) => {
+            coordinates.push({ x: e.clientX, y: e.clientY, button: e.button });
+
+            if (e.button === expectedButtons[seqIndex]) {
+                seqIndex++;
+                updateStatus();
+                if (seqIndex === 6) {
+                    // Completed sequence — call launchHomepage
+                    setTimeout(() => {
+                        launchHomepage();
+                    }, 150);
+                }
+            } else {
+                // Mistake: clear coordinates and reset sequence
+                coordinates = [];
+                seqIndex = 0;
+                updateStatus();
+            }
+        });
+
+        // Prevent default context menu so right-clicks don't interrupt the flow
+        window.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
