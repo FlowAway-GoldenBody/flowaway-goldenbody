@@ -1,98 +1,14 @@
-# READ THIS:
+## WHAT THIS IS:
+flowaway goldenbody is a os interface made with almost pure js, no frameworks and stuff for client side, server side, maybe cuz rammerhead prob used some idk.
+so like, you as a user, you basically can install any apps, just drop a folder in the app format in the /apps folder of your account, which has 6 system apps there, plz dont modify them if you dont know what you are doing!!! we dont have a index.html, instead you go to http://localhost:8080/goldenbody.html, you create an account, 3 letter minimum for username and 1 letter minimum for password. you made your 1st acc XD
 
-**A web-based operating system that provides a full desktop and browser experience inside the browser — designed for restricted or managed environments.**
+back to apps, so like you open your file explorer on the taskbar or start menu, aka the triangle button on the taskbar. there is a sample app for you already, the GUI is already built, you can add your tweaks to it if you want, but i highly recommend making a new one and replace all the your app something. all the app modifications are live, and to do so, write the global vars and functions there so the cleaning system can reach them, plz dont cause mem leaks. also please please plz use window.yourvar = your_value; or window.yourfunc = () => {...}; or window.yourfunc = async () => {...}; if you dont want to do window.something you can declare the vars like you did in python. plz dont use let/var/function to declare any global vars that you want the cleaner to clean. also your main function CANNOT be declared in any of the above if you want your app to work.
 
-FlowAway GoldenBody delivers a real OS-like environment (windows, taskbar, file system, settings, and a powerful embedded browser) entirely as a web application, without requiring local installation.
+there will be a app store soon at goldenbody://apps in the browser. there you will download apps through zipped files and you can unzip it on a random unzip files website. we dont support downloads yet so plz use websites that use showDirectoryPicker() or showSaveFilePicker() to download files. its fully implemented in the browser. the browser has handling for every single fs api by now. for file explorer, PLZ PLZ PLZ make sure to save before closing.
 
----
+guys also, me and sjdwwvjejbc are trying to make a seperate website that handles statefarm client, which at least dispite errors it can display tracers in shell shockers rn, it is not released yet so just wait 4 now
 
-## What this is
-
-This project is a **web-based OS platform** that runs fully in the browser and includes:
-
-- A windowed desktop environment (taskbar, start menu, settings)
-- A persistent file explorer backed by a server (not fake local state)
-- A highly controlled, fully featured browser runtime
-- Multi-window and multi-tab support
-- Programmatic control over browser behavior (including DevTools)
-
-It is **not** just an iframe wrapper or a simple VNC-style interface. The browser and OS environment are explicitly managed by the platform itself.
-
----
-
-## Who this is for
-
-This project is primarily intended for:
-
-- Users on **restricted or managed devices** (e.g. Chromebooks, locked-down systems)
-- Developers interested in **advanced browser runtimes and UI platforms**
-- Experimental or educational environments where local software installation is not possible
-
-This is an **early-stage, power-user project**, meaning expect bugs 4 now.
-
----
-
-## Key Features
-
-### Desktop / OS
-- Windowed desktop UI with taskbar and start menu
-- Drag, resize, snap, and move windows
-- Settings application (near complete)
-
-### Embedded Browser Runtime
-- Fully functional browser inside the OS
-- Multi-tab support with:
-  - Drag & reorder
-  - Detach to new window
-  - Drag out / move between windows
-- Custom `window.open` implementation
-- Same-origin proxy to eliminate iframe and sandbox limitations
-- Fixes for nested iframe issues common in browser-in-browser setups
-
-### File System and showOpenFilePicker/file input support
-- File explorer with backend-backed persistence
-- Upload files and entire directories
-- Saved state across sessions
-- Integrated authentication and user storage
-
----
-
-## Security & Session Model (Important)
-
-### Session Isolation
-- Each user session is isolated
-- There is **no mechanism to discover or access other users’ sessions**
-- Cross-user access is not possible by default
-
-### Session IDs
-- A session ID grants **full access** to its associated environment
-- This is equivalent to sharing browser cookies or a local browser profile
-- **Session IDs must be treated like passwords and never shared**
-
-This project is intended for **trusted environments** and does not attempt to provide enterprise-grade multi-tenant security at this stage.
-
----
-
-## What this is NOT
-
--  Not malware
--  Not a keylogger
--  Not exploiting browser vulnerabilities
--  Not bypassing OS-level security controls
--  Not designed for hostile multi-tenant public use
-
-All functionality operates within standard web platform capabilities.
-
----
-
-## Current Status
-
-- Actively developed for ~5 months
-- Early alpha
-- Core OS, browser runtime, and file system are functional
-- Looking for early contributors
-
----
+if you are curious what flowAway Goldenbody means, you can picture it as a person wearing a porcupine like golden armor and holding a efficiency V golden shovel in minecraft
 
 ## Installing and running
 
