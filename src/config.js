@@ -25,7 +25,16 @@ module.exports = {
     // this function's return object will determine how the client url rewriting will work.
     // set them differently from bindingAddress and port if rammerhead is being served
     // from a reverse proxy.
-    getServerInfo: () => ({ hostname: 'localhost', port: 8080, crossDomainPort: 8080, protocol: 'http:' }),
+    // By default this function will prefer environment variables, then the request host
+    getServerInfo: (req) => {
+        const hostnameFromReq = req && req.headers && req.headers.host ? new URL('http://' + req.headers.host).hostname : null;
+        return {
+            hostname: process.env.SERVER_HOSTNAME || hostnameFromReq || process.env.HOSTNAME || '0.0.0.0',
+            port: process.env.SERVER_PORT ? Number(process.env.SERVER_PORT) : 8080,
+            crossDomainPort: process.env.CROSS_DOMAIN_PORT ? Number(process.env.CROSS_DOMAIN_PORT) : 8080,
+            protocol: process.env.SERVER_PROTOCOL || 'http:'
+        };
+    },
     // example of non-hard-coding the hostname header
     // getServerInfo: (req) => {
     //     return { hostname: new URL('http://' + req.headers.host).hostname, port: 8080, crossDomainPort: 8081, protocol: 'http:' };
