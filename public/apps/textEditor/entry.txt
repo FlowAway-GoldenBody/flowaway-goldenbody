@@ -1,3 +1,0 @@
-textEditor
-Text Editor
-editorapp
