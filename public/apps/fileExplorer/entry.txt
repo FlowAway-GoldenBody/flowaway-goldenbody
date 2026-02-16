@@ -1,3 +1,0 @@
-fileExplorer
-File Explorer
-explorerapp
