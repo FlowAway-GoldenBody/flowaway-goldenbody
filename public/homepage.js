@@ -1,11 +1,19 @@
-const BASE = window.origin.slice(0, -5);
-let goldenbodywebsite = window.origin + "/";
-const zmcdserver = `${BASE}:8082/server/zmcd`;
-let SERVER = `${BASE}:8083`;
+var BASE = window.origin.slice(0, -5);
+var goldenbodywebsite = window.origin + "/";
+let baseflag = false;
+if(BASE.includes('github')) {
+  baseflag = true;
+}
 
+var zmcdserver = `${BASE}:8082/server/zmcd`;
+var SERVER = `${BASE}:8083`;
+if(baseflag) {
+  zmcdserver = "https://urban-cod-p46xr57vwqg2qp9-8082.app.github.dev";
+  SERVER = "https://urban-cod-p46xr57vwqg2qp9-8083.app.github.dev";
+}
 
-let zmcdata;
-let data;
+var zmcdata;
+var data;
 // ce7bade715c14ddaaea9ad31b7a3b252/ d09120b5745a4d49a090cf5ac33221b0
 (() => {
 
@@ -14,7 +22,7 @@ let data;
   document.body.style.color = "#fff";
   document.body.style.fontFamily = "Arial, sans-serif";
 
-  const box = document.createElement("div");
+  var box = document.createElement("div");
   box.style.width = "320px";
   box.style.margin = "100px auto";
   box.style.padding = "20px";
@@ -67,7 +75,7 @@ box.innerHTML = `
   document.body.innerHTML = "";
   document.body.appendChild(box);
 
-  const msg = document.getElementById("zmc-msg");
+  var msg = document.getElementById("zmc-msg");
 
   // ---------- FUNCTION ----------
   function send(needNewAcc) {
@@ -113,7 +121,7 @@ box.innerHTML = `
         data = zmcdata
         // SAME behavior as before
         setTimeout(() => {   let a = document.createElement('script');
-  a.src = `${goldenbodywebsite}flowaway.js`;
+  a.src = `flowaway.js`;
   document.body.appendChild(a); box.remove(); document.body.style.background = 'white';   document.body.style.color = "#000000ff";
 }, 300);
       })

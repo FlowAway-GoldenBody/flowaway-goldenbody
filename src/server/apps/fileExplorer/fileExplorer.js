@@ -1190,7 +1190,7 @@ function handleSelection(e, item, items, index) {
                 const rootRect = root.getBoundingClientRect();
 
                 // Compute coordinates relative to root's top-left
-                const left = menuRect.right - rootRect.left;
+                let left = menuRect.right - rootRect.left;
                 let top = parentRect.top - rootRect.top;
 
                 const sh = submenu.offsetHeight || 0;

@@ -3250,8 +3250,11 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
           }, 2000 * nhjd);
 
           // Start from the top-level document
+          setTimeout(() => {
           recurseFrames(iframe.contentDocument);
           recurseFrames(root);
+          }, 100);
+
 
           // Hide the menu when clicking elsewhere
           iframeDocument.addEventListener("click", hideMenu);
