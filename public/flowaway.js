@@ -1,12 +1,47 @@
 window.data = data;
 window.loaded = false;
   var atTop = "";
-  let zTop = 10;
+  var zTop = 10;
+var rebuildhandler = function() {
+  try {
+    // Pause and unload any playing media to avoid audio carrying over
+    try { document.querySelectorAll('audio,video').forEach(m => { try { m.pause(); m.src = ''; } catch(e){} }); } catch(e){}
 
-let worldvolume = 0.5;
+    // Remove all children from the documentElement (head/body) to get a clean slate
+    var docEl = document.documentElement;
+    while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
+
+    // Recreate minimal head and body so we can inject homepage.js reliably
+    var head = document.createElement('head');
+    var meta = document.createElement('meta'); meta.setAttribute('charset','utf-8');
+    head.appendChild(meta);
+    docEl.appendChild(head);
+
+    var body = document.createElement('body');
+    docEl.appendChild(body);
+
+    // Inject homepage loader
+    var script = document.createElement('script');
+    script.src = 'homepage.js';
+
+    //clear state
+    window.appsButtonsApplied = false;
+    
+    // small timeout to ensure DOM plumbing finishes
+    setTimeout(() => {
+      try { document.body.appendChild(script); } catch (e) { console.error('append homepage script failed', e); location.reload(); }
+    }, 80);
+
+  } catch (err) {
+    console.error('rebuildhandler error, falling back to reload', err);
+    try { location.reload(); } catch (e) { /* ignore */ }
+  }
+}
+var worldvolume = 0.5;
+
 window.findNodeByPath = function(relPath) {
-        const parts = relPath.split("/");
-        let current = treeData;
+        var parts = relPath.split("/");
+        var current = treeData;
         for (let i = 1; i < parts.length; i++) {
           if (!current[1]) return null;
           current = current[1].find((c) => c[0] === parts[i]);
@@ -16,10 +51,10 @@ window.findNodeByPath = function(relPath) {
 window.removeNodeFromTree = function(node, pathParts) {
   if (!node || !Array.isArray(node[1])) return false;
 
-  const [target, ...rest] = pathParts;
+  var [target, ...rest] = pathParts;
 
   for (let i = 0; i < node[1].length; i++) {
-    const child = node[1][i];
+    var child = node[1][i];
 
     if (child[0] === target) {
       if (rest.length === 0) {
@@ -34,35 +69,46 @@ window.removeNodeFromTree = function(node, pathParts) {
   return false; // not found
 }
 // global vars
-let savedScrollX = 0;
-let savedScrollY = 0;
-let nhjd = 1;
+var savedScrollX = 0;
+var savedScrollY = 0;
+var nhjd = 1;
 
-window.addEventListener("scroll", () => {
-  window.scrollTo(savedScrollX, savedScrollY);
-});
+// central place to store named handlers so we can remove/rebind safely
+window._flowaway_handlers = window._flowaway_handlers || {};
+
+// Scroll lock - ensure single binding
+try {
+  if (window._flowaway_handlers.onScroll) window.removeEventListener('scroll', window._flowaway_handlers.onScroll);
+  window._flowaway_handlers.onScroll = () => { window.scrollTo(savedScrollX, savedScrollY); };
+  window.addEventListener('scroll', window._flowaway_handlers.onScroll);
+} catch (e) {}
 
 
 savedScrollX = window.scrollX;
 savedScrollY = window.scrollY;
 
 // body restrictions
-let bodyStyle = document.createElement("style");
+var bodyStyle = document.createElement("style");
 bodyStyle.textContent = `body {
 overflow: hidden;
 }`;
 document.body.appendChild(bodyStyle);
-window.addEventListener("contextmenu", function (e) {
-  e.preventDefault();
-});
+// Prevent default context menu (single binding)
+try {
+  if (window._flowaway_handlers.onContextMenu) window.removeEventListener('contextmenu', window._flowaway_handlers.onContextMenu);
+  window._flowaway_handlers.onContextMenu = function (e) { e.preventDefault(); };
+  window.addEventListener('contextmenu', window._flowaway_handlers.onContextMenu);
+} catch (e) {}
 // content
-window.addEventListener("beforeunload", function (event) {
-  event.preventDefault();
-});
+try {
+  if (window._flowaway_handlers.onBeforeUnload) window.removeEventListener('beforeunload', window._flowaway_handlers.onBeforeUnload);
+  window._flowaway_handlers.onBeforeUnload = function (event) { event.preventDefault(); };
+  window.addEventListener('beforeunload', window._flowaway_handlers.onBeforeUnload);
+} catch (e) {}
 
 
 async function filePost(data) {
-  const res = await fetch(SERVER, {
+  var res = await fetch(SERVER, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, ...data }),
@@ -70,7 +116,7 @@ async function filePost(data) {
   return res.json();
 }
 async function zmcdpost(data) {
-  const res = await fetch(zmcdserver, {
+  var res = await fetch(zmcdserver, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, ...data }),
@@ -78,7 +124,7 @@ async function zmcdpost(data) {
   return res.json();
 }
 async function posttaskbuttons(data) {
-  const res = await fetch(zmcdserver, {
+  var res = await fetch(zmcdserver, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -90,9 +136,9 @@ async function posttaskbuttons(data) {
   return res.json();
 }
 function annotateTreeWithPaths(tree, basePath = '') {
-  const [name, children, meta = {}] = tree;
+  var [name, children, meta = {}] = tree;
 
-  const path =
+  var path =
     name === 'root'
       ? ''
       : basePath
@@ -108,7 +154,7 @@ function annotateTreeWithPaths(tree, basePath = '') {
   }
 }
 window.loadTree = async function () {
-  const data = await filePost({ initFE: true });
+  var data = await filePost({ initFE: true });
   treeData = data.tree;
 
   annotateTreeWithPaths(treeData); // ✅ ADD THIS LINE
@@ -118,9 +164,9 @@ window.loadTree = async function () {
 
 // --- Global picker helpers ---
 function base64ToArrayBuffer(base64) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
+  var binaryString = atob(base64);
+  var len = binaryString.length;
+  var bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes.buffer;
 }
@@ -130,12 +176,12 @@ function base64ToUtf8(b64OrBuffer) {
   try {
     // If caller passed an ArrayBuffer or Uint8Array, decode directly
     if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {
-      const buf = b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
+      var buf = b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
       return new TextDecoder('utf-8').decode(buf);
     }
 
     // Otherwise assume base64 string
-    const buf = base64ToArrayBuffer(String(b64OrBuffer || ''));
+    var buf = base64ToArrayBuffer(String(b64OrBuffer || ''));
     return new TextDecoder('utf-8').decode(buf);
   } catch (e) {
     try {
@@ -148,7 +194,7 @@ function base64ToUtf8(b64OrBuffer) {
 
 async function fetchFileContentByPath(path) {
   if (!path) throw new Error('No path');
-  const res = await filePost({ requestFile: true, requestFileName: path });
+  var res = await filePost({ requestFile: true, requestFileName: path });
 
   // If server returned a simple base64 payload for small files
   if (res && typeof res.filecontent === 'string' && (!res.totalChunks || res.totalChunks <= 1)) {
@@ -157,22 +203,22 @@ async function fetchFileContentByPath(path) {
 
   // If server indicates chunking, fetch all chunks and combine as ArrayBuffer
   if (res && typeof res.totalChunks === 'number' && res.totalChunks > 1) {
-    const chunks = [];
+    var chunks = [];
     // first chunk
     if (typeof res.filecontent === 'string') chunks.push(base64ToArrayBuffer(res.filecontent));
 
     for (let i = 1; i < res.totalChunks; i++) {
-      const part = await filePost({ requestFile: true, requestFileName: path, chunkIndex: i });
+      var part = await filePost({ requestFile: true, requestFileName: path, chunkIndex: i });
       if (!part || typeof part.filecontent !== 'string') throw new Error('Missing chunk ' + i + ' for ' + path);
       chunks.push(base64ToArrayBuffer(part.filecontent));
     }
 
     // Combine into single ArrayBuffer
-    const total = chunks.reduce((s, c) => s + (c.byteLength || 0), 0);
-    const combined = new Uint8Array(total);
-    let off = 0;
+    var total = chunks.reduce((s, c) => s + (c.byteLength || 0), 0);
+    var combined = new Uint8Array(total);
+    var off = 0;
     for (const c of chunks) {
-      const u = new Uint8Array(c);
+      var u = new Uint8Array(c);
       combined.set(u, off);
       off += u.byteLength;
     }
@@ -188,49 +234,49 @@ async function makeFlowawayFileHandle(name, path, filecontent = null) {
     name,
     path,
     async getFile() {
-      const res = await fetchFileContentByPath(path);
-      const buf = (res instanceof ArrayBuffer || ArrayBuffer.isView(res)) ? res : base64ToArrayBuffer(String(res || ''));
-      const type = (function (n) { const ext = n.split('.').pop().toLowerCase(); const m = { txt: 'text/plain', js: 'application/javascript', json: 'application/json', html: 'text/html' }; return m[ext] || 'application/octet-stream'; })(name);
+      var res = await fetchFileContentByPath(path);
+      var buf = (res instanceof ArrayBuffer || ArrayBuffer.isView(res)) ? res : base64ToArrayBuffer(String(res || ''));
+      var type = (function (n) { var ext = n.split('.').pop().toLowerCase(); var m = { txt: 'text/plain', js: 'application/javascript', json: 'application/json', html: 'text/html' }; return m[ext] || 'application/octet-stream'; })(name);
       return new File([buf], name, { type });
     }
   };
 }
 
 function createPickerModal(tree, options = {}) {
-  const { allowDirectory = false, multiple = false, save = false, suggestedName = '', filecontent = null } = options;
-  const overlay = document.createElement('div');
+  var { allowDirectory = false, multiple = false, save = false, suggestedName = '', filecontent = null } = options;
+  var overlay = document.createElement('div');
   Object.assign(overlay.style, { position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000 });
-  const box = document.createElement('div');
+  var box = document.createElement('div');
   Object.assign(box.style, { width: '700px', height: '500px', background: data.dark ? '#1e1e1e' : '#fff', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
   overlay.appendChild(box);
-  const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '8px'; box.appendChild(breadcrumb);
-  const fileArea = document.createElement('div'); Object.assign(fileArea.style, { flex: '1', overflow: 'auto', padding: '8px', borderTop: '1px solid #ddd' }); box.appendChild(fileArea);
-  const saveContainer = document.createElement('div'); saveContainer.style.padding = '8px'; box.appendChild(saveContainer);
-  const bar = document.createElement('div'); bar.style.padding = '8px'; bar.style.display = 'flex'; bar.style.justifyContent = 'flex-end'; box.appendChild(bar);
-  const cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel'; bar.appendChild(cancelBtn);
-  const okBtn = document.createElement('button'); okBtn.textContent = save ?'Save' : 'Open'; okBtn.style.marginLeft = '8px'; bar.appendChild(okBtn);
+  var breadcrumb = document.createElement('div'); breadcrumb.style.padding = '8px'; box.appendChild(breadcrumb);
+  var fileArea = document.createElement('div'); Object.assign(fileArea.style, { flex: '1', overflow: 'auto', padding: '8px', borderTop: '1px solid #ddd' }); box.appendChild(fileArea);
+  var saveContainer = document.createElement('div'); saveContainer.style.padding = '8px'; box.appendChild(saveContainer);
+  var bar = document.createElement('div'); bar.style.padding = '8px'; bar.style.display = 'flex'; bar.style.justifyContent = 'flex-end'; box.appendChild(bar);
+  var cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel'; bar.appendChild(cancelBtn);
+  var okBtn = document.createElement('button'); okBtn.textContent = save ?'Save' : 'Open'; okBtn.style.marginLeft = '8px'; bar.appendChild(okBtn);
 
-  let currentPath = ['root'];
-  let selection = [];
-  let filenameInput = null;
+  var currentPath = ['root'];
+  var selection = [];
+  var filenameInput = null;
 
   function render() {
     breadcrumb.innerHTML = '';
     currentPath.forEach((p, i) => {
-      const span = document.createElement('span'); span.textContent = i === 0 ? 'Home' : ' / ' + p; span.style.cursor = 'pointer'; span.onclick = () => { currentPath = currentPath.slice(0, i + 1); render(); }; breadcrumb.appendChild(span);
+      var span = document.createElement('span'); span.textContent = i === 0 ? 'Home' : ' / ' + p; span.style.cursor = 'pointer'; span.onclick = () => { currentPath = currentPath.slice(0, i + 1); render(); }; breadcrumb.appendChild(span);
     });
     fileArea.innerHTML = '';
-    let node = JSON.parse(JSON.stringify(tree));
+    var node = JSON.parse(JSON.stringify(tree));
     for (let i = 1; i < currentPath.length; i++) {
       node = (node[1] || []).find(c => c[0] === currentPath[i]);
       if (!node) return;
     }
     if (!node || !node[1]) return;
     node[1].forEach(item => {
-      const isDir = Array.isArray(item[1]);
-      const div = document.createElement('div'); div.style.padding = '6px'; div.style.cursor = 'pointer'; div.textContent = (isDir ? '📁 ' : '📄 ') + item[0];
+      var isDir = Array.isArray(item[1]);
+      var div = document.createElement('div'); div.style.padding = '6px'; div.style.cursor = 'pointer'; div.textContent = (isDir ? '📁 ' : '📄 ') + item[0];
       div.onclick = (e) => {
-        const toggle = e.ctrlKey || e.metaKey;
+        var toggle = e.ctrlKey || e.metaKey;
 
         // If this is a directory and the picker does NOT allow directory selection,
         // don't treat single clicks as selecting the directory. Double-click will
@@ -247,7 +293,7 @@ function createPickerModal(tree, options = {}) {
           fileArea.querySelectorAll('div').forEach(d => d.style.background = '');
           div.style.background = '#d0e6ff';
         } else {
-          const idx = selection.indexOf(item);
+          var idx = selection.indexOf(item);
           if (idx >= 0) { selection.splice(idx, 1); div.style.background = ''; } else { selection.push(item); div.style.background = '#d0e6ff'; }
         }
       };
@@ -257,7 +303,7 @@ function createPickerModal(tree, options = {}) {
     // If this modal is a Save dialog, render filename input
     saveContainer.innerHTML = '';
     if (save) {
-      const lbl = document.createElement('div'); lbl.textContent = 'Filename:'; lbl.style.marginBottom = '6px'; saveContainer.appendChild(lbl);
+      var lbl = document.createElement('div'); lbl.textContent = 'Filename:'; lbl.style.marginBottom = '6px'; saveContainer.appendChild(lbl);
       filenameInput = document.createElement('input');
       filenameInput.style.width = '100%';
       filenameInput.placeholder = 'filename.txt';
@@ -276,16 +322,16 @@ function createPickerModal(tree, options = {}) {
       // Save flow: return a chosen full path string
       if (save) {
         // determine selected folder (prefer selected dir, otherwise currentPath)
-        let folderPath = currentPath.slice(1).join('/');
+        var folderPath = currentPath.slice(1).join('/');
         if (selection.length && Array.isArray(selection[0][1])) {
-          const sel = selection[0];
+          var sel = selection[0];
           folderPath = (sel[2] && sel[2].path) ? sel[2].path : (currentPath.slice(1).join('/'));
         }
-        const fname = (filenameInput && filenameInput.value || '').trim();
+        var fname = (filenameInput && filenameInput.value || '').trim();
         if (!fname) { notification('Enter filename'); return; }
         overlay.remove();
-        const chosen = folderPath ? ('/' + folderPath + '/' + fname) : fname;
-        let returnValue = {path: chosen, name: fname, filecontent: filecontent};
+        var chosen = folderPath ? ('/' + folderPath + '/' + fname) : fname;
+        var returnValue = {path: chosen, name: fname, filecontent: filecontent};
         return resolve(returnValue);
       }
 
@@ -293,16 +339,16 @@ function createPickerModal(tree, options = {}) {
         if (!selection.length) return resolve(null);
         // If directory-only requested, return selected folder node(s)
         if (allowDirectory) {
-          const dirs = selection.filter(s => Array.isArray(s[1]));
+          var dirs = selection.filter(s => Array.isArray(s[1]));
           if (multiple) return resolve(dirs);
           return resolve(dirs[0] || null);
         }
       // otherwise return file nodes
-      const files = selection.filter(s => !Array.isArray(s[1]));
+      var files = selection.filter(s => !Array.isArray(s[1]));
       // map to handles with full path from annotated tree
-      const handles = files.map(f => {
+      var handles = files.map(f => {
         // f is [name, null, meta]
-        const path = (f[2] && f[2].path) ? f[2].path : (currentPath.slice(1).concat([f[0]]).join('/'));
+        var path = (f[2] && f[2].path) ? f[2].path : (currentPath.slice(1).concat([f[0]]).join('/'));
         return makeFlowawayFileHandle(f[0], path);
       });
       resolve(handles);
@@ -313,7 +359,7 @@ function createPickerModal(tree, options = {}) {
 // Global functions
 window.flowawayOpenFilePicker = async function (options = {}) {
   if (!window.treeData) await window.loadTree();
-  const res = await createPickerModal(window.treeData, { allowDirectory: false, multiple: !!options.multiple });
+  var res = await createPickerModal(window.treeData, { allowDirectory: false, multiple: !!options.multiple });
   return res; // array of handles or null
 };
 
@@ -321,7 +367,7 @@ window.flowawayDirectoryPicker = async function (options = {}) {
   if (!window.treeData) await window.loadTree();
   options.allowDirectory = true;
   console.log(options)
-  const sel = await createPickerModal(window.treeData, options);
+  var sel = await createPickerModal(window.treeData, options);
   // return folder node (the array structure)
   return sel; // may be null
 };
@@ -329,16 +375,16 @@ window.flowawayDirectoryPicker = async function (options = {}) {
 window.flowawaySaveFilePicker = async function (options = {}, suggestedPath = '') {
   if (!window.treeData) await window.loadTree();
   // Use the picker modal with save input enabled for consistent UI
-  const chosen = await createPickerModal(window.treeData, { allowDirectory: true, save: true, suggestedName: suggestedPath.split('/').pop() || '', filecontent: options.filecontent || null });
+  var chosen = await createPickerModal(window.treeData, { allowDirectory: true, save: true, suggestedName: suggestedPath.split('/').pop() || '', filecontent: options.filecontent || null });
   console.log(chosen)
   return makeFlowawayFileHandle(chosen.name, chosen.path, chosen.filecontent);
 };
 
 // Helper function to hash script content (handles Unicode characters)
 function hashScriptContent(text) {
-  let hash = 0;
+  var hash = 0;
   for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
+    var char = text.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
@@ -350,7 +396,7 @@ window.apps = window.apps || [];
 
 async function getFolderListing(relPath) {
   try {
-    const r = await filePost({ requestFile: true, requestFileName: relPath });
+    var r = await filePost({ requestFile: true, requestFileName: relPath });
     if (r && r.kind === 'folder' && Array.isArray(r.files)) return r.files;
   } catch (e) { console.error('getFolderListing error', e); }
   return null;
@@ -358,30 +404,30 @@ async function getFolderListing(relPath) {
 
 // Helper function to extract app data from an app folder
 async function extractAppData(appFolder) {
-  const folderName = appFolder[0];
-  const folderPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
-  const files = await getFolderListing(folderPath);
+  var folderName = appFolder[0];
+  var folderPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
+  var files = await getFolderListing(folderPath);
   if (!files) return null;
   
   // find files
-  const jsFile = files.find(f => f.name.toLowerCase().endsWith('.js'))?.relativePath || null;
-  const txtFile = files.find(f => f.name.toLowerCase().endsWith('.txt'))?.relativePath || null;
-  const iconFile = files.find(f => f.name.toLowerCase().startsWith('icon') || f.name.toLowerCase().endsWith('.png') || f.name.toLowerCase().endsWith('.svg'))?.relativePath || null;
+  var jsFile = files.find(f => f.name.toLowerCase().endsWith('.js'))?.relativePath || null;
+  var txtFile = files.find(f => f.name.toLowerCase().endsWith('.txt'))?.relativePath || null;
+  var iconFile = files.find(f => f.name.toLowerCase().startsWith('icon') || f.name.toLowerCase().endsWith('.png') || f.name.toLowerCase().endsWith('.svg'))?.relativePath || null;
 
-  let entryName = null;
-  let label = folderName;
-  let icon = '🔧';
-  let appGlobalVarStrings = [];
+  var entryName = null;
+  var label = folderName;
+  var icon = '🔧';
+  var appGlobalVarStrings = [];
   if (txtFile) {
     try {
-      const b64 = await fetchFileContentByPath(`${folderPath}/${txtFile}`);
-      const txt = base64ToUtf8(b64).trim();
-      const lines = txt.split('\n').map(s => s.trim()).filter(Boolean);
+      var b64 = await fetchFileContentByPath(`${folderPath}/${txtFile}`);
+      var txt = base64ToUtf8(b64).trim();
+      var lines = txt.split('\n').map(s => s.trim()).filter(Boolean);
       if (lines.length) entryName = lines[0];
       if (lines.length > 1) label = lines[1];
       if (lines.length > 2) startbtnid = lines[2];
       if (lines.length > 3) cmf = lines[3];
-      for(let i = 2; i < lines.length; i++) {
+      for(var i = 2; i < lines.length; i++) {
         appGlobalVarStrings.push(lines[i]);
       }
     } catch (e) { console.error('read txt', e); }
@@ -392,7 +438,7 @@ async function extractAppData(appFolder) {
       icon = `<img src="${goldenbodywebsite}download?username=${encodeURIComponent(username)}&path=${encodeURIComponent(folderPath + '/' + iconFile)}" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto;"/>`;
     } else {
       try {
-        const b64 = await fetchFileContentByPath(`${folderPath}/${iconFile}`);
+        var b64 = await fetchFileContentByPath(`${folderPath}/${iconFile}`);
         icon = base64ToUtf8(b64).trim() || icon;
       } catch (e) { console.error('read icon txt', e); }
     }
@@ -407,8 +453,8 @@ async function loadAppsFromTree() {
   window.apps = [];
   if (!window.treeData) await window.loadTree();
   try {
-    const rootChildren = (window.treeData && window.treeData[1]) || [];
-    const appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
+    var rootChildren = (window.treeData && window.treeData[1]) || [];
+    var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
     if (!appsNode) return;
     for (const appFolder of appsNode[1]) {
       const appData = await extractAppData(appFolder);
@@ -430,12 +476,12 @@ async function loadAppsFromTree() {
 }
 
 async function renderAppsGrid() {
-  const container = document.getElementById('appsGrid');
+  var container = document.getElementById('appsGrid');
   if (!container) return;
   // Remove all current children to render fresh
   container.innerHTML = '';
   for (const app of window.apps) {
-    const div = document.createElement('div');
+    var div = document.createElement('div');
     div.className = 'app';
     div.dataset.appId = app.icon;
     div.id = app.id + 'app';
@@ -448,8 +494,8 @@ async function renderAppsGrid() {
     container.appendChild(div);
       if (!app.scriptLoaded && app.jsFile) {
     try {
-      const b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-      const scriptText = base64ToUtf8(b64);
+      var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+      var scriptText = base64ToUtf8(b64);
       // Store hash for future change detection
       app._lastScriptHash = hashScriptContent(scriptText);
       // Prefer removing globals created by previous script rather than deleting app metadata
@@ -469,8 +515,8 @@ async function renderAppsGrid() {
         }
       } catch (e) {}
       // snapshot globals before injection
-      const beforeGlobals = new Set(Object.getOwnPropertyNames(window));
-      const s = document.createElement('script');
+      var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
+      var s = document.createElement('script');
       s.type = 'text/javascript';
       s.textContent = scriptText;
       document.body.appendChild(s);
@@ -479,10 +525,10 @@ async function renderAppsGrid() {
       // record any globals the script introduced (best-effort)
       try {
         app._addedGlobals = [];
-        const captureAdded = () => {
+        var captureAdded = () => {
           try {
-            const after = Object.getOwnPropertyNames(window);
-            const newly = after.filter(k => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k));
+            var after = Object.getOwnPropertyNames(window);
+            var newly = after.filter(k => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k));
             if (newly.length) app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
           } catch (e) {}
         };
@@ -499,11 +545,11 @@ async function renderAppsGrid() {
 }
 
 async function launchApp(appId) {
-  const app = (window.apps || []).find(a => a.id === appId);
+  var app = (window.apps || []).find(a => a.id === appId);
   if (!app) {
     // fallback: try to call a global function named like the appId (or the id listed in entry)
     try {
-      const globalFn = window[appId] || null;
+      var globalFn = window[appId] || null;
       if (typeof globalFn === 'function') return globalFn();
     } catch (e) {}
     console.warn('App not found:', appId);
@@ -512,8 +558,8 @@ async function launchApp(appId) {
 
     if (!app.scriptLoaded && app.jsFile) {
     try {
-      const b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-      const scriptText = base64ToUtf8(b64);
+      var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+      var scriptText = base64ToUtf8(b64);
       // Store hash for future change detection
       app._lastScriptHash = hashScriptContent(scriptText);
       // Remove any prior globals exposed by a previous version of this app
@@ -533,8 +579,8 @@ async function launchApp(appId) {
         }
       } catch (e) {}
       // snapshot globals before injection
-      const beforeGlobals = new Set(Object.getOwnPropertyNames(window));
-      const s = document.createElement('script');
+      var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
+      var s = document.createElement('script');
       s.type = 'text/javascript';
       s.textContent = scriptText;
       document.body.appendChild(s);
@@ -543,10 +589,10 @@ async function launchApp(appId) {
       // record any globals the script introduced (best-effort)
       try {
         app._addedGlobals = [];
-        const captureAdded = () => {
+        var captureAdded = () => {
           try {
-            const after = Object.getOwnPropertyNames(window);
-            const newly = after.filter(k => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k));
+            var after = Object.getOwnPropertyNames(window);
+            var newly = after.filter(k => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k));
             if (newly.length) app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
           } catch (e) {}
         };
@@ -564,15 +610,15 @@ async function launchApp(appId) {
     } else if (typeof window[app.id] === 'function') {
       window[app.id]();
     }
-    // After the app constructs its UI, try to tag the new top-level window(s) with appId
+    // After the app varructs its UI, try to tag the new top-level window(s) with appId
     setTimeout(() => {
       try {
-        const roots = Array.from(document.querySelectorAll('.sim-chrome-root'));
+        var roots = Array.from(document.querySelectorAll('.sim-chrome-root'));
         // find ones without app id yet
-        const untagged = roots.filter(r => !r.dataset || !r.dataset.appId);
+        var untagged = roots.filter(r => !r.dataset || !r.dataset.appId);
         if (untagged.length) {
           // tag the most recently added
-          const candidate = untagged[untagged.length - 1];
+          var candidate = untagged[untagged.length - 1];
           candidate.dataset.appId = app.entry || app.id;
         }
       } catch (e) {}
@@ -582,14 +628,14 @@ async function launchApp(appId) {
 }
 
 // ===== LIVE APP POLLING =====
-let appPollingActive = false;
-let appPollingSocket = null;
-let appPollingSocketBackoff = 0;
-let appPollingTimer = null;
-let appPollingInFlight = false;
-let appPollingDirty = false;
-const APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
-const APP_POLLING_DEBOUNCE = 300;
+var appPollingActive = false;
+var appPollingSocket = null;
+var appPollingSocketBackoff = 0;
+var appPollingTimer = null;
+var appPollingInFlight = false;
+var appPollingDirty = false;
+var APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
+var APP_POLLING_DEBOUNCE = 300;
 
 function scheduleAppPoll(reason = 'unknown') {
   clearTimeout(appPollingTimer);
@@ -621,16 +667,16 @@ function startAppPollingViaWebSocket() {
     return true;
   }
 
-const baseOrigin =
+var baseOrigin =
   window.opener?.location?.origin ||
   window.location.origin;
 
-const wsProtocol = baseOrigin.startsWith('https')
+var wsProtocol = baseOrigin.startsWith('https')
   ? 'wss://'
   : 'ws://';
 
-const hostname = new URL(baseOrigin).hostname;
-const appPollingURL = `${wsProtocol}${hostname}:3001`;
+var hostname = new URL(baseOrigin).hostname;
+var appPollingURL = `${wsProtocol}${hostname}:3001`;
   appPollingSocket = new WebSocket(appPollingURL);
 
   appPollingSocket.onopen = () => {
@@ -642,7 +688,7 @@ const appPollingURL = `${wsProtocol}${hostname}:3001`;
 
   appPollingSocket.onmessage = (ev) => {
     try {
-      const msg = JSON.parse(ev.data);
+      var msg = JSON.parse(ev.data);
       if (msg && msg.appChanges) {
         scheduleAppPoll('ws');
       }
@@ -658,7 +704,7 @@ const appPollingURL = `${wsProtocol}${hostname}:3001`;
   appPollingSocket.onclose = (e) => {
     appPollingSocket = null;
     if (appPollingSocketBackoff < 10) appPollingSocketBackoff++;
-    const delay = Math.min(appPollingSocketBackoff * 1000, APP_POLLING_SOCKET_MAX_BACKOFF);
+    var delay = Math.min(appPollingSocketBackoff * 1000, APP_POLLING_SOCKET_MAX_BACKOFF);
     setTimeout(() => {
       startAppPollingViaWebSocket();
     }, delay);
@@ -671,23 +717,23 @@ async function pollAppChanges(forceMetadataCheck = false) {
   if (!window.treeData) return;
   
   try {
-    const rootChildren = (window.treeData && window.treeData[1]) || [];
-    const appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
+    var rootChildren = (window.treeData && window.treeData[1]) || [];
+    var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
     if (!appsNode) return;
     
     // Get current app folders from the file system
-    const currentAppFolders = appsNode[1] || [];
-    let hasChanges = false;
+    var currentAppFolders = appsNode[1] || [];
+    var hasChanges = false;
     
     // First pass: detect structural changes only (new/deleted folders)
-    const currentFolderNames = new Set(currentAppFolders.map(f => f[0]));
-    const knownFolderNames = new Set(window.apps.map(a => {
-      const path = a.path;
+    var currentFolderNames = new Set(currentAppFolders.map(f => f[0]));
+    var knownFolderNames = new Set(window.apps.map(a => {
+      var path = a.path;
       return path.split('/').pop(); // Extract folder name from path
     }));
     
     // Check for new folders or deleted folders at folder level
-    const hasStructuralChanges = 
+    var hasStructuralChanges = 
       currentFolderNames.size !== knownFolderNames.size ||
       Array.from(currentFolderNames).some(name => !knownFolderNames.has(name));
     
@@ -695,14 +741,14 @@ async function pollAppChanges(forceMetadataCheck = false) {
     if (hasStructuralChanges) {
       // Check for new apps
       for (const appFolder of currentAppFolders) {
-        const folderName = appFolder[0];
-        const expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
+        var folderName = appFolder[0];
+        var expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
         
-        const existingApp = window.apps.find(a => a.path === expectedPath);
+        var existingApp = window.apps.find(a => a.path === expectedPath);
         
         if (!existingApp) {
           // New app detected - fetch its metadata
-          const newAppData = await extractAppData(appFolder);
+          var newAppData = await extractAppData(appFolder);
           if (newAppData) {
             window.apps.push(newAppData);
             window.apps.sort((a, b) => a.label.localeCompare(b.label));
@@ -713,11 +759,11 @@ async function pollAppChanges(forceMetadataCheck = false) {
       }
       
       // Check for deleted apps
-      const appsToDelete = [];
+      var appsToDelete = [];
       for (let i = 0; i < window.apps.length; i++) {
-        const app = window.apps[i];
-        const stillExists = currentAppFolders.some(f => {
-          const expectedPath = (f[2] && f[2].path) ? f[2].path : `apps/${f[0]}`;
+        var app = window.apps[i];
+        var stillExists = currentAppFolders.some(f => {
+          var expectedPath = (f[2] && f[2].path) ? f[2].path : `apps/${f[0]}`;
           return expectedPath === app.path;
         });
         
@@ -728,8 +774,8 @@ async function pollAppChanges(forceMetadataCheck = false) {
       
       // Delete apps in reverse order to maintain indices
       for (let i = appsToDelete.length - 1; i >= 0; i--) {
-        const appIndex = appsToDelete[i];
-        const app = window.apps[appIndex];
+        var appIndex = appsToDelete[i];
+        var app = window.apps[appIndex];
         
         console.log(`[APP POLLING] App deleted: ${app.label}`);
         
@@ -766,19 +812,19 @@ async function pollAppChanges(forceMetadataCheck = false) {
         window.apps.splice(appIndex, 1);
         
         // 3. Remove from apps grid
-        const appElement = document.getElementById(app.id + 'app');
+        var appElement = document.getElementById(app.id + 'app');
         if (appElement) appElement.remove();
         
         // 4. Remove taskbar button
-        const taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn => 
+        var taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn => 
           (btn.dataset && btn.dataset.appId === app.icon) || 
           btn.textContent.includes(app.label)
         );
         if (taskbarBtn) taskbarBtn.remove();
         
         // 5. Close all windows with matching appId
-        const appIdToMatch = app.entry || app.icon;
-        const windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root => 
+        var appIdToMatch = app.entry || app.icon;
+        var windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root => 
           root.dataset && root.dataset.appId === appIdToMatch
         );
         for (const windowEl of windowsToClose) {
@@ -792,17 +838,17 @@ async function pollAppChanges(forceMetadataCheck = false) {
     // Second pass: refresh metadata (entry.txt/icon.txt) on change notifications
     if (forceMetadataCheck) {
       for (const appFolder of currentAppFolders) {
-        const folderName = appFolder[0];
-        const expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
-        const existingApp = window.apps.find(a => a.path === expectedPath);
+        var folderName = appFolder[0];
+        var expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
+        var existingApp = window.apps.find(a => a.path === expectedPath);
         if (!existingApp) continue;
 
-        const newAppData = await extractAppData(appFolder);
+        var newAppData = await extractAppData(appFolder);
         if (!newAppData) continue;
 
-        let appModified = false;
-        const jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
-        const entryChanged = existingApp.entry !== newAppData.entry;
+        var appModified = false;
+        var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
+        var entryChanged = existingApp.entry !== newAppData.entry;
 
         if (entryChanged) {
           console.log(`[APP POLLING] ${existingApp.label}: entry changed from ${existingApp.entry} to ${newAppData.entry}`);
@@ -826,9 +872,9 @@ async function pollAppChanges(forceMetadataCheck = false) {
 
         if (appModified) {
           // preserve old names so we can remove their globals safely after reload
-          const _oldEntry = existingApp.entry;
-          const _oldCmf = existingApp.cmf;
-          const _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
+          var _oldEntry = existingApp.entry;
+          var _oldCmf = existingApp.cmf;
+          var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
           existingApp.entry = newAppData.entry;
           existingApp.jsFile = newAppData.jsFile;
           existingApp.icon = newAppData.icon;
@@ -837,7 +883,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
           existingApp.id = newAppData.id;
 
           // Update grid icon/label
-          const appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app'));
+          var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app'));
           if (appGridElement) {
             appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
           }
@@ -845,9 +891,9 @@ async function pollAppChanges(forceMetadataCheck = false) {
           // Reload script if JS file changed
           if (jsFileChanged && existingApp.jsFile) {
             try {
-              const b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
-              const scriptText = base64ToUtf8(b64);
-              const currentHash = hashScriptContent(scriptText);
+              var b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
+              var scriptText = base64ToUtf8(b64);
+              var currentHash = hashScriptContent(scriptText);
               if (existingApp.scriptLoaded && existingApp._scriptElement) {
                 existingApp._scriptElement.remove();
                 existingApp.scriptLoaded = false;
@@ -868,7 +914,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
                   }
                 }
               } catch (e) {}
-              const s = document.createElement('script');
+              var s = document.createElement('script');
               s.type = 'text/javascript';
               s.textContent = scriptText;
               document.body.appendChild(s);
@@ -891,9 +937,9 @@ async function pollAppChanges(forceMetadataCheck = false) {
       for (const app of window.apps) {
         if (app.jsFile && app._lastScriptHash) {
           try {
-            const b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-            const scriptText = base64ToUtf8(b64);
-            const currentHash = hashScriptContent(scriptText);
+            var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+            var scriptText = base64ToUtf8(b64);
+            var currentHash = hashScriptContent(scriptText);
             
             if (currentHash !== app._lastScriptHash) {
               console.log(`[APP POLLING] ${app.label}: JS file content changed`);
@@ -924,7 +970,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
                     }
                   }
                 } catch (e) {}
-                const s = document.createElement('script');
+                var s = document.createElement('script');
                 s.type = 'text/javascript';
                 s.textContent = scriptText;
                 document.body.appendChild(s);
@@ -950,7 +996,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
       purgeButtons();
       // Dispatch custom event when apps have been updated
       setTimeout(() => {
-              const appUpdatedEvent = new CustomEvent('appUpdated', { detail: { apps: window.apps } });
+              var appUpdatedEvent = new CustomEvent('appUpdated', { detail: { apps: window.apps } });
       window.dispatchEvent(appUpdatedEvent);
       }, 1000);
 
@@ -960,15 +1006,17 @@ async function pollAppChanges(forceMetadataCheck = false) {
     console.error('[APP POLLING] Error during polling:', e);
   }
 }
-window.addEventListener('appUpdated', (e) => {
-      purgeButtons();
-  // You can add additional handling here if needed when apps are updated
-});
+// appUpdated - ensure single binding
+try {
+  if (window._flowaway_handlers.onAppUpdated) window.removeEventListener('appUpdated', window._flowaway_handlers.onAppUpdated);
+  window._flowaway_handlers.onAppUpdated = (e) => { purgeButtons(); };
+  window.addEventListener('appUpdated', window._flowaway_handlers.onAppUpdated);
+} catch (e) {}
 function startAppPolling() {
   if (appPollingActive) return;
   appPollingActive = true;
 
-  const wsStarted = startAppPollingViaWebSocket();
+  var wsStarted = startAppPollingViaWebSocket();
   if (!wsStarted) {
     // Fallback: very slow polling if WebSocket isn't supported
     setInterval(() => {
@@ -982,7 +1030,7 @@ function startAppPolling() {
 }
 
 // Ensure loadAppsFromTree runs after initial tree load
-const oldLoadTree = window.loadTree;
+var oldLoadTree = window.loadTree;
 window.loadTree = async function () {
   await oldLoadTree();
   await loadAppsFromTree();
@@ -990,34 +1038,34 @@ window.loadTree = async function () {
 
 // ----------------- END dynamic app loader -----------------
 
-let username = data.username;
+var username = data.username;
 
 
 
 
 
 // fullscreen keyboard lock
-document.addEventListener("fullscreenchange", async () => {
-  if (document.fullscreenElement) {
-    // Lock when entering fullscreen
-    if (navigator.keyboard && typeof navigator.keyboard.lock === "function") {
-      await navigator.keyboard.lock(["Escape"]);
+// fullscreenchange - ensure single binding
+try {
+  if (window._flowaway_handlers.onFullscreenChange) document.removeEventListener('fullscreenchange', window._flowaway_handlers.onFullscreenChange);
+  window._flowaway_handlers.onFullscreenChange = async () => {
+    if (document.fullscreenElement) {
+      if (navigator.keyboard && typeof navigator.keyboard.lock === 'function') {
+        try { await navigator.keyboard.lock(['Escape']); } catch (e) {}
+      }
+    } else {
+      if (navigator.keyboard && typeof navigator.keyboard.unlock === 'function') {
+        try { navigator.keyboard.unlock(); } catch (e) {}
+      }
     }
-  } else {
-    // Unlock when exiting fullscreen
-    if (
-      navigator.keyboard &&
-      typeof navigator.keyboard.unlock === "function"
-    ) {
-      navigator.keyboard.unlock();
-    }
-  }
-});
+  };
+  document.addEventListener('fullscreenchange', window._flowaway_handlers.onFullscreenChange);
+} catch (e) {}
 
 window.removeotherMenus = function(except) {
   try {
     // Remove any menus with the shared .app-menu class (used across apps)
-    const menus = document.querySelectorAll('.app-menu');
+    var menus = document.querySelectorAll('.app-menu');
     for (const m of menus) {
       try {
         if (except && m.dataset && m.dataset.appId === except) continue;
@@ -1034,9 +1082,10 @@ window.removeotherMenus = function(except) {
   for (const taskbutton of data.taskbuttons) {
     const app = (window.apps || []).find(a => a.id === taskbutton);
     if (app) {
-      const btn = addTaskButton(app.icon || '🔧', () => launchApp(app.id));
+      const appId = app.id;
+      const btn = addTaskButton(app.icon || '🔧', () => launchApp(appId));
       if (btn) btn.dataset.appId = app.icon;
-    } 
+    }
   }
   taskbuttons = [...taskbar.querySelectorAll("button")];
  }
@@ -1051,8 +1100,8 @@ window.removeotherMenus = function(except) {
     window.appButtons = window.appButtons || {};
     window.appButtons = {};
     for (let i = 0; i < taskbuttons.length; i++) {
-      const tb = taskbuttons[i];
-      let id;
+      let tb = taskbuttons[i];
+      var id;
       try {
         id = tb.dataset.appId;
       } catch (e) {}
@@ -1063,15 +1112,15 @@ window.removeotherMenus = function(except) {
   }
 
   function saveTaskButtons() {
-    let buttons = [...taskbar.querySelectorAll("button")];
+    var buttons = [...taskbar.querySelectorAll("button")];
     buttons.splice(0, 3);
-    let postdata = [];
+    var postdata = [];
     for (const b of buttons) {
         if (b.dataset && b.dataset.appId) {
         postdata.push(b.dataset.appId);
       } else {
         // If no dataset, try to infer id from value or textContent
-        const inferred = (b.value && String(b.value).trim()) || (b.textContent && String(b.textContent).trim());
+        var inferred = (b.value && String(b.value).trim()) || (b.textContent && String(b.textContent).trim());
         if (inferred) postdata.push(inferred);
       }
     }
@@ -1080,7 +1129,7 @@ window.removeotherMenus = function(except) {
   function bringToFront(el) {
     if (!el) return;
     // Prefer explicit dataset app id
-    let appId = el.dataset && el.dataset.appId;
+    var appId = el.dataset && el.dataset.appId;
     // fallback: data-app-id attribute
     if (!appId) appId = el.getAttribute && el.getAttribute('data-app-id');
     // fallback: check classes against discovered app ids
@@ -1097,14 +1146,17 @@ window.removeotherMenus = function(except) {
     el.style.zIndex = String(++zTop);
   }
 
-  window.addEventListener("keydown", function (e) {
+  // keydown - single binding
+  try {
+    if (window._flowaway_handlers.onKeydown) window.removeEventListener('keydown', window._flowaway_handlers.onKeydown);
+    window._flowaway_handlers.onKeydown = function (e) {
     // Build normalized combo e.g. 'Ctrl+Shift+N'
-    const parts = [];
+    var parts = [];
     if (e.ctrlKey) parts.push('Ctrl');
     if (e.shiftKey) parts.push('Shift');
-    const keyPart = String(e.key).toUpperCase();
+    var keyPart = String(e.key).toUpperCase();
     parts.push(keyPart);
-    const combo = parts.join('+');
+    var combo = parts.join('+');
 
     // Check user-defined shortcuts first
     if (data && data.shortcuts && data.shortcuts[combo]) {
@@ -1117,7 +1169,7 @@ window.removeotherMenus = function(except) {
     // Ctrl+Alt+ArrowUp / Ctrl+Alt+ArrowDown -> brightness +/-5
     if (e.ctrlKey && !e.shiftKey && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
-      const delta = e.key === 'ArrowUp' ? 5 : -5;
+      var delta = e.key === 'ArrowUp' ? 5 : -5;
       data.brightness = Math.min(100, Math.max(0, (parseInt(data.brightness) || 0) + delta));
       document.documentElement.style.filter = `brightness(${data.brightness}%)`;
       try { zmcdpost({ changeBrightness: true, brightness: data.brightness }); } catch (err) {}
@@ -1128,7 +1180,7 @@ window.removeotherMenus = function(except) {
     // Ctrl+Shift+ArrowUp / Ctrl+Shift+ArrowDown -> volume +/-5
     if (e.ctrlKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
-      const delta = e.key === 'ArrowUp' ? 5 : -5;
+      var delta = e.key === 'ArrowUp' ? 5 : -5;
       data.volume = Math.min(100, Math.max(0, (parseInt(data.volume) || 0) + delta));
       setAllMediaVolume(data.volume / 100);
       // inform other parts of UI
@@ -1141,14 +1193,14 @@ window.removeotherMenus = function(except) {
     // Default: Ctrl+N -> open new instance of focused app or a sensible default
     if (e.ctrlKey && keyPart === 'N') {
       e.preventDefault();
-      const focusedApp = atTop || '';
+      var focusedApp = atTop || '';
       if (focusedApp && typeof launchApp === 'function') {
         // attempt to open another instance of focused app
         launchApp(focusedApp);
         return;
       }
       // fallback: first taskbutton or first discovered app
-      const fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && window.apps[0].id);
+      var fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && window.apps[0].id);
       if (fallback) launchApp(fallback);
       return;
     } else if (e.ctrlKey && e.shiftKey && e.key === "W") {
@@ -1156,28 +1208,30 @@ window.removeotherMenus = function(except) {
       if (!atTop) return;
       try {
         // Prefer elements explicitly tagged with data-app-id
-        const candidates = Array.from(document.querySelectorAll(`[data-app-id="${atTop}"]`));
+        var candidates = Array.from(document.querySelectorAll(`[data-app-id="${atTop}"]`));
         // fallback: match elements with class name equal to app id
         if (!candidates.length) {
-          const byClass = Array.from(document.getElementsByClassName(atTop));
+          var byClass = Array.from(document.getElementsByClassName(atTop));
           for (const el of byClass) candidates.push(el);
         }
         if (!candidates.length) return;
         // Choose the one with highest z-index or last in document
         candidates.sort((a, b) => {
-          const za = parseInt(a.style.zIndex) || 0;
-          const zb = parseInt(b.style.zIndex) || 0;
+          var za = parseInt(a.style.zIndex) || 0;
+          var zb = parseInt(b.style.zIndex) || 0;
           return za - zb;
         });
-        const top = candidates[candidates.length - 1];
+        var top = candidates[candidates.length - 1];
         if (top) top.remove();
       } catch (e) { console.error('close focused app window error', e); }
     }
-  });
+    };
+    window.addEventListener('keydown', window._flowaway_handlers.onKeydown);
+  } catch (e) {}
 
 function applyStyles() {
   try {
-    const roots = document.querySelectorAll('.sim-chrome-root');
+    var roots = document.querySelectorAll('.sim-chrome-root');
     for (const r of roots) {
       r.classList.toggle('dark', data.dark);
       r.classList.toggle('light', !data.dark);
@@ -1196,7 +1250,7 @@ function applyStyles() {
   startMenu.classList.toggle("light", !data.dark);
   taskbar.classList.toggle("dark", data.dark);
   taskbar.classList.toggle("light", !data.dark);
-  for(const button of taskbuttons) {
+  for(var button of taskbuttons) {
     button.classList.toggle("dark", data.dark);
     button.classList.toggle("light", !data.dark);
   }
@@ -1210,16 +1264,16 @@ setTimeout(() => { try { loadAppsFromTree(); } catch (e) {} }, 200);
 function mainRecurseFrames(doc) {
   if (!doc) return null;
 
-  const frames = doc.querySelectorAll("iframe");
+  var frames = doc.querySelectorAll("iframe");
 
-  for (const frame of frames) {
+    for (const frame of frames) {
       const childDoc = frame.contentDocument;
     function setAllMediaVolume(newVolume) {
       // Ensure the volume is between 0.0 and 1.0
       newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
       // Select all audio and video elements
-      let mediaElements = [];
+      var mediaElements = [];
       try{mediaElements = childDoc.querySelectorAll('audio, video');}catch(e){}
 
       mediaElements.forEach(element => {
@@ -1243,17 +1297,19 @@ function setAllMediaVolume(newVolume) {
   newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
   // Select all audio and video elements
-  const mediaElements = document.querySelectorAll('audio, video');
+  var mediaElements = document.querySelectorAll('audio, video');
 
   mediaElements.forEach(element => {
     element.volume = newVolume;
   });
 }
-    window.addEventListener('system-volume', (e) => {
-      setAllMediaVolume(e.detail / 100);
-    });
+    try {
+      if (window._flowaway_handlers.onSystemVolume) window.removeEventListener('system-volume', window._flowaway_handlers.onSystemVolume);
+      window._flowaway_handlers.onSystemVolume = (e) => { setAllMediaVolume(e.detail / 100); };
+      window.addEventListener('system-volume', window._flowaway_handlers.onSystemVolume);
+    } catch (e) {}
 // 1. Create a new MutationObserver instance with a callback function
-const observer = new MutationObserver((mutationsList, observer) => {
+var observer = new MutationObserver((mutationsList, observer) => {
   if(mutationsList) {
       setAllMediaVolume(data.volume / 100);
       mainRecurseFrames(document);
@@ -1263,10 +1319,10 @@ const observer = new MutationObserver((mutationsList, observer) => {
 });
 
 // 2. Select the target node you want to observe (e.g., the entire document body)
-const targetNode = document.body;
+var targetNode = document.body;
 
 // 3. Configure the observer with an options object
-const config = {
+var config = {
     childList: true, // Observe direct children addition/removal
     attributes: true, // Observe attribute changes
     characterData: true, // Observe changes to text content
@@ -1276,20 +1332,32 @@ const config = {
 };
 
 // 4. Start observing the target node with the specified configuration
-observer.observe(targetNode, config);
+try {
+  if (window._flowaway_handlers.observer) {
+    try { window._flowaway_handlers.observer.disconnect(); } catch (e) {}
+  }
+  window._flowaway_handlers.observer = observer;
+  observer.observe(targetNode, config);
+} catch (e) {
+  try { observer.observe(targetNode, config); } catch (ee) {}
+}
 
 // To stop observing later:
 // observer.disconnect();
       
     setAllMediaVolume(parseInt(data.volume) / 100);
-    let backgroundMusic = document.createElement('audio');
+    var backgroundMusic = document.createElement('audio');
     backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
     backgroundMusic.loop = true;
     document.body.prepend(backgroundMusic);
-    window.addEventListener('mousedown', () => {backgroundMusic.play();}, {once: true});
+    try {
+      if (window._flowaway_handlers.onFirstUserMouse) window.removeEventListener('mousedown', window._flowaway_handlers.onFirstUserMouse);
+      window._flowaway_handlers.onFirstUserMouse = () => { try { backgroundMusic.play(); } catch (e) {} };
+      window.addEventListener('mousedown', window._flowaway_handlers.onFirstUserMouse, { once: true });
+    } catch (e) {}
 // helpers global
   function getStringAfterChar(str, char) {
-    const index = str.indexOf(char);
+    var index = str.indexOf(char);
     if (index !== -1) {
       // Add 1 to the index to start after the character itself
       return str.substring(index + 1);
@@ -1304,7 +1372,7 @@ function notification (message) {
     try {
       if (!message && message !== 0) return;
       // Ensure a container exists
-      let container = document.getElementById('global-notifications');
+      var container = document.getElementById('global-notifications');
       if (!container) {
         container = document.createElement('div');
         container.id = 'global-notifications';
@@ -1321,7 +1389,7 @@ function notification (message) {
         document.body.appendChild(container);
       }
 
-      const toast = document.createElement('div');
+      var toast = document.createElement('div');
       toast.textContent = String(message);
       Object.assign(toast.style, {
         background: 'rgba(0,0,0,0.8)',
@@ -1347,7 +1415,7 @@ function notification (message) {
       });
 
       // Remove after 3s
-      const dismissMs = 3000;
+      var dismissMs = 3000;
       setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(6px)';
@@ -1364,7 +1432,7 @@ function notification (message) {
       console.error('notify error', e);
     }
   };
-  const style = document.createElement("style");
+  var style = document.createElement("style");
   style.textContent = `
 
 /* =========================================================
@@ -1719,7 +1787,7 @@ function notification (message) {
 `;
 
   document.head.appendChild(style);
-  const css = `
+  var css = `
 
     .startMenu {
         position: fixed;
@@ -1767,19 +1835,21 @@ function notification (message) {
       background: #f8f4f4ff;
     }
 
-.statusBar {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
-    right: 8px;
+  .statusBar {
+  position: absolute;
+  /* position at the bottom of the start menu */
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
 
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
-    font-size: 13px;
-    padding: 6px 10px;
-    border-radius: 4px;
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  min-height: 42px;
 }
 
 .statusLeft,
@@ -1787,6 +1857,21 @@ function notification (message) {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.statusRight span {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+#signOutBtn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #e53e3e;
+  color: white;
+  font-weight: 600;
 }
 
 .startMenu.dark .statusBar {
@@ -1799,14 +1884,14 @@ function notification (message) {
 
 
 `;
-const styleTag = document.createElement("style");
+var styleTag = document.createElement("style");
   styleTag.textContent = css;
   document.head.appendChild(styleTag);
 
   // ----------------- CREATE START BUTTON -----------------
 
   // ----------------- CREATE START MENU -----------------
-  const startMenu = document.createElement("div");
+  var startMenu = document.createElement("div");
   startMenu.id = "startMenu";
   startMenu.className = 'startMenu';
   startMenu.style.zIndex = 999;
@@ -1825,11 +1910,12 @@ const styleTag = document.createElement("style");
     <div class="statusBar">
     <div class="statusLeft">
         <span id="wifiStatus">📶</span>
+        <button id="signOutBtn" style="margin-left:8px;padding:6px 8px;border-radius:6px;border:none;background:#e53e3e;color:white;font-weight:600;">Sign Out</button>
     </div>
 
     <div class="statusRight">
-        <span id="batteryStatus">🔋 --%</span>
-        <span id="timeStatus">--:--</span>
+      <span id="batteryStatus">🔋 --%</span>
+      <span id="timeStatus">--:--</span>
     </div>
 </div>
 
@@ -1838,12 +1924,24 @@ const styleTag = document.createElement("style");
 
   document.body.appendChild(startMenu);
 
+  document.body.appendChild(startMenu);
+
+  // Wire up sign out button (now inside the statusRight area) to call rebuildhandler
+  try {
+    const sb = document.getElementById('signOutBtn');
+    if (sb) {
+      if (window._flowaway_handlers.onSignOut) sb.removeEventListener('click', window._flowaway_handlers.onSignOut);
+      window._flowaway_handlers.onSignOut = () => { try { rebuildhandler(); } catch (e) { console.error('rebuildhandler error', e); } };
+      sb.addEventListener('click', window._flowaway_handlers.onSignOut);
+    }
+  } catch (e) { console.error('signOut hookup error', e); }
+
 
 
 // -------- TIME --------
 function updateTime() {
-    const now = new Date();
-    const time = now.toLocaleTimeString([], {
+    var now = new Date();
+    var time = now.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit'
     });
@@ -1851,27 +1949,37 @@ function updateTime() {
 }
 
 updateTime();
-setInterval(updateTime, 1000);
+try {
+  if (window._flowaway_handlers.timeIntervalId) clearInterval(window._flowaway_handlers.timeIntervalId);
+  window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000);
+} catch (e) { window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000); }
 
 // -------- BATTERY --------
 if (navigator.getBattery) {
     navigator.getBattery().then(battery => {
         function updateBattery() {
-            const level = Math.round(battery.level * 100);
-            const charging = battery.charging ? "⚡" : "";
+            var level = Math.round(battery.level * 100);
+            var charging = battery.charging ? "⚡" : "";
             document.getElementById("batteryStatus").textContent =
                 `🔋 ${level}% ${charging}`;
         }
 
         updateBattery();
-        battery.addEventListener("levelchange", updateBattery);
-        battery.addEventListener("chargingchange", updateBattery);
+        try {
+          if (window._flowaway_handlers.battery && window._flowaway_handlers.battery.ref) {
+            try { window._flowaway_handlers.battery.ref.removeEventListener('levelchange', window._flowaway_handlers.battery.levelHandler); } catch (e) {}
+            try { window._flowaway_handlers.battery.ref.removeEventListener('chargingchange', window._flowaway_handlers.battery.chargingHandler); } catch (e) {}
+          }
+          window._flowaway_handlers.battery = { ref: battery, levelHandler: updateBattery, chargingHandler: updateBattery };
+          battery.addEventListener('levelchange', window._flowaway_handlers.battery.levelHandler);
+          battery.addEventListener('chargingchange', window._flowaway_handlers.battery.chargingHandler);
+        } catch (e) {}
     });
 } else {
     document.getElementById("batteryStatus").textContent = "🔋 N/A";
 }
 function updateWiFi() {
-    const wifi = document.getElementById("wifiStatus");
+    var wifi = document.getElementById("wifiStatus");
     if (navigator.onLine) {
         wifi.textContent = "🛜";
         wifi.title = "Online";
@@ -1882,47 +1990,58 @@ function updateWiFi() {
 }
 
 updateWiFi();
-window.addEventListener("online", updateWiFi);
-window.addEventListener("offline", updateWiFi);
+try {
+  if (window._flowaway_handlers.onOnline) window.removeEventListener('online', window._flowaway_handlers.onOnline);
+  if (window._flowaway_handlers.onOffline) window.removeEventListener('offline', window._flowaway_handlers.onOffline);
+  window._flowaway_handlers.onOnline = updateWiFi;
+  window._flowaway_handlers.onOffline = updateWiFi;
+  window.addEventListener('online', window._flowaway_handlers.onOnline);
+  window.addEventListener('offline', window._flowaway_handlers.onOffline);
+} catch (e) {}
 
   // ----------------- TOGGLE START MENU -----------------
-  let starthandler = () => {
+  var starthandler = () => {
     startMenu.style.display =
       startMenu.style.display === "block" ? "none" : "block";
   };
 
   // ----------------- OPEN APP ACTION -----------------
   // Delegated click handler: apps rendered dynamically will set data-app-id to the app id
-  startMenu.addEventListener("click", (e) => {
-    let el = e.target;
-    while (el && !el.classList.contains('app')) el = el.parentElement;
-    if (!el) return;
-    const appId = el.dataset.appId;
-    if (!appId) return;
-    launchApp(appId);
-    startMenu.style.display = "none";
-  });
+  try {
+    if (window._flowaway_handlers.onStartMenuClick) startMenu.removeEventListener('click', window._flowaway_handlers.onStartMenuClick);
+    window._flowaway_handlers.onStartMenuClick = (e) => {
+      var el = e.target;
+      while (el && !el.classList.contains('app')) el = el.parentElement;
+      if (!el) return;
+      var appId = el.dataset.appId;
+      if (!appId) return;
+      launchApp(appId);
+      startMenu.style.display = 'none';
+    };
+    startMenu.addEventListener('click', window._flowaway_handlers.onStartMenuClick);
+  } catch (e) {}
 
   // ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
-  document.addEventListener("click", (e) => {
-    if (
-      !startMenu.contains(e.target) &&
-      e.target !== document.getElementById("▶")
-    ) {
-      startMenu.style.display = "none";
-    }
-  });
+  try {
+    if (window._flowaway_handlers.onDocumentClick) document.removeEventListener('click', window._flowaway_handlers.onDocumentClick);
+    window._flowaway_handlers.onDocumentClick = (e) => {
+      if (!startMenu.contains(e.target) && e.target !== document.getElementById('▶')) {
+        startMenu.style.display = 'none';
+      }
+    };
+    document.addEventListener('click', window._flowaway_handlers.onDocumentClick);
+  } catch (e) {}
 
 
   // Do not pre-load specific app scripts here; apps are loaded from the user's `apps/` folder dynamically.
   // Only load system helper script.
-  let sysScript = document.createElement('script');
+  var sysScript = document.createElement('script');
 
 setTimeout(() => {
-  sysScript.src = `${goldenbodywebsite}system.js`;
+  sysScript.src = `system.js`;
   document.body.appendChild(sysScript);
   setTimeout(() => {
-      const appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
       window.dispatchEvent(appUpdatedEvent);
   }, 1000);
 }, 100);

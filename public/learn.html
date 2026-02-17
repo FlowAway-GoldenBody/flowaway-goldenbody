@@ -21,7 +21,6 @@
 <body>
     <div class="container">
         <header>
-            <img src="favicon.ico" alt="logo" width="36" height="36">
             <div>
                 <h1>Learn — JavaScript & Rammerhead</h1>
                 <div style="color:#6b7280;font-size:13px">Short interactive lessons and examples</div>
@@ -109,14 +108,12 @@
             status.id = 'sequenceStatus';
             status.style.marginTop = '12px';
             status.style.color = '#6b7280';
-            status.textContent = `Progress: ${seqIndex}/${expectedButtons.length}`;
             const container = document.querySelector('.container');
             if (container) container.appendChild(status);
         })();
 
         function updateStatus() {
             const s = document.getElementById('sequenceStatus');
-            if (s) s.textContent = `Progress: ${seqIndex}/${expectedButtons.length}`;
         }
 
         // Use mousedown so right-clicks are detected reliably

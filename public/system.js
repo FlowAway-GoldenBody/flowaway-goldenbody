@@ -1,5 +1,5 @@
   // taskbar
-  let taskbuttons;
+  var taskbuttons;
   // Create the taskbar
   var taskbar = document.createElement("div");
   taskbar.className = 'taskbar';
@@ -21,7 +21,7 @@
     document.documentElement.requestFullscreen();
     _isfullscreen = true;
   }
-  let iconid = 0;
+  var iconid = 0;
   function addTaskButton(name, onclickFunc) {
     var btn = document.createElement("button");
     btn.innerText = name;
