@@ -2,7 +2,7 @@
   window.allBrowsers = [];
   window.browserId = 0;
   window.id = data.id;
-  window.proxyurl = goldenbodywebsite;
+  window.proxyurl = window.origin + '/';
   window.dragstartwindow = null;
   window.__vfsMessageListenerAdded = false;
   window.tabisDragging = false;

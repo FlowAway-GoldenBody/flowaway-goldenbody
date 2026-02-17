@@ -1,19 +1,8 @@
-let baseflag = false;
-if(window.origin.includes('github')) {
-  baseflag = true;
-}
 var BASE = window.origin.slice(0, -5);
 var goldenbodywebsite = window.origin + "/";
-if(BASE.includes('github')) {
-  baseflag = true;
-}
-
 var zmcdserver = `${BASE}:8082/server/zmcd`;
 var SERVER = `${BASE}:8083`;
-if(baseflag) {
-  zmcdserver = "https://urban-cod-p46xr57vwqg2qp9-8082.app.github.dev";
-  SERVER = "https://urban-cod-p46xr57vwqg2qp9-8083.app.github.dev";
-}
+
 
 var zmcdata;
 var data;
@@ -124,7 +113,7 @@ box.innerHTML = `
         data = zmcdata
         // SAME behavior as before
         setTimeout(() => {   let a = document.createElement('script');
-  a.src = `flowaway.js`;
+  a.src = `${goldenbodywebsite}flowaway.js`;
   document.body.appendChild(a); box.remove(); document.body.style.background = 'white';   document.body.style.color = "#000000ff";
 }, 300);
       })
