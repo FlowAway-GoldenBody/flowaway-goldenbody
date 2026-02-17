@@ -1,6 +1,9 @@
+let baseflag = false;
+if(window.origin.includes('github')) {
+  baseflag = true;
+}
 var BASE = window.origin.slice(0, -5);
 var goldenbodywebsite = window.origin + "/";
-let baseflag = false;
 if(BASE.includes('github')) {
   baseflag = true;
 }
