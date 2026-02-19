@@ -1,7 +1,7 @@
-var BASE = window.origin.slice(0, -5);
+var BASE = window.origin;
 var goldenbodywebsite = window.origin + "/";
-var zmcdserver = `${BASE}:8082/server/zmcd`;
-var SERVER = `${BASE}:8083`;
+var zmcdserver = `${BASE}/server/zmcd`;
+var SERVER = `${BASE}/server/fetchfiles/`;
 
 
 var zmcdata;

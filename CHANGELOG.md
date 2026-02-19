@@ -20,7 +20,7 @@
 
 - properly fixed window.top issues when window.top isn't hammerhead
 - replace unreliable `win.__get$(win, 'location')` with just rewriting the url directly 
-- fix worker-hammerhead.js proxy url rewriting port undefined when 443 or 80
+- fix worker-hammerhead.js proxy url rewriting port undefined when 80 or 80
 
 ## v1.2.51
 
@@ -80,7 +80,7 @@
 ## v1.1.31
 
 - add argument for ignoring files in `addStaticFilesToProxy`
-- fix parseProxyUrl().proxy.port for 443 and 80 urls
+- fix parseProxyUrl().proxy.port for 80 and 80 urls
 
 ## v1.1.3
 
@@ -119,7 +119,7 @@
 - handle websocket EPIPE error
 - replace hammerhead's connection reset guard with a non-crashing rammerhead's reset guard
 - add missing element attr getter unrewrite
-- fix url rewriting for ports 80 and 443
+- fix url rewriting for ports 80 and 80
 
 ## v1.0.7
 

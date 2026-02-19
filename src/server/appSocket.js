@@ -156,7 +156,46 @@ function startAppPollingServer() {
   return wss;
 }
 
-// Auto-start when required
-startAppPollingServer();
+// Expose connection handler so the proxy can attach websocket connections
+function handleConnection(ws) {
+  // Reuse the same logic as inside `wss.on('connection')`
+  console.log('[APP POLLING] New client connected (proxied)');
 
-module.exports = { startAppPollingServer };
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data);
+      if (msg.subscribeToAppChanges && msg.username) {
+        const username = String(msg.username).trim();
+        if (!username) return;
+
+        ws.__username = username;
+        let set = userClients.get(username);
+        if (!set) {
+          set = new Set();
+          userClients.set(username, set);
+        }
+        set.add(ws);
+        ensureUserWatcher(username);
+        ws.send(JSON.stringify({ subscribed: true }));
+      }
+    } catch (e) {
+      console.log(`[APP POLLING] Error parsing client message: ${e.message}`);
+    }
+  });
+
+  ws.on('close', () => {
+    const username = ws.__username;
+    if (username) {
+      const set = userClients.get(username);
+      if (set) set.delete(ws);
+      cleanupUserWatcher(username);
+    }
+    console.log('[APP POLLING] Client disconnected');
+  });
+
+  ws.on('error', (err) => {
+    console.log(`[APP POLLING] WebSocket error: ${err.message}`);
+  });
+}
+
+module.exports = { startAppPollingServer, handleConnection };

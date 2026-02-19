@@ -78,7 +78,7 @@ async function buildUserFileTree(rootPath) {
 // Server
 // ─────────────────────────────
 
-const server = http.createServer(async (req, res) => {
+async function handleFetchfiles(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -765,8 +765,14 @@ if (data.saveSnapshot) {
       res.end(JSON.stringify({ error: err.message }));
     }
   });
-});
+}
 
-server.listen(8083, () => {
-  console.log('Server listening on port 8083');
-});
+function startServer(port = 8083, host = '0.0.0.0') {
+  const server = http.createServer((req, res) => handleFetchfiles(req, res));
+  server.listen(port, host, () => {
+    console.log(`fetchfiles server listening on port ${port}`);
+  });
+  return server;
+}
+
+module.exports = { handleFetchfiles, startServer };
