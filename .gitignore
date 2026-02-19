@@ -1,10 +1,6 @@
 node_modules/
 
 # don't commit generated builds or env files
-src/client/*.min.*
-src/client/hammerhead.js
-src/client/worker-hammerhead.js
-src/client/transport-worker.js
 src/server/zmcdfiles/
 .env
 
