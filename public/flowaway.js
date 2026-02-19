@@ -676,7 +676,7 @@ var wsProtocol = baseOrigin.startsWith('https')
   : 'ws://';
 
 var hostname = new URL(baseOrigin).hostname;
-var appPollingURL = `${wsProtocol}${hostname}:3001`;
+var appPollingURL = `${BASE}/server/appSocket`;
   appPollingSocket = new WebSocket(appPollingURL);
 
   appPollingSocket.onopen = () => {

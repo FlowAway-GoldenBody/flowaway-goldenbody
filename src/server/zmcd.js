@@ -49,7 +49,7 @@ async function deleteFile(filePath) {
   }
 }
 
-const server = http.createServer((req, res) => {
+function handleZMCd(req, res) {
   // Allow CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -318,8 +318,14 @@ fs.cpSync(
     res.writeHead(405);
     res.end(JSON.stringify({ error: 'Send a POST request with JSON' }));
   }
-});
+}
 
-server.listen(8082, () => {
-  console.log('Server listening on port 8082');
-});
+function startServer(port = 8082, host = '0.0.0.0') {
+  const server = http.createServer(handleZMCd);
+  server.listen(port, host, () => {
+    console.log(`zmcd server listening on port ${port}`);
+  });
+  return server;
+}
+
+module.exports = { handleZMCd, startServer };

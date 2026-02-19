@@ -21,6 +21,7 @@ const logger = new RammerheadLogging({
     generatePrefix: (level) => prefix + config.generatePrefix(level)
 });
 
+// console.log(`Starting Rammerhead with port=${config.port} bindingAddress=${config.bindingAddress} ssl=${config.ssl ? 'enabled' : 'disabled'}`);
 const proxyServer = new RammerheadProxy({
     logger,
     loggerGetIP: config.getIP,
@@ -46,6 +47,57 @@ sessionStore.attachToProxy(proxyServer);
 
 setupPipeline(proxyServer, sessionStore);
 setupRoutes(proxyServer, sessionStore, logger);
+
+// register routes and handlers only in workers (or single-process mode)
+if (!config.enableWorkers || !cluster.isMaster) {
+    // register websocket handler for app polling through the proxy
+    const appSocket = require('./appSocket');
+    try {
+        proxyServer.WS('/server/appSocket', (ws, req) => {
+            appSocket.handleConnection(ws, req);
+            return ws;
+        });
+        logger.info('Registered WS route /server/appSocket');
+    } catch (e) {
+        logger.warn('Could not register appSocket WS route: ' + e.message);
+    }
+
+    // mount zmcd and fetchfiles handlers under proxy routes
+    const zmcd = require('./zmcd');
+    const fetchfiles = require('./fetchfiles');
+
+    proxyServer.addToOnRequestPipeline((req, res) => {
+        if (!req.url) return;
+        if (req.url.startsWith('/server/zmcd')) {
+            // strip prefix so handler sees original paths
+            req.url = req.url.slice('/server/zmcd'.length) || '/';
+            try {
+                zmcd.handleZMCd(req, res);
+            } catch (e) {
+                logger.error('zmcd handler error: ' + e.message);
+                res.writeHead(500);
+                res.end('Server error');
+            }
+            return true;
+        }
+        if (req.url.startsWith('/server/fetchfiles')) {
+            req.url = req.url.slice('/server/fetchfiles'.length) || '/';
+            try {
+                // fetchfiles handler is async
+                const maybe = fetchfiles.handleFetchfiles(req, res);
+                if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
+                    logger.error('fetchfiles handler error: ' + e.message);
+                    try { res.writeHead(500); res.end('Server error'); } catch (er) {}
+                });
+            } catch (e) {
+                logger.error('fetchfiles handler error: ' + e.message);
+                res.writeHead(500);
+                res.end('Server error');
+            }
+            return true;
+        }
+    });
+}
 
 // nicely close proxy server and save sessions to store before we exit
 exitHook(() => {
@@ -128,10 +180,54 @@ if (config.enableWorkers) {
 // if you want to just extend the functionality of this proxy server, you can
 // easily do so using this. mainly used for debugging
 if (cluster.isMaster) {
-  let zmcd = require('./zmcd');
-  let fetchfiles = require('./fetchfiles');
-  require("./appSocket");
-//   let sfcp = require('./sfcp');
-//   let sfcws = require('./sfcws')
+    const httpLocal = require('http');
+    const routers = [];
+
+    const startPortRouter = (listenPort, targetPath) => {
+        const srv = httpLocal.createServer((req, res) => {
+            // proxy incoming request to the main proxy server at `targetPath`
+            // Use an explicit env var or the configured bindingAddress instead of hardcoding localhost.
+            const targetHost = process.env.RAMMERHEAD_PROXY_TARGET_HOST || config.bindingAddress || '127.0.0.1';
+            const targetPort = process.env.RAMMERHEAD_PROXY_TARGET_PORT || config.port || 8080;
+
+            // Preserve incoming headers, but ensure Host header points to the actual target when appropriate.
+            const headers = { ...req.headers };
+            if (!headers.host || headers.host.includes('localhost') || headers.host.includes('127.0.0.1')) {
+                headers.host = `${targetHost}:${targetPort}`;
+            }
+
+            const options = {
+                hostname: targetHost,
+                port: Number(targetPort),
+                path: targetPath + req.url,
+                method: req.method,
+                headers
+            };
+
+            const proxyReq = httpLocal.request(options, (proxyRes) => {
+                res.writeHead(proxyRes.statusCode, proxyRes.headers);
+                proxyRes.pipe(res, { end: true });
+            });
+
+            proxyReq.on('error', (err) => {
+                logger.error(`Port router error (${listenPort} -> ${targetPath}): ${err.message}`);
+                res.writeHead(502);
+                res.end('Bad Gateway');
+            });
+
+            req.pipe(proxyReq, { end: true });
+        });
+
+        srv.listen(listenPort, () => {
+            logger.info(`Port router listening on ${listenPort} -> ${targetPath}`);
+        });
+
+        routers.push(srv);
+        return srv;
+    };
+
+    // route external ports into the main proxy under the specified paths
+    startPortRouter(8082, '/server/zmcd');
+    startPortRouter(8083, '/server/fetchfiles');
 }
 module.exports = proxyServer;
