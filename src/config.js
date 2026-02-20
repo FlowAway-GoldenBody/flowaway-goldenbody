@@ -27,17 +27,53 @@ module.exports = {
     // from a reverse proxy.
     // By default this function will prefer environment variables, then the request host
     getServerInfo: (req) => {
-        const hostnameFromReq = req && req.headers && req.headers.host ? new URL('http://' + req.headers.host).hostname : null;
+        // Prefer explicit environment overrides first
+        const envProto = process.env.SERVER_PROTOCOL;
+        const envHost = process.env.SERVER_HOSTNAME || process.env.HOSTNAME;
+        const envPort = process.env.SERVER_PORT ? Number(process.env.SERVER_PORT) : null;
+
+        // If request present, try to derive hostname and protocol from headers (useful behind TLS terminators)
+        let hostnameFromReq = null;
+        let portFromReq = null;
+        let protocolFromReq = null;
+        if (req && req.headers) {
+            const hostHdr = req.headers.host;
+            if (hostHdr) {
+                try {
+                    // parse host (may include port)
+                    const parsed = new URL('https://' + hostHdr);
+                    hostnameFromReq = parsed.hostname;
+                    portFromReq = parsed.port ? Number(parsed.port) : null;
+                } catch (e) {
+                    hostnameFromReq = hostHdr.split(':')[0];
+                }
+            }
+
+            // prefer x-forwarded-proto / forwarded headers when available
+            const hdr = req.headers || {};
+            const protoHeader = (hdr['x-forwarded-proto'] || hdr['x-forwarded-protocol'] || hdr['x-forwarded-scheme'] || hdr.forwarded || '').toString();
+            if (protoHeader) {
+                const m = protoHeader.match(/https?|:(https?|http)/i);
+                if (m) protocolFromReq = (m[0].replace(/^:/, '') + ':');
+                else protocolFromReq = (protoHeader.split(',')[0] || '').trim() + ':';
+            } else if (req.socket && req.socket.encrypted) {
+                protocolFromReq = 'https:';
+            }
+        }
+
+        const finalProtocol = envProto || protocolFromReq || 'https:';
+        const finalPort = envPort || portFromReq || (finalProtocol === 'https:' ? 443 : 80);
+
         return {
-            hostname: process.env.SERVER_HOSTNAME || hostnameFromReq || process.env.HOSTNAME || '0.0.0.0',
-            port: process.env.SERVER_PORT ? Number(process.env.SERVER_PORT) : 8080,
-            crossDomainPort: process.env.CROSS_DOMAIN_PORT ? Number(process.env.CROSS_DOMAIN_PORT) : 8080,
-            protocol: process.env.SERVER_PROTOCOL || 'http:'
+            hostname: envHost || hostnameFromReq || '0.0.0.0',
+            port: finalPort,
+            crossDomainPort: process.env.CROSS_DOMAIN_PORT ? Number(process.env.CROSS_DOMAIN_PORT) : (finalProtocol === 'https:' ? 443 : 80),
+            protocol: finalProtocol
         };
     },
     // example of non-hard-coding the hostname header
     // getServerInfo: (req) => {
-    //     return { hostname: new URL('http://' + req.headers.host).hostname, port: 8080, crossDomainPort: 8081, protocol: 'http:' };
+    //     return { hostname: new URL('https://' + req.headers.host).hostname, port: 80, crossDomainPort: 8081, protocol: 'https:' };
     // },
 
     // enforce a password for creating new sessions. set to null to disable
@@ -52,7 +88,7 @@ module.exports = {
     // caching options for js rewrites. (disk caching not recommended for slow HDD disks)
     // recommended: 50mb for memory, 5gb for disk
     // jsCache: new RammerheadJSMemCache(5 * 1024 * 1024),
-    jsCache: new RammerheadJSFileCache(path.join(__dirname, '../cache-js'), 5 * 1024 * 1024 * 1024, 50000, enableWorkers),
+    // jsCache: new RammerheadJSFileCache(path.join(__dirname, '../cache-js'), 5 * 1024 * 1024 * 1024, 50000, enableWorkers),
 
     // whether to disable http2 support or not (from proxy to destination site).
     // disabling may reduce number of errors/memory, but also risk

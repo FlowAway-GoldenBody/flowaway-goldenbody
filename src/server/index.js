@@ -187,8 +187,8 @@ if (cluster.isMaster) {
         const srv = httpLocal.createServer((req, res) => {
             // proxy incoming request to the main proxy server at `targetPath`
             // Use an explicit env var or the configured bindingAddress instead of hardcoding localhost.
-            const targetHost = process.env.RAMMERHEAD_PROXY_TARGET_HOST || config.bindingAddress || '127.0.0.1';
-            const targetPort = process.env.RAMMERHEAD_PROXY_TARGET_PORT || config.port || 8080;
+            const targetHost = process.env.RAMMERHEAD_PROXY_TARGET_HOST || config.bindingAddress || '';
+            const targetPort = process.env.RAMMERHEAD_PROXY_TARGET_PORT || config.port || 80;
 
             // Preserve incoming headers, but ensure Host header points to the actual target when appropriate.
             const headers = { ...req.headers };

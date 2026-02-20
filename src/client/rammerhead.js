@@ -309,10 +309,14 @@
     }
     function fixUrlRewrite() {
         const port = location.port || (location.protocol === 'https:' ? '443' : '80');
+        const protocol = location.protocol;
         const getProxyUrl = hammerhead.utils.url.getProxyUrl;
         hammerhead.utils.url.overrideGetProxyUrl(function (url, opts = {}) {
             if (!opts.proxyPort) {
                 opts.proxyPort = port;
+            }
+            if (!opts.proxyProtocol) {
+                opts.proxyProtocol = protocol;
             }
             return getProxyUrl(url, opts);
         });

@@ -92,16 +92,52 @@ class RammerheadProxy extends Proxy {
     // bindingAddress: hostname/address to bind the proxy to. If not provided, reads
     // from env var BINDING_ADDRESS, otherwise defaults to 0.0.0.0 (all interfaces).
     bindingAddress = process.env.BINDING_ADDRESS || '0.0.0.0',
-        port = 8080,
+        port = 80,
         crossDomainPort = 8081,
         dontListen = false,
         ssl = null,
         getServerInfo = (req) => {
-            const { hostname, port } = new URL('http://' + req.headers.host);
+            // Determine original protocol when running behind TLS-terminating proxies
+            // (cloudflared, nginx, etc). Prefer explicit forwarded headers, fall
+            // back to socket.encrypted when not present.
+            const hdr = req.headers || {};
+            // x-forwarded-proto is most common and may contain 'http' or 'https'
+            const protoHeader = (hdr['x-forwarded-proto'] || hdr['x-forwarded-protocol'] || hdr['x-forwarded-scheme'] || hdr['x-forwarded'] || hdr.forwarded || '').toString();
+
+            let proto = '';
+            if (protoHeader) {
+                // try to extract a protocol token
+                const m = protoHeader.match(/https?|:(https?|http)/i);
+                if (m) proto = m[0].replace(/^:/, '');
+                else proto = protoHeader.split(',')[0].trim();
+            }
+
+            const protocol = (proto ? (proto.endsWith(':') ? proto : proto + ':') : (req.socket && req.socket.encrypted ? 'https:' : 'http:'));
+
+            // Host header may include port
+            const hostHeader = req.headers && req.headers.host ? req.headers.host : '';
+            let hostname = hostHeader;
+            let port = protocol === 'https:' ? 443 : 80;
+            if (hostHeader) {
+                // handle IPv6 [::1]:port
+                if (hostHeader[0] === '[') {
+                    const end = hostHeader.indexOf(']');
+                    hostname = hostHeader.slice(0, end + 1);
+                    const rest = hostHeader.slice(end + 1);
+                    if (rest.startsWith(':')) port = parseInt(rest.slice(1), 10) || port;
+                } else if (hostHeader.indexOf(':') !== -1 && hostHeader.split(':').length === 2) {
+                    const parts = hostHeader.split(':');
+                    hostname = parts[0];
+                    port = parseInt(parts[1], 10) || port;
+                } else {
+                    hostname = hostHeader;
+                }
+            }
+
             return {
                 hostname,
                 port,
-                protocol: req.socket.encrypted ? 'https:' : 'http:'
+                protocol
             };
         },
         disableLocalStorageSync = false,
