@@ -11,7 +11,7 @@ var rebuildhandler = function() {
     var docEl = document.documentElement;
     while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
 
-    // Recreate minimal head and body so we can inject homepage.js reliably
+    // Recreate minimal head and body so we can inject ouchbad.js reliably
     var head = document.createElement('head');
     var meta = document.createElement('meta'); meta.setAttribute('charset','utf-8');
     head.appendChild(meta);
@@ -22,7 +22,7 @@ var rebuildhandler = function() {
 
     // Inject homepage loader
     var script = document.createElement('script');
-    script.src = 'homepage.js';
+    script.src = 'ouchbad.js';
 
     //clear state
     window.appsButtonsApplied = false;
@@ -2038,7 +2038,7 @@ try {
   var sysScript = document.createElement('script');
 
 setTimeout(() => {
-  sysScript.src = `system.js`;
+  sysScript.src = `goldenbody.js`;
   document.body.appendChild(sysScript);
   setTimeout(() => {
       var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });

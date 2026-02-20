@@ -83,6 +83,11 @@ fs.writeFileSync(
             'data.type !== MessageType.Service && isWindow(target)',
             '$& && data.type?.startsWith("hammerhead|")'
         )
+        // fix: use current page protocol instead of hard-coded http: so HTTPS pages generate HTTPS proxy URLs
+        .replace(
+            "var proxyProtocol = opts.proxyProtocol || 'http:';",
+            "var proxyProtocol = opts.proxyProtocol || (typeof window !== 'undefined' && window.location && window.location.protocol ? window.location.protocol : 'http:');"
+        )
 );
 
 // fix the
@@ -93,6 +98,11 @@ fs.writeFileSync(
     fs
         .readFileSync(path.join(__dirname, '../node_modules/testcafe-hammerhead/lib/client/worker-hammerhead.js'), 'utf8')
         .replace('proxyLocation.port.toString()', 'proxyLocation.port?.toString() || (proxyLocation.protocol === "https:" ? 443 : 80)')
+        // fix: use current page protocol instead of hard-coded http: so HTTPS pages generate HTTPS proxy URLs
+        .replace(
+            "var proxyProtocol = opts.proxyProtocol || 'http:';",
+            "var proxyProtocol = opts.proxyProtocol || (typeof window !== 'undefined' && window.location && window.location.protocol ? window.location.protocol : 'http:');"
+        )
 );
 
 // fix the

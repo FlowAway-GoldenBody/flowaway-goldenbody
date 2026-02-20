@@ -1322,7 +1322,7 @@
 	    if (opts.reqOrigin)
 	        params.push(encodeURIComponent(makeShortOrigin(opts.reqOrigin)));
 	    var descriptor = params.join(REQUEST_DESCRIPTOR_VALUES_SEPARATOR$1);
-	    var proxyProtocol = opts.proxyProtocol || 'http:';
+	    var proxyProtocol = opts.proxyProtocol || (typeof window !== 'undefined' && window.location && window.location.protocol ? window.location.protocol : 'http:');
 	    return "".concat(proxyProtocol, "//").concat(opts.proxyHostname, ":").concat(opts.proxyPort, "/").concat(descriptor, "/").concat(convertHostToLowerCase(url));
 	}
 	function getDomain(parsed) {

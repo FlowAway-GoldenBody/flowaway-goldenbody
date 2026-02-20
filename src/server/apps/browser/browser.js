@@ -249,7 +249,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   panel.appendChild(actions);
 }
     function unshuffleURL(url) {
-      if (url === goldenbodywebsite + "newtab.html") {
+      if (url === goldenbodywebsite + "flowerfeast.html") {
         return "goldenbody://newtab/";
       }
       else if (url === goldenbodywebsite + "ai.html") {
@@ -3835,7 +3835,7 @@ try{        if (
 
       function encodeRammerHead(str, proxylink) {
         if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
-          return goldenbodywebsite + "newtab.html";
+          return goldenbodywebsite + "flowerfeast.html";
         }
         else if (str === "goldenbody://ai/" || str === "goldenbody://ai") {
           return goldenbodywebsite + "ai.html";
