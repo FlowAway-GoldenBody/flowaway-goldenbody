@@ -1,0 +1,8 @@
+yourApp
+Your App
+your_app_nameapp
+your_app_nameContextMenu
+your_app_nameButtons
+your_app_namemenu
+allyour_app_name
+your_app_nameId

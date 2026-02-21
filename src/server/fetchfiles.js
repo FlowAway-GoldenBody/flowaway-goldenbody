@@ -34,6 +34,9 @@ const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 1 * 1024 
 // How old can upload part files be before we consider them stale and remove them (hours)
 const UPLOAD_PART_TTL_HOURS = Number(process.env.UPLOAD_PART_TTL_HOURS) || 24; // default 24 hours
 
+// Server-side clipboard storage: persist clipboard per user across requests
+const userClipboards = new Map(); // username -> clipboard state
+
 // ─────────────────────────────
 // Helpers
 // ─────────────────────────────
@@ -152,7 +155,8 @@ async function handleFetchfiles(req, res) {
       // 1️⃣ GET TREE
       if (data.initFE) {
         const tree = await buildUserFileTree(userRoot);
-        return res.end(JSON.stringify({ tree }));
+        const clipboard = userClipboards.get(username) || null;
+        return res.end(JSON.stringify({ tree, clipboard }));
       }
 
 
@@ -261,10 +265,11 @@ async function getUniquePath(destPath) {
   return path.join(dir, newName);
 }
 
-async function applyDirections(rootPath, directions) {
+async function applyDirections(rootPath, directions, username) {
   // result object used to return information back to the caller
   const result = {};
-  let clipboard = null; // holds copied path or temp data
+  // Initialize clipboard from server storage or create new
+  let clipboard = userClipboards.get(username) || null;
 
   const resolvePath = (p = '') => {
     // Normalize and support several caller conventions:
@@ -711,10 +716,16 @@ async function applyDirections(rootPath, directions) {
       continue;
     }
     if(dir.end) {
-        // Clear any server-side clipboard reference (no disk temp copies used)
-        clipboard = null;
+        // Persist clipboard to server storage for this user
+        if (clipboard) {
+          userClipboards.set(username, clipboard);
+        } else {
+          userClipboards.delete(username);
+        }
     }
   }
+  // Include clipboard in result so client can sync it
+  result.clipboard = clipboard;
   // return any collected results (e.g., checkParts)
   return result;
 }
@@ -750,9 +761,9 @@ function removeNodeFromTree(node, pathParts) {
 }
 if (data.saveSnapshot) {
   // Apply all frontend directions to build tree
-  const result = await applyDirections(userRoot, data.directions);
+  const result = await applyDirections(userRoot, data.directions, username);
 
-  return res.end(JSON.stringify({ success: true, result }));
+  return res.end(JSON.stringify({ success: true, result, clipboard: result.clipboard }));
 }
 
 

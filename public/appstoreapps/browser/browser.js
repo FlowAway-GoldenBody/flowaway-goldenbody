@@ -1848,7 +1848,7 @@ btnOpen.onclick = async () => {
           // 3b. Custom save-as overlay
           // ----------------------------
           let post = filePost;
-          function openCustomSaveUI(suggestedName) {
+          function openCustomSaveUI() {
             if (!window.treeData) { window.loadTree(); }
 
             const savePickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
@@ -1870,7 +1870,7 @@ btnOpen.onclick = async () => {
             const fileArea = document.createElement('div'); fileArea.style.flex = '1'; fileArea.style.overflowY = 'auto'; fileArea.style.borderTop = '1px solid #ccc'; box.appendChild(fileArea);
 
             const row = document.createElement('div'); row.style.padding = '8px'; row.style.display = 'flex'; row.style.gap = '8px'; box.appendChild(row);
-            const nameInput = document.createElement('input'); Object.assign(nameInput.style, {flex: '1', padding: '6px'}); nameInput.placeholder = 'filename.txt'; nameInput.value = suggestedName || ''; row.appendChild(nameInput);
+            const nameInput = document.createElement('input'); Object.assign(nameInput.style, {flex: '1', padding: '6px'}); nameInput.placeholder = 'filename.txt'; row.appendChild(nameInput);
 
             const btnBar = document.createElement('div'); btnBar.style.padding = '6px'; btnBar.style.display = 'flex'; btnBar.style.justifyContent = 'flex-end'; box.appendChild(btnBar);
             const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnBar.appendChild(btnCancel);
@@ -2104,7 +2104,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
               }
               if (e.data?.__VFS__ && e.data.kind === "requestSavePicker") {
                 // open save-as UI and record requesting frame
-                openCustomSaveUI(e.data.suggestedName);
+                openCustomSaveUI();
                 sentreqframe = recurseFrames(document, e);
               }
               if (e.data?.__VFS__ && e.data.kind === "requestDirectoryPicker") {
