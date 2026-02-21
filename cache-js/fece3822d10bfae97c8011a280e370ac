@@ -1,0 +1,123 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+// var ref=escape(document.referrer);
+// function gv_4399cookie(of){
+//   var es = document.cookie.indexOf(";",of);
+//   if(es==-1) es=document.cookie.length;
+//   return unescape(document.cookie.substring(of,es));
+// }
+// function gc_4399cookie(n){
+//   var arg=n+"=";
+//   var alen=arg.length;
+//   var clen=document.cookie.length;
+//   var i=0;
+//   while(i<clen){
+//     var j=i+alen;
+//     if(document.cookie.substring(i,j)==arg) return gv_4399cookie(j);
+//     i=document.cookie.indexOf(" ",i)+1;
+//     if(i==0) break;
+//   }
+//   return -1;
+// }
+
+// var isPhone = (window.android || window.onJsUniqueId) ? true : false;
+// var user = gc_4399cookie("Pauth");
+// var uid = 0;
+// var udid = 0;
+
+// if (typeof(nFlashId)=='undefined')
+//   var nFlashId = 0;
+// if (user.length)
+// {
+//   user_arr = user.split('|');
+//   if(user_arr.length>2)
+//   {
+//     uid = user_arr[0];
+//   }
+// }
+// if (isPhone) {
+//   if (login && login.onLoadUserInfo() && login.onLoadUserInfo().indexOf('uid') >= 0) {
+//     uid = eval("(" + login.onLoadUserInfo() + ")").uid;
+//   }
+//   udid = window.android ? android.getUniqueId() : onJsUniqueId();
+// }
+
+// if(uid && nFlashId)
+// {
+//   var time_ed = new Date();
+//   var time = parseInt(time_ed.getTime());
+//   var data = 'gameid='+nFlashId+'&uid='+uid+'&time='+time;
+
+//   if(isPhone)
+//   {
+//     data = 'gameid='+nFlashId+'&uid='+uid+'&time='+time+'&udid='+udid;
+//   }
+
+//   try {
+//     new Image().src = "//club.stat.5054399.net/stat.gif?"+data;
+//   } catch(e) {}
+// }
+//document.write('<meta name="referrer" content="no-referrer-when-downgrade">');
+var metaTag=document.createElement('meta');
+metaTag.name = "referrer";
+metaTag.content = "always";//no-referrer-when-downgrade
+document.getElementsByTagName('head')[0].appendChild(metaTag);
+
+var isPhone = (window.android || window.onJsUniqueId) ? true : false;
+
+(function() {
+  var rC = function(n) {
+    var c = (('; '+document.cookie).split('; '+n+'=')[1] || '') + ';';
+    return decodeURIComponent(c.substring(0, c.indexOf(';')));
+  };
+  var wC = function(n, v, d, t) {
+    var e;
+    if (t) {
+      var dt = new Date();
+      dt.setTime(dt.getTime() + (t * 86400000));
+      e = "; expires=" + dt.toGMTString()
+    } else {
+      e = ""
+    }
+    document.cookie = n + "=" + encodeURIComponent(v) + e + "; path=/; domain=." + d
+  };
+  var gI = function() {
+    var now = String((new Date()).getTime());
+    var data = window._4399stats || {};
+    var _Pauth = rC('Pauth');
+    data.uid = (_Pauth == '') ? '': (_Pauth.split('|'))[0];
+    if (isPhone) {
+      if (login && login.onLoadUserInfo() && login.onLoadUserInfo().indexOf('uid') >= 0) {
+        data.uid = eval( __proc$Script("("+login.onLoadUserInfo()+")") ).uid;
+      }
+      data.udid = window.android ? android.getUniqueId() : onJsUniqueId();
+    }
+    var _vid = rC('_4399stats_vid');
+    if (_vid == "") {
+      data.vid = now + String(parseInt(Math.random() * 10000));
+      wC('_4399stats_vid', data.vid, '4399.com', 9999)
+    } else {
+      data.vid = _vid
+    }
+
+    data.m =  __get$(__get$(window,"location"),"href") .split('#')[1] || '';
+    data.f = rC('_cg_flag') ? 1 : '';
+    data.c = rC('_gprp_c') ? 1 : '';
+    var gf = rC('_gprp_f');
+    if (gf) {
+      gf = gf.split('|');
+      data.m = gf[0];
+      data.g = gf[1];
+    }
+    data.t = now;
+    data.v = 1;
+    var info = [];
+    for (var i in data) {
+      info.push(i + '=' + encodeURIComponent( __get$(data,i) ))
+    }
+    try {
+      new Image().src = "//gprp.4399api.net/s?" + info.join('&')
+    } catch(e) {}
+  };
+  gI();
+})();
+/*hammerhead|script|end*/

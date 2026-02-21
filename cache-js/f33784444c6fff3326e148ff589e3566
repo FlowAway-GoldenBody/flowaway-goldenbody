@@ -1,0 +1,964 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+document.domain = "4399.com";
+var isLoadingAntiindulgence = 1;
+$(function(){
+	var Anti_ptid = 15;
+	var regLevel = 4;
+	var loginLevel = 4;
+	var defaultbizId = 1199006632;
+	var Anti_token = '';
+	var Anti_verify_status = '';
+	var Anti_bthandle = 0;
+	var Anti_idcard_status = '';
+	var countdowntime = new Array();
+	var countdowninfo = new Array();
+	var offlineinfo = new Array();
+	var Anti_lastRequestTime = 0;
+	var Anti_refresh = 0;
+	var Anti_refreshtimes = 0;
+	var Anti_minReauestTime = 10000;//×î¶ÌÇëÇóÊ±¼ä¼ä¸ô
+	var Anti_before_start = 0;
+	var Anti_clearId = '';
+	var Anti_before_start_text = "";
+	var Anti_countDowning = 0;
+	var Anti_not_login = 0;//µ¹¼ÆÊ±µ½ÖÕµãÉèÎª1 ´«µÝÒ»¸ö×´Ì¬ ²»ÔÙµ¯ÌáÊ¾´°
+	var Anti_veryUrl = "//h.api.4399.com/unifiedLogin/user/realname/status";
+	var Anti_golbalRunning = 1;//Õâ¸ö²ÎÊý=1²Å»áÔËÐÐ·À³ÁÃÔ
+	
+	var Anti_openClientBaseLine = 1;//¿Í»§¶Ë¶µµ×·½°¸ 1¿ªÆô 2¹Ø±Õ
+	var Anti_clientBaselineWord = 'ÄúµÄÍøÂçÒì³££¬ÎªÁË¸üºÃµÄÓÎÏ·ÌåÑé£¬Çë¼ì²éÍøÂç×´Ì¬ºóÖØÐÂ½øÈëÓÎÏ·';
+	var Anti_connectNever = 1;//´ÓÎ´Á¬Í¨¹ýÐÄÌø°ü·þÎñÆ÷0
+	var Anti_connectRetryTimes = 0;//ÖØÁ¬´ÎÊý
+	var Anti_connectRetryMaxTimes = 6;//×î¶à³¢ÊÔÖØÁ¬´ÎÊý ÓÉÓÚerrrºÍtimeout¶¼»á´¥·¢ Õâ±ß³ËÒÔ2
+
+	var Anti_self_role = 0;//1ÊÇ³ÉÄê ÆäËûÊÇ0
+	var Anti_get_self_role = 0;//ÊÇ·ñ»ñÈ¡µ½ÓÃ»§Éí·Ý »ñÈ¡ÖÐÊÇ1 »ñÈ¡µ½ÊÇ2
+	
+	//ÊÇ·ñÕû¸öÓÎÏ·Ò³Ãæ±»µÚÈý·½ÓòÃûÄÚÇ¶
+	var Anti_in_otherdomain = 0;
+	try{
+		typeof(parent.nFlashId);
+	}catch(e){
+		Anti_in_otherdomain = 1;
+	}
+
+	
+	//ÅÐ¶ÏÊÇ·ñÔÚiframeÖÐ
+	window.isIniframe = function(){
+		var isiniframesymbol = 1;
+		if(window.self==window.top){
+			isiniframesymbol = 0;
+		}
+		return isiniframesymbol;
+	} 
+	
+	//¼ì²étopÒ³ÃæÊÇ·ñÒÑ¾­·À³ÁÃÔ 
+	function checkTopAntiindulgence(){
+		if(isIniframe()==1){
+			if(Anti_in_otherdomain==0){
+				if("undefined" == typeof parent.isLoadingAntiindulgence){//Èç¹ûiframe¼ÓÔØ±ÈÍâÃæ¿ìÔò¿ÉÄÜ³öÏÖË«ÖØ·À³ÁÃÔ
+					if(typeof(parent.nFlashId) == "undefined"){
+						
+					}else{
+						Anti_golbalRunning = 0;
+					}
+				}else{
+					Anti_golbalRunning = 0;
+				}
+			}else{//±»ÄÚÇ¶µ½µÚÈý·½ÓòÏÂ
+				Anti_golbalRunning = 1;
+			}
+		}
+	}
+	
+	//»ñÈ¡bizid
+	window.getBizid = function(){
+		var mybizid = defaultbizId;
+		if(isIniframe()==0){//¶¥²ã
+			if("undefined" == typeof window.gameBizid){
+				window.gameBizid = "0";
+			}
+			if(window.gameBizid.length>5){
+				mybizid = gameBizid;
+				showSilence("top:bizid´¦ÓÚ±¾²ã"+mybizid);
+			}else{
+				mybizid = defaultbizId;
+				showSilence("top:bizidÊ¹ÓÃÄ¬ÈÏ"+mybizid);
+			}
+		}else{//iframe
+			if(Anti_in_otherdomain==0){
+				if("undefined" == typeof parent.gameBizid){
+					parent.gameBizid = "0";
+				}
+				if(parent.gameBizid.length>5){
+					mybizid = parent.gameBizid;
+					showSilence("iframe:bizid´Ó¶¥²ã»ñÈ¡"+mybizid);
+				}else{
+					mybizid = defaultbizId;
+					showSilence("iframe:bizidÊ¹ÓÃÄ¬ÈÏ"+mybizid);
+				}
+			}else{
+				mybizid = defaultbizId;
+			}
+		}
+		return mybizid;
+	}
+	
+	var bizId = getBizid();
+	
+	//ÓÎÏ·id
+	if(typeof(nFlashId) == "undefined"){
+		Anti_gid = 400;
+	}else{
+		Anti_gid = parseInt(nFlashId);
+	}
+
+	//»ñÈ¡uid
+	var Anti_uid = Anti_getUidFunc();
+	if(!Anti_uid){Anti_uid=0;}
+
+	//ÔØÈëUI
+	append();
+
+	//³õÊ¼»¯µÇÂ¼
+	if("undefined" == typeof UniLogin){
+		showClientDeniedForUniLoginFalse();
+	}else{
+		UniLogin.setUnionLoginProps({
+			regLevel : regLevel,
+			loginLevel : loginLevel,
+			bizId:bizId,
+			appId : "dev4399",
+			canBack : "true",
+			layout : "vertical",
+			layoutSelfAdapting : "false",
+			displayMode : "popup",
+			regMode : "reg_auto",
+			iframeStylePosition : "fixed",
+			flashDisplayMode : "hide",
+			qrLogin : "true",
+			loginCallback : loginCallback,
+			logoutCallback : logoutCallback,
+			regCallback : loginCallback,
+			postLoginHandler: "refreshParent",
+			postPopupShowFunction : closeLogRegWindow,
+			getPopupUcenterTop : function(){return 160;}
+		})
+	}
+
+	//ÐÄÌø¼ì²â
+	heartBeat();
+
+	//ÅÐ¶ÏÊÇ²»ÊÇÔÚ±ðµÄÒ³Ãæ±»¸ü»»ÁËÕË»§
+	if(Anti_openClientBaseLine==1){
+		var Anti_oldUid = 0;
+		setInterval(function(){
+			//³¢ÊÔ»ñÈ¡uid
+			try{
+				var Anti_newUid = UniLogin.getUid();
+				if(!Anti_newUid){Anti_newUid = 0;}
+
+				//ÓÉÎ´µÇÂ¼±ä³ÉµÇÂ¼ ²»´¦Àí£»ÓÉµÇÂ¼±ä³ÉÁíÒ»¸öµÇÂ¼ÕËºÅ»òÕßÓÉµÇÂ¼ÕËºÅ±ä³ÉÍË³öÕËºÅ Ë¢Ò³Ãæ
+				if(Anti_oldUid==0 && Anti_newUid==0){
+					//Î´µÇÂ¼
+				}else if(Anti_oldUid==0 && Anti_newUid>0){
+					//µÇÂ¼
+					Anti_oldUid = Anti_newUid;
+					//showSilence("×Ô¶¯³ÌÐòÇþµÀ");
+					//Anti_get_sele_role();
+				}else if(Anti_oldUid>0 && Anti_newUid==0){
+					//ÍË³ö
+					 __get$(window,"location") .reload();
+					try{ __get$(parent,"location") .reload();}catch(e){}
+				}else{//Á½¸ö¶¼>0
+					if(Anti_oldUid == Anti_newUid){
+						//µÇÂ¼ÕËºÅÎ´±ä»¯
+					}else{
+						 __get$(window,"location") .reload();
+						try{ __get$(parent,"location") .reload();}catch(e){}
+					}
+				}
+			}catch(e){
+				showClientDeniedForUniLoginFalse();
+			}
+		},3000);
+	}
+
+	//»ñÈ¡ÓÃ»§Éí·Ý
+	function Anti_get_sele_role(){
+		showSilence("Anti_get_self_role:"+Anti_get_self_role);
+		if(Anti_get_self_role==0){
+			Anti_get_self_role = 1;
+			if("undefined" != typeof UniLogin){
+				try{
+					showSilence("ÇëÇóÉí·Ý½Ó¿Ú");
+					UniLogin.getValidateInfo(function(res){
+						showSilence("res:"+res);
+						showSilence("res.code:"+res.code);
+						showSilence("res.result.idcard_state:"+res.result.idcard_state);
+						showSilence("res.result.validateState:"+res.result.validateState);
+						if(res==0){//½Ó¿ÚÇëÇó³¬Ê±
+							Anti_reconnect();
+							Anti_get_self_role = 0;
+						}else{
+							if(res.code==300){
+								if(res.result.idcard_state==3 && res.result.validateState==1){
+									Anti_self_role = 1;
+									Anti_get_self_role = 2;
+									Anti_close();
+								}else if(res.code==3006){//Î´µÇÂ½
+									Anti_get_self_role = 0;
+									showClientDeniedShowLogin();
+								}else{
+									Anti_get_self_role = 2;
+									Anti_reconnect();
+								}
+							}else{
+								Anti_get_self_role = 0;
+								Anti_reconnect();
+							}
+						}
+					});
+				}catch(e){
+					Anti_get_self_role = 0;
+					showClientDeniedForUniLoginFalse();
+				}
+			}else{
+				Anti_get_self_role = 0;
+				showClientDeniedForUniLoginFalse();
+			}	
+		}else if(Anti_get_self_role == 2){
+			if(Anti_self_role==1){
+				Anti_close();
+			}else{
+				Anti_reconnect();
+			}
+		}
+	}
+
+	//Í¬²½ÓÎÏ·ÄÚµÄµÇÂ¼µ½Ò³Ãæ
+	try {
+		window.addEventListener('message', function (e) {
+			if (e.data.eventType === "loginSuccess") {
+				Anti_uid = UniLogin.getUid();
+				heartBeat();
+			}
+			if (e.data.eventType === "logoutSuccess") {
+				UniLogin.logout();
+				 __get$(window,"location") .reload();
+			}
+		}, false);
+	} catch (e) { }
+
+	//ÍêÉÆÐÅÏ¢·½·¨»Øµ÷
+	if("undefined" != typeof UniLogin){
+		unionLoginProps.__closePopupCertifyCallback = function(){
+			Anti_reauthentication();
+		}
+	}
+
+
+	//ÑéÖ¤ÕËºÅ
+	function Anti_reauthentication(){
+		if(Anti_uid>0){
+			$.ajax({
+				type:"GET",
+				async: false,
+				url:Anti_veryUrl+"?userId="+Anti_uid+"&timestamp="+new Date().getTime(),
+				dataType:"jsonp",
+				callbackParameter:"callback",
+				success:function(msg){
+					 __get$(window,"location") .reload();
+				}
+			});	
+		}
+	}
+
+
+	//º¯Êý×é
+	function Anti_showSWF(){displayswf();}
+	function Anti_hideSWF(){hiddenswf();}
+	function Anti_logoutFunc(){
+		if("undefined" != typeof UniLogin){
+			UniLogin.logout();
+		}
+	}
+	function Anti_getUidFunc(){
+		if("undefined" != typeof UniLogin){
+			return UniLogin.getUid();
+		}else{
+			return 0;
+		}
+	}
+
+	window.Anti_showLogin = function(){
+		if("undefined" != typeof UniLogin){
+			UniLogin.showPopupLogin(null,null,true);
+			$(".login_close").hide();
+		}
+	}
+
+	window.loginsuccessdo = function(uid){
+		if(uid>0){
+			Anti_uid = uid;
+		}else{
+			var Anti_uid = Anti_getUidFunc();
+			if(!Anti_uid){Anti_uid=0;}
+		}
+		heartBeat();
+		try{
+			loginsuccessdo2();
+		}catch(e){}
+	}
+	window.logoutsuccessdo = function(){
+		 __get$(window,"location") .reload();
+		if(isIniframe()==1){//Àï²ã
+			if(Anti_in_otherdomain==0){
+				 __get$(parent,"location") .reload();
+			}else{
+				 __get$(window,"location") .reload();
+			}
+		}
+	}
+
+	window.Anti_close = function(){
+		$("#Anti_open,#Anti_mask").hide();
+		if($("#loginDiv").is(":visible")){
+			
+		}else{
+			Anti_showSWF();
+		}
+	}
+
+	/***
+	¼æÈÝÓÎÏ·Ò³ÃæjsµÄÒ»Ð©¸´Ð´º¯Êý ¿ªÊ¼
+	***/
+	window.loginsuccessdo2 = function(){
+		try{
+			//hasgetCNXH = 0;
+			//hasgetPlayed = 0;
+			if("undefined" != typeof UniLogin){
+				var uid = UniLogin.getUid();
+				var uname = UniLogin.getDisplayNameText();
+			}
+			if(uid>0){
+				
+				$("#userPIC0").attr('src','//a.img4399.com/'+uid+'/small');
+				$("#userNicks0").html(uname);
+				$("#userPIC").attr('src','//a.img4399.com/'+uid+'/small');
+				$("#userNicks").html(uname);
+				$("#logined").show();
+				
+				$("#showword").hide();
+				$("#reading1").hide();
+				$("#reading2").hide();
+				$("#morediv").attr("href","//my.4399.com/shoucang/?m=Recommend");
+				$("#moredivplay").attr("href","//my.4399.com/shoucang/?m=PlayLog");
+			}
+		}catch(e){}
+	}
+	
+	
+	
+	if (typeof hiddenswf === "function"){
+		
+	}else{
+		window.hiddenswf = function(){try{document.getElementById("pusher").style.display = "block";document.getElementById("pusher").style.height="2000px";}catch(e){}}
+	}
+	
+	if (typeof displayswf === "function"){
+		
+	}else{
+		window.displayswf = function(){try{document.getElementById("pusher").style.display = "none";document.getElementById("pusher").style.height="0px";}catch(e){}}
+	}
+	
+	if("undefined" == typeof window._playMode){
+		window._playMode = 4;
+	}
+
+	/***
+	¼æÈÝÓÎÏ·Ò³ÃæjsµÄÒ»Ð©¸´Ð´º¯Êý ½áÊø
+	***/
+	
+	
+	//×ª»»º¯Êý
+	function transform (data) {
+		for (var key in data) {
+		if (typeof  __get$(data,key)  === 'object') {
+				transform( __get$(data,key) );
+			} else if (typeof  __get$(data,key)  === 'string') {
+				 __set$(data,key,decodeURIComponent(__get$(data,key))) ;
+				 __set$(data,key,__call$(__call$(__call$(__get$(data,key),"replace",[/\\/g,'']),"replace",[/\\"/g,'"']),"replace",[/\+/g,' '])) ;
+			}
+		}
+	}
+
+
+	//ÐÄÌøº¯Êý	
+	function heartBeat(){
+		checkTopAntiindulgence();
+		if(Anti_golbalRunning==1){
+			var Anti_uid2 = Anti_getUidFunc();
+			if(!Anti_uid2){Anti_uid2=0;}
+			
+			if(Anti_uid2!=Anti_uid){
+				Anti_uid = Anti_uid2;
+				Anti_token = "";
+				Anti_verify_status = '';
+				Anti_idcard_status = "";
+			}
+			
+			//¹ýÂË10ÃëÄÚµÄÖØ¸´ÇëÇó
+			var Anti_difftime = new Date().getTime() - parseInt(Anti_lastRequestTime);
+			
+			if(Anti_uid>=0){
+				if(parseInt(Anti_lastRequestTime)==0 || parseInt(Anti_difftime)>=parseInt(Anti_minReauestTime)){
+					Anti_lastRequestTime = new Date().getTime();
+					var params = 'urlencode';
+					$.ajax({
+						type:"GET",
+						url:"//apps.4399.com/online/heartbeat?ptid="+Anti_ptid+"&uid="+Anti_uid+"&gid="+Anti_gid+"&token="+Anti_token+"&result_encode="+params+"&is_adult="+Anti_idcard_status+"&verify_status="+Anti_verify_status+"&refresh="+Anti_refresh+"&not_login="+Anti_not_login+"&timestamp="+new Date().getTime(),
+						dataType:"jsonp",
+						callbackParameter:"callback",
+						timeout:3000,
+						success:function(msg){
+							Anti_refresh = 0;
+							transform(msg);
+							if(msg['result']){
+								var Anti_interval = parseInt(msg['result']['interval']);
+								if(Anti_interval*1000<parseInt(Anti_minReauestTime)){Anti_minReauestTime=Anti_interval*1000;}
+								Anti_token = msg['result']['token'];
+								Anti_idcard_status = msg['result']['idcard_status'];//ÓÃ»§Éí·Ý
+								Anti_verify_status = msg['result']['verify_status'];
+
+								//³ÉÄêÈËµÄÇé¿ö ½«ÓÃ»§Éí·Ý´«µ¼µ½Ò³Ãæ  show_adult_notice_in_page º¯ÊýÐèÒªÔÚÊ¹ÓÃµÄÒ³Ãæ½øÐÐ¶¨Òå
+								if(Anti_idcard_status==1 && Anti_verify_status==1){
+									try{
+										window.show_adult_notice_in_page();
+									}catch(e){
+										try{
+											top.show_adult_notice_in_page();
+										}catch(e){}
+									}
+								}
+
+							}
+							if(msg.code==100){//ÓÃ»§²»ÐèÒª½øÐÐ·À³ÁÃÔÏÞÖÆ£¬²»ÔÙÐèÒªÇëÇó±¾½Ó¿Ú
+								Anti_connectNever = 0;
+								stopBeat();
+								Anti_close();
+							}else if(msg.code==200){//ÓÃ»§ÐèÒª·À³ÁÃÔÏÞÖÆ£¬·µ»ØÊ£ÓàÓÎÏ·Ê±³¤£¬ÔÊÐíÓÎÏ·
+								Anti_connectNever = 0;
+								if($("#Anti_title").html()=="ÍøÂçÒì³£ÌáÐÑ"){
+									Anti_close();
+								}
+								beat(Anti_interval);
+							}else if(msg.code==201){//ÓÃ»§ÐèÒª·À³ÁÃÔÏÞÖÆ£¬ÌáÐÑÓÃ»§ÏÞÖÆÓÎÏ·µ¹¼ÆÊ±£¬ÔÊÐíÓÎÏ·
+								Anti_connectNever = 0;
+								showWindows(msg);
+								beat(Anti_interval);
+							}else if(msg.code==202){//µ¹¼ÆÊ±
+								Anti_connectNever = 0;
+								showWindows(msg);
+								beat(Anti_interval);
+							}else if(msg.code==203){//ÓÃ»§ÐèÒª·À³ÁÃÔÏÞÖÆ£¬µ¯´°ÌáÐÑÓÃ»§Ïà¹ØÐÅÏ¢£¨Èç£ºÐèÓÃ»§ÍêÉÆÉí·ÝÐÅÏ¢»òÕßÓÃ»§ÓÎÏ·Ê±³¤³¬ÏÞ¡¢µ±Ç°Îª½ûÖ¹ÓÎÏ·Ê±¶ÎµÈ£©£¬½ûÖ¹ÓÎÏ·£»
+								Anti_connectNever = 0;
+								showWindows(msg);
+								stopGame();
+								stopBeat();
+								showSilence("203Í£Ö¹");
+							}else if(msg.code==205){//Ç¿ÖÆµÇÂ¼
+								Anti_connectNever = 0;
+								if("undefined" != typeof UniLogin){
+									UniLogin.showPopupLogin(null,null,true);
+									$(".login_close").hide();
+								}
+							}else if(msg.code==401){//²ÎÊýÒì³£
+								showSilence("·À³ÁÃÔ²ÎÊýÒì³£");
+								Anti_retry();
+							}else if(msg.code==402){//tokenÒì³££¬ÕâÖÖ×´¿öÏÂ£¬½¨ÒéÇå¿ÕtokenÖØÐÂ·¢ËÍÒ»´ÎÐÄÌø
+								Anti_token = '';
+								Anti_retry();
+							}else if(msg.code==403){//·þÎñÆ÷Òì³£
+								showSilence("·À³ÁÃÔ·þÎñÆ÷Òì³£");
+								Anti_retry();
+							}else if(msg.code>500){//·þÎñÆ÷´íÎó
+								Anti_retry();
+							}
+						},  
+						error:function(XMLHttpRequest, textStatus, errorThrown) { 
+							showSilence("error½øÈëÖØÊÔ");
+							Anti_retry();
+						},  
+						complete : function(XMLHttpRequest,status){
+							if(status=='timeout'){
+								showSilence("timeout½øÈëÖØÊÔ");
+								Anti_retry();
+							}
+						}
+					});	
+				}
+			}
+		}
+	}
+	
+	
+	//Òì³£ÖØÊÔ
+	window.Anti_retry = function(){
+		if(Anti_uid>0){
+			if(Anti_openClientBaseLine==1){
+				showSilence("Òì³£ÖØÊÔÇþµÀ");
+				Anti_get_sele_role();
+			}
+		}else{
+			if(Anti_openClientBaseLine==1){
+				showClientDeniedShowLogin();
+			}
+		}
+	}
+
+	function Anti_reconnect(){
+		//Èç¹û´ÓÃ»ÓÐÁ¬Í¨¹ýÐÄÌø°ü·þÎñÆ÷ ÔòÂíÉÏµ¯³öµ²°å
+		if(Anti_connectNever==1){
+			//µ²°å
+			showClientDenied();
+		}else{
+			//ÖØÊÔN´Îºóµ¯³öµ²°å
+			showSilence("ÖØÊÔ"+Anti_connectRetryTimes+"´Î");
+			if(Anti_connectRetryTimes<Anti_connectRetryMaxTimes){
+				Anti_connectRetryTimes++;
+				beat(20);
+			}else{
+				//µ²°å
+				showClientDenied();
+			}
+		}
+	}
+	
+	//ÖØÊÔ
+	window.Anti_resumeNext = function(){
+		$("#Antibutton").html('<span class="btn-fcmprimary">ÕýÔÚ³¢ÊÔÖØÁ¬...</span>').show();
+		Anti_lastRequestTime = 0;
+		heartBeat();
+	}
+
+	//¿Í»§¶Ë´¦ÀíµÇÂ¼
+	window.Anti_showLoginClient = function(){
+		Anti_lastRequestTime = 0;
+		Anti_close();
+		Anti_showLogin();
+	}
+	
+	//¿Í»§¶Ëµ¯³öµÇÂ¼¿òÃæ°å
+	function showClientDeniedShowLogin(){
+		$("#Anti_title").html("ÍøÂçÒì³£ÌáÐÑ");
+		$("#Anti_content").html('<p align="center">µ±Ç°ÍøÂç³öÏÖÒì³££¬Î´¼ì²âµ½µÇÂ¼ÕËºÅ£¬ÇëÖØÐÂµÇÂ¼</p>');
+		$("#Antibutton").html('<span class="btn-fcmprimary" onclick="Anti_showLoginClient();return false;">µÇÂ¼</span>').show();
+		$("#Anti_tips_show,.countDown").hide();
+		$("#Anti_open,#Anti_mask").show();
+		Anti_hideSWF();
+	}
+	
+	//¿Í»§¶Ë¾Ü¾øÃæ°å
+	function showClientDenied(){
+		$("#Anti_title").html("ÍøÂçÒì³£ÌáÐÑ");
+		$("#Anti_content").html('<p align="center">'+Anti_clientBaselineWord+'</p>');
+		$("#Antibutton").html('<span class="btn-fcmprimary" onclick="Anti_resumeNext();return false;">ÖØÊÔ</span>').show();
+		$("#Anti_tips_show,.countDown").hide();
+		$("#Anti_open,#Anti_mask").show();
+		Anti_hideSWF();
+	}
+
+	//ÔØÈëÓÃ»§ÖÐÐÄjs´íÎó
+	function showClientDeniedForUniLoginFalse(){
+		$("#Anti_title").html("ÍøÂçÒì³£ÌáÐÑ");
+		$("#Anti_content").html('<p align="center">'+Anti_clientBaselineWord+'</p>');
+		$("#Antibutton").html('<span class="btn-fcmprimary" onclick="Anti_hqshjg();return false;">Ë¢ÐÂ</span>').show();
+		$("#Anti_tips_show,.countDown").hide();
+		$("#Anti_open,#Anti_mask").show();
+		Anti_hideSWF();
+	}
+	
+	//ÍêÉÆÕËºÅ
+	window.Anti_wssfxx = function(){
+		if(Anti_uid>0){
+			if("undefined" != typeof UniLogin){
+				UniLogin.showPopupCertify();
+			}
+		}
+	}
+	
+	//Î´ÈÏÖ¤ÕËºÅË¢ÐÂÈÏÖ¤×´Ì¬
+	window.Anti_hqshjg = function(){
+		 __get$(window,"location") .reload();
+	}
+	
+	//È·¶¨¿ò
+	window.Anti_exit_popup = function(){
+		Anti_close();
+	}
+	
+	//»½ÆðµÇÂ¼
+	window.Anti_login = function(){
+		if("undefined" != typeof UniLogin){
+			UniLogin.showPopupLogin(null,null,true);
+			$(".login_close").hide();
+			Anti_close();
+			Anti_lastRequestTime = 0;
+		}
+	}
+	
+	//·µ»ØÊ×Ò³
+	window.Anti_go_to_main = function(){
+		if(isIniframe()==1){
+			if(Anti_in_otherdomain==0){
+				 __set$(__get$(parent,"location"),"href","//www.4399.com") ;
+			}else{
+				 __set$(__get$(window,"location"),"href","//www.4399.com") ;
+			}
+		}else{
+			 __set$(__get$(window,"location"),"href","//www.4399.com") ;
+		}
+	}
+	
+
+	//ÇÐ»»ÕËºÅ
+	window.Anti_switch_account = function(){
+		Anti_logoutFunc();
+		 __get$(window,"location") .reload();
+	}
+	
+	//ÑéÖ¤Éí·Ý
+	window.Anti_refresh_idcard = function(){
+		Anti_idcard_status = "";
+		Anti_verify_status = "";
+		Anti_refresh = 1;
+		
+		if(Anti_refreshtimes==0){
+			Anti_reauthentication();
+			Anti_refreshtimes = 1;
+		}
+		
+		alert("Ë¢ÐÂÉí·Ý³É¹¦");
+	}
+	
+	//µ¹¼ÆÊ±¶ÁÃë
+	window.Anti_secoundCoverMinute = function(){
+		var strs = '';
+
+		Anti_before_start --;
+		
+		var days = Math.floor(Anti_before_start / (60 * 60 * 24)) + '';
+		
+		var hours = Math.floor((Anti_before_start - days*86400) / (60 * 60)) + '';
+		if(hours.length == 1){
+			hours = '0' + hours;
+		}
+		var mins = (Math.floor((Anti_before_start / 60) % 60)) + '';
+		if(mins.length == 1){
+			mins = '0' + mins;
+		}
+		var secs = Math.floor(Anti_before_start % 60) + '';
+		if(secs.length == 1){
+			secs = '0' + secs;
+		}
+		if(days>0){
+			strs = strs + days +'Ìì';
+		}
+		if(hours>0){
+			strs = strs + hours + 'Ê±';
+		}else{
+			if(days>0){
+				strs = strs + hours + 'Ê±';
+			}
+		}
+		if(mins>0){
+			strs = strs + mins + '·Ö';
+		}else{
+			if(hours>0){
+				strs = strs + mins + '·Ö';
+			}
+		}
+		strs = strs + secs + 'Ãë';
+		
+		if(Anti_before_start_text.indexOf('before_start')==-1){//ÏÔÊ¾ÎÄ°¸
+			$("#Anti_beforeCount").html(Anti_before_start_text).show();
+		}else{//ÏÔÊ¾µ¹¼ÆÊ±
+			$(".txt2").html(strs);
+		}
+		showSilence("countdown"+strs);
+		
+		if(Anti_before_start == 0){
+			showSilence("countdown:finish");
+			clearInterval(Anti_clearId);
+			Anti_close();
+			Anti_token = "";
+			Anti_verify_status = "";
+			Anti_idcard_status = "";
+			Anti_not_login = 1;
+			heartBeat();
+			return;
+		}
+	}
+	
+	
+	function showWindows(msg){
+		checkTopAntiindulgence();
+		if(Anti_golbalRunning==1){
+			var Anti_interval = msg['result']['interval'];
+			var Anti_token = msg['result']['token'];
+			var Anti_time_remaining = msg['result']['time_remaining'];//ÓÎÏ·Ê£ÓàÃëÊý
+			
+			$("#Anti_beforeCount").hide();
+			
+			//³£¹æµ¯´°
+			if(msg['result']['pop_config']){
+				var Anti_title = msg['result']['pop_config'][0]['title'];//±êÌâ
+				var Anti_content = msg['result']['pop_config'][0]['content'];
+				var Anti_tips = msg['result']['pop_config'][0]['tips'];// ÎÂÜ°ÌáÊ¾ÄÚÈÝ¿ÉÄÜÎª¿Õ£¬ÈôÎª¿ÕÊ±£¬Òþ²Ø¡°ÎÂÜ°ÌáÊ¾¡±ÏÔÊ¾ÇøÓò¡£
+				var Anti_buttons = msg['result']['pop_config'][0]['buttons'];//°´Å¥
+				if(msg['result']['pop_config'][0]['before_start_text']){
+					Anti_before_start_text = msg['result']['pop_config'][0]['before_start_text'];
+				}
+				if(msg['result']['pop_config'][0]['before_start']){
+					Anti_before_start = parseInt(msg['result']['pop_config'][0]['before_start']);
+				}
+				var Anti_buttonstr = "";
+			
+				if(Anti_buttons){
+					for(var i=0;i<Anti_buttons.length;i++){
+						var Anti_buttons_name =  __get$(Anti_buttons,i) ['name'];
+						var Anti_buttons_func =  __get$(Anti_buttons,i) ['func'];
+						var Anti_buttons_urlinfo =  __get$(Anti_buttons,i) ['url_info'];
+					}
+				}
+
+				$("#Anti_title").html(Anti_title);
+				$("#Anti_content").html(Anti_content);
+				$("#Anti_open,#Anti_mask").show();
+				showSilence("----------------"+Anti_before_start_text+"---------------------");
+				showSilence("----------------"+Anti_before_start+"---------------------");
+				//Èç¹ûÎÄ±¾ÖÐº¬ÓÐÕ¼Î»·û ÔòÏÔÊ¾µ¹¼ÆÊ± ·ñÔò¾ÍÔÚºóÌ¨Ä¬Ä¬µ¹Êý
+				if(Anti_before_start_text){
+					//µ¹¼ÆÊ±¶ÁÃë
+					if(Anti_before_start>0 && Anti_countDowning==0){
+						Anti_countDowning = 1;
+						Anti_clearId = setInterval('Anti_secoundCoverMinute()' , 1000);
+						$("#Anti_beforeCount").html( __call$(Anti_before_start_text,"replace",["%before_start%","Ê±¼äÕýÔÚ¶ÁÈ¡ÖÐ..."]) ).show();
+					}
+				}
+				
+				if(Anti_tips){
+					$("#Anti_tips").html(Anti_tips);
+					$("#Anti_tips_show").show();
+				}
+				if(Anti_buttons){
+					for(var i=0;i<Anti_buttons.length;i++){
+						var Anti_buttons_name =  __get$(Anti_buttons,i) ['name'];
+						var Anti_buttons_func =  __get$(Anti_buttons,i) ['func'];
+						Anti_buttonstr += '<span class="btn-fcmprimary" onclick="Anti_'+Anti_buttons_func+'();return false;">'+Anti_buttons_name+'</span>';
+					}
+					if(Anti_buttonstr){
+						$("#Antibutton").html(Anti_buttonstr).show();
+					}
+				}
+				Anti_hideSWF();
+			}
+			
+			//µ¹¼ÆÊ±
+			if(msg['result']['countdown']){
+				var Anti_countdown = msg['result']['countdown'];
+				if(Anti_countdown){
+					for(var i=0;i<Anti_countdown.length;i++){
+						var Anti_buttonstr2 = '';
+						var Anti_title_countdown =  __get$(Anti_countdown,i) ['title'];
+						var Anti_content_countdown =  __get$(Anti_countdown,i) ['content'];
+						var Anti_tips_countdown =  __get$(Anti_countdown,i) ['tips'];
+						//µ¹¼ÆÊ±Ê±¼ä
+						var Anti_moment_countdown =  __get$(Anti_countdown,i) ['moment'];
+						//µ¹¼ÆÊ±°´Å¥
+						var Anti_buttons_countdown =  __get$(Anti_countdown,i) ['buttons'];
+						if(Anti_buttons_countdown){
+							for(var ii=0;ii<Anti_buttons_countdown.length;ii++){
+								var Anti_buttons_name =  __get$(Anti_buttons_countdown,ii) ['name'];
+								var Anti_buttons_func =  __get$(Anti_buttons_countdown,ii) ['func'];
+								Anti_buttonstr2 += '<span class="btn-fcmprimary" onclick="Anti_'+Anti_buttons_func+'();return false;">'+Anti_buttons_name+'</span>';
+							}
+						}
+						var myArray = {
+							"moment" : Anti_moment_countdown,
+							"title" : Anti_title_countdown,
+							"content" : Anti_content_countdown,
+							"tips" : Anti_tips_countdown,
+							"buttons" : Anti_buttonstr2
+						};
+						if(Anti_moment_countdown>0){
+							if($.inArray(Anti_moment_countdown,countdowntime)==-1){
+								countdowntime.push(Anti_moment_countdown);
+								countdowninfo.push(myArray);
+							}
+						}
+					}
+				}
+			}
+			
+			//Ê±¼ä´ïµ½µ¯´°offline
+			if(msg['result']['offline']){
+				var Anti_buttonstr3 = "";
+				var Anti_offline = msg['result']['offline'];
+				var Anti_title_offline = Anti_offline['title'];
+				var Anti_content_offline = Anti_offline['content'];
+				var Anti_tips_offline = Anti_offline['tips'];
+				var Anti_buttons_offline = Anti_offline['buttons'];
+				if(Anti_buttons_offline){
+					for(var j=0;j<Anti_buttons_offline.length;j++){
+						var Anti_buttons_name =  __get$(Anti_buttons_offline,j) ['name'];
+						var Anti_buttons_func =  __get$(Anti_buttons_offline,j) ['func'];							
+						Anti_buttonstr3 += '<span class="btn-fcmprimary" onclick="Anti_'+Anti_buttons_func+'();return false;">'+Anti_buttons_name+'</span>';
+					}
+				}
+				
+				offlineinfo = {
+					"title" : Anti_title_offline,
+					"content" : Anti_content_offline,
+					"tips" : Anti_tips_offline,
+					"buttons" : Anti_buttonstr3
+				}
+				
+				showSilence("************ offline ************");
+				showSilence(offlineinfo);
+				showSilence("************ offline ************");
+			}
+			
+			
+			showSilence("************ countdowninfo-before ************");
+			showSilence(countdowninfo);
+			showSilence("************ countdowninfo-before ************");
+			
+			
+			//ÏÔÊ¾¿ÉÄÜµÄµ¹¼ÆÊ±µ¯´°
+			showSilence("µ±Ç°µ¯´°¸öÊý£º"+countdowninfo.length);
+			if(countdowninfo.length>0){
+				showSilence("Ä¿Ç°Ê£Óàµ¹¼ÆÊ±µ¯´°Êý£º"+countdowninfo.length);
+				for(var a=0;a<countdowninfo.length;a++){
+					showSilence("Ä¿Ç°Ê£ÓàÊ±¼ä£º"+parseInt(Anti_time_remaining));
+					showSilence("µ¯´°¼ÇÂ¼µÄÊ±¼äÊý£º"+parseInt( __get$(countdowninfo,a) ['moment']));
+					if(parseInt(Anti_time_remaining)<=parseInt( __get$(countdowninfo,a) ['moment']) && parseInt(Anti_time_remaining)>0){
+						showSilence("Æ¥Åäµ½µ¯³öÌõ¼þ"+parseInt( __get$(countdowninfo,a) ['moment']));
+						$("#Anti_title").html( __get$(countdowninfo,a) ['title']);
+						$("#Anti_content").html( __get$(countdowninfo,a) ['content']);
+						$("#Anti_open,#Anti_mask").show();
+						if( __get$(countdowninfo,a) ['tips']){
+							$("#Anti_tips").html( __get$(countdowninfo,a) ['tips']);
+							$("#Anti_tips_show").show();
+						}
+						if( __get$(countdowninfo,a) ['buttons']){
+							$("#Antibutton").html( __get$(countdowninfo,a) ['buttons']).show();
+						}
+						 __get$(countdowninfo,a) ['moment'] = -1;
+						Anti_hideSWF();
+					}
+				}
+			}
+			
+			showSilence("************ countdowninfo-after ************");
+			showSilence(countdowninfo);
+			showSilence("************ countdowninfo-after ************");
+			
+			
+			showSilence("************ offlineinfo ************");
+			showSilence(offlineinfo);
+			showSilence("************ offlineinfo ************");
+			
+			//offlineµ¯´°
+			if(offlineinfo.length>0){
+				if(Anti_time_remaining<=0){
+					$("#Anti_title").html(offlineinfo['title']);
+					$("#Anti_content").html(offlineinfo['content']);
+					$("#Anti_open,#Anti_mask").show();
+					if(offlineinfo['tips']){
+						$("#Anti_tips").html(offlineinfo['tips']);
+						$("#Anti_tips_show").show();
+					}
+					if(offlineinfo['buttons']){
+						$("#Antibutton").html(offlineinfo['buttons']).show();
+					}
+					Anti_hideSWF();
+				}
+			}
+		}
+	}
+	
+	
+	
+
+	
+
+	function beat(interval){
+		interval = parseInt(interval);
+		if(interval>0){
+			stopBeat();
+			if(interval*1000<parseInt(Anti_minReauestTime)){Anti_minReauestTime=interval*1000;}
+			Anti_bthandle = setInterval(heartBeat,interval*1000);//1000
+		}else{
+			stopBeat();
+		}
+	}
+	
+	function stopBeat(){
+		clearInterval(Anti_bthandle);
+	}
+
+	function stopGame(){
+		Anti_hideSWF();
+	}
+
+	function showSilence(str){
+		try{
+			console.info(str);
+		}catch(e){}
+	}
+
+	//UI³õÊ¼»¯
+	function append() {
+		var cssText='*{margin:0;padding:0}ul{list-style:none;}.fl{float:left;}.fr{float:right;}.sdkDialog{position:absolute;left:50%;top:50%;margin:-210px 0 0 -309px;width:618px;z-index:20020}.sdkDialog .fcmdialog{color:black;position:absolute;left:0;top:0;width:620px;padding-bottom:30px;font-family:"microsoft yahei";font-size:14px;background:#fff;border-radius:8px;}.sdkDialog .fcmdialog .close-btn{position:absolute;right:0;top:0;width:40px;height:40px;background-color:red;line-height:40px;cursor:pointer;display:none}.sdkDialog .fcmdialog .title{line-height:30px;text-align:center;font-size:22px;font-weight:700;padding:25px 0 0;margin:0 40px;color:#454545;border:0;height:auto;float:none;width:auto;text-indent:0;}.sdkDialog .fcmdialog .stitle{text-align:left;line-height:1.6;margin:15px 40px 0;font-size:16px;}.sdkDialog .fcmdialog .stitle span{color:#ffa92d;}.sdkDialog .fcmdialog .mod-tip{margin:20px 40px 0;background:#F0F0F0;padding:12px 15px;border-radius:4px;color:#333;text-align:left}.sdkDialog .fcmdialog .tip-title{font-size:16px;font-weight:400;}.sdkDialog .fcmdialog .tip-info{margin-top:5px;line-height:26px;font-size:14px;}.sdkDialog .fcmdialog .tip-info li{font-size:16px;line-height:26px}.sdkDialog .fcmdialog .tip-info a{color:#FAA61B;text-decoration:underline;margin:0 4px;cursor:pointer;}.sdkDialog .fcmdialog .mod-btn{text-align:center;font-size:0;line-height:0;margin:25px 40px 0;}.sdkDialog .fcmdialog .mod-btn .btn-fcmprimary{display:inline-block;width:140px;height:38px;line-height:38px;border:1px solid #69bb01;color:#69bb01;font-size:14px;margin:0 15px;border-radius:5px;cursor:pointer;}.sdkDialog .fcmdialog .mod-btn .fr,.sdkDialog .fcmdialog .mod-btn .fl{width:250px;margin:0;}.sdkDialog .fcmdialog .mod-btn .btn-fcmprimary:hover{-webkit-filter:brightness(1);filter:brightness(1)}.sdkDialog .fcmdialog .mod-btn .btn-identity{background-color:#69bb01;color:#f8ffef}.fcmIframe{position:absolute;left:50%;top:270px;margin:0 0 0 -309px;width:618px;height:354px;z-index:2019;border:0 none;background-color:#000}.countDown{background:#eee;border-radius:3px;padding:10px;text-align:center;margin:20px 40px 0;font-size:16px;color:#666}.countDown .txt1{font-size:16px;height:28px;line-height:28px;color:#717171;}.countDown .txt2{height:40px;line-height:40px;font-size:26px;font-weight:bold;color:#54ba3d;}.cmMask{display:none;width:100%;position:absolute;left:0;top:0;background:url(/images/Antiindulgence/ptlogin_mask.png) repeat;background:rgba(0,0,0,.8);_background:url(about:blank);_filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(enabled=true,sizingMethod=scale,src="/images/Antiindulgence/ptlogin_mask.png");}';
+		$('head').append('<style>'+cssText+'</style>');
+
+		var mask =  '<div class="cmMask" style=" height:24200px; z-index:9999;" id="Anti_mask">';
+		var pcstr = [
+			'<div class="sdkDialog" id="Anti_open" style="display:none">',
+			'	<div class="fcmdialog">',
+			'		<span id="Anticlose" onclick="Anti_close();return false;" class="close-btn">¹Ø±Õ</span>',
+			'		<h2 class="title" id="Anti_title"></h2>',
+			'		<div class="stitle" id="Anti_content"></div>',
+			
+			'        <div class="countDown" style="display:none" id="Anti_beforeCount">',
+            '            <p class="txt1"></p>',
+            '            <p class="txt2"></p>',
+            '        </div>',
+            '        <div class="countDown" style="display:none">',
+            '            µ±Ç°ÒÑÏÞÖÆÓÎÏ·',
+            '        </div>',
+			
+			'		<div class="mod-tip" id="Anti_tips_show" style="display:none">',
+			'			<h3 class="tip-title">ÎÂÜ°ÌáÊ¾£º</h3>',
+			'			<ul class="tip-info" id="Anti_tips"></ul>',
+			'		</div>',
+			'		<div class="mod-btn" id="Antibutton" style="display:none"></div>',
+			'	</div>',
+			'</div>',
+		];
+		$("body").append(pcstr.join(''));
+		$("body").append(mask);
+		
+		//¼ÓÔØµÇÂ¼
+		$("#login_tologin_A").attr("target","_self");
+		$("#login_tologin_A").attr("href","javascript:Anti_showLogin");
+		$("#login_toregister_A").attr("target","_self");
+		if("undefined" != typeof UniLogin){
+			$("#login_toregister_A").attr("href","javascript:UniLogin.showPopupReg(true)");
+		}
+	}
+});
+/****toos***/
+/*hammerhead|script|end*/

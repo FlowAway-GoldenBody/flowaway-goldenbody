@@ -1,0 +1,88 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+0;
+;(function() {
+    'use strict';
+/* eslint-disable no-unused-vars */
+    var hasOwnProperty = Object.prototype.hasOwnProperty;
+    var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+    function toObject(val) {
+        if (val === null || val === undefined) {
+            throw new TypeError('Object.assign cannot be called with null or undefined');
+        }
+
+        return Object(val);
+    }
+
+    function shouldUseNative() {
+        try {
+            if (!Object.assign) {
+                return false;
+            }
+
+            // Detect buggy property enumeration order in older V8 versions.
+
+            // https://bugs.chromium.org/p/v8/issues/detail?id=4118
+            var test1 = new String('abc'); // eslint-disable-line no-new-wrappers
+            test1[5] = 'de';
+            if (Object.getOwnPropertyNames(test1)[0] === '5') {
+                return false;
+            }
+
+            // https://bugs.chromium.org/p/v8/issues/detail?id=3056
+            var test2 = {};
+            for (var i = 0; i < 10; i++) {
+                 __set$(test2,'_'+String.fromCharCode(i),i) ;
+            }
+            var order2 = Object.getOwnPropertyNames(test2).map(function(n) {
+                return  __get$(test2,n) ;
+            });
+            if (order2.join('') !== '0123456789') {
+                return false;
+            }
+
+            // https://bugs.chromium.org/p/v8/issues/detail?id=3056
+            var test3 = {};
+            'abcdefghijklmnopqrst'.split('').forEach(function(letter) {
+                 __set$(test3,letter,letter) ;
+            });
+            if (Object.keys( __call$(Object,"assign",[{},test3]) ).join('') !==
+                'abcdefghijklmnopqrst') {
+                return false;
+            }
+
+            return true;
+        } catch (err) {
+            // We don't expect any of the above to throw, but better to be safe.
+            return false;
+        }
+    }
+
+    Object.assign = shouldUseNative() ? Object.assign : function(target, source) {
+        var from;
+        var to = toObject(target);
+        var symbols;
+
+        for (var s = 1; s < arguments.length; s++) {
+            from = Object( __get$(arguments,s) );
+
+            for (var key in from) {
+                if (hasOwnProperty.call(from, key)) {
+                     __set$(to,key,__get$(from,key)) ;
+                }
+            }
+
+            if (Object.getOwnPropertySymbols) {
+                symbols = Object.getOwnPropertySymbols(from);
+                for (var i = 0; i < symbols.length; i++) {
+                    if (propIsEnumerable.call(from,  __get$(symbols,i) )) {
+                         __set$(to,__get$(symbols,i),__get$(from,__get$(symbols,i))) ;
+                    }
+                }
+            }
+        }
+
+        return to;
+    };
+})();;
+/*hammerhead|script|end*/

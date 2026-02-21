@@ -779,6 +779,7 @@ if (appName === 'cd') {
 
   debugger;
     window.addEventListener("appUpdated", () => {
+      debugger;
   var terminalBtn = document.getElementById("terminalapp");
   terminalBtn.addEventListener("contextmenu",   function ehl1(e) {
     terminalContextMenu(e, (needremove = false));

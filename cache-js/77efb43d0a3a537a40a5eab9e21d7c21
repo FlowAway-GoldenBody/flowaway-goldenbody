@@ -1,0 +1,429 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+//轮播图
+jQuery(".zmxy4_slide").slide({ 
+		mainCell: ".zmxy4_bd", 
+		titCell:".zmxy4_hd span",
+		effect: "leftLoop", 
+		autoPlay: true, 
+		delayTime:1500
+});
+jQuery(".zmxy5_slide").slide({ 
+		mainCell: ".zmxy5_bd", 
+		titCell:".zmxy5_hd span",
+		effect: "leftLoop", 
+		autoPlay: true, 
+		delayTime:1500
+});
+//综合，攻略切换
+
+$(".z5tab li").click(function(){
+	var tab=$(this).attr("rel");
+	for(var i=1;i<=4;i++){
+	  $("#zmxy5_tab"+i).hide();
+	}
+	$("#zmxy5_tab"+tab).show();
+	var n=tab-1;
+	$(".z5tab li").removeClass("on");
+	$(".z5tab li").eq(n).addClass("on");
+});
+$(".z5tab li").hover(function(){
+	var tab=$(this).attr("rel");
+	for(var i=1;i<=4;i++){
+	  $("#zmxy5_tab"+i).hide();
+	}
+	$("#zmxy5_tab"+tab).show();
+	var n=tab-1;
+	$(".z5tab li").removeClass("on");
+	$(".z5tab li").eq(n).addClass("on");
+});
+
+$(".z4tab li").click(function(){
+	var tab=$(this).attr("rel");
+	for(var i=1;i<=4;i++){
+	  $("#zmxy4_tab"+i).hide();
+	}
+	$("#zmxy4_tab"+tab).show();
+	var n=tab-1;
+	$(".z4tab li").removeClass("on");
+	$(".z4tab li").eq(n).addClass("on");
+});
+$(".z4tab li").hover(function(){
+	var tab=$(this).attr("rel");
+	for(var i=1;i<=4;i++){
+	  $("#zmxy4_tab"+i).hide();
+	}
+	$("#zmxy4_tab"+tab).show();
+	var n=tab-1;
+	$(".z4tab li").removeClass("on");
+	$(".z4tab li").eq(n).addClass("on");
+});
+
+
+
+//轮播图功能
+	var nscroll=0;var tt;
+	function scrolly(){
+	 $(".jsTabs a").attr("class","");
+	 $(".jsTabs a").eq(nscroll).attr("class","on");
+	 $(".showimg").css("display","none");
+	 $(".showimg").eq(nscroll).css("display","");
+	 nscroll=nscroll+1;
+	 if(nscroll>=4){
+	  nscroll=0;
+	 }
+	 tt=setTimeout("scrolly()",4000);
+	}
+	scrolly();
+	function curs(k){
+	 nscroll=k;
+	 $(".jsTabs a").attr("class","");
+	 $(".jsTabs a").eq(nscroll).attr("class","on");
+	 $(".showimg").css("display","none");
+	 $(".showimg").eq(nscroll).css("display","");  
+	 clearTimeout(tt);
+	}
+
+function func_scroll(id,flag){
+	var temp_scroll = $("#"+id);
+	var li_length = $(temp_scroll).find("li").length;
+	if(flag=="pre"){
+		  var cli=temp_scroll.find("li:lt(2)");
+		  cli.remove();
+		  cli.appendTo(temp_scroll);
+	}else{
+		  var cli=temp_scroll.find("li:gt("+(li_length-3)+")")
+		  cli.remove();
+		  cli.prependTo(temp_scroll);
+	}
+	temp_scroll.find("img[lz_src]").attr("src",function(){
+		var imgurl=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return imgurl;
+	});
+}
+
+//角色攻略切换js
+var jsg=new Array();
+jsg[0]='https://news.4399.com/gonglue/zmxy4/zhuangbei/';
+jsg[1]='https://news.4399.com/gonglue/zmxy4/zhuangbei/';
+jsg[2]='http://news.4399.com/gonglue/zmxy4/sunwukong/';
+jsg[3]='http://news.4399.com/gonglue/zmxy4/xiaobailong/';
+jsg[4]='http://news.4399.com/gonglue/zmxy4/tangsanzang/';
+jsg[5]='http://news.4399.com/gonglue/zmxy4/zhubajie/';
+jsg[6]='http://news.4399.com/gonglue/zmxy4/shawujing/';
+
+var jsg1=new Array();
+jsg1[0]='造梦西游4哪吒技能加点';
+jsg1[1]='造梦西游4玉兔儿技能加点';
+jsg1[2]='造梦西游4小白龙技能搭配';
+jsg1[3]='造梦西游4孙悟空技能加点';
+jsg1[4]='造梦西游4唐僧技能加点';
+jsg1[5]='造梦西游4猪八戒技能加点';
+jsg1[6]='造梦西游4沙僧技能加点';
+
+
+var jsg2=new Array();
+jsg2[0]='造梦西游4哪吒技能搭配';
+jsg2[1]='造梦西游4玉兔儿杵系心法';
+jsg2[2]='造梦西游4孙悟空技能搭配';
+jsg2[3]='造梦西游4小白龙剑系心法';
+jsg2[4]='造梦西游4唐僧第二心法觉醒';
+jsg2[5]='造梦西游4猪八戒技能搭配';
+jsg2[6]='造梦西游4沙僧技能搭配';
+
+function jsgl(kn){
+  $("#jsnav li").attr("class","");
+  $("#jsnav li").eq(kn).attr("class","on");
+  $("#gjz").attr("href", __get$(jsg,kn) );
+  $("#gjz1").attr("href", __get$(jsg,kn) );
+  $("#gjz").html( __get$(jsg1,kn) );
+ // $("#gjz1").html(jsg2[kn]);  
+  $(".js-don").css("display","none");
+  $(".js-don").eq(kn).find("img[lz_src]").attr("src",function(){
+	var src=$(this).attr("lz_src");
+	$(this).removeAttr("lz_src");
+	return src;
+  });
+  $(".js-don").eq(kn).css("display","");
+}
+
+function jtab(k1,k2){
+  var obj1='#tab-bd'+k1+" ul";
+  var obj2='#jj'+k1;
+  var obj3="#jsb1-"+k1+" a";
+  $(obj1).hide().eq(k2).show().find("img[lz_src]").attr("src",function(){var src=$(this).attr("lz_src");$(this).removeAttr("lz_src");return src;});
+  $(obj3).hide().eq(k2).show().find("img[lz_src]").attr("src",function(){var src=$(this).attr("lz_src");$(this).removeAttr("lz_src");return src;});
+  if(k2==1){
+    $(obj2).find("a").eq(1).addClass("on");
+	$(obj2).find("a").eq(0).removeClass("on");
+  } 
+   if(k2==0){
+    $(obj2).find("a").eq(0).addClass("on");
+	$(obj2).find("a").eq(1).removeClass("on");
+  } 
+}
+
+function showtab_zmzb(k){
+	$("#showtab_zmzb_area a").removeClass("on");
+	$("#showtab_zmzb_area a").eq(k).addClass("on");
+	$("#showtab_zmzb_area").parent().find(".tablist").eq(k).find("img[lz_src]").each(function(){
+		$(this).attr("src",$(this).attr("lz_src")).removeAttr("lz_src");
+	});
+	$("#showtab_zmzb_area").parent().find(".tablist").hide();
+	$("#showtab_zmzb_area").parent().find(".tablist").eq(k).show();
+}
+
+var index_rank = 1;
+function page_goto(x) {
+	$("#page_show").html(x);
+	$("#rank_ul .licont").hide();
+	$("#rank_ul .group_"+x).find("img[lz_src]").each(function(){
+	  $(this).attr("src",$(this).attr("lz_src")).removeAttr("lz_src");													  
+	});
+	$("#rank_ul .group_"+x).show();
+	index_rank = x;
+}
+
+function page_prev() {
+	if (index_rank > 1) {
+		index_rank--;
+		page_goto(index_rank);
+	}
+}
+
+function page_next() {
+	if (index_rank < 2) {
+		index_rank++;
+		page_goto(index_rank);
+	}
+}
+
+//装备大全功能切js
+ var btype=0;
+ var stype=0;
+ var nclick=1;
+ var zblist_zm4=$("#zblist_zm4 li");
+ function showmore(){
+  var s=nclick*27;
+  var e=s+27;
+  nclick=nclick+1;
+  if(e>=zblist_zm4.length){
+	e=zblist_zm4.length;
+	$("#showmore").css("display","none");
+  }else{
+	$("#showmore").css("display","");  
+  }
+  for(var k=s;k<e;k++){
+	zblist_zm4.eq(k).css("display","inline").find("img[lz_src]").attr("src",function(){
+	    var imgurl=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return imgurl;
+	});
+  }
+ }
+ 
+ //小分类
+ $("#stype  a").each(function(k){
+	$(this).unbind().bind("click",function(){
+		var rel=$(this).attr("rel");
+		$("#stype  a").removeClass("on");
+		$(this).addClass("on");
+		stype=rel;
+		nclick=0;
+		if(stype==0){
+		  zblist_zm4=$("#zblist_zm4 li");
+		}else{
+		  zblist_zm4=$("#zblist_zm4 li").filter("[stype='"+stype+"']");
+		}
+		$("#zblist_zm4 li").hide();
+		if(zblist_zm4.length<=0){
+			if(stype==34261){
+			  alert("亲爱的造梦小勇士，游戏中宠物功能暂未开放，精彩内容，敬请期待！");
+			}else{
+			  alert("小编正在努力录入中，敬请期待！");
+			}
+		     btype=0;
+			 stype=0;
+			 nclick=0;
+			 zblist_zm4=$("#zblist_zm4 li");
+		}
+		
+		showmore();
+		return false;
+	});							
+ });
+
+//boss选项卡切换
+var bossnp=1;
+var bosstype=0;
+var bindex=new Array();
+var default_c='请输入你要查找的BOSS';
+var blist=$("#bosslist li");
+bindex[0]=0;
+bindex[37]=1;
+bindex[38]=2;
+bindex[39]=3;
+bindex[40]=4;
+bindex[99]=5;
+function bossmore(){
+   var s1=bossnp*40;
+   var e1=s1+40;
+   bossnp=bossnp+1;
+  var len=blist.length;
+  if(len>40){$("#bossmore").css("display","");}else{$("#bossmore").css("display","none");}
+  if(len<e1){e1=len;$("#bossmore").css("display","none");}
+  $("#bosslist li").css("display","none");
+  for(var j=0;j<e1;j++){
+    blist.eq(j).show().find("img[lz_src]").attr("src",function(){
+	   var src=$(this).attr("lz_src");
+	   $(this).removeAttr("lz_src");
+	   return src;
+	});
+  }
+}
+function gboss(kn){
+ bossnp=0;
+ bosstype=kn;
+ $("#bkey").val(default_c);
+ var jz= __get$(bindex,kn) ;
+ $("#btab  a").attr("class","");
+ $("#btab  a").eq(jz).attr("class","on");
+  if(kn==0){
+	 blist=$("#bosslist li");
+  }else{
+	blist=$("#bosslist li").filter("[rel="+bosstype+"]");  
+  }
+ bossmore();
+}
+
+function searchboss1(){
+  var keyword=$("#bkey1").val();
+  var keyword=$.trim(keyword);
+  if(keyword=='' || keyword==default_c){
+	 alert(default_c);$("#bkey").focus();
+	 return false;
+  }
+ blist=$("#bosslist li").filter("[rel1*='"+keyword+"']");
+ if(blist.length<=0){alert("您搜索的BOSS不存在，请输入正确的BOSS名称，才能搜索到哦！");$("#bkey").focus();return false;}
+ $("#btab li a").attr("class","");
+  bossmore();
+}
+
+$('#bkey').keyup(function(e){
+		var e = e || window.event ;		
+		if( e.keyCode == 13 ){			
+		}
+		return false;
+})
+
+
+
+//道具选项卡切换
+var daojunp=1;
+var daojutype=0;
+var dindex=new Array();
+var default_c1='请输入你要查找的道具';
+var daojulist=$("#daojulist li");
+dindex[0]=0;
+dindex[99]=1;
+dindex[41]=2;
+dindex[42]=3;
+dindex[43]=4;
+dindex[44]=5;
+dindex[45]=6;
+dindex[46]=7;
+function daojumore(){
+   var s1=daojunp*45;
+   var e1=s1+45;
+   daojunp=daojunp+1;
+  var len=daojulist.length;
+  if(len>45){$("#daojumore").css("display","");}else{$("#daojumore").css("display","none");}
+  if(len<e1){e1=len;$("#daojumore").css("display","none");}
+  $("#daojulist li").css("display","none");
+  for(var j=0;j<e1;j++){
+    daojulist.eq(j).show().find("img[lz_src]").attr("src",function(){
+	   var src=$(this).attr("lz_src");
+	   $(this).removeAttr("lz_src");
+	   return src;
+	});
+  }
+}
+function gdaoju(kn){
+ daojunp=0;
+ daojutype=kn;
+ $("#dkey").val(default_c1);
+ var jz= __get$(dindex,kn) ;
+ $("#dtab  a").attr("class","");
+ $("#dtab  a").eq(jz).attr("class","on");
+  if(kn==0){
+	 daojulist=$("#daojulist li");
+  }else{
+	daojulist=$("#daojulist li").filter("[rel="+daojutype+"]");  
+  }
+ daojumore();
+}
+
+function searchdaoju(){
+  var keyword=$("#dkey").val();
+  var keyword=$.trim(keyword);
+  if(keyword=='' || keyword==default_c){
+	 alert(default_c1);$("#dkey").focus();
+	 return false;
+  }
+  $("#dtab  a").attr("class","");
+ daojulist=$("#daojulist li").filter("[rel1*='"+keyword+"']");
+ if(daojulist.length<=0){alert("您搜索的道具不存在，请输入正确的道具名称，才能搜索到哦！");$("#dkey").focus();return false;}
+ $("#dtab li a").attr("class","");
+  daojumore();
+}
+
+$('#dkey').keyup(function(e){
+		var e = e || window.event ;		
+		if( e.keyCode == 13 ){			
+         searchdaoju(); 	
+		}
+		return false;
+})
+
+
+
+
+
+
+
+
+
+ $(".iptBtn1").click(function(){
+	$('#form66').submit();
+	return false;
+ });
+check_search($('#form66'),'请输入您要查找的内容');  
+ function check_search(node,default_value){
+    var default_color = '#000';
+    var default_value = default_value;
+    node.find('input[name="q"]').val(default_value);
+    node.submit(function(){
+        var text = $(this).find("input[name='q']");
+        var search_value = $.trim(text.val());
+        if(search_value==default_value || search_value==''){
+          alert(default_value);
+          text.focus();
+          return false;
+        }else{              
+          return true;
+        }
+    }).find("input[name='q']").focus(function(){
+      if($(this).val()==default_value){
+        $(this).val("");
+        default_color = $(this).css("color");
+        $(this).css("color",default_color);
+      }
+    }).blur(function(){
+      if($.trim($(this).val())==''){
+        $(this).css("color",default_color)
+        $(this).val(default_value);
+      }
+    })
+}  
+
+/*hammerhead|script|end*/

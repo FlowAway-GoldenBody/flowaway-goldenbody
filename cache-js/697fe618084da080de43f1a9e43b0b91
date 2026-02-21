@@ -1,0 +1,43 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+window.wewo=window.wewo||[]; var t = window.wewo;
+var rtgUrl="https://rtg.wewomedia.com/tr",rtgSendData=(t,e,a)=>{var n=window.XMLHttpRequest;if(!n)return!1;var w=new n;w.open("POST",t,!0),w.setRequestHeader("Content-Type","application/json"),w.onreadystatechange=()=>{XMLHttpRequest.DONE==w.readyState&&(a(),w=null)},w.send(e)};
+t.push = function(e) { Array.prototype.push.call(t, e); var rtgCollectData = () => { var a = {}; return a.data = t, JSON.stringify(a) }; rtgSendData(rtgUrl, rtgCollectData(), (() => { }));}
+var appendTag=e=>{if(e){var n=document.createRange();n.selectNode(document.getElementsByTagName("body")[0]);var i=n.createContextualFragment(e);document.body.appendChild(i)}};
+function appendTrackingPixel(fp){ let url = "https://rtg.wewomedia.com/tr/px.png?"
+  url += ("fp=" + encodeURIComponent(fp));
+  url += ("&r=" + encodeURIComponent( __get$(window,"location") .toString()));
+  appendTag("<img width=\"1\" height=\"1\"   src=" + url + " alt=\"\" style=\"border-style:none;float:left;\">");
+}
+
+(function(){
+  var prefix = "rtg_";
+  var signedUid = "";
+  var signedDec = "";
+  var userId = "f0dec96c-4c8f-4e66-8140-60d84fcc9ca6";
+
+  // Store signed state in localStorage for first-party persistence
+  try {
+    if (signedUid && signedUid !== "") {
+      localStorage.setItem(prefix + "uid", signedUid);
+    }
+    if (signedDec && signedDec !== "") {
+      localStorage.setItem(prefix + "dec", signedDec);
+    }
+  } catch(e) {}
+
+  // Push user event to data layer
+  if (typeof ThumbmarkJS == "object") {
+    ThumbmarkJS.getFingerprint(false, {"country": "US", "city": "Cary"}).then(function (e) {
+      t.push({ event: "user", uxid: e });
+      if (typeof appendTrackingPixel == "function") {
+        appendTrackingPixel(e);
+      }
+    });
+  } else {
+    t.push({ event: "user", uxid: userId });
+  }
+})();
+
+
+
+/*hammerhead|script|end*/

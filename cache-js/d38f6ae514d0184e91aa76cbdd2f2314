@@ -1,0 +1,76 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+var testswf = '/jss/objtest.swf';
+document.write ("<div id='testflashplayer'><OBJECT ID='testplayer' classid='clsid:D27CDB6E-AE6D-11cf-96B8-444553540000' codebase='//imga4.5054399.com/upload_pic/2022/swflash.cab#version=10,0,0,0' width='10' height='10'>");document.write ("<PARAM NAME='movie' VALUE='" + testswf + "'>");document.write("<embed id='testplayer1' name='testplaye' src='" + testswf + "' quality='high' pluginspage='//www.macromedia.com/go/getflashplayer' type='application/x-shockwave-flash' width='10' height='10'></embed>");document.write ("<PARAM NAME='quality' VALUE='high'>");document.write ("</OBJECT></div>");
+var flashenabled = 0;
+var isiebrowsersymbol = 0;
+
+if(!!window.ActiveXObject || "ActiveXObject" in window){
+  isiebrowsersymbol = 1;
+}else{
+  isiebrowsersymbol = 0;
+}
+
+if(typeof(isHTML5)=="undefined"){
+	isHTML5 = 0;
+}
+	
+
+if(isHTML5==0){
+	var trycount = 0;
+	//console.info("检测到flash插件，非ie浏览器");
+	//尝试调用flash内部的checkflash方法 每隔x秒读取一次
+	var myTimer = function (callback) {
+		var testpoint = setInterval(function(){
+			try{
+				//console.info("尝试调用flash函数");
+				if(isiebrowsersymbol==1){
+					flashenabled = document.getElementById("testplayer").checkflash();
+				}else{
+					flashenabled = document.getElementById("testplayer1").checkflash();
+				}
+				//console.info("调用结果"+flashenabled);
+				callback(1);
+				clearInterval(testpoint);
+			}catch(e){  
+				//console.info("x毫秒重试");
+				trycount++;
+				//console.info("重试了"+trycount+"次");
+				if(trycount>10){
+					if(isiebrowsersymbol==1){
+						showBlockFlashIE();
+					}else{
+						showBlockFlash();
+					}
+					clearInterval(testpoint);
+				}
+			}
+		},100);
+	}
+	myTimer(function (val) {
+		flashenabled = val;
+	});
+}
+
+function showBlockFlash(){
+	$("#bestposition").html(function(){
+		$(this).data("html",$(this).html());
+		return '<iframe  src="/loadimg/blockflashtip_id220266.html" border="0" marginwidth="0" marginheight="0"  align="center" scrolling="no" frameborder="no" height="100%" width="100%"  style="width:100%,height:100%" ></iframe>'
+	});
+}
+
+function showBlockFlashIE(){
+	$("#bestposition").html(function(){
+		$(this).data("html",$(this).html());
+		return '<iframe  src="/loadimg/blockflashtip_id220266.html" border="0" marginwidth="0" marginheight="0"  align="center" scrolling="no" frameborder="no" height="100%" width="100%"  style="width:100%,height:100%" ></iframe>'
+	});
+}
+
+function closeBlockFlash(){
+	$("#bestposition").html(function(){
+		return $(this).data("html");
+	});
+}
+
+
+
+/*hammerhead|script|end*/
