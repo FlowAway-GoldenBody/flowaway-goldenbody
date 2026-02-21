@@ -1,0 +1,1 @@
+browser,fileExplorer,terminal,textEditor,settings,yourApp

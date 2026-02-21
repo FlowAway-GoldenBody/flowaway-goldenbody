@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>App Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+        .app-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+        .app-icon {
+            font-size: 4em;
+            margin-bottom: 16px;
+        }
+        .app-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .app-id {
+            font-size: 0.9em;
+            color: #666;
+            font-family: monospace;
+        }
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 App Store</h1>
+        <div id="loading" class="loading">Loading apps...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="apps-grid" class="apps-grid"></div>
+    </div>
+
+    <script>
+        async function loadApps() {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const gridEl = document.getElementById('apps-grid');
+
+            // List of known apps to fetch
+            let a = await fetch('/appstoreapps/applist.txt');
+            let apps = [];
+            if (a.ok) {
+                const text = await a.text();
+                apps = text.split(',');
+            }
+
+            try {
+                loadingEl.style.display = 'none';
+
+                // Load each app's metadata
+                for (const appName of apps) {
+                    try {
+                        // Fetch icon and entry files
+                        const [iconRes, entryRes] = await Promise.all([
+                            fetch(`/appstoreapps/${appName}/icon.txt`),
+                            fetch(`/appstoreapps/${appName}/entry.txt`)
+                        ]);
+
+                        if (!iconRes.ok || !entryRes.ok) continue;
+
+                        const icon = (await iconRes.text()).trim() || '📦';
+                        const entryText = await entryRes.text();
+                        const entryLines = entryText.split('\n').map(l => l.trim()).filter(l => l);
+                        
+                        // Parse entry.txt (first line is function name, second is display name)
+                        const appFunction = entryLines[0] || appName;
+                        const displayName = entryLines[1] || appName;
+
+                        // Create app card
+                        const card = document.createElement('div');
+                        card.className = 'app-card';
+                        card.innerHTML = `
+                            <div class="app-icon">${icon}</div>
+                            <div class="app-name">${displayName}</div>
+                            <div class="app-id">${appName}</div>
+                        `;
+
+                        card.addEventListener('click', async () => {
+                            try {
+                                // Show file picker for saving
+                                const handle = await window.showSaveFilePicker({
+                                    suggestedName: `${appName}.zip`,
+                                    types: [{
+                                        description: 'ZIP Archive',
+                                        accept: { 'application/zip': ['.zip'] }
+                                    }]
+                                });
+
+                                // Fetch the app zip file
+                                const response = await fetch(`/appstoreapps/${appName}/${appName}.zip`);
+                                if (!response.ok) throw new Error('Failed to download app');
+
+                                // Get the blob and write to file
+                                const blob = await response.blob();
+                                const writable = await handle.createWritable();
+                                await writable.write(blob);
+                                await writable.close();
+
+                                alert(`${displayName} downloaded successfully!`);
+                            } catch (err) {
+                                if (err.name === 'AbortError') {
+                                    // User cancelled the file picker
+                                    return;
+                                }
+                                console.error('Download error:', err);
+                                alert(`Failed to download ${displayName}: ${err.message}`);
+                            }
+                        });
+
+                        gridEl.appendChild(card);
+                    } catch (err) {
+                        console.error(`Failed to load app ${appName}:`, err);
+                    }
+                }
+
+                if (gridEl.children.length === 0) {
+                    errorEl.textContent = 'No apps could be loaded';
+                    errorEl.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error('Error loading apps:', error);
+                loadingEl.style.display = 'none';
+                errorEl.textContent = 'Error loading apps: ' + error.message;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        loadApps();
+    </script>
+</body>

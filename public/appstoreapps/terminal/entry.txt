@@ -1,0 +1,8 @@
+terminal
+Terminal
+terminalapp
+terminalContextMenu
+terminalButtons
+terminalMenu
+allTerminals
+terminalId

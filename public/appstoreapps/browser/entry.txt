@@ -1,0 +1,15 @@
+browser
+Browser
+browserapp
+browsermenuhandler
+browsermenu
+browserButtons
+allBrowsers
+browserId
+id
+proxyurl
+dragstartwindow
+__vfsMessageListenerAdded
+tabisDragging
+draggedtab
+mainWebsite
