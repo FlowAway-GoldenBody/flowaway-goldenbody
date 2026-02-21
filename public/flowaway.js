@@ -1,5 +1,6 @@
 window.data = data;
 window.loaded = false;
+var hasChanges;
   var atTop = "";
   var zTop = 10;
 var rebuildhandler = function() {
@@ -31,7 +32,7 @@ var rebuildhandler = function() {
     setTimeout(() => {
       try { document.body.appendChild(script); } catch (e) { console.error('append homepage script failed', e); location.reload(); }
     }, 80);
-
+    hasChanges = true;
   } catch (err) {
     console.error('rebuildhandler error, falling back to reload', err);
     try { location.reload(); } catch (e) { /* ignore */ }
@@ -469,7 +470,28 @@ async function loadAppsFromTree() {
     // reapply task buttons now that apps may be present
     applyTaskButtons();
     purgeButtons();
-    
+      setTimeout(() => {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+      setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+            setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+            setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+        }
+      , 5000);
+        }
+      , 5000);
+        }
+      , 5000);
+  }, 5000);
     // Start polling for app changes
     startAppPolling();
   } catch (e) { console.error('loadAppsFromTree error', e); }
@@ -723,7 +745,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
     
     // Get current app folders from the file system
     var currentAppFolders = appsNode[1] || [];
-    var hasChanges = false;
+    hasChanges = false;
     
     // First pass: detect structural changes only (new/deleted folders)
     var currentFolderNames = new Set(currentAppFolders.map(f => f[0]));
@@ -994,12 +1016,28 @@ async function pollAppChanges(forceMetadataCheck = false) {
       renderAppsGrid();
       applyTaskButtons();
       purgeButtons();
-      // Dispatch custom event when apps have been updated
-      setTimeout(() => {
-              var appUpdatedEvent = new CustomEvent('appUpdated', { detail: { apps: window.apps } });
+        setTimeout(() => {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
       window.dispatchEvent(appUpdatedEvent);
-      }, 1000);
-
+      setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+            setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+            setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+        }
+      , 5000);
+        }
+      , 5000);
+        }
+      , 5000);
+  }, 5000);
     }
     
   } catch (e) {
@@ -2043,5 +2081,23 @@ setTimeout(() => {
   setTimeout(() => {
       var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
       window.dispatchEvent(appUpdatedEvent);
-  }, 1000);
+      setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+            setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+            setTimeout(() => 
+        {
+      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+        }
+      , 5000);
+        }
+      , 5000);
+        }
+      , 5000);
+  }, 5000);
 }, 100);

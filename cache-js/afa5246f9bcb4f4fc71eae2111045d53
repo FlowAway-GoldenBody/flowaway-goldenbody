@@ -1,0 +1,2388 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+const Pikafish = (() => {
+  const _scriptName = typeof document !== 'undefined' ? document.currentScript?.src : undefined;
+
+  return function (moduleArg = {}) {
+    let moduleRtn;
+
+    const f = { ...moduleArg };
+    let aa;
+    let ba;
+    const ca = new Promise((a, b) => {
+      aa = a;
+      ba = b;
+    });
+    const da = typeof window === 'object';
+    const m = typeof importScripts === 'function';
+    f.Y || (f.Y = 0);
+    f.Y++;
+    (() => {
+      const a = typeof ENVIRONMENT_IS_WASM_WORKER !== 'undefined' && ENVIRONMENT_IS_WASM_WORKER;
+      (typeof ENVIRONMENT_IS_PTHREAD !== 'undefined' && ENVIRONMENT_IS_PTHREAD) ||
+        a ||
+        (function (b) {
+          function c(l, n, u) {
+            const v = new XMLHttpRequest();
+            v.open('GET', l, !0);
+            v.responseType = 'arraybuffer';
+            v.onprogress = function (g) {
+              let p = n;
+              g.total && (p = g.total);
+              if (g.loaded) {
+                v.m
+                  ? ( __get$(f.J,l) .loaded = g.loaded)
+                  : ((v.m = !0), f.J || (f.J = {}), ( __set$(f.J,l,{loaded:g.loaded,total:p}) ));
+                let r = (p = g = 0);
+                let y;
+                for (y in f.J) {
+                  const G =  __get$(f.J,y) ;
+                  g += G.total;
+                  p += G.loaded;
+                  r++;
+                }
+                g = Math.ceil((g * f.Y) / r);
+                f.setStatus && f.setStatus(`Downloading data... (${p}/${g})`);
+              } else !f.J && f.setStatus && f.setStatus('Downloading data...');
+            };
+            v.onerror = function () {
+              throw Error(`NetworkError for: ${l}`);
+            };
+            v.onload = function () {
+              if (
+                v.status == 200 ||
+                v.status == 304 ||
+                v.status == 206 ||
+                (v.status == 0 && v.response)
+              )
+                u(v.response);
+              else throw Error(`${v.statusText} : ${v.responseURL}`);
+            };
+            v.send(null);
+          }
+          function d(l) {
+            console.error('package error:', l);
+          }
+          function e() {
+            function l(g, p, r) {
+              this.start = g;
+              this.end = p;
+              this.audio = r;
+            }
+            function n(g) {
+              if (!g) throw `Loading data file failed.${Error().stack}`;
+
+              if (g.constructor.name !== ArrayBuffer.name)
+                throw `bad input to processPackageData${Error().stack}`;
+
+              g = new Uint8Array(g);
+              l.prototype.M = g;
+              g = b.files;
+              for (let p = 0; p < g.length; ++p)  __get$(l.prototype.m,__get$(g,p).filename) .onload();
+
+              f.removeRunDependency('datafile_emscripten/pikafish.data');
+            }
+            l.prototype = {
+              m: {},
+              open(g, p) {
+                this.name = p;
+                 __set$(this.m,p,this) ;
+                f.addRunDependency(`fp ${this.name}`);
+              },
+              onload() {
+                this.L(this.M.subarray(this.start, this.end));
+              },
+              L(g) {
+                f.FS_createDataFile(this.name, null, g, !0, !0, !0);
+                f.removeRunDependency(`fp ${this.name}`);
+                 __set$(this.m,this.name,null) ;
+              },
+            };
+            for (let u = b.files, v = 0; v < u.length; ++v)
+               new l(__get$(u,v).start,__get$(u,v).end,__get$(u,v).audio||0) .open('GET',  __get$(u,v) .filename);
+
+            f.addRunDependency('datafile_emscripten/pikafish.data');
+            f.pa || (f.pa = {});
+            f.pa['emscripten/pikafish.data'] = { Sa: !1 };
+            w ? (n(w), (w = null)) : (q = n);
+          }
+          typeof window === 'object'
+            ? window.encodeURIComponent(
+                `${ __get$(window,"location") .pathname
+                  .toString()
+                  .substring(0,  __get$(window,"location") .pathname.toString().lastIndexOf('/'))}/`,
+              )
+            : typeof process === 'undefined' &&
+              typeof  __get$Loc(location)  !== 'undefined' &&
+              encodeURIComponent(
+                `${ __get$Loc(location) .pathname
+                  .toString()
+                  .substring(0,  __get$Loc(location) .pathname.toString().lastIndexOf('/'))}/`,
+              );
+          typeof f.locateFilePackage !== 'function' ||
+            f.locateFile ||
+            ((f.locateFile = f.locateFilePackage),
+            t(
+              'warning: you defined Module.locateFilePackage, that has been renamed to Module.locateFile (using your locateFilePackage for now)',
+            ));
+          const h = f.locateFile ? f.locateFile('pikafish.data', '') : 'pikafish.data';
+          const k = b.remote_package_size;
+          var q = null;
+          var w = f.getPreloadedPackage ? f.getPreloadedPackage(h, k) : null;
+          w ||
+            c(
+              h,
+              k,
+              (l) => {
+                q ? (q(l), (q = null)) : (w = l);
+              },
+              d,
+            );
+          f.calledRun ? e() : (f.preRun || (f.preRun = []), f.preRun.push(e));
+        })({
+          files: [{ filename: '/pikafish.nnue', start: 0, end: 4134154 }],
+          remote_package_size: 4134154,
+        });
+    })();
+    f.sendCommand = f.sendCommand || null;
+    f.terminate = f.terminate || null;
+    f.onReceiveStdout = f.onReceiveStdout || ((a) => console.log(a));
+    f.onReceiveStderr = f.onReceiveStderr || ((a) => console.error(a));
+    f.onExit = f.onExit || ((a) => console.log(`exited with code ${a}`));
+    f.noExitRuntime = !0;
+    f.preRun || (f.preRun = []);
+    f.preRun.push(() => {
+      let a = '';
+      let b = 0;
+      let c = '';
+      let d = '';
+      const e = f.onReceiveStdout;
+      const h = f.onReceiveStderr;
+      ea(
+        () => (b < a.length ? a.charCodeAt(b++) : null),
+        (q) => {
+          q && q != 10 ? (c += String.fromCharCode(q)) : (e(c), (c = ''));
+        },
+        (q) => {
+          q && q != 10 ? (d += String.fromCharCode(q)) : (h(d), (d = ''));
+        },
+      );
+      const k = f.cwrap('wasm_uci_execute', 'void', []);
+      f.sendCommand = function (q) {
+        a = `${q}\n`;
+        b = 0;
+        k();
+      };
+      f.terminate = function () {
+        f._emscripten_force_exit(0);
+      };
+    });
+    let fa = { ...f };
+    let ha = [];
+    let ia = './this.program';
+    let ja = (a, b) => {
+      throw b;
+    };
+    let x = '';
+    let ka;
+    let la;
+    let ma;
+    if (da || m) {
+      (m
+        ? (x =  __get$(__get$(self,"location"),"href") )
+        : typeof document !== 'undefined' &&
+          document.currentScript &&
+          (x = document.currentScript.src),
+        _scriptName && (x = _scriptName),
+        x.startsWith('blob:')
+          ? (x = '')
+          : (x = x.substr(0,  __call$(x,"replace",[/[?#].*/,'']) .lastIndexOf('/') + 1)),
+        (ka = (a) => {
+          const b = new XMLHttpRequest();
+          b.open('GET', a, !1);
+          b.send(null);
+
+          return b.responseText;
+        }),
+        m &&
+          (ma = (a) => {
+            const b = new XMLHttpRequest();
+            b.open('GET', a, !1);
+            b.responseType = 'arraybuffer';
+            b.send(null);
+
+            return new Uint8Array(b.response);
+          }),
+        (la = (a, b, c) => {
+          const d = new XMLHttpRequest();
+          d.open('GET', a, !0);
+          d.responseType = 'arraybuffer';
+          d.onload = () => {
+            d.status == 200 || (d.status == 0 && d.response) ? b(d.response) : c();
+          };
+          d.onerror = c;
+          d.send(null);
+        }));
+    }
+    const na = f.print || console.log.bind(console);
+    var t = f.printErr || console.error.bind(console);
+     __call$(Object,"assign",[f,fa]) ;
+    fa = null;
+    f.arguments && (ha = f.arguments);
+    f.thisProgram && (ia = f.thisProgram);
+    f.quit && (ja = f.quit);
+    let oa;
+    f.wasmBinary && (oa = f.wasmBinary);
+    let pa;
+    let qa = !1;
+    let z;
+    let A;
+    let ra;
+    let B;
+    let D;
+    function sa() {
+      const a = pa.buffer;
+      f.HEAP8 = z = new Int8Array(a);
+      f.HEAP16 = ra = new Int16Array(a);
+      f.HEAPU8 = A = new Uint8Array(a);
+      f.HEAPU16 = new Uint16Array(a);
+      f.HEAP32 = B = new Int32Array(a);
+      f.HEAPU32 = D = new Uint32Array(a);
+      f.HEAPF32 = new Float32Array(a);
+      f.HEAPF64 = new Float64Array(a);
+    }
+    const ta = [];
+    const ua = [];
+    const va = [];
+    const wa = [];
+    function xa() {
+      const a = f.preRun.shift();
+      ta.unshift(a);
+    }
+    let E = 0;
+    let ya = null;
+    let za = null;
+    function Aa() {
+      E++;
+      f.monitorRunDependencies?.(E);
+    }
+    function Ba() {
+      E--;
+      f.monitorRunDependencies?.(E);
+      if (E == 0 && (ya !== null && (clearInterval(ya), (ya = null)), za)) {
+        const a = za;
+        za = null;
+        a();
+      }
+    }
+    function Ca(a) {
+      f.onAbort?.(a);
+      a = `Aborted(${a})`;
+      t(a);
+      qa = !0;
+      a = new WebAssembly.RuntimeError(`${a}. Build with -sASSERTIONS for more info.`);
+      ba(a);
+      throw a;
+    }
+    const Da = (a) => a.startsWith('data:application/octet-stream;base64,');
+    let F;
+    F = 'pikafish.wasm';
+    if (!Da(F)) {
+      const Ea = F;
+      F = f.locateFile ? f.locateFile(Ea, x) : x + Ea;
+    }
+    function Fa(a) {
+      if (a == F && oa) return new Uint8Array(oa);
+
+      if (ma) return ma(a);
+
+      throw 'both async and sync fetching of the wasm failed';
+    }
+    function Ga(a) {
+      return oa || (!da && !m) || typeof fetch !== 'function'
+        ? Promise.resolve().then(() => Fa(a))
+        : fetch(a, { credentials: 'same-origin' })
+            .then((b) => {
+              if (!b.ok) throw `failed to load wasm binary file at '${a}'`;
+
+              return b.arrayBuffer();
+            })
+            .catch(() => Fa(a));
+    }
+    function Ha(a, b, c) {
+      return Ga(a)
+        .then((d) => WebAssembly.instantiate(d, b))
+        .then(c, (d) => {
+          t(`failed to asynchronously prepare wasm: ${d}`);
+          Ca(d);
+        });
+    }
+    function Ia(a, b) {
+      const c = F;
+
+      return oa ||
+        typeof WebAssembly.instantiateStreaming !== 'function' ||
+        Da(c) ||
+        typeof fetch !== 'function'
+        ? Ha(c, a, b)
+        : fetch(c, { credentials: 'same-origin' }).then((d) =>
+            WebAssembly.instantiateStreaming(d, a).then(b, (e) => {
+              t(`wasm streaming compile failed: ${e}`);
+              t('falling back to ArrayBuffer instantiation');
+
+              return Ha(c, a, b);
+            }),
+          );
+    }
+    let H;
+    let Ja;
+    function Ka(a) {
+      this.name = 'ExitStatus';
+      this.message = `Program terminated with exit(${a})`;
+      this.status = a;
+    }
+    const La = (a) => {
+      for (; a.length > 0; ) a.shift()(f);
+    };
+    const Ma = f.noExitRuntime || !0;
+    function I() {
+      const a =  __get$(B,+Na>>2) ;
+      Na += 4;
+
+      return a;
+    }
+    const Oa = (a, b) => {
+      for (var c = 0, d = a.length - 1; d >= 0; d--) {
+        const e =  __get$(a,d) ;
+        e === '.'
+          ? a.splice(d, 1)
+          : e === '..'
+            ? (a.splice(d, 1), c++)
+            : c && (a.splice(d, 1), c--);
+      }
+      if (b) for (; c; c--) a.unshift('..');
+
+      return a;
+    };
+    const J = (a) => {
+      const b = a.charAt(0) === '/';
+      const c = a.substr(-1) === '/';
+      (a = Oa(
+        a.split('/').filter((d) => !!d),
+        !b,
+      ).join('/')) ||
+        b ||
+        (a = '.');
+      a && c && (a += '/');
+
+      return (b ? '/' : '') + a;
+    };
+    const Pa = (a) => {
+      let b = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/.exec(a).slice(1);
+      a = b[0];
+      b = b[1];
+      if (!a && !b) return '.';
+
+      b &&= b.substr(0, b.length - 1);
+
+      return a + b;
+    };
+    const Qa = (a) => {
+      if (a === '/') return '/';
+
+      a = J(a);
+      a =  __call$(a,"replace",[/\/$/,'']) ;
+      const b = a.lastIndexOf('/');
+
+      return b === -1 ? a : a.substr(b + 1);
+    };
+    const Ra = () => {
+      if (typeof crypto === 'object' && typeof crypto.getRandomValues === 'function')
+        return (a) => crypto.getRandomValues(a);
+
+      Ca('initRandomDevice');
+    };
+    let Sa = (a) => (Sa = Ra())(a);
+    const Ta = (...a) => {
+      for (var b = '', c = !1, d = a.length - 1; d >= -1 && !c; d--) {
+        c = d >= 0 ?  __get$(a,d)  : '/';
+        if (typeof c !== 'string') throw new TypeError('Arguments to path.resolve must be strings');
+
+        if (!c) return '';
+
+        b = `${c}/${b}`;
+        c = c.charAt(0) === '/';
+      }
+      b = Oa(
+        b.split('/').filter((e) => !!e),
+        !c,
+      ).join('/');
+
+      return (c ? '/' : '') + b || '.';
+    };
+    const Ua = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf8') : void 0;
+    const K = (a, b) => {
+      for (var c = b + NaN, d = b;  __get$(a,d)  && !(d >= c); ) ++d;
+
+      if (d - b > 16 && a.buffer && Ua) return Ua.decode(a.subarray(b, d));
+
+      for (c = ''; b < d; ) {
+        let e =  __get$(a,b++) ;
+        if (e & 128) {
+          const h =  __get$(a,b++)  & 63;
+          if ((e & 224) == 192) c += String.fromCharCode(((e & 31) << 6) | h);
+          else {
+            const k =  __get$(a,b++)  & 63;
+            e =
+              (e & 240) == 224
+                ? ((e & 15) << 12) | (h << 6) | k
+                : ((e & 7) << 18) | (h << 12) | (k << 6) | ( __get$(a,b++)  & 63);
+            e < 65536
+              ? (c += String.fromCharCode(e))
+              : ((e -= 65536), (c += String.fromCharCode(55296 | (e >> 10), 56320 | (e & 1023))));
+          }
+        } else c += String.fromCharCode(e);
+      }
+
+      return c;
+    };
+    let Va = [];
+    const Wa = (a) => {
+      for (var b = 0, c = 0; c < a.length; ++c) {
+        const d = a.charCodeAt(c);
+        d <= 127
+          ? b++
+          : d <= 2047
+            ? (b += 2)
+            : d >= 55296 && d <= 57343
+              ? ((b += 4), ++c)
+              : (b += 3);
+      }
+
+      return b;
+    };
+    const L = (a, b, c, d) => {
+      if (!(d > 0)) return 0;
+
+      const e = c;
+      d = c + d - 1;
+      for (let h = 0; h < a.length; ++h) {
+        let k = a.charCodeAt(h);
+        if (k >= 55296 && k <= 57343) {
+          const q = a.charCodeAt(++h);
+          k = (65536 + ((k & 1023) << 10)) | (q & 1023);
+        }
+        if (k <= 127) {
+          if (c >= d) break;
+
+           __set$(b,c++,k) ;
+        } else {
+          if (k <= 2047) {
+            if (c + 1 >= d) break;
+
+             __set$(b,c++,192|k>>6) ;
+          } else {
+            if (k <= 65535) {
+              if (c + 2 >= d) break;
+
+               __set$(b,c++,224|k>>12) ;
+            } else {
+              if (c + 3 >= d) break;
+
+               __set$(b,c++,240|k>>18) ;
+               __set$(b,c++,128|k>>12&63) ;
+            }
+             __set$(b,c++,128|k>>6&63) ;
+          }
+           __set$(b,c++,128|k&63) ;
+        }
+      }
+       __set$(b,c,0) ;
+
+      return c - e;
+    };
+    function Xa(a, b) {
+      const c = Array(Wa(a) + 1);
+      a = L(a, c, 0, c.length);
+      b && (c.length = a);
+
+      return c;
+    }
+    const Ya = [];
+    function Za(a, b) {
+       __set$(Ya,a,{input:[],o:[],C:b}) ;
+      $a(a, ab);
+    }
+    var ab = {
+      open(a) {
+        const b =  __get$(Ya,a.node.T) ;
+        if (!b) throw new M(43);
+
+        a.j = b;
+        a.seekable = !1;
+      },
+      close(a) {
+        a.j.C.R(a.j);
+      },
+      R(a) {
+        a.j.C.R(a.j);
+      },
+      read(a, b, c, d) {
+        if (!a.j || !a.j.C.ha) throw new M(60);
+
+        for (var e = 0, h = 0; h < d; h++) {
+          try {
+            var k = a.j.C.ha(a.j);
+          } catch (q) {
+            throw new M(29);
+          }
+          if (void 0 === k && e === 0) throw new M(6);
+
+          if (k === null || void 0 === k) break;
+
+          e++;
+           __set$(b,c+h,k) ;
+        }
+        e && (a.node.timestamp = Date.now());
+
+        return e;
+      },
+      write(a, b, c, d) {
+        if (!a.j || !a.j.C.ba) throw new M(60);
+
+        try {
+          for (var e = 0; e < d; e++) a.j.C.ba(a.j,  __get$(b,c+e) );
+        } catch (h) {
+          throw new M(29);
+        }
+        d && (a.node.timestamp = Date.now());
+
+        return e;
+      },
+    };
+    const bb = {
+      ha() {
+        a: {
+          if (!Va.length) {
+            var a = null;
+            typeof window !== 'undefined' && typeof window.prompt === 'function'
+              ? ((a = window.prompt('Input: ')), a !== null && (a += '\n'))
+              : typeof readline === 'function' && ((a = readline()), a !== null && (a += '\n'));
+            if (!a) {
+              a = null;
+              break a;
+            }
+            Va = Xa(a, !0);
+          }
+          a = Va.shift();
+        }
+
+        return a;
+      },
+      ba(a, b) {
+        b === null || b === 10 ? (na(K(a.o, 0)), (a.o = [])) : b != 0 && a.o.push(b);
+      },
+      R(a) {
+        a.o && a.o.length > 0 && (na(K(a.o, 0)), (a.o = []));
+      },
+      va() {
+        return {
+          Ma: 25856,
+          Oa: 5,
+          La: 191,
+          Na: 35387,
+          Ka: [
+            3, 28, 127, 21, 4, 0, 1, 0, 17, 19, 26, 0, 18, 15, 23, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+          ],
+        };
+      },
+      wa() {
+        return 0;
+      },
+      xa() {
+        return [24, 80];
+      },
+    };
+    const cb = {
+      ba(a, b) {
+        b === null || b === 10 ? (t(K(a.o, 0)), (a.o = [])) : b != 0 && a.o.push(b);
+      },
+      R(a) {
+        a.o && a.o.length > 0 && (t(K(a.o, 0)), (a.o = []));
+      },
+    };
+    function db(a, b) {
+      let c = a.g ? a.g.length : 0;
+      c >= b ||
+        ((b = Math.max(b, (c * (c < 1048576 ? 2.0 : 1.125)) >>> 0)),
+        c != 0 && (b = Math.max(b, 256)),
+        (c = a.g),
+        (a.g = new Uint8Array(b)),
+        a.l > 0 && a.g.set(c.subarray(0, a.l), 0));
+    }
+    var N = {
+      v: null,
+      B() {
+        return N.createNode(null, '/', 16895, 0);
+      },
+      createNode(a, b, c, d) {
+        if ((c & 61440) === 24576 || (c & 61440) === 4096) throw new M(63);
+
+        N.v ||
+          (N.v = {
+            dir: {
+              node: {
+                F: N.h.F,
+                s: N.h.s,
+                N: N.h.N,
+                S: N.h.S,
+                ra: N.h.ra,
+                X: N.h.X,
+                sa: N.h.sa,
+                qa: N.h.qa,
+                U: N.h.U,
+              },
+              stream: { G: N.i.G },
+            },
+            file: {
+              node: { F: N.h.F, s: N.h.s },
+              stream: {
+                G: N.i.G,
+                read: N.i.read,
+                write: N.i.write,
+                ea: N.i.ea,
+                aa: N.i.aa,
+                na: N.i.na,
+              },
+            },
+            link: { node: { F: N.h.F, s: N.h.s, P: N.h.P }, stream: {} },
+            fa: { node: { F: N.h.F, s: N.h.s }, stream: eb },
+          });
+        c = fb(a, b, c, d);
+        O(c.mode)
+          ? ((c.h = N.v.dir.node), (c.i = N.v.dir.stream), (c.g = {}))
+          : (c.mode & 61440) === 32768
+            ? ((c.h = N.v.file.node), (c.i = N.v.file.stream), (c.l = 0), (c.g = null))
+            : (c.mode & 61440) === 40960
+              ? ((c.h = N.v.link.node), (c.i = N.v.link.stream))
+              : (c.mode & 61440) === 8192 && ((c.h = N.v.fa.node), (c.i = N.v.fa.stream));
+        c.timestamp = Date.now();
+        a && (( __set$(a.g,b,c) ), (a.timestamp = c.timestamp));
+
+        return c;
+      },
+      Ta(a) {
+        return a.g
+          ? a.g.subarray
+            ? a.g.subarray(0, a.l)
+            : new Uint8Array(a.g)
+          : new Uint8Array(0);
+      },
+      h: {
+        F(a) {
+          const b = {};
+          b.Qa = (a.mode & 61440) === 8192 ? a.id : 1;
+          b.Wa = a.id;
+          b.mode = a.mode;
+          b.Ya = 1;
+          b.uid = 0;
+          b.Ua = 0;
+          b.T = a.T;
+          O(a.mode)
+            ? (b.size = 4096)
+            : (a.mode & 61440) === 32768
+              ? (b.size = a.l)
+              : (a.mode & 61440) === 40960
+                ? (b.size = a.link.length)
+                : (b.size = 0);
+          b.Ia = new Date(a.timestamp);
+          b.Xa = new Date(a.timestamp);
+          b.Pa = new Date(a.timestamp);
+          b.ta = 4096;
+          b.Ja = Math.ceil(b.size / b.ta);
+
+          return b;
+        },
+        s(a, b) {
+          void 0 !== b.mode && (a.mode = b.mode);
+          void 0 !== b.timestamp && (a.timestamp = b.timestamp);
+          if (void 0 !== b.size && ((b = b.size), a.l != b)) {
+            if (b == 0) ((a.g = null), (a.l = 0));
+            else {
+              const c = a.g;
+              a.g = new Uint8Array(b);
+              c && a.g.set(c.subarray(0, Math.min(b, a.l)));
+              a.l = b;
+            }
+          }
+        },
+        N() {
+          throw gb[44];
+        },
+        S(a, b, c, d) {
+          return N.createNode(a, b, c, d);
+        },
+        ra(a, b, c) {
+          if (O(a.mode)) {
+            try {
+              var d = P(b, c);
+            } catch (h) {}
+            if (d) for (const e in d.g) throw new M(55);
+          }
+          delete a.parent.g[a.name];
+          a.parent.timestamp = Date.now();
+          a.name = c;
+           __set$(b.g,c,a) ;
+          b.timestamp = a.parent.timestamp;
+          a.parent = b;
+        },
+        X(a, b) {
+          delete a.g[b];
+          a.timestamp = Date.now();
+        },
+        sa(a, b) {
+          const c = P(a, b);
+          let d;
+          for (d in c.g) throw new M(55);
+
+          delete a.g[b];
+          a.timestamp = Date.now();
+        },
+        qa(a) {
+          const b = ['.', '..'];
+          let c;
+          for (c of Object.keys(a.g)) b.push(c);
+
+          return b;
+        },
+        U(a, b, c) {
+          a = N.createNode(a, b, 41471, 0);
+          a.link = c;
+
+          return a;
+        },
+        P(a) {
+          if ((a.mode & 61440) !== 40960) throw new M(28);
+
+          return a.link;
+        },
+      },
+      i: {
+        read(a, b, c, d, e) {
+          const h = a.node.g;
+          if (e >= a.node.l) return 0;
+
+          a = Math.min(a.node.l - e, d);
+          if (a > 8 && h.subarray) b.set(h.subarray(e, e + a), c);
+          else for (d = 0; d < a; d++)  __set$(b,c+d,__get$(h,e+d)) ;
+
+          return a;
+        },
+        write(a, b, c, d, e, h) {
+          b.buffer === z.buffer && (h = !1);
+          if (!d) return 0;
+
+          a = a.node;
+          a.timestamp = Date.now();
+          if (b.subarray && (!a.g || a.g.subarray)) {
+            if (h) return ((a.g = b.subarray(c, c + d)), (a.l = d));
+
+            if (a.l === 0 && e === 0) return ((a.g = b.slice(c, c + d)), (a.l = d));
+
+            if (e + d <= a.l) return (a.g.set(b.subarray(c, c + d), e), d);
+          }
+          db(a, e + d);
+          if (a.g.subarray && b.subarray) a.g.set(b.subarray(c, c + d), e);
+          else for (h = 0; h < d; h++)  __set$(a.g,e+h,__get$(b,c+h)) ;
+
+          a.l = Math.max(a.l, e + d);
+
+          return d;
+        },
+        G(a, b, c) {
+          c === 1
+            ? (b += a.position)
+            : c === 2 && (a.node.mode & 61440) === 32768 && (b += a.node.l);
+          if (b < 0) throw new M(28);
+
+          return b;
+        },
+        ea(a, b, c) {
+          db(a.node, b + c);
+          a.node.l = Math.max(a.node.l, b + c);
+        },
+        aa(a, b, c, d, e) {
+          if ((a.node.mode & 61440) !== 32768) throw new M(43);
+
+          a = a.node.g;
+          if (e & 2 || a.buffer !== z.buffer) {
+            if (c > 0 || c + b < a.length) {
+              a.subarray
+                ? (a = a.subarray(c, c + b))
+                : (a = Array.prototype.slice.call(a, c, c + b));
+            }
+            c = !0;
+            Ca();
+            b = void 0;
+            if (!b) throw new M(48);
+
+            z.set(a, b);
+          } else ((c = !1), (b = a.byteOffset));
+
+          return { $a: b, Ha: c };
+        },
+        na(a, b, c, d) {
+          N.i.write(a, b, 0, d, c, !1);
+
+          return 0;
+        },
+      },
+    };
+    const hb = (a, b, c) => {
+      const d = `al ${a}`;
+      la(
+        a,
+        (e) => {
+          b(new Uint8Array(e));
+          d && Ba(d);
+        },
+        () => {
+          if (c) c();
+          else throw `Loading data file "${a}" failed.`;
+        },
+      );
+      d && Aa(d);
+    };
+    const ib = f.preloadPlugins || [];
+    const jb = (a, b, c, d) => {
+      typeof Browser !== 'undefined' && Browser.Va();
+      let e = !1;
+      ib.forEach((h) => {
+        !e && h.canHandle(b) && (h.handle(a, b, c, d), (e = !0));
+      });
+
+      return e;
+    };
+    const lb = (a, b, c, d, e, h, k, q, w, l) => {
+      function n(g) {
+        function p(r) {
+          l?.();
+          q || kb(a, b, r, d, e, w);
+          h?.();
+          Ba(v);
+        }
+        jb(g, u, p, () => {
+          k?.();
+          Ba(v);
+        }) || p(g);
+      }
+      var u = b ? Ta(J(`${a}/${b}`)) : a;
+      var v = `cp ${u}`;
+      Aa(v);
+      typeof c === 'string' ? hb(c, n, k) : n(c);
+    };
+    const mb = (a, b) => {
+      let c = 0;
+      a && (c |= 365);
+      b && (c |= 146);
+
+      return c;
+    };
+    let nb = null;
+    const ob = {};
+    const pb = [];
+    let qb = 1;
+    let Q = null;
+    let rb = !0;
+    var M = class {
+      constructor(a) {
+        this.name = 'ErrnoError';
+        this.u = a;
+      }
+    };
+    var gb = {};
+    const sb = class {
+      constructor() {
+        this.m = {};
+        this.node = null;
+      }
+
+      get flags() {
+        return this.m.flags;
+      }
+
+      set flags(a) {
+        this.m.flags = a;
+      }
+
+      get position() {
+        return this.m.position;
+      }
+
+      set position(a) {
+        this.m.position = a;
+      }
+    };
+    const tb = class {
+      constructor(a, b, c, d) {
+        a ||= this;
+        this.parent = a;
+        this.B = a.B;
+        this.O = null;
+        this.id = qb++;
+        this.name = b;
+        this.mode = c;
+        this.h = {};
+        this.i = {};
+        this.T = d;
+      }
+
+      get read() {
+        return (this.mode & 365) === 365;
+      }
+
+      set read(a) {
+        a ? (this.mode |= 365) : (this.mode &= -366);
+      }
+
+      get write() {
+        return (this.mode & 146) === 146;
+      }
+
+      set write(a) {
+        a ? (this.mode |= 146) : (this.mode &= -147);
+      }
+
+      get za() {
+        return O(this.mode);
+      }
+
+      get ya() {
+        return (this.mode & 61440) === 8192;
+      }
+    };
+    function R(a, b = {}) {
+      a = Ta(a);
+      if (!a) return { path: '', node: null };
+
+      b = { ga: !0, ca: 0, ...b };
+      if (b.ca > 8) throw new M(32);
+
+      a = a.split('/').filter((k) => !!k);
+      for (var c = nb, d = '/', e = 0; e < a.length; e++) {
+        let h = e === a.length - 1;
+        if (h && b.parent) break;
+
+        c = P(c,  __get$(a,e) );
+        d = J(`${d}/${ __get$(a,e) }`);
+        c.O && (!h || (h && b.ga)) && (c = c.O.root);
+        if (!h || b.Z) {
+          for (h = 0; (c.mode & 61440) === 40960; ) {
+            if (((c = ub(d)), (d = Ta(Pa(d), c)), (c = R(d, { ca: b.ca + 1 }).node), h++ > 40))
+              throw new M(32);
+          }
+        }
+      }
+
+      return { path: d, node: c };
+    }
+    function S(a) {
+      for (var b; ; ) {
+        if (a === a.parent)
+          return ((a = a.B.ma), b ? ( __get$(a,a.length-1)  !== '/' ? `${a}/${b}` : a + b) : a);
+
+        b = b ? `${a.name}/${b}` : a.name;
+        a = a.parent;
+      }
+    }
+    function vb(a, b) {
+      for (var c = 0, d = 0; d < b.length; d++) c = ((c << 5) - c + b.charCodeAt(d)) | 0;
+
+      return ((a + c) >>> 0) % Q.length;
+    }
+    function P(a, b) {
+      var c = O(a.mode) ? ((c = wb(a, 'x')) ? c : a.h.N ? 0 : 2) : 54;
+      if (c) throw new M(c);
+
+      for (c =  __get$(Q,vb(a.id,b)) ; c; c = c.K) {
+        const d = c.name;
+        if (c.parent.id === a.id && d === b) return c;
+      }
+
+      return a.h.N(a, b);
+    }
+    function fb(a, b, c, d) {
+      a = new tb(a, b, c, d);
+      b = vb(a.parent.id, a.name);
+      a.K =  __get$(Q,b) ;
+
+      return ( __set$(Q,b,a) );
+    }
+    function O(a) {
+      return (a & 61440) === 16384;
+    }
+    function xb(a) {
+      let b =  __get$(['r','w','rw'],a&3) ;
+      a & 512 && (b += 'w');
+
+      return b;
+    }
+    function wb(a, b) {
+      if (rb) return 0;
+
+      if (!b.includes('r') || a.mode & 292) {
+        if ((b.includes('w') && !(a.mode & 146)) || (b.includes('x') && !(a.mode & 73))) return 2;
+      } else return 2;
+
+      return 0;
+    }
+    function yb(a, b) {
+      try {
+        return (P(a, b), 20);
+      } catch (c) {}
+
+      return wb(a, 'wx');
+    }
+    function T(a) {
+      a =  __get$(pb,a) ;
+      if (!a) throw new M(8);
+
+      return a;
+    }
+    function zb(a, b = -1) {
+      a =  __call$(Object,"assign",[new sb(),a]) ;
+      if (b == -1) {
+        a: {
+          for (b = 0; b <= 4096; b++) if (! __get$(pb,b) ) break a;
+
+          throw new M(33);
+        }
+      }
+      a.D = b;
+
+      return ( __set$(pb,b,a) );
+    }
+    function Ab(a, b = -1) {
+      a = zb(a, b);
+      a.i?.Ra?.(a);
+
+      return a;
+    }
+    var eb = {
+      open(a) {
+        a.i =  __get$(ob,a.node.T) .i;
+        a.i.open?.(a);
+      },
+      G() {
+        throw new M(70);
+      },
+    };
+    function $a(a, b) {
+       __set$(ob,a,{i:b}) ;
+    }
+    function Bb(a, b) {
+      const c = b === '/';
+      if (c && nb) throw new M(10);
+
+      if (!c && b) {
+        var d = R(b, { ga: !1 });
+        b = d.path;
+        d = d.node;
+        if (d.O) throw new M(10);
+
+        if (!O(d.mode)) throw new M(54);
+      }
+      b = { type: a, Za: {}, ma: b, Aa: [] };
+      a = a.B(b);
+      a.B = b;
+      b.root = a;
+      c ? (nb = a) : d && ((d.O = b), d.B && d.B.Aa.push(b));
+    }
+    function Cb(a, b, c) {
+      const d = R(a, { parent: !0 }).node;
+      a = Qa(a);
+      if (!a || a === '.' || a === '..') throw new M(28);
+
+      const e = yb(d, a);
+      if (e) throw new M(e);
+
+      if (!d.h.S) throw new M(63);
+
+      return d.h.S(d, a, b, c);
+    }
+    function U(a) {
+      return Cb(a, 16895, 0);
+    }
+    function Db(a, b, c) {
+      typeof c === 'undefined' && ((c = b), (b = 438));
+
+      return Cb(a, b | 8192, c);
+    }
+    function Eb(a, b) {
+      if (!Ta(a)) throw new M(44);
+
+      const c = R(b, { parent: !0 }).node;
+      if (!c) throw new M(44);
+
+      b = Qa(b);
+      const d = yb(c, b);
+      if (d) throw new M(d);
+
+      if (!c.h.U) throw new M(63);
+
+      c.h.U(c, b, a);
+    }
+    function Fb(a) {
+      let b = R(a, { parent: !0 }).node;
+      if (!b) throw new M(44);
+
+      const c = Qa(a);
+      a = P(b, c);
+      a: {
+        try {
+          var d = P(b, c);
+        } catch (h) {
+          d = h.u;
+          break a;
+        }
+        const e = wb(b, 'wx');
+        d = e || (O(d.mode) ? 31 : 0);
+      }
+      if (d) throw new M(d);
+
+      if (!b.h.X) throw new M(63);
+
+      if (a.O) throw new M(10);
+
+      b.h.X(b, c);
+      b = vb(a.parent.id, a.name);
+      if ( __get$(Q,b)  === a)  __set$(Q,b,a.K) ;
+      else {
+        for (b =  __get$(Q,b) ; b; ) {
+          if (b.K === a) {
+            b.K = a.K;
+            break;
+          }
+          b = b.K;
+        }
+      }
+    }
+    function ub(a) {
+      a = R(a).node;
+      if (!a) throw new M(44);
+
+      if (!a.h.P) throw new M(28);
+
+      return Ta(S(a.parent), a.h.P(a));
+    }
+    function Gb(a, b) {
+      a = typeof a === 'string' ? R(a, { Z: !0 }).node : a;
+      if (!a.h.s) throw new M(63);
+
+      a.h.s(a, { mode: (b & 4095) | (a.mode & -4096), timestamp: Date.now() });
+    }
+    function Hb(a, b) {
+      if (b < 0) throw new M(28);
+
+      a = typeof a === 'string' ? R(a, { Z: !0 }).node : a;
+      if (!a.h.s) throw new M(63);
+
+      if (O(a.mode)) throw new M(31);
+
+      if ((a.mode & 61440) !== 32768) throw new M(28);
+
+      const c = wb(a, 'w');
+      if (c) throw new M(c);
+
+      a.h.s(a, { size: b, timestamp: Date.now() });
+    }
+    function Ib(a, b, c) {
+      if (a === '') throw new M(44);
+
+      if (typeof b === 'string') {
+        var d =  __get$({r:0,'r+':2,w:577,'w+':578,a:1089,'a+':1090},b) ;
+        if (typeof d === 'undefined') throw Error(`Unknown file open mode: ${b}`);
+
+        b = d;
+      }
+      c = b & 64 ? ((typeof c === 'undefined' ? 438 : c) & 4095) | 32768 : 0;
+      if (typeof a === 'object') var e = a;
+      else {
+        a = J(a);
+        try {
+          e = R(a, { Z: !(b & 131072) }).node;
+        } catch (h) {}
+      }
+      d = !1;
+      if (b & 64) {
+        if (e) {
+          if (b & 128) throw new M(20);
+        } else ((e = Cb(a, c, 0)), (d = !0));
+      }
+      if (!e) throw new M(44);
+
+      (e.mode & 61440) === 8192 && (b &= -513);
+      if (b & 65536 && !O(e.mode)) throw new M(54);
+
+      if (
+        !d &&
+        (c = e
+          ? (e.mode & 61440) === 40960
+            ? 32
+            : O(e.mode) && (xb(b) !== 'r' || b & 512)
+              ? 31
+              : wb(e, xb(b))
+          : 44)
+      )
+        throw new M(c);
+
+      b & 512 && !d && Hb(e, 0);
+      b &= -131713;
+      e = zb({
+        node: e,
+        path: S(e),
+        flags: b,
+        seekable: !0,
+        position: 0,
+        i: e.i,
+        Ga: [],
+        error: !1,
+      });
+      e.i.open && e.i.open(e);
+      !f.logReadFiles || b & 1 || ((Jb ||= {}), a in Jb || ( __set$(Jb,a,1) ));
+
+      return e;
+    }
+    function Kb(a) {
+      if (a.D === null) throw new M(8);
+
+      a.$ && (a.$ = null);
+      try {
+        a.i.close && a.i.close(a);
+      } catch (b) {
+        throw b;
+      } finally {
+         __set$(pb,a.D,null) ;
+      }
+      a.D = null;
+    }
+    function Lb(a, b, c) {
+      if (a.D === null) throw new M(8);
+
+      if (!a.seekable || !a.i.G) throw new M(70);
+
+      if (c != 0 && c != 1 && c != 2) throw new M(28);
+
+      a.position = a.i.G(a, b, c);
+      a.Ga = [];
+    }
+    function Mb(a, b, c, d, e, h) {
+      if (d < 0 || e < 0) throw new M(28);
+
+      if (a.D === null) throw new M(8);
+
+      if ((a.flags & 2097155) === 0) throw new M(8);
+
+      if (O(a.node.mode)) throw new M(31);
+
+      if (!a.i.write) throw new M(28);
+
+      a.seekable && a.flags & 1024 && Lb(a, 0, 2);
+      const k = typeof e !== 'undefined';
+      if (!k) e = a.position;
+      else if (!a.seekable) throw new M(70);
+
+      b = a.i.write(a, b, c, d, e, h);
+      k || (a.position += b);
+
+      return b;
+    }
+    function ea(a, b, c) {
+      Nb = !0;
+      f.stdin = a || f.stdin;
+      f.stdout = b || f.stdout;
+      f.stderr = c || f.stderr;
+      f.stdin ? V('/dev', 'stdin', f.stdin) : Eb('/dev/tty', '/dev/stdin');
+      f.stdout ? V('/dev', 'stdout', null, f.stdout) : Eb('/dev/tty', '/dev/stdout');
+      f.stderr ? V('/dev', 'stderr', null, f.stderr) : Eb('/dev/tty1', '/dev/stderr');
+      Ib('/dev/stdin', 0);
+      Ib('/dev/stdout', 1);
+      Ib('/dev/stderr', 1);
+    }
+    let Nb;
+    function Ob(a, b) {
+      a = typeof a === 'string' ? a : S(a);
+      for (b = b.split('/').reverse(); b.length; ) {
+        const c = b.pop();
+        if (c) {
+          var d = J(`${a}/${c}`);
+          try {
+            U(d);
+          } catch (e) {}
+          a = d;
+        }
+      }
+
+      return d;
+    }
+    function Pb(a, b, c, d) {
+      a = J(`${typeof a === 'string' ? a : S(a)}/${b}`);
+      c = mb(c, d);
+
+      return Cb(a, ((void 0 !== c ? c : 438) & 4095) | 32768, 0);
+    }
+    function kb(a, b, c, d, e, h) {
+      let k = b;
+      a && ((a = typeof a === 'string' ? a : S(a)), (k = b ? J(`${a}/${b}`) : a));
+      a = mb(d, e);
+      k = Cb(k, ((void 0 !== a ? a : 438) & 4095) | 32768, 0);
+      if (c) {
+        if (typeof c === 'string') {
+          b = Array(c.length);
+          d = 0;
+          for (e = c.length; d < e; ++d)  __set$(b,d,c.charCodeAt(d)) ;
+
+          c = b;
+        }
+        Gb(k, a | 146);
+        b = Ib(k, 577);
+        Mb(b, c, 0, c.length, 0, h);
+        Kb(b);
+        Gb(k, a);
+      }
+    }
+    function V(a, b, c, d) {
+      a = J(`${typeof a === 'string' ? a : S(a)}/${b}`);
+      b = mb(!!c, !!d);
+      V.la || (V.la = 64);
+      const e = (V.la++ << 8) | 0;
+      $a(e, {
+        open(h) {
+          h.seekable = !1;
+        },
+        close() {
+          d?.buffer?.length && d(10);
+        },
+        read(h, k, q, w) {
+          for (var l = 0, n = 0; n < w; n++) {
+            try {
+              var u = c();
+            } catch (v) {
+              throw new M(29);
+            }
+            if (void 0 === u && l === 0) throw new M(6);
+
+            if (u === null || void 0 === u) break;
+
+            l++;
+             __set$(k,q+n,u) ;
+          }
+          l && (h.node.timestamp = Date.now());
+
+          return l;
+        },
+        write(h, k, q, w) {
+          for (var l = 0; l < w; l++) {
+            try {
+              d( __get$(k,q+l) );
+            } catch (n) {
+              throw new M(29);
+            }
+          }
+          w && (h.node.timestamp = Date.now());
+
+          return l;
+        },
+      });
+
+      return Db(a, b, e);
+    }
+    function Qb(a) {
+      if (!(a.ya || a.za || a.link || a.g)) {
+        if (typeof XMLHttpRequest !== 'undefined') {
+          throw Error(
+            'Lazy loading should have been performed (contents set) in createLazyFile, but it was not. Lazy loading only works in web workers. Use --embed-file or --preload-file in emcc on the main thread.',
+          );
+        }
+        if (ka) {
+          try {
+            ((a.g = Xa(ka(a.url), !0)), (a.l = a.g.length));
+          } catch (b) {
+            throw new M(29);
+          }
+        } else throw Error('Cannot load without read() or XMLHttpRequest.');
+      }
+    }
+    function Rb(a, b, c, d, e) {
+      class h {
+        constructor() {
+          this.M = !1;
+          this.m = [];
+          this.L = void 0;
+          this.ia = this.ja = 0;
+        }
+
+        get(n) {
+          if (!(n > this.length - 1 || n < 0)) {
+            const u = n % this.oa;
+
+            return  __get$(this.L(n/this.oa|0),u) ;
+          }
+        }
+
+        Ba(n) {
+          this.L = n;
+        }
+
+        ka() {
+          let n = new XMLHttpRequest();
+          n.open('HEAD', c, !1);
+          n.send(null);
+          if (!((n.status >= 200 && n.status < 300) || n.status === 304))
+            throw Error(`Couldn't load ${c}. Status: ${n.status}`);
+
+          let u = Number(n.getResponseHeader('Content-length'));
+          let v;
+          const g = (v = n.getResponseHeader('Accept-Ranges')) && v === 'bytes';
+          n = (v = n.getResponseHeader('Content-Encoding')) && v === 'gzip';
+          let p = 1048576;
+          g || (p = u);
+          const r = this;
+          r.Ba((y) => {
+            let G = y * p;
+            let X = (y + 1) * p - 1;
+            X = Math.min(X, u - 1);
+            if (typeof  __get$(r.m,y)  === 'undefined') {
+              const jc = r.m;
+              if (G > X) throw Error(`invalid range (${G}, ${X}) or no bytes requested!`);
+
+              if (X > u - 1) throw Error(`only ${u} bytes available! programmer error!`);
+
+              const C = new XMLHttpRequest();
+              C.open('GET', c, !1);
+              u !== p && C.setRequestHeader('Range', `bytes=${G}-${X}`);
+              C.responseType = 'arraybuffer';
+              C.overrideMimeType && C.overrideMimeType('text/plain; charset=x-user-defined');
+              C.send(null);
+              if (!((C.status >= 200 && C.status < 300) || C.status === 304))
+                throw Error(`Couldn't load ${c}. Status: ${C.status}`);
+
+              G =
+                void 0 !== C.response
+                  ? new Uint8Array(C.response || [])
+                  : Xa(C.responseText || '', !0);
+               __set$(jc,y,G) ;
+            }
+            if (typeof  __get$(r.m,y)  === 'undefined') throw Error('doXHR failed!');
+
+            return  __get$(r.m,y) ;
+          });
+          if (n || !u) {
+            ((p = u = 1),
+              (p = u = this.L(0).length),
+              na('LazyFiles on gzip forces download of the whole file when length is accessed'));
+          }
+          this.ja = u;
+          this.ia = p;
+          this.M = !0;
+        }
+
+        get length() {
+          this.M || this.ka();
+
+          return this.ja;
+        }
+
+        get oa() {
+          this.M || this.ka();
+
+          return this.ia;
+        }
+      }
+      if (typeof XMLHttpRequest !== 'undefined') {
+        if (!m)
+          throw 'Cannot do synchronous binary XHRs outside webworkers in modern browsers. Use --embed-file or --preload-file in emcc';
+
+        var k = new h();
+        var q = void 0;
+      } else ((q = c), (k = void 0));
+
+      const w = Pb(a, b, d, e);
+      k ? (w.g = k) : q && ((w.g = null), (w.url = q));
+      Object.defineProperties(w, {
+        l: {
+          get() {
+            return this.g.length;
+          },
+        },
+      });
+      const l = {};
+      Object.keys(w.i).forEach((n) => {
+        const u =  __get$(w.i,n) ;
+         __set$(l,n,(...v)=>{Qb(w);return u(...v);}) ;
+      });
+      l.read = (n, u, v, g, p) => {
+        Qb(w);
+        n = n.node.g;
+        if (p >= n.length) u = 0;
+        else {
+          g = Math.min(n.length - p, g);
+          if (n.slice) for (var r = 0; r < g; r++)  __set$(u,v+r,__get$(n,p+r)) ;
+          else for (r = 0; r < g; r++)  __set$(u,v+r,n.get(p+r)) ;
+
+          u = g;
+        }
+
+        return u;
+      };
+      l.aa = () => {
+        Qb(w);
+        Ca();
+        throw new M(48);
+      };
+      w.i = l;
+
+      return w;
+    }
+    const W = {};
+    let Jb;
+    var Na = void 0;
+    const Y = (a) => a % 4 === 0 && (a % 100 !== 0 || a % 400 === 0);
+    const Sb = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+    const Tb = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    const Ub = {};
+    const Wb = () => {
+      if (!Vb) {
+        const a = {
+          USER: 'web_user',
+          LOGNAME: 'web_user',
+          PATH: '/',
+          PWD: '/',
+          HOME: '/home/web_user',
+          LANG: `${ __call$(((typeof navigator==='object'&&navigator.languages)&&navigator.languages[0])||'C',"replace",['-','_']) }.UTF-8`,
+          _: ia || './this.program',
+        };
+        let b;
+        for (b in Ub) void 0 ===  __get$(Ub,b)  ? delete a[b] : ( __set$(a,b,__get$(Ub,b)) );
+
+        const c = [];
+        for (b in a) c.push(`${b}=${ __get$(a,b) }`);
+
+        Vb = c;
+      }
+
+      return Vb;
+    };
+    let Vb;
+    const Xb = (a) => {
+      Ma || (f.onExit?.(a), (qa = !0));
+      ja(a, new Ka(a));
+    };
+    const Yb = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const Zb = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const $b = (a, b, c, d) => {
+      function e(g, p, r) {
+        for (g = typeof g === 'number' ? g.toString() : g || ''; g.length < p; ) g = r[0] + g;
+
+        return g;
+      }
+      function h(g, p) {
+        return e(g, p, '0');
+      }
+      function k(g, p) {
+        function r(G) {
+          return G < 0 ? -1 : G > 0 ? 1 : 0;
+        }
+        let y;
+        (y = r(g.getFullYear() - p.getFullYear())) === 0 &&
+          (y = r(g.getMonth() - p.getMonth())) === 0 &&
+          (y = r(g.getDate() - p.getDate()));
+
+        return y;
+      }
+      function q(g) {
+        switch (g.getDay()) {
+          case 0:
+            return new Date(g.getFullYear() - 1, 11, 29);
+          case 1:
+            return g;
+          case 2:
+            return new Date(g.getFullYear(), 0, 3);
+          case 3:
+            return new Date(g.getFullYear(), 0, 2);
+          case 4:
+            return new Date(g.getFullYear(), 0, 1);
+          case 5:
+            return new Date(g.getFullYear() - 1, 11, 31);
+          case 6:
+            return new Date(g.getFullYear() - 1, 11, 30);
+        }
+      }
+      function w(g) {
+        let p = g.H;
+        for (g = new Date(new Date(g.I + 1900, 0, 1).getTime()); p > 0; ) {
+          var r = g.getMonth();
+          const y =  __get$(Y(g.getFullYear())?Yb:Zb,r) ;
+          if (p > y - g.getDate()) {
+            ((p -= y - g.getDate() + 1),
+              g.setDate(1),
+              r < 11 ? g.setMonth(r + 1) : (g.setMonth(0), g.setFullYear(g.getFullYear() + 1)));
+          } else {
+            g.setDate(g.getDate() + p);
+            break;
+          }
+        }
+        r = new Date(g.getFullYear() + 1, 0, 4);
+        p = q(new Date(g.getFullYear(), 0, 4));
+        r = q(r);
+
+        return k(p, g) <= 0
+          ? k(r, g) <= 0
+            ? g.getFullYear() + 1
+            : g.getFullYear()
+          : g.getFullYear() - 1;
+      }
+      let l =  __get$(D,d+40>>2) ;
+      d = {
+        Ea:  __get$(B,d>>2) ,
+        Da:  __get$(B,d+4>>2) ,
+        V:  __get$(B,d+8>>2) ,
+        da:  __get$(B,d+12>>2) ,
+        W:  __get$(B,d+16>>2) ,
+        I:  __get$(B,d+20>>2) ,
+        A:  __get$(B,d+24>>2) ,
+        H:  __get$(B,d+28>>2) ,
+        ab:  __get$(B,d+32>>2) ,
+        Ca:  __get$(B,d+36>>2) ,
+        Fa: l ? (l ? K(A, l) : '') : '',
+      };
+      c = c ? K(A, c) : '';
+      l = {
+        '%c': '%a %b %d %H:%M:%S %Y',
+        '%D': '%m/%d/%y',
+        '%F': '%Y-%m-%d',
+        '%h': '%b',
+        '%r': '%I:%M:%S %p',
+        '%R': '%H:%M',
+        '%T': '%H:%M:%S',
+        '%x': '%m/%d/%y',
+        '%X': '%H:%M:%S',
+        '%Ec': '%c',
+        '%EC': '%C',
+        '%Ex': '%m/%d/%y',
+        '%EX': '%H:%M:%S',
+        '%Ey': '%y',
+        '%EY': '%Y',
+        '%Od': '%d',
+        '%Oe': '%e',
+        '%OH': '%H',
+        '%OI': '%I',
+        '%Om': '%m',
+        '%OM': '%M',
+        '%OS': '%S',
+        '%Ou': '%u',
+        '%OU': '%U',
+        '%OV': '%V',
+        '%Ow': '%w',
+        '%OW': '%W',
+        '%Oy': '%y',
+      };
+      for (var n in l) c =  __call$(c,"replace",[new RegExp(n,'g'),__get$(l,n)]) ;
+
+      const u = 'Sunday Monday Tuesday Wednesday Thursday Friday Saturday'.split(' ');
+      const v =
+        'January February March April May June July August September October November December'.split(
+          ' ',
+        );
+      l = {
+        '%a': (g) =>  __get$(u,g.A) .substring(0, 3),
+        '%A': (g) =>  __get$(u,g.A) ,
+        '%b': (g) =>  __get$(v,g.W) .substring(0, 3),
+        '%B': (g) =>  __get$(v,g.W) ,
+        '%C': (g) => h(((g.I + 1900) / 100) | 0, 2),
+        '%d': (g) => h(g.da, 2),
+        '%e': (g) => e(g.da, 2, ' '),
+        '%g': (g) => w(g).toString().substring(2),
+        '%G': w,
+        '%H': (g) => h(g.V, 2),
+        '%I': (g) => {
+          g = g.V;
+          g == 0 ? (g = 12) : g > 12 && (g -= 12);
+
+          return h(g, 2);
+        },
+        '%j': (g) => {
+          for (var p = 0, r = 0; r <= g.W - 1; p +=  __get$(Y(g.I+1900)?Yb:Zb,r++) ) {}
+
+          return h(g.da + p, 3);
+        },
+        '%m': (g) => h(g.W + 1, 2),
+        '%M': (g) => h(g.Da, 2),
+        '%n': () => '\n',
+        '%p': (g) => (g.V >= 0 && g.V < 12 ? 'AM' : 'PM'),
+        '%S': (g) => h(g.Ea, 2),
+        '%t': () => '\t',
+        '%u': (g) => g.A || 7,
+        '%U': (g) => h(Math.floor((g.H + 7 - g.A) / 7), 2),
+        '%V': (g) => {
+          let p = Math.floor((g.H + 7 - ((g.A + 6) % 7)) / 7);
+          (g.A + 371 - g.H - 2) % 7 <= 2 && p++;
+          if (p) p == 53 && ((r = (g.A + 371 - g.H) % 7), r == 4 || (r == 3 && Y(g.I)) || (p = 1));
+          else {
+            p = 52;
+            var r = (g.A + 7 - g.H - 1) % 7;
+            (r == 4 || (r == 5 && Y((g.I % 400) - 1))) && p++;
+          }
+
+          return h(p, 2);
+        },
+        '%w': (g) => g.A,
+        '%W': (g) => h(Math.floor((g.H + 7 - ((g.A + 6) % 7)) / 7), 2),
+        '%y': (g) => (g.I + 1900).toString().substring(2),
+        '%Y': (g) => g.I + 1900,
+        '%z': (g) => {
+          g = g.Ca;
+          const p = g >= 0;
+          g = Math.abs(g) / 60;
+
+          return (p ? '+' : '-') + String(`0000${(g / 60) * 100 + (g % 60)}`).slice(-4);
+        },
+        '%Z': (g) => g.Fa,
+        '%%': () => '%',
+      };
+      c =  __call$(c,"replace",[/%%/g,'\x00\x00']) ;
+      for (n in l) c.includes(n) && (c =  __call$(c,"replace",[new RegExp(n,'g'),__call$(l,n,[d])]) );
+
+      c =  __call$(c,"replace",[/\0\0/g,'%']) ;
+      n = Xa(c, !1);
+      if (n.length > b) return 0;
+
+      z.set(n, a);
+
+      return n.length - 1;
+    };
+    const bc = (a) => {
+      const b = Wa(a) + 1;
+      const c = ac(b);
+      L(a, A, c, b);
+
+      return c;
+    };
+    const ec = (a, b, c, d) => {
+      const e = {
+        string: (l) => {
+          let n = 0;
+          l !== null && void 0 !== l && l !== 0 && (n = bc(l));
+
+          return n;
+        },
+        array: (l) => {
+          const n = ac(l.length);
+          z.set(l, n);
+
+          return n;
+        },
+      };
+      a =  __get$(f,`_${a}`) ;
+      const h = [];
+      let k = 0;
+      if (d) {
+        for (let q = 0; q < d.length; q++) {
+          const w =  __get$(e,__get$(c,q)) ;
+          w ? (k === 0 && (k = cc()), ( __set$(h,q,w(__get$(d,q))) )) : ( __set$(h,q,__get$(d,q)) );
+        }
+      }
+      c = a(...h);
+
+      return (c = (function (l) {
+        k !== 0 && dc(k);
+
+        return b === 'string' ? (l ? K(A, l) : '') : b === 'boolean' ? !!l : l;
+      })(c));
+    };
+    [44].forEach((a) => {
+       __set$(gb,a,new M(a)) ;
+       __get$(gb,a) .stack = '<generic error, no stack>';
+    });
+    Q = Array(4096);
+    Bb(N, '/');
+    U('/tmp');
+    U('/home');
+    U('/home/web_user');
+    (function () {
+      U('/dev');
+      $a(259, { read: () => 0, write: (d, e, h, k) => k });
+      Db('/dev/null', 259);
+      Za(1280, bb);
+      Za(1536, cb);
+      Db('/dev/tty', 1280);
+      Db('/dev/tty1', 1536);
+      const a = new Uint8Array(1024);
+      let b = 0;
+      const c = () => {
+        b === 0 && (b = Sa(a).byteLength);
+
+        return  __get$(a,--b) ;
+      };
+      V('/dev', 'random', c);
+      V('/dev', 'urandom', c);
+      U('/dev/shm');
+      U('/dev/shm/tmp');
+    })();
+    (function () {
+      U('/proc');
+      const a = U('/proc/self');
+      U('/proc/self/fd');
+      Bb(
+        {
+          B() {
+            const b = fb(a, 'fd', 16895, 73);
+            b.h = {
+              N(c, d) {
+                const e = T(+d);
+                c = { parent: null, B: { ma: 'fake' }, h: { P: () => e.path } };
+
+                return (c.parent = c);
+              },
+            };
+
+            return b;
+          },
+        },
+        '/proc/self/fd',
+      );
+    })();
+    f.FS_createPath = Ob;
+    f.FS_createDataFile = kb;
+    f.FS_createPreloadedFile = lb;
+    f.FS_unlink = Fb;
+    f.FS_createLazyFile = Rb;
+    f.FS_createDevice = V;
+    const gc = {
+      __syscall_fcntl64(a, b, c) {
+        Na = c;
+        try {
+          const d = T(a);
+          switch (b) {
+            case 0:
+              var e = I();
+              if (e < 0) break;
+
+              for (;  __get$(pb,e) ; ) e++;
+
+              return Ab(d, e).D;
+            case 1:
+            case 2:
+              return 0;
+            case 3:
+              return d.flags;
+            case 4:
+              return ((e = I()), (d.flags |= e), 0);
+            case 12:
+              return ((e = I()), ( __set$(ra,e+0>>1,2) ), 0);
+            case 13:
+            case 14:
+              return 0;
+          }
+
+          return -28;
+        } catch (h) {
+          if (typeof W === 'undefined' || h.name !== 'ErrnoError') throw h;
+
+          return -h.u;
+        }
+      },
+      __syscall_ftruncate64(a, b, c) {
+        b = (c + 2097152) >>> 0 < 4194305 - !!b ? (b >>> 0) + 4294967296 * c : NaN;
+        try {
+          if (isNaN(b)) return 61;
+
+          const d = T(a);
+          if ((d.flags & 2097155) === 0) throw new M(28);
+
+          Hb(d.node, b);
+
+          return 0;
+        } catch (e) {
+          if (typeof W === 'undefined' || e.name !== 'ErrnoError') throw e;
+
+          return -e.u;
+        }
+      },
+      __syscall_getcwd(a, b) {
+        try {
+          if (b === 0) return -28;
+
+          const c = Wa('/') + 1;
+          if (b < c) return -68;
+
+          L('/', A, a, b);
+
+          return c;
+        } catch (d) {
+          if (typeof W === 'undefined' || d.name !== 'ErrnoError') throw d;
+
+          return -d.u;
+        }
+      },
+      __syscall_ioctl(a, b, c) {
+        Na = c;
+        try {
+          const d = T(a);
+          switch (b) {
+            case 21509:
+              return d.j ? 0 : -59;
+            case 21505:
+              if (!d.j) return -59;
+
+              if (d.j.C.va) {
+                a = [
+                  3, 28, 127, 21, 4, 0, 1, 0, 17, 19, 26, 0, 18, 15, 23, 22, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, 0, 0, 0,
+                ];
+                var e = I();
+                 __set$(B,e>>2,25856) ;
+                 __set$(B,e+4>>2,5) ;
+                 __set$(B,e+8>>2,191) ;
+                 __set$(B,e+12>>2,35387) ;
+                for (var h = 0; h < 32; h++)  __set$(z,e+h+17,__get$(a,h)||0) ;
+              }
+
+              return 0;
+            case 21510:
+            case 21511:
+            case 21512:
+              return d.j ? 0 : -59;
+            case 21506:
+            case 21507:
+            case 21508:
+              if (!d.j) return -59;
+
+              if (d.j.C.wa) for (e = I(), a = [], h = 0; h < 32; h++) a.push( __get$(z,e+h+17) );
+
+              return 0;
+            case 21519:
+              if (!d.j) return -59;
+
+              e = I();
+
+              return ( __set$(B,e>>2,0) );
+            case 21520:
+              return d.j ? -28 : -59;
+            case 21531:
+              e = I();
+              if (!d.i.ua) throw new M(59);
+
+              return d.i.ua(d, b, e);
+            case 21523:
+              if (!d.j) return -59;
+
+              d.j.C.xa &&
+                ((h = [24, 80]), (e = I()), ( __set$(ra,e>>1,h[0]) ), ( __set$(ra,e+2>>1,h[1]) ));
+
+              return 0;
+            case 21524:
+              return d.j ? 0 : -59;
+            case 21515:
+              return d.j ? 0 : -59;
+            default:
+              return -28;
+          }
+        } catch (k) {
+          if (typeof W === 'undefined' || k.name !== 'ErrnoError') throw k;
+
+          return -k.u;
+        }
+      },
+      __syscall_openat(a, b, c, d) {
+        Na = d;
+        try {
+          b = b ? K(A, b) : '';
+          const e = b;
+          if (e.charAt(0) === '/') b = e;
+          else {
+            const h = a === -100 ? '/' : T(a).path;
+            if (e.length == 0) throw new M(44);
+
+            b = J(`${h}/${e}`);
+          }
+          const k = d ? I() : 0;
+
+          return Ib(b, c, k).D;
+        } catch (q) {
+          if (typeof W === 'undefined' || q.name !== 'ErrnoError') throw q;
+
+          return -q.u;
+        }
+      },
+      _emscripten_get_now_is_monotonic: () => 1,
+      _emscripten_memcpy_js: (a, b, c) => A.copyWithin(a, b, b + c),
+      _localtime_js(a, b, c) {
+        a = new Date(
+          1000 * ((b + 2097152) >>> 0 < 4194305 - !!a ? (a >>> 0) + 4294967296 * b : NaN),
+        );
+         __set$(B,c>>2,a.getSeconds()) ;
+         __set$(B,c+4>>2,a.getMinutes()) ;
+         __set$(B,c+8>>2,a.getHours()) ;
+         __set$(B,c+12>>2,a.getDate()) ;
+         __set$(B,c+16>>2,a.getMonth()) ;
+         __set$(B,c+20>>2,a.getFullYear()-1900) ;
+         __set$(B,c+24>>2,a.getDay()) ;
+         __set$(B,c+28>>2,__get$(Y(a.getFullYear())?Sb:Tb,a.getMonth())+a.getDate()-1|0) ;
+         __set$(B,c+36>>2,-(60*a.getTimezoneOffset())) ;
+        b = new Date(a.getFullYear(), 6, 1).getTimezoneOffset();
+        const d = new Date(a.getFullYear(), 0, 1).getTimezoneOffset();
+         __set$(B,c+32>>2,(b!=d&&a.getTimezoneOffset()==Math.min(d,b))|0) ;
+      },
+      _mktime_js(a) {
+        const b =  new Date(__get$(B,a+20>>2)+1900,__get$(B,a+16>>2),__get$(B,a+12>>2),__get$(B,a+8>>2),__get$(B,a+4>>2),__get$(B,a>>2),0) ;
+        const c =  __get$(B,a+32>>2) ;
+        const d = b.getTimezoneOffset();
+        let e = new Date(b.getFullYear(), 6, 1).getTimezoneOffset();
+        const h = new Date(b.getFullYear(), 0, 1).getTimezoneOffset();
+        const k = Math.min(h, e);
+        c < 0
+          ? ( __set$(B,a+32>>2,Number(e!=h&&k==d)) )
+          : c > 0 != (k == d) &&
+            ((e = Math.max(h, e)), b.setTime(b.getTime() + 60000 * ((c > 0 ? k : e) - d)));
+         __set$(B,a+24>>2,b.getDay()) ;
+         __set$(B,a+28>>2,__get$(Y(b.getFullYear())?Sb:Tb,b.getMonth())+b.getDate()-1|0) ;
+         __set$(B,a>>2,b.getSeconds()) ;
+         __set$(B,a+4>>2,b.getMinutes()) ;
+         __set$(B,a+8>>2,b.getHours()) ;
+         __set$(B,a+12>>2,b.getDate()) ;
+         __set$(B,a+16>>2,b.getMonth()) ;
+         __set$(B,a+20>>2,b.getYear()) ;
+        a = b.getTime();
+        a = isNaN(a) ? -1 : a / 1000;
+        fc(
+          ((H = a),
+          +Math.abs(H) >= 1.0
+            ? H > 0.0
+              ? +Math.floor(H / 4294967296.0) >>> 0
+              : ~~+Math.ceil((H - +(~~H >>> 0)) / 4294967296.0) >>> 0
+            : 0),
+        );
+
+        return a >>> 0;
+      },
+      _tzset_js: (a, b, c, d) => {
+        let e = new Date().getFullYear();
+        let h = new Date(e, 0, 1);
+        let k = new Date(e, 6, 1);
+        e = h.getTimezoneOffset();
+        const q = k.getTimezoneOffset();
+         __set$(D,a>>2,60*Math.max(e,q)) ;
+         __set$(B,b>>2,Number(e!=q)) ;
+        a = (w) =>
+          w.toLocaleTimeString(void 0, { hour12: !1, timeZoneName: 'short' }).split(' ')[1];
+        h = a(h);
+        k = a(k);
+        q < e ? (L(h, A, c, 17), L(k, A, d, 17)) : (L(h, A, d, 17), L(k, A, c, 17));
+      },
+      abort: () => {
+        Ca('');
+      },
+      emscripten_date_now: () => Date.now(),
+      emscripten_get_now: () => performance.now(),
+      emscripten_resize_heap: (a) => {
+        const b = A.length;
+        a >>>= 0;
+        if (a > 1073741824) return !1;
+
+        for (let c = 1; c <= 4; c *= 2) {
+          let d = b * (1 + 0.2 / c);
+          d = Math.min(d, a + 100663296);
+          let e = Math;
+          d = Math.max(a, d);
+          a: {
+            e =
+              (e.min.call(e, 1073741824, d + ((65536 - (d % 65536)) % 65536)) -
+                pa.buffer.byteLength +
+                65535) /
+              65536;
+            try {
+              pa.grow(e);
+              sa();
+              var h = 1;
+              break a;
+            } catch (k) {}
+            h = void 0;
+          }
+          if (h) return !0;
+        }
+
+        return !1;
+      },
+      environ_get: (a, b) => {
+        let c = 0;
+        Wb().forEach((d, e) => {
+          let h = b + c;
+          e =  __set$(D,a+4*e>>2,h) ;
+          for (h = 0; h < d.length; ++h)  __set$(z,e++,d.charCodeAt(h)) ;
+
+           __set$(z,e,0) ;
+          c += d.length + 1;
+        });
+
+        return 0;
+      },
+      environ_sizes_get: (a, b) => {
+        const c = Wb();
+         __set$(D,a>>2,c.length) ;
+        let d = 0;
+        c.forEach((e) => (d += e.length + 1));
+         __set$(D,b>>2,d) ;
+
+        return 0;
+      },
+      exit: Xb,
+      fd_close(a) {
+        try {
+          const b = T(a);
+          Kb(b);
+
+          return 0;
+        } catch (c) {
+          if (typeof W === 'undefined' || c.name !== 'ErrnoError') throw c;
+
+          return c.u;
+        }
+      },
+      fd_read(a, b, c, d) {
+        try {
+          a: {
+            const e = T(a);
+            a = b;
+            for (var h, k = (b = 0); k < c; k++) {
+              const q =  __get$(D,a>>2) ;
+              const w =  __get$(D,a+4>>2) ;
+              a += 8;
+              const l = e;
+              let n = h;
+              const u = z;
+              if (w < 0 || n < 0) throw new M(28);
+
+              if (l.D === null) throw new M(8);
+
+              if ((l.flags & 2097155) === 1) throw new M(8);
+
+              if (O(l.node.mode)) throw new M(31);
+
+              if (!l.i.read) throw new M(28);
+
+              const v = typeof n !== 'undefined';
+              if (!v) n = l.position;
+              else if (!l.seekable) throw new M(70);
+
+              const g = l.i.read(l, u, q, w, n);
+              v || (l.position += g);
+              const p = g;
+              if (p < 0) {
+                var r = -1;
+                break a;
+              }
+              b += p;
+              if (p < w) break;
+
+              typeof h !== 'undefined' && (h += p);
+            }
+            r = b;
+          }
+           __set$(D,d>>2,r) ;
+
+          return 0;
+        } catch (y) {
+          if (typeof W === 'undefined' || y.name !== 'ErrnoError') throw y;
+
+          return y.u;
+        }
+      },
+      fd_seek(a, b, c, d, e) {
+        b = (c + 2097152) >>> 0 < 4194305 - !!b ? (b >>> 0) + 4294967296 * c : NaN;
+        try {
+          if (isNaN(b)) return 61;
+
+          const h = T(a);
+          Lb(h, b, d);
+          Ja = [
+            h.position >>> 0,
+            ((H = h.position),
+            +Math.abs(H) >= 1.0
+              ? H > 0.0
+                ? +Math.floor(H / 4294967296.0) >>> 0
+                : ~~+Math.ceil((H - +(~~H >>> 0)) / 4294967296.0) >>> 0
+              : 0),
+          ];
+           __set$(B,e>>2,Ja[0]) ;
+           __set$(B,e+4>>2,Ja[1]) ;
+          h.$ && b === 0 && d === 0 && (h.$ = null);
+
+          return 0;
+        } catch (k) {
+          if (typeof W === 'undefined' || k.name !== 'ErrnoError') throw k;
+
+          return k.u;
+        }
+      },
+      fd_write(a, b, c, d) {
+        try {
+          a: {
+            const e = T(a);
+            a = b;
+            for (var h, k = (b = 0); k < c; k++) {
+              const q =  __get$(D,a>>2) ;
+              const w =  __get$(D,a+4>>2) ;
+              a += 8;
+              const l = Mb(e, z, q, w, h);
+              if (l < 0) {
+                var n = -1;
+                break a;
+              }
+              b += l;
+              typeof h !== 'undefined' && (h += l);
+            }
+            n = b;
+          }
+           __set$(D,d>>2,n) ;
+
+          return 0;
+        } catch (u) {
+          if (typeof W === 'undefined' || u.name !== 'ErrnoError') throw u;
+
+          return u.u;
+        }
+      },
+      strftime_l: (a, b, c, d) => $b(a, b, c, d),
+    };
+    var Z = (function () {
+      function a(c) {
+        Z = c.exports;
+        pa = Z.memory;
+        sa();
+        ua.unshift(Z.__wasm_call_ctors);
+        Ba('wasm-instantiate');
+
+        return Z;
+      }
+      const b = { env: gc, wasi_snapshot_preview1: gc };
+      Aa('wasm-instantiate');
+      if (f.instantiateWasm) {
+        try {
+          return f.instantiateWasm(b, a);
+        } catch (c) {
+          (t(`Module.instantiateWasm callback failed with error: ${c}`), ba(c));
+        }
+      }
+      Ia(b, (c) => {
+        a(c.instance);
+      }).catch(ba);
+
+      return {};
+    })();
+    var hc = (f._main = (a, b) => (hc = f._main = Z.__main_argc_argv)(a, b));
+    f._wasm_uci_execute = () => (f._wasm_uci_execute = Z.wasm_uci_execute)();
+    var fc = (a) => (fc = Z._emscripten_tempret_set)(a);
+    var dc = (a) => (dc = Z._emscripten_stack_restore)(a);
+    var ac = (a) => (ac = Z._emscripten_stack_alloc)(a);
+    var cc = () => (cc = Z.emscripten_stack_get_current)();
+    f.dynCall_iijii = (a, b, c, d, e, h) => (f.dynCall_iijii = Z.dynCall_iijii)(a, b, c, d, e, h);
+    f.dynCall_jiji = (a, b, c, d, e) => (f.dynCall_jiji = Z.dynCall_jiji)(a, b, c, d, e);
+    f.dynCall_viijii = (a, b, c, d, e, h, k) =>
+      (f.dynCall_viijii = Z.dynCall_viijii)(a, b, c, d, e, h, k);
+    f.dynCall_iiiiij = (a, b, c, d, e, h, k) =>
+      (f.dynCall_iiiiij = Z.dynCall_iiiiij)(a, b, c, d, e, h, k);
+    f.dynCall_iiiiijj = (a, b, c, d, e, h, k, q, w) =>
+      (f.dynCall_iiiiijj = Z.dynCall_iiiiijj)(a, b, c, d, e, h, k, q, w);
+    f.dynCall_iiiiiijj = (a, b, c, d, e, h, k, q, w, l) =>
+      (f.dynCall_iiiiiijj = Z.dynCall_iiiiiijj)(a, b, c, d, e, h, k, q, w, l);
+    f.addRunDependency = Aa;
+    f.removeRunDependency = Ba;
+    f.FS_createPath = Ob;
+    f.FS_createLazyFile = Rb;
+    f.FS_createDevice = V;
+    f.cwrap = (a, b, c, d) => {
+      const e = !c || c.every((h) => h === 'number' || h === 'boolean');
+
+      return b !== 'string' && e && !d ?  __get$(f,`_${a}`)  : (...h) => ec(a, b, c, h);
+    };
+    f.FS_createPreloadedFile = lb;
+    f.FS_createDataFile = kb;
+    f.FS_unlink = Fb;
+    let ic;
+    za = function kc() {
+      ic || lc();
+      ic || (za = kc);
+    };
+    function mc(a = []) {
+      const b = hc;
+      a.unshift(ia);
+      const c = a.length;
+      const d = ac(4 * (c + 1));
+      let e = d;
+      a.forEach((k) => {
+         __set$(D,e>>2,bc(k)) ;
+        e += 4;
+      });
+       __set$(D,e>>2,0) ;
+      try {
+        const h = b(c, d);
+        Xb(h, !0);
+      } catch (k) {
+        k instanceof Ka || k == 'unwind' || ja(1, k);
+      }
+    }
+    function lc() {
+      const a = ha;
+      function b() {
+        if (!ic && ((ic = !0), (f.calledRun = !0), !qa)) {
+          f.noFSInit || Nb || ea();
+          rb = !1;
+          La(ua);
+          La(va);
+          aa(f);
+          if (f.onRuntimeInitialized) f.onRuntimeInitialized();
+
+          nc && mc(a);
+          if (f.postRun) {
+            for (typeof f.postRun === 'function' && (f.postRun = [f.postRun]); f.postRun.length; ) {
+              const c = f.postRun.shift();
+              wa.unshift(c);
+            }
+          }
+          La(wa);
+        }
+      }
+      if (!(E > 0)) {
+        if (f.preRun)
+          for (typeof f.preRun === 'function' && (f.preRun = [f.preRun]); f.preRun.length; ) xa();
+
+        La(ta);
+        E > 0 ||
+          (f.setStatus
+            ? (f.setStatus('Running...'),
+              setTimeout(() => {
+                setTimeout(() => {
+                  f.setStatus('');
+                }, 1);
+                b();
+              }, 1))
+            : b());
+      }
+    }
+    if (f.preInit) {
+      for (typeof f.preInit === 'function' && (f.preInit = [f.preInit]); f.preInit.length > 0; )
+        f.preInit.pop()();
+    }
+    var nc = !0;
+    f.noInitialRun && (nc = !1);
+    lc();
+    moduleRtn = ca;
+
+    return moduleRtn;
+  };
+})();
+if (typeof exports === 'object' && typeof module === 'object') module.exports = Pikafish;
+else if (typeof define === 'function' && define.amd) define([], () => Pikafish);
+
+/*hammerhead|script|end*/

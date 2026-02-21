@@ -1638,6 +1638,7 @@ function handleSelection(e, item, items, index) {
 
 
   window.addEventListener("appUpdated", (e) => {
+    debugger;
   var ebtn = document.getElementById("explorerapp");
     ebtn.addEventListener("contextmenu",   function ehl1(e) {
     fileExplorerContextMenu(e, (needremove = false));

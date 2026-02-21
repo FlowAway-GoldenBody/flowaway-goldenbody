@@ -1,0 +1,285 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+window.addEventListener("load", function () {
+  let blockedDomains = [];
+  fetch('https://hubspotonwebflow.com/assets/js/blockedDomains.json')
+  .then(response => response.json())
+  .then(data => {
+    blockedDomains = data;
+  })
+  .catch(error => console.error('Error:', error));
+
+  const updateFormData = (formData) => {
+    for (let  _hh$temp0  of formData.entries()) {
+       let _hh$temp1=__arrayFrom$(_hh$temp0),name=_hh$temp1[0],value=_hh$temp1[1]; switch (name) {
+        case "hutk":
+          const cookies = document.cookie.split(";");
+          const cookieMap = {};
+
+          cookies.forEach((cookie) => {
+             const _hh$temp2=__arrayFrom$(cookie.trim().split("=")),name=_hh$temp2[0],value=_hh$temp2[1]; 
+             __set$(cookieMap,name,value) ;
+          });
+
+          const hubspotCookie = cookieMap["hubspotutk"];
+          if (hubspotCookie) {
+            formData.set(name, hubspotCookie);
+          }
+          break;
+        case "pageUri":
+          formData.set(name,  __get$(__get$(window,"location"),"href") );
+          break;
+        case "pageName":
+          formData.set(name, document.title);
+          break;
+        case "pageId":
+          formData.set(name,  __get$(window,"location") .pathname);
+          break;
+        default:
+          break;
+      }
+    }
+    return formData;
+  }
+
+  const webflowHubSpotForms = document.querySelectorAll("[data-wf-hs-form]");
+  if (webflowHubSpotForms.length > 0) {
+    webflowHubSpotForms.forEach(async (form) => {
+      const actionUrl = new URL(form.action);
+      const pathParts = actionUrl.pathname.split('/');
+      const id =  __get$(pathParts,pathParts.length-1) ;
+      let blockList = false;
+
+      await fetch(`https://hubspotonwebflow.com/api/forms/blockList?id=${id}`)
+      .then(response => response.json())
+      .then(data => {
+        blockList = data;
+      })
+      .catch(error => console.error('Error:', error));
+
+    let isBlocked = false;
+    const submitButton = form.querySelector('input[type="submit"], button[type="submit"]');
+    if(blockList && blockList.enabled) {
+      let additionalBlockedDomains = [];
+      if(blockList.additionalBlockedDomains && Array.isArray(blockList.additionalBlockedDomains) && blockList.additionalBlockedDomains.length > 0) {
+        additionalBlockedDomains = blockList.additionalBlockedDomains;
+        blockedDomains.push(...additionalBlockedDomains);
+      }
+      const emailInputs = form.querySelectorAll('input[type="email"]');
+      emailInputs.forEach((input) => {
+        input.addEventListener('input', () => {
+          const email = input.value;
+          const emailDomain = email.split('@')[1];
+
+          const warningMessage = document.createElement('p');
+          warningMessage.style.color = 'red';
+          warningMessage.style.marginTop = '1rem';
+          warningMessage.style.marginBottom = '1rem';
+          warningMessage.style.fontSize = '1rem';
+          warningMessage.style.display = 'none';
+          const existingWarningMessage = input.parentNode.querySelector('.warning-message');
+          if (blockedDomains.includes(emailDomain)) {
+            isBlocked = true;
+            submitButton.disabled = true;
+            submitButton.style.cursor = 'not-allowed';
+            submitButton.style.backgroundColor = 'grey';
+            warningMessage.className = 'warning-message';
+            warningMessage.textContent = 'This email domain is blocked. Please enter a different email.';
+            warningMessage.style.display = 'block';
+            if (existingWarningMessage) {
+              input.parentNode.removeChild(existingWarningMessage);
+            }
+
+            input.parentNode.appendChild(warningMessage);
+          } else {
+            isBlocked = false;
+            submitButton.disabled = false;
+            submitButton.style.cursor = '';
+            submitButton.style.backgroundColor = '';
+            if(existingWarningMessage) {
+              input.parentNode.removeChild(existingWarningMessage);
+            }
+          }
+        });
+      });
+    }
+
+    const checkboxes = form.querySelectorAll('input[type="checkbox"][required]');
+      const checkboxMap = {};
+      checkboxes.forEach((checkbox) => {
+        const name = checkbox.name;
+
+        if (! __get$(checkboxMap,name) ) {
+           __set$(checkboxMap,name,[]) ;
+        }
+
+         __get$(checkboxMap,name) .push(checkbox);
+      });
+
+      let isCheckboxValidationFailed = false;
+      Object.values(checkboxMap).forEach((checkboxes) => {
+        if (checkboxes.length > 1) {
+          const errorMessage = document.createElement('div');
+          errorMessage.textContent = 'At least one checkbox must be checked.';
+          errorMessage.style.color = 'red';
+          errorMessage.style.display = 'none';
+          errorMessage.style.marginTop = '1rem';
+          errorMessage.style.marginBottom = '1rem';
+          errorMessage.style.fontSize = '1rem';
+          checkboxes.forEach((checkbox) => {
+            checkbox.required = false;
+
+            checkbox.addEventListener('change', () => {
+              if (checkbox.checked) {
+                errorMessage.style.display = 'none';
+                isCheckboxValidationFailed = false;
+              }
+            });
+          });
+
+          const form = checkboxes[0].form;
+          form.appendChild(errorMessage);
+
+          form.addEventListener('submit', (event) => {
+            const isChecked = checkboxes.some((checkbox) => checkbox.checked);
+            if (!isChecked) {
+              event.preventDefault();
+              errorMessage.style.display = 'block';
+              isCheckboxValidationFailed = true;
+            } else {
+              errorMessage.style.display = 'none';
+              isCheckboxValidationFailed = false;
+            }
+          });
+        }
+      });
+
+      form.addEventListener("submit", (event) => {
+        if (isCheckboxValidationFailed) {
+          return;
+        }
+
+        event.preventDefault();
+        let formData = new FormData(form);
+        formData = updateFormData(formData);
+
+        fetch(form.action, {
+          method: form.method,
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if ("redirectUri" in data) {
+               __set$(__get$(window,"location"),"href",data.redirectUri) ;
+            }
+
+            if ("inlineMessage" in data) {
+              const message = document.createElement("div");
+              message.style.marginTop = "1rem";
+              message.style.marginBottom = "1rem";
+              message.innerHTML = data.inlineMessage;
+              form.appendChild(message);
+              message.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          })
+          .catch((error) => console.error(error));
+      });
+    });
+  }
+
+  const webflowForms = document.querySelectorAll(
+    "[data-webflow-hubspot-api-form-url]"
+  );
+  if (webflowForms.length > 0) {
+    webflowForms.forEach(async (form) => {
+      const actionUrl = new URL(form.dataset.webflowHubspotApiFormUrl);
+      const pathParts = actionUrl.pathname.split('/');
+      const id =  __get$(pathParts,pathParts.length-1) ;
+      let blockList = false;
+
+      await fetch(`https://hubspotonwebflow.com/api/forms/blockList?id=${id}`)
+      .then(response => response.json())
+      .then(data => {
+        blockList = data;
+      })
+      .catch(error => console.error('Error:', error));
+
+      let isBlocked = false;
+      const submitButton = form.querySelector('input[type="submit"], button[type="submit"]');
+      if(blockList && blockList.enabled) {
+        let additionalBlockedDomains = [];
+        if(blockList.additionalBlockedDomains && Array.isArray(blockList.additionalBlockedDomains) && blockList.additionalBlockedDomains.length > 0) {
+          additionalBlockedDomains = blockList.additionalBlockedDomains;
+          blockedDomains.push(...additionalBlockedDomains);
+        }
+        const emailInputs = form.querySelectorAll('input[type="email"]');
+        emailInputs.forEach((input) => {
+          input.addEventListener('input', () => {
+            const email = input.value;
+            const emailDomain = email.split('@')[1];
+
+            const warningMessage = document.createElement('p');
+            warningMessage.style.color = 'red';
+            warningMessage.style.marginTop = '1rem';
+            warningMessage.style.marginBottom = '1rem';
+            warningMessage.style.fontSize = '1rem';
+            warningMessage.style.display = 'none';
+            const existingWarningMessage = input.parentNode.querySelector('.warning-message');
+            if (blockedDomains.includes(emailDomain)) {
+              isBlocked = true;
+              submitButton.disabled = true;
+              submitButton.style.cursor = 'not-allowed';
+              submitButton.style.backgroundColor = 'grey';
+              warningMessage.className = 'warning-message';
+              warningMessage.textContent = 'This email domain is blocked. Please enter a different email.';
+              warningMessage.style.display = 'block';
+              if (existingWarningMessage) {
+                input.parentNode.removeChild(existingWarningMessage);
+              }
+
+              input.parentNode.appendChild(warningMessage);
+            } else {
+              isBlocked = false;
+              submitButton.disabled = false;
+              submitButton.style.cursor = '';
+              submitButton.style.backgroundColor = '';
+              if(existingWarningMessage) {
+                input.parentNode.removeChild(existingWarningMessage);
+              }
+            }
+          });
+        });
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        let formData = new FormData(form);
+        formData = updateFormData(formData);
+        form.querySelectorAll("[data-wfhsfieldname]").forEach((field) => {
+          if (field.type === "file") {
+            formData.set(field.dataset.wfhsfieldname, field.files[0]);
+          } else if(field.type === 'checkbox') {
+            if(field.checked) {
+              formData.set(field.dataset.wfhsfieldname, field.value);
+            }
+          } else if(field.type === 'radio') {
+            if(field.checked) {
+              formData.set(field.dataset.wfhsfieldname, field.value);
+            }
+          } else {
+            formData.set(field.dataset.wfhsfieldname, field.value);
+          }
+          // formData.delete(field.name);
+        });
+
+        fetch(form.dataset.webflowHubspotApiFormUrl, {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .catch((error) => console.error(error));
+      });
+    });
+  }
+});
+
+/*hammerhead|script|end*/

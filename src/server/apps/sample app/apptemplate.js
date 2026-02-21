@@ -518,7 +518,9 @@ yourApp = function (posX = 50, posY = 50) {
     your_app_nameContextMenu(e, (needremove = false));
   }
     window.addEventListener("appUpdated", () => {
-  var your_app_abb_btn = document.getElementById("your_app_nameapp");
+      debugger;
+      var your_app_abb_btn;
+ try{ your_app_abb_btn = document.getElementById("your_app_nameapp"); } catch (e) {       setTimeout(() => {              var appUpdatedEvent = new CustomEvent('appUpdated', { detail: { apps: window.apps } });      window.dispatchEvent(appUpdatedEvent);      }, 5000); }
   your_app_abb_btn.addEventListener("contextmenu",   function ehl1(e) {
     your_app_nameContextMenu(e, (needremove = false));
   });

@@ -1,0 +1,521 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+$(document).ready(function(){
+	autoSetResizellHide();
+	autoSetResizellHide_2();
+	autoSetScrollHide();
+	$(window).resize(function(){
+		autoSetResizellHide();
+		autoSetResizellHide_2();
+	});
+	$(window).scroll(function(){
+		autoSetScrollHide();
+	});
+	
+});
+//角色切换大图显示
+$(".roletabzm5 li").hover(function(){
+ $(".roletabzm5 li").removeClass("on");
+ $(this).addClass("on");
+},function(){
+	
+});
+
+function autoSetResizellHide() {
+    if ($(window).width() < 1100) {
+        $("#float_widget").hide();
+    } else {
+        if($(window).scrollTop() <= 400) {
+    		$("#float_widget").hide();
+    	} else {
+    		$("#float_widget").show();
+    	}
+    }
+}
+
+function autoSetScrollHide() {
+	if($(window).scrollTop() <= 400) {
+        $("#float_widget").hide();
+    } else {
+    	if ($(window).width() < 1100) {
+    		$("#float_widget").hide();
+    	} else {
+    		$("#float_widget").show();
+    	}
+    }
+}
+
+function autoSetResizellHide_2() {
+    if ($(window).width() < 1280) {
+        $("#ad1").hide();
+        $("#ad2").hide();
+    } else {
+        $("#ad1").show();
+        $("#ad2").show();
+    }
+}
+
+
+
+
+//道具大全
+var stype1=0;
+var np1=0;
+$("#djtab li").unbind().bind("click",function(){
+  stype1=$(this).find("a").attr("rel");
+  np1=-1;
+  $(this).attr("class","on").siblings().attr("class","");
+  $("#djlist li").css("display","none");
+  showmore1();
+  return false;											  
+});
+
+
+function showmore1(){
+  if(stype1==0){
+	var djlist=$("#djlist").find("li");
+  }else{
+	var djlist=$("#djlist").find("li").filter("[stype="+stype1+"]");
+  }
+  np1=np1+1;
+  var s1=np1*16;
+  var e1=s1+16;
+  var len=djlist.length;
+  if(e1>=len){
+	e1=len; $("#showmore1").css("display","none");
+  }else{
+	$("#showmore1").css("display","");
+  }
+  for(var kz=s1;kz<e1;kz++){
+	djlist.eq(kz).show().find("img[lz_src]").attr("src",function(){
+		var src=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return src;
+	});
+  }
+}
+
+//装备大全
+var stype2=0;
+var np2=0;
+var btype2=0;
+var zblist;
+$("#zbtab1 li").unbind().bind("click",function(){												   
+  stype2=$(this).find("a").attr("rel");
+  if(stype2==0){
+	 zblist=$("#zblist").find("li");
+  }else{
+	 zblist=$("#zblist").find("li").filter("[stype="+stype2+"]");
+  } 
+  var len=zblist.length; 
+  if(len<=0){
+	stype2=0;
+	btype2=0;
+	zblist=$("#zblist").find("li");
+	alert("该分类下暂时没有内容。");
+  } 
+  if((stype2==83349 || stype2==83350 || stype2==83352 || stype2==88064 || stype2==92615 || stype2==109430) && len>0){
+	$("#zbtab2").css("display","none");
+  }else{
+	$("#zbtab2").css("display","");
+  }   
+  btype2=0;
+  np2=-1;
+  if(len==0){
+    $("#zbtab1 li").eq(0).attr("class","on").siblings().attr("class","");
+  }else{
+	$(this).attr("class","on").siblings().attr("class","");
+  } 
+  $("#zbtab2 li").attr("class","");
+  $("#zbtab2 li").eq(0).attr("class","on");
+  $("#zblist li").css("display","none");
+  showmore2();
+  return false;											  
+});
+
+$("#zbtab2 li").unbind().bind("click",function(){
+  btype2=$(this).find("a").attr("rel");
+  np2=-1; 
+  if(stype2==0){
+	 zblist=$("#zblist").find("li");
+  }else{
+	 zblist=$("#zblist").find("li").filter("[stype="+stype2+"]");
+  }
+  if(btype2!=0){
+	 zblist=zblist.filter("[btype="+btype2+"]")
+  }  
+  var len=zblist.length;
+  if(len<=0){
+	 if(stype2==0){
+		 zblist=$("#zblist").find("li");
+	  }else{
+		 zblist=$("#zblist").find("li").filter("[stype="+stype2+"]");
+	  }
+	alert("该分类下暂时没有内容。");
+  } 
+  if(len==0){
+	$("#zbtab2 li").eq(0).attr("class","on").siblings().attr("class","");
+  }else{
+	 $(this).attr("class","on").siblings().attr("class","");
+  }  
+  $("#zblist li").css("display","none");
+  showmore2();
+  return false;											  
+});
+
+function showmore2(){
+  np2=np2+1;
+  var s1=np2*16;
+  var e1=s1+16;
+  var len=zblist.length;
+  if(e1>=len){
+	e1=len; $("#showmore2").css("display","none");
+  }else{
+	$("#showmore2").css("display","");
+  }
+  for(var kz=s1;kz<e1;kz++){
+	zblist.eq(kz).show().find("img[lz_src]").attr("src",function(){
+		var src=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return src;
+	});
+  }
+}
+
+//boss大全
+var stype3=0;
+var np3=0;
+var bslist=$("#bslist").find("li");
+$("#bstab li").unbind().bind("click",function(){
+  stype3=$(this).find("a").attr("rel");
+  if(stype3==0){
+	 bslist=$("#bslist").find("li");
+  }else{
+	 bslist=$("#bslist").find("li").filter("[stype="+stype3+"]");
+  }  
+  var len=bslist.length;
+  if(len<=0){
+	stype3=0; 
+	bslist=$("#bslist").find("li");
+	alert("该分类下暂时没有内容。");
+  }
+  np3=-1;
+  if(len==0){
+    $("#bstab li").eq(0).attr("class","on").siblings().attr("class","");
+  }else{
+	$(this).attr("class","on").siblings().attr("class","");
+  }
+  $("#bslist").find("li").css("display","none");
+  showmore3();
+  return false;											  
+});
+function showmore3(){
+  np3=np3+1;
+  var s1=np3*40;
+  var e1=s1+40;
+  var len=bslist.length;
+  if(e1>=len){
+	e1=len; $("#showmore3").css("display","none");
+  }else{
+	$("#showmore3").css("display","");
+  }
+  for(var kz=s1;kz<e1;kz++){
+	bslist.eq(kz).show().find("img[lz_src]").attr("src",function(){
+		var src=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return src;
+	});
+  }
+}
+
+var default_c='请输入你要查找的BOSS';
+function searchboss(){
+  var keyword=$("#bkey").val();
+  var keyword=$.trim(keyword);
+  if(keyword=='' || keyword==default_c){
+	 alert(default_c);$("#bkey").focus();
+	 return false;
+  }
+ blist=$("#bslist li").filter("[rel*='"+keyword+"']");
+ if(blist.length<=0){alert("您搜索的BOSS不存在，请输入正确的BOSS名称，才能搜索到哦！");$("#bkey").focus();return false;}
+ $("#bslist").find("li").css("display","none");
+ $("#bstab li").attr("class","");
+	blist.show().find("img[lz_src]").attr("src",function(){
+		var src=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return src;
+	});
+}
+
+$('#bkey').keyup(function(e){
+		var e = e || window.event ;		
+		if( e.keyCode == 13 ){			
+         searchboss(); 	
+		}
+		return false;
+})
+
+
+
+
+
+
+
+
+//视频大全
+var stype4=0;
+var np4=0;
+$("#sptab li").unbind().bind("click",function(){
+  stype4=$(this).find("a").attr("rel");
+  np4=-1;
+  $(this).attr("class","on").siblings().attr("class","");
+  $("#splist").find("li").css("display","none");
+  showmore4();
+  return false;											  
+});
+function showmore4(){
+  if(stype4==0){
+	var splist=$("#splist").find("li");
+  }else{
+	var splist=$("#splist").find("li").filter("[stype="+stype4+"]");
+  }
+  np4=np4+1;
+  var s1=np4*8;
+  var e1=s1+8;
+  var len=splist.length;
+  if(e1>=len){e1=len;}
+  for(var kz=s1;kz<e1;kz++){
+	splist.eq(kz).show().find("img[lz_src]").attr("src",function(){
+		var src=$(this).attr("lz_src");
+		$(this).removeAttr("lz_src");
+		return src;
+	});
+  }
+}
+//推荐好玩和热门游戏
+var rp1=1;
+function showp1(){
+  $("#simpleweb1").css("display","none");
+  $("#simpleweb2").css("display","none");
+  rp1=rp1+1;
+  if(rp1>2){rp1=1;}
+   
+  $("#simpleweb"+rp1).css("display","").find("img[lz_src]").attr("src",function(){
+	var src=$(this).attr("lz_src");
+	$(this).removeAttr("lz_src");
+	return src;
+  });
+}
+
+var rp2=1;
+function showp2(){
+  $("#simplezt1").css("display","none");
+  $("#simplezt2").css("display","none");
+  rp2=rp2+1;
+  if(rp2>2){rp2=1;}
+  $("#simplezt"+rp2).css("display","").find("img[lz_src]").attr("src",function(){
+	var src=$(this).attr("lz_src");
+	$(this).removeAttr("lz_src");
+	return src;
+  });
+}
+
+
+//热门道具，最新装备
+function tpage1(sign,p){
+  $("#"+sign+"1").css("display","none");
+  $("#"+sign+"2").css("display","none");
+  $("#"+sign+p).css("display","").find("img[lz_src]").attr("src",function(){
+	var src=$(this).attr("lz_src");
+	$(this).removeAttr("lz_src");
+	return src;
+  });
+  var nz=p-1;
+  $("#djzbtab li").attr("class","");
+  $("#djzbtab li").eq(nz).attr("class","on"); 
+  if(p==2){var ur='//news.4399.com/zmxy5/daoju/'; var dd='造梦西游5道具大全';}
+  if(p==1){var ur='//news.4399.com/zmxy5/zhuangbei/';var dd='造梦西游5装备大全';}
+  $("#smore").attr("href",ur);
+  $("#smore").html(dd);
+}
+
+//玩家原创，精美图集
+function tpage2(sign,p){
+  $("#"+sign+"1").css("display","none");
+  $("#"+sign+"2").css("display","none");
+  $("#"+sign+p).css("display","").find("img[lz_src]").attr("src",function(){
+	var src=$(this).attr("lz_src");
+	$(this).removeAttr("lz_src");
+	return src;
+  });
+  var nz=p-1;
+  $("#yctjtab li").attr("class","");
+  $("#yctjtab li").eq(nz).attr("class","on"); 
+}
+//热门焦点切换
+function turnp(p){
+ var obj=$("#rmlist");
+ $("#rmlist li").css("display","none");
+ var len=$("#rmlist li").length;
+  if(p==2){
+	var li=$("#rmlist li:lt(2)");
+	li.remove();
+	li.appendTo(obj);
+  }
+  if(p==1){
+	var gt1=len-3;
+	var li=$("#rmlist li:gt("+gt1+")");
+	li.remove();
+	li.prependTo(obj);
+  }
+	for(var kn=0;kn<5;kn++){
+	  $("#rmlist li").eq(kn).show().find("img[lz_src]").attr("src",function(){
+	   var src=$(this).attr("lz_src");
+	   $(this).removeAttr("lz_src");
+	   return src;																	
+	  });
+	}  
+}
+//收藏
+function addfav1(e,t,url){
+	if ( e && e.preventDefault )
+	e.preventDefault();
+	else
+	window.event.returnValue = false;
+	try{
+	window.external.AddFavorite(url,t);
+	}catch (e){
+	try{
+	window.sidebar.addPanel(t, url, "");
+	}catch (e){
+	alert("加入收藏失败，请使用Ctrl+D进行添加");
+	}
+	}
+}
+
+function getTop(e){
+	var offset=e.offsetTop;
+	if(e.offsetParent!=null) offset+=getTop(e.offsetParent);
+	return offset;
+}
+
+function GoToBestPosition(){
+	var objBestPosition = document.getElementById("bestposition");
+	var intBestPosition = getTop(objBestPosition);
+	window.scrollTo(0,intBestPosition);
+}
+
+function toggleSound(num){
+   document.getElementById('flash22').contentWindow.toggleSound(num);//iframe
+	var str = document.getElementById("functiontools").innerHTML;
+	if(num==0){
+		str =  __call$(str,"replace",['toggleSound(0)','toggleSound(100)']) ;
+		str =  __call$(str,"replace",['sybtn','jybtn']) ;
+	}else{
+		str =  __call$(str,"replace",['toggleSound(100)','toggleSound(0)']) ;
+		str =  __call$(str,"replace",['jybtn','sybtn']) ;
+	}
+	document.getElementById("functiontools").innerHTML = str;
+}
+
+	//定位
+	function wscroll(id){
+		var obj=$("."+id);
+		var top=obj.offset().top;
+		$("body,html").animate({scrollTop:top},1200);
+	}
+	
+//搜索功能
+ check_search($('#form2'),'请输入你要查找的视频名字');  
+ check_search($('#form1'),'请输入您要查找的内容'); 
+ check_search($('#form3'),'请输入您要查找的内容'); 
+ function check_search(node,default_value){
+    var default_color = '#000';
+    var default_value = default_value;
+    node.find('input[name="q"]').val(default_value);
+    node.submit(function(){
+        var text = $(this).find("input[name='q']");
+        var search_value = $.trim(text.val());
+        if(search_value==default_value || search_value==''){
+          alert(default_value);
+          text.focus();
+          return false;
+        }else{              
+          return true;
+        }
+    }).find("input[name='q']").focus(function(){
+      if($(this).val()==default_value){
+        $(this).val("");
+        default_color = $(this).css("color");
+        $(this).css("color",default_color);
+      }
+    }).blur(function(){
+      if($.trim($(this).val())==''){
+        $(this).css("color",default_color)
+        $(this).val(default_value);
+      }
+    })
+}  
+
+function checks(p){
+  if(p==1){
+	$("#form1").attr("action","//news.4399.com/zmxy5/search.php");
+  }else{
+	$("#form1").attr("action","//news.4399.com/zmxy5/ss.php");
+  }
+  $("#form1").submit();
+}
+
+$(".m62 li").hover(function(){
+   $(this).find("i").css("visibility","visible");						
+ },function(){
+	$(this).find("i").css("visibility","hidden");	
+ });
+
+$(".spimg").hover(function(){
+   $(this).find(".tip").css("display","block");						
+ },function(){
+	$(this).find(".tip").css("display","none");	
+ });
+//qq群功能
+$(".qqtxt").bind("click",function(){
+   $(".qqun ul").css("display","");							  
+ });
+$(".qqun li").unbind().bind("click",function(i){									 
+	var txt1=$(this).html();
+	var href=$(this).attr("rel");
+	$(".qqtxt").html(txt1);
+	$(".qqbtn").attr("href",href);
+    $(".qqun ul").css("display","none");	
+}).hover(function(){
+  $(this).attr("class","on").siblings().attr("class","");
+},function(){});
+
+$(".qqun").hover(function(){},function(){
+	$(".qqun ul").css("display","none");										   
+ });
+
+
+
+function ccopy(){
+	if(window.clipboardData){
+		window.clipboardData.setData('text','zmxy5@4399inc.com');
+		alert('复制成功，赶快去投稿吧');
+	}else{
+		alert('请直接使用鼠标选择邀请链接进行复制');
+	}	
+   return false;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*hammerhead|script|end*/

@@ -1,0 +1,33 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+function $s(i,a){document.getElementById(i).style.display=a?'':'none';}
+
+function getCookie(name){var strCookies = document.cookie;var cookieName = name + "=";var valueBegin, valueEnd, value;valueBegin = strCookies.indexOf(cookieName);if (valueBegin == -1) return null;valueEnd = strCookies.indexOf(";", valueBegin);if (valueEnd == -1)valueEnd = strCookies.length;value = strCookies.substring(valueBegin+cookieName.length,valueEnd);return unescape(value);}
+
+function setCookie (name, value) {var argv = setCookie.arguments;var argc = setCookie.arguments.length;var path = (argc > 2) ? argv[2] : null;var expireDays = (argc > 3) ? argv[3] : 365;var domain = (argc > 4) ? argv[4] : ".4399.com";var secure = (argc > 5) ? argv[5] : false;var date=new Date();date.setTime(date.getTime()+expireDays*24*3600*1000);deleteCookie (name);document.cookie = name + "=" +  escape(value) + ((expireDays == null) ? "" : ("; expires=" + date.toGMTString())) + ((path == null) ? "" : ("; path=" + path));}
+
+function checkCookieExist(name){	if (getCookie(name))return true;else return false;}
+
+function deleteCookie (name) {  var exp = new Date();  exp.setTime (exp.getTime() - 1); var cval = getCookie (name); document.cookie = name + "=" + cval + "; expires=" + exp.toGMTString();}
+
+var hsgames_length=30;
+
+function gethsgames(){var c=getCookie('cookie_hs');if(!c)return new Array();var t=c.split("|||");if(t[0]!=="4399.com")return new Array();t.shift();return t}
+
+function getlastgame(){var a= __get$(document,"location") ;a= __call$(__call$(__call$(__get$(a,"href"),"replace",[a.hash,'']),"replace",[a.search,'']),"replace",['?','']) ;var c=a.split("/");a= __get$(c,c.length-1) ;a=a.substr(0,a.length-4);var b=[title,a];return b}
+
+function ordergame(h){var c=new Array();for(var i in h){var ogame= __get$(h,i) .split("||"); __set$(c,i,ogame) }return c.sort(function(a,b){return b[2]-a[2]})}
+
+function sethscookie(){var a=getlastgame();var b=gethsgames();var c=false;for(var i in b){var ohsgame= __get$(b,i) .split("||");if(ohsgame.slice(0,2).join()==a.join()){ohsgame[2]++; __set$(b,i,ohsgame.join("||")) ;c=true;break}}if(!c){a.push("0");b.unshift(a.join("||"));if(b.length>hsgames_length)b.pop()}b.unshift("4399.com");var d=b.join("|||");setCookie('cookie_hs',d,'/',999999)}
+
+var hsfast=false;
+
+function showhsgames(){var a="";var b=ordergame(gethsgames());if(b.length>0){document.getElementById('myhistory').style.display='block'};for(var i in b){var hsgamelink= __get$(b,i) [1]+'.htm';a+='<a href="/flash/'+hsgamelink+'?1024" title="玩了'+(++ __get$(b,i) [2])+'次">'+ __get$(b,i) [0]+'</a> '}document.getElementById('hscontent').innerHTML='<div id="hscontentdiv">'+a+'</div>';if(document.getElementById('hscontent').scrollWidth>document.getElementById('hscontent').offsetWidth){document.getElementById('hscontent').style.width=(document.getElementById('myhistory').offsetWidth-160)+"px";$s('hsb',1)}document.getElementById('hsl').onmouseover=function(){hsm(1,0)};document.getElementById('hsl').onmouseout=function(){hsm(1,1)};document.getElementById('hsl').onmousedown=function(){hsfast=true};document.getElementById('hsl').onmouseup=function(){hsfast=false};document.getElementById('hsr').onmouseover=function(){hsm(0,0)};document.getElementById('hsr').onmouseout=function(){hsm(0,1)};document.getElementById('hsr').onmousedown=function(){hsfast=true};document.getElementById('hsr').onmouseup=function(){hsfast=false};window.setTimeout(function(){showhsgames()},5000)}
+
+function hsm(f,s){if(document.getElementById('hscontent').scrollLeft=="0"){if(document.getElementById('hsl').className=="hsl_y")document.getElementById('hsl').className="hsl_n"}else{if(document.getElementById('hsl').className=="hsl_n")document.getElementById('hsl').className="hsl_y"}if(document.getElementById('hscontent').scrollLeft+document.getElementById('hscontent').offsetWidth>=document.getElementById('hscontent').scrollWidth){if(document.getElementById('hsr').className=="hsr_y")document.getElementById('hsr').className="hsr_n"}else{if(document.getElementById('hsr').className=="hsr_n")document.getElementById('hsr').className="hsr_y"}if(s){clearTimeout(hst)}else{document.getElementById('hscontent').scrollLeft+=hsfast?f?-10:10:f?-3:3;hst=window.setTimeout(function(){hsm(f,s)},20)}}
+
+if(typeof(title)!="undefined")sethscookie();
+
+if(document.getElementById('myhistory')){
+	showhsgames();
+}
+/*hammerhead|script|end*/

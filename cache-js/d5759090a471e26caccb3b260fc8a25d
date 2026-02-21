@@ -1,0 +1,225 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+import{U as b,r as l,u as Q,i as Y,f as j,j as e,e as d,d as s,D as $,F as S,x as y,a as B,t as X,M as O,S as V,C as F,B as D,aa as Z,Z as J,af as ee,ah as te,l as ie,E as se,cm as ne}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/index-C2mh4mqb.js" ;import{E as w}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/Sizes-BhgpZp_e.js" ;import{A as _}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/AccessibleAnchor-J3NTRCHb.js" ;import{m as g}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/motion-CQFFgcuK.js" ;import{b as oe}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/index-B3UQguVb.js" ;import{e as L}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/price-1Xs9YDh1.js" ;import{T as ae}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/TrackPostHogEvent-Dt5eZ0Mq.js" ;import{c as re}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/index-Cu3D9lUw.js" ;import{I as le}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/index-DtRk3C_W.js" ;import{s as ce}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/index-UKi0U4nB.js" ;import{R as de}from "https://beside-powerful-above-recordings.trycloudflare.com:443/ee653e9a2e3e47a7a892ab8d7b4d83c8!s!utf-8/https://www.gimkit.com/assets/StarOutlined-Bs8uUGba.js" ;const E={titleFont:b.FugazOne};var ue="Invariant failed";function C(t,i){throw new Error(ue)}var T=new Map([["Win","Meta"],["Scroll","ScrollLock"],["Spacebar"," "],["Down","ArrowDown"],["Left","ArrowLeft"],["Right","ArrowRight"],["Up","ArrowUp"],["Del","Delete"],["Crsel","CrSel"],["Exsel","ExSel"],["Apps","ContextMenu"],["Esc","Escape"],["Decimal","."],["Multiply","*"],["Add","+"],["Subtract","-"],["Divide","/"]]),he=function(i){if(T.has(i.key)){var a=T.get(i.key);Object.defineProperty(i,"key",{configurable:!0,enumerable:!0,get:function(){return a}})}},me=function(i,a){Array.isArray(i)||typeof i=="string"||C(),Array.isArray(i)&&i.forEach(function(n,r){typeof n!="string"&&C()}),typeof a=="function"||a==null||C();var o=l.useRef();l.useEffect(function(){o.current=function(n){he(n),(Array.isArray(i)?i.includes(n.key):i===n.key)&&(a==null||a(n))}},[i,a]),l.useEffect(function(){var n=function(u){o.current(u)};return window.addEventListener("keydown",n),function(){window.removeEventListener("keydown",n)}},[])},x=(t=>(t.limitedModes="limitedModes",t.limitedGames="limitedGames",t))(x||{});const p=()=>"limitedModes",xe=()=>5,A=350,H=10,W=A+H,v=.2,fe=t=>{ const _hh$temp0=__arrayFrom$(Q(!1)),i=_hh$temp0[0],a=_hh$temp0[1],o=_hh$temp0[2],n=p(),r=l.useMemo(()=>((t.isProExperience&&!Y())&&n===x.limitedModes)&&!j(),[t.isProExperience,n]); return e.jsxs(ge,{onMouseEnter:a,onMouseLeave:o,style:{backgroundImage:`url('${t.image}')`,borderColor:t.currentlySelected?"#fdd835":d.White},onClick:t.onSelect,className:t.noShadowOnContainer?"":"light-shadow",children:[t.forcePremiumBadge||r?e.jsx(pe,{animate:{opacity:i?0:1},initial:{opacity:1},transition:{duration:v},children:e.jsx(ye,{})}):e.jsx("div",{}),e.jsxs(ve,{children:[r?e.jsx(we,{animate:{opacity:i?0:1},initial:{opacity:1},transition:{duration:v},children:"Gimkit Pro Exclusive"}):null,!r&&t.tag?e.jsx(je,{animate:{opacity:i?0:1},initial:{opacity:1},transition:{duration:v},children:t.tag}):null,e.jsx(be,{children:t.name}),e.jsx(Ee,{animate:{height:i?"auto":0},initial:{height:0},transition:{duration:v},children:t.tagline})]})]})},ge=s.div.attrs({className:"flex flex-column between"})`
+  border-width: 4px;
+  border-style: solid;
+  width: ${A}px;
+  height: 180px;
+  border-radius: 4px;
+  background-image: url('');
+  background-size: cover;
+  background-position: center;
+  align-items: flex-end;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.3s;
+`,pe=s(g.div).attrs({className:"maxWidth"})`
+  padding: 10px 15px;
+`,ye=s.img.attrs({src:"/client/img/pro/star.svg"})`
+  height: 20px;
+`,ve=s.div.attrs({className:"maxWidth flex-column"})`
+  padding: 10px 15px;
+  background: linear-gradient(
+    to top,
+    hsla(0, 0%, 0%, 0.69) 0%,
+    hsla(0, 0%, 0%, 0.681) 8.1%,
+    hsla(0, 0%, 0%, 0.656) 15.5%,
+    hsla(0, 0%, 0%, 0.618) 22.4%,
+    hsla(0, 0%, 0%, 0.569) 28.9%,
+    hsla(0, 0%, 0%, 0.511) 35%,
+    hsla(0, 0%, 0%, 0.447) 41%,
+    hsla(0, 0%, 0%, 0.379) 46.7%,
+    hsla(0, 0%, 0%, 0.311) 52.5%,
+    hsla(0, 0%, 0%, 0.243) 58.3%,
+    hsla(0, 0%, 0%, 0.179) 64.3%,
+    hsla(0, 0%, 0%, 0.121) 70.5%,
+    hsla(0, 0%, 0%, 0.072) 77.1%,
+    hsla(0, 0%, 0%, 0.034) 84.2%,
+    hsla(0, 0%, 0%, 0.009) 91.8%,
+    hsla(0, 0%, 0%, 0) 100%
+  );
+  overflow: hidden;
+  align-items: flex-start;
+`,we=s(g.div)`
+  font-family: ${E.titleFont};
+  text-transform: uppercase;
+  font-size: 12px;
+  margin-bottom: -2px;
+  text-shadow: 1px 1px 1px ${d.Black};
+  color: ${d.White};
+`,je=s(g.div)`
+  font-family: ${E.titleFont};
+  text-transform: uppercase;
+  background: rgba(255, 87, 34, 0.8);
+  padding: 7px 10px;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 10px;
+  margin-bottom: 4px;
+`,be=s.div`
+  font-family: ${E.titleFont};
+  text-transform: uppercase;
+  font-size: 22px;
+  text-shadow: 2px 2px 2px ${d.Black};
+  color: ${d.White};
+`,Ee=s(g.div)`
+  font-size: 14px;
+  text-shadow: 1px 1px 1px ${d.Black};
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 1px;
+  overflow: hidden;
+  font-family: ${b.ProductSans};
+`,ke=t=>{ const _hh$temp1=__arrayFrom$(l.useState(0)),i=_hh$temp1[0],a=_hh$temp1[1],o=l.useRef(!1),n=l.useRef(null),_hh$temp2=__arrayFrom$(oe(n)),r=_hh$temp2[0],u=l.useMemo(()=>t.verticalList?0:i*W*-1+w.sideMargin,[i,t.verticalList]),c=l.useMemo(()=>!(i<=0),[i]),f=()=>{o.current=!0;},m=()=>{o.current=!1;}; me(["ArrowLeft","ArrowRight"],h=>{o.current&&(h.key==="ArrowLeft"&&N(),h.key==="ArrowRight"&&I())});const M=l.useMemo(()=>{if(i+1===t.list.items.length)return!1;const h=(r-w.sideMargin)/W;return!(i>=t.list.items.length-h)},[r,i,t.list.items.length]),N=()=>{c&&a(Math.max(0,i-1))},I=()=>{M&&a(i+1)};return e.jsxs(Me,{onMouseEnter:f,onMouseLeave:m,children:[t.hideListName?null:e.jsx(Ce,{children:t.list.name}),e.jsxs(Pe,{children:[e.jsx($e,{animate:{x:u},initial:{x:t.verticalList?0:w.sideMargin},transition:{duration:.3,ease:"easeOut"},style:t.verticalList?{display:"grid",gridTemplateColumns:`repeat(auto-fill, ${A}px)`,justifyContent:"center",gap:20,margin:"0px 25px"}:{gap:H},ref:n,children:t.list.items.map(h=>e.jsx(fe,{name:h.name,tagline:h.tagline,image:h.imageUrl,currentlySelected:t.forceAllSelected?!0:t.currentlySelectedExperienceId===h._id,onSelect:t.onExperienceSelected?()=>t.onExperienceSelected(h._id):null,isProExperience:h.isPremiumExperience,noShadowOnContainer:t.noShadowOnItems,forcePremiumBadge:t.forcePremiumBadge,tag:h.tag},`list-${t.list._id}-${h._id}`))}),t.verticalList?null:e.jsxs(Se,{children:[e.jsx(Ae,{animate:{opacity:c?1:0},initial:{opacity:0},onClick:N,children:e.jsx(z,{style:{cursor:c?"pointer":"auto"},children:e.jsx("i",{className:"fas fa-chevron-left"})})}),e.jsx(Ne,{animate:{opacity:M?1:0},initial:{opacity:0},onClick:I,children:e.jsx(z,{style:{cursor:M?"pointer":"auto"},children:e.jsx("i",{className:"fas fa-chevron-right"})})})]})]})]})},Me=s.div.attrs({className:"maxWidth"})``,Ce=s.div`
+  font-family: ${E.titleFont};
+  text-align: center;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.9);
+`,Pe=s.div.attrs({className:"maxWidth"})`
+  position: relative;
+  overflow: hidden;
+`,$e=s(g.div).attrs({className:"flex"})``,Se=s.div.attrs({className:"maxAll flex vc between"})`
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+`,q=s(g.div).attrs({className:"flex-center maxHeight"})`
+  width: 60px;
+  line-height: 1;
+  color: ${d.White};
+`,Ae=s(q)`
+  background: linear-gradient(
+    to right,
+    hsla(0, 0%, 0%, 0.61) 0%,
+    hsla(0, 0%, 0%, 0.603) 8.3%,
+    hsla(0, 0%, 0%, 0.583) 16.2%,
+    hsla(0, 0%, 0%, 0.551) 23.9%,
+    hsla(0, 0%, 0%, 0.511) 31.4%,
+    hsla(0, 0%, 0%, 0.463) 38.6%,
+    hsla(0, 0%, 0%, 0.409) 45.6%,
+    hsla(0, 0%, 0%, 0.352) 52.3%,
+    hsla(0, 0%, 0%, 0.294) 58.9%,
+    hsla(0, 0%, 0%, 0.236) 65.2%,
+    hsla(0, 0%, 0%, 0.18) 71.4%,
+    hsla(0, 0%, 0%, 0.128) 77.4%,
+    hsla(0, 0%, 0%, 0.082) 83.3%,
+    hsla(0, 0%, 0%, 0.044) 89%,
+    hsla(0, 0%, 0%, 0.016) 94.5%,
+    hsla(0, 0%, 0%, 0) 100%
+  );
+`,Ne=s(q)`
+  background: linear-gradient(
+    to left,
+    hsla(0, 0%, 0%, 0.61) 0%,
+    hsla(0, 0%, 0%, 0.603) 8.3%,
+    hsla(0, 0%, 0%, 0.583) 16.2%,
+    hsla(0, 0%, 0%, 0.551) 23.9%,
+    hsla(0, 0%, 0%, 0.511) 31.4%,
+    hsla(0, 0%, 0%, 0.463) 38.6%,
+    hsla(0, 0%, 0%, 0.409) 45.6%,
+    hsla(0, 0%, 0%, 0.352) 52.3%,
+    hsla(0, 0%, 0%, 0.294) 58.9%,
+    hsla(0, 0%, 0%, 0.236) 65.2%,
+    hsla(0, 0%, 0%, 0.18) 71.4%,
+    hsla(0, 0%, 0%, 0.128) 77.4%,
+    hsla(0, 0%, 0%, 0.082) 83.3%,
+    hsla(0, 0%, 0%, 0.044) 89%,
+    hsla(0, 0%, 0%, 0.016) 94.5%,
+    hsla(0, 0%, 0%, 0) 100%
+  );
+`,z=s.div.attrs({className:"flex-center"})`
+  font-size: 32px;
+  pointer-events: all;
+  will-change: transform;
+  transition: transform 0.2s;
+  &:hover {
+    transform: scale(1.1);
+  }
+`,Ie=[{question:"What happens if I pay now and my school pays later?",answer:e.jsxs("span",{children:["If your school purchases a group license and you've already purchased Gimkit Pro, you’ll get refunded for your unused time."," ",e.jsx("b",{children:"So if you purchase a year of Gimkit Pro today and your school upgrades next month, we’d refund you $54.89."})," ","That refund happens automatically. No need to contact support!"]})},{question:"What's included with Gimkit Pro?",answer:e.jsxs("span",{children:[p()===x.limitedModes?"Unrestricted access to all modes, including Gimkit Pro Exclusives.":"No game limits, host as many games as you'd like!"," ","You'll also be able to create assignments (play Gimkit asynchronously) and upload audio + images to your questions."]})},{question:"What's your refund policy?",answer:e.jsxs("span",{children:["Bad refund policies are infuriating. You feel like the company is just trying to rip you off. We never want our customers to feel that way, so our refund policy is simple: If you’re ever unhappy with your subscription for any reason, just contact us and we’ll take care of you."," ",e.jsx("a",{href:"https://www.notion.so/gimkit/A-fair-refund-policy-a1688f61330b49a495a48bd0fd08697b",target:"_blank",children:"Check out our full refund policy here."})]})}],Fe=()=>e.jsxs(e.Fragment,{children:[e.jsx($,{style:{margin:"26px 0px"}}),e.jsx(Le,{children:Ie.map(t=>e.jsxs(Te,{children:[e.jsx(We,{children:t.question}),e.jsx(ze,{children:t.answer})]},t.question))})]}),Le=s.div.attrs({className:"maxWidth"})`
+  padding: 0px ${()=>k}px;
+`,Te=s.div`
+  margin-bottom: 15px;
+  background: ${d.White};
+  padding: 30px;
+  border-radius: 6px;
+  border-style: solid;
+  border-color: ${d.BorderGray};
+  border-width: 2px;
+  &:last-child {
+    margin-bottom: 0px;
+  }
+`,We=s.div`
+  font-size: 21px;
+  font-weight: ${S.Bold};
+`,ze=s.div`
+  font-size: 16px;
+  margin-top: 5px;
+`,Re=t=>{ const _hh$temp3=__arrayFrom$(y.useState(!0)),i=_hh$temp3[0],a=_hh$temp3[1],_hh$temp4=__arrayFrom$(y.useState(null)),o=_hh$temp4[0],n=_hh$temp4[1],_hh$temp5=__arrayFrom$(y.useState(null)),r=_hh$temp5[0],u=_hh$temp5[1],c=()=>`${Z()}/pay-for-me/${r}`,f=()=>{re(c()),ce.success("Pay For Me link copied to clipboard!");}; return y.useEffect(()=>{B({method:"GET",url:"/api/billing/pay-for-me-link",success:m=>{u(m)},error:m=>{n(m),X({e:m,default:{title:"Error connecting to our server",content:"An error ocurred while connecting to our server. Please try again later."}})},both:()=>a(!1)})},[]),e.jsx(O,{open:t.showPayForMeModal,onCancel:t.onCancel,footer:null,closable:!1,width:690,bodyStyle:{padding:0},children:i?e.jsx("div",{style:{height:361},className:"flex maxWidth maxHeight hc vc",children:e.jsx(V,{size:"large"})}):e.jsxs(Ge,{children:[e.jsx(Oe,{onClick:t.onCancel}),e.jsxs(Ue,{children:[e.jsx("span",{style:{fontWeight:S.UltraBold},children:"Pay For Me"})," ","link"]}),e.jsxs(Be,{children:["Send this link to someone to allow them to pay for your"," ",F," Pro subscription. Once they pay, you'll get one full year of ",F," Pro and we'll make sure autorenew is off so they aren't charged again.",e.jsx("br",{})," ",e.jsx("br",{}),"One more thing: once they pay for your subscription, we'll send you an email letting you know!"]}),e.jsx($,{}),!o&&e.jsxs("div",{className:"flex",children:[e.jsx(le,{value:c(),size:"large",readOnly:!0}),e.jsx(D,{size:"large",type:"primary",style:{marginLeft:10},onClick:f,children:"Copy Link"})]})]})})},Ge=s.div.attrs({className:"maxWidth"})`
+  color: ${d.Black};
+  font-family: ${b.SFPro};
+  padding: 30px;
+`,Ue=s.div`
+  font-size: 32px;
+`,Be=s.div`
+  font-size: 17px;
+  margin-top: 14px;
+`,Oe=s.i.attrs({className:"fal fa-times"})`
+  position: absolute;
+  font-size: 24px;
+  top: 30px;
+  right: 30px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+  cursor: pointer;
+  &:hover {
+    opacity: 1;
+  }
+`,De=t=>{ const _hh$temp6=__arrayFrom$(l.useState(!1)),i=_hh$temp6[0],a=_hh$temp6[1],_hh$temp7=__arrayFrom$(l.useState(!1)),o=_hh$temp7[0],n=_hh$temp7[1],r=()=>a(!0); return e.jsxs("div",{className:"flex flex-column vc",style:{marginTop:t.showingModes?25:20,paddingBottom:30},children:[e.jsx(_,{to:J,children:e.jsx(D,{type:"primary",size:"large",icon:e.jsx(de,{}),style:{width:380,height:70},children:j()?"Upgrade to Gimkit Pro early":"Upgrade to Gimkit Pro"})}),null,e.jsx($,{style:{margin:"26px 0px"}}),e.jsxs("div",{className:"flex vc",children:[e.jsx(P,{to:ee,children:"Group license pricing"}),e.jsx(R,{}),e.jsx(P,{onClick:()=>n(!0),children:"Pay For Me Link"}),!i&&e.jsxs(e.Fragment,{children:[e.jsx(R,{}),e.jsx(P,{onClick:r,children:"FAQ"})]})]}),i&&e.jsx(Fe,{}),e.jsx(Re,{showPayForMeModal:o,onCancel:()=>n(!1)})]})};s.div`
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.8);
+  margin-top: 12px;
+`;const P=s(_)`
+  font-size: 16px;
+  display: block;
+  color: ${d.Black};
+  text-decoration: underline;
+`,R=s.i.attrs({className:"fas fa-circle"})`
+  margin: 0px 12px;
+  font-size: 10px;
+`,K=180,_e=t=>{ const _hh$temp8=t,i=_hh$temp8.copy,a=()=>i&&i.title?i.title:j()?e.jsx(e.Fragment,{children:"Your trial ends soon."}):p()===x.limitedGames?e.jsx(e.Fragment,{children:"Upgrade to host unlimited games"}):e.jsxs("div",{style:{fontSize:40,marginTop:30},children:["Get all game modes for ",L({simple:!0})," a month."]}),o=()=>{if(i&&i.description)return i.description;const n=p(),r=n===x.limitedModes?"a few game modes that rotate every few weeks":`host ${xe()} games per month`;return e.jsxs("div",{className:"maxWidth",style:{textAlign:"left"},children:[j()?`After your Pro trial ends, you'll be placed on our free plan. Under the free plan, you're limited to ${r}.`:`You're on the free version of Gimkit, which limits you to ${r}.`,e.jsx("br",{})," ",e.jsx("br",{}),n===x.limitedModes?"Want access to every single mode?":"Want to host unlimited games?"," ","Upgrade to Gimkit Pro! It’s just"," ",L({simple:!0})," a month and you’ll be helping support us, an independent small business.",n===x.limitedModes?e.jsxs(e.Fragment,{children:[e.jsx("br",{})," ",e.jsx("br",{}),"Upgrade to get access to these game modes and more:"]}):null]});}; return e.jsxs(He,{background:t.showingModes?"#0A2540":"transparent",color:t.showingModes?d.White:d.Black,bottomPadding:t.showingModes?K:0,maskImage:!!t.showingModes,children:[e.jsx(qe,{onClick:t.close}),e.jsxs(Ke,{children:[e.jsx(Qe,{children:a()}),e.jsx(Ye,{style:{marginTop:t.showingModes?10:5},children:o()})]})]})},He=s.div.attrs({className:"maxWidth flex flex-column vc"})`
+  padding: ${()=>k}px 0px;
+  padding-top: 30px;
+  background: ${t=>t.background};
+  color: ${t=>t.color};
+  text-align: center;
+  padding-bottom: ${t=>t.bottomPadding}px;
+  ${t=>t.maskImage?`mask-image: linear-gradient(
+    to bottom,
+    ${t.background} 50%,
+    transparent 100%);`:""}
+`,qe=s.i.attrs({className:"fal fa-times"})`
+  position: absolute;
+  font-size: 24px;
+  top: 25px;
+  right: ${()=>k}px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+  cursor: pointer;
+  &:hover {
+    opacity: 1;
+  }
+`,Ke=s.div.attrs({className:"maxWidth"})`
+  padding: 0px ${()=>k}px;
+`,Qe=s.div`
+  font-size: 42px;
+  font-weight: ${S.UltraBold};
+`,Ye=s.div`
+  font-size: 20px;
+`,G={Classic:1},Xe=()=>{ const _hh$temp9=__arrayFrom$(l.useState([])),t=_hh$temp9[0],i=_hh$temp9[1]; return l.useEffect(()=>{B({url:"/api/experiences",data:{mode:"liveGame"},cacheKey:"EXPERIENCES",success:a=>{let o=[];const n=[],r=a.every(u=>u.items.every(c=>!c.isPremiumExperience));a.forEach(u=>{u.items.forEach(c=>{(c.isPremiumExperience||r)&&(n.includes(c._id)||(o.push({...c,isPremiumExperience:!0}),n.push(c._id)))})}),Object.keys(G).forEach(u=>{const c= __get$(G,u) ,f=o.find(m=>m.name===u);f&&(o=o.filter(m=>m.name!==u),o.splice(c,0,f))}),i(o)}})},[]),t.length?e.jsx(U,{children:e.jsx(ke,{list:{_id:"_",name:"_",items:t},hideListName:!0,noShadowOnItems:!0,forceAllSelected:!0,forcePremiumBadge:!0})}):e.jsx(U,{children:e.jsx("div",{style:{height:180}})})},U=s.div.attrs({className:"maxWidth"})`
+  margin-top: ${()=>-K+25}px;
+`,k=w.sideMargin,ct=t=>{l.useEffect(()=>{t.visible&&t.showModes&&te("https://fonts.googleapis.com/css2?family=Fugaz+One&display=swap")},[t.visible,t.showModes]),l.useEffect(()=>{t.visible&&ae({properties:{reason:t.id}})},[t.visible,t.id]);const i=ie();if(!i)return null;const a=p(),o=t.showModes&&a===x.limitedModes;return e.jsx(se,{theme:{algorithm:ne.defaultAlgorithm},children:e.jsx(O,{footer:null,width:850,style:{top:30},styles:{content:{padding:0,borderRadius:10,overflow:"hidden"},body:{padding:0,color:d.Snow}},open:t.visible,onCancel:t.close,closable:!1,children:e.jsxs(Ve,{children:[e.jsx(_e,{user:i,close:t.close,copy:t.copy,showingModes:o}),o?e.jsx(Xe,{}):null,e.jsx(De,{showingModes:o})]})})})},Ve=s.div.attrs({className:"maxWidth"})`
+  color: ${d.Black};
+  font-family: ${b.SFPro};
+`;export{E,x as F,_e as T,ct as U,xe as a,ke as b,p as g,C as i,me as u};
+
+/*hammerhead|script|end*/

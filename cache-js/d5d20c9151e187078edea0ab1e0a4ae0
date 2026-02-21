@@ -1,0 +1,172 @@
+/*hammerhead|script|start*/if (typeof window !== 'undefined' && window){window['hammerhead|process-dom-method'] && window['hammerhead|process-dom-method']();if (window.__get$ && typeof __get$ === 'undefined')var __get$Loc = window.__get$Loc,__set$Loc = window.__set$Loc,__set$ = window.__set$,__get$ = window.__get$,__call$ = window.__call$,__get$Eval = window.__get$Eval,__proc$Script = window.__proc$Script,__proc$Html = window.__proc$Html,__get$PostMessage = window.__get$PostMessage,__get$ProxyUrl = window.__get$ProxyUrl,__rest$Array = window.__rest$Array,__rest$Object = window.__rest$Object,__arrayFrom$ = window.__arrayFrom$;} else {if (typeof __get$ === 'undefined')var __get$Loc = function(l){return l},__set$Loc = function(l,v){return l = v},__set$ = function(o,p,v){return o[p] = v},__get$ = function(o,p){return o[p]},__call$ = function(o,p,a){return o[p].apply(o,a)},__get$Eval = function(e){return e},__proc$Script = function(s){return s},__proc$Html = function(h){return h},__get$PostMessage = function(w,p){return arguments.length===1?w.postMessage:p},__get$ProxyUrl = function(u,d){return u},__rest$Array = function(a,i){return Array.prototype.slice.call(a, i)},__rest$Object = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},__arrayFrom$ = function(r){if(!r)return r;return!Array.isArray(r)&&"function"==typeof r[Symbol.iterator]?Array.from(r):r};if (typeof importScripts !== "undefined" && /\[native code]/g.test(importScripts.toString())) {var __getWorkerSettings$ = function () {return null};importScripts((location.origin || (location.protocol + "//" + location.host)) + "/worker-hammerhead.js");}}/*hammerhead|script|processing-header-end*/
+function F_Resize(h){
+document.getElementById(F_FRAME_ID).height = h;
+//window.scrollTo(0,$("#"+F_FRAME_ID).offset().top);
+}
+var get_screen_height = function(){
+  if(window.self&&self.innerHeight) return self.innerHeight;
+  if(document.documentElement&&document.documentElement.clientHeight) return document.documentElement.clientHeight;
+  return document.body.clientHeight;
+},
+get_scroll_top = function(){
+  if(typeof(window.pageYOffset) != "undefined") return window.pageYOffset;
+  if(document.documentElement && document.documentElement.scrollTop) return document.documentElement.scrollTop;
+  if(document.body) return document.body.scrollTop;
+},
+get_offset_top = function(o){
+  var offset_t = o.offsetTop;
+  while(o=o.offsetParent){
+    offset_t += o.offsetTop;
+  }
+  return offset_t;
+};
+function chg_src(){
+  var screenH = get_screen_height(), scrollT = get_scroll_top();
+  var iframeH = get_offset_top(document.getElementById('CommFrame'));
+  if (parseInt(screenH)+parseInt(scrollT) > parseInt(iframeH) - 200){
+    document.getElementById('CommFrame').src = F_URL;
+    $(window).unbind("scroll", chg_src);
+    $(window).unbind("resize", chg_src);
+  }
+}
+$(window).bind("scroll", chg_src);$(window).bind("resize", chg_src);chg_src();
+
+
+;(function($){
+	var comm_data = {
+		ie6 : (window.VBArray && !window.XMLHttpRequest),
+		isIE : ('CollectGarbage' in window),
+		mark_str : "<div class='fixed-top' id='iwgc_dialog_bg' style='position:fixed; left:0; background:#000;bottom:auto;top:0;'></div>",
+		win:$(window),
+		doc:$(document)
+	};
+
+	var temp_cover = '';
+	var temp_id = '';
+	var temp_close_id = '';
+	$.iwgcDialog = function (opt){
+		$.iwgcDialog.dialog_default = $.extend({},$.iwgcDialog.dialog_default,opt);
+
+		temp_cover = $("#iwgc_dialog_bg");
+		if($.iwgcDialog.dialog_default.cover){
+			if(temp_cover.length==0){
+				$("body").append(comm_data.mark_str);
+				temp_cover = $("#iwgc_dialog_bg");
+				temp_cover.css({height:comm_data.win.height(),width:comm_data.win.width(),opacity:$.iwgcDialog.dialog_default.opacity});
+				if(comm_data.ie6){
+					temp_cover.css({"top":comm_data.win.scrollTop()+"px"});
+					ie6_fixed(temp_cover[0]);
+				}
+			}else{
+				temp_cover.show();
+			}
+		}
+
+		temp_id = $("#"+$.iwgcDialog.dialog_default.id);
+		if(temp_id.length==1){
+			temp_id.show().css({
+				"position":"fixed",
+				"top":(comm_data.win.height()-temp_id.height())/2+"px",
+				"left":(comm_data.win.width()-temp_id.width())/2,
+				"zIndex":"99999"
+			});
+			if(comm_data.ie6){
+				temp_id.css({"top":(comm_data.win.height()-temp_id.height())/2+comm_data.win.scrollTop()+"px"});
+				ie6_fixed($("#"+$.iwgcDialog.dialog_default.id)[0]);
+			}
+
+			if($.iwgcDialog.dialog_default.close_id != ''){
+				temp_close_id = $("#"+$.iwgcDialog.dialog_default.close_id);
+				temp_close_id.unbind("click").bind("click",$.iwgcDialog.cancel);
+			}
+			comm_data.win.bind("resize",$.iwgcDialog.resize_dialog);
+		}
+	};
+
+	$.extend($.iwgcDialog,{
+		dialog_default:{
+			id:'',
+			close_id:'',
+			close_fun:null,
+			opacity:0.5,
+			cover:true
+		},
+		cancel :function (){
+			temp_cover.hide();
+			temp_id.hide();
+			if($.iwgcDialog.dialog_default.close_id){temp_close_id.unbind("click");}
+			if(typeof $.iwgcDialog.dialog_default.close_fun=="function"){
+				$.iwgcDialog.dialog_default.close_fun();
+			}
+			comm_data.win.unbind("resize scroll",$.iwgcDialog.resize_dialog);
+			return false;
+		},
+		resize_dialog : function(){
+			temp_cover.css({height:comm_data.win.height(),width:comm_data.win.width()});
+			if(comm_data.ie6){
+				temp_id.css({"top":(comm_data.win.height()-temp_id.height())/2+comm_data.win.scrollTop()+"px","left":(comm_data.win.width()-temp_id.width())/2});
+				ie6_fixed($("#"+$.iwgcDialog.dialog_default.id)[0]);
+			}else{
+				temp_id.css({"top":(comm_data.win.height()-temp_id.height())/2+"px","left":(comm_data.win.width()-temp_id.width())/2});
+			}
+		}
+	});
+
+	function ie6_fixed(elem){
+		var style = elem.style,
+		dom = '(document.documentElement)',
+		left = parseInt(style.left) - document.documentElement.scrollLeft,
+		top = parseInt(style.top) - document.documentElement.scrollTop;
+		style.position = 'absolute';
+		style.removeExpression('left');
+		style.removeExpression('top');
+		style.setExpression('left', 'eval(' + dom + '.scrollLeft + ' + left + ') + "px"');
+		style.setExpression('top', 'eval(' + dom + '.scrollTop + ' + top + ') + "px"');
+	}
+
+})(jQuery)
+
+
+
+//回复框
+if(navigator.userAgent.indexOf('AppleWebKit') > -1){
+  (function(){
+      var style = document.createElement('style'); 
+      var s_temp = [];
+      s_temp.push('.comment_pop_c{clear:both;width:300px;padding:15px;background:#FFF;font-size:14px;font-weight:bold;text-align:center;margin:0 auto;}');
+      s_temp.push('.comment_pop_n{position:absolute;z-index:10000;overflow:hidden;}');
+      s_temp.push('.comment_pt,.comment_pc,.comment_pb{background:url(//cdn.comment.4399pk.com/images/pop_bg.png);_background:url(//cdn.comment.4399pk.com/images/pop_ie6.png);width:736px;overflow:hidden;}');
+      s_temp.push('.comment_pt{height:39px;}');
+      s_temp.push('.comment_pt span{float:left;font-size:14px;font-weight:bold;color:#fff;line-height:39px;padding-left:40px;}');
+      s_temp.push('.comment_pt a{float:right;width:35px;height:35px;margin:2px 10px 0 0;}');
+      s_temp.push('.comment_pc{background-position:-736px 0;padding:0 1px;width:734px;}');
+      s_temp.push('.comment_pb{background-position:0 -39px;height:16px;}');
+      style.innerHTML=s_temp.join(""); 
+      document.getElementsByTagName('head').item(0).appendChild(style);
+      var tmp_fid = 0;
+      if (parseInt(F_ID) == F_ID)
+            tmp_fid = F_ID;
+      else
+	        tmp_fid =  __call$(F_ID,"replace",["jf_",""]) ;
+      $("#CommFrame").before('<div id="reply_dialog"></div><iframe id="my_pl_box" name="my_pl_box" frameborder=0 height=336 width=100% scrolling=no marginheight=0 marginwidth=0 src="//www.4399.com/comment/www/pl3_h5ly_version.html?fid='+tmp_fid+'&menu=1&dialog=0&pic=1"></iframe>');
+  })();
+}
+
+//回复框
+function show_reply_dialog(obj, fid, cid, tag) {
+  document.getElementById('reply_dialog').innerHTML = '<div id="my_reply" class="comment_pop_n" style="left:0%; top:50px;">' +
+    '<div class="comment_pt"><span>我要回复</span><a href="#" id="my_reply_close"></a></div>' +
+    '<div class="comment_pc">' +
+    '<div style="width:720px; background:#f5f8fd; overflow:hidden;">' +
+    '<center>' +
+    '<iframe id="my_pl_box" name="my_pl_box" style=" margin-left:-8px;_margin-left:-2px;" width="102%" scrolling="no" height="268" frameborder="0" marginheight=0 marginwidth=0 src="//www.4399.com/comment/reply_form_new.htm?fid=' + fid + '&cid=' + cid + '&tag=' + tag + '"></iframe>' +
+    '</center>' +
+    '</div>' +
+    '</div>' +
+    '<div class="comment_pb"></div>' +
+    '</div>';
+  var id = 'my_reply';
+  $.iwgcDialog({id:id,close_id:id+"_close",cover:true});
+  return false;
+}
+/*hammerhead|script|end*/
