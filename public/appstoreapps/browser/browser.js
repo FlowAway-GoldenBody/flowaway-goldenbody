@@ -2898,7 +2898,7 @@ FileSystemFileHandle.prototype.getFile = async function () {
     setTimeout(() => {
       if (pendingFileRequests.has(this.path)) {
         pendingFileRequests.delete(this.path);
-        debugger;
+        
         reject(new Error('File request timed out'));
       }
     }, 3000);

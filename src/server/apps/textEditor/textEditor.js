@@ -16,7 +16,7 @@ document.head.appendChild(window.__textEditorStyle);
 textEditor = function (path, posX = 50, posY = 50) {
   let hasFileOpen = false;
   let editorName;
-  debugger;
+  
     if (!window.treeData) {window.loadTree();}
     startMenu.style.display = 'none';
       async function post(data) {
@@ -346,7 +346,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       });
       toolbar.className = 'texteditor-topbar';
     root.addEventListener("styleapplied", () => {
-      debugger;
+      
       toolbar.classList.toggle('dark', data.dark);
       toolbar.classList.toggle('light', !data.dark);
     });

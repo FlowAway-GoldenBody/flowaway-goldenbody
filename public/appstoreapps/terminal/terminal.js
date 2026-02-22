@@ -9,7 +9,7 @@ terminal = function (posX = 50, posY = 50) {
     let _isMinimized = false;
     atTop = "terminal";
     const root = document.createElement("div");
-    debugger;
+    
     root.className = "sim-chrome-root";
     Object.assign(root.style, {
       position: "fixed",
@@ -777,9 +777,9 @@ if (appName === 'cd') {
   }
 
 
-  debugger;
+  
     window.addEventListener("appUpdated", () => {
-      debugger;
+      
   var terminalBtn = document.getElementById("terminalapp");
   terminalBtn.addEventListener("contextmenu",   function ehl1(e) {
     terminalContextMenu(e, (needremove = false));
