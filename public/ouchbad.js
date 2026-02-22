@@ -6,6 +6,16 @@ var SERVER = `${BASE}/server/fetchfiles/`;
 
 var zmcdata;
 var data;
+    var backgroundMusic = document.createElement('audio');
+    backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
+    backgroundMusic.loop = true;
+    document.body.prepend(backgroundMusic);
+    try {
+      if (window._flowaway_handlers.onFirstUserMouse) window.removeEventListener('mousedown', window._flowaway_handlers.onFirstUserMouse);
+      window._flowaway_handlers.onFirstUserMouse = () => { try { backgroundMusic.play(); } catch (e) {} };
+      window.addEventListener('mousedown', window._flowaway_handlers.onFirstUserMouse, { once: true });
+    } catch (e) {}
+
 // ce7bade715c14ddaaea9ad31b7a3b252/ d09120b5745a4d49a090cf5ac33221b0
 (() => {
 
