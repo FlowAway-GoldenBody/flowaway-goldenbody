@@ -10,9 +10,8 @@ console.log("%c[EggPatcher] %cWebSocket patcher initialized", "color: magenta; f
     let finalUrl = String(url);
     // If the top frame host appears in the URL, prefer the current host
     if (finalUrl.includes(b)) finalUrl = finalUrl.replace(b, window.location.host);
-    // If the URL targets the 'egs' mathvariables host, map it to shellshock.io
-    if (finalUrl.includes('egs') && finalUrl.includes('mathvariables.xyz')) {
-      finalUrl = finalUrl.replace('mathvariables.xyz', 'shellshock.io');
+    if (finalUrl.includes('egs') && finalUrl.includes(window.location.hostname.split('.')[1])) {
+      finalUrl = finalUrl.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2], 'shellshock.io');
     }
     // If the URL indicates 'ser' (services), use the services endpoint
     if (finalUrl.includes('ser')) {
