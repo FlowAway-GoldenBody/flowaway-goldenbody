@@ -1384,15 +1384,6 @@ try {
 // observer.disconnect();
       
     setAllMediaVolume(parseInt(data.volume) / 100);
-    var backgroundMusic = document.createElement('audio');
-    backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
-    backgroundMusic.loop = true;
-    document.body.prepend(backgroundMusic);
-    try {
-      if (window._flowaway_handlers.onFirstUserMouse) window.removeEventListener('mousedown', window._flowaway_handlers.onFirstUserMouse);
-      window._flowaway_handlers.onFirstUserMouse = () => { try { backgroundMusic.play(); } catch (e) {} };
-      window.addEventListener('mousedown', window._flowaway_handlers.onFirstUserMouse, { once: true });
-    } catch (e) {}
 // helpers global
   function getStringAfterChar(str, char) {
     var index = str.indexOf(char);
