@@ -1163,6 +1163,7 @@ window.removeotherMenus = function(except) {
         if (inferred) postdata.push(inferred);
       }
     }
+    notification('taskbuttons saved!');
     posttaskbuttons(postdata);
   }
   function bringToFront(el) {

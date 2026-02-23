@@ -420,11 +420,13 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           root.style.height = `calc(100% - 60px)`;
           btnMax.textContent = "‎     ⧉    ‎ "; // restore symbol
           isMaximized = true;
+          root.style.borderRadius = '0px';
           // alert('mximized');
           isMinimized = false;
         } else {
           applyBounds(savedBounds);
           btnMax.textContent = "‎     □    ‎ ";
+          root.style.borderRadius = '10px';
           // alert('restored');
           isMaximized = false;
         }
@@ -3570,7 +3572,7 @@ try{        if (
           startY = 0,
           origLeft = 0,
           origTop = 0;
-        top.addEventListener("pointerdown", (ev) => {
+        top.addEventListener("mousedown", (ev) => {
           if (
             ev.target.closest(".sim-tab") ||
             ev.target === newTabBtn ||
@@ -3588,7 +3590,7 @@ try{        if (
           currentX = ev.clientX;
           currentY = ev.clientY;
         });
-        window.addEventListener("pointermove", (ev) => {
+        window.addEventListener("mousemove", (ev) => {
           if (!dragging) {
             startX = 0;
             startY = 0;
@@ -3604,6 +3606,7 @@ try{        if (
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
               origLeft = ev.clientX - root.clientWidth / 2;
               btnMax.textContent = "‎     □    ‎ ";
+          root.style.borderRadius = '10px';
               // alert('restored');
               isMaximized = false;
             }
@@ -3616,7 +3619,7 @@ try{        if (
           if (origTop + dy > 0) root.style.top = origTop + dy + "px";
           else root.style.top = "0px";
         });
-        window.addEventListener("pointerup", () => {
+        window.addEventListener("mouseup", () => {
           dragging = false;
           document.body.style.userSelect = "";
         });
@@ -3714,6 +3717,7 @@ try{        if (
           if ((dx > 1 && resizing) || (dy > 1 && resizing)) {
             applyBounds(getBounds());
             btnMax.textContent = "‎     □    ‎ ";
+          root.style.borderRadius = '10px';
             // alert('restored');
             isMaximized = false;
           }
@@ -3934,13 +3938,10 @@ try{        if (
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", function () {
+      allBrowsers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
       for (let i = 0; i < allBrowsers.length; i++) {
         let instance = allBrowsers[i];
         instance.rootElement.style.display = "block";
-        instance._isMinimized = false;
-        instance.isMaximized = false;
-        instance.btnMax.textContent = "‎     □    ‎ ";
-        instance._isMinimized = false;
         instance._isMinimized = false;
         bringToFront(instance.rootElement);
       }
@@ -4032,10 +4033,6 @@ try{        if (
           const el = instance.rootElement;
           if (el.style.display === "none") {
             el.style.display = "block";
-            instance._isMinimized = false;
-            instance.isMaximized = false;
-            instance.btnMax.textContent = "‎     □    ‎ ";
-            instance._isMinimized = false;
             instance._isMinimized = false;
           }
           menu.remove();
