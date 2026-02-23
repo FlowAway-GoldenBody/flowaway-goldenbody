@@ -130,10 +130,12 @@ root.classList.add('fileExplorer');
         btnMax.textContent = "‎ ⧉ ‎";
         isMaximized = true;
         _isMinimized = false;
+        root.style.borderRadius = "0";
       } else {
         applyBounds(savedBounds);
         btnMax.textContent = "‎ □ ‎";
         isMaximized = false;
+        root.style.borderRadius = "10px";
       }
     });
 
@@ -197,6 +199,7 @@ root.classList.add('fileExplorer');
               origLeft = ev.clientX - root.clientWidth / 2;
               btnMax.textContent = "‎     □     ‎";
               isMaximized = false;
+              root.style.borderRadius = "10px";
             }
           }
           const dx = ev.clientX - startX;
@@ -271,6 +274,7 @@ root.classList.add('fileExplorer');
           if (!active) return;
           isMaximized = false;
           btnMax.textContent = "‎     □    ‎ ";
+          root.style.borderRadius = "10px";
           const dx = e.clientX - active.sx,
             dy = e.clientY - active.sy;
           if (active.dir.includes("e"))
@@ -1537,6 +1541,7 @@ function handleSelection(e, item, items, index) {
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
+      allExplorers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
       for (const i of allExplorers) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
@@ -1637,7 +1642,6 @@ function handleSelection(e, item, items, index) {
           if (instance.rootElement.style.display === "none") {
             instance.rootElement.style.display = "flex";
             instance._isMinimized = false;
-            instance.isMaximized = false;
           }
           menu.remove();
         });

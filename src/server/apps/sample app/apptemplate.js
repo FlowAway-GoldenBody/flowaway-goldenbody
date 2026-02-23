@@ -125,11 +125,13 @@ yourApp = function (posX = 50, posY = 50) {
         root.style.width = "100%";
         root.style.height = `calc(100% - 60px)`;
         btnMax.textContent = "‎ ⧉ ‎";
+          root.style.borderRadius = "0px";
         isMaximized = true;
         _isMinimized = false;
       } else {
         applyBounds(savedBounds);
         btnMax.textContent = "‎ □ ‎";
+          root.style.borderRadius = "10px";
         isMaximized = false;
       }
     });
@@ -193,6 +195,7 @@ yourApp = function (posX = 50, posY = 50) {
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
               origLeft = ev.clientX - root.clientWidth / 2;
               btnMax.textContent = "‎     □     ‎";
+          root.style.borderRadius = "10px";
               isMaximized = false;
             }
           }
@@ -268,6 +271,7 @@ yourApp = function (posX = 50, posY = 50) {
           if (!active) return;
           isMaximized = false;
           btnMax.textContent = "‎     □    ‎ ";
+          root.style.borderRadius = "10px";
           const dx = e.clientX - active.sx,
             dy = e.clientY - active.sy;
           if (active.dir.includes("e"))
@@ -390,6 +394,7 @@ yourApp = function (posX = 50, posY = 50) {
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
+      allyour_app_name.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
       for (const i of allyour_app_name) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
