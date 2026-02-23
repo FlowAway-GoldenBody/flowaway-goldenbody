@@ -3,6 +3,7 @@
   // Create the taskbar
   var taskbar = document.createElement("div");
   taskbar.className = 'taskbar';
+  taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
   taskbar.style.zIndex = 9999;

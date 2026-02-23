@@ -3,6 +3,7 @@ window.loaded = false;
 var hasChanges;
   var atTop = "";
   var zTop = 10;
+  document.body.style.backgroundImage = 'url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)';
 var rebuildhandler = function() {
   try {
     // Pause and unload any playing media to avoid audio carrying over
@@ -1277,13 +1278,13 @@ function applyStyles() {
     }
   } catch (e) {}
 
-  if(data.dark) {
-    document.body.style.background = "#444";
-    document.body.style.color = "white";
-  } else {
-    document.body.style.background = "white";
-    document.body.style.color = "black";
-  }
+  // if(data.dark) {
+  //   document.body.style.background = "#444";
+  //   document.body.style.color = "white";
+  // } else {
+  //   document.body.style.background = "white";
+  //   document.body.style.color = "black";
+  // }
   startMenu.classList.toggle("dark", data.dark);
   startMenu.classList.toggle("light", !data.dark);
   taskbar.classList.toggle("dark", data.dark);
