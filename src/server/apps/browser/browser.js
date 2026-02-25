@@ -371,18 +371,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       });
 
       function getBounds() {
-        if (
-          root.style.width === "100%" &&
-          root.style.height === `calc(100% - 60px)`
-        ) {
-          return {
-            left: "20px",
-            top: "20px",
-            width: "1000px",
-            height: "640px",
-            position: root.style.position || "fixed",
-          };
-        }
         return {
           left: root.style.left,
           top: root.style.top,
@@ -417,7 +405,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           root.style.top = "0";
           root.style.width = "100%";
           // leave space for restart button (assume 50px)
-          root.style.height = `calc(100% - 60px)`;
+          root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
           btnMax.textContent = "‎     ⧉    ‎ "; // restore symbol
           isMaximized = true;
           root.style.borderRadius = '0px';
