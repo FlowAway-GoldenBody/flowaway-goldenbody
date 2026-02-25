@@ -1,3 +1,4 @@
+
 //settings global vars
   window.allSettings = [];
   window.settingsId = 0;
@@ -8,7 +9,7 @@ settings = function (posX = 50, posY = 50) {
         const res = await fetch(zmcdserver, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, ...data }),
+          body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
         });
         return res.json();
       }
@@ -401,6 +402,8 @@ root.appendChild(mainContainer);
         status.style.color = "green";
         input.value = "";
         confirm.value = "";
+        password = input.value; // Update global password variable
+        data.password = input.value; // Update password in data object
       } else {
         throw new Error(res.error || "Failed");
       }
