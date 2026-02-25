@@ -159,8 +159,8 @@
     var cm = document.createElement('div');
     cm.style.position = 'fixed';
     cm.style.zIndex = 100000;
-    cm.style.background = 'rgba(50,50,50,0.95)';
-    cm.style.color = 'white';
+    cm.style.background = data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
+    cm.style.color = data.dark ? 'white' : 'black';
     cm.style.padding = '8px';
     cm.style.borderRadius = '6px';
     cm.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
@@ -205,6 +205,8 @@
       chk.checked = !!(window.data && window.data.autohidetaskbar);
       cm.style.left = Math.min(window.innerWidth - 200, x) + 'px';
       cm.style.top = Math.min(window.innerHeight - 50, y) + 'px';
+      cm.style.color = data.dark ? 'white' : 'black'; 
+      cm.style.background = data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
       cm.style.display = 'block';
       document.addEventListener('pointerdown', onDocPointerDown);
       document.addEventListener('keydown', onEsc);
