@@ -1,7 +1,7 @@
 window.data = data;
 window.loaded = false;
 if (typeof data.autohidetaskbar === 'undefined') {
-  data.autohidetaskbar = true;
+  data.autohidetaskbar = false;
 }
 var hasChanges;
   var atTop = "";
