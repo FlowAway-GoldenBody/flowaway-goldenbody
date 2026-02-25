@@ -26,6 +26,33 @@ async function walkDir(dir, base = dir) {
   return files;
 }
 
+      // Authenticate a username/password pair against a per-user JSON file
+      // placed next to the user's folder: <username>/<username>.txt
+      // If the user file does not exist or contains no `password` field,
+      // authentication is considered not required and the function returns true.
+      async function authenticateUser(username, providedPassword) {
+        try {
+          if (!username) return false;
+          const userDir = path.join(directoryPath, username);
+          const userFile = path.join(userDir, `${username}.txt`);
+          try {
+            const txt = await fsp.readFile(userFile, 'utf8');
+            const obj = JSON.parse(txt);
+            console.log(providedPassword, obj.password, 'auth attempt for', username);
+            if (obj && typeof obj.password === 'string' && obj.password.length) {
+              return providedPassword === obj.password;
+            }
+            // no password set → allow
+            return true;
+          } catch (e) {
+            // missing or unreadable user file → allow
+            return true;
+          }
+        } catch (e) {
+          return false;
+        }
+      }
+
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
 
@@ -92,15 +119,23 @@ async function handleFetchfiles(req, res) {
   }
 
   // Support simple streaming download endpoint for large files.
+  console.log('fetchfiles request', req.method, req.url);
   if (req.method === 'GET' && req.url && req.url.startsWith('/download')) {
     try {
       const { URL } = require('url');
       const full = new URL(req.url, `http://${req.headers.host}`);
       const username = full.searchParams.get('username');
+      const pwd = full.searchParams.get('password');
       const rel = full.searchParams.get('path');
       if (!username || !rel) {
         res.writeHead(400);
         return res.end('missing username or path');
+      }
+      // authenticate download request
+      if (!(await authenticateUser(username, pwd))) {
+        console.log(password, 'failed auth for', username);
+        res.writeHead(401);
+        return res.end('unauthorized');
       }
       const userRoot = path.join(directoryPath, username, 'root');
       const abs = path.join(userRoot, rel);
@@ -148,6 +183,14 @@ async function handleFetchfiles(req, res) {
   const username = data.username;
     const userRoot = path.join(directoryPath, username, 'root');
     await fsp.mkdir(userRoot, { recursive: true });
+
+    // Authenticate all POST actions. If the user has a password set
+    // in their user file (username.txt) it must match `data.password`.
+    if (!(await authenticateUser(username, data.password))) {
+      res.writeHead(401);
+        console.log(data.password, 'failed auth for', username);
+      return res.end(JSON.stringify({ error: 'unauthorized' }));
+    }
 
   
 

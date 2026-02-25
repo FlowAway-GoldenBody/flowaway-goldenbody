@@ -1,3 +1,4 @@
+
 //explorer global vars
   window.allExplorers = [];
   window.explorerId = 0;
@@ -322,7 +323,7 @@ root.classList.add('fileExplorer');
         const res = await fetch(SERVER, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, ...data }),
+          body: JSON.stringify({ username, ...data, password: password }),
         });
         return res.json();
       }

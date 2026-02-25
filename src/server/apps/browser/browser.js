@@ -1,3 +1,4 @@
+
 //browser global vars
   window.allBrowsers = [];
   window.browserId = 0;
@@ -525,7 +526,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         fetch(zmcdserver, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: data.username, needID: true }),
+          body: JSON.stringify({ username: data.username, needID: true, password: password }),
         })
           .then((res) => res.json())
           .then((result) => {
@@ -1413,6 +1414,7 @@ async function fetchFileContent(username, fileFullPath) {
       requestFile: true,
       requestFileName: fileFullPath, // send path relative to root
       username,
+      password: password, // include password for authentication
     }),
   });
 
@@ -1529,7 +1531,7 @@ async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
         const r = await fetch(SERVER, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requestFile: true, requestFileName: fullPath, chunkIndex: i, username }),
+          body: JSON.stringify({ requestFile: true, requestFileName: fullPath, chunkIndex: i, username, password }),
         });
         const chunkData = await r.json();
         chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
@@ -1632,7 +1634,7 @@ let fileIndex = 0;
         let chunkBuf;
         if (ci === 0) chunkBuf = base64ToArrayBuffer(result.filecontent);
         else {
-          const r = await fetch(SERVER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestFile: true, requestFileName: file.fullPath, chunkIndex: ci, username }) });
+          const r = await fetch(SERVER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestFile: true, requestFileName: file.fullPath, chunkIndex: ci, username, password: password }) });
           const cd = await r.json();
           chunkBuf = base64ToArrayBuffer(cd.filecontent);
         }

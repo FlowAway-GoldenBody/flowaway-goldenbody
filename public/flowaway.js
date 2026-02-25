@@ -1,4 +1,5 @@
 window.data = data;
+var password = data.password;
 window.loaded = false;
 if (typeof data.autohidetaskbar === 'undefined') {
   data.autohidetaskbar = false;
@@ -116,7 +117,7 @@ async function filePost(data) {
   var res = await fetch(SERVER, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, ...data }),
+    body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
   });
   return res.json();
 }
@@ -124,7 +125,7 @@ async function zmcdpost(data) {
   var res = await fetch(zmcdserver, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, ...data }),
+    body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
   });
   return res.json();
 }
@@ -136,6 +137,7 @@ async function posttaskbuttons(data) {
       username: username,
       data: data,
       edittaskbuttons: true,
+      password: password, // include password for authentication
     }),
   });
   return res.json();

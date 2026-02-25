@@ -23,7 +23,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         const res = await fetch(SERVER, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, ...data }),
+          body: JSON.stringify({ username, ...data, password: password }),
         });
         return res.json();
       }
