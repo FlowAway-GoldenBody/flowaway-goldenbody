@@ -258,6 +258,17 @@ fs.cpSync(
           }
           userData.dark = data.dark;
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+        } else if (data.setAutohideTaskbar) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          userData.autohidetaskbar = !!data.autohidetaskbar;
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
         }
         else if(data.updateSiteSettings) {
           const userFile = directoryPath + data.username + '/' + data.username + '.txt';

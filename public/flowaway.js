@@ -1,5 +1,8 @@
 window.data = data;
 window.loaded = false;
+if (typeof data.autohidetaskbar === 'undefined') {
+  data.autohidetaskbar = true;
+}
 var hasChanges;
   var atTop = "";
   var zTop = 10;
@@ -1300,6 +1303,7 @@ setTimeout(() => {
 }, 100);
 
 // Ensure apps are loaded shortly after startup (safe-guard if tree already present)
+loadAppsFromTree();
 setTimeout(() => { try { loadAppsFromTree(); } catch (e) {} }, 200);
 function mainRecurseFrames(doc) {
   if (!doc) return null;
@@ -1584,7 +1588,7 @@ function notification (message) {
   color: black;
 }
 .sim-chrome-root.light {
-  background: #f4f5f7;
+  background: #eee;
   color: #222;
 }
 
@@ -1683,7 +1687,7 @@ function notification (message) {
   color: #fff;
 }
 .sim-chrome-root.dark .sim-address-row {
-  background: #111; margin: 0px;/* explicit, avoids inherited light bg */
+  background: #222; margin: 0 8px;
 }
 
 /* Iframe background */
@@ -1801,13 +1805,13 @@ function notification (message) {
   color: black;
 }
 .taskbutton.dark {
-  background: #444 !important;
-  color: white !important;
+  background: #444;
+  color: white;
 }
 
 .taskbutton.light {
-  background: white !important;
-  color: black !important;
+  background: white;
+  color: black;
 }
 .taskbar.dark {
   background: #222;

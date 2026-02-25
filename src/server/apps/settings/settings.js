@@ -131,7 +131,7 @@ settings = function (posX = 50, posY = 50) {
         root.style.left = "0";
         root.style.top = "0";
         root.style.width = "100%";
-        root.style.height = `calc(100% - 60px)`;
+          root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
         btnMax.textContent = "‎ ⧉ ‎";
                   root.style.borderRadius = "0px";
         isMaximized = true;

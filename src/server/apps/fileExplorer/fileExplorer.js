@@ -126,7 +126,7 @@ root.classList.add('fileExplorer');
         root.style.left = "0";
         root.style.top = "0";
         root.style.width = "100%";
-        root.style.height = `calc(100% - 60px)`;
+          root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
         btnMax.textContent = "‎ ⧉ ‎";
         isMaximized = true;
         _isMinimized = false;
