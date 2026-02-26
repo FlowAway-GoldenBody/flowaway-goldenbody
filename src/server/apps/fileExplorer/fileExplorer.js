@@ -1668,10 +1668,19 @@ function handleSelection(e, item, items, index) {
 
 
   window.addEventListener("appUpdated", (e) => {
-  var ebtn = document.getElementById("explorerapp");
-    ebtn.addEventListener("contextmenu",   function ehl1(e) {
-    fileExplorerContextMenu(e, (needremove = false));
-  });
+    try {
+      const ebtn = document.getElementById("explorerapp");
+      if (!ebtn) return;
+      if (ebtn.dataset && ebtn.dataset.fileExplorerContextBound) return;
+
+      const handler = function (ev) {
+        fileExplorerContextMenu(ev, false);
+      };
+
+      ebtn.addEventListener("contextmenu", handler);
+      if (ebtn.dataset) ebtn.dataset.fileExplorerContextBound = '1';
+      try { explorerButtons.push(ebtn); } catch (e) {}
+    } catch (e) {}
   });
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for File Explorer
 try {

@@ -4036,10 +4036,21 @@ try{        if (
   }
 
   window.addEventListener("appUpdated", function (e) {
-  var babtn = document.getElementById("browserapp");
-  babtn.addEventListener("contextmenu",   function bhl1(e) {
-    browsermenuhandler(e, (needremove = false));
-  });
+    try {
+      const babtn = document.getElementById("browserapp");
+      if (!babtn) return;
+
+      // Avoid attaching the same contextmenu handler repeatedly
+      if (babtn.dataset && babtn.dataset.browserContextBound) return;
+
+      const bhl1 = function (ev) {
+        browsermenuhandler(ev, false);
+      };
+
+      babtn.addEventListener("contextmenu", bhl1);
+      if (babtn.dataset) babtn.dataset.browserContextBound = '1';
+      try { browserButtons.push(babtn); } catch (e) {}
+    } catch (e) {}
   });
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for browser
 try {

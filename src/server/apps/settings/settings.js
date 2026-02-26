@@ -782,11 +782,21 @@ mainContainer.appendChild(themeRow);
   }
 
 
-  window.addEventListener("appUpdated"  , () => {
-    var sbtn = document.getElementById("settingsapp");
-    sbtn.addEventListener("contextmenu",   function ehl1(e) {
-    settingsContextMenu(e, (needremove = false));
-  });
+  window.addEventListener("appUpdated", () => {
+    try {
+      const sbtn = document.getElementById("settingsapp");
+      if (!sbtn) return;
+      // avoid duplicate binding
+      if (sbtn.dataset && sbtn.dataset.settingsContextBound) return;
+
+      const handler = function (e) {
+        settingsContextMenu(e, false);
+      };
+
+      sbtn.addEventListener("contextmenu", handler);
+      if (sbtn.dataset) sbtn.dataset.settingsContextBound = '1';
+      try { settingsButtons.push(sbtn); } catch (e) {}
+    } catch (e) {}
   });
 
 

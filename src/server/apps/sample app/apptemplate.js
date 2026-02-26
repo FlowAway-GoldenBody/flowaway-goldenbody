@@ -526,9 +526,17 @@ yourApp = function (posX = 50, posY = 50) {
       
       var your_app_abb_btn;
  try{ your_app_abb_btn = document.getElementById("your_app_nameapp"); } catch (e) {       setTimeout(() => {              var appUpdatedEvent = new CustomEvent('appUpdated', { detail: { apps: window.apps } });      window.dispatchEvent(appUpdatedEvent);      }, 5000); }
-  your_app_abb_btn.addEventListener("contextmenu",   function ehl1(e) {
-    your_app_nameContextMenu(e, (needremove = false));
-  });
+  try {
+    if (your_app_abb_btn) {
+      if (your_app_abb_btn.dataset && your_app_abb_btn.dataset.yourAppContextBound) return;
+      const handler = function (ev) {
+        your_app_nameContextMenu(ev, false);
+      };
+      your_app_abb_btn.addEventListener("contextmenu", handler);
+      if (your_app_abb_btn.dataset) your_app_abb_btn.dataset.yourAppContextBound = '1';
+      try { your_app_nameButtons.push(your_app_abb_btn); } catch (e) {}
+    }
+  } catch (e) {}
   });
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for yourApp
