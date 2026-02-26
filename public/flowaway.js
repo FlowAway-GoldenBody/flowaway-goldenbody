@@ -25,7 +25,6 @@ var rebuildhandler = function() {
 
     var body = document.createElement('body');
     docEl.appendChild(body);
-
     // Inject homepage loader
     var script = document.createElement('script');
     script.src = 'ouchbad.js';
@@ -1019,6 +1018,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
     
     // If any changes detected, re-render and apply
     if (hasChanges) {
+      loadAppsFromTree(); // This will re-render the grid and re-apply buttons, but we call it to ensure consistency
       renderAppsGrid();
       applyTaskButtons();
       purgeButtons();
@@ -1079,7 +1079,7 @@ window.loadTree = async function () {
   await oldLoadTree();
   await loadAppsFromTree();
 };
-
+loadTree();
 // ----------------- END dynamic app loader -----------------
 
 var username = data.username;
@@ -1305,7 +1305,6 @@ setTimeout(() => {
 }, 100);
 
 // Ensure apps are loaded shortly after startup (safe-guard if tree already present)
-loadAppsFromTree();
 setTimeout(() => { try { loadAppsFromTree(); } catch (e) {} }, 200);
 function mainRecurseFrames(doc) {
   if (!doc) return null;
