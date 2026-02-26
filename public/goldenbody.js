@@ -273,6 +273,5 @@
   addTaskButton("⤢", _fullscreen);
   addTaskButton("💾", saveTaskButtons);
   addTaskButton("▶", starthandler);
-  applyTaskButtons();
   purgeButtons();
 

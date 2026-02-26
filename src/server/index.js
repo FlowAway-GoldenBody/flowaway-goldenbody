@@ -65,7 +65,6 @@ if (!config.enableWorkers || !cluster.isMaster) {
     // mount zmcd and fetchfiles handlers under proxy routes
     const zmcd = require('./zmcd');
     const fetchfiles = require('./fetchfiles');
-
     proxyServer.addToOnRequestPipeline((req, res) => {
         if (!req.url) return;
         if (req.url.startsWith('/server/zmcd')) {
@@ -180,6 +179,7 @@ if (config.enableWorkers) {
 // if you want to just extend the functionality of this proxy server, you can
 // easily do so using this. mainly used for debugging
 if (cluster.isMaster) {
+    const aw = require('./adminWatcher');
     const httpLocal = require('http');
     const routers = [];
 
