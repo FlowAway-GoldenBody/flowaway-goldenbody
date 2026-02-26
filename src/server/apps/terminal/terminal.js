@@ -784,11 +784,19 @@ if (appName === 'cd') {
 
   
     window.addEventListener("appUpdated", () => {
-      
-  var terminalBtn = document.getElementById("terminalapp");
-  terminalBtn.addEventListener("contextmenu",   function ehl1(e) {
-    terminalContextMenu(e, (needremove = false));
-  });
+      try {
+        const terminalBtn = document.getElementById("terminalapp");
+        if (!terminalBtn) return;
+        if (terminalBtn.dataset && terminalBtn.dataset.terminalContextBound) return;
+
+        const handler = function (ev) {
+          terminalContextMenu(ev, false);
+        };
+
+        terminalBtn.addEventListener("contextmenu", handler);
+        if (terminalBtn.dataset) terminalBtn.dataset.terminalContextBound = '1';
+        try { terminalButtons.push(terminalBtn); } catch (e) {}
+      } catch (e) {}
     });
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for terminal

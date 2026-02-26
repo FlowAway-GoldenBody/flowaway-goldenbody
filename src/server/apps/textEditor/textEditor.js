@@ -1349,10 +1349,19 @@ textEditorContextMenu = function(e, needRemove = true) {
 
 
   window.addEventListener("appUpdated", () => {
-  var txtbtn = document.getElementById("editorapp");
-  txtbtn.addEventListener("contextmenu", function ehl1(e) {
-    textEditorContextMenu(e, (needremove = false));
-  });
+    try {
+      const txtbtn = document.getElementById("editorapp");
+      if (!txtbtn) return;
+      if (txtbtn.dataset && txtbtn.dataset.textEditorContextBound) return;
+
+      const handler = function (ev) {
+        textEditorContextMenu(ev, false);
+      };
+
+      txtbtn.addEventListener("contextmenu", handler);
+      if (txtbtn.dataset) txtbtn.dataset.textEditorContextBound = '1';
+      try { textEditorButtons.push(txtbtn); } catch (e) {}
+    } catch (e) {}
   });
 
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Text Editor
