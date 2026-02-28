@@ -4087,17 +4087,3 @@ try {
 } catch (e) {
   console.error('failed to attach browser context handlers', e);
 }
-
-// === Terminal command ideas for Browser ===
-// Commands follow format: <app> <command> <args>
-// Example usage and purpose (apps listen for 'terminalCommand'):
-// browser open <url>               -> open URL in a new tab (or active tab)
-// browser newtab                   -> open a new tab (goldenbody://newtab/)
-// browser close-tab <tabId|index>  -> close the specified tab
-// browser reload [tabId]           -> reload specified or active tab
-// browser find <query>             -> find text in active page (send message to iframe)
-// browser permissions <url>        -> open permissions UI for a site
-// browser proxy <on|off|url>       -> toggle or set proxy for this browser instance
-// Notes: browser instances should listen for 'terminalCommand' and check
-// event.detail.app === 'browser' to respond. Commands may target an active
-// browser window if terminal detail includes terminalId -> resolve mapping.
