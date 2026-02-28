@@ -3308,7 +3308,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
 
             const win = tab.iframe.contentWindow;
             const doc = tab.iframe.contentDocument;
-            if (!win) return;
+            if (!win || tab.iframe.style.display === 'none') return;
             if (!win.eruda) {
               tab.iframe.contentWindow._goldenbodyIns = true;
 

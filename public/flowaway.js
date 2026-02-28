@@ -8,6 +8,9 @@ var hasChanges;
   var atTop = "";
   var zTop = 10;
   document.body.style.backgroundImage = 'url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)';
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundPosition = 'center';
+  document.body.style.backgroundRepeat = 'no-repeat';
 var rebuildhandler = function() {
   try {
     // Pause and unload any playing media to avoid audio carrying over
