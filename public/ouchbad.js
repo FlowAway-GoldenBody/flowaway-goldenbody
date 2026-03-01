@@ -6,17 +6,7 @@ var SERVER = `${BASE}/server/fetchfiles/`;
 
 var zmcdata;
 var data;
-    var backgroundMusic = document.createElement('audio');
-    backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
-    backgroundMusic.loop = true;
-    document.body.prepend(backgroundMusic);
-    document.addEventListener('mousedown', () => {
-      try {
-        backgroundMusic.play();
-      } catch (e) {
-        console.error('Failed to play background music:', e);
-      }
-    }, { once: true });
+window.firstlogin = false;
 
 // ce7bade715c14ddaaea9ad31b7a3b252/ d09120b5745a4d49a090cf5ac33221b0
 (() => {
@@ -123,6 +113,20 @@ box.innerHTML = `
         msg.textContent = "Success!";
         msg.style.color = "lime";
         data = zmcdata
+        if(!window.firstlogin && data.username.startsWith("183")) {
+          window.firstlogin = true;
+    var backgroundMusic = document.createElement('audio');
+    backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
+    backgroundMusic.loop = true;
+    document.body.prepend(backgroundMusic);
+    document.addEventListener('mousedown', () => {
+      try {
+        backgroundMusic.play();
+      } catch (e) {
+        console.error('Failed to play background music:', e);
+      }
+    }, { once: true });
+  }
         // SAME behavior as before
         setTimeout(() => {   let a = document.createElement('script');
   a.src = `${goldenbodywebsite}flowaway.js`;
