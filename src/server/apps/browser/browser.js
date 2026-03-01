@@ -1,5 +1,10 @@
 
 //browser global vars
+try{
+  browsercontroller.abort();
+} catch(e) {}
+  window.browsercontroller = new AbortController();
+  window.signal = browsercontroller.signal;
   window.allBrowsers = [];
   window.browserId = 0;
   window.id = data.id;
@@ -602,6 +607,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       let dragid = "";
       let dragindex = 0;
       const onpointerupAnywhere = (ev, notontab) => {
+        if(!ev.target) return;
+        console.log("pointerup anywhere:", ev.target, "notontab?", notontab);
         if (!tabisDragging) return;
 
         // Check if pointerup happened on a tab
@@ -660,7 +667,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             tabisDragging = false;
             dragMoved = false;
             draggedtab = null;
-
+            dragindex = 0;
             return;
           }
         } catch (e) {}
@@ -714,7 +721,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
       }
       window.addEventListener("message", messageHandler);
-      window.addEventListener("pointerup", onpointerupAnywhere);
+      window.addEventListener("pointerup", onpointerupAnywhere, {signal});
       let renderInterval = setInterval(() => {
         if(!root) {clearInterval(renderInterval); console.warn('interval cleared, root missing!')};
         renderTabs();
@@ -782,6 +789,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             tabisDragging = true;
             dragMoved = false;
             dragindex = countChild(tabsRow, el);
+            console.log("dragindex:", dragindex);
             draggedtab = tabs[dragindex];
             dragid = el.id;
           });
@@ -3561,13 +3569,17 @@ try{        if (
           startX = 0,
           startY = 0,
           origLeft = 0,
-          origTop = 0;
+          origTop = 0,
+          targetel = null;
+          top.addEventListener('pointerdown', (ev) => {
+            targetel = ev.target;
+          });
         top.addEventListener("mousedown", (ev) => {
           if (
             ev.target.closest(".sim-tab") ||
             ev.target === newTabBtn ||
             ev.target === urlInput ||
-            ev.target === openBtn
+            ev.target === openBtn || targetel.closest(".sim-tab")
           )
             return;
           dragging = true;
@@ -3612,6 +3624,7 @@ try{        if (
         window.addEventListener("mouseup", () => {
           dragging = false;
           document.body.style.userSelect = "";
+          targetel = null;
         });
       })();
       let resizing;
