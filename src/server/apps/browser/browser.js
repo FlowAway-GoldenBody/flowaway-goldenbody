@@ -13,6 +13,33 @@ try{
   window.__vfsMessageListenerAdded = false;
   window.tabisDragging = false;
   window.draggedtab = 0;
+      window.unshuffleURL = function (url) {
+      if (url === goldenbodywebsite + "flowerfeast.html") {
+        return "goldenbody://newtab/";
+      }
+      else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
+        return "goldenbody://app-store/";
+      }
+      url = url.split('/');
+      if(url) {
+        if(typeof url === 'string') {
+            return url;
+        }
+      }
+      url.splice(0, 4);
+      let newUrl = '';
+      for(let i = 0; i < url.length; i++) {
+        if(i !== 0) {
+            if(i === 1) newUrl += '//' + url[i];
+            else if(i === 2) newUrl += url[i];
+            else newUrl += '/' + url[i];
+        }
+        else {
+          newUrl += url[i];
+        }
+      }
+      return newUrl;
+    }
 // browser global functions
   window.mainWebsite = function(string) {
     let s = '';
@@ -3001,6 +3028,15 @@ let allbrowserindex = 0;
 for(let i = 0; i < window.top.allBrowsers.length; i++) {
     if(window.top.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
 }
+    debugger;
+    if(!url.startsWith('http')) {
+       if(document.getElementsByTagName('base').length > 0) {
+       url = window.top.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
+       }
+       else {
+       url = window.top.mainWebsite(window.top.unshuffleURL(window.location.href)).slice(0, -1) + url;
+       }
+    }
   if(location === '_parent') {
     console.error('this flag is banned "_parent"');
     window.top.postMessage({
