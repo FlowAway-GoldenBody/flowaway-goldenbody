@@ -1803,6 +1803,11 @@ div.onclick = (e) => {
                   pickerOverlay.resolvePicker([]); // resolve promise with empty selection
                   pickerOverlay.resolvePicker = null;
                 }
+                try {
+                  if (sentreqframe && sentreqframe.contentWindow) {
+                    sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'pickerCancelled' }, '*');
+                  }
+                } catch (e) {}
                 pickerOverlay.remove();
                 pickerOverlay = null;
                 pickerSelection = null;
@@ -1896,7 +1901,14 @@ btnOpen.onclick = async () => {
 
             render();
 
-            btnCancel.onclick = () => { overlay.remove(); };
+            btnCancel.onclick = () => {
+              try {
+                if (sentreqframe && sentreqframe.contentWindow) {
+                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'saveTarget', path: null }, '*');
+                }
+              } catch (e) {}
+              overlay.remove();
+            };
 
             btnSave.onclick = () => {
               const selections = [...savePickerSelection];
@@ -1995,7 +2007,14 @@ btnOpen.onclick = async () => {
 
             render();
 
-            btnCancel.onclick = () => { overlay.remove(); };
+            btnCancel.onclick = () => {
+              try {
+                if (sentreqframe && sentreqframe.contentWindow) {
+                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'directoryTarget', path: null, treeNode: null }, '*');
+                }
+              } catch (e) {}
+              overlay.remove();
+            };
 
 btnOpen.onclick = () => {
   const basePath = dirPickerCurrentPath.slice(1).join('/') || 'root';
@@ -2491,6 +2510,7 @@ function makeFileHandle(file) {
   let activeInput = null;
   let pickerMode = null; // 'input' | 'picker'
   let allFilesReceived = false;
+  let pickerCancelled = false;
   let fileChunks = {}; // store chunks by path: { path: [buffer1, buffer2, ...] }
 
   function normalizeMimeType(type) {
@@ -2523,8 +2543,14 @@ function makeFileHandle(file) {
   }
 
   function waitUntilFiles() {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       const i = setInterval(() => {
+        if (pickerCancelled) {
+          clearInterval(i);
+          pickerCancelled = false;
+          reject(new DOMException('The user aborted a request.', 'AbortError'));
+          return;
+        }
         if (allFilesReceived) {
           clearInterval(i);
           resolve();
@@ -2537,6 +2563,11 @@ function makeFileHandle(file) {
   window.addEventListener('message', e => {
     const d = e.data;
     if (!d || d.__VFS__ !== true) return;
+
+    if (d.kind === 'pickerCancelled') {
+      pickerCancelled = true;
+      return;
+    }
 
     if (d.kind === 'file') {
       // Handle chunked file messages
@@ -2653,6 +2684,7 @@ function makeFileHandle(file) {
   window.showOpenFilePicker = async () => {
     pickerMode = 'picker';
     allFilesReceived = false;
+    pickerCancelled = false;
     injectedFiles = [];
 
     window.top.postMessage(
@@ -2660,14 +2692,15 @@ function makeFileHandle(file) {
       '*'
     );
 
-    await waitUntilFiles();
-
-    const files = injectedFiles.slice();
-    injectedFiles = [];
-    allFilesReceived = false;
-    pickerMode = null;
-
-    return files.map(file => makeFileHandle(file));
+    try {
+      await waitUntilFiles();
+      const files = injectedFiles.slice();
+      return files.map(file => makeFileHandle(file));
+    } finally {
+      injectedFiles = [];
+      allFilesReceived = false;
+      pickerMode = null;
+    }
   };
 
 
@@ -2720,17 +2753,30 @@ window.showSaveFilePicker = async (options = {}) => {
 
   // � showDirectoryPicker
   let pendingDirectoryResolvers = [];
+  let pendingDirectoryRejectors = [];
   window.addEventListener('message', e => {
     const d = e.data;
     if (!d || d.__VFS__ !== true) return;
     if (d.kind === 'directoryTarget') {
+      if (!d.path) {
+        for (const rej of pendingDirectoryRejectors) {
+          try {
+            rej(new DOMException('The user aborted a request.', 'AbortError'));
+          } catch (e) {}
+        }
+        pendingDirectoryResolvers = [];
+        pendingDirectoryRejectors = [];
+        return;
+      }
       for (const r of pendingDirectoryResolvers) try { r(d.path, d.treeNode); } catch(e){}
       pendingDirectoryResolvers = [];
+      pendingDirectoryRejectors = [];
     }
   });
 
   window.showDirectoryPicker = async (options) => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      pendingDirectoryRejectors.push(reject);
       pendingDirectoryResolvers.push((path, treeNode) => {
         const h = new FileSystemDirectoryHandle();
         h.name = path.split('/').pop() || 'root';
