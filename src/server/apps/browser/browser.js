@@ -1267,7 +1267,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               openItem.onmouseleave = () =>
                 (openItem.style.background = "none");
               openItem.onclick = () => {
-                iframe.contentWindow.history.back();
+                historyNavigate(tab, -1);
                 hideMenu();
               };
               menu.appendChild(openItem);
@@ -1283,7 +1283,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               forward.onmouseenter = () => (forward.style.background = "#444");
               forward.onmouseleave = () => (forward.style.background = "none");
               forward.onclick = () => {
-                iframe.contentWindow.history.forward();
+                historyNavigate(tab, 1);
                 hideMenu();
               };
               menu.appendChild(forward);
@@ -3353,7 +3353,23 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
         root.appendChild(iframe);
         let loadedurl = url;
         let donotm = false;
-        const tab = { id, url, title, iframe, resizeP, loadedurl, donotm };
+        const tab = {
+          id,
+          url,
+          title,
+          iframe,
+          resizeP,
+          loadedurl,
+          donotm,
+          history: {
+            stack: [url],
+            index: 0,
+            current: url,
+            currentCanonical: null,
+            suppressNextRecord: false,
+          },
+        };
+        tab.history.currentCanonical = canonicalHistoryUrl(url);
         tab.iframe.contentWindow.addEventListener("keydown", function (e) {
           if (e.ctrlKey && e.key === "w") {
             if (tab.iframe.style.display !== "none") {
@@ -3451,6 +3467,74 @@ try{        if (
           }
         }
       });
+
+      function canonicalHistoryUrl(url) {
+        if (!url) return '';
+        try {
+          const parsed = new URL(url);
+          if (parsed.pathname.length > 1 && parsed.pathname.endsWith('/')) {
+            parsed.pathname = parsed.pathname.slice(0, -1);
+          }
+          return parsed.href;
+        } catch (e) {
+          return String(url).replace(/\/+$/, '');
+        }
+      }
+
+      function historyRecord(tab, url) {
+        if (!tab || !tab.history || !url) return;
+        const canonical = canonicalHistoryUrl(url);
+        if (tab.history.suppressNextRecord) {
+          tab.history.suppressNextRecord = false;
+          if (Array.isArray(tab.history.stack) && tab.history.index >= 0 && tab.history.index < tab.history.stack.length) {
+            tab.history.stack[tab.history.index] = url;
+          }
+          tab.history.current = url;
+          tab.history.currentCanonical = canonical;
+          return;
+        }
+        if (Array.isArray(tab.history.stack) && tab.history.index >= 0 && tab.history.index < tab.history.stack.length) {
+          const currentStackCanonical = canonicalHistoryUrl(tab.history.stack[tab.history.index]);
+          if (currentStackCanonical === canonical) {
+            tab.history.current = url;
+            tab.history.currentCanonical = canonical;
+            return;
+          }
+        }
+        if (tab.history.currentCanonical === canonical) return;
+
+        if (tab.history.index < tab.history.stack.length - 1) {
+          tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+        }
+        tab.history.stack.push(url);
+        tab.history.index = tab.history.stack.length - 1;
+        tab.history.current = url;
+        tab.history.currentCanonical = canonical;
+      }
+
+      function historyNavigate(tab, direction) {
+        if (!tab || !tab.history) return;
+        const nextIndex = tab.history.index + direction;
+        if (nextIndex < 0 || nextIndex >= tab.history.stack.length) return;
+
+        const targetUrl = tab.history.stack[nextIndex];
+        tab.history.index = nextIndex;
+        tab.history.current = targetUrl;
+        tab.history.currentCanonical = canonicalHistoryUrl(targetUrl);
+        tab.history.suppressNextRecord = true;
+
+        tab.url = targetUrl;
+        tab.loadedurl = targetUrl;
+        tab.title = "Loading...";
+
+        try { createPermInput(tab.iframe, targetUrl); } catch (e) {}
+        try {
+          tab.iframe.contentWindow.location.href = a(targetUrl, proxyurl);
+        } catch (e) {
+          tab.history.suppressNextRecord = false;
+        }
+      }
+
       function activateTab(id) {
         try {
           clearInterval(checkInterval);
@@ -3462,10 +3546,10 @@ try{        if (
         tabs.forEach((t) => (t.iframe.style.display = "none"));
         tab.iframe.style.display = "block";
         backBtn.onclick = function () {
-          tab.iframe.contentWindow.history.back();
+          historyNavigate(tab, -1);
         };
         forwardBtn.onclick = function () {
-          tab.iframe.contentWindow.history.forward();
+          historyNavigate(tab, 1);
         };
         reloadBtn.onclick = function () {
           if (reloadBtn.textContent === "x") {
@@ -3479,7 +3563,7 @@ try{        if (
         }
         activeTabId = id;
         urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
-        let previousUrl = unshuffleURL(tab.iframe.contentWindow.location.href);
+        let previousUrl = canonicalHistoryUrl(unshuffleURL(tab.iframe.contentWindow.location.href));
         let previousTabTitle = tab.title;
 
         // Inject custom styles
@@ -3488,14 +3572,14 @@ try{        if (
             clearInterval(checkInterval);
           }
           try {
-            let currentUrl = unshuffleURL(
+            const currentUrl = unshuffleURL(
               tab.iframe.contentWindow.location.href,
             );
-            if (currentUrl !== previousUrl) {
-              previousUrl = currentUrl;
+            const currentCanonical = canonicalHistoryUrl(currentUrl);
+            if (currentCanonical !== previousUrl) {
+              historyRecord(tab, currentUrl);
+              previousUrl = currentCanonical;
               urlInput.value = currentUrl;
-              if(data.enableURLSync)
-              openUrlInActiveTab(currentUrl);
             }
             resizeDiv.innerText = tab.resizeP + "%";
             activatedTab = tab;
@@ -3585,14 +3669,24 @@ try{        if (
       }
       function openUrlInActiveTab(rawUrl) {
         const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
-        let url = "";
         if (tabIndex === -1) return;
         const tab = tabs[tabIndex];
-        if (typeof isUrl(rawUrl) === "string") rawUrl = isUrl(rawUrl);
-        if (rawUrl.startsWith("javascript:")) {
+        const input = String(rawUrl || "").trim();
+        if (!input) {
+          notification("Enter a URL");
+          return;
+        }
+
+        let candidate = input;
+        const urlCheck = isUrl(candidate);
+        if (typeof urlCheck === "string") {
+          candidate = urlCheck;
+        }
+
+        if (candidate.startsWith("javascript:")) {
           let scriptcontent = "";
-          for (let i = 11; i < rawUrl.length; i++) {
-            scriptcontent += rawUrl[i];
+          for (let i = 11; i < candidate.length; i++) {
+            scriptcontent += candidate[i];
           }
           let script = document.createElement("script");
           script.textContent = scriptcontent;
@@ -3600,26 +3694,66 @@ try{        if (
           urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
           return;
         }
-        url = new URL(rawUrl).href;
+
+        let url = "";
+        try {
+          url = new URL(candidate).href;
+        } catch (e) {
+          // Edge case: allow relative entries in the URL bar.
+          try {
+            const currentBase = unshuffleURL(tab.iframe.contentWindow.location.href);
+            url = new URL(candidate, currentBase).href;
+          } catch (e2) {
+            notification("Invalid URL");
+            return;
+          }
+        }
+
+        // Manual URL-bar navigations should become a fresh history point,
+        // including after a prior back/forward operation.
+        const canonical = canonicalHistoryUrl(url);
+        const prevHistorySnapshot = {
+          stack: Array.from(tab.history.stack || []),
+          index: tab.history.index,
+          current: tab.history.current,
+          currentCanonical: tab.history.currentCanonical,
+          suppressNextRecord: tab.history.suppressNextRecord,
+        };
+        const didCreateHistoryEntry = tab.history.currentCanonical !== canonical;
+
+        tab.history.suppressNextRecord = false;
+        if (didCreateHistoryEntry) {
+          if (tab.history.index < tab.history.stack.length - 1) {
+            tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+          }
+          tab.history.stack.push(url);
+          tab.history.index = tab.history.stack.length - 1;
+          tab.history.current = url;
+          tab.history.currentCanonical = canonical;
+        }
+        // Prevent duplicate push when poller observes this same navigation.
+        // Important: only do this when a new history entry was created, otherwise
+        // stale suppression can swallow the next real navigation.
+        tab.history.suppressNextRecord = didCreateHistoryEntry;
+
         tab.url = url;
         tab.loadedurl = url;
         tab.title = "Loading...";
         if (tabs[tabIndex].iframe) {
         createPermInput(tab.iframe, url);
-          if (!url.startsWith("goldenbody://")) {
-              tabs[tabIndex].iframe.src = a(
-                url,
-                proxyurl,
-              );
-              tabs[tabIndex].iframe.contentWindow.location = a(
-                url,
-                proxyurl,
-              );
-          } else {
-              tabs[tabIndex].iframe.src = a(
-                url,
-                proxyurl,
-              );
+          try {
+            tabs[tabIndex].iframe.contentWindow.location.href = a(
+              url,
+              proxyurl,
+            );
+          } catch (e) {
+            tab.history.stack = prevHistorySnapshot.stack;
+            tab.history.index = prevHistorySnapshot.index;
+            tab.history.current = prevHistorySnapshot.current;
+            tab.history.currentCanonical = prevHistorySnapshot.currentCanonical;
+            tab.history.suppressNextRecord = prevHistorySnapshot.suppressNextRecord;
+            notification("Navigation failed");
+            return;
           }
         }
 
