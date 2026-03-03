@@ -35,12 +35,11 @@ var rebuildhandler = function() {
 
     //clear state
     window.appsButtonsApplied = false;
-    
+    data = null;
     // small timeout to ensure DOM plumbing finishes
     setTimeout(() => {
       try { document.body.appendChild(script); } catch (e) { console.error('append homepage script failed', e); location.reload(); }
     }, 80);
-    hasChanges = true;
   } catch (err) {
     console.error('rebuildhandler error, falling back to reload', err);
     try { location.reload(); } catch (e) { /* ignore */ }
@@ -412,6 +411,22 @@ async function getFolderListing(relPath) {
   return null;
 }
 
+function normalizeAppFolders(folders) {
+  var seen = new Set();
+  var list = [];
+  for (const folder of (folders || [])) {
+    if (!Array.isArray(folder) || typeof folder[0] !== 'string') continue;
+    var folderName = folder[0].trim();
+    if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
+    var folderPath = (folder[2] && folder[2].path) ? folder[2].path : `apps/${folderName}`;
+    var key = String(folderPath).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push(folder);
+  }
+  return list;
+}
+
 // Helper function to extract app data from an app folder
 async function extractAppData(appFolder) {
   var folderName = appFolder[0];
@@ -466,9 +481,11 @@ async function loadAppsFromTree() {
     var rootChildren = (window.treeData && window.treeData[1]) || [];
     var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
     if (!appsNode) return;
-    for (const appFolder of appsNode[1]) {
+    var appFolders = normalizeAppFolders(appsNode[1]);
+    for (const appFolder of appFolders) {
       const appData = await extractAppData(appFolder);
       if (appData) window.apps.push(appData);
+      else debugger;
     }
 
     // Sort apps alphabetically by label
@@ -745,7 +762,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
     if (!appsNode) return;
     
     // Get current app folders from the file system
-    var currentAppFolders = appsNode[1] || [];
+    var currentAppFolders = normalizeAppFolders(appsNode[1]);
     hasChanges = false;
     
     // First pass: detect structural changes only (new/deleted folders)
@@ -1013,7 +1030,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
     }
     
     // If any changes detected, re-render and apply
-    if (hasChanges) {
+    if (hasChanges && data) {
       loadAppsFromTree(); // This will re-render the grid and re-apply buttons, but we call it to ensure consistency
       renderAppsGrid();
       applyTaskButtons();

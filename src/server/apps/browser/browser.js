@@ -940,6 +940,54 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           };
           `;
           iframe.contentDocument.body.appendChild(eggpatch2);
+          let themeOverride = document.createElement("script");
+          themeOverride.textContent = `
+          (function(){
+            try{
+              window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
+              function readTopDark(){
+                try{
+                  if(window.top && window.top.data && typeof window.top.data.dark !== 'undefined') return !!window.top.data.dark;
+                }catch(e){}
+                return null;
+              }
+              var last = readTopDark();
+              var original = window.__originalMatchMedia;
+              function createMQ(matches){
+                var listeners = [];
+                var obj = {
+                  media: '(prefers-color-scheme: dark)',
+                  matches: !!matches,
+                  addListener: function(cb){ if(typeof cb==='function') listeners.push(cb); },
+                  removeListener: function(cb){ listeners = listeners.filter(function(l){return l!==cb}); },
+                  addEventListener: function(ev, cb){ if(ev==='change' && typeof cb==='function') listeners.push(cb); },
+                  removeEventListener: function(ev, cb){ if(ev==='change') listeners = listeners.filter(function(l){return l!==cb}); },
+                  dispatchEvent: function(e){ listeners.forEach(function(cb){try{cb(e);}catch(e){}}); return true; }
+                };
+                obj._notify = function(){
+                  var ev = {matches: obj.matches, media: obj.media};
+                  listeners.slice().forEach(function(cb){ try{ cb(ev); }catch(e){} });
+                };
+                return obj;
+              }
+              var mqInstance = createMQ(last === null ? original('(prefers-color-scheme: dark)').matches : last);
+              window.matchMedia = function(media){
+                if(media === '(prefers-color-scheme: dark)') return mqInstance;
+                return original(media);
+              };
+              setInterval(function(){
+                var cur = readTopDark();
+                if(cur === null) return;
+                cur = !!cur;
+                if(cur !== mqInstance.matches){
+                  mqInstance.matches = cur;
+                  mqInstance._notify();
+                }
+              }, 500);
+            }catch(e){}
+          })();
+          `;
+          iframe.contentDocument.body.appendChild(themeOverride);
             if (!iframe.contentWindow.eruda) {
                 const script = iframe.contentDocument.createElement("script");
                 script.src = "https://cdn.jsdelivr.net/npm/eruda";
