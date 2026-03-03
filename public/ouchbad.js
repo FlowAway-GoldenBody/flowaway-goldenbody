@@ -1,16 +1,26 @@
-var BASE = window.origin;
-var goldenbodywebsite = window.origin + "/";
-var zmcdserver = `${BASE}/server/zmcd`;
-var SERVER = `${BASE}/server/fetchfiles/`;
-var baseOrigin =
-  window.opener?.location?.origin ||
-  window.location.origin;
+// Ensure this pre-init block runs only once even if the script is injected twice
+if (!window.__ouchbad_preinit_done) {
+  window.__ouchbad_preinit_done = true;
+  window.__ouchbad_BASE = window.origin;
+  window.__ouchbad_goldenbodywebsite = window.__ouchbad_BASE + "/";
+  window.__ouchbad_zmcdserver = `${window.__ouchbad_BASE}/server/zmcd`;
+  window.__ouchbad_SERVER = `${window.__ouchbad_BASE}/server/fetchfiles/`;
+  window.__ouchbad_baseOrigin =
+    window.opener?.location?.origin ||
+    window.location.origin;
+  window.__ouchbad_wsProtocol = window.__ouchbad_baseOrigin.startsWith('https')
+    ? 'wss://'
+    : 'ws://';
+  window.__ouchbad_hostname = new URL(window.__ouchbad_baseOrigin).hostname;
+}
 
-var wsProtocol = baseOrigin.startsWith('https')
-  ? 'wss://'
-  : 'ws://';
-
-var hostname = new URL(baseOrigin).hostname;
+var BASE = window.__ouchbad_BASE;
+var goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
+var zmcdserver = window.__ouchbad_zmcdserver;
+var SERVER = window.__ouchbad_SERVER;
+var baseOrigin = window.__ouchbad_baseOrigin;
+var wsProtocol = window.__ouchbad_wsProtocol;
+var hostname = window.__ouchbad_hostname;
 
 var zmcdata;
 var data;
