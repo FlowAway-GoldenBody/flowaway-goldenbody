@@ -926,6 +926,20 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           let eggpatch = document.createElement("script");
           eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
           iframe.contentDocument.body.appendChild(eggpatch);
+          let eggpatch2 = document.createElement("script");
+          eggpatch2.textContent = `
+          if(window.location.href.includes("shellshock.io")){
+              let nativeURL = window.URL; 
+              window.URL = function(url, base) {
+                  try {
+                      return new nativeURL(url, base);
+                  } catch(e) {
+                      return new nativeURL('')
+                  }
+              } 
+          };
+          `;
+          iframe.contentDocument.body.appendChild(eggpatch2);
             if (!iframe.contentWindow.eruda) {
                 const script = iframe.contentDocument.createElement("script");
                 script.src = "https://cdn.jsdelivr.net/npm/eruda";
@@ -1728,6 +1742,7 @@ let pickerSelection = [];
                 height: "400px",
                 borderRadius: "8px",
                 background: data.dark ? '#222' : '#fff',
+                color: data.dark ? '#eee' : '#000',
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
@@ -1980,7 +1995,7 @@ btnOpen.onclick = async () => {
             document.body.appendChild(overlay);
 
             const box = document.createElement('div');
-            Object.assign(box.style, { width: '600px', height: '420px', borderRadius: '8px', background: data.dark ? '#222' : '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
+            Object.assign(box.style, { width: '600px', height: '420px', borderRadius: '8px', background: data.dark ? '#222' : '#fff', color: data.dark ? '#eee' : '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
             overlay.appendChild(box);
 
             const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '6px'; box.appendChild(breadcrumb);
