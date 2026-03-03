@@ -2,7 +2,15 @@ var BASE = window.origin;
 var goldenbodywebsite = window.origin + "/";
 var zmcdserver = `${BASE}/server/zmcd`;
 var SERVER = `${BASE}/server/fetchfiles/`;
+var baseOrigin =
+  window.opener?.location?.origin ||
+  window.location.origin;
 
+var wsProtocol = baseOrigin.startsWith('https')
+  ? 'wss://'
+  : 'ws://';
+
+var hostname = new URL(baseOrigin).hostname;
 
 var zmcdata;
 var data;

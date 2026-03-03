@@ -1,6 +1,7 @@
 window.data = data;
 var password = data.password;
 window.loaded = false;
+
 if (typeof data.autohidetaskbar === 'undefined') {
   data.autohidetaskbar = false;
 }
@@ -256,7 +257,7 @@ function createPickerModal(tree, options = {}) {
   var overlay = document.createElement('div');
   Object.assign(overlay.style, { position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000 });
   var box = document.createElement('div');
-  Object.assign(box.style, { width: '700px', height: '500px', background: data.dark ? '#1e1e1e' : '#fff', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
+  Object.assign(box.style, { width: '700px', height: '500px', background: data.dark ? '#1e1e1e' : '#fff', color: data.dark ? '#eee' : '#000', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
   overlay.appendChild(box);
   var breadcrumb = document.createElement('div'); breadcrumb.style.padding = '8px'; box.appendChild(breadcrumb);
   var fileArea = document.createElement('div'); Object.assign(fileArea.style, { flex: '1', overflow: 'auto', padding: '8px', borderTop: '1px solid #ddd' }); box.appendChild(fileArea);
@@ -697,15 +698,7 @@ function startAppPollingViaWebSocket() {
     return true;
   }
 
-var baseOrigin =
-  window.opener?.location?.origin ||
-  window.location.origin;
 
-var wsProtocol = baseOrigin.startsWith('https')
-  ? 'wss://'
-  : 'ws://';
-
-var hostname = new URL(baseOrigin).hostname;
 var appPollingURL = `${BASE}/server/appSocket`;
   appPollingSocket = new WebSocket(appPollingURL);
 

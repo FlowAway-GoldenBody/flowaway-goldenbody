@@ -803,6 +803,7 @@ textEditor = function (path, posX = 50, posY = 50) {
           height: "420px",
           borderRadius: "8px",
           background: (data && data.dark) ? '#222' : '#fff',
+          color: (data && data.dark) ? '#e6eef8' : '#0f1724',
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
