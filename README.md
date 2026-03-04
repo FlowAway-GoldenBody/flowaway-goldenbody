@@ -1,6 +1,7 @@
 ## WHAT THIS IS:
 flowaway goldenbody is a os interface made with almost pure js, no frameworks and stuff for client side, server side, maybe cuz rammerhead prob used some idk. The only dependency you need is nodejs v16 to v<current> aka 24 or smt.
-so like, you as a user, you basically can install any apps, just drop a folder in the app format in the /apps folder of your account, which has 6 system apps there, plz dont modify them if you dont know what you are doing!!! we dont have a index.html, instead you go to http://localhost:8080/goldenbody.html, you create an account, 3 letter minimum for username and 1 letter minimum for password. you made your 1st acc XD
+so like, you as a user, you basically can install any apps, just drop a folder in the app format in the /apps folder of your account, which has 6 system apps there, plz dont modify them if you dont know what you are doing!!! we dont have a index.html, before doing so if you are local deving this thing plz change all 8080 to 80 in this repo. you go to http://localhost/golendbody.html, you create an account, 3 letter minimum for username and 1 letter minimum for password. you made your 1st acc XD.
+Plz dont come to me saying the restrictions are all client side... its for your own good. IDC if you create a username with '' and password with '' as long as you think thats a safe choice. also bypassing acc creation by modifying `ouchbad.js` does not do any good, you can do absolutely nothing there due to it cant fetch from server with proper credentials.
 
 hosting: try to host it online asap because you can then do what you need.
 if the localhost link dont work try make a cloudflare tunnel via installing cloudflared from brew if you have one or just chatgpt it.
@@ -22,6 +23,7 @@ After, configure your settings in [src/config.js](src/config.js). If you wish to
 
 Finally run the following to start the server: `node src/server.js`
 
-## Discord server
+## DEPENDENCIES
+due to the fact many repo is unclear on this, and i have to reverse engineer almost the whole scramjet repo just to get it to work and shell shockers don't work there, so i switched to rammerhead, it currently does not fully support localhost:8080 due to manuel url rewriting in the client side to route to the server, plz just show the copilot ai next to vscode `public/flowaway.js` and `public/ouchbad.js` and `src/server/zmcd.js` and `src/server/fetchfiles.js` and `src/server/appSocket.js` and let it fix them. or if you are a minimalist just go on and change all '8080' in this repo to '80', thats the port, if you dont know what port is just go to an ai and post this "article". I would still recommend using cloudflare tunnel to do this as i mentioned above, get a $2 domain like mathvariables.xyz. again it just need nodejs to build. you are welcomed to prettify the code cuz before i know how to use copilot i used chatgpt and i rarely formatted the code, the alignment are all over the place.
 
 For any user-help issue related questions, especially pertaining to goldenbody, please email me (a1462978843@outlook.com) .
