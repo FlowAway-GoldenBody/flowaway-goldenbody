@@ -928,16 +928,22 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           iframe.contentDocument.body.appendChild(eggpatch);
           let eggpatch2 = document.createElement("script");
           eggpatch2.textContent = `
-          if(window.location.href.includes("shellshock.io")){
-              let nativeURL = window.URL; 
-              window.URL = function(url, base) {
-                  try {
-                      return new nativeURL(url, base);
-                  } catch(e) {
-                      return new nativeURL('')
-                  }
-              } 
-          };
+              const nativeURL = window.URL;
+              function URLShim(url = '', base) {
+                const normalizedUrl = url == null ? '' : String(url);
+                const hasBase = arguments.length > 1;
+
+                if (hasBase) {
+                  const normalizedBase = base == null ? '' : String(base);
+                  return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
+                }
+
+                return new nativeURL(normalizedUrl || window.location.href);
+              }
+
+              Object.setPrototypeOf(URLShim, nativeURL);
+              URLShim.prototype = nativeURL.prototype;
+              window.URL = URLShim;
           `;
           iframe.contentDocument.body.appendChild(eggpatch2);
           let themeOverride = document.createElement("script");
