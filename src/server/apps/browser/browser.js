@@ -3634,6 +3634,7 @@ try{        if (
         urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
         let previousUrl = canonicalHistoryUrl(unshuffleURL(tab.iframe.contentWindow.location.href));
         let previousTabTitle = tab.title;
+        let previousUrlMain = unshuffleURL(tab.iframe.contentWindow.location.href);
 
         // Inject custom styles
         checkInterval = setInterval(() => {
@@ -3649,6 +3650,10 @@ try{        if (
               historyRecord(tab, currentUrl);
               previousUrl = currentCanonical;
               urlInput.value = currentUrl;
+            }
+            if(currentUrl !== previousUrlMain) {
+              previousUrlMain = currentUrl;
+              if(data.enableURLSync) openUrlInActiveTab(currentUrl);
             }
             resizeDiv.innerText = tab.resizeP + "%";
             activatedTab = tab;
@@ -3811,7 +3816,7 @@ try{        if (
         if (tabs[tabIndex].iframe) {
         createPermInput(tab.iframe, url);
           try {
-            tabs[tabIndex].iframe.contentWindow.location.href = a(
+            tabs[tabIndex].iframe.src = a(
               url,
               proxyurl,
             );
