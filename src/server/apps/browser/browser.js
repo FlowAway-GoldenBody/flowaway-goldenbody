@@ -1041,7 +1041,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
           tab.iframe.contentWindow.addEventListener("keydown", handleresizel1);
           root.addEventListener("keydown", handleresizel1);
-          urlInput.value = unshuffleURL(iframe.contentWindow.location.href);
+          if(!tab.iframe.style.display === "none") urlInput.value = unshuffleURL(iframe.contentWindow.location.href);
           let resizescript = document.createElement("script");
           resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
           tab.iframe.contentDocument.head.appendChild(resizescript);
