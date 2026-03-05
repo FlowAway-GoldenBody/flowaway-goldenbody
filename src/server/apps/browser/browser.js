@@ -633,15 +633,35 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
       let dragid = "";
       let dragindex = 0;
+      let nativeTabDrag = false;
+      let dragoverReordered = false;
+      const resetTabDragState = () => {
+        tabisDragging = false;
+        dragMoved = false;
+        draggedtab = null;
+        dragid = "";
+        dragindex = 0;
+        nativeTabDrag = false;
+        dragoverReordered = false;
+      };
       const onpointerupAnywhere = (ev, notontab) => {
-        if(!ev.target) return;
-        console.log("pointerup anywhere:", ev.target, "notontab?", notontab);
+        const eventTarget =
+          ev?.target ||
+          (typeof ev?.clientX === "number" && typeof ev?.clientY === "number"
+            ? document.elementFromPoint(ev.clientX, ev.clientY)
+            : null);
+        if (!eventTarget && !notontab) return;
+        console.log("pointerup anywhere:", eventTarget, "notontab?", notontab);
         if (!tabisDragging) return;
+        if (!dragstartwindow || !draggedtab) {
+          resetTabDragState();
+          return;
+        }
 
         // Check if pointerup happened on a tab
         let targetTab;
         try {
-          targetTab = ev.target.closest(".sim-tab");
+          targetTab = eventTarget?.closest(".sim-tab");
         } catch (e) {}
         try {
           let tabbarHit = false;
@@ -649,7 +669,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
           for (const b of allBrowsers) {
             if (
-              b.rootElement.querySelector(".sim-chrome-top").contains(ev.target)
+              b.rootElement.querySelector(".sim-chrome-top").contains(eventTarget)
             ) {
               tabbarHit = true;
               targetBrowser = b;
@@ -661,7 +681,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             const dropTarget = document.elementFromPoint(
               ev.clientX,
               ev.clientY,
-            );
+            ) || eventTarget;
 
             // Detect which window the cursor is over
             let targetBrowser = null;
@@ -675,9 +695,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             // If dropped in the same window: do nothing
             if (targetBrowser === dragstartwindow) {
               // reset drag state
-              tabisDragging = false;
-              dragMoved = false;
-              draggedtab = null;
+              resetTabDragState();
               return;
             }
 
@@ -685,16 +703,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             if (targetBrowser) {
               targetBrowser.addTab(draggedtab.url, "", draggedtab.resizeP);
               dragstartwindow.closeTab(draggedtab.id);
-              tabisDragging = false;
-              dragMoved = false;
-              draggedtab = null;
+              resetTabDragState();
               return;
             }
 
-            tabisDragging = false;
-            dragMoved = false;
-            draggedtab = null;
-            dragindex = 0;
+            resetTabDragState();
             return;
           }
         } catch (e) {}
@@ -710,9 +723,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           dragstartwindow.closeTab(draggedtab.id);
         }
 
-        tabisDragging = false;
-        dragMoved = false;
-        draggedtab = null;
+        resetTabDragState();
       };
       function messageHandler(event) {
         const data = event.data;
@@ -754,6 +765,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         renderTabs();
       }, 10000);
       function renderTabs() {
+        if (tabisDragging || nativeTabDrag) return;
         var ids = 0;
         while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
         leftGroup.appendChild(newTabBtn);
@@ -806,19 +818,59 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
           el.addEventListener("pointerdown", (ev) => {
             if (ev.target.classList.contains("close")) return;
-            activateTab(t.id);
+            if (activeTabId !== t.id) activateTab(t.id);
           });
           el.addEventListener("pointerup", function () {
             bringToFront(root);
           });
-          el.addEventListener("dragstart", () => {
+          el.addEventListener("dragstart", (ev) => {
             dragstartwindow = chromeWindow;
             tabisDragging = true;
+            nativeTabDrag = true;
+            dragoverReordered = false;
             dragMoved = false;
             dragindex = countChild(tabsRow, el);
             console.log("dragindex:", dragindex);
             draggedtab = tabs[dragindex];
             dragid = el.id;
+            try {
+              if (ev.dataTransfer) {
+                ev.dataTransfer.effectAllowed = "move";
+                ev.dataTransfer.setData("text/plain", dragid);
+              }
+            } catch (e) {}
+          });
+
+          el.addEventListener("dragover", (e) => {
+            if (!(tabisDragging && dragstartwindow === chromeWindow)) return;
+            e.preventDefault();
+            dragMoved = true;
+            dragoverReordered = true;
+
+            const draggedelement = root.querySelector(`#${dragid}`);
+            if (!draggedelement || draggedelement === el) return;
+
+            const isDraggingRight =
+              draggedelement.compareDocumentPosition(el) &
+              Node.DOCUMENT_POSITION_FOLLOWING;
+
+            let newIndex = countChild(tabsRow, el);
+            if (isDraggingRight) newIndex++;
+
+            tabs = moveTabInArray(tabs, dragindex, newIndex);
+            tabsRow.insertBefore(draggedelement, isDraggingRight ? el.nextSibling : el);
+            dragindex = countChild(tabsRow, draggedelement);
+          });
+
+          el.addEventListener("dragend", (e) => {
+            if (!tabisDragging) return;
+            onpointerupAnywhere({
+              clientX: e.clientX,
+              clientY: e.clientY,
+              target: document.elementFromPoint(e.clientX, e.clientY) || e.target,
+            });
+            resetTabDragState();
+            renderTabs();
           });
 
           el.addEventListener("pointermove", () => {
@@ -826,6 +878,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
 
           el.addEventListener("pointerup", (e) => {
+            if (nativeTabDrag) {
+              return;
+            }
             if (
               tabisDragging &&
               dragMoved &&
@@ -860,10 +915,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               onpointerupAnywhere(e);
             }
 
-            tabisDragging = false;
-            draggedtab = null;
-
-            dragMoved = false;
+            resetTabDragState();
           });
 
           const title = el.querySelector(".sim-tab-title");
