@@ -61,7 +61,7 @@ module.exports = {
             }
         }
 
-        const finalProtocol = envProto || protocolFromReq || 'https:';
+        const finalProtocol = envProto || protocolFromReq || 'http:';
         const finalPort = envPort || portFromReq || (finalProtocol === 'https:' ? 443 : 80);
 
         return {
