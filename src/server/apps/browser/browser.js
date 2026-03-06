@@ -454,20 +454,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       });
 
       // CLOSE
-      btnClose.addEventListener("click", function () {
-        root.remove();
-        root = null;
-
-        // Remove from allBrowsers
-        const index = allBrowsers.indexOf(chromeWindow);
-        if (index !== -1) {
-          allBrowsers.splice(index, 1);
-        }
-        window.removeEventListener("message", messageHandler);
-        window.removeEventListener("pointerup", onpointerupAnywhere);
-
-        _browserCalled = false;
-      });
+      btnClose.addEventListener("click", closeWindow);
       function closeWindow() {
         root.remove();
         root = null;
@@ -479,7 +466,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
         window.removeEventListener("message", messageHandler);
         window.removeEventListener("pointerup", onpointerupAnywhere);
-
+        window.removeAllEventListenersForApp("browser");
         _browserCalled = false;
       }
 
@@ -934,7 +921,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         });
         // reorder tabs
       }
-      window.addEventListener("message", function (e) {
+      window.addEventListener('browser', "message", function (e) {
         if (e.data.type === "FROM_IFRAME") {
           addTab(e.data.message, "New Tab");
         }
@@ -2260,7 +2247,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
           }
         });
         root.focus();
-            window.addEventListener("message", (e) => {
+            window.addEventListener('browser', "message", (e) => {
               try {
                 // Allow `saveFile` messages to be processed even when the browser root
                 // doesn't have focus. Previously the OR made the whole condition true
@@ -3523,7 +3510,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
         tabs.push(tab);
         activateTab(id);
         renderTabs();
-        document.addEventListener("keyup", function (e) {
+        document.addEventListener('browser', "keyup", function (e) {
           try {
             if (!root.contains(document.activeElement)) return;
           } catch (e) {
@@ -3559,7 +3546,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
       if (preloadlink) {
         addTab(preloadlink, "New Tab");
       }
-      window.addEventListener("keydown", function (e) {
+      window.addEventListener('browser', "keydown", function (e) {
 try{        if (
           document.activeElement !== root &&
           !root.contains(document.activeElement)
@@ -3934,7 +3921,7 @@ try{        if (
           currentX = ev.clientX;
           currentY = ev.clientY;
         });
-        window.addEventListener("mousemove", (ev) => {
+        window.addEventListener('browser', "mousemove", (ev) => {
           if (!dragging) {
             startX = 0;
             startY = 0;
@@ -3963,7 +3950,7 @@ try{        if (
           if (origTop + dy > 0) root.style.top = origTop + dy + "px";
           else root.style.top = "0px";
         });
-        window.addEventListener("mouseup", () => {
+        window.addEventListener('browser', "mouseup", () => {
           dragging = false;
           document.body.style.userSelect = "";
           targetel = null;

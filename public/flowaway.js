@@ -1,7 +1,58 @@
 window.data = data;
 var password = data.password;
 window.loaded = false;
+var nativeDocumentEventlister = document.addEventListener.bind(document);
+var nativeWindowEventlister = window.addEventListener.bind(window);
 
+function normalizeAddEventArgs(a, b, c, d) {
+  // Supports both signatures:
+  // 1) native: (type, handler, options)
+  // 2) scoped: (appname, type, handler, options)
+  if (typeof b === 'string' && (typeof c === 'function' || (c && typeof c === 'object'))) {
+    return { appname: String(a || ''), type: b, handler: c, options: d };
+  }
+  return { appname: '', type: a, handler: b, options: c };
+}
+
+function addScopedListener(targetName, nativeAdd, appname, type, handler, options) {
+  if (typeof type !== 'string' || !(typeof handler === 'function' || (handler && typeof handler === 'object'))) {
+    return;
+  }
+
+  nativeAdd(type, handler, options);
+
+  if (!appname) return;
+  window[appname + '_handlers'] = window[appname + '_handlers'] || [];
+  window[appname + '_handlers'].push({ target: targetName, type, handler, options });
+}
+
+document.addEventListener = function(a, b, c, d) {
+  var parsed = normalizeAddEventArgs(a, b, c, d);
+  addScopedListener('document', nativeDocumentEventlister, parsed.appname, parsed.type, parsed.handler, parsed.options);
+};
+
+window.addEventListener = function(a, b, c, d) {
+  var parsed = normalizeAddEventArgs(a, b, c, d);
+  addScopedListener('window', nativeWindowEventlister, parsed.appname, parsed.type, parsed.handler, parsed.options);
+};
+
+window.removeAllEventListenersForApp = function(appname) {
+  var handlers = window[appname + '_handlers'] || [];
+  handlers.forEach(({ target, type, handler, options }) => {
+    if (target === 'document') {
+      try { document.removeEventListener(type, handler, options); } catch (e) {}
+      return;
+    }
+    if (target === 'window') {
+      try { window.removeEventListener(type, handler, options); } catch (e) {}
+      return;
+    }
+    // Backward compatibility for older tracked entries without target.
+    try { window.removeEventListener(type, handler, options); } catch (e) {}
+    try { document.removeEventListener(type, handler, options); } catch (e) {}
+  });
+  window[appname + '_handlers'] = [];
+};
 if (typeof data.autohidetaskbar === 'undefined') {
   data.autohidetaskbar = false;
 }
