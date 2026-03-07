@@ -677,6 +677,12 @@ function handleSelection(e, item, items, index) {
         fileArea.appendChild(document.createElement('br'));
         fileArea.appendChild(document.createElement('br'));
         fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
+        fileArea.appendChild(document.createElement('br'));
 
         // Blank area drop
         fileArea.ondragover = (e) => e.preventDefault();
