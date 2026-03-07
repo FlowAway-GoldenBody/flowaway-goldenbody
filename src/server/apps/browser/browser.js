@@ -62,7 +62,6 @@ window.browser = function (
     posX = 20,
     posY = 20,
   ) {
-    let status;
 async function updateSiteSettings(iframe, content) {
     data.enableURLSync = content.enableURLSync;
     data.lazyloading = content.lazyloading;
@@ -258,8 +257,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
   apply.onclick = () => {
     // ===== LOGIC HOOK (YOU IMPLEMENT) =====
-    status.innerText = "reload this page to apply your updated settings!";
-    setTimeout(() => (status.innerText = ""), 2000);
+    notification("reload this page to apply your updated settings!");
 
     const newSandbox = Object.entries(sandboxCheckboxes)
       .filter(([_, cb]) => cb.checked)
@@ -511,36 +509,62 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       openBtn.innerText = "Open";
       addressRow.appendChild(openBtn);
 
+      const applyAddressIconButtonStyle = (button) => {
+        Object.assign(button.style, {
+          minWidth: "34px",
+          padding: "0 12px",
+          fontSize: "16px",
+        });
+      };
+
+      const addressIconSvg = {
+        settings:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.16.5.65.85 1.19.85H21a2 2 0 1 1 0 4h-.41c-.54 0-1.03.35-1.19.85z"></path></svg>',
+        reload:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <!-- circular arc (stops earlier to leave a gap) --> <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/> <!-- arrow --> <polyline points="20 4 20 9 15 9"/> </svg>',
+        forward:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
+        back:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
+        clear:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+      };
+
+      const setAddressButtonIcon = (button, iconName) => {
+        button.innerHTML = addressIconSvg[iconName] || "";
+      };
+
       var sitesettingsbtn = document.createElement("button");
-      sitesettingsbtn.textContent = "⚙";
+      setAddressButtonIcon(sitesettingsbtn, "settings");
       sitesettingsbtn.className = "sim-open-btn";
-      sitesettingsbtn.style.fontSize = "20px";
-      sitesettingsbtn.style.justifyContent = "center";
+      applyAddressIconButtonStyle(sitesettingsbtn);
 
       addressRow.prepend(sitesettingsbtn);
 
       var reloadBtn = document.createElement("button");
-      reloadBtn.textContent = "⟳";
       reloadBtn.className = "sim-open-btn";
-      reloadBtn.style.fontSize = "20px";
-      reloadBtn.style.justifyContent = "center";
-      reloadBtn.style.alignItems = "center";
+      applyAddressIconButtonStyle(reloadBtn);
+      setAddressButtonIcon(reloadBtn, "reload");
+      reloadBtn.dataset.mode = "reload";
       addressRow.prepend(reloadBtn);
 
       var forwardBtn = document.createElement("button");
-      forwardBtn.textContent = "→";
+      setAddressButtonIcon(forwardBtn, "forward");
       forwardBtn.className = "sim-open-btn";
+      applyAddressIconButtonStyle(forwardBtn);
       addressRow.prepend(forwardBtn);
 
       var backBtn = document.createElement("button");
-      backBtn.textContent = "←";
+      setAddressButtonIcon(backBtn, "back");
       backBtn.className = "sim-open-btn";
+      applyAddressIconButtonStyle(backBtn);
       addressRow.prepend(backBtn);
 
       var clear = document.createElement("button");
-      clear.textContent = "🗑";
+      setAddressButtonIcon(clear, "clear");
       clear.title = "delete browsing data";
       clear.className = "sim-open-btn";
+      applyAddressIconButtonStyle(clear);
       clear.onclick = function () {
         fetch(zmcdserver, {
           method: "POST",
@@ -552,15 +576,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             console.log("id now:", result);
             id = result.id;
           });
-        status.innerText = "site data cleared! please close all browser windows!";
-        setTimeout(() => (status.innerText = ""), 2000);
+        notification("site data cleared! please close all browser windows!");
       };
       addressRow.appendChild(clear);
-
-      status = document.createElement("div");
-      status.className = "sim-status";
-      status.style.flex = "0 0 auto";
-      status.innerText = "";
 
       const resizeDiv = document.createElement("div");
       resizeDiv.style.backgroundColor = "gray"; // visible
@@ -597,7 +615,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       leftGroup.style.flex = "1";
       leftGroup.style.minWidth = "0";
       leftGroup.appendChild(tabsRow);
-      leftGroup.appendChild(status);
 
       top.appendChild(leftGroup);
       top.appendChild(topBar);
@@ -3660,7 +3677,7 @@ try{        if (
           historyNavigate(tab, 1);
         };
         reloadBtn.onclick = function () {
-          if (reloadBtn.textContent === "x") {
+          if (reloadBtn.dataset.mode === "stop") {
             tab.iframe.contentWindow.stop();
           } else {
             tab.iframe.contentWindow.location.reload();
@@ -3698,10 +3715,12 @@ try{        if (
             activatedTab = tab;
             if (tab.iframe.contentDocument.readyState !== "complete") {
               reloadBtn.textContent = "x";
+              reloadBtn.dataset.mode = "stop";
 
               tab.title = "Loading...";
             } else {
-              reloadBtn.textContent = "⟳";
+              setAddressButtonIcon(reloadBtn, "reload");
+              reloadBtn.dataset.mode = "reload";
               try {
                 if (tab.iframe.contentDocument.readyState === "complete") {
                   const docTitle =
@@ -3871,8 +3890,6 @@ try{        if (
         }
 
         urlInput.value = url;
-        // status.innerText = `Loaded: ${url}`;
-        setTimeout(() => (status.innerText = ""), 3000);
       }
 
       openBtn.addEventListener("click", () =>

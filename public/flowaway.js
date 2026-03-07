@@ -1,8 +1,16 @@
 window.data = data;
 var password = data.password;
 window.loaded = false;
-var nativeDocumentEventlister = document.addEventListener.bind(document);
-var nativeWindowEventlister = window.addEventListener.bind(window);
+var nativeEventTargetAdd =
+  window.EventTarget && window.EventTarget.prototype && typeof window.EventTarget.prototype.addEventListener === 'function'
+    ? window.EventTarget.prototype.addEventListener
+    : null;
+var nativeDocumentEventlister = nativeEventTargetAdd
+  ? nativeEventTargetAdd.bind(document)
+  : document.addEventListener.bind(document);
+var nativeWindowEventlister = nativeEventTargetAdd
+  ? nativeEventTargetAdd.bind(window)
+  : window.addEventListener.bind(window);
 
 function normalizeAddEventArgs(a, b, c, d) {
   // Supports both signatures:
