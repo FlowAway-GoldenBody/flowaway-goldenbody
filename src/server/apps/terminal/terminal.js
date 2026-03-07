@@ -4,6 +4,7 @@
   window.terminalId = 0;
 
 terminal = function (posX = 50, posY = 50) {
+  notification('this app is in active dev, many features are not implemented yet. Stay tuned for updates!');
     startMenu.style.display = 'none';
     let isMaximized = false;
     let _isMinimized = false;

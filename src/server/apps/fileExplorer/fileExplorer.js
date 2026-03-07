@@ -1425,9 +1425,7 @@ function handleSelection(e, item, items, index) {
                   uploadedCount++;
                   // simple progress log — UI progress can hook into this later
                   notificationCounter++;
-                  if (notificationCounter % 10 === 0) {
-                    notification(`Uploading "${newName}": ${uploadedCount}/${total} chunks uploaded.`);
-                  }
+                  notification(`Uploading "${newName}": ${uploadedCount}/${total} chunks uploaded.`);
                   console.log(`upload progress ${newName}: ${uploadedCount}/${total}`);
                 } catch (err) {
                   console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
