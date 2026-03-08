@@ -1,6 +1,12 @@
 window.data = data;
 var password = data.password;
 window.loaded = false;
+function calculateVwInPixels(vwValue) {
+  const viewportWidth = window.innerWidth; // Get the current viewport width in pixels
+  const pixels = (vwValue * viewportWidth) / 100; // Apply the conversion formula
+  return pixels;
+}
+
 var nativeEventTargetAdd =
   window.EventTarget && window.EventTarget.prototype && typeof window.EventTarget.prototype.addEventListener === 'function'
     ? window.EventTarget.prototype.addEventListener
@@ -85,12 +91,90 @@ window.applyWindowControlIcon = function(button, iconName, options = {}) {
   // button.style.flex = options.flex || '0 0 auto';
   // button.style.flexShrink = '0';
   // Use a slightly wider default to match Windows 11 thin-line spacing
-  button.style.minHeight = options.minHeight || '0.1vh';
-  if(iconName === 'restore' || iconName === 'maximize') {
-    button.style.minWidth = options.minWidth || '2.6vw'; 
-  } else {
-    button.style.minWidth = options.minWidth || '2.3vw'; 
+  button.style.minHeight = options.minHeight || '1vh';
+
+  // Store metadata on the element so we can recompute on resize
+  button.dataset.flowControl = 'true';
+  button.dataset.flowControlIcon = iconName;
+  // preferred vw amount for this control (numbers only)
+  if (typeof options.minVw !== 'undefined') button.dataset.minVw = String(options.minVw);
+  else button.dataset.minVw = (iconName === 'restore' || iconName === 'maximize') ? '2.6' : '2.3';
+  // thresholds and fallbacks (pixels) - keep them identical per your request
+  if (typeof options.thresholdPx !== 'undefined') button.dataset.thresholdPx = String(options.thresholdPx);
+  else button.dataset.thresholdPx = (iconName === 'restore' || iconName === 'maximize') ? '35' : '31';
+  if (typeof options.fallbackPx !== 'undefined') button.dataset.fallbackPx = String(options.fallbackPx);
+  else button.dataset.fallbackPx = (iconName === 'restore' || iconName === 'maximize') ? '35' : '31';
+  // allow overriding the explicit CSS value for minWidth
+  if (typeof options.minWidth !== 'undefined') button.dataset.minWidthOption = String(options.minWidth);
+
+  // Apply sizing now based on current viewport
+  if (!window._applyFlowawayControlSizing) {
+    window._applyFlowawayControlSizing = function(btn) {
+      if (!btn) return;
+      var icon = btn.dataset.flowControlIcon;
+      var vwVal = parseFloat(btn.dataset.minVw) || (icon === 'restore' || icon === 'maximize' ? 2.6 : 2.3);
+      var threshold = parseFloat(btn.dataset.thresholdPx) || (icon === 'restore' || icon === 'maximize' ? 35 : 31);
+      var fallback = btn.dataset.fallbackPx || (icon === 'restore' || icon === 'maximize' ? '35' : '31');
+      var computedPx = calculateVwInPixels(vwVal);
+
+      // If a minWidth option was explicitly provided, respect it but cap it
+      var opt = btn.dataset.minWidthOption;
+      if (opt) {
+        var s = String(opt).trim();
+        if (s.endsWith('px')) {
+          var val = parseFloat(s);
+          if (!isNaN(val)) {
+            var capped = Math.min(val, threshold);
+            btn.style.minWidth = capped + 'px';
+            return;
+          }
+        }
+        if (s.endsWith('vw')) {
+          var vwNum = parseFloat(s);
+          if (!isNaN(vwNum)) {
+            var px = calculateVwInPixels(vwNum);
+            if (px < threshold) {
+              btn.style.minWidth = s; // safe to use vw
+              return;
+            } else {
+              btn.style.minWidth = fallback + 'px';
+              return;
+            }
+          }
+        }
+        // fallback: try numeric parse as px
+        var maybe = parseFloat(s);
+        if (!isNaN(maybe)) {
+          var capped2 = Math.min(maybe, threshold);
+          btn.style.minWidth = capped2 + 'px';
+          return;
+        }
+        // If we couldn't parse, fallthrough to default behavior
+      }
+
+      // Default behavior: use vw when its computed px is below threshold, otherwise use fallback px
+      if (computedPx < threshold) {
+        btn.style.minWidth = vwVal + 'vw';
+      } else {
+        btn.style.minWidth = fallback + 'px';
+      }
+    };
+
+    // Add a resize handler that reapplies sizing to tracked controls
+    try {
+      if (window._flowaway_handlers && window._flowaway_handlers.onResize) window.removeEventListener('resize', window._flowaway_handlers.onResize);
+      window._flowaway_handlers = window._flowaway_handlers || {};
+      window._flowaway_handlers.onResize = function() {
+        try {
+          document.querySelectorAll('[data-flow-control]').forEach(b => { try { window._applyFlowawayControlSizing(b); } catch (e) {} });
+        } catch (e) {}
+      };
+      window.addEventListener('resize', window._flowaway_handlers.onResize);
+    } catch (e) {}
   }
+
+  // finally apply sizing for this particular button
+  try { window._applyFlowawayControlSizing(button); } catch (e) {}
 };
 
 window.setWindowMaximizeIcon = function(button, isMaximized) {
