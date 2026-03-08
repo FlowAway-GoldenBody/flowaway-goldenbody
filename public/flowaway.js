@@ -61,6 +61,41 @@ window.removeAllEventListenersForApp = function(appname) {
   });
   window[appname + '_handlers'] = [];
 };
+
+window.windowControlSvgs = {
+  minimize:
+    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+  maximize:
+    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1" ry="1"></rect></svg>',
+  restore:
+    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="10" height="10" rx="1" ry="1"></rect><path d="M15 9V5H5v10h4"></path></svg>',
+  close:
+    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>',
+};
+
+
+window.applyWindowControlIcon = function(button, iconName, options = {}) {
+  if (!button) return;
+  var svg = window.windowControlSvgs[iconName] || '';
+  button.innerHTML = svg;
+  // // Prevent parent flex containers from shrinking the control buttons
+  // button.style.display = 'inline-flex';
+  // button.style.alignItems = 'center';
+  // button.style.justifyContent = 'center';
+  // button.style.flex = options.flex || '0 0 auto';
+  // button.style.flexShrink = '0';
+  // Use a slightly wider default to match Windows 11 thin-line spacing
+  button.style.minHeight = options.minHeight || '0.1vh';
+  if(iconName === 'restore' || iconName === 'maximize') {
+    button.style.minWidth = options.minWidth || '2.6vw'; 
+  } else {
+    button.style.minWidth = options.minWidth || '2.3vw'; 
+  }
+};
+
+window.setWindowMaximizeIcon = function(button, isMaximized) {
+  window.applyWindowControlIcon(button, isMaximized ? 'restore' : 'maximize');
+};
 if (typeof data.autohidetaskbar === 'undefined') {
   data.autohidetaskbar = false;
 }
@@ -2171,3 +2206,4 @@ setTimeout(() => {
       , 5000);
   }, 5000);
 }, 100);
+notification('please remember to update your apps from time to time in goldenbody://app-store in the browser!')

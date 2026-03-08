@@ -375,19 +375,16 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       }
 
       var btnMin = document.createElement("button");
-      btnMin.innerText = "‎    –    ‎";
       btnMin.title = "Minimize";
       btnMin.className = 'btnMinColor';
       topBar.appendChild(btnMin);
 
       var btnMax = document.createElement("button");
       btnMax.className = 'btnMaxColor';
-      btnMax.innerText = "‎     □    ‎ ";
       btnMax.title = "Maximize/Restore";
       topBar.appendChild(btnMax);
 
       var btnClose = document.createElement("button");
-      btnClose.innerText = "‎     x    ‎ ";
       btnClose.title = "Close";
       btnClose.style.color = "white";
       btnClose.style.backgroundColor = "red";
@@ -396,10 +393,15 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       [topBar, btnMin, btnMax, btnClose].forEach((el) => {
         el.style.margin = "0 2px";
         el.style.border = "none";
-        el.style.padding = "2px 5px";
+        el.style.padding = "4px 6px";
         el.style.fontSize = "14px";
         el.style.cursor = "pointer";
       });
+      const applyWindowControlIcon = window.applyWindowControlIcon || function () {};
+      const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+      applyWindowControlIcon(btnMin, "minimize");
+      setWindowMaximizeIcon(btnMax, false);
+      applyWindowControlIcon(btnClose, "close");
 
       function getBounds() {
         return {
@@ -420,6 +422,29 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         root.style.height = b.height;
       }
 
+      function maximizeWindow() {
+        savedBounds = getBounds();
+        root.style.position = "absolute";
+        root.style.left = "0";
+        root.style.top = "0";
+        root.style.width = "100%";
+        root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+        root.style.borderRadius = '0px';
+        isMaximized = true;
+        _isMinimized = false;
+        setWindowMaximizeIcon(btnMax, true);
+      }
+
+      function restoreWindow(useOriginalBounds = true) {
+        if (useOriginalBounds && savedBounds) {
+          applyBounds(savedBounds);
+        }
+        root.style.borderRadius = '10px';
+        isMaximized = false;
+        _isMinimized = false;
+        setWindowMaximizeIcon(btnMax, false);
+      }
+
       // MINIMIZE
       btnMin.addEventListener("click", function () {
         if (!isMaximized) savedBounds = getBounds();
@@ -430,24 +455,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       // MAXIMIZE / RESTORE
       btnMax.addEventListener("click", function () {
         if (!isMaximized) {
-          savedBounds = getBounds();
-          root.style.position = "absolute";
-          root.style.left = "0";
-          root.style.top = "0";
-          root.style.width = "100%";
-          // leave space for restart button (assume 50px)
-          root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
-          btnMax.textContent = "‎     ⧉    ‎ "; // restore symbol
-          isMaximized = true;
-          root.style.borderRadius = '0px';
-          // alert('mximized');
-          isMinimized = false;
+          maximizeWindow();
         } else {
-          applyBounds(savedBounds);
-          btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = '10px';
-          // alert('restored');
-          isMaximized = false;
+          restoreWindow(true);
         }
       });
 
@@ -3951,12 +3961,9 @@ try{        if (
           ) {
             applyBounds(savedBounds);
             if (isMaximized) {
+              restoreWindow(false);
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
               origLeft = ev.clientX - root.clientWidth / 2;
-              btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = '10px';
-              // alert('restored');
-              isMaximized = false;
             }
           }
 
@@ -4065,10 +4072,7 @@ try{        if (
           const dy = e.clientY - active.sy;
           if ((dx > 1 && resizing) || (dy > 1 && resizing)) {
             applyBounds(getBounds());
-            btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = '10px';
-            // alert('restored');
-            isMaximized = false;
+            if (isMaximized) restoreWindow(false);
           }
 
           // east / south
