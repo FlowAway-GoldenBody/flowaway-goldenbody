@@ -4143,6 +4143,7 @@ try{        if (
         openUrl: openUrlInActiveTab,
         getBounds,
         applyBounds,
+        closeWindow,
         btnMax,
 
         get isMaximized() {
@@ -4263,9 +4264,7 @@ try{        if (
     closeAllitem.style.cursor = "pointer";
     closeAllitem.addEventListener("click", function () {
       for (let i = 0; i < allBrowsers.length; i++) {
-        allBrowsers[i].rootElement.remove();
-        allBrowsers[i].rootElement = null;
-        // Remove from allBrowsers
+        allBrowsers[i].closeWindow();
       }
       allBrowsers = [];
     });
