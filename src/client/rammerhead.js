@@ -308,8 +308,9 @@
         );
     }
     function fixUrlRewrite() {
-        const port = location.port || (location.protocol === 'https:' ? '443' : '80');
-        const protocol = location.protocol;
+        const hostname = 'studious-space-enigma-6974qxw4r49xfxxp7-8080.app.github.dev';
+        const port = '443';
+        const protocol = 'https:';
         const getProxyUrl = hammerhead.utils.url.getProxyUrl;
         hammerhead.utils.url.overrideGetProxyUrl(function (url, opts = {}) {
             if (!opts.proxyPort) {
@@ -317,6 +318,9 @@
             }
             if (!opts.proxyProtocol) {
                 opts.proxyProtocol = protocol;
+            }
+            if (!opts.proxyHostname) {
+                opts.proxyHostname = hostname;
             }
             return getProxyUrl(url, opts);
         });
@@ -327,6 +331,9 @@
                     if (!parsed || !parsed.proxy) return parsed;
                     if (!parsed.proxy.port) {
                         parsed.proxy.port = port;
+                    }
+                    if (!parsed.proxy.hostname) {
+                        parsed.proxy.hostname = hostname;
                     }
                     return parsed;
                 }

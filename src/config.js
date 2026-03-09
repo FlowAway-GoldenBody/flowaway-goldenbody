@@ -62,10 +62,10 @@ module.exports = {
         }
 
         const finalProtocol = envProto || protocolFromReq || 'https:';
-        const finalPort = envPort || portFromReq || (finalProtocol === 'https:' ? 443 : 80);
+        const finalPort = (finalProtocol === 'https:' ? 443 : 80);
 
         return {
-            hostname: envHost || hostnameFromReq || '0.0.0.0',
+            hostname: 'studious-space-enigma-6974qxw4r49xfxxp7-8080.app.github.dev',
             port: finalPort,
             crossDomainPort: process.env.CROSS_DOMAIN_PORT ? Number(process.env.CROSS_DOMAIN_PORT) : (finalProtocol === 'https:' ? 443 : 80),
             protocol: finalProtocol
@@ -111,6 +111,7 @@ module.exports = {
     rewriteServerHeaders: {
     'x-frame-options': null, // remove
     'content-security-policy': null // remove CSP
+    
 },
 
 
