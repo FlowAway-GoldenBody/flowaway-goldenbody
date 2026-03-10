@@ -508,7 +508,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       const urlInput = document.createElement("input");
       urlInput.className = "sim-url-input";
       urlInput.type = "text";
-      urlInput.placeholder = "Enter URL (e.g. https://example.com)";
+      urlInput.placeholder = "Enter URL (e.g. https://example.com, goldenbody://newtab/, goldenbody://app-store/)";
       urlInput.autocapitalize = "off";
       urlInput.autocomplete = "off";
       urlInput.spellcheck = false;
@@ -1262,8 +1262,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           //   menu.style.display = "none";
           // });
           // Function to show the menu
-          function showMenu(x, y, linkElement, isA) {
-            if (isA) {
+          function showMenu(x, y, linkElement, isA, isDownload) {
+            if (isA || isDownload) {
               menu.innerHTML = ""; // clear old items
 
               // Create menu items (same as before)
@@ -1327,6 +1327,22 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               };
               menu.appendChild(copyItem);
 
+              const download = iframeDocument.createElement("div");
+              download.style.all = "unset";
+              download.style.display = "block"; // <-- important!
+              download.style.textAlign = "left";
+
+              download.textContent = "Download linkㅤㅤㅤㅤㅤ";
+              download.style.padding = "6px 16px";
+              download.style.font = "Arial";
+              download.style.cursor = "pointer";
+              download.onmouseenter = () => (download.style.background = "#444");
+              download.onmouseleave = () => (download.style.background = "none");
+              download.onclick = () => {
+                downloadPost({href: linkElement.href, filename: linkElement.href.split("/").pop().split("?")[0]});
+                hideMenu();
+              };
+              menu.appendChild(download);
               const inspect = iframeDocument.createElement("div");
               inspect.style.all = "unset";
               inspect.style.display = "block"; // <-- important!
@@ -1356,7 +1372,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
                 }
                 win.eruda[win._goldenbodyIns ? "hide" : "show"]();
                 win._goldenbodyIns = !win._goldenbodyIns;
-
+                
                 hideMenu();
               };
               menu.appendChild(inspect);
@@ -1533,10 +1549,16 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             const clickedElement = e.target;
             const linkElement = clickedElement.closest("a");
 
-            if (linkElement && linkElement.href) {
+            if (linkElement && linkElement.href && !linkElement.download) {
               console.log("Right-clicked on a link:", linkElement.href);
               showMenu(e.clientX, e.clientY, linkElement, true);
-            } else {
+            } 
+            else if (linkElement && linkElement.download) {
+              // Handle download links if needed
+              showMenu(e.clientX, e.clientY, linkElement, false, true);
+              console.log("Right-clicked on a download link:", linkElement.href);
+            }
+            else {
               showMenu(e.clientX, e.clientY, null, false);
               console.log("Right-clicked on a non-link element.");
             }
