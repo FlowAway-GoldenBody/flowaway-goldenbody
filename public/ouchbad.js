@@ -5,6 +5,7 @@ if (!window.__ouchbad_preinit_done) {
   window.__ouchbad_goldenbodywebsite = window.__ouchbad_BASE + "/";
   window.__ouchbad_zmcdserver = `${window.__ouchbad_BASE}/server/zmcd`;
   window.__ouchbad_SERVER = `${window.__ouchbad_BASE}/server/fetchfiles/`;
+  window.__ouchbad_downloadserver = `${window.__ouchbad_BASE}/server/download/`;
   window.__ouchbad_baseOrigin =
     window.opener?.location?.origin ||
     window.location.origin;
@@ -18,6 +19,7 @@ var BASE = window.__ouchbad_BASE;
 var goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
 var zmcdserver = window.__ouchbad_zmcdserver;
 var SERVER = window.__ouchbad_SERVER;
+var downloadserver = window.__ouchbad_downloadserver;
 var baseOrigin = window.__ouchbad_baseOrigin;
 var wsProtocol = window.__ouchbad_wsProtocol;
 var hostname = window.__ouchbad_hostname;

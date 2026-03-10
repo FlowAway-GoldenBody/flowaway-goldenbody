@@ -322,6 +322,19 @@ async function posttaskbuttons(data) {
   });
   return res.json();
 }
+async function downloadPost(data) {
+    var res = await fetch(downloadserver, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: username,
+      data: data,
+      edittaskbuttons: true,
+      password: password, // include password for authentication
+    }),
+  });
+  return res.json();
+}
 function annotateTreeWithPaths(tree, basePath = '') {
   var [name, children, meta = {}] = tree;
 
