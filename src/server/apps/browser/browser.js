@@ -474,7 +474,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
         window.removeEventListener("message", messageHandler);
         window.removeEventListener("pointerup", onpointerupAnywhere);
-        window.removeAllEventListenersForApp("browser" + browserId);
+        window.removeAllEventListenersForApp("browser" + root._goldenbodyId);
         _browserCalled = false;
       }
 
@@ -513,12 +513,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       urlInput.autocomplete = "off";
       urlInput.spellcheck = false;
       addressRow.appendChild(urlInput);
-
-      const openBtn = document.createElement("button");
-      openBtn.className = "sim-open-btn";
-      openBtn.innerText = "Open";
-      addressRow.appendChild(openBtn);
-
       const applyAddressIconButtonStyle = (button) => {
         Object.assign(button.style, {
           minWidth: "34px",
@@ -544,7 +538,14 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         button.innerHTML = addressIconSvg[iconName] || "";
       };
 
+      const openBtn = document.createElement("button");
+      openBtn.className = "sim-open-btn";
+      openBtn.title = "open url";
+      setAddressButtonIcon(openBtn, "forward");
+      addressRow.appendChild(openBtn);
+
       var sitesettingsbtn = document.createElement("button");
+      sitesettingsbtn.title = "Site Settings";
       setAddressButtonIcon(sitesettingsbtn, "settings");
       sitesettingsbtn.className = "sim-open-btn";
       applyAddressIconButtonStyle(sitesettingsbtn);
@@ -552,6 +553,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       addressRow.prepend(sitesettingsbtn);
 
       var reloadBtn = document.createElement("button");
+      reloadBtn.title = "Reload";
       reloadBtn.className = "sim-open-btn";
       applyAddressIconButtonStyle(reloadBtn);
       setAddressButtonIcon(reloadBtn, "reload");
@@ -559,12 +561,14 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       addressRow.prepend(reloadBtn);
 
       var forwardBtn = document.createElement("button");
+      forwardBtn.title = "Forward";
       setAddressButtonIcon(forwardBtn, "forward");
       forwardBtn.className = "sim-open-btn";
       applyAddressIconButtonStyle(forwardBtn);
       addressRow.prepend(forwardBtn);
 
       var backBtn = document.createElement("button");
+      backBtn.title = "Back";
       setAddressButtonIcon(backBtn, "back");
       backBtn.className = "sim-open-btn";
       applyAddressIconButtonStyle(backBtn);
@@ -948,7 +952,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         });
         // reorder tabs
       }
-      window.addEventListener('browser' + browserId, "message", function (e) {
+      window.addEventListener('browser' + root._goldenbodyId, "message", function (e) {
         if (e.data.type === "FROM_IFRAME") {
           addTab(e.data.message, "New Tab");
         }
@@ -2274,7 +2278,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
           }
         });
         root.focus();
-            window.addEventListener('browser' + browserId, "message", (e) => {
+            window.addEventListener('browser' + root._goldenbodyId, "message", (e) => {
               try {
                 // Allow `saveFile` messages to be processed even when the browser root
                 // doesn't have focus. Previously the OR made the whole condition true
@@ -3537,7 +3541,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
         tabs.push(tab);
         activateTab(id);
         renderTabs();
-        document.addEventListener('browser' + browserId, "keyup", function (e) {
+        document.addEventListener('browser' + root._goldenbodyId, "keyup", function (e) {
           try {
             if (!root.contains(document.activeElement)) return;
           } catch (e) {
@@ -3573,7 +3577,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
       if (preloadlink) {
         addTab(preloadlink, "New Tab");
       }
-      window.addEventListener('browser' + browserId, "keydown", function (e) {
+      window.addEventListener('browser' + root._goldenbodyId, "keydown", function (e) {
 try{        if (
           document.activeElement !== root &&
           !root.contains(document.activeElement)
@@ -3755,6 +3759,7 @@ try{        if (
         if (idx === -1) return;
 
         const removingActive = tabs[idx].id === activeTabId;
+        tabs[idx].iframe.src = 'about:blank';
         tabs[idx].iframe.remove();
         tabs.splice(idx, 1);
 
@@ -3948,7 +3953,7 @@ try{        if (
           currentX = ev.clientX;
           currentY = ev.clientY;
         });
-        window.addEventListener('browser' + browserId, "mousemove", (ev) => {
+        window.addEventListener('browser' + root._goldenbodyId, "mousemove", (ev) => {
           if (!dragging) {
             startX = 0;
             startY = 0;
@@ -3974,7 +3979,7 @@ try{        if (
           if (origTop + dy > 0) root.style.top = origTop + dy + "px";
           else root.style.top = "0px";
         });
-        window.addEventListener('browser' + browserId, "mouseup", () => {
+        window.addEventListener('browser' + root._goldenbodyId, "mouseup", () => {
           dragging = false;
           document.body.style.userSelect = "";
           targetel = null;
