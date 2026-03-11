@@ -532,6 +532,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
         clear:
           '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+        download:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
       };
 
       const setAddressButtonIcon = (button, iconName) => {
@@ -579,6 +581,165 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       clear.title = "delete browsing data";
       clear.className = "sim-open-btn";
       applyAddressIconButtonStyle(clear);
+
+      function openDownloadUI(anchorPoint = null) {
+        document.getElementById("download-ui")?.remove();
+
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
+
+        const panel = document.createElement("div");
+        panel.id = "download-ui";
+        panel.className = "panel";
+        panel.classList.toggle("dark", data.dark);
+        panel.classList.toggle("light", !data.dark);
+        panel.style.cssText = "position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+        panel.onclick = (e) => e.stopPropagation();
+
+        function cleanup() {
+          try { overlay.remove(); } catch (e) {}
+          try { document.removeEventListener("pointermove", onPointerMove); } catch (e) {}
+          try { document.removeEventListener("pointerup", onPointerUp); } catch (e) {}
+        }
+        overlay.onclick = () => cleanup();
+
+        const title = document.createElement("div");
+        title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
+        title.textContent = "Download URL";
+        panel.appendChild(title);
+
+        const label = document.createElement("div");
+        label.style.cssText = "font-size:12px;color:#888;margin-bottom:6px";
+        label.textContent = "Enter URL to download";
+        panel.appendChild(label);
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "https://example.com/file.png";
+        input.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+        try {
+          input.value = (activatedTab && activatedTab.iframe && activatedTab.iframe.src)
+            ? unshuffleURL(activatedTab.iframe.src)
+            : "";
+        } catch (e) {}
+        panel.appendChild(input);
+
+        const computeName = (u) => {
+          try {
+            const parsed = new URL(u);
+            let n = parsed.pathname.split("/").pop() || "";
+            if (!n || n === "/") n = parsed.searchParams.get("filename") || parsed.searchParams.get("file") || "";
+            if (!n) n = "download";
+            return n.split("?")[0];
+          } catch (e) {
+            return "download";
+          }
+        };
+
+        const info = document.createElement("div");
+        info.style.cssText = "font-size:12px;color:#666;margin-bottom:8px";
+        info.textContent = "Filename: " + computeName(input.value || "");
+        panel.appendChild(info);
+        input.oninput = () => {
+          info.textContent = "Filename: " + computeName(input.value || "");
+        };
+
+        const btnRow = document.createElement("div");
+        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:6px";
+        const btnCancel = document.createElement("button");
+        btnCancel.textContent = "Cancel";
+        btnCancel.onclick = () => cleanup();
+        const btnDownload = document.createElement("button");
+        btnDownload.textContent = "Download";
+        btnDownload.style.background = "#4c8bf5";
+        btnDownload.style.color = "#fff";
+        btnDownload.onclick = async () => {
+          const url = (input.value || "").trim();
+          if (!url) return notification("Enter a URL");
+          const filename = computeName(url);
+          try {
+            if (typeof downloadPost === "function") {
+              await downloadPost({ href: url, filename });
+              notification("Download request sent");
+            } else {
+              notification("downloadPost not available");
+            }
+          } catch (e) {
+            console.error("downloadPost error", e);
+            notification("Download failed to start");
+          }
+          cleanup();
+        };
+        btnRow.appendChild(btnCancel);
+        btnRow.appendChild(btnDownload);
+        panel.appendChild(btnRow);
+
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let origLeft = 0;
+        let origTop = 0;
+        function onPointerMove(e) {
+          if (!isDragging) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          panel.style.left = origLeft + dx + "px";
+          panel.style.top = origTop + dy + "px";
+          panel.style.transform = "";
+        }
+        function onPointerUp() {
+          if (!isDragging) return;
+          isDragging = false;
+          title.style.cursor = "grab";
+          try { document.removeEventListener("pointermove", onPointerMove); } catch (e) {}
+          try { document.removeEventListener("pointerup", onPointerUp); } catch (e) {}
+        }
+        title.addEventListener("pointerdown", (ev) => {
+          ev.preventDefault();
+          isDragging = true;
+          startX = ev.clientX;
+          startY = ev.clientY;
+          const r = panel.getBoundingClientRect();
+          origLeft = r.left;
+          origTop = r.top;
+          title.style.cursor = "grabbing";
+          document.addEventListener("pointermove", onPointerMove);
+          document.addEventListener("pointerup", onPointerUp);
+        });
+
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        if (anchorPoint && typeof anchorPoint.x === "number" && typeof anchorPoint.y === "number") {
+          const rect = panel.getBoundingClientRect();
+          const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+          const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+          let left = anchorPoint.x - rect.width;
+          let top = anchorPoint.y;
+          left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
+          top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
+          panel.style.left = left + "px";
+          panel.style.top = top + "px";
+          panel.style.transform = "";
+        } else {
+          panel.style.left = "50%";
+          panel.style.top = "50%";
+          panel.style.transform = "translate(-50%,-50%)";
+        }
+      }
+
+      var downloadBtn = document.createElement("button");
+      downloadBtn.title = "Download URL";
+      downloadBtn.className = "sim-open-btn";
+      applyAddressIconButtonStyle(downloadBtn);
+      setAddressButtonIcon(downloadBtn, "download");
+      downloadBtn.onclick = function (e) {
+        const buttonRect = downloadBtn.getBoundingClientRect();
+        const x = buttonRect.right || 0;
+        const y = buttonRect.top || 0;
+        openDownloadUI({ x, y });
+      };
+
       clear.onclick = function () {
         fetch(zmcdserver, {
           method: "POST",
@@ -592,6 +753,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
         notification("site data cleared! please close all browser windows!");
       };
+
+      addressRow.appendChild(downloadBtn);
       addressRow.appendChild(clear);
 
       const resizeDiv = document.createElement("div");
