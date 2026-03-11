@@ -236,6 +236,50 @@
     _isfullscreen = true;
   }
   var iconid = 0;
+  var draggedTaskButton = null;
+
+  function syncTaskButtons() {
+    taskbuttons = [...taskbar.querySelectorAll("button")];
+  }
+
+  function setupTaskButtonDrag(btn) {
+    btn.draggable = true;
+
+    btn.addEventListener("dragstart", (e) => {
+      draggedTaskButton = btn;
+      try {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", btn.id || btn.value || "taskbutton");
+      } catch (err) {}
+      btn.style.opacity = "0.6";
+    });
+
+    btn.addEventListener("dragend", () => {
+      btn.style.opacity = "1";
+      draggedTaskButton = null;
+      syncTaskButtons();
+    });
+  }
+
+  taskbar.addEventListener("dragover", (e) => {
+    if (!draggedTaskButton) return;
+    e.preventDefault();
+
+    const target = e.target && e.target.closest ? e.target.closest("button.taskbutton") : null;
+    if (!target || target === draggedTaskButton) return;
+
+    const rect = target.getBoundingClientRect();
+    const insertBefore = e.clientX < rect.left + rect.width / 2;
+    taskbar.insertBefore(draggedTaskButton, insertBefore ? target : target.nextSibling);
+    syncTaskButtons();
+  });
+
+  taskbar.addEventListener("drop", (e) => {
+    if (!draggedTaskButton) return;
+    e.preventDefault();
+    syncTaskButtons();
+  });
+
   function addTaskButton(name, onclickFunc) {
     var btn = document.createElement("button");
     btn.innerText = name;
@@ -262,8 +306,9 @@
       console.log("Task clicked:", btn.value);
       onclickFunc();
     });
+    setupTaskButtonDrag(btn);
     taskbar.appendChild(btn);
-    taskbuttons = [...taskbar.querySelectorAll("button")];
+    syncTaskButtons();
     setTimeout(() => {
       applyStyles();
     }, 100);

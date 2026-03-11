@@ -618,6 +618,55 @@ function normalizeAppFolders(folders) {
   return list;
 }
 
+function isImageIconValue(value) {
+  if (!value || typeof value !== 'string') return false;
+  var normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.startsWith('data:image/')) return true;
+  normalized = normalized.split('?')[0].split('#')[0];
+  return normalized.endsWith('.png') || normalized.endsWith('.svg');
+}
+
+function getIconMimeType(pathOrValue) {
+  var normalized = (pathOrValue || '').trim().toLowerCase().split('?')[0].split('#')[0];
+  if (normalized.endsWith('.svg')) return 'image/svg+xml';
+  return 'image/png';
+}
+
+function toIconImageMarkupFromSource(iconSource) {
+  if (!iconSource) return '';
+  return `<img src="${iconSource}" style="width:1.8em;height:1.8em;max-width:100%;max-height:100%;object-fit:contain;display:block;margin:0 auto;"/>`;
+}
+
+async function toIconImageMarkup(iconPathOrUrl, folderPath) {
+  var iconSource = (iconPathOrUrl || '').trim();
+  if (!iconSource) return '';
+
+  if (iconSource.startsWith('data:image/')) {
+    return toIconImageMarkupFromSource(iconSource);
+  }
+
+  if (iconSource.startsWith('http://') || iconSource.startsWith('https://') || iconSource.startsWith('/')) {
+    return toIconImageMarkupFromSource(iconSource);
+  }
+
+  var normalizedPath = iconSource.replace(/^\.\//, '');
+  if (!normalizedPath.startsWith('apps/')) {
+    normalizedPath = `${folderPath}/${normalizedPath}`;
+  }
+
+  try {
+    var iconB64 = await fetchFileContentByPath(normalizedPath);
+    if (!iconB64) return '';
+    var mimeType = getIconMimeType(normalizedPath);
+    return toIconImageMarkupFromSource(`data:${mimeType};base64,${iconB64}`);
+  } catch (e) {
+    console.error('read icon image', e);
+  }
+
+  return '';
+}
+
 // Helper function to extract app data from an app folder
 async function extractAppData(appFolder) {
   var folderName = appFolder[0];
@@ -651,11 +700,16 @@ async function extractAppData(appFolder) {
 
   if (iconFile) {
     if (iconFile.toLowerCase().endsWith('.png') || iconFile.toLowerCase().endsWith('.svg')) {
-      icon = `<img src="${goldenbodywebsite}download?username=${encodeURIComponent(username)}&path=${encodeURIComponent(folderPath + '/' + iconFile)}" style="width:26px;height:26px;object-fit:contain;display:block;margin:0 auto;"/>`;
+      icon = (await toIconImageMarkup(`${folderPath}/${iconFile}`, folderPath)) || icon;
     } else {
       try {
         var b64 = await fetchFileContentByPath(`${folderPath}/${iconFile}`);
-        icon = base64ToUtf8(b64).trim() || icon;
+        var parsedIcon = base64ToUtf8(b64).trim();
+        if (isImageIconValue(parsedIcon)) {
+          icon = (await toIconImageMarkup(parsedIcon, folderPath)) || icon;
+        } else {
+          icon = parsedIcon || icon;
+        }
       } catch (e) { console.error('read icon txt', e); }
     }
   }

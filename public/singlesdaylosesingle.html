@@ -52,6 +52,16 @@
         .app-icon {
             font-size: 4em;
             margin-bottom: 16px;
+            width: 1.4em;
+            height: 1.4em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .app-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         .app-name {
             font-size: 1.3em;
@@ -89,6 +99,25 @@
     </div>
 
     <script>
+        function isImageIconValue(value) {
+            if (!value || typeof value !== 'string') return false;
+            let normalized = value.trim().toLowerCase();
+            if (!normalized) return false;
+            if (normalized.startsWith('data:image/')) return true;
+            normalized = normalized.split('?')[0].split('#')[0];
+            return normalized.endsWith('.png') || normalized.endsWith('.svg');
+        }
+
+        function resolveIconSource(iconValue, appName) {
+            const trimmed = (iconValue || '').trim();
+            if (!trimmed) return '';
+            if (trimmed.startsWith('data:image/')) return trimmed;
+            if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
+                return trimmed;
+            }
+            return `/appstoreapps/${appName}/${trimmed.replace(/^\.\//, '')}`;
+        }
+
         async function loadApps() {
             const loadingEl = document.getElementById('loading');
             const errorEl = document.getElementById('error');
@@ -127,11 +156,29 @@
                         // Create app card
                         const card = document.createElement('div');
                         card.className = 'app-card';
-                        card.innerHTML = `
-                            <div class="app-icon">${icon}</div>
-                            <div class="app-name">${displayName}</div>
-                            <div class="app-id">${appName}</div>
-                        `;
+
+                        const iconEl = document.createElement('div');
+                        iconEl.className = 'app-icon';
+                        if (isImageIconValue(icon)) {
+                            const iconImg = document.createElement('img');
+                            iconImg.src = resolveIconSource(icon, appName);
+                            iconImg.alt = `${displayName} icon`;
+                            iconEl.appendChild(iconImg);
+                        } else {
+                            iconEl.textContent = icon;
+                        }
+
+                        const nameEl = document.createElement('div');
+                        nameEl.className = 'app-name';
+                        nameEl.textContent = displayName;
+
+                        const idEl = document.createElement('div');
+                        idEl.className = 'app-id';
+                        idEl.textContent = appName;
+
+                        card.appendChild(iconEl);
+                        card.appendChild(nameEl);
+                        card.appendChild(idEl);
 
                         // Use IIFE to capture the current appName and displayName correctly
                         ((currentAppName, currentDisplayName) => {
