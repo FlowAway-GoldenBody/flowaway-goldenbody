@@ -1578,7 +1578,6 @@ function handleSelection(e, item, items, index) {
       remove.style.cursor = "pointer";
       remove.addEventListener("click", () => {
         // Remove the explorer’s taskbar button if it exists
-        saveTaskButtons();
         for (let i = taskbuttons.length; i > 0; i--) {
           i--;
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
@@ -1604,6 +1603,7 @@ function handleSelection(e, item, items, index) {
           }
           i++;
         }
+        saveTaskButtons();
         menu.remove();
       });
       menu.appendChild(remove);

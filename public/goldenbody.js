@@ -240,6 +240,7 @@
 
   function syncTaskButtons() {
     taskbuttons = [...taskbar.querySelectorAll("button")];
+    saveTaskButtons(true);
   }
 
   function setupTaskButtonDrag(btn) {
@@ -271,7 +272,6 @@
     const rect = target.getBoundingClientRect();
     const insertBefore = e.clientX < rect.left + rect.width / 2;
     taskbar.insertBefore(draggedTaskButton, insertBefore ? target : target.nextSibling);
-    syncTaskButtons();
   });
 
   taskbar.addEventListener("drop", (e) => {
@@ -316,7 +316,6 @@
   }
 
   addTaskButton("⤢", _fullscreen);
-  addTaskButton("💾", saveTaskButtons);
   addTaskButton("▶", starthandler);
   purgeButtons();
 

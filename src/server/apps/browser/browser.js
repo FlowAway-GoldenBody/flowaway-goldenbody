@@ -3,6 +3,16 @@
 try{
   browsercontroller.abort();
 } catch(e) {}
+  window.__globalAddTab = function(url, index) {
+    let t = allBrowsers[index].addTab(url, "New Tab");
+    for(tab of allBrowsers[index].tabs) {
+      if(tab.id == t) {
+        t = tab;
+        break;
+      }
+    }
+    return t.iframe.contentWindow;
+  };
   window.browsercontroller = new AbortController();
   window.signal = browsercontroller.signal;
   window.allBrowsers = [];
@@ -3353,7 +3363,8 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
     if(window.top.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
 }
     debugger;
-    if(!url.startsWith('http')) {
+    if(url == "") url = "about:blank";
+    if(!url.includes(':')) {
        if(document.getElementsByTagName('base').length > 0) {
        url = window.top.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
        }
@@ -3373,11 +3384,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
     window.location = url;
   }
   else if(location === '_blank') {
-    window.top.postMessage({
-       __goldenbodynewWindow__: true,
-       url: url,
-       allbrowserindex: allbrowserindex
-    });
+    return window.top.__globalAddTab(url, allbrowserindex);
   }
   else if(location === '_top') {
     console.error('this flag is banned "_top"');
@@ -3429,7 +3436,9 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
                 // Wait for the iframe to load (so its contentDocument exists)
                 try {
                   const win = frame.contentWindow;
+                  if (!frame.contentDocument.getElementById('_gb_a_setter')) {
                             var script = frame.contentDocument.createElement("script");
+                            script.id = '_gb_a_setter';
           script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
   window.parent.postMessage(
     { type: "FROM_IFRAME", message: url },
@@ -3439,6 +3448,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
 
 `;
           frame.contentDocument.head.appendChild(script);
+                  }
                   // showOpenFilePicker()
                   if (frame.contentDocument?.readyState === "complete") {
                     if(!frame.contentDocument.getElementById('VFS'))
@@ -4503,7 +4513,6 @@ try{        if (
       remove.style.padding = "6px 10px";
       remove.style.cursor = "pointer";
       remove.addEventListener("click", function () {
-        saveTaskButtons();
         for (let i = taskbuttons.length; i > 0; i--) {
           i--;
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
@@ -4529,6 +4538,7 @@ try{        if (
           }
           i++;
         }
+        saveTaskButtons();
       });
       menu.appendChild(remove);
     } else {

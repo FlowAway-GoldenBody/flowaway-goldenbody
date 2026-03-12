@@ -426,7 +426,6 @@ yourApp = function (posX = 50, posY = 50) {
       remove.style.cursor = "pointer";
       remove.addEventListener("click", () => {
         // Remove the setting’s taskbar button if it exists
-        saveTaskButtons();
         for (let i = taskbuttons.length; i > 0; i--) {
           i--;
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
@@ -452,6 +451,7 @@ yourApp = function (posX = 50, posY = 50) {
           }
           i++;
         }
+        saveTaskButtons();
         menu.remove();
       });
       menu.appendChild(remove);

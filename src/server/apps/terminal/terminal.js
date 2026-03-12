@@ -689,7 +689,6 @@ if (appName === 'cd') {
       remove.style.cursor = "pointer";
       remove.addEventListener("click", () => {
         // Remove the setting’s taskbar button if it exists
-        saveTaskButtons();
         for (let i = taskbuttons.length; i > 0; i--) {
           i--;
           let index = parseInt(getStringAfterChar(e.target.id, "-"));
@@ -715,6 +714,7 @@ if (appName === 'cd') {
           }
           i++;
         }
+        saveTaskButtons();
         menu.remove();
       });
       menu.appendChild(remove);

@@ -681,7 +681,7 @@ async function extractAppData(appFolder) {
 
   var entryName = null;
   var label = folderName;
-  var icon = '🔧';
+  var icon = null;
   var appGlobalVarStrings = [];
   if (txtFile) {
     try {
@@ -774,6 +774,7 @@ async function renderAppsGrid() {
   // Remove all current children to render fresh
   container.innerHTML = '';
   for (const app of window.apps) {
+    if(!app.icon) continue;
     var div = document.createElement('div');
     div.className = 'app';
     div.dataset.appId = app.icon;
@@ -1385,7 +1386,7 @@ window.removeotherMenus = function(except) {
     const app = (window.apps || []).find(a => a.id === taskbutton);
     if (app) {
       const appId = app.id;
-      const btn = addTaskButton(app.icon || '🔧', () => launchApp(appId));
+      const btn = addTaskButton(app.icon, () => launchApp(appId));
       if (btn) btn.dataset.appId = app.icon;
     }
   }
@@ -1413,7 +1414,7 @@ window.removeotherMenus = function(except) {
     }
   }
 
-  function saveTaskButtons() {
+  function saveTaskButtons(silence = true) {
     var buttons = [...taskbar.querySelectorAll("button")];
     buttons.splice(0, 3);
     var postdata = [];
@@ -1426,7 +1427,7 @@ window.removeotherMenus = function(except) {
         if (inferred) postdata.push(inferred);
       }
     }
-    notification('taskbuttons saved!');
+    if (!silence) notification('taskbuttons saved!');
     posttaskbuttons(postdata);
   }
   function bringToFront(el) {
