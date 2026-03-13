@@ -432,7 +432,7 @@ root.classList.add('fileExplorer');
         treeData = data.tree;
         // Restore clipboard from server
         if (data.clipboard && Array.isArray(data.clipboard)) {
-          clipboard = data.clipboard;
+          explorerGlobals.clipboard = data.clipboard;
         }
         render();
       };
@@ -915,7 +915,7 @@ function handleSelection(e, item, items, index) {
         // Quota check: sum total size of clipboard items
         let currentUsed = getNodeSize(treeData);
         let clipboardTotal = 0;
-        for (const item of clipboard) {
+        for (const item of explorerGlobals.clipboard) {
           clipboardTotal += getNodeSize(item.node);
         }
         if (currentUsed + clipboardTotal > STORAGE_QUOTA_BYTES) {
@@ -923,7 +923,7 @@ function handleSelection(e, item, items, index) {
           return;
         }
 
-        for (const item of clipboard) {
+        for (const item of explorerGlobals.clipboard) {
           const sourceFullPath = getFullPathFromNode(item.node, []); // e.g., "FolderA"
           const targetFullPath = targetPath.join("/"); // e.g., "FolderA/Sub"
 
@@ -958,7 +958,7 @@ function handleSelection(e, item, items, index) {
       };
       let handlecopy = (e) => {
         if((e.ctrlKey && e.key.toLowerCase() === 'c') || e == 'copy') {
-        clipboard = selectedItems.map((item) => ({
+        explorerGlobals.clipboard = selectedItems.map((item) => ({
           node: item,
           path: getCurrentFolderPath() + item[0],
           name: item[0],
@@ -968,11 +968,11 @@ function handleSelection(e, item, items, index) {
         const targetPath = [...currentPath]; // current folder path array
         let predirections = [];
         targetPath.splice(0, 1);
-        for(let i = 0; i < clipboard.length; i++) {
+        for(let i = 0; i < explorerGlobals.clipboard.length; i++) {
           if(targetPath.length !== 0)
-          predirections.push({path: targetPath.join("/") + '/' + clipboard[i].name});
+          predirections.push({path: targetPath.join("/") + '/' + explorerGlobals.clipboard[i].name});
           else
-          predirections.push({path: clipboard[i].name});
+          predirections.push({path: explorerGlobals.clipboard[i].name});
         }
         directions.push({copy: true, directions: predirections});
       }
@@ -1029,12 +1029,12 @@ function handleSelection(e, item, items, index) {
               // slice(1) removes "root" if treeData is the root node
               removeNodeFromTree(treeData, deletePath);
 
-              // If clipboard is an array, remove any entries that reference this deleted path.
-              // Support removing nested clipboard entries when deleting a folder.
-              if (!Array.isArray(clipboard)) clipboard = [];
-              const rel = deletePath.join('/'); // matches clipboard.path format (e.g., "folder/sub")
+              // If explorerGlobals.clipboard is an array, remove any entries that reference this deleted path.
+              // Support removing nested explorerGlobals.clipboard entries when deleting a folder.
+              if (!Array.isArray(explorerGlobals.clipboard)) explorerGlobals.clipboard = [];
+              const rel = deletePath.join('/'); // matches explorerGlobals.clipboard.path format (e.g., "folder/sub")
               const isFolder = Array.isArray(item[1]);
-              clipboard = clipboard.filter((c) => {
+              explorerGlobals.clipboard = explorerGlobals.clipboard.filter((c) => {
                 if (!c || typeof c.path !== 'string') return true; // keep malformed entries
                 if (isFolder) {
                   // remove if exact match or inside the deleted folder
@@ -1098,12 +1098,12 @@ function handleSelection(e, item, items, index) {
                 if (child) child[0] = newName;
               }
 
-              // Update local clipboard entries that reference this path (files or nested inside folders)
+              // Update local explorerGlobals.clipboard entries that reference this path (files or nested inside folders)
               try {
                 const oldRel = [...currentPath.slice(1), oldName].join('/');
                 const newRel = [...currentPath.slice(1), newName].join('/');
-                if (!Array.isArray(clipboard)) clipboard = [];
-                clipboard = clipboard.map((c) => {
+                if (!Array.isArray(explorerGlobals.clipboard)) explorerGlobals.clipboard = [];
+                explorerGlobals.clipboard = explorerGlobals.clipboard.map((c) => {
                   if (!c || typeof c.path !== 'string') return c;
                   if (c.path === oldRel) {
                     const updated = { ...c, path: newRel };
@@ -1159,7 +1159,7 @@ function handleSelection(e, item, items, index) {
           addItem("Copy", () => handlecopy('copy'));
         }
 
-        if (isBlank && clipboard.length) {
+        if (isBlank && explorerGlobals.clipboard.length) {
           addItem("Paste", () => handlepaste('cmp'));
         }
 
@@ -1287,9 +1287,9 @@ function handleSelection(e, item, items, index) {
           directions: directions
         });
         directions = [];
-        // // Restore clipboard from server response (keep existing if not returned)
-        // if (response.clipboard && Array.isArray(response.clipboard)) {
-        //   clipboard = response.clipboard;
+        // // Restore explorerGlobals.clipboard from server response (keep existing if not returned)
+        // if (response.explorerGlobals.clipboard && Array.isArray(response.explorerGlobals.clipboard)) {
+        //   explorerGlobals.clipboard = response.explorerGlobals.clipboard;
         // }
         saveBtn.textContent = "💾 Saved!";
         setTimeout(() => (saveBtn.textContent = "💾 Save"), 1000);
