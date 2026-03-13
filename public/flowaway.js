@@ -591,6 +591,11 @@ function hashScriptContent(text) {
   return Math.abs(hash).toString(16);
 }
 
+function isProtectedAppGlobalName(name) {
+  if (!name || typeof name !== 'string') return false;
+  return /Globals$/.test(name) || name === 'apps' || name === '_flowaway_handlers';
+}
+
 // ----------------- DYNAMIC AP LOADER -----------------
 window.apps = window.apps || [];
 
@@ -682,6 +687,8 @@ async function extractAppData(appFolder) {
   var entryName = null;
   var label = folderName;
   var icon = null;
+  var startbtnid = null;
+  var cmf = null;
   var appGlobalVarStrings = [];
   if (txtFile) {
     try {
@@ -691,8 +698,14 @@ async function extractAppData(appFolder) {
       if (lines.length) entryName = lines[0];
       if (lines.length > 1) label = lines[1];
       if (lines.length > 2) startbtnid = lines[2];
-      if (lines.length > 3) cmf = lines[3];
-      for(var i = 2; i < lines.length; i++) {
+      if (lines.length > 3) {
+        if (isProtectedAppGlobalName(lines[3])) {
+          appGlobalVarStrings.push(lines[3]);
+        } else {
+          cmf = lines[3];
+        }
+      }
+      for(var i = 4; i < lines.length; i++) {
         appGlobalVarStrings.push(lines[i]);
       }
     } catch (e) { console.error('read txt', e); }
@@ -774,7 +787,53 @@ async function renderAppsGrid() {
   // Remove all current children to render fresh
   container.innerHTML = '';
   for (const app of window.apps) {
-    if(!app.icon) continue;
+    if(!app.icon) {
+      if (!app.scriptLoaded && app.jsFile) {
+        try {
+          var b64NoIcon = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+          var scriptTextNoIcon = base64ToUtf8(b64NoIcon);
+          app._lastScriptHash = hashScriptContent(scriptTextNoIcon);
+          try {
+            if (app.entry && typeof window[app.entry] !== 'undefined') {
+              try { delete window[app.entry]; } catch (e) {}
+            }
+            if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') {
+              try { delete window[app.cmf]; } catch (e) {}
+            }
+            if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
+              for (const varName of app.appGlobalVarStrings) {
+                if (isProtectedAppGlobalName(varName)) continue;
+                if (typeof window[varName] !== 'undefined') {
+                  try { delete window[varName]; } catch (e) {}
+                }
+              }
+            }
+          } catch (e) {}
+          var beforeGlobalsNoIcon = new Set(Object.getOwnPropertyNames(window));
+          var sNoIcon = document.createElement('script');
+          sNoIcon.type = 'text/javascript';
+          sNoIcon.textContent = scriptTextNoIcon;
+          document.body.appendChild(sNoIcon);
+          app.scriptLoaded = true;
+          app._scriptElement = sNoIcon;
+          try {
+            app._addedGlobals = [];
+            var captureAddedNoIcon = () => {
+              try {
+                var afterNoIcon = Object.getOwnPropertyNames(window);
+                var newlyNoIcon = afterNoIcon.filter(k => !beforeGlobalsNoIcon.has(k) && !(app._addedGlobals || []).includes(k));
+                if (newlyNoIcon.length) app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newlyNoIcon])];
+              } catch (e) {}
+            };
+            captureAddedNoIcon();
+            setTimeout(captureAddedNoIcon, 120);
+            setTimeout(captureAddedNoIcon, 800);
+            setTimeout(captureAddedNoIcon, 2500);
+          } catch (e) {}
+        } catch (e) { console.error('failed to load app script', e); }
+      }
+      continue;
+    }
     var div = document.createElement('div');
     div.className = 'app';
     div.dataset.appId = app.icon;
@@ -797,11 +856,12 @@ async function renderAppsGrid() {
         if (app.entry && typeof window[app.entry] !== 'undefined') {
           try { delete window[app.entry]; } catch (e) {}
         }
-        if (app.cmf && typeof window[app.cmf] !== 'undefined') {
+        if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') {
           try { delete window[app.cmf]; } catch (e) {}
         }
         if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
           for (const varName of app.appGlobalVarStrings) {
+            if (isProtectedAppGlobalName(varName)) continue;
             if (typeof window[varName] !== 'undefined') {
               try { delete window[varName]; } catch (e) {}
             }
@@ -861,11 +921,12 @@ async function launchApp(appId) {
         if (app.entry && typeof window[app.entry] !== 'undefined') {
           try { delete window[app.entry]; } catch (e) {}
         }
-        if (app.cmf && typeof window[app.cmf] !== 'undefined') {
+        if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') {
           try { delete window[app.cmf]; } catch (e) {}
         }
         if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
           for (const varName of app.appGlobalVarStrings) {
+            if (isProtectedAppGlobalName(varName)) continue;
             if (typeof window[varName] !== 'undefined') {
               try { delete window[varName]; } catch (e) {}
             }
@@ -1072,9 +1133,12 @@ async function pollAppChanges(forceMetadataCheck = false) {
             try {
               window[app.entry] = null;
               delete window[app.entry];
-              delete window[app.cmf];
+              if (app.cmf && !isProtectedAppGlobalName(app.cmf)) {
+                delete window[app.cmf];
+              }
               if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
                 for (const varName of app.appGlobalVarStrings) {
+                  if (isProtectedAppGlobalName(varName)) continue;
                   if (typeof window[varName] !== 'undefined') {
                     try { delete window[varName]; } catch (e) {}
                   }
@@ -1189,11 +1253,12 @@ async function pollAppChanges(forceMetadataCheck = false) {
                 if (_oldEntry && typeof window[_oldEntry] !== 'undefined') {
                   try { delete window[_oldEntry]; } catch (e) {}
                 }
-                if (_oldCmf && typeof window[_oldCmf] !== 'undefined') {
+                if (_oldCmf && !isProtectedAppGlobalName(_oldCmf) && typeof window[_oldCmf] !== 'undefined') {
                   try { delete window[_oldCmf]; } catch (e) {}
                 }
                 if (_oldAppGlobalVarStrings && Array.isArray(_oldAppGlobalVarStrings)) {
                   for (const varName of _oldAppGlobalVarStrings) {
+                    if (isProtectedAppGlobalName(varName)) continue;
                     if (typeof window[varName] !== 'undefined') {
                       try { delete window[varName]; } catch (e) {}
                     }
@@ -1247,9 +1312,10 @@ async function pollAppChanges(forceMetadataCheck = false) {
                 // remove prior globals exposed by this app before re-injecting
                 try {
                   if (app.entry && typeof window[app.entry] !== 'undefined') { try { delete window[app.entry]; } catch (e) {} }
-                  if (app.cmf && typeof window[app.cmf] !== 'undefined') { try { delete window[app.cmf]; } catch (e) {} }
+                  if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') { try { delete window[app.cmf]; } catch (e) {} }
                   if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
                     for (const varName of app.appGlobalVarStrings) {
+                      if (isProtectedAppGlobalName(varName)) continue;
                       if (typeof window[varName] !== 'undefined') {
                         try { delete window[varName]; } catch (e) {}
                       }
@@ -1380,6 +1446,7 @@ window.removeOtherMenus = function(except) {
   function applyTaskButtons() {
     if(window.apps.length === 0 || window.appsButtonsApplied) return;
     window.appsButtonsApplied = true;
+    window._suppressTaskbarPersist = true;
     // Clear existing task buttons (except first 3)
   // Prefer dynamic apps discovered in /apps
   for (const taskbutton of data.taskbuttons) {
@@ -1390,6 +1457,7 @@ window.removeOtherMenus = function(except) {
       if (btn) btn.dataset.appId = app.icon;
     }
   }
+  window._suppressTaskbarPersist = false;
   taskbuttons = [...taskbar.querySelectorAll("button")];
  }
 

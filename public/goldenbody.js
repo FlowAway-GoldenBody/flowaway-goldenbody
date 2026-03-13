@@ -240,7 +240,9 @@
 
   function syncTaskButtons() {
     taskbuttons = [...taskbar.querySelectorAll("button")];
-    saveTaskButtons(true);
+    if (!window._suppressTaskbarPersist) {
+      saveTaskButtons(true);
+    }
   }
 
   function setupTaskButtonDrag(btn) {
@@ -315,7 +317,9 @@
     return btn;
   }
 
+  window._suppressTaskbarPersist = true;
   addTaskButton("⤢", _fullscreen);
   addTaskButton("▶", starthandler);
+  window._suppressTaskbarPersist = false;
   purgeButtons();
 

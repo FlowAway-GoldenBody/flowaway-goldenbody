@@ -40,6 +40,15 @@ function updateAllSystemApps() {
   try {
     const directoryPath = path.resolve(__dirname, './zmcdfiles');
     const systemAppsPath = path.join(__dirname, 'apps');
+    if (!fs.existsSync(systemAppsPath)) {
+      console.log('System apps directory not found:', systemAppsPath);
+      return;
+    }
+
+    const systemEntries = fs.readdirSync(systemAppsPath, { withFileTypes: true });
+    const systemAppDirs = systemEntries
+      .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+      .map(d => d.name);
     
     // Get list of user directories
     const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
@@ -59,10 +68,15 @@ function updateAllSystemApps() {
         userData.autoupdate = __gbconfig.autoupdate; //override for testing, will be removed in production
         if (userData.autoupdate) {
           const userAppsPath = path.join(directoryPath, username, 'root', 'apps');
-          
-          // Remove old apps and copy system apps to user directory
-          fs.rmSync(userAppsPath, { recursive: true, force: true });
-          fs.cpSync(systemAppsPath, userAppsPath, { recursive: true });
+
+          // Only replace known system app folders; preserve user-created non-system apps.
+          fs.mkdirSync(userAppsPath, { recursive: true });
+          for (const appName of systemAppDirs) {
+            const srcAppPath = path.join(systemAppsPath, appName);
+            const dstAppPath = path.join(userAppsPath, appName);
+            fs.rmSync(dstAppPath, { recursive: true, force: true });
+            fs.cpSync(srcAppPath, dstAppPath, { recursive: true });
+          }
           
           console.log(`Updated system apps for user: ${username}`);
         }
