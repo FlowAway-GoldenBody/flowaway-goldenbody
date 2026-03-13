@@ -6,9 +6,15 @@ if (!window.__ouchbad_preinit_done) {
   window.__ouchbad_zmcdserver = `${window.__ouchbad_BASE}/server/zmcd`;
   window.__ouchbad_SERVER = `${window.__ouchbad_BASE}/server/fetchfiles/`;
   window.__ouchbad_downloadserver = `${window.__ouchbad_BASE}/server/download/`;
-  window.__ouchbad_baseOrigin =
-    window.opener?.location?.origin ||
-    window.location.origin;
+  let __ouchbad_openerOrigin = null;
+  try {
+    if (window.opener && window.opener.location && window.opener.location.origin) {
+      __ouchbad_openerOrigin = window.opener.location.origin;
+    }
+  } catch (e) {
+    __ouchbad_openerOrigin = null;
+  }
+  window.__ouchbad_baseOrigin = __ouchbad_openerOrigin || window.location.origin;
   window.__ouchbad_wsProtocol = window.__ouchbad_baseOrigin.startsWith('https')
     ? 'wss://'
     : 'ws://';

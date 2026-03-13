@@ -1,8 +1,9 @@
 //textEditor global vars
-  window.alltextEditor = [];
-  window.textEditorId = 0;
-window.__textEditorStyle = document.createElement("style");
-window.__textEditorStyle.textContent = `
+  window.textEditorGlobals = {};
+  textEditorGlobals.alltextEditor = [];
+  textEditorGlobals.textEditorId = 0;
+textEditorGlobals.__textEditorStyle = document.createElement("style");
+textEditorGlobals.__textEditorStyle.textContent = `
 .texteditor-topbar.dark{
   background: #111;
   color: #eee;
@@ -12,7 +13,7 @@ window.__textEditorStyle.textContent = `
   color: #000;
 }
 `;
-document.head.appendChild(window.__textEditorStyle);
+document.head.appendChild(textEditorGlobals.__textEditorStyle);
 textEditor = function (path, posX = 50, posY = 50) {
   let hasFileOpen = false;
   let editorName;
@@ -50,8 +51,8 @@ textEditor = function (path, posX = 50, posY = 50) {
     root.classList.add('textEditor');
     bringToFront(root);
     document.body.appendChild(root);
-    textEditorId++;
-    root._textEditorId = textEditorId;
+    textEditorGlobals.textEditorId++;
+    root._textEditorId = textEditorGlobals.textEditorId;
 
     // --- Top bar ---
     var topBar = false;
@@ -174,12 +175,12 @@ textEditor = function (path, posX = 50, posY = 50) {
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < alltextEditor.length; i++) {
-        if (alltextEditor[i].rootElement == root) {
+      for (let i = 0; i < textEditorGlobals.alltextEditor.length; i++) {
+        if (textEditorGlobals.alltextEditor[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) alltextEditor.splice(index, 1);
+      if (index !== false) textEditorGlobals.alltextEditor.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -534,8 +535,8 @@ textEditor = function (path, posX = 50, posY = 50) {
 
           // keep parity with settings.js: update any open editors if available
           try {
-            if (Array.isArray(alltextEditor)) {
-              for (const inst of alltextEditor) {
+            if (Array.isArray(textEditorGlobals.alltextEditor)) {
+              for (const inst of textEditorGlobals.alltextEditor) {
                 try {
                   if (inst && inst.rootElement) {
                     const ta = inst.rootElement.querySelector && inst.rootElement.querySelector('.texteditor-area');
@@ -760,7 +761,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       // wire New/Open actions
       newBtn.addEventListener('click', async () => {
         // Use the Save As picker to choose a new file path (keeps UX consistent)
-          editorName = `Untitled-${textEditorId}`;
+          editorName = `Untitled-${textEditorGlobals.textEditorId}`;
           if(path) {
             editorName = path.split('/').pop() || editorName;
           }
@@ -774,7 +775,7 @@ textEditor = function (path, posX = 50, posY = 50) {
           }
           path = chosen;
           titleLabel.textContent = editorName;
-          storageKey = `textEditor:${textEditorId}:${editorName}:content`;
+          storageKey = `textEditor:${textEditorGlobals.textEditorId}:${editorName}:content`;
           textarea.value = '';
           updateStatus();
           // Immediately save the empty/new file to the server
@@ -935,7 +936,7 @@ textEditor = function (path, posX = 50, posY = 50) {
               textarea.value = b64DecodeUnicode(res.filecontent);
               editorName = path.split('/').pop() || editorName;
               titleLabel.textContent = editorName;
-              storageKey = `textEditor:${textEditorId}:${editorName || 'untitled'}:content`;
+              storageKey = `textEditor:${textEditorGlobals.textEditorId}:${editorName || 'untitled'}:content`;
               updateStatus();
               returnObject.title = titleLabel.textContent;
             }
@@ -971,7 +972,7 @@ textEditor = function (path, posX = 50, posY = 50) {
               path = fullPath || picked[0];
               editorName = path.split('/').pop() || editorName;
               titleLabel.textContent = editorName;
-              storageKey = `textEditor:${textEditorId}:${editorName || 'untitled'}:content`;
+              storageKey = `textEditor:${textEditorGlobals.textEditorId}:${editorName || 'untitled'}:content`;
               updateStatus();
           } catch (e) {
             console.warn('Failed to fetch picked file', e);
@@ -1151,11 +1152,11 @@ textEditor = function (path, posX = 50, posY = 50) {
         isMaximized,
         getBounds,
         applyBounds,
-        textEditorId,
+        textEditorId: textEditorGlobals.textEditorId,
         title: titleLabel.textContent,
         textarea,
       };
-      alltextEditor.push(returnObject);
+      textEditorGlobals.alltextEditor.push(returnObject);
 
       applyStyles();
 
@@ -1169,17 +1170,17 @@ textEditor = function (path, posX = 50, posY = 50) {
 
 
   //app stuff
-  window.textEditorButtons = [];
-  window.AbortControllertextEditormenu;
-  window.textEditormenu;
-textEditorContextMenu = function(e, needRemove = true) {
+  textEditorGlobals.textEditorButtons = [];
+  textEditorGlobals.AbortControllertextEditormenu;
+  textEditorGlobals.textEditormenu;
+  textEditorGlobals.textEditorContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    window.textEditormenu = menu;
+    textEditorGlobals.textEditormenu = menu;
     try {
         removeOtherMenus('textEditor');
     } catch (e) {}
@@ -1204,11 +1205,11 @@ textEditorContextMenu = function(e, needRemove = true) {
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of alltextEditor) {
+      for (const i of textEditorGlobals.alltextEditor) {
         i.rootElement.remove();
       }
 
-      alltextEditor = [];
+      textEditorGlobals.alltextEditor = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -1218,7 +1219,7 @@ textEditorContextMenu = function(e, needRemove = true) {
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of alltextEditor) {
+      for (const i of textEditorGlobals.alltextEditor) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -1229,9 +1230,9 @@ textEditorContextMenu = function(e, needRemove = true) {
     showAll.textContent = "Show all";
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
-    alltextEditor.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+    textEditorGlobals.alltextEditor.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
     showAll.addEventListener("click", () => {
-      for (const i of alltextEditor) {
+      for (const i of textEditorGlobals.alltextEditor) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -1293,8 +1294,8 @@ textEditorContextMenu = function(e, needRemove = true) {
         let textEditorButton = addTaskButton("📝", textEditor);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of textEditorButtons) {
-          fb.addEventListener("contextmenu", textEditorContextMenu);
+        for (const fb of textEditorGlobals.textEditorButtons) {
+          fb.addEventListener("contextmenu", textEditorGlobals.textEditorContextMenu);
         }
       });
       menu.appendChild(add);
@@ -1302,13 +1303,13 @@ textEditorContextMenu = function(e, needRemove = true) {
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (alltextEditor.length === 0) {
+    if (textEditorGlobals.alltextEditor.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      alltextEditor.forEach((instance, i) => {
+      textEditorGlobals.alltextEditor.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || `textEditor ${i + 1}`;
 
@@ -1363,12 +1364,11 @@ textEditorContextMenu = function(e, needRemove = true) {
       if (txtbtn.dataset && txtbtn.dataset.textEditorContextBound) return;
 
       const handler = function (ev) {
-        textEditorContextMenu(ev, false);
+        textEditorGlobals.textEditorContextMenu(ev, false);
       };
 
       txtbtn.addEventListener("contextmenu", handler);
       if (txtbtn.dataset) txtbtn.dataset.textEditorContextBound = '1';
-      try { textEditorButtons.push(txtbtn); } catch (e) {}
     } catch (e) {}
   });
 
@@ -1380,9 +1380,9 @@ try {
       if (btn.dataset && btn.dataset.textEditorContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
       if (!(String(aid) === '📝' || String(aid) === 'editorapp')) return;
-      btn.addEventListener('contextmenu', textEditorContextMenu);
+      btn.addEventListener('contextmenu', textEditorGlobals.textEditorContextMenu);
       if (btn.dataset) btn.dataset.textEditorContextBound = '1';
-      textEditorButtons.push(btn);
+      textEditorGlobals.textEditorButtons.push(btn);
     } catch (e) {}
   }
 

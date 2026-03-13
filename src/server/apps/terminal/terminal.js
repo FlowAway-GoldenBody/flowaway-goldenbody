@@ -1,7 +1,8 @@
 // Terminal global vars - dispatch events to running apps to add terminal plugins
   // Command format: <app> <command> <args>
-  window.allTerminals = [];
-  window.terminalId = 0;
+  window.terminalGlobals = {};
+  terminalGlobals.allTerminals = [];
+  terminalGlobals.terminalId = 0;
 
 terminal = function (posX = 50, posY = 50) {
   notification('this app is in active dev, many features are not implemented yet. Stay tuned for updates!');
@@ -29,8 +30,8 @@ terminal = function (posX = 50, posY = 50) {
     root.classList.add('terminal');
     bringToFront(root);
     document.body.appendChild(root);
-    terminalId++;
-    root._terminalId = terminalId;
+    terminalGlobals.terminalId++;
+    root._terminalId = terminalGlobals.terminalId;
     // per-terminal current working directory (string, e.g. "/" or "/path/to/folder")
     root._cwd = '/';
 
@@ -155,12 +156,12 @@ terminal = function (posX = 50, posY = 50) {
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < allTerminals.length; i++) {
-        if (allTerminals[i].rootElement == root) {
+      for (let i = 0; i < terminalGlobals.allTerminals.length; i++) {
+        if (terminalGlobals.allTerminals[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) allTerminals.splice(index, 1);
+      if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -564,25 +565,18 @@ if (appName === 'cd') {
             return;
           }
 
-          // Dispatch global event for apps to handle: include terminalId and cwd
-          try {
-            window.dispatchEvent(new CustomEvent('terminalCommand', {
-              detail: { terminalId: root._terminalId, cwd: root._cwd, raw, parts, app: appName, command: cmd, args }
-            }));
-          } catch (e) { console.error('dispatch terminalCommand', e); }
-
           input.value = '';
         }
       });
 
-      allTerminals.push({
+      terminalGlobals.allTerminals.push({
         rootElement: root,
         btnMax,
         _isMinimized,
         isMaximized,
         getBounds,
         applyBounds,
-        terminalId,
+        terminalId: root._terminalId,
       });
           applyStyles();
 
@@ -593,7 +587,7 @@ if (appName === 'cd') {
         isMaximized,
         getBounds,
         applyBounds,
-        terminalId,
+        terminalId: root._terminalId,
       };
     }
 }
@@ -604,16 +598,16 @@ if (appName === 'cd') {
 
 
   // Terminal context menu
-  window.terminalButtons = [];
-  window.terminalMenu = null;
-  terminalContextMenu = function(e, needRemove = true) {
+  terminalGlobals.terminalButtons = [];
+  terminalGlobals.terminalMenu = null;
+  terminalGlobals.terminalContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    window.terminalMenu = menu;
+    window.terminalGlobals.terminalMenu = menu;
     try {
         removeOtherMenus('terminal');
     } catch (e) {}
@@ -638,11 +632,11 @@ if (appName === 'cd') {
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of allTerminals) {
+      for (const i of terminalGlobals.allTerminals) {
         i.rootElement.remove();
       }
 
-      allTerminals = [];
+      terminalGlobals.allTerminals = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -652,7 +646,7 @@ if (appName === 'cd') {
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of allTerminals) {
+      for (const i of terminalGlobals.allTerminals) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -664,8 +658,8 @@ if (appName === 'cd') {
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
-      allTerminals.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
-      for (const i of allTerminals) {
+      terminalGlobals.allTerminals.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      for (const i of terminalGlobals.allTerminals) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -727,8 +721,8 @@ if (appName === 'cd') {
         let terminalButton = addTaskButton("🖥️", terminal);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of terminalButtons) {
-          fb.addEventListener("contextmenu", terminalContextMenu);
+        for (const fb of terminalGlobals.terminalButtons) {
+          fb.addEventListener("contextmenu", terminalGlobals.terminalContextMenu);
         }
       });
       menu.appendChild(add);
@@ -736,13 +730,13 @@ if (appName === 'cd') {
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allTerminals.length === 0) {
+    if (terminalGlobals.allTerminals.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allTerminals.forEach((instance, i) => {
+      terminalGlobals.allTerminals.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || `Terminal ${i + 1}`;
 
@@ -798,12 +792,11 @@ if (appName === 'cd') {
         if (terminalBtn.dataset && terminalBtn.dataset.terminalContextBound) return;
 
         const handler = function (ev) {
-          terminalContextMenu(ev, false);
+          terminalGlobals.terminalContextMenu(ev, false);
         };
 
         terminalBtn.addEventListener("contextmenu", handler);
         if (terminalBtn.dataset) terminalBtn.dataset.terminalContextBound = '1';
-        try { terminalButtons.push(terminalBtn); } catch (e) {}
       } catch (e) {}
     });
 
@@ -815,9 +808,9 @@ try {
       if (btn.dataset && btn.dataset.terminalContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
       if (!(String(aid) === '🖥️' || String(aid) === 'terminal')) return;
-      btn.addEventListener('contextmenu', terminalContextMenu);
+      btn.addEventListener('contextmenu', terminalGlobals.terminalContextMenu);
       if (btn.dataset) btn.dataset.terminalContextBound = '1';
-      terminalButtons.push(btn);
+      terminalGlobals.terminalButtons.push(btn);
     } catch (e) {}
   }
 

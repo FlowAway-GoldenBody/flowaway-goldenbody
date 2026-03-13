@@ -1365,7 +1365,7 @@ try {
   document.addEventListener('fullscreenchange', window._flowaway_handlers.onFullscreenChange);
 } catch (e) {}
 
-window.removeotherMenus = function(except) {
+window.removeOtherMenus = function(except) {
   try {
     // Remove any menus with the shared .app-menu class (used across apps)
     var menus = document.querySelectorAll('.app-menu');
@@ -1416,7 +1416,7 @@ window.removeotherMenus = function(except) {
 
   function saveTaskButtons(silence = true) {
     var buttons = [...taskbar.querySelectorAll("button")];
-    buttons.splice(0, 3);
+    buttons.splice(0, 2);
     var postdata = [];
     for (const b of buttons) {
         if (b.dataset && b.dataset.appId) {
