@@ -1,6 +1,7 @@
 //your_app_name global vars
-  window.allyour_app_name = [];
-  window.your_app_nameId = 0;
+  window.your_app_nameGlobals = {};
+  your_app_nameGlobals.allyour_app_name = [];
+  your_app_nameGlobals.your_app_nameId = 0;
 
 yourApp = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -27,8 +28,8 @@ yourApp = function (posX = 50, posY = 50) {
     root.classList.add('your_app_name');
     bringToFront(root);
     document.body.appendChild(root);
-    your_app_nameId++;
-    root._your_app_nameId = your_app_nameId;
+    your_app_nameGlobals.your_app_nameId++;
+    root._your_app_nameId = your_app_nameGlobals.your_app_nameId;
 
     // --- Top bar ---
     var topBar = false;
@@ -151,12 +152,12 @@ yourApp = function (posX = 50, posY = 50) {
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < allyour_app_name.length; i++) {
-        if (allyour_app_name[i].rootElement == root) {
+      for (let i = 0; i < your_app_nameGlobals.allyour_app_name.length; i++) {
+        if (your_app_nameGlobals.allyour_app_name[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) allyour_app_name.splice(index, 1);
+      if (index !== false) your_app_nameGlobals.allyour_app_name.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -312,14 +313,14 @@ yourApp = function (posX = 50, posY = 50) {
       resize();
       root.tabIndex = "0";
 
-      allyour_app_name.push({
+      your_app_nameGlobals.allyour_app_name.push({
         rootElement: root,
         btnMax,
         _isMinimized,
         isMaximized,
         getBounds,
         applyBounds,
-        your_app_nameId,
+        your_app_nameId: root._your_app_nameId,
       });
           applyStyles();
 
@@ -330,7 +331,7 @@ yourApp = function (posX = 50, posY = 50) {
         isMaximized,
         getBounds,
         applyBounds,
-        your_app_nameId,
+        your_app_nameId: root._your_app_nameId,
       };
     }
 }
@@ -341,16 +342,16 @@ yourApp = function (posX = 50, posY = 50) {
 
 
   //app stuff
-  window.your_app_nameButtons = [];
-  window.your_app_namemenu;
-  your_app_nameContextMenu = function(e, needRemove = true) {
+  your_app_nameGlobals.your_app_nameButtons = [];
+  your_app_nameGlobals.your_app_namemenu;
+  your_app_nameGlobals.your_app_nameContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    your_app_namemenu = menu;
+    your_app_nameGlobals.your_app_namemenu = menu;
     try {
         removeOtherMenus('your_app_name');
     } catch (e) {}
@@ -375,11 +376,11 @@ yourApp = function (posX = 50, posY = 50) {
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of allyour_app_name) {
+      for (const i of your_app_nameGlobals.allyour_app_name) {
         i.rootElement.remove();
       }
 
-      allyour_app_name = [];
+      your_app_nameGlobals.allyour_app_name = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -389,7 +390,7 @@ yourApp = function (posX = 50, posY = 50) {
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of allyour_app_name) {
+      for (const i of your_app_nameGlobals.allyour_app_name) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -401,8 +402,8 @@ yourApp = function (posX = 50, posY = 50) {
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
-      allyour_app_name.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
-      for (const i of allyour_app_name) {
+      your_app_nameGlobals.allyour_app_name.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      for (const i of your_app_nameGlobals.allyour_app_name) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -464,8 +465,8 @@ yourApp = function (posX = 50, posY = 50) {
         let your_app_nameButton = addTaskButton("🏠", yourApp);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of your_app_nameButtons) {
-          fb.addEventListener("contextmenu", your_app_nameContextMenu);
+        for (const fb of your_app_nameGlobals.your_app_nameButtons) {
+          fb.addEventListener("contextmenu", your_app_nameGlobals.your_app_nameContextMenu);
         }
       });
       menu.appendChild(add);
@@ -473,13 +474,13 @@ yourApp = function (posX = 50, posY = 50) {
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allyour_app_name.length === 0) {
+    if (your_app_nameGlobals.allyour_app_name.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allyour_app_name.forEach((instance, i) => {
+      your_app_nameGlobals.allyour_app_name.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || `your_app_name ${i + 1}`;
 
@@ -527,7 +528,7 @@ yourApp = function (posX = 50, posY = 50) {
   }
 
   function ehl1(e) {
-    your_app_nameContextMenu(e, (needremove = false));
+    your_app_nameGlobals.your_app_nameContextMenu(e, false);
   }
     window.addEventListener("appUpdated", () => {
       
@@ -537,11 +538,10 @@ yourApp = function (posX = 50, posY = 50) {
     if (your_app_abb_btn) {
       if (your_app_abb_btn.dataset && your_app_abb_btn.dataset.yourAppContextBound) return;
       const handler = function (ev) {
-        your_app_nameContextMenu(ev, false);
+        your_app_nameGlobals.your_app_nameContextMenu(ev, false);
       };
       your_app_abb_btn.addEventListener("contextmenu", handler);
       if (your_app_abb_btn.dataset) your_app_abb_btn.dataset.yourAppContextBound = '1';
-      try { your_app_nameButtons.push(your_app_abb_btn); } catch (e) {}
     }
   } catch (e) {}
   });
@@ -554,9 +554,9 @@ try {
       if (btn.dataset && btn.dataset.yourAppContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
       if (!(String(aid) === '🏠' || String(aid) === 'yourApp')) return;
-      btn.addEventListener('contextmenu', your_app_nameContextMenu);
+      btn.addEventListener('contextmenu', your_app_nameGlobals.your_app_nameContextMenu);
       if (btn.dataset) btn.dataset.yourAppContextBound = '1';
-      your_app_nameButtons.push(btn);
+      your_app_nameGlobals.your_app_nameButtons.push(btn);
     } catch (e) {}
   }
 

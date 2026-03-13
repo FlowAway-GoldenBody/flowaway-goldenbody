@@ -1,7 +1,8 @@
 
 //settings global vars
-  window.allSettings = [];
-  window.settingsId = 0;
+  window.settingsGlobals = {};
+  settingsGlobals.allSettings = [];
+  settingsGlobals.settingsId = 0;
 
 settings = function (posX = 50, posY = 50) {
     startMenu.style.display = 'none';
@@ -36,8 +37,8 @@ settings = function (posX = 50, posY = 50) {
     root.classList.add('settings');
     bringToFront(root);
     document.body.appendChild(root);
-    settingsId++;
-    root._settingsId = settingsId;
+    settingsGlobals.settingsId++;
+    root.settingsId = settingsGlobals.settingsId;
 
     // --- Top bar ---
     var topBar = false;
@@ -160,12 +161,12 @@ settings = function (posX = 50, posY = 50) {
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < allSettings.length; i++) {
-        if (allSettings[i].rootElement == root) {
+      for (let i = 0; i < settingsGlobals.allSettings.length; i++) {
+        if (settingsGlobals.allSettings[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) allSettings.splice(index, 1);
+      if (index !== false) settingsGlobals.allSettings.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -533,6 +534,37 @@ themeToggle.onchange = async () => {
 
 themeRow.append(themeLabel, themeToggle);
 mainContainer.appendChild(themeRow);
+
+/* =========================================================
+   ⚙️ AUTO-UPDATE SYSTEM APPS
+========================================================= */
+
+const autoupdateRow = document.createElement("div");
+autoupdateRow.style.alignItems = "center";
+autoupdateRow.style.marginTop = "8px";
+
+const autoupdateLabel = document.createElement("div");
+autoupdateLabel.textContent = "Auto-Update System Apps";
+autoupdateLabel.style.fontSize = "13px";
+
+const autoupdateToggle = document.createElement("input");
+autoupdateToggle.type = "checkbox";
+autoupdateToggle.checked = !!data.autoupdate;
+
+/* Toggle handler */
+autoupdateToggle.onchange = async () => {
+  data.autoupdate = autoupdateToggle.checked;
+
+  // Persist to backend
+  await post({
+    setAutoupdate: true,
+    autoupdate: data.autoupdate
+  });
+};
+
+autoupdateRow.append(autoupdateLabel, autoupdateToggle);
+mainContainer.appendChild(autoupdateRow);
+
   /* =========================================================
      🗑️ DANGER ZONE — DELETE ACCOUNT
   ========================================================= */
@@ -574,14 +606,14 @@ mainContainer.appendChild(themeRow);
 
 
 
-      allSettings.push({
+      settingsGlobals.allSettings.push({
         rootElement: root,
         btnMax,
         _isMinimized,
         isMaximized,
         getBounds,
         applyBounds,
-        settingsId,
+        settingsId: settingsGlobals.settingsId,
       });
           applyStyles();
 
@@ -592,7 +624,7 @@ mainContainer.appendChild(themeRow);
         isMaximized,
         getBounds,
         applyBounds,
-        settingsId,
+        settingsId: settingsGlobals.settingsId,
       };
     }
 }
@@ -603,16 +635,16 @@ mainContainer.appendChild(themeRow);
 
 
   //app stuff
-  window.settingsButtons = [];
-  window.settingsmenu;
-  settingsContextMenu = function(e, needRemove = true) {
+  settingsGlobals.settingsButtons = [];
+  settingsGlobals.settingsmenu;
+  settingsGlobals.settingsContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    settingsmenu = menu;
+    settingsGlobals.settingsmenu = menu;
     try {
         removeOtherMenus('settings');
     } catch (e) {}
@@ -637,11 +669,11 @@ mainContainer.appendChild(themeRow);
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of allSettings) {
+      for (const i of settingsGlobals.allSettings) {
         i.rootElement.remove();
       }
 
-      allSettings = [];
+      settingsGlobals.allSettings = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -651,7 +683,7 @@ mainContainer.appendChild(themeRow);
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of allSettings) {
+      for (const i of settingsGlobals.allSettings) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -663,8 +695,8 @@ mainContainer.appendChild(themeRow);
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
-      allSettings.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
-      for (const i of allSettings) {
+      settingsGlobals.allSettings.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      for (const i of settingsGlobals.allSettings) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -726,8 +758,8 @@ mainContainer.appendChild(themeRow);
         let settingsButton = addTaskButton("⚙", settings);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of settingsButtons) {
-          fb.addEventListener("contextmenu", settingsContextMenu);
+        for (const fb of settingsGlobals.settingsButtons) {
+          fb.addEventListener("contextmenu", settingsGlobals.settingsContextMenu);
         }
       });
       menu.appendChild(add);
@@ -735,13 +767,13 @@ mainContainer.appendChild(themeRow);
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allSettings.length === 0) {
+    if (settingsGlobals.allSettings.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allSettings.forEach((instance, i) => {
+      settingsGlobals.allSettings.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || `Settings ${i + 1}`;
 
@@ -797,12 +829,11 @@ mainContainer.appendChild(themeRow);
       if (sbtn.dataset && sbtn.dataset.settingsContextBound) return;
 
       const handler = function (e) {
-        settingsContextMenu(e, false);
+        settingsGlobals.settingsContextMenu(e, false);
       };
 
       sbtn.addEventListener("contextmenu", handler);
       if (sbtn.dataset) sbtn.dataset.settingsContextBound = '1';
-      try { settingsButtons.push(sbtn); } catch (e) {}
     } catch (e) {}
   });
 
@@ -815,9 +846,9 @@ try {
       if (btn.dataset && btn.dataset.settingsContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
       if (!(String(aid) === '⚙' || String(aid) === 'settingsapp')) return;
-      btn.addEventListener('contextmenu', settingsContextMenu);
+      btn.addEventListener('contextmenu', settingsGlobals.settingsContextMenu);
       if (btn.dataset) btn.dataset.settingsContextBound = '1';
-      settingsButtons.push(btn);
+      settingsGlobals.settingsButtons.push(btn);
     } catch (e) {}
   }
 

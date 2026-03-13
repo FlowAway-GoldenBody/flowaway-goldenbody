@@ -1,8 +1,9 @@
 
 //explorer global vars
-  window.allExplorers = [];
-  window.explorerId = 0;
-  window.clipboard = {
+window.explorerGlobals = {};
+  explorerGlobals.allExplorers = [];
+  explorerGlobals.explorerId = 0;
+  explorerGlobals.clipboard = {
     item: null, // tree node reference
     path: null, // full path string
   };
@@ -30,8 +31,8 @@ fileExplorer = function (posX = 50, posY = 50) {
 root.classList.add('fileExplorer');
     bringToFront(root);
     document.body.appendChild(root);
-    explorerId++;
-    root._explorerId = explorerId;
+    explorerGlobals.explorerId++;
+    root.explorerId = explorerGlobals.explorerId;
 
     // --- Top bar ---
     var topBar = false;
@@ -155,12 +156,12 @@ root.classList.add('fileExplorer');
     btnClose.addEventListener("click", () => {
       root.remove();
       let index = false;
-      for (let i = 0; i < allExplorers.length; i++) {
-        if (allExplorers[i].rootElement == root) {
+      for (let i = 0; i < explorerGlobals.allExplorers.length; i++) {
+        if (explorerGlobals.allExplorers[i].rootElement == root) {
           index = i;
         }
       }
-      if (index !== false) allExplorers.splice(index, 1);
+      if (index !== false) explorerGlobals.allExplorers.splice(index, 1);
     });
 
     // --- Make draggable / resizable ---
@@ -1463,14 +1464,14 @@ function handleSelection(e, item, items, index) {
       // --- INIT ---
       loadTree();
 
-      allExplorers.push({
+      explorerGlobals.allExplorers.push({
         rootElement: root,
         btnMax,
         _isMinimized,
         isMaximized,
         getBounds,
         applyBounds,
-        explorerId,
+        explorerId: explorerGlobals.explorerId,
       });
           applyStyles();
 
@@ -1481,7 +1482,7 @@ function handleSelection(e, item, items, index) {
         isMaximized,
         getBounds,
         applyBounds,
-        explorerId,
+        explorerId: explorerGlobals.explorerId,
       };
     }
   }
@@ -1494,16 +1495,16 @@ function handleSelection(e, item, items, index) {
 
 
   //app stuff
-  window.explorerButtons = [];
-  window.explorermenu = null;
-  fileExplorerContextMenu = function(e, needRemove = true) {
+  explorerGlobals.explorerButtons = [];
+  explorerGlobals.explorermenu = null;
+  explorerGlobals.fileExplorerContextMenu = function(e, needRemove = true) {
     e.preventDefault();
 
     // Remove any existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    window.explorermenu = menu;
+    explorerGlobals.explorermenu = menu;
     try {
         removeOtherMenus('fileExplorer');
     } catch (e) {}
@@ -1527,11 +1528,11 @@ function handleSelection(e, item, items, index) {
     closeAll.style.padding = "6px 10px";
     closeAll.style.cursor = "pointer";
     closeAll.addEventListener("click", () => {
-      for (const i of allExplorers) {
+      for (const i of explorerGlobals.allExplorers) {
         i.rootElement.remove();
       }
 
-      allExplorers = [];
+      explorerGlobals.allExplorers = [];
       menu.remove();
     });
     menu.appendChild(closeAll);
@@ -1541,7 +1542,7 @@ function handleSelection(e, item, items, index) {
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", () => {
-      for (const i of allExplorers) {
+      for (const i of explorerGlobals.allExplorers) {
         i.rootElement.style.display = "none";
       }
       menu.remove();
@@ -1553,8 +1554,8 @@ function handleSelection(e, item, items, index) {
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", () => {
-      allExplorers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
-      for (const i of allExplorers) {
+      explorerGlobals.allExplorers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      for (const i of explorerGlobals.allExplorers) {
         i.rootElement.style.display = "block";
         bringToFront(i.rootElement);
       }
@@ -1616,8 +1617,8 @@ function handleSelection(e, item, items, index) {
         let explorerButton = addTaskButton("🗂", fileExplorer);
         saveTaskButtons();
         purgeButtons();
-        for (const fb of explorerButtons) {
-          fb.addEventListener("contextmenu", fileExplorerContextMenu);
+        for (const fb of explorerGlobals.explorerButtons) {
+          fb.addEventListener("contextmenu", explorerGlobals.fileExplorerContextMenu);
         }
       });
       menu.appendChild(add);
@@ -1625,13 +1626,13 @@ function handleSelection(e, item, items, index) {
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allExplorers.length === 0) {
+    if (explorerGlobals.allExplorers.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allExplorers.forEach((instance, i) => {
+      explorerGlobals.allExplorers.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || `Explorer ${i + 1}`;
 
@@ -1685,12 +1686,11 @@ function handleSelection(e, item, items, index) {
       if (ebtn.dataset && ebtn.dataset.fileExplorerContextBound) return;
 
       const handler = function (ev) {
-        fileExplorerContextMenu(ev, false);
+        explorerGlobals.fileExplorerContextMenu(ev, false);
       };
 
       ebtn.addEventListener("contextmenu", handler);
       if (ebtn.dataset) ebtn.dataset.fileExplorerContextBound = '1';
-      try { explorerButtons.push(ebtn); } catch (e) {}
     } catch (e) {}
   });
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for File Explorer
@@ -1701,9 +1701,8 @@ try {
       if (btn.dataset && btn.dataset.fileExplorerContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
       if (!(String(aid) === '🗂' || String(aid) === 'fileExplorerapp' || String(aid).toLowerCase().includes('explorer'))) return;
-      btn.addEventListener('contextmenu', fileExplorerContextMenu);
+      btn.addEventListener('contextmenu', explorerGlobals.fileExplorerContextMenu);
       if (btn.dataset) btn.dataset.fileExplorerContextBound = '1';
-      fileExplorerButtons.push(btn);
     } catch (e) {}
   }
 

@@ -1,11 +1,9 @@
 
 //browser global vars
-try{
-  browsercontroller.abort();
-} catch(e) {}
+window.browserGlobals = {};
   window.__globalAddTab = function(url, index) {
-    let t = allBrowsers[index].addTab(url, "New Tab");
-    for(tab of allBrowsers[index].tabs) {
+    let t = browserGlobals.allBrowsers[index].addTab(url, "New Tab");
+    for(tab of browserGlobals.allBrowsers[index].tabs) {
       if(tab.id == t) {
         t = tab;
         break;
@@ -13,17 +11,15 @@ try{
     }
     return t.iframe.contentWindow;
   };
-  window.browsercontroller = new AbortController();
-  window.signal = browsercontroller.signal;
-  window.allBrowsers = [];
-  window.browserId = 0;
-  window.id = data.id;
-  window.proxyurl = window.origin + '/';
-  window.dragstartwindow = null;
-  window.__vfsMessageListenerAdded = false;
-  window.tabisDragging = false;
-  window.draggedtab = 0;
-      window.unshuffleURL = function (url) {
+  browserGlobals.allBrowsers = [];
+  browserGlobals.browserId = 0;
+  browserGlobals.id = data.id;
+  browserGlobals.proxyurl = window.origin + '/';
+  browserGlobals.dragstartwindow = null;
+  browserGlobals.__vfsMessageListenerAdded = false;
+  browserGlobals.tabisDragging = false;
+  browserGlobals.draggedtab = 0;
+      browserGlobals.unshuffleURL = function (url) {
       if (url === goldenbodywebsite + "flowerfeast.html") {
         return "goldenbody://newtab/";
       }
@@ -51,7 +47,7 @@ try{
       return newUrl;
     }
 // browser global functions
-  window.mainWebsite = function(string) {
+  browserGlobals.mainWebsite = function(string) {
     let s = '';
     let anti_numtots = 0;
     for (let i = 0; i < string.length; i++) {
@@ -75,16 +71,16 @@ window.browser = function (
 async function updateSiteSettings(iframe, content) {
     data.enableURLSync = content.enableURLSync;
     data.lazyloading = content.lazyloading;
-    if(content.lazyloading) allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = 'lazy')); else allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = ''));
+    if(content.lazyloading) browserGlobals.allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = 'lazy')); else browserGlobals.allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = ''));
     content.updateSiteSettings = true;
-    content.url = mainWebsite(unshuffleURL(iframe.src));
+    content.url = browserGlobals.mainWebsite(browserGlobals.unshuffleURL(iframe.src));
     await zmcdpost(content);
     iframe.sandbox = content.newSandbox;
     data.siteSettings = await zmcdpost({requestSiteSettings: true});
     data.siteSettings = data.siteSettings.siteSettings;
 }
 function createPermInput(iframe, url) {
-    url = mainWebsite(url);
+    url = browserGlobals.mainWebsite(url);
 
   let sandbox = `
     allow-forms
@@ -184,7 +180,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   // ===============================
   // FULLSCREEN
   // ===============================
-  let website = mainWebsite(unshuffleURL(iframe.src));
+  let website = browserGlobals.mainWebsite(browserGlobals.unshuffleURL(iframe.src));
   let secure = website.startsWith('https://') ? 'Connection is Secure' : 'Not Secure';
   if(website.startsWith('goldenbody://')) secure = 'You are viewing a secure official goldenbody webpage'
   section(website);
@@ -289,33 +285,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
   actions.append(cancel, apply);
   panel.appendChild(actions);
 }
-    function unshuffleURL(url) {
-      if (url === goldenbodywebsite + "flowerfeast.html") {
-        return "goldenbody://newtab/";
-      }
-      else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
-        return "goldenbody://app-store/";
-      }
-      url = url.split('/');
-      if(url) {
-        if(typeof url === 'string') {
-            return url;
-        }
-      }
-      url.splice(0, 4);
-      let newUrl = '';
-      for(let i = 0; i < url.length; i++) {
-        if(i !== 0) {
-            if(i === 1) newUrl += '//' + url[i];
-            else if(i === 2) newUrl += url[i];
-            else newUrl += '/' + url[i];
-        }
-        else {
-          newUrl += url[i];
-        }
-      }
-      return newUrl;
-    }
 
     var checkInterval = null;
     var activatedTab = 0;
@@ -344,8 +313,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         overflow: "hidden",
       });
       bringToFront(root);
-      browserId++;
-      root._goldenbodyId = browserId;
+      browserGlobals.browserId++;
+      root._goldenbodyId = browserGlobals.browserId;
       root.tabIndex = "0";
       root.addEventListener('styleapplied', () => {
         for(const tab of tabs) {
@@ -477,10 +446,10 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         root.remove();
         root = null;
 
-        // Remove from allBrowsers
-        const index = allBrowsers.indexOf(chromeWindow);
+        // Remove from browserGlobals.allBrowsers
+        const index = browserGlobals.allBrowsers.indexOf(chromeWindow);
         if (index !== -1) {
-          allBrowsers.splice(index, 1);
+          browserGlobals.allBrowsers.splice(index, 1);
         }
         window.removeEventListener("message", messageHandler);
         window.removeEventListener("pointerup", onpointerupAnywhere);
@@ -629,7 +598,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         input.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
         try {
           input.value = (activatedTab && activatedTab.iframe && activatedTab.iframe.src)
-            ? unshuffleURL(activatedTab.iframe.src)
+            ? browserGlobals.unshuffleURL(activatedTab.iframe.src)
             : "";
         } catch (e) {}
         panel.appendChild(input);
@@ -759,7 +728,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           .then((res) => res.json())
           .then((result) => {
             console.log("id now:", result);
-            id = result.id;
+            browserGlobals.id = result.id;
           });
         notification("site data cleared! please close all browser windows!");
       };
@@ -820,16 +789,16 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       tabsRow.style.overflowY = "hidden";
       leftGroup.style.flex = "1 1 auto";
       leftGroup.style.minWidth = "0";
-      tabisDragging = false;
+      browserGlobals.tabisDragging = false;
 
       let dragid = "";
       let dragindex = 0;
       let nativeTabDrag = false;
       let dragoverReordered = false;
       const resetTabDragState = () => {
-        tabisDragging = false;
+        browserGlobals.tabisDragging = false;
         dragMoved = false;
-        draggedtab = null;
+        browserGlobals.draggedtab = null;
         dragid = "";
         dragindex = 0;
         nativeTabDrag = false;
@@ -843,8 +812,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             : null);
         if (!eventTarget && !notontab) return;
         console.log("pointerup anywhere:", eventTarget, "notontab?", notontab);
-        if (!tabisDragging) return;
-        if (!dragstartwindow || !draggedtab) {
+        if (!browserGlobals.tabisDragging) return;
+        if (!browserGlobals.dragstartwindow || !browserGlobals.draggedtab) {
           resetTabDragState();
           return;
         }
@@ -858,7 +827,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           let tabbarHit = false;
           let targetBrowser = null;
 
-          for (const b of allBrowsers) {
+          for (const b of browserGlobals.allBrowsers) {
             if (
               b.rootElement.querySelector(".sim-chrome-top").contains(eventTarget)
             ) {
@@ -877,14 +846,14 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             // Detect which window the cursor is over
             let targetBrowser = null;
 
-            for (const b of allBrowsers) {
+            for (const b of browserGlobals.allBrowsers) {
               if (b.rootElement.contains(dropTarget)) {
                 targetBrowser = b;
                 break;
               }
             }
             // If dropped in the same window: do nothing
-            if (targetBrowser === dragstartwindow) {
+            if (targetBrowser === browserGlobals.dragstartwindow) {
               // reset drag state
               resetTabDragState();
               return;
@@ -892,8 +861,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
             // If dropped in another window
             if (targetBrowser) {
-              targetBrowser.addTab(draggedtab.url, "", draggedtab.resizeP);
-              dragstartwindow.closeTab(draggedtab.id);
+              targetBrowser.addTab(browserGlobals.draggedtab.url, "", browserGlobals.draggedtab.resizeP);
+              browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
               resetTabDragState();
               return;
             }
@@ -905,13 +874,13 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         if (!targetTab || targetTab.id !== dragid) {
           // pointerup happened somewhere else
           browser(
-            dragstartwindow.tabs[dragindex].url,
-            draggedtab.resizeP,
+            browserGlobals.dragstartwindow.tabs[dragindex].url,
+            browserGlobals.draggedtab.resizeP,
             ev.clientX - 100,
             ev.clientY - 20,
           ); // your custom function
           // console.log(root);
-          dragstartwindow.closeTab(draggedtab.id);
+          browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
         }
 
         resetTabDragState();
@@ -950,13 +919,13 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
       }
       window.addEventListener("message", messageHandler);
-      window.addEventListener("pointerup", onpointerupAnywhere, {signal});
+      window.addEventListener("pointerup", onpointerupAnywhere);
       let renderInterval = setInterval(() => {
         if(!root) {clearInterval(renderInterval); console.warn('interval cleared, root missing!')};
         renderTabs();
       }, 10000);
       function renderTabs() {
-        if (tabisDragging || nativeTabDrag) return;
+        if (browserGlobals.tabisDragging || nativeTabDrag) return;
         var ids = 0;
         while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
         leftGroup.appendChild(newTabBtn);
@@ -1015,14 +984,14 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             bringToFront(root);
           });
           el.addEventListener("dragstart", (ev) => {
-            dragstartwindow = chromeWindow;
-            tabisDragging = true;
+            browserGlobals.dragstartwindow = chromeWindow;
+            browserGlobals.tabisDragging = true;
             nativeTabDrag = true;
             dragoverReordered = false;
             dragMoved = false;
             dragindex = countChild(tabsRow, el);
             console.log("dragindex:", dragindex);
-            draggedtab = tabs[dragindex];
+            browserGlobals.draggedtab = tabs[dragindex];
             dragid = el.id;
             try {
               if (ev.dataTransfer) {
@@ -1033,7 +1002,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
 
           el.addEventListener("dragover", (e) => {
-            if (!(tabisDragging && dragstartwindow === chromeWindow)) return;
+            if (!(browserGlobals.tabisDragging && browserGlobals.dragstartwindow === chromeWindow)) return;
             e.preventDefault();
             dragMoved = true;
             dragoverReordered = true;
@@ -1054,7 +1023,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
 
           el.addEventListener("dragend", (e) => {
-            if (!tabisDragging) return;
+            if (!browserGlobals.tabisDragging) return;
             onpointerupAnywhere({
               clientX: e.clientX,
               clientY: e.clientY,
@@ -1065,7 +1034,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
 
           el.addEventListener("pointermove", () => {
-            if (tabisDragging) dragMoved = true;
+            if (browserGlobals.tabisDragging) dragMoved = true;
           });
 
           el.addEventListener("pointerup", (e) => {
@@ -1073,9 +1042,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               return;
             }
             if (
-              tabisDragging &&
+              browserGlobals.tabisDragging &&
               dragMoved &&
-              dragstartwindow === chromeWindow
+              browserGlobals.dragstartwindow === chromeWindow
             ) {
               const draggedelement = root.querySelector(`#${dragid}`);
               if (!draggedelement || draggedelement === el) return;
@@ -1099,9 +1068,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               );
             }
             if (
-              tabisDragging &&
+              browserGlobals.tabisDragging &&
               dragMoved &&
-              dragstartwindow !== chromeWindow
+              browserGlobals.dragstartwindow !== chromeWindow
             ) {
               onpointerupAnywhere(e);
             }
@@ -1129,7 +1098,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         if (e.data.type === "FROM_IFRAME") {
           addTab(e.data.message, "New Tab");
         }
-        else if(e.data.__goldenbodynewWindow__ && root === allBrowsers[e.data.allbrowserindex].rootElement) {
+        else if(e.data.__goldenbodynewWindow__ && root === browserGlobals.allBrowsers[e.data.allbrowserindex].rootElement) {
           addTab(e.data.url, "New Tab");
         }
       });
@@ -1284,7 +1253,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
           tab.iframe.contentWindow.addEventListener("keydown", handleresizel1);
           root.addEventListener("keydown", handleresizel1);
-          if(!tab.iframe.style.display === "none") urlInput.value = unshuffleURL(iframe.contentWindow.location.href);
+          if(!tab.iframe.style.display === "none") urlInput.value = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
           let resizescript = document.createElement("script");
           resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
           tab.iframe.contentDocument.head.appendChild(resizescript);
@@ -1355,7 +1324,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               console.warn("Interval cleared: iframe is gone");
               return;
             }
-            tab.url = unshuffleURL(iframe.contentWindow.location.href);
+            tab.url = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
             if (
               iframe.contentDocument.readyState === "complete" &&
               !tab.donotm
@@ -1394,15 +1363,15 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               atTop == "browser"
             ) {
               let allIds = [];
-              for (let i = 0; i < allBrowsers.length; i++) {
-                allIds.push(allBrowsers[i].rootElement._goldenbodyId);
+              for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+                allIds.push(browserGlobals.allBrowsers[i].rootElement._goldenbodyId);
               }
               let maxId = Math.max(...allIds);
-              for (let i = 0; i < allBrowsers.length; i++) {
-                if (allBrowsers[i].rootElement._goldenbodyId == maxId) {
-                  allBrowsers[i].rootElement.remove();
-                  allBrowsers[i].rootElement = null;
-                  allBrowsers.splice(i, 1);
+              for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+                if (browserGlobals.allBrowsers[i].rootElement._goldenbodyId == maxId) {
+                  browserGlobals.allBrowsers[i].rootElement.remove();
+                  browserGlobals.allBrowsers[i].rootElement = null;
+                  browserGlobals.allBrowsers.splice(i, 1);
                 }
               }
             } else if (e.ctrlKey && e.key === "t") {
@@ -3359,17 +3328,17 @@ const layer1Window = w;
 const layer1Iframe = w.frameElement;
 let allbrowserindex = 0;
 // console.log(layer1Iframe); // ✅ the first iframe under the main page
-for(let i = 0; i < window.top.allBrowsers.length; i++) {
-    if(window.top.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
+for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
+    if(window.top.browserGlobals.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
 }
     debugger;
     if(url == "") url = "about:blank";
     if(!url.includes(':')) {
        if(document.getElementsByTagName('base').length > 0) {
-       url = window.top.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
+       url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
        }
        else {
-       url = window.top.mainWebsite(window.top.unshuffleURL(window.location.href)).slice(0, -1) + url;
+       url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
        }
     }
   if(location === '_parent') {
@@ -3678,8 +3647,8 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
           // Hide the menu when clicking elsewhere
           iframeDocument.addEventListener("click", hideMenu);
         };
-        if (proxyurl != "") {
-          iframe.src = a(url, proxyurl);
+        if (browserGlobals.proxyurl != "") {
+          iframe.src = a(url, browserGlobals.proxyurl);
         } else {
           iframe.src = url;
         }
@@ -3863,7 +3832,7 @@ try{        if (
 
         try { createPermInput(tab.iframe, targetUrl); } catch (e) {}
         try {
-          tab.iframe.contentWindow.location.href = a(targetUrl, proxyurl);
+          tab.iframe.contentWindow.location.href = a(targetUrl, browserGlobals.proxyurl);
         } catch (e) {
           tab.history.suppressNextRecord = false;
         }
@@ -3893,21 +3862,21 @@ try{        if (
           }
         };
         sitesettingsbtn.onclick = () => {
-            openPermissionsUI(unshuffleURL(tab.iframe.src), tab.iframe, sitesettingsbtn.getBoundingClientRect());
+            openPermissionsUI(browserGlobals.unshuffleURL(tab.iframe.src), tab.iframe, sitesettingsbtn.getBoundingClientRect());
         }
         activeTabId = id;
-        urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
-        let previousUrl = canonicalHistoryUrl(unshuffleURL(tab.iframe.contentWindow.location.href));
+        urlInput.value = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+        let previousUrl = canonicalHistoryUrl(browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href));
         let previousTabTitle = tab.title;
-        let previousUrlMain = unshuffleURL(tab.iframe.contentWindow.location.href);
+        let previousUrlMain = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
 
         // Inject custom styles
         checkInterval = setInterval(() => {
-          if (allBrowsers.length == 0) {
+          if (browserGlobals.allBrowsers.length == 0) {
             clearInterval(checkInterval);
           }
           try {
-            const currentUrl = unshuffleURL(
+            const currentUrl = browserGlobals.unshuffleURL(
               tab.iframe.contentWindow.location.href,
             );
             const currentCanonical = canonicalHistoryUrl(currentUrl);
@@ -4033,7 +4002,7 @@ try{        if (
           let script = document.createElement("script");
           script.textContent = scriptcontent;
           tab.iframe.contentDocument.body.appendChild(script);
-          urlInput.value = unshuffleURL(tab.iframe.contentWindow.location.href);
+          urlInput.value = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
           return;
         }
 
@@ -4043,7 +4012,7 @@ try{        if (
         } catch (e) {
           // Edge case: allow relative entries in the URL bar.
           try {
-            const currentBase = unshuffleURL(tab.iframe.contentWindow.location.href);
+            const currentBase = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
             url = new URL(candidate, currentBase).href;
           } catch (e2) {
             notification("Invalid URL");
@@ -4086,7 +4055,7 @@ try{        if (
           try {
             tabs[tabIndex].iframe.src = a(
               url,
-              proxyurl,
+              browserGlobals.proxyurl,
             );
           } catch (e) {
             tab.history.stack = prevHistorySnapshot.stack;
@@ -4379,7 +4348,7 @@ try{        if (
       else chromeWindow.title = "undefined";
     }, 1000 * nhjd);
     chromeWindow.rootElement.setAttribute("data-title", chromeWindow.title);
-    allBrowsers.push(chromeWindow); // Add to global tracking
+    browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
           applyStyles();
 
     function a(url, proxyurl) {
@@ -4401,7 +4370,7 @@ try{        if (
         else if (str === "goldenbody://app-store/" || str === "goldenbody://app-store") {
           return goldenbodywebsite + "singlesdaylosesingle.html";
         }
-        return proxylink + id + "/" + url;
+        return proxylink + browserGlobals.id + "/" + url;
       }
       function encodeScramjet(url, proxylink) {
         return proxylink + "scramjet/" + url;
@@ -4422,18 +4391,18 @@ try{        if (
 
 
   // app stuff
-  window.browsermenu = null;
-  window.browserButtons = [];
-  window.browsermenuhandler = function(e, needremove = true) {
+  browserGlobals.browsermenu = null;
+  browserGlobals.browserButtons = [];
+  browserGlobals.browsermenuhandler = function(e, needremove = true) {
     e.preventDefault();
 
     // Remove existing menus
     document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
     const menu = document.createElement("div");
-    window.browsermenu = menu;
+    browserGlobals.browsermenu = menu;
     try {
-      removeotherMenus('browser');
+      removeOtherMenus('browser');
     } catch (e) {}
     menu.className = "app-menu";
     Object.assign(menu.style, {
@@ -4463,10 +4432,10 @@ try{        if (
     closeAllitem.style.padding = "6px 10px";
     closeAllitem.style.cursor = "pointer";
     closeAllitem.addEventListener("click", function () {
-      for (let i = 0; i < allBrowsers.length; i++) {
-        allBrowsers[i].closeWindow();
+      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+        browserGlobals.allBrowsers[i].closeWindow();
       }
-      allBrowsers = [];
+      browserGlobals.allBrowsers = [];
     });
     menu.appendChild(closeAllitem);
     /*
@@ -4476,8 +4445,8 @@ try{        if (
     hideAll.style.padding = "6px 10px";
     hideAll.style.cursor = "pointer";
     hideAll.addEventListener("click", function () {
-      for (let i = 0; i < allBrowsers.length; i++) {
-        let instance = allBrowsers[i];
+      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+        let instance = browserGlobals.allBrowsers[i];
         if (!instance.isMaximized) instance.savedBounds = instance.getBounds();
         instance.rootElement.style.display = "none";
         instance._isMinimized = true;
@@ -4490,9 +4459,9 @@ try{        if (
     showAll.style.padding = "6px 10px";
     showAll.style.cursor = "pointer";
     showAll.addEventListener("click", function () {
-      allBrowsers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
-      for (let i = 0; i < allBrowsers.length; i++) {
-        let instance = allBrowsers[i];
+      browserGlobals.allBrowsers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+        let instance = browserGlobals.allBrowsers[i];
         instance.rootElement.style.display = "block";
         instance._isMinimized = false;
         bringToFront(instance.rootElement);
@@ -4550,8 +4519,8 @@ try{        if (
         addTaskButton("🌐", browser);
         saveTaskButtons();
         purgeButtons();
-        for (const browserButton of browserButtons) {
-          browserButton.addEventListener("contextmenu", browsermenuhandler);
+        for (const browserButton of browserGlobals.browserButtons) {
+          browserButton.addEventListener("contextmenu", browserGlobals.browsermenuhandler);
         }
       });
       menu.appendChild(remove);
@@ -4559,13 +4528,13 @@ try{        if (
     const barrier = document.createElement("hr");
     menu.appendChild(barrier);
 
-    if (allBrowsers.length === 0) {
+    if (browserGlobals.allBrowsers.length === 0) {
       const item = document.createElement("div");
       item.textContent = "No open windows";
       item.style.padding = "6px 10px";
       menu.appendChild(item);
     } else {
-      allBrowsers.forEach((instance, i) => {
+      browserGlobals.allBrowsers.forEach((instance, i) => {
         const item = document.createElement("div");
         item.textContent = instance.title || "Untitled";
         Object.assign(item.style, {
@@ -4606,12 +4575,11 @@ try{        if (
       if (babtn.dataset && babtn.dataset.browserContextBound) return;
 
       const bhl1 = function (ev) {
-        browsermenuhandler(ev, false);
+        browserGlobals.browsermenuhandler(ev, false);
       };
 
       babtn.addEventListener("contextmenu", bhl1);
       if (babtn.dataset) babtn.dataset.browserContextBound = '1';
-      try { browserButtons.push(babtn); } catch (e) {}
     } catch (e) {}
   });
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for browser
@@ -4622,9 +4590,9 @@ try {
       if (btn.dataset && btn.dataset.browserContextBound) return;
       const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
       if (!(String(aid) === '🌐' || String(aid) === 'browser')) return;
-      btn.addEventListener('contextmenu', browsermenuhandler);
+      btn.addEventListener('contextmenu', browserGlobals.browsermenuhandler);
       if (btn.dataset) btn.dataset.browserContextBound = '1';
-      browserButtons.push(btn);
+      browserGlobals.browserButtons.push(btn);
     } catch (e) {}
   }
 
