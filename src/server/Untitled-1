@@ -62,7 +62,6 @@ window.browser = function (
     posX = 20,
     posY = 20,
   ) {
-    let status;
 async function updateSiteSettings(iframe, content) {
     data.enableURLSync = content.enableURLSync;
     data.lazyloading = content.lazyloading;
@@ -258,8 +257,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
   apply.onclick = () => {
     // ===== LOGIC HOOK (YOU IMPLEMENT) =====
-    status.innerText = "reload this page to apply your updated settings!";
-    setTimeout(() => (status.innerText = ""), 2000);
+    notification("reload this page to apply your updated settings!");
 
     const newSandbox = Object.entries(sandboxCheckboxes)
       .filter(([_, cb]) => cb.checked)
@@ -377,19 +375,16 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       }
 
       var btnMin = document.createElement("button");
-      btnMin.innerText = "‎    –    ‎";
       btnMin.title = "Minimize";
       btnMin.className = 'btnMinColor';
       topBar.appendChild(btnMin);
 
       var btnMax = document.createElement("button");
       btnMax.className = 'btnMaxColor';
-      btnMax.innerText = "‎     □    ‎ ";
       btnMax.title = "Maximize/Restore";
       topBar.appendChild(btnMax);
 
       var btnClose = document.createElement("button");
-      btnClose.innerText = "‎     x    ‎ ";
       btnClose.title = "Close";
       btnClose.style.color = "white";
       btnClose.style.backgroundColor = "red";
@@ -398,10 +393,15 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       [topBar, btnMin, btnMax, btnClose].forEach((el) => {
         el.style.margin = "0 2px";
         el.style.border = "none";
-        el.style.padding = "2px 5px";
+        el.style.padding = "4px 6px";
         el.style.fontSize = "14px";
         el.style.cursor = "pointer";
       });
+      const applyWindowControlIcon = window.applyWindowControlIcon || function () {};
+      const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+      applyWindowControlIcon(btnMin, "minimize");
+      setWindowMaximizeIcon(btnMax, false);
+      applyWindowControlIcon(btnClose, "close");
 
       function getBounds() {
         return {
@@ -422,6 +422,29 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         root.style.height = b.height;
       }
 
+      function maximizeWindow() {
+        savedBounds = getBounds();
+        root.style.position = "absolute";
+        root.style.left = "0";
+        root.style.top = "0";
+        root.style.width = "100%";
+        root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+        root.style.borderRadius = '0px';
+        isMaximized = true;
+        _isMinimized = false;
+        setWindowMaximizeIcon(btnMax, true);
+      }
+
+      function restoreWindow(useOriginalBounds = true) {
+        if (useOriginalBounds && savedBounds) {
+          applyBounds(savedBounds);
+        }
+        root.style.borderRadius = '10px';
+        isMaximized = false;
+        _isMinimized = false;
+        setWindowMaximizeIcon(btnMax, false);
+      }
+
       // MINIMIZE
       btnMin.addEventListener("click", function () {
         if (!isMaximized) savedBounds = getBounds();
@@ -432,42 +455,14 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       // MAXIMIZE / RESTORE
       btnMax.addEventListener("click", function () {
         if (!isMaximized) {
-          savedBounds = getBounds();
-          root.style.position = "absolute";
-          root.style.left = "0";
-          root.style.top = "0";
-          root.style.width = "100%";
-          // leave space for restart button (assume 50px)
-          root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
-          btnMax.textContent = "‎     ⧉    ‎ "; // restore symbol
-          isMaximized = true;
-          root.style.borderRadius = '0px';
-          // alert('mximized');
-          isMinimized = false;
+          maximizeWindow();
         } else {
-          applyBounds(savedBounds);
-          btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = '10px';
-          // alert('restored');
-          isMaximized = false;
+          restoreWindow(true);
         }
       });
 
       // CLOSE
-      btnClose.addEventListener("click", function () {
-        root.remove();
-        root = null;
-
-        // Remove from allBrowsers
-        const index = allBrowsers.indexOf(chromeWindow);
-        if (index !== -1) {
-          allBrowsers.splice(index, 1);
-        }
-        window.removeEventListener("message", messageHandler);
-        window.removeEventListener("pointerup", onpointerupAnywhere);
-
-        _browserCalled = false;
-      });
+      btnClose.addEventListener("click", closeWindow);
       function closeWindow() {
         root.remove();
         root = null;
@@ -479,7 +474,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
         window.removeEventListener("message", messageHandler);
         window.removeEventListener("pointerup", onpointerupAnywhere);
-
+        window.removeAllEventListenersForApp("browser" + root._goldenbodyId);
         _browserCalled = false;
       }
 
@@ -513,47 +508,238 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       const urlInput = document.createElement("input");
       urlInput.className = "sim-url-input";
       urlInput.type = "text";
-      urlInput.placeholder = "Enter URL (e.g. https://example.com)";
+      urlInput.placeholder = "Enter URL (e.g. https://example.com, goldenbody://newtab/, goldenbody://app-store/)";
       urlInput.autocapitalize = "off";
       urlInput.autocomplete = "off";
       urlInput.spellcheck = false;
       addressRow.appendChild(urlInput);
+      const applyAddressIconButtonStyle = (button) => {
+        Object.assign(button.style, {
+          minWidth: "34px",
+          padding: "0 12px",
+          fontSize: "16px",
+        });
+      };
+
+      const addressIconSvg = {
+        settings:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.16.5.65.85 1.19.85H21a2 2 0 1 1 0 4h-.41c-.54 0-1.03.35-1.19.85z"></path></svg>',
+        reload:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <!-- circular arc (stops earlier to leave a gap) --> <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/> <!-- arrow --> <polyline points="20 4 20 9 15 9"/> </svg>',
+        forward:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
+        back:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
+        clear:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+        download:
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      };
+
+      const setAddressButtonIcon = (button, iconName) => {
+        button.innerHTML = addressIconSvg[iconName] || "";
+      };
 
       const openBtn = document.createElement("button");
       openBtn.className = "sim-open-btn";
-      openBtn.innerText = "Open";
+      openBtn.title = "open url";
+      setAddressButtonIcon(openBtn, "forward");
       addressRow.appendChild(openBtn);
 
       var sitesettingsbtn = document.createElement("button");
-      sitesettingsbtn.textContent = "⚙";
+      sitesettingsbtn.title = "Site Settings";
+      setAddressButtonIcon(sitesettingsbtn, "settings");
       sitesettingsbtn.className = "sim-open-btn";
-      sitesettingsbtn.style.fontSize = "20px";
-      sitesettingsbtn.style.justifyContent = "center";
+      applyAddressIconButtonStyle(sitesettingsbtn);
 
       addressRow.prepend(sitesettingsbtn);
 
       var reloadBtn = document.createElement("button");
-      reloadBtn.textContent = "⟳";
+      reloadBtn.title = "Reload";
       reloadBtn.className = "sim-open-btn";
-      reloadBtn.style.fontSize = "20px";
-      reloadBtn.style.justifyContent = "center";
-      reloadBtn.style.alignItems = "center";
+      applyAddressIconButtonStyle(reloadBtn);
+      setAddressButtonIcon(reloadBtn, "reload");
+      reloadBtn.dataset.mode = "reload";
       addressRow.prepend(reloadBtn);
 
       var forwardBtn = document.createElement("button");
-      forwardBtn.textContent = "→";
+      forwardBtn.title = "Forward";
+      setAddressButtonIcon(forwardBtn, "forward");
       forwardBtn.className = "sim-open-btn";
+      applyAddressIconButtonStyle(forwardBtn);
       addressRow.prepend(forwardBtn);
 
       var backBtn = document.createElement("button");
-      backBtn.textContent = "←";
+      backBtn.title = "Back";
+      setAddressButtonIcon(backBtn, "back");
       backBtn.className = "sim-open-btn";
+      applyAddressIconButtonStyle(backBtn);
       addressRow.prepend(backBtn);
 
       var clear = document.createElement("button");
-      clear.textContent = "🗑";
+      setAddressButtonIcon(clear, "clear");
       clear.title = "delete browsing data";
       clear.className = "sim-open-btn";
+      applyAddressIconButtonStyle(clear);
+
+      function openDownloadUI(anchorPoint = null) {
+        document.getElementById("download-ui")?.remove();
+
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
+
+        const panel = document.createElement("div");
+        panel.id = "download-ui";
+        panel.className = "panel";
+        panel.classList.toggle("dark", data.dark);
+        panel.classList.toggle("light", !data.dark);
+        panel.style.cssText = "position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+        panel.onclick = (e) => e.stopPropagation();
+
+        function cleanup() {
+          try { overlay.remove(); } catch (e) {}
+          try { document.removeEventListener("pointermove", onPointerMove); } catch (e) {}
+          try { document.removeEventListener("pointerup", onPointerUp); } catch (e) {}
+        }
+        overlay.onclick = () => cleanup();
+
+        const title = document.createElement("div");
+        title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
+        title.textContent = "Download URL";
+        panel.appendChild(title);
+
+        const label = document.createElement("div");
+        label.style.cssText = "font-size:12px;color:#888;margin-bottom:6px";
+        label.textContent = "Enter URL to download";
+        panel.appendChild(label);
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "https://example.com/file.png";
+        input.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+        try {
+          input.value = (activatedTab && activatedTab.iframe && activatedTab.iframe.src)
+            ? unshuffleURL(activatedTab.iframe.src)
+            : "";
+        } catch (e) {}
+        panel.appendChild(input);
+
+        const computeName = (u) => {
+          try {
+            const parsed = new URL(u);
+            let n = parsed.pathname.split("/").pop() || "";
+            if (!n || n === "/") n = parsed.searchParams.get("filename") || parsed.searchParams.get("file") || "";
+            if (!n) n = "download";
+            return n.split("?")[0];
+          } catch (e) {
+            return "download";
+          }
+        };
+
+        const info = document.createElement("div");
+        info.style.cssText = "font-size:12px;color:#666;margin-bottom:8px";
+        info.textContent = "Filename: " + computeName(input.value || "");
+        panel.appendChild(info);
+        input.oninput = () => {
+          info.textContent = "Filename: " + computeName(input.value || "");
+        };
+
+        const btnRow = document.createElement("div");
+        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:6px";
+        const btnCancel = document.createElement("button");
+        btnCancel.textContent = "Cancel";
+        btnCancel.onclick = () => cleanup();
+        const btnDownload = document.createElement("button");
+        btnDownload.textContent = "Download";
+        btnDownload.style.background = "#4c8bf5";
+        btnDownload.style.color = "#fff";
+        btnDownload.onclick = async () => {
+          const url = (input.value || "").trim();
+          if (!url) return notification("Enter a URL");
+          const filename = computeName(url);
+          try {
+            if (typeof downloadPost === "function") {
+              await downloadPost({ href: url, filename });
+              notification("Download request sent");
+            } else {
+              notification("downloadPost not available");
+            }
+          } catch (e) {
+            console.error("downloadPost error", e);
+            notification("Download failed to start");
+          }
+          cleanup();
+        };
+        btnRow.appendChild(btnCancel);
+        btnRow.appendChild(btnDownload);
+        panel.appendChild(btnRow);
+
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let origLeft = 0;
+        let origTop = 0;
+        function onPointerMove(e) {
+          if (!isDragging) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          panel.style.left = origLeft + dx + "px";
+          panel.style.top = origTop + dy + "px";
+          panel.style.transform = "";
+        }
+        function onPointerUp() {
+          if (!isDragging) return;
+          isDragging = false;
+          title.style.cursor = "grab";
+          try { document.removeEventListener("pointermove", onPointerMove); } catch (e) {}
+          try { document.removeEventListener("pointerup", onPointerUp); } catch (e) {}
+        }
+        title.addEventListener("pointerdown", (ev) => {
+          ev.preventDefault();
+          isDragging = true;
+          startX = ev.clientX;
+          startY = ev.clientY;
+          const r = panel.getBoundingClientRect();
+          origLeft = r.left;
+          origTop = r.top;
+          title.style.cursor = "grabbing";
+          document.addEventListener("pointermove", onPointerMove);
+          document.addEventListener("pointerup", onPointerUp);
+        });
+
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        if (anchorPoint && typeof anchorPoint.x === "number" && typeof anchorPoint.y === "number") {
+          const rect = panel.getBoundingClientRect();
+          const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+          const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+          let left = anchorPoint.x - rect.width;
+          let top = anchorPoint.y;
+          left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
+          top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
+          panel.style.left = left + "px";
+          panel.style.top = top + "px";
+          panel.style.transform = "";
+        } else {
+          panel.style.left = "50%";
+          panel.style.top = "50%";
+          panel.style.transform = "translate(-50%,-50%)";
+        }
+      }
+
+      var downloadBtn = document.createElement("button");
+      downloadBtn.title = "Download URL";
+      downloadBtn.className = "sim-open-btn";
+      applyAddressIconButtonStyle(downloadBtn);
+      setAddressButtonIcon(downloadBtn, "download");
+      downloadBtn.onclick = function (e) {
+        const buttonRect = downloadBtn.getBoundingClientRect();
+        const x = buttonRect.right || 0;
+        const y = buttonRect.top || 0;
+        openDownloadUI({ x, y });
+      };
+
       clear.onclick = function () {
         fetch(zmcdserver, {
           method: "POST",
@@ -565,15 +751,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             console.log("id now:", result);
             id = result.id;
           });
-        status.innerText = "site data cleared! please close all browser windows!";
-        setTimeout(() => (status.innerText = ""), 2000);
+        notification("site data cleared! please close all browser windows!");
       };
-      addressRow.appendChild(clear);
 
-      status = document.createElement("div");
-      status.className = "sim-status";
-      status.style.flex = "0 0 auto";
-      status.innerText = "";
+      addressRow.appendChild(downloadBtn);
+      addressRow.appendChild(clear);
 
       const resizeDiv = document.createElement("div");
       resizeDiv.style.backgroundColor = "gray"; // visible
@@ -610,7 +792,6 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       leftGroup.style.flex = "1";
       leftGroup.style.minWidth = "0";
       leftGroup.appendChild(tabsRow);
-      leftGroup.appendChild(status);
 
       top.appendChild(leftGroup);
       top.appendChild(topBar);
@@ -633,15 +814,35 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
       let dragid = "";
       let dragindex = 0;
+      let nativeTabDrag = false;
+      let dragoverReordered = false;
+      const resetTabDragState = () => {
+        tabisDragging = false;
+        dragMoved = false;
+        draggedtab = null;
+        dragid = "";
+        dragindex = 0;
+        nativeTabDrag = false;
+        dragoverReordered = false;
+      };
       const onpointerupAnywhere = (ev, notontab) => {
-        if(!ev.target) return;
-        console.log("pointerup anywhere:", ev.target, "notontab?", notontab);
+        const eventTarget =
+          ev?.target ||
+          (typeof ev?.clientX === "number" && typeof ev?.clientY === "number"
+            ? document.elementFromPoint(ev.clientX, ev.clientY)
+            : null);
+        if (!eventTarget && !notontab) return;
+        console.log("pointerup anywhere:", eventTarget, "notontab?", notontab);
         if (!tabisDragging) return;
+        if (!dragstartwindow || !draggedtab) {
+          resetTabDragState();
+          return;
+        }
 
         // Check if pointerup happened on a tab
         let targetTab;
         try {
-          targetTab = ev.target.closest(".sim-tab");
+          targetTab = eventTarget?.closest(".sim-tab");
         } catch (e) {}
         try {
           let tabbarHit = false;
@@ -649,7 +850,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
           for (const b of allBrowsers) {
             if (
-              b.rootElement.querySelector(".sim-chrome-top").contains(ev.target)
+              b.rootElement.querySelector(".sim-chrome-top").contains(eventTarget)
             ) {
               tabbarHit = true;
               targetBrowser = b;
@@ -661,7 +862,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             const dropTarget = document.elementFromPoint(
               ev.clientX,
               ev.clientY,
-            );
+            ) || eventTarget;
 
             // Detect which window the cursor is over
             let targetBrowser = null;
@@ -675,9 +876,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             // If dropped in the same window: do nothing
             if (targetBrowser === dragstartwindow) {
               // reset drag state
-              tabisDragging = false;
-              dragMoved = false;
-              draggedtab = null;
+              resetTabDragState();
               return;
             }
 
@@ -685,16 +884,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             if (targetBrowser) {
               targetBrowser.addTab(draggedtab.url, "", draggedtab.resizeP);
               dragstartwindow.closeTab(draggedtab.id);
-              tabisDragging = false;
-              dragMoved = false;
-              draggedtab = null;
+              resetTabDragState();
               return;
             }
 
-            tabisDragging = false;
-            dragMoved = false;
-            draggedtab = null;
-            dragindex = 0;
+            resetTabDragState();
             return;
           }
         } catch (e) {}
@@ -710,9 +904,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           dragstartwindow.closeTab(draggedtab.id);
         }
 
-        tabisDragging = false;
-        dragMoved = false;
-        draggedtab = null;
+        resetTabDragState();
       };
       function messageHandler(event) {
         const data = event.data;
@@ -754,6 +946,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         renderTabs();
       }, 10000);
       function renderTabs() {
+        if (tabisDragging || nativeTabDrag) return;
         var ids = 0;
         while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
         leftGroup.appendChild(newTabBtn);
@@ -806,19 +999,59 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
           el.addEventListener("pointerdown", (ev) => {
             if (ev.target.classList.contains("close")) return;
-            activateTab(t.id);
+            if (activeTabId !== t.id) activateTab(t.id);
           });
           el.addEventListener("pointerup", function () {
             bringToFront(root);
           });
-          el.addEventListener("dragstart", () => {
+          el.addEventListener("dragstart", (ev) => {
             dragstartwindow = chromeWindow;
             tabisDragging = true;
+            nativeTabDrag = true;
+            dragoverReordered = false;
             dragMoved = false;
             dragindex = countChild(tabsRow, el);
             console.log("dragindex:", dragindex);
             draggedtab = tabs[dragindex];
             dragid = el.id;
+            try {
+              if (ev.dataTransfer) {
+                ev.dataTransfer.effectAllowed = "move";
+                ev.dataTransfer.setData("text/plain", dragid);
+              }
+            } catch (e) {}
+          });
+
+          el.addEventListener("dragover", (e) => {
+            if (!(tabisDragging && dragstartwindow === chromeWindow)) return;
+            e.preventDefault();
+            dragMoved = true;
+            dragoverReordered = true;
+
+            const draggedelement = root.querySelector(`#${dragid}`);
+            if (!draggedelement || draggedelement === el) return;
+
+            const isDraggingRight =
+              draggedelement.compareDocumentPosition(el) &
+              Node.DOCUMENT_POSITION_FOLLOWING;
+
+            let newIndex = countChild(tabsRow, el);
+            if (isDraggingRight) newIndex++;
+
+            tabs = moveTabInArray(tabs, dragindex, newIndex);
+            tabsRow.insertBefore(draggedelement, isDraggingRight ? el.nextSibling : el);
+            dragindex = countChild(tabsRow, draggedelement);
+          });
+
+          el.addEventListener("dragend", (e) => {
+            if (!tabisDragging) return;
+            onpointerupAnywhere({
+              clientX: e.clientX,
+              clientY: e.clientY,
+              target: document.elementFromPoint(e.clientX, e.clientY) || e.target,
+            });
+            resetTabDragState();
+            renderTabs();
           });
 
           el.addEventListener("pointermove", () => {
@@ -826,6 +1059,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           });
 
           el.addEventListener("pointerup", (e) => {
+            if (nativeTabDrag) {
+              return;
+            }
             if (
               tabisDragging &&
               dragMoved &&
@@ -860,10 +1096,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               onpointerupAnywhere(e);
             }
 
-            tabisDragging = false;
-            draggedtab = null;
-
-            dragMoved = false;
+            resetTabDragState();
           });
 
           const title = el.querySelector(".sim-tab-title");
@@ -882,7 +1115,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         });
         // reorder tabs
       }
-      window.addEventListener("message", function (e) {
+      window.addEventListener('browser' + root._goldenbodyId, "message", function (e) {
         if (e.data.type === "FROM_IFRAME") {
           addTab(e.data.message, "New Tab");
         }
@@ -924,8 +1157,32 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         };
         iframe.addEventListener("load", function () {
           let eggpatch = document.createElement("script");
-          eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
-          iframe.contentDocument.body.appendChild(eggpatch);
+          eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized", "color: magenta; font-weight: bold", "color: white"),
+( () => {
+    class e extends WebSocket {
+        constructor(e, o) {
+            let c = window.top.origin.split("/")[2]
+              , t = String(e);
+            t.includes(c) && (t = t.replace(c, window.location.host)),
+            t.includes("egs") && (t = t.replace('github.dev', "shellshock.io")),
+            t.includes("ser") && (t = "wss://shellshock.io/services/"),
+            t.includes("matchmaker") && (t = "wss://shellshock.io/matchmaker/"),
+            console.log(\`%c[WS Connect] %cConnecting to: \${t}\`, "color: cyan; font-weight: bold", "color: white"),
+            super(t, o),
+            this.addEventListener("open", ( () => {
+                console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`, "color: green; font-weight: bold", "color: white")
+            }
+            )),
+            this.addEventListener("error", (e => {
+                console.error(\`[WS Error] Connection failed to \${this.url}\`, e)
+            }
+            ))
+        }
+    }
+    window.WebSocket = e
+}
+)();
+`;          iframe.contentDocument.body.appendChild(eggpatch);
           let eggpatch2 = document.createElement("script");
           eggpatch2.textContent = `
               const nativeURL = window.URL;
@@ -1041,7 +1298,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
           tab.iframe.contentWindow.addEventListener("keydown", handleresizel1);
           root.addEventListener("keydown", handleresizel1);
-          urlInput.value = unshuffleURL(iframe.contentWindow.location.href);
+          if(!tab.iframe.style.display === "none") urlInput.value = unshuffleURL(iframe.contentWindow.location.href);
           let resizescript = document.createElement("script");
           resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
           tab.iframe.contentDocument.head.appendChild(resizescript);
@@ -1192,8 +1449,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           //   menu.style.display = "none";
           // });
           // Function to show the menu
-          function showMenu(x, y, linkElement, isA) {
-            if (isA) {
+          function showMenu(x, y, linkElement, isA, isDownload) {
+            if (isA || isDownload) {
               menu.innerHTML = ""; // clear old items
 
               // Create menu items (same as before)
@@ -1257,6 +1514,22 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               };
               menu.appendChild(copyItem);
 
+              const download = iframeDocument.createElement("div");
+              download.style.all = "unset";
+              download.style.display = "block"; // <-- important!
+              download.style.textAlign = "left";
+
+              download.textContent = "Download linkㅤㅤㅤㅤㅤ";
+              download.style.padding = "6px 16px";
+              download.style.font = "Arial";
+              download.style.cursor = "pointer";
+              download.onmouseenter = () => (download.style.background = "#444");
+              download.onmouseleave = () => (download.style.background = "none");
+              download.onclick = () => {
+                downloadPost({href: linkElement.href, filename: linkElement.href.split("/").pop().split("?")[0]});
+                hideMenu();
+              };
+              menu.appendChild(download);
               const inspect = iframeDocument.createElement("div");
               inspect.style.all = "unset";
               inspect.style.display = "block"; // <-- important!
@@ -1286,7 +1559,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
                 }
                 win.eruda[win._goldenbodyIns ? "hide" : "show"]();
                 win._goldenbodyIns = !win._goldenbodyIns;
-
+                
                 hideMenu();
               };
               menu.appendChild(inspect);
@@ -1463,10 +1736,16 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             const clickedElement = e.target;
             const linkElement = clickedElement.closest("a");
 
-            if (linkElement && linkElement.href) {
+            if (linkElement && linkElement.href && !linkElement.download) {
               console.log("Right-clicked on a link:", linkElement.href);
               showMenu(e.clientX, e.clientY, linkElement, true);
-            } else {
+            } 
+            else if (linkElement && linkElement.download) {
+              // Handle download links if needed
+              showMenu(e.clientX, e.clientY, linkElement, false, true);
+              console.log("Right-clicked on a download link:", linkElement.href);
+            }
+            else {
               showMenu(e.clientX, e.clientY, null, false);
               console.log("Right-clicked on a non-link element.");
             }
@@ -2208,7 +2487,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
           }
         });
         root.focus();
-            window.addEventListener("message", (e) => {
+            window.addEventListener('browser' + root._goldenbodyId, "message", (e) => {
               try {
                 // Allow `saveFile` messages to be processed even when the browser root
                 // doesn't have focus. Previously the OR made the whole condition true
@@ -3471,7 +3750,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
         tabs.push(tab);
         activateTab(id);
         renderTabs();
-        document.addEventListener("keyup", function (e) {
+        document.addEventListener('browser' + root._goldenbodyId, "keyup", function (e) {
           try {
             if (!root.contains(document.activeElement)) return;
           } catch (e) {
@@ -3507,7 +3786,7 @@ for(let i = 0; i < window.top.allBrowsers.length; i++) {
       if (preloadlink) {
         addTab(preloadlink, "New Tab");
       }
-      window.addEventListener("keydown", function (e) {
+      window.addEventListener('browser' + root._goldenbodyId, "keydown", function (e) {
 try{        if (
           document.activeElement !== root &&
           !root.contains(document.activeElement)
@@ -3621,7 +3900,7 @@ try{        if (
           historyNavigate(tab, 1);
         };
         reloadBtn.onclick = function () {
-          if (reloadBtn.textContent === "x") {
+          if (reloadBtn.dataset.mode === "stop") {
             tab.iframe.contentWindow.stop();
           } else {
             tab.iframe.contentWindow.location.reload();
@@ -3659,10 +3938,12 @@ try{        if (
             activatedTab = tab;
             if (tab.iframe.contentDocument.readyState !== "complete") {
               reloadBtn.textContent = "x";
+              reloadBtn.dataset.mode = "stop";
 
               tab.title = "Loading...";
             } else {
-              reloadBtn.textContent = "⟳";
+              setAddressButtonIcon(reloadBtn, "reload");
+              reloadBtn.dataset.mode = "reload";
               try {
                 if (tab.iframe.contentDocument.readyState === "complete") {
                   const docTitle =
@@ -3687,6 +3968,7 @@ try{        if (
         if (idx === -1) return;
 
         const removingActive = tabs[idx].id === activeTabId;
+        tabs[idx].iframe.src = 'about:blank';
         tabs[idx].iframe.remove();
         tabs.splice(idx, 1);
 
@@ -3832,8 +4114,6 @@ try{        if (
         }
 
         urlInput.value = url;
-        // status.innerText = `Loaded: ${url}`;
-        setTimeout(() => (status.innerText = ""), 3000);
       }
 
       openBtn.addEventListener("click", () =>
@@ -3882,7 +4162,7 @@ try{        if (
           currentX = ev.clientX;
           currentY = ev.clientY;
         });
-        window.addEventListener("mousemove", (ev) => {
+        window.addEventListener('browser' + root._goldenbodyId, "mousemove", (ev) => {
           if (!dragging) {
             startX = 0;
             startY = 0;
@@ -3895,12 +4175,9 @@ try{        if (
           ) {
             applyBounds(savedBounds);
             if (isMaximized) {
+              restoreWindow(false);
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
               origLeft = ev.clientX - root.clientWidth / 2;
-              btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = '10px';
-              // alert('restored');
-              isMaximized = false;
             }
           }
 
@@ -3911,7 +4188,7 @@ try{        if (
           if (origTop + dy > 0) root.style.top = origTop + dy + "px";
           else root.style.top = "0px";
         });
-        window.addEventListener("mouseup", () => {
+        window.addEventListener('browser' + root._goldenbodyId, "mouseup", () => {
           dragging = false;
           document.body.style.userSelect = "";
           targetel = null;
@@ -4009,10 +4286,7 @@ try{        if (
           const dy = e.clientY - active.sy;
           if ((dx > 1 && resizing) || (dy > 1 && resizing)) {
             applyBounds(getBounds());
-            btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = '10px';
-            // alert('restored');
-            isMaximized = false;
+            if (isMaximized) restoreWindow(false);
           }
 
           // east / south
@@ -4083,6 +4357,7 @@ try{        if (
         openUrl: openUrlInActiveTab,
         getBounds,
         applyBounds,
+        closeWindow,
         btnMax,
 
         get isMaximized() {
@@ -4203,9 +4478,7 @@ try{        if (
     closeAllitem.style.cursor = "pointer";
     closeAllitem.addEventListener("click", function () {
       for (let i = 0; i < allBrowsers.length; i++) {
-        allBrowsers[i].rootElement.remove();
-        allBrowsers[i].rootElement = null;
-        // Remove from allBrowsers
+        allBrowsers[i].closeWindow();
       }
       allBrowsers = [];
     });
@@ -4389,4 +4662,4 @@ try {
   mo.observe(observerTarget, { childList: true, subtree: true });
 } catch (e) {
   console.error('failed to attach browser context handlers', e);
-}
+} 

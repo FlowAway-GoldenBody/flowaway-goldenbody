@@ -14,7 +14,7 @@ module.exports = {
     crossDomainPort: 8081,
     publicDir: path.join(__dirname, '../public'), // set to null to disable
 
-    // enable or disable multithreading
+    // enable or git status multithreading
     enableWorkers,
     workers: os.cpus().length,
 

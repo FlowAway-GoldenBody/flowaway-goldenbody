@@ -65,6 +65,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
     // mount zmcd and fetchfiles handlers under proxy routes
     const zmcd = require('./zmcd');
     const fetchfiles = require('./fetchfiles');
+    const download = require('./download');
     proxyServer.addToOnRequestPipeline((req, res) => {
         if (!req.url) return;
         if (req.url.startsWith('/server/zmcd')) {
@@ -90,6 +91,21 @@ if (!config.enableWorkers || !cluster.isMaster) {
                 });
             } catch (e) {
                 logger.error('fetchfiles handler error: ' + e.message);
+                res.writeHead(500);
+                res.end('Server error');
+            }
+            return true;
+        }
+        if (req.url.startsWith('/server/download')) {
+            req.url = req.url.slice('/server/download'.length) || '/';
+            try {
+                const maybe = download.handleDownload(req, res);
+                if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
+                    logger.error('download handler error: ' + e.message);
+                    try { res.writeHead(500); res.end('Server error'); } catch (er) {}
+                });
+            } catch (e) {
+                logger.error('download handler error: ' + e.message);
                 res.writeHead(500);
                 res.end('Server error');
             }
@@ -229,5 +245,6 @@ if (cluster.isMaster) {
     // route external ports into the main proxy under the specified paths
     startPortRouter(8082, '/server/zmcd');
     startPortRouter(8083, '/server/fetchfiles');
+    startPortRouter(8084, '/server/download');
 }
 module.exports = proxyServer;

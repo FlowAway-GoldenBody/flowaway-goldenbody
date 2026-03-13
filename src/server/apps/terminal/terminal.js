@@ -4,6 +4,7 @@
   window.terminalId = 0;
 
 terminal = function (posX = 50, posY = 50) {
+  notification('this app is in active dev, many features are not implemented yet. Stay tuned for updates!');
     startMenu.style.display = 'none';
     let isMaximized = false;
     let _isMinimized = false;
@@ -74,20 +75,16 @@ terminal = function (posX = 50, posY = 50) {
 
 
     var btnMin = document.createElement("button");
-    btnMin.innerText = "‎    –    ‎";
     btnMin.className = 'btnMinColor';
     btnMin.title = "Minimize";
     topBar.appendChild(btnMin);
 
     var btnMax = document.createElement("button");
-    btnMax.innerText = "‎     □    ‎ ";
     btnMax.className = 'btnMaxColor';
-    btnMax.style.fontSize = "20px";
     btnMax.title = "Maximize/Restore";
     topBar.appendChild(btnMax);
 
     var btnClose = document.createElement("button");
-    btnClose.innerText = "‎     x    ‎ ";
     btnClose.title = "Close";
     btnClose.style.color = "white";
     btnClose.style.backgroundColor = "red";
@@ -96,10 +93,15 @@ terminal = function (posX = 50, posY = 50) {
     [topBar, btnMin, btnMax, btnClose].forEach((el) => {
       el.style.margin = "0 2px";
       el.style.border = "none";
-      el.style.padding = "2px 5px";
+      el.style.padding = "4px 6px";
       el.style.fontSize = "14px";
       el.style.cursor = "pointer";
     });
+    const applyWindowControlIcon = window.applyWindowControlIcon || function () {};
+    const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+    applyWindowControlIcon(btnMin, "minimize");
+    setWindowMaximizeIcon(btnMax, false);
+    applyWindowControlIcon(btnClose, "close");
     topBar.addEventListener("click", function () {
       bringToFront(root);
     });
@@ -112,6 +114,27 @@ terminal = function (posX = 50, posY = 50) {
       height: root.style.height,
     };
 
+    function maximizeWindow() {
+      savedBounds = getBounds();
+      root.style.left = "0";
+      root.style.top = "0";
+      root.style.width = "100%";
+      root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+      root.style.borderRadius = "0px";
+      isMaximized = true;
+      _isMinimized = false;
+      setWindowMaximizeIcon(btnMax, true);
+    }
+
+    function restoreWindow(useOriginalBounds = true) {
+      if (useOriginalBounds && savedBounds) {
+        applyBounds(savedBounds);
+      }
+      root.style.borderRadius = "10px";
+      isMaximized = false;
+      setWindowMaximizeIcon(btnMax, false);
+    }
+
     // Minimize
     btnMin.addEventListener("click", () => {
       savedBounds = getBounds();
@@ -122,20 +145,9 @@ terminal = function (posX = 50, posY = 50) {
     // Maximize / Restore
     btnMax.addEventListener("click", () => {
       if (!isMaximized) {
-        savedBounds = getBounds();
-        root.style.left = "0";
-        root.style.top = "0";
-        root.style.width = "100%";
-          root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
-        btnMax.textContent = "‎ ⧉ ‎";
-          root.style.borderRadius = "0px";
-        isMaximized = true;
-        _isMinimized = false;
+        maximizeWindow();
       } else {
-        applyBounds(savedBounds);
-        btnMax.textContent = "‎ □ ‎";
-          root.style.borderRadius = "10px";
-        isMaximized = false;
+        restoreWindow(true);
       }
     });
 
@@ -195,11 +207,9 @@ terminal = function (posX = 50, posY = 50) {
           if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
             applyBounds(savedBounds);
             if (isMaximized) {
+              restoreWindow(false);
               root.style.left = ev.clientX - root.clientWidth / 2 + "px";
               origLeft = ev.clientX - root.clientWidth / 2;
-              btnMax.textContent = "‎     □     ‎";
-          root.style.borderRadius = "10px";
-              isMaximized = false;
             }
           }
           const dx = ev.clientX - startX;
@@ -272,9 +282,7 @@ terminal = function (posX = 50, posY = 50) {
 
         el.addEventListener("pointermove", (e) => {
           if (!active) return;
-          isMaximized = false;
-          btnMax.textContent = "‎     □    ‎ ";
-          root.style.borderRadius = "10px";
+          if (isMaximized) restoreWindow(false);
           const dx = e.clientX - active.sx,
             dy = e.clientY - active.sy;
           if (active.dir.includes("e"))
