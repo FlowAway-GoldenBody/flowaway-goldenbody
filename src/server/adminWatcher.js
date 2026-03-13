@@ -1,7 +1,7 @@
 const AdmZip = require("adm-zip");
 const fs = require("fs");
 const path = require("path");
-
+let __gbconfig = {autoupdate: true}; //override config in users for testing, will be removed in production
 // Create zip archives for each app folder in the project `apps` directory
 async function createZipsForApps() {
   try {
@@ -55,8 +55,8 @@ function updateAllSystemApps() {
         }
         
         const userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
-        userData.autoupdate = true; // Enable autoupdate for all users by default
         // Check if user has autoupdate systemapps enabled
+        userData.autoupdate = __gbconfig.autoupdate; //override for testing, will be removed in production
         if (userData.autoupdate) {
           const userAppsPath = path.join(directoryPath, username, 'root', 'apps');
           
