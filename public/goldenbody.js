@@ -11,7 +11,7 @@
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
-  taskbar.style.zIndex = 9999;
+  taskbar.style.zIndex = 999999999; // very high z-index to ensure it stays on top of app content but below modals/menus
   taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";

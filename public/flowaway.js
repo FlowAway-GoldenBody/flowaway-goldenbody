@@ -1500,22 +1500,268 @@ window.removeOtherMenus = function(except) {
   }
   function bringToFront(el) {
     if (!el) return;
-    // Prefer explicit dataset app id
+    var appId = resolveWindowAppId(el);
+    atTop = appId || '';
+    el.style.zIndex = String(++zTop);
+  }
+
+  function resolveWindowAppId(el) {
+    if (!el) return '';
     var appId = el.dataset && el.dataset.appId;
-    // fallback: data-app-id attribute
     if (!appId) appId = el.getAttribute && el.getAttribute('data-app-id');
-    // fallback: check classes against discovered app ids
     if (!appId && window.apps && Array.isArray(window.apps)) {
       for (const a of window.apps) {
         try {
           if (el.classList.contains(a.id) || el.id === (a.id + 'app') || el.id === a.id) {
-            appId = a.id; break;
+            appId = a.id;
+            break;
           }
         } catch (e) {}
       }
     }
-    atTop = appId || '';
-    el.style.zIndex = String(++zTop);
+    return appId || '';
+  }
+
+  function resolveWindowLabel(el) {
+    var appId = resolveWindowAppId(el);
+    if (window.apps && Array.isArray(window.apps) && appId) {
+      for (const a of window.apps) {
+        if (a && a.id === appId) return a.name || a.id;
+      }
+    }
+    if (appId) return appId;
+    return 'App';
+  }
+
+  function getSwitchableWindows() {
+    try {
+      return Array.from(document.querySelectorAll('.sim-chrome-root')).filter((el) => {
+        if (!el || !el.isConnected) return false;
+        var cs = window.getComputedStyle(el);
+        if (!cs) return false;
+        return cs.display !== 'none' && cs.visibility !== 'hidden';
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  var windowSwitchState = {
+    active: false,
+    mod: '',
+    order: [],
+    index: 0,
+    lastTs: 0,
+    pendingTarget: null,
+    previewRoot: null,
+    previewList: null,
+  };
+
+  function ensureWindowSwitchPreview() {
+    if (windowSwitchState.previewRoot && windowSwitchState.previewRoot.isConnected) return;
+
+    var root = document.createElement('div');
+    root.setAttribute('aria-hidden', 'true');
+    Object.assign(root.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '2147483646',
+      display: 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      pointerEvents: 'none',
+      background: 'rgba(0, 0, 0, 0.12)',
+      backdropFilter: 'blur(2px)',
+    });
+
+    var panel = document.createElement('div');
+    Object.assign(panel.style, {
+      minWidth: '520px',
+      maxWidth: '88vw',
+      maxHeight: '76vh',
+      overflow: 'hidden',
+      borderRadius: '14px',
+      background: data.dark ? 'rgba(26,26,26,0.96)' : 'rgba(245,245,245,0.96)',
+      color: data.dark ? '#fff' : '#111',
+      border: data.dark ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(0,0,0,0.1)',
+      boxShadow: '0 14px 40px rgba(0,0,0,0.35)',
+      padding: '12px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    });
+
+    var title = document.createElement('div');
+    title.textContent = 'Switch apps';
+    title.style.fontSize = '13px';
+    title.style.opacity = '0.75';
+    title.style.padding = '0 6px';
+
+    var list = document.createElement('div');
+    Object.assign(list.style, {
+      display: 'flex',
+      flexDirection: 'row',
+      gap: '10px',
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      maxWidth: '84vw',
+      minHeight: '130px',
+      padding: '2px',
+    });
+
+    panel.appendChild(title);
+    panel.appendChild(list);
+    root.appendChild(panel);
+    document.body.appendChild(root);
+
+    windowSwitchState.previewRoot = root;
+    windowSwitchState.previewList = list;
+  }
+
+  function hideWindowSwitchPreview() {
+    if (!windowSwitchState.previewRoot) return;
+    windowSwitchState.previewRoot.style.display = 'none';
+  }
+
+  function renderWindowSwitchPreview(modLabel) {
+    ensureWindowSwitchPreview();
+    if (!windowSwitchState.previewRoot || !windowSwitchState.previewList) return;
+
+    var list = windowSwitchState.previewList;
+    list.innerHTML = '';
+    var order = windowSwitchState.order || [];
+    var selectedRow = null;
+
+    for (var i = 0; i < order.length; i++) {
+      var el = order[i];
+      var appId = resolveWindowAppId(el);
+      var appLabel = resolveWindowLabel(el);
+      var active = i === windowSwitchState.index;
+
+      var row = document.createElement('div');
+      Object.assign(row.style, {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '10px',
+        borderRadius: '10px',
+        padding: '12px 14px',
+        minWidth: '150px',
+        maxWidth: '150px',
+        minHeight: '110px',
+        boxSizing: 'border-box',
+        background: active
+          ? (data.dark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)')
+          : (data.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
+        border: active
+          ? (data.dark ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(0,0,0,0.24)')
+          : (data.dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'),
+      });
+
+      var icon = document.createElement('div');
+      icon.textContent = (window.apps || []).find(a => a.id === appId)?.icon || '🗔';
+      Object.assign(icon.style, {
+        width: '28px',
+        textAlign: 'center',
+        fontSize: '24px',
+        lineHeight: '1',
+      });
+
+      var text = document.createElement('div');
+      text.textContent = appLabel;
+      text.style.fontSize = '14px';
+      text.style.fontWeight = active ? '600' : '500';
+      text.style.textAlign = 'center';
+      text.style.maxWidth = '100%';
+      text.style.overflow = 'hidden';
+      text.style.textOverflow = 'ellipsis';
+      text.style.whiteSpace = 'nowrap';
+
+      row.appendChild(icon);
+      row.appendChild(text);
+      list.appendChild(row);
+      if (active) selectedRow = row;
+    }
+
+    if (selectedRow && selectedRow.scrollIntoView) {
+      try {
+        selectedRow.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+      } catch (e) {}
+    }
+
+    windowSwitchState.previewRoot.style.display = 'flex';
+    windowSwitchState.previewRoot.setAttribute('data-mod', modLabel || '');
+  }
+
+  function commitWindowSwitchTarget() {
+    var target = windowSwitchState.pendingTarget;
+    if (!target || !target.isConnected) return;
+    bringToFront(target);
+    try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch (err) {} }
+  }
+
+  function resetWindowSwitchState() {
+    hideWindowSwitchPreview();
+    windowSwitchState.active = false;
+    windowSwitchState.mod = '';
+    windowSwitchState.order = [];
+    windowSwitchState.index = 0;
+    windowSwitchState.lastTs = 0;
+    windowSwitchState.pendingTarget = null;
+  }
+
+  function cycleWindowFocus(reverse, modKey) {
+    var windows = getSwitchableWindows();
+    if (!windows || windows.length <= 1) return false;
+
+    windows.sort(function (a, b) {
+      var za = parseInt(a.style.zIndex) || 0;
+      var zb = parseInt(b.style.zIndex) || 0;
+      return zb - za;
+    });
+
+    var now = Date.now();
+    var mod = modKey || '';
+    var timedOut = (now - windowSwitchState.lastTs) > 1500;
+    var shouldReset = !windowSwitchState.active || windowSwitchState.mod !== mod || timedOut;
+
+    if (shouldReset) {
+      windowSwitchState.active = true;
+      windowSwitchState.mod = mod;
+      windowSwitchState.order = windows.slice();
+      windowSwitchState.index = 0;
+    } else {
+      windowSwitchState.order = windowSwitchState.order.filter(function (el) {
+        return windows.indexOf(el) !== -1;
+      });
+      for (var i = 0; i < windows.length; i++) {
+        if (windowSwitchState.order.indexOf(windows[i]) === -1) {
+          windowSwitchState.order.push(windows[i]);
+        }
+      }
+      if (!windowSwitchState.order.length) {
+        windowSwitchState.order = windows.slice();
+        windowSwitchState.index = 0;
+      }
+      if (windowSwitchState.index >= windowSwitchState.order.length) {
+        windowSwitchState.index = 0;
+      }
+    }
+
+    var count = windowSwitchState.order.length;
+    if (count <= 1) return false;
+
+    var step = reverse ? -1 : 1;
+    windowSwitchState.index = (windowSwitchState.index + step + count) % count;
+    var target = windowSwitchState.order[windowSwitchState.index];
+    if (!target) return false;
+
+    windowSwitchState.pendingTarget = target;
+    windowSwitchState.lastTs = now;
+    renderWindowSwitchPreview(mod);
+    return true;
   }
 
   // keydown - single binding
@@ -1525,10 +1771,18 @@ window.removeOtherMenus = function(except) {
     // Build normalized combo e.g. 'Ctrl+Shift+N'
     var parts = [];
     if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
     if (e.shiftKey) parts.push('Shift');
     var keyPart = String(e.key).toUpperCase();
     parts.push(keyPart);
     var combo = parts.join('+');
+
+    // Alt+Tab (and Ctrl+Tab fallback): cycle focused app window
+    if ((e.altKey && e.key === 'Tab') || (e.ctrlKey && !e.altKey && e.key === 'Tab')) {
+      e.preventDefault();
+      cycleWindowFocus(!!e.shiftKey, e.altKey ? 'Alt' : 'Ctrl');
+      return;
+    }
 
     // Check user-defined shortcuts first
     if (data && data.shortcuts && data.shortcuts[combo]) {
@@ -1599,6 +1853,27 @@ window.removeOtherMenus = function(except) {
     }
     };
     window.addEventListener('keydown', window._flowaway_handlers.onKeydown);
+
+    if (window._flowaway_handlers.onKeyup) window.removeEventListener('keyup', window._flowaway_handlers.onKeyup);
+    window._flowaway_handlers.onKeyup = function (e) {
+      if (e.key === 'Alt' || e.key === 'Control') {
+        commitWindowSwitchTarget();
+        resetWindowSwitchState();
+      }
+    };
+    window.addEventListener('keyup', window._flowaway_handlers.onKeyup);
+
+    if (window._flowaway_handlers.onBlur) window.removeEventListener('blur', window._flowaway_handlers.onBlur);
+    window._flowaway_handlers.onBlur = function () {
+      resetWindowSwitchState();
+    };
+    window.addEventListener('blur', window._flowaway_handlers.onBlur);
+
+    if (window._flowaway_handlers.onVisibilityChange) document.removeEventListener('visibilitychange', window._flowaway_handlers.onVisibilityChange);
+    window._flowaway_handlers.onVisibilityChange = function () {
+      if (document.hidden) resetWindowSwitchState();
+    };
+    document.addEventListener('visibilitychange', window._flowaway_handlers.onVisibilityChange);
   } catch (e) {}
 
 function applyStyles() {
