@@ -1542,15 +1542,19 @@ window.removeOtherMenus = function(except) {
 
   function resolveWindowLabel(el) {
     var appId = resolveWindowAppId(el);
+    var windowTitle = '';
+    try {
+      windowTitle = ((el && el.getAttribute && el.getAttribute('data-title')) || '').trim();
+    } catch (e) {}
+    if (windowTitle && windowTitle !== 'undefined' && windowTitle !== 'null') return windowTitle;
+
     var appMeta = findAppByIdentifier(appId);
-    if (appMeta) return appMeta.label || appMeta.name || appMeta.entry || appMeta.id || appMeta.icon;
-    if (!appId) {
-      try {
-        if (el && el.classList && el.classList.contains('browser')) return 'browser';
-      } catch (e) {}
+    if (appMeta) {
+      var appLabel = (appMeta.label || appMeta.name || '').trim();
+      if (appLabel && appLabel !== 'undefined' && appLabel !== 'null') return appLabel;
     }
-    if (appId) return appId;
-    return 'App';
+    if (appId && appId !== 'browser' && appId !== 'undefined' && appId !== 'null') return appId;
+    return 'Window';
   }
 
 
@@ -1615,7 +1619,7 @@ window.removeOtherMenus = function(except) {
     });
 
     var title = document.createElement('div');
-    title.textContent = 'Switch apps';
+    title.textContent = 'Switch windows';
     title.style.fontSize = '13px';
     title.style.opacity = '0.75';
     title.style.padding = '0 6px';
