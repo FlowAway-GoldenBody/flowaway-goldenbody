@@ -1512,26 +1512,47 @@ window.removeOtherMenus = function(except) {
     if (!appId && window.apps && Array.isArray(window.apps)) {
       for (const a of window.apps) {
         try {
-          if (el.classList.contains(a.id) || el.id === (a.id + 'app') || el.id === a.id) {
-            appId = a.id;
+          var candidates = [a.entry, a.id, a.icon, a.startbtnid].filter(Boolean);
+          var matched = candidates.some((cid) => el.classList.contains(cid) || el.id === (cid + 'app') || el.id === cid);
+          if (matched) {
+            appId = a.entry || a.id || a.icon;
             break;
           }
         } catch (e) {}
       }
     }
+    if (!appId) {
+      try {
+        if (el.classList && el.classList.contains('browser')) appId = 'browser';
+      } catch (e) {}
+    }
     return appId || '';
+  }
+
+  function findAppByIdentifier(identifier) {
+    if (!identifier || !window.apps || !Array.isArray(window.apps)) return null;
+    for (const a of window.apps) {
+      if (!a) continue;
+      if (identifier === a.entry || identifier === a.id || identifier === a.icon || identifier === a.startbtnid) {
+        return a;
+      }
+    }
+    return null;
   }
 
   function resolveWindowLabel(el) {
     var appId = resolveWindowAppId(el);
-    if (window.apps && Array.isArray(window.apps) && appId) {
-      for (const a of window.apps) {
-        if (a && a.id === appId) return a.name || a.id;
-      }
+    var appMeta = findAppByIdentifier(appId);
+    if (appMeta) return appMeta.label || appMeta.name || appMeta.entry || appMeta.id || appMeta.icon;
+    if (!appId) {
+      try {
+        if (el && el.classList && el.classList.contains('browser')) return 'browser';
+      } catch (e) {}
     }
     if (appId) return appId;
     return 'App';
   }
+
 
   function getSwitchableWindows() {
     try {
@@ -1575,15 +1596,16 @@ window.removeOtherMenus = function(except) {
     });
 
     var panel = document.createElement('div');
+    var systemDark = data.dark;
     Object.assign(panel.style, {
       minWidth: '520px',
       maxWidth: '88vw',
       maxHeight: '76vh',
       overflow: 'hidden',
       borderRadius: '14px',
-      background: data.dark ? 'rgba(26,26,26,0.96)' : 'rgba(245,245,245,0.96)',
-      color: data.dark ? '#fff' : '#111',
-      border: data.dark ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(0,0,0,0.1)',
+      background: systemDark ? 'rgba(26,26,26,0.96)' : 'rgba(245,245,245,0.96)',
+      color: systemDark ? '#fff' : '#111',
+      border: systemDark ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(0,0,0,0.1)',
       boxShadow: '0 14px 40px rgba(0,0,0,0.35)',
       padding: '12px',
       display: 'flex',
@@ -1629,6 +1651,13 @@ window.removeOtherMenus = function(except) {
     if (!windowSwitchState.previewRoot || !windowSwitchState.previewList) return;
 
     var list = windowSwitchState.previewList;
+    var panel = list.parentElement;
+    var systemDark = data.dark;
+    if (panel) {
+      panel.style.background = systemDark ? 'rgba(26,26,26,0.96)' : 'rgba(245,245,245,0.96)';
+      panel.style.color = systemDark ? '#fff' : '#111';
+      panel.style.border = systemDark ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(0,0,0,0.1)';
+    }
     list.innerHTML = '';
     var order = windowSwitchState.order || [];
     var selectedRow = null;
@@ -1653,15 +1682,16 @@ window.removeOtherMenus = function(except) {
         minHeight: '110px',
         boxSizing: 'border-box',
         background: active
-          ? (data.dark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)')
-          : (data.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
+          ? (systemDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)')
+          : (systemDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
         border: active
-          ? (data.dark ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(0,0,0,0.24)')
-          : (data.dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'),
+          ? (systemDark ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(0,0,0,0.24)')
+          : (systemDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'),
       });
 
       var icon = document.createElement('div');
-      icon.textContent = (window.apps || []).find(a => a.id === appId)?.icon || '🗔';
+      var iconApp = findAppByIdentifier(appId);
+      icon.textContent = (iconApp && iconApp.icon) || '🗔';
       Object.assign(icon.style, {
         width: '28px',
         textAlign: 'center',

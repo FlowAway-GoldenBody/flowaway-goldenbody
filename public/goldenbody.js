@@ -11,7 +11,7 @@
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
-  taskbar.style.zIndex = 999999999; // very high z-index to ensure it stays on top of app content but below modals/menus
+  taskbar.style.zIndex = 999999; // very high z-index to ensure it stays on top of app content but below modals/menus
   taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
@@ -158,7 +158,7 @@
   (function attachTaskbarContextMenu() {
     var cm = document.createElement('div');
     cm.style.position = 'fixed';
-    cm.style.zIndex = 100000;
+    cm.style.zIndex = 1000000; // above taskbar but below modals/overlays
     cm.style.background = data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
     cm.style.color = data.dark ? 'white' : 'black';
     cm.style.padding = '8px';
