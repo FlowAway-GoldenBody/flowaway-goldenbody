@@ -133,7 +133,7 @@ async function handleFetchfiles(req, res) {
       }
       // authenticate download request
       if (!(await authenticateUser(username, pwd))) {
-        console.log(password, 'failed auth for', username);
+        console.log(pwd, 'failed auth for', username);
         res.writeHead(401);
         return res.end('unauthorized');
       }
@@ -180,7 +180,17 @@ async function handleFetchfiles(req, res) {
       return res.end(JSON.stringify({ error: 'Invalid JSON' }));
     }
 
-  const username = data.username;
+    if (!data || typeof data !== 'object') {
+      res.writeHead(400);
+      return res.end(JSON.stringify({ error: 'Invalid request body' }));
+    }
+
+    const username = typeof data.username === 'string' ? data.username.trim() : '';
+    if (!username) {
+      res.writeHead(400);
+      return res.end(JSON.stringify({ error: 'Missing username' }));
+    }
+
     const userRoot = path.join(directoryPath, username, 'root');
     await fsp.mkdir(userRoot, { recursive: true });
 

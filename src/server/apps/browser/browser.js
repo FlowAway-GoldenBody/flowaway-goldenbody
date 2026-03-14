@@ -1397,7 +1397,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
           menu.style.fontFamily = "sans-serif";
           menu.style.fontSize = "14px";
           menu.style.display = "none";
-          menu.style.zIndex = "9999";
+          menu.style.zIndex = "2147483646"; // maximum z-index to ensure it appears on top
           iframeDocument.body.appendChild(menu);
 
           // window.addEventListener("pointerdown", function () {
