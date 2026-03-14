@@ -302,6 +302,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       var root = document.createElement("div");
        root.__vfsMessageListenerAdded = false;
       root.className = "sim-chrome-root";
+      root.dataset.appId = 'browser';
       Object.assign(root.style, {
         position: "fixed",
         top: posY + "px",
@@ -795,6 +796,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       let dragindex = 0;
       let nativeTabDrag = false;
       let dragoverReordered = false;
+      let crossWindowTransferHandled = false;
       const resetTabDragState = () => {
         browserGlobals.tabisDragging = false;
         dragMoved = false;
@@ -803,6 +805,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         dragindex = 0;
         nativeTabDrag = false;
         dragoverReordered = false;
+        crossWindowTransferHandled = false;
       };
       const onpointerupAnywhere = (ev, notontab) => {
         const eventTarget =
@@ -861,6 +864,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 
             // If dropped in another window
             if (targetBrowser) {
+              if (crossWindowTransferHandled) {
+                resetTabDragState();
+                return;
+              }
+              crossWindowTransferHandled = true;
               targetBrowser.addTab(browserGlobals.draggedtab.url, "", browserGlobals.draggedtab.resizeP);
               browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
               resetTabDragState();
@@ -873,6 +881,11 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         } catch (e) {}
         if (!targetTab || targetTab.id !== dragid) {
           // pointerup happened somewhere else
+          if (crossWindowTransferHandled) {
+            resetTabDragState();
+            return;
+          }
+          crossWindowTransferHandled = true;
           browser(
             browserGlobals.dragstartwindow.tabs[dragindex].url,
             browserGlobals.draggedtab.resizeP,
