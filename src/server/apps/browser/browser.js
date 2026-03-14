@@ -393,6 +393,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         };
       }
       var savedBounds = getBounds();
+      let resizePulseInterval = null;
+      let renderInterval = null;
+      let windowTitleInterval = null;
 
       function applyBounds(b) {
         root.style.position = "absolute";
@@ -444,8 +447,27 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       // CLOSE
       btnClose.addEventListener("click", closeWindow);
       function closeWindow() {
+        var windowEventScope = "browser" + root._goldenbodyId;
+        try {
+          if (resizePulseInterval) {
+            clearInterval(resizePulseInterval);
+            resizePulseInterval = null;
+          }
+        } catch (e) {}
+        try {
+          if (renderInterval) {
+            clearInterval(renderInterval);
+            renderInterval = null;
+          }
+        } catch (e) {}
+        try {
+          if (windowTitleInterval) {
+            clearInterval(windowTitleInterval);
+            windowTitleInterval = null;
+          }
+        } catch (e) {}
+
         root.remove();
-        root = null;
 
         // Remove from browserGlobals.allBrowsers
         const index = browserGlobals.allBrowsers.indexOf(chromeWindow);
@@ -454,7 +476,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         }
         window.removeEventListener("message", messageHandler);
         window.removeEventListener("pointerup", onpointerupAnywhere);
-        window.removeAllEventListenersForApp("browser" + root._goldenbodyId);
+        try { window.removeAllEventListenersForApp(windowEventScope); } catch (e) {}
+        root = null;
         _browserCalled = false;
       }
 
@@ -754,7 +777,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       });
 
       let previousn = activatedTab.resizeP;
-      setInterval(() => {
+      resizePulseInterval = setInterval(() => {
+        if (!activatedTab) return;
         if (previousn === activatedTab.resizeP) {
           resizeDiv.style.display = "none";
         }
@@ -933,7 +957,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
       }
       window.addEventListener("message", messageHandler);
       window.addEventListener("pointerup", onpointerupAnywhere);
-      let renderInterval = setInterval(() => {
+      renderInterval = setInterval(() => {
         if(!root) {clearInterval(renderInterval); console.warn('interval cleared, root missing!')};
         renderTabs();
       }, 10000);
@@ -4352,15 +4376,22 @@ try{        if (
         },
       };
     })();
-    setInterval(function () {
-      if (
-        typeof activatedTab.title == "string" &&
-        typeof activatedTab.title != ""
-      )
-        chromeWindow.title = activatedTab.title;
-      else chromeWindow.title = "undefined";
+    windowTitleInterval = setInterval(function () {
+      var nextTitle = '';
+      try {
+        nextTitle = String((activatedTab && activatedTab.title) || '').trim();
+      } catch (e) {
+        nextTitle = '';
+      }
+      if (!nextTitle || nextTitle === 'undefined' || nextTitle === 'null') {
+        nextTitle = 'Window';
+      }
+      chromeWindow.title = nextTitle;
+      try {
+        chromeWindow.rootElement.setAttribute("data-title", nextTitle);
+      } catch (e) {}
     }, 1000 * nhjd);
-    chromeWindow.rootElement.setAttribute("data-title", chromeWindow.title);
+    chromeWindow.rootElement.setAttribute("data-title", "Window");
     browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
           applyStyles();
 
