@@ -2160,7 +2160,25 @@ function notification (message) {
         height: 500px;
         border-radius: 6px;
         padding: 10px;
+        overflow: hidden;
         display: none;
+    }
+
+    .startMenuBody {
+      position: absolute;
+      top: 52px;
+      left: 10px;
+      right: 10px;
+      bottom: 74px;
+      overflow-y: auto;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .startMenuBody::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
     }
 
     .startMenu h3 {
@@ -2215,6 +2233,12 @@ function notification (message) {
   min-height: 42px;
 }
 
+#appsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
 .statusLeft,
 .statusRight {
     display: flex;
@@ -2262,13 +2286,10 @@ var styleTag = document.createElement("style");
 
 <h3 style="margin:0 0 10px 0; font-size:18px;">Apps</h3>
 
-<div style="
-    display: grid;
-  grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-">
+<div class="startMenuBody">
     <!-- Dynamic apps grid (populated from user's /apps folder) -->
-    <div id="appsGrid" style="display: contents;"></div>
+    <div id="appsGrid"></div>
+</div>
 
     <div class="statusBar">
     <div class="statusLeft">
@@ -2280,8 +2301,6 @@ var styleTag = document.createElement("style");
       <span id="batteryStatus">🔋 --%</span>
       <span id="timeStatus">--:--</span>
     </div>
-</div>
-
 </div>
 `;
 

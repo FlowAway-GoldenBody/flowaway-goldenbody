@@ -378,6 +378,17 @@ root.classList.add('fileExplorer');
       saveBtn.textContent = "💾 Save";
       sidebar.appendChild(saveBtn);
 
+      const trashBtn = document.createElement("button");
+      trashBtn.textContent = "🗑 Trash";
+      sidebar.appendChild(trashBtn);
+
+      const emptyTrashBtn = document.createElement("button");
+      emptyTrashBtn.textContent = "🔥 Empty Trash";
+      emptyTrashBtn.style.display = "none";
+      emptyTrashBtn.style.background = "#7f1b1b";
+      emptyTrashBtn.style.color = "white";
+      sidebar.appendChild(emptyTrashBtn);
+
       const fileInput = document.createElement("input");
       fileInput.type = "file";
       fileInput.multiple = true;
@@ -783,6 +794,67 @@ function handleSelection(e, item, items, index) {
         renderFiles();
         updateStorageDisplay();
         hideContextMenu();
+        // Show Empty Trash button only when inside .trash
+        const inTrash = currentPath.length >= 2 && currentPath[1] === '.trash';
+        emptyTrashBtn.style.display = inTrash ? '' : 'none';
+      }
+
+      // ──────────────────────────────
+      // PERMANENT DELETE CONFIRM DIALOG
+      // ──────────────────────────────
+      function showPermanentDeleteDialog(itemCount, onConfirm) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;';
+
+        const box = document.createElement('div');
+        box.className = 'misc';
+        box.style.cssText = 'padding:24px 28px;border-radius:10px;min-width:320px;max-width:420px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);';
+
+        const title = document.createElement('div');
+        title.textContent = '⚠️ Permanently Delete';
+        title.style.cssText = 'font-size:17px;font-weight:700;color:#c0392b;';
+
+        const desc = document.createElement('div');
+        desc.style.fontSize = '13px';
+        desc.innerHTML = `You are about to <strong>permanently delete ${itemCount} item${itemCount !== 1 ? 's' : ''}</strong>. This cannot be undone.<br><br>Type <strong>delete</strong> below to confirm:`;
+
+        const input = document.createElement('input');
+        input.placeholder = 'Type "delete" to confirm';
+        input.style.cssText = 'padding:7px 10px;width:100%;box-sizing:border-box;border:1px solid #c0392b;border-radius:5px;font-size:14px;outline:none;';
+
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'padding:6px 16px;border-radius:5px;cursor:pointer;';
+        cancelBtn.onclick = () => { root.removeChild(overlay); };
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Delete Forever';
+        confirmBtn.style.cssText = 'padding:6px 16px;border-radius:5px;background:#c0392b;color:white;cursor:pointer;border:none;opacity:0.4;pointer-events:none;';
+        confirmBtn.setAttribute('disabled', 'true');
+
+        input.oninput = () => {
+          const valid = input.value.trim().toLowerCase() === 'delete';
+          confirmBtn.style.opacity = valid ? '1' : '0.4';
+          confirmBtn.style.pointerEvents = valid ? '' : 'none';
+          confirmBtn.disabled = !valid;
+        };
+
+        input.onkeydown = (e) => { if (e.key === 'Enter' && input.value.trim().toLowerCase() === 'delete') { root.removeChild(overlay); onConfirm(); } };
+
+        confirmBtn.onclick = () => { root.removeChild(overlay); onConfirm(); };
+
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(confirmBtn);
+        box.appendChild(title);
+        box.appendChild(desc);
+        box.appendChild(input);
+        box.appendChild(btnRow);
+        overlay.appendChild(box);
+        root.appendChild(overlay);
+        requestAnimationFrame(() => input.focus());
       }
       // --- CREATE FOLDER ---
       function getUniqueName(nameOrBase, ext = "", existingChildren) {
@@ -1017,38 +1089,71 @@ function handleSelection(e, item, items, index) {
         // CONTEXT MENU ITEMS
         // ──────────────────────────────
 
-        // Delete for multi-select
+        // Detect whether we are inside .trash
+        const inTrash = currentPath.length >= 2 && currentPath[1] === '.trash';
+
+        // Delete / Delete Permanently for multi-select
         if (!isBlank && selectedItems.length) {
-          addItem("Delete", () => {
-            const targetPath = [...currentPath]; // current folder path array
-            for (const item of selectedItems) {
-              directions.push({delete: true, path: targetPath.join("/") + '/' + item[0]});
-
-              // Remove from local tree
-              const deletePath = [...currentPath.slice(1), item[0]]; 
-              // slice(1) removes "root" if treeData is the root node
-              removeNodeFromTree(treeData, deletePath);
-
-              // If explorerGlobals.clipboard is an array, remove any entries that reference this deleted path.
-              // Support removing nested explorerGlobals.clipboard entries when deleting a folder.
-              if (!Array.isArray(explorerGlobals.clipboard)) explorerGlobals.clipboard = [];
-              const rel = deletePath.join('/'); // matches explorerGlobals.clipboard.path format (e.g., "folder/sub")
-              const isFolder = Array.isArray(item[1]);
-              explorerGlobals.clipboard = explorerGlobals.clipboard.filter((c) => {
-                if (!c || typeof c.path !== 'string') return true; // keep malformed entries
-                if (isFolder) {
-                  // remove if exact match or inside the deleted folder
-                  return !(c.path === rel || c.path.startsWith(rel + '/'));
+          if (inTrash) {
+            // ── Inside .trash: permanently delete with confirmation dialog ──
+            addItem("Delete Permanently", () => {
+              showPermanentDeleteDialog(selectedItems.length, () => {
+                const targetPath = [...currentPath];
+                for (const item of selectedItems) {
+                  directions.push({permanentDelete: true, path: targetPath.join('/') + '/' + item[0]});
+                  const deletePath = [...currentPath.slice(1), item[0]];
+                  removeNodeFromTree(treeData, deletePath);
                 }
-                // file: remove only exact match
-                return c.path !== rel;
+                selectedItems = [];
+                selectedItem = null;
+                render();
+                triggerAutosave();
               });
-            }
-            selectedItems = [];
-            selectedItem = null;
-            render();
-            triggerAutosave();
-          });
+            });
+
+            // ── Restore: move item back to root ──
+            addItem("Restore", () => {
+              const targetPath = [...currentPath];
+              for (const item of selectedItems) {
+                directions.push({restore: true, path: targetPath.join('/') + '/' + item[0]});
+                const deletePath = [...currentPath.slice(1), item[0]];
+                removeNodeFromTree(treeData, deletePath);
+              }
+              selectedItems = [];
+              selectedItem = null;
+              render();
+              triggerAutosave();
+            });
+          } else {
+            // ── Normal delete: move to .trash ──
+            addItem("Delete", () => {
+              const targetPath = [...currentPath]; // current folder path array
+              for (const item of selectedItems) {
+                directions.push({delete: true, path: targetPath.join("/") + '/' + item[0]});
+
+                // Remove from local tree
+                const deletePath = [...currentPath.slice(1), item[0]];
+                // slice(1) removes "root" if treeData is the root node
+                removeNodeFromTree(treeData, deletePath);
+
+                // If explorerGlobals.clipboard is an array, remove any entries that reference this deleted path.
+                if (!Array.isArray(explorerGlobals.clipboard)) explorerGlobals.clipboard = [];
+                const rel = deletePath.join('/');
+                const isFolder = Array.isArray(item[1]);
+                explorerGlobals.clipboard = explorerGlobals.clipboard.filter((c) => {
+                  if (!c || typeof c.path !== 'string') return true;
+                  if (isFolder) {
+                    return !(c.path === rel || c.path.startsWith(rel + '/'));
+                  }
+                  return c.path !== rel;
+                });
+              }
+              selectedItems = [];
+              selectedItem = null;
+              render();
+              triggerAutosave();
+            });
+          }
         }
 
         // Rename only if single item is selected
@@ -1273,6 +1378,25 @@ function handleSelection(e, item, items, index) {
       homeBtn.onclick = () => {
         currentPath = ["root"];
         render();
+      };
+      trashBtn.onclick = () => {
+        currentPath = ["root", ".trash"];
+        render();
+      };
+      emptyTrashBtn.onclick = () => {
+        // Find all items currently in the .trash node
+        const trashNode = findNode(treeData, ["root", ".trash"]);
+        const trashItems = (trashNode && trashNode[1]) ? trashNode[1].slice() : [];
+        const count = trashItems.length;
+        if (!count) return;
+        showPermanentDeleteDialog(count, () => {
+          for (const item of trashItems) {
+            directions.push({permanentDelete: true, path: "root/.trash/" + item[0]});
+            removeNodeFromTree(treeData, [".trash", item[0]]);
+          }
+          render();
+          triggerAutosave();
+        });
       };
       
       // Debounced autosave timer

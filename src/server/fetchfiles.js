@@ -476,7 +476,16 @@ async function applyDirections(rootPath, directions, username) {
       if(targetPath.split('/').at(-1) === 'apps') {
         continue; // prevent deleting 'apps' folder
       }
-      await fsp.rm(targetPath, { recursive: true, force: true });
+      // Move to hidden .trash folder instead of permanently deleting
+      const trashDir = path.join(rootPath, '.trash');
+      await fsp.mkdir(trashDir, { recursive: true });
+      const itemName = path.basename(targetPath);
+      let trashDest = path.join(trashDir, itemName);
+      // Avoid overwriting existing trash items by appending a timestamp
+      if (await fsp.access(trashDest).then(() => true).catch(() => false)) {
+        trashDest = path.join(trashDir, `${Date.now()}_${itemName}`);
+      }
+      await fsp.rename(targetPath, trashDest);
 
       // Clean up any server-side clipboard entries that reference this path
       try {
@@ -492,6 +501,41 @@ async function applyDirections(rootPath, directions, username) {
         // ignore cleanup failures
       }
 
+      continue;
+    }
+
+    if (dir.permanentDelete) {
+      const targetPath = resolvePath(dir.path);
+      // Security: only allow permanent deletion of items inside .trash
+      const trashDir = path.join(rootPath, '.trash');
+      const normalizedTarget = path.resolve(targetPath);
+      const normalizedTrash = path.resolve(trashDir);
+      if (!normalizedTarget.startsWith(normalizedTrash + path.sep) && normalizedTarget !== normalizedTrash) {
+        // Not inside .trash — refuse
+        continue;
+      }
+      await fsp.rm(targetPath, { recursive: true, force: true });
+      continue;
+    }
+
+    if (dir.restore) {
+      const targetPath = resolvePath(dir.path);
+      // Security: only restore items that are inside .trash
+      const trashDir = path.join(rootPath, '.trash');
+      const normalizedTarget = path.resolve(targetPath);
+      const normalizedTrash = path.resolve(trashDir);
+      if (!normalizedTarget.startsWith(normalizedTrash + path.sep)) {
+        continue; // refuse to restore items not in .trash
+      }
+      const itemName = path.basename(targetPath);
+      let dest = path.join(rootPath, itemName);
+      // Avoid overwriting by appending a numeric suffix
+      if (await fsp.access(dest).then(() => true).catch(() => false)) {
+        let n = 1;
+        while (await fsp.access(path.join(rootPath, `(${n}) ${itemName}`)).then(() => true).catch(() => false)) n++;
+        dest = path.join(rootPath, `(${n}) ${itemName}`);
+      }
+      await fsp.rename(targetPath, dest);
       continue;
     }
 
