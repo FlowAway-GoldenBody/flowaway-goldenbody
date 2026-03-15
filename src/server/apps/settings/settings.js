@@ -408,10 +408,10 @@ root.appendChild(mainContainer);
       if (res.success) {
         status.textContent = "Password updated successfully.";
         status.style.color = "green";
-        input.value = "";
-        confirm.value = "";
         password = input.value; // Update global password variable
         data.password = input.value; // Update password in data object
+        input.value = "";
+        confirm.value = "";
       } else {
         throw new Error(res.error || "Failed");
       }
