@@ -183,10 +183,10 @@
 			lockApi('print', function () {
 				enqueue(win, 'alert', 'Printing is blocked in fullscreen mode.', '');
 			});
-			lockApi('open', function (url) {
-				enqueue(win, 'alert', url ? 'Popups are blocked in fullscreen mode.\n\n' + String(url) : 'Popups are blocked in fullscreen mode.', '');
-				return null;
-			});
+			// lockApi('open', function (url) {
+			// 	enqueue(win, 'alert', url ? 'Popups are blocked in fullscreen mode.\n\n' + String(url) : 'Popups are blocked in fullscreen mode.', '');
+			// 	return null;
+			// });
 			lockApi('showModalDialog', function (message) {
 				enqueue(win, 'alert', message, '');
 				return null;

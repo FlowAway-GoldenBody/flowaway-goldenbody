@@ -18,6 +18,11 @@ browserGlobals.dragstartwindow = null;
 browserGlobals.__vfsMessageListenerAdded = false;
 browserGlobals.tabisDragging = false;
 browserGlobals.draggedtab = 0;
+browserGlobals.subWebsite = function (url) {
+  url = url.split("?");
+  url = url[0].split("#");
+  return url[0];
+}
 browserGlobals.unshuffleURL = function (url) {
   if (url === goldenbodywebsite + "flowerfeast.html") {
     return "goldenbody://newtab/";
@@ -4767,8 +4772,8 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             urlInput.value = currentUrl;
           }
           if (currentUrl !== previousUrlMain) {
+            if ((browserGlobals.subWebsite(currentUrl) !== browserGlobals.subWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (data.enableURLSync) openUrlInActiveTab(currentUrl);
             previousUrlMain = currentUrl;
-            if (data.enableURLSync) openUrlInActiveTab(currentUrl);
           }
           resizeDiv.innerText = tab.resizeP + "%";
           activatedTab = tab;
