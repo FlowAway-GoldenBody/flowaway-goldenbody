@@ -1,88 +1,94 @@
-
 //browser global vars
 window.browserGlobals = {};
-  window.__globalAddTab = function(url, index) {
-    let t = browserGlobals.allBrowsers[index].addTab(url, "New Tab");
-    for(tab of browserGlobals.allBrowsers[index].tabs) {
-      if(tab.id == t) {
-        t = tab;
-        break;
-      }
+window.__globalAddTab = function (url, index) {
+  let t = browserGlobals.allBrowsers[index].addTab(url, "New Tab");
+  for (const tab of browserGlobals.allBrowsers[index].tabs) {
+    if (tab.id == t) {
+      t = tab;
+      break;
     }
-    return t.iframe.contentWindow;
-  };
-  browserGlobals.allBrowsers = [];
-  browserGlobals.browserId = 0;
-  browserGlobals.id = data.id;
-  browserGlobals.proxyurl = window.origin + '/';
-  browserGlobals.dragstartwindow = null;
-  browserGlobals.__vfsMessageListenerAdded = false;
-  browserGlobals.tabisDragging = false;
-  browserGlobals.draggedtab = 0;
-      browserGlobals.unshuffleURL = function (url) {
-      if (url === goldenbodywebsite + "flowerfeast.html") {
-        return "goldenbody://newtab/";
-      }
-      else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
-        return "goldenbody://app-store/";
-      }
-      url = url.split('/');
-      if(url) {
-        if(typeof url === 'string') {
-            return url;
-        }
-      }
-      url.splice(0, 4);
-      let newUrl = '';
-      for(let i = 0; i < url.length; i++) {
-        if(i !== 0) {
-            if(i === 1) newUrl += '//' + url[i];
-            else if(i === 2) newUrl += url[i];
-            else newUrl += '/' + url[i];
-        }
-        else {
-          newUrl += url[i];
-        }
-      }
-      return newUrl;
-    }
-// browser global functions
-  browserGlobals.mainWebsite = function(string) {
-    let s = '';
-    let anti_numtots = 0;
-    for (let i = 0; i < string.length; i++) {
-      if(string[i] === '/') anti_numtots++;
-      if (string[i] === "?" || string[i] === '&' || anti_numtots === 3) {
-        s += string[i];
-        return s;
-      } else {
-        s += string[i];
-      }
-    }
-    return s;
   }
+  return t.iframe.contentWindow;
+};
+browserGlobals.allBrowsers = [];
+browserGlobals.browserId = 0;
+browserGlobals.id = data.id;
+browserGlobals.proxyurl = window.origin + "/";
+browserGlobals.dragstartwindow = null;
+browserGlobals.__vfsMessageListenerAdded = false;
+browserGlobals.tabisDragging = false;
+browserGlobals.draggedtab = 0;
+browserGlobals.unshuffleURL = function (url) {
+  if (url === goldenbodywebsite + "flowerfeast.html") {
+    return "goldenbody://newtab/";
+  } else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
+    return "goldenbody://app-store/";
+  }
+  url = url.split("/");
+  if (url) {
+    if (typeof url === "string") {
+      return url;
+    }
+  }
+  url.splice(0, 4);
+  let newUrl = "";
+  for (let i = 0; i < url.length; i++) {
+    if (i !== 0) {
+      if (i === 1) newUrl += "//" + url[i];
+      else if (i === 2) newUrl += url[i];
+      else newUrl += "/" + url[i];
+    } else {
+      newUrl += url[i];
+    }
+  }
+  return newUrl;
+};
+// browser global functions
+browserGlobals.mainWebsite = function (string) {
+  let s = "";
+  let anti_numtots = 0;
+  for (let i = 0; i < string.length; i++) {
+    if (string[i] === "/") anti_numtots++;
+    if (string[i] === "?" || string[i] === "&" || anti_numtots === 3) {
+      s += string[i];
+      return s;
+    } else {
+      s += string[i];
+    }
+  }
+  return s;
+};
 
 window.browser = function (
-    preloadlink = null,
-    preloadsize = 100,
-    posX = 20,
-    posY = 20,
-  ) {
-async function updateSiteSettings(iframe, content) {
+  preloadlink = null,
+  preloadsize = 100,
+  posX = 20,
+  posY = 20,
+) {
+  async function updateSiteSettings(iframe, content) {
     data.enableURLSync = content.enableURLSync;
     data.lazyloading = content.lazyloading;
-    if(content.lazyloading) browserGlobals.allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = 'lazy')); else browserGlobals.allBrowsers.forEach(b => b.tabs.forEach(t => t.iframe.loading = ''));
+    if (content.lazyloading)
+      browserGlobals.allBrowsers.forEach((b) =>
+        b.tabs.forEach((t) => (t.iframe.loading = "lazy")),
+      );
+    else
+      browserGlobals.allBrowsers.forEach((b) =>
+        b.tabs.forEach((t) => (t.iframe.loading = "")),
+      );
     content.updateSiteSettings = true;
-    content.url = browserGlobals.mainWebsite(browserGlobals.unshuffleURL(iframe.src));
+    content.url = browserGlobals.mainWebsite(
+      browserGlobals.unshuffleURL(iframe.src),
+    );
     await zmcdpost(content);
     iframe.sandbox = content.newSandbox;
-    data.siteSettings = await zmcdpost({requestSiteSettings: true});
+    data.siteSettings = await zmcdpost({ requestSiteSettings: true });
     data.siteSettings = data.siteSettings.siteSettings;
-}
-function createPermInput(iframe, url) {
+  }
+  function createPermInput(iframe, url) {
     url = browserGlobals.mainWebsite(url);
 
-  let sandbox = `
+    let sandbox = `
     allow-forms
     allow-modals
     allow-orientation-lock
@@ -92,43 +98,43 @@ function createPermInput(iframe, url) {
     allow-scripts
   `.trim();
 
-  let fullscreen = true;
-  let addTheSite = true;
+    let fullscreen = true;
+    let addTheSite = true;
     let siteSettings = data.siteSettings;
-    for(const site of siteSettings) {
-        if(url === site[0]) {
-            sandbox = site[1];
-            addTheSite = false;
-        }
+    for (const site of siteSettings) {
+      if (url === site[0]) {
+        sandbox = site[1];
+        addTheSite = false;
+      }
     }
-iframe.sandbox = sandbox;
-        return {sandbox, addTheSite};
-}
-function openPermissionsUI(url, iframe, anchorRect = null) {
-  const perms = createPermInput(iframe, url) || {
-    sandbox: "",
-  };
+    iframe.sandbox = sandbox;
+    return { sandbox, addTheSite };
+  }
+  function openPermissionsUI(url, iframe, anchorRect = null) {
+    const perms = createPermInput(iframe, url) || {
+      sandbox: "",
+    };
 
-  // --- Cleanup old UI
-  document.getElementById("perm-ui")?.remove();
+    // --- Cleanup old UI
+    document.getElementById("perm-ui")?.remove();
 
-  // --- Overlay (click outside to close)
-  const overlay = document.createElement("div");
-  overlay.style.cssText = `
+    // --- Overlay (click outside to close)
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
     position:fixed;
     inset:0;
     z-index:999999;
   `;
-  overlay.onclick = () => overlay.remove();
+    overlay.onclick = () => overlay.remove();
 
-  // --- Floating panel
-  const panel = document.createElement("div");
-  panel.id = "perm-ui";
-  panel.onclick = e => e.stopPropagation();
-  panel.className = 'panel';
-  panel.classList.toggle('dark', data.dark);
-  panel.classList.toggle('light', !data.dark);
-  panel.style.cssText = `
+    // --- Floating panel
+    const panel = document.createElement("div");
+    panel.id = "perm-ui";
+    panel.onclick = (e) => e.stopPropagation();
+    panel.className = "panel";
+    panel.classList.toggle("dark", data.dark);
+    panel.classList.toggle("light", !data.dark);
+    panel.style.cssText = `
     position:fixed;
     width:320px;
     border-radius:10px;
@@ -140,137 +146,148 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
     overflow:auto;
   `;
 
-  if (anchorRect) {
-    panel.style.left = anchorRect.left + "px";
-    panel.style.top = (anchorRect.bottom + 6) + "px";
-  } else {
-    panel.style.left = "50%";
-    panel.style.top = "50%";
-    panel.style.transform = "translate(-50%,-50%)";
-  }
+    if (anchorRect) {
+      panel.style.left = anchorRect.left + "px";
+      panel.style.top = anchorRect.bottom + 6 + "px";
+    } else {
+      panel.style.left = "50%";
+      panel.style.top = "50%";
+      panel.style.transform = "translate(-50%,-50%)";
+    }
 
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
 
-  // --- Helpers
-  const sandboxSet = new Set(
-    perms.sandbox?.split(" ").map(v => v.trim()).filter(Boolean)
-  );
-
-  function section(title) {
-    const d = document.createElement("div");
-    d.style.marginBottom = "10px";
-    d.innerHTML = `<div style="font-weight:600;margin-bottom:6px">${title}</div>`;
-    panel.appendChild(d);
-    return d;
-  }
-
-  function checkbox(parent, label, checked, disabled = false) {
-    const row = document.createElement("label");
-    row.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:4px;opacity:" + (disabled ? 0.5 : 1);
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = checked;
-    cb.disabled = disabled;
-    row.append(cb, document.createTextNode(label));
-    parent.appendChild(row);
-    return cb;
-  }
-
-  // ===============================
-  // FULLSCREEN
-  // ===============================
-  let website = browserGlobals.mainWebsite(browserGlobals.unshuffleURL(iframe.src));
-  let secure = website.startsWith('https://') ? 'Connection is Secure' : 'Not Secure';
-  if(website.startsWith('goldenbody://')) secure = 'You are viewing a secure official goldenbody webpage'
-  section(website);
-  section(secure);
-  if(!data.enableURLSync)
-  section("Only user-initiated navigations get new permissions. To disable this, open sync perms below.")
-  // perms
-  const syncpermsSec = section("Sync Perms");
-  let syncperms = checkbox(syncpermsSec, 'sync perms', data.enableURLSync);
-  const info = document.createElement("div");
-  info.style.cssText = `
-    margin-top:6px;
-    font-size:11px;
-    color:#aaa;
-  `;
-  info.textContent =
-    "This is only for people with privacy needs, may cause bugs when many redirects happens at 1 time";
-  syncpermsSec.appendChild(info);
-  let lazyloadingsect = section("Performance");
-  let lazyloading = checkbox(lazyloadingsect, 'Lazy Loading', data.lazyloading);
-
-
-
-  // ===============================
-  // SANDBOX
-  // ===============================
-  const sandboxSec = section("Site Settings");
-  const SANDBOX_LIST = [
-    "allow-forms",
-    "allow-modals",
-    "allow-orientation-lock",
-    "allow-pointer-lock",
-    "allow-presentation",
-    "allow-scripts",
-    "allow-same-origin" // LOCKED
-  ];
-
-  const sandboxCheckboxes = {};
-
-  for (const perm of SANDBOX_LIST) {
-    const locked = perm === "allow-same-origin";
-    sandboxCheckboxes[perm] = checkbox(
-      sandboxSec,
-      perm + (locked ? " (locked)" : ""),
-      sandboxSet.has(perm),
-      locked
+    // --- Helpers
+    const sandboxSet = new Set(
+      perms.sandbox
+        ?.split(" ")
+        .map((v) => v.trim())
+        .filter(Boolean),
     );
-  }
 
-  // Warning
-  const warn = document.createElement("div");
-  warn.style.cssText = `
+    function section(title) {
+      const d = document.createElement("div");
+      d.style.marginBottom = "10px";
+      d.innerHTML = `<div style="font-weight:600;margin-bottom:6px">${title}</div>`;
+      panel.appendChild(d);
+      return d;
+    }
+
+    function checkbox(parent, label, checked, disabled = false) {
+      const row = document.createElement("label");
+      row.style.cssText =
+        "display:flex;align-items:center;gap:6px;margin-bottom:4px;opacity:" +
+        (disabled ? 0.5 : 1);
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = checked;
+      cb.disabled = disabled;
+      row.append(cb, document.createTextNode(label));
+      parent.appendChild(row);
+      return cb;
+    }
+
+    // ===============================
+    // FULLSCREEN
+    // ===============================
+    let website = browserGlobals.mainWebsite(
+      browserGlobals.unshuffleURL(iframe.src),
+    );
+    let secure = website.startsWith("https://")
+      ? "Connection is Secure"
+      : "Not Secure";
+    if (website.startsWith("goldenbody://"))
+      secure = "You are viewing a secure official goldenbody webpage";
+    section(website);
+    section(secure);
+    if (!data.enableURLSync)
+      section(
+        "Only user-initiated navigations get new permissions. To disable this, open sync perms below.",
+      );
+    // perms
+    const syncpermsSec = section("Sync Perms");
+    let syncperms = checkbox(syncpermsSec, "sync perms", data.enableURLSync);
+    const info = document.createElement("div");
+    info.style.cssText = `
     margin-top:6px;
     font-size:11px;
     color:#aaa;
   `;
-  warn.textContent =
-    "allow-same-origin cannot be changed.";
-  sandboxSec.appendChild(warn);
+    info.textContent =
+      "This is only for people with privacy needs, may cause bugs when many redirects happens at 1 time";
+    syncpermsSec.appendChild(info);
+    let lazyloadingsect = section("Performance");
+    let lazyloading = checkbox(
+      lazyloadingsect,
+      "Lazy Loading",
+      data.lazyloading,
+    );
 
-  // ===============================
-  // ACTIONS
-  // ===============================
-  const actions = document.createElement("div");
-  actions.style.cssText = `
+    // ===============================
+    // SANDBOX
+    // ===============================
+    const sandboxSec = section("Site Settings");
+    const SANDBOX_LIST = [
+      "allow-forms",
+      "allow-modals",
+      "allow-orientation-lock",
+      "allow-pointer-lock",
+      "allow-presentation",
+      "allow-scripts",
+      "allow-same-origin", // LOCKED
+    ];
+
+    const sandboxCheckboxes = {};
+
+    for (const perm of SANDBOX_LIST) {
+      const locked = perm === "allow-same-origin";
+      sandboxCheckboxes[perm] = checkbox(
+        sandboxSec,
+        perm + (locked ? " (locked)" : ""),
+        sandboxSet.has(perm),
+        locked,
+      );
+    }
+
+    // Warning
+    const warn = document.createElement("div");
+    warn.style.cssText = `
+    margin-top:6px;
+    font-size:11px;
+    color:#aaa;
+  `;
+    warn.textContent = "allow-same-origin cannot be changed.";
+    sandboxSec.appendChild(warn);
+
+    // ===============================
+    // ACTIONS
+    // ===============================
+    const actions = document.createElement("div");
+    actions.style.cssText = `
     display:flex;
     justify-content:flex-end;
     gap:8px;
     margin-top:12px;
   `;
 
-  const cancel = document.createElement("button");
-  cancel.textContent = "Cancel";
-  cancel.onclick = () => overlay.remove();
+    const cancel = document.createElement("button");
+    cancel.textContent = "Cancel";
+    cancel.onclick = () => overlay.remove();
 
-  const apply = document.createElement("button");
-  apply.textContent = "Apply";
-  apply.style.background = "#4c8bf5";
-  apply.style.color = "#fff";
+    const apply = document.createElement("button");
+    apply.textContent = "Apply";
+    apply.style.background = "#4c8bf5";
+    apply.style.color = "#fff";
 
-  apply.onclick = () => {
-    // ===== LOGIC HOOK (YOU IMPLEMENT) =====
-    notification("reload this page to apply your updated settings!");
+    apply.onclick = () => {
+      // ===== LOGIC HOOK (YOU IMPLEMENT) =====
+      notification("reload this page to apply your updated settings!");
 
-    const newSandbox = Object.entries(sandboxCheckboxes)
-      .filter(([_, cb]) => cb.checked)
-      .map(([k]) => k)
-      .join(" ");
-
-
+      const newSandbox = Object.entries(sandboxCheckboxes)
+        .filter(([_, cb]) => cb.checked)
+        .map(([k]) => k)
+        .join(" ");
 
       updateSiteSettings(iframe, {
         newSandbox: newSandbox,
@@ -279,904 +296,961 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         lazyloading: lazyloading.checked,
       });
 
-    overlay.remove();
-  };
+      overlay.remove();
+    };
 
-  actions.append(cancel, apply);
-  panel.appendChild(actions);
-}
+    actions.append(cancel, apply);
+    panel.appendChild(actions);
+  }
 
-    var checkInterval = null;
-    var activatedTab = 0;
-    let isMaximized = false;
-    let _isMinimized = false;
-    if (posX < 0) {
-      posX = 0;
-    }
-    if (posY < 0) {
-      posY = 0;
-    }
-    atTop = "browser";
-    const chromeWindow = (function createChromeLikeUI() {
-      // --- Create root container ---
-      var root = document.createElement("div");
-       root.__vfsMessageListenerAdded = false;
-      root.className = "sim-chrome-root";
-      root.dataset.appId = 'browser';
-      Object.assign(root.style, {
-        position: "fixed",
-        top: posY + "px",
-        left: posX + "px",
-        width: "1000px",
-        height: "640px",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
-        borderRadius: "10px",
-        overflow: "hidden",
-      });
-      bringToFront(root);
-      browserGlobals.browserId++;
-      root._goldenbodyId = browserGlobals.browserId;
-      root.tabIndex = "0";
-      root.addEventListener('styleapplied', () => {
-        for(const tab of tabs) {
-            tab.iframe.contentWindow.postMessage({__goldenbodyChangeTheme__: true, dark: data.dark});
-        }
-      })
-      root.addEventListener("keydown", (e) => {
-        // e.target is the element that actually has focus
-
-        // Only trigger for Shift + T
-        if (e.ctrlKey && e.key === "t") {
-          e.preventDefault();
-
-          addTab("goldenbody://newtab/", "New Tab");
-        }
-      });
-      root.classList.add('browser');
-      // --- Top area ---
-      const top = document.createElement("div");
-      top.className = "sim-chrome-top";
-      top.style.justifyContent = "space-between";
-      root.appendChild(top);
-
-      top.addEventListener("click", function () {
-        bringToFront(root);
-      });
-      var topBar = false;
-      if (!topBar) {
-        topBar = document.createElement("div");
-        topBar.className = "appTopBar";
-        topBar.style.display = "flex";
-        topBar.style.justifyContent = "flex-end";
-        topBar.style.alignItems = "center";
-        topBar.style.padding = "2px";
-        topBar.style.cursor = "move";
-        topBar.style.flexShrink = "0";
-      }
-
-      var btnMin = document.createElement("button");
-      btnMin.title = "Minimize";
-      btnMin.className = 'btnMinColor';
-      topBar.appendChild(btnMin);
-
-      var btnMax = document.createElement("button");
-      btnMax.className = 'btnMaxColor';
-      btnMax.title = "Maximize/Restore";
-      topBar.appendChild(btnMax);
-
-      var btnClose = document.createElement("button");
-      btnClose.title = "Close";
-      btnClose.style.color = "white";
-      btnClose.style.backgroundColor = "red";
-      topBar.appendChild(btnClose);
-
-      [topBar, btnMin, btnMax, btnClose].forEach((el) => {
-        el.style.margin = "0 2px";
-        el.style.border = "none";
-        el.style.padding = "4px 6px";
-        el.style.fontSize = "14px";
-        el.style.cursor = "pointer";
-      });
-      const applyWindowControlIcon = window.applyWindowControlIcon || function () {};
-      const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
-      applyWindowControlIcon(btnMin, "minimize");
-      setWindowMaximizeIcon(btnMax, false);
-      applyWindowControlIcon(btnClose, "close");
-
-      function getBounds() {
-        return {
-          left: root.style.left,
-          top: root.style.top,
-          width: root.style.width,
-          height: root.style.height,
-          position: root.style.position || "fixed",
-        };
-      }
-      var savedBounds = getBounds();
-      let resizePulseInterval = null;
-      let renderInterval = null;
-      let windowTitleInterval = null;
-
-      function applyBounds(b) {
-        root.style.position = "absolute";
-        root.style.left = b.left;
-        root.style.top = b.top;
-        root.style.width = b.width;
-        root.style.height = b.height;
-      }
-
-      function maximizeWindow() {
-        savedBounds = getBounds();
-        root.style.position = "absolute";
-        root.style.left = "0";
-        root.style.top = "0";
-        root.style.width = "100%";
-        root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
-        root.style.borderRadius = '0px';
-        isMaximized = true;
-        _isMinimized = false;
-        setWindowMaximizeIcon(btnMax, true);
-      }
-
-      function restoreWindow(useOriginalBounds = true) {
-        if (useOriginalBounds && savedBounds) {
-          applyBounds(savedBounds);
-        }
-        root.style.borderRadius = '10px';
-        isMaximized = false;
-        _isMinimized = false;
-        setWindowMaximizeIcon(btnMax, false);
-      }
-
-      // MINIMIZE
-      btnMin.addEventListener("click", function () {
-        if (!isMaximized) savedBounds = getBounds();
-        root.style.display = "none";
-        _isMinimized = true;
-      });
-
-      // MAXIMIZE / RESTORE
-      btnMax.addEventListener("click", function () {
-        if (!isMaximized) {
-          maximizeWindow();
-        } else {
-          restoreWindow(true);
-        }
-      });
-
-      // CLOSE
-      btnClose.addEventListener("click", closeWindow);
-      function closeWindow() {
-        var windowEventScope = "browser" + root._goldenbodyId;
-        try {
-          if (resizePulseInterval) {
-            clearInterval(resizePulseInterval);
-            resizePulseInterval = null;
-          }
-        } catch (e) {}
-        try {
-          if (renderInterval) {
-            clearInterval(renderInterval);
-            renderInterval = null;
-          }
-        } catch (e) {}
-        try {
-          if (windowTitleInterval) {
-            clearInterval(windowTitleInterval);
-            windowTitleInterval = null;
-          }
-        } catch (e) {}
-
-        root.remove();
-
-        // Remove from browserGlobals.allBrowsers
-        const index = browserGlobals.allBrowsers.indexOf(chromeWindow);
-        if (index !== -1) {
-          browserGlobals.allBrowsers.splice(index, 1);
-        }
-        window.removeEventListener("message", messageHandler);
-        window.removeEventListener("pointerup", onpointerupAnywhere);
-        try { window.removeAllEventListenersForApp(windowEventScope); } catch (e) {}
-        root = null;
-        _browserCalled = false;
-      }
-
-      const tabsRow = document.createElement("div");
-      tabsRow.className = "sim-chrome-tabs";
-      tabsRow.style.flex = "0 1 auto";
-      tabsRow.style.minWidth = "0px";
-      tabsRow.style.overflowX = "auto";
-      tabsRow.style.whiteSpace = "nowrap";
-
-      // new tab button
-      const newTabBtn = document.createElement("button");
-      newTabBtn.className = "sim-open-btn";
-      newTabBtn.innerText = "+";
-      newTabBtn.title = "New tab";
-      Object.assign(newTabBtn.style, {
-        width: "28px",
-        padding: "6px",
-        fontSize: "16px",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: "0",
-      });
-
-      // address row
-      const addressRow = document.createElement("div");
-      addressRow.className = "sim-address-row";
-      root.appendChild(addressRow);
-
-      const urlInput = document.createElement("input");
-      urlInput.className = "sim-url-input";
-      urlInput.type = "text";
-      urlInput.placeholder = "Enter URL (e.g. https://example.com, goldenbody://newtab/, goldenbody://app-store/)";
-      urlInput.autocapitalize = "off";
-      urlInput.autocomplete = "off";
-      urlInput.spellcheck = false;
-      addressRow.appendChild(urlInput);
-      const applyAddressIconButtonStyle = (button) => {
-        Object.assign(button.style, {
-          minWidth: "34px",
-          padding: "0 12px",
-          fontSize: "16px",
+  var checkInterval = null;
+  var activatedTab = 0;
+  let isMaximized = false;
+  let _isMinimized = false;
+  if (posX < 0) {
+    posX = 0;
+  }
+  if (posY < 0) {
+    posY = 0;
+  }
+  atTop = "browser";
+  const chromeWindow = (function createChromeLikeUI() {
+    // --- Create root container ---
+    var root = document.createElement("div");
+    root.__vfsMessageListenerAdded = false;
+    root.className = "sim-chrome-root";
+    root.dataset.appId = "browser";
+    Object.assign(root.style, {
+      position: "fixed",
+      top: posY + "px",
+      left: posX + "px",
+      width: "1000px",
+      height: "640px",
+      boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
+      borderRadius: "10px",
+      overflow: "hidden",
+    });
+    bringToFront(root);
+    browserGlobals.browserId++;
+    root._goldenbodyId = browserGlobals.browserId;
+    root.tabIndex = "0";
+    root.addEventListener("styleapplied", () => {
+      for (const tab of tabs) {
+        tab.iframe.contentWindow.postMessage({
+          __goldenbodyChangeTheme__: true,
+          dark: data.dark,
         });
+      }
+    });
+    root.addEventListener("keydown", (e) => {
+      // e.target is the element that actually has focus
+
+      // Only trigger for Shift + T
+      if (e.ctrlKey && e.key === "t") {
+        e.preventDefault();
+
+        addTab("goldenbody://newtab/", "New Tab");
+      }
+    });
+    root.classList.add("browser");
+    // --- Top area ---
+    const top = document.createElement("div");
+    top.className = "sim-chrome-top";
+    top.style.justifyContent = "space-between";
+    root.appendChild(top);
+
+    top.addEventListener("click", function () {
+      bringToFront(root);
+    });
+    var topBar = false;
+    if (!topBar) {
+      topBar = document.createElement("div");
+      topBar.className = "appTopBar";
+      topBar.style.display = "flex";
+      topBar.style.justifyContent = "flex-end";
+      topBar.style.alignItems = "center";
+      topBar.style.padding = "2px";
+      topBar.style.cursor = "move";
+      topBar.style.flexShrink = "0";
+    }
+
+    var btnMin = document.createElement("button");
+    btnMin.title = "Minimize";
+    btnMin.className = "btnMinColor";
+    topBar.appendChild(btnMin);
+
+    var btnMax = document.createElement("button");
+    btnMax.className = "btnMaxColor";
+    btnMax.title = "Maximize/Restore";
+    topBar.appendChild(btnMax);
+
+    var btnClose = document.createElement("button");
+    btnClose.title = "Close";
+    btnClose.style.color = "white";
+    btnClose.style.backgroundColor = "red";
+    topBar.appendChild(btnClose);
+
+    [topBar, btnMin, btnMax, btnClose].forEach((el) => {
+      el.style.margin = "0 2px";
+      el.style.border = "none";
+      el.style.padding = "4px 6px";
+      el.style.fontSize = "14px";
+      el.style.cursor = "pointer";
+    });
+    const applyWindowControlIcon =
+      window.applyWindowControlIcon || function () {};
+    const setWindowMaximizeIcon =
+      window.setWindowMaximizeIcon || function () {};
+    applyWindowControlIcon(btnMin, "minimize");
+    setWindowMaximizeIcon(btnMax, false);
+    applyWindowControlIcon(btnClose, "close");
+
+    function getBounds() {
+      return {
+        left: root.style.left,
+        top: root.style.top,
+        width: root.style.width,
+        height: root.style.height,
+        position: root.style.position || "fixed",
       };
+    }
+    var savedBounds = getBounds();
+    let resizePulseInterval = null;
+    let renderInterval = null;
+    let windowTitleInterval = null;
 
-      const addressIconSvg = {
-        settings:
-          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.16.5.65.85 1.19.85H21a2 2 0 1 1 0 4h-.41c-.54 0-1.03.35-1.19.85z"></path></svg>',
-        reload:
-          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <!-- circular arc (stops earlier to leave a gap) --> <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/> <!-- arrow --> <polyline points="20 4 20 9 15 9"/> </svg>',
-        forward:
-          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
-        back:
-          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
-        clear:
-          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
-        download:
-          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-      };
+    function applyBounds(b) {
+      root.style.position = "absolute";
+      root.style.left = b.left;
+      root.style.top = b.top;
+      root.style.width = b.width;
+      root.style.height = b.height;
+    }
 
-      const setAddressButtonIcon = (button, iconName) => {
-        button.innerHTML = addressIconSvg[iconName] || "";
-      };
+    function maximizeWindow() {
+      savedBounds = getBounds();
+      root.style.position = "absolute";
+      root.style.left = "0";
+      root.style.top = "0";
+      root.style.width = "100%";
+      root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+      root.style.borderRadius = "0px";
+      isMaximized = true;
+      _isMinimized = false;
+      setWindowMaximizeIcon(btnMax, true);
+    }
 
-      const openBtn = document.createElement("button");
-      openBtn.className = "sim-open-btn";
-      openBtn.title = "open url";
-      setAddressButtonIcon(openBtn, "forward");
-      addressRow.appendChild(openBtn);
+    function restoreWindow(useOriginalBounds = true) {
+      if (useOriginalBounds && savedBounds) {
+        applyBounds(savedBounds);
+      }
+      root.style.borderRadius = "10px";
+      isMaximized = false;
+      _isMinimized = false;
+      setWindowMaximizeIcon(btnMax, false);
+    }
 
-      var sitesettingsbtn = document.createElement("button");
-      sitesettingsbtn.title = "Site Settings";
-      setAddressButtonIcon(sitesettingsbtn, "settings");
-      sitesettingsbtn.className = "sim-open-btn";
-      applyAddressIconButtonStyle(sitesettingsbtn);
+    // MINIMIZE
+    btnMin.addEventListener("click", function () {
+      if (!isMaximized) savedBounds = getBounds();
+      root.style.display = "none";
+      _isMinimized = true;
+    });
 
-      addressRow.prepend(sitesettingsbtn);
+    // MAXIMIZE / RESTORE
+    btnMax.addEventListener("click", function () {
+      if (!isMaximized) {
+        maximizeWindow();
+      } else {
+        restoreWindow(true);
+      }
+    });
 
-      var reloadBtn = document.createElement("button");
-      reloadBtn.title = "Reload";
-      reloadBtn.className = "sim-open-btn";
-      applyAddressIconButtonStyle(reloadBtn);
-      setAddressButtonIcon(reloadBtn, "reload");
-      reloadBtn.dataset.mode = "reload";
-      addressRow.prepend(reloadBtn);
-
-      var forwardBtn = document.createElement("button");
-      forwardBtn.title = "Forward";
-      setAddressButtonIcon(forwardBtn, "forward");
-      forwardBtn.className = "sim-open-btn";
-      applyAddressIconButtonStyle(forwardBtn);
-      addressRow.prepend(forwardBtn);
-
-      var backBtn = document.createElement("button");
-      backBtn.title = "Back";
-      setAddressButtonIcon(backBtn, "back");
-      backBtn.className = "sim-open-btn";
-      applyAddressIconButtonStyle(backBtn);
-      addressRow.prepend(backBtn);
-
-      var clear = document.createElement("button");
-      setAddressButtonIcon(clear, "clear");
-      clear.title = "delete browsing data";
-      clear.className = "sim-open-btn";
-      applyAddressIconButtonStyle(clear);
-
-      function openDownloadUI(anchorPoint = null) {
-        document.getElementById("download-ui")?.remove();
-
-        const overlay = document.createElement("div");
-        overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
-
-        const panel = document.createElement("div");
-        panel.id = "download-ui";
-        panel.className = "panel";
-        panel.classList.toggle("dark", data.dark);
-        panel.classList.toggle("light", !data.dark);
-        panel.style.cssText = "position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
-        panel.onclick = (e) => e.stopPropagation();
-
-        function cleanup() {
-          try { overlay.remove(); } catch (e) {}
-          try { document.removeEventListener("pointermove", onPointerMove); } catch (e) {}
-          try { document.removeEventListener("pointerup", onPointerUp); } catch (e) {}
+    // CLOSE
+    btnClose.addEventListener("click", closeWindow);
+    function closeWindow() {
+      var windowEventScope = "browser" + root._goldenbodyId;
+      try {
+        if (resizePulseInterval) {
+          clearInterval(resizePulseInterval);
+          resizePulseInterval = null;
         }
-        overlay.onclick = () => cleanup();
+      } catch (e) {}
+      try {
+        if (renderInterval) {
+          clearInterval(renderInterval);
+          renderInterval = null;
+        }
+      } catch (e) {}
+      try {
+        if (windowTitleInterval) {
+          clearInterval(windowTitleInterval);
+          windowTitleInterval = null;
+        }
+      } catch (e) {}
 
-        const title = document.createElement("div");
-        title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
-        title.textContent = "Download URL";
-        panel.appendChild(title);
+      root.remove();
 
-        const label = document.createElement("div");
-        label.style.cssText = "font-size:12px;color:#888;margin-bottom:6px";
-        label.textContent = "Enter URL to download";
-        panel.appendChild(label);
+      // Remove from browserGlobals.allBrowsers
+      const index = browserGlobals.allBrowsers.indexOf(chromeWindow);
+      if (index !== -1) {
+        browserGlobals.allBrowsers.splice(index, 1);
+      }
+      window.removeEventListener("message", messageHandler);
+      window.removeEventListener("pointerup", onpointerupAnywhere);
+      try {
+        window.removeAllEventListenersForApp(windowEventScope);
+      } catch (e) {}
+      root = null;
+      _browserCalled = false;
+    }
 
-        const input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = "https://example.com/file.png";
-        input.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+    const tabsRow = document.createElement("div");
+    tabsRow.className = "sim-chrome-tabs";
+    tabsRow.style.flex = "0 1 auto";
+    tabsRow.style.minWidth = "0px";
+    tabsRow.style.overflowX = "auto";
+    tabsRow.style.whiteSpace = "nowrap";
+
+    // new tab button
+    const newTabBtn = document.createElement("button");
+    newTabBtn.className = "sim-open-btn";
+    newTabBtn.innerText = "+";
+    newTabBtn.title = "New tab";
+    Object.assign(newTabBtn.style, {
+      width: "28px",
+      padding: "6px",
+      fontSize: "16px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: "0",
+    });
+
+    // address row
+    const addressRow = document.createElement("div");
+    addressRow.className = "sim-address-row";
+    root.appendChild(addressRow);
+
+    const urlInput = document.createElement("input");
+    urlInput.className = "sim-url-input";
+    urlInput.type = "text";
+    urlInput.placeholder =
+      "Enter URL (e.g. https://example.com, goldenbody://newtab/, goldenbody://app-store/)";
+    urlInput.autocapitalize = "off";
+    urlInput.autocomplete = "off";
+    urlInput.spellcheck = false;
+    addressRow.appendChild(urlInput);
+    const applyAddressIconButtonStyle = (button) => {
+      Object.assign(button.style, {
+        minWidth: "34px",
+        padding: "0 12px",
+        fontSize: "16px",
+      });
+    };
+
+    const addressIconSvg = {
+      settings:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.16.5.65.85 1.19.85H21a2 2 0 1 1 0 4h-.41c-.54 0-1.03.35-1.19.85z"></path></svg>',
+      reload:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <!-- circular arc (stops earlier to leave a gap) --> <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/> <!-- arrow --> <polyline points="20 4 20 9 15 9"/> </svg>',
+      forward:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
+      back: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
+      clear:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+      download:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    };
+
+    const setAddressButtonIcon = (button, iconName) => {
+      button.innerHTML = addressIconSvg[iconName] || "";
+    };
+
+    const openBtn = document.createElement("button");
+    openBtn.className = "sim-open-btn";
+    openBtn.title = "open url";
+    setAddressButtonIcon(openBtn, "forward");
+    addressRow.appendChild(openBtn);
+
+    var sitesettingsbtn = document.createElement("button");
+    sitesettingsbtn.title = "Site Settings";
+    setAddressButtonIcon(sitesettingsbtn, "settings");
+    sitesettingsbtn.className = "sim-open-btn";
+    applyAddressIconButtonStyle(sitesettingsbtn);
+
+    addressRow.prepend(sitesettingsbtn);
+
+    var reloadBtn = document.createElement("button");
+    reloadBtn.title = "Reload";
+    reloadBtn.className = "sim-open-btn";
+    applyAddressIconButtonStyle(reloadBtn);
+    setAddressButtonIcon(reloadBtn, "reload");
+    reloadBtn.dataset.mode = "reload";
+    addressRow.prepend(reloadBtn);
+
+    var forwardBtn = document.createElement("button");
+    forwardBtn.title = "Forward";
+    setAddressButtonIcon(forwardBtn, "forward");
+    forwardBtn.className = "sim-open-btn";
+    applyAddressIconButtonStyle(forwardBtn);
+    addressRow.prepend(forwardBtn);
+
+    var backBtn = document.createElement("button");
+    backBtn.title = "Back";
+    setAddressButtonIcon(backBtn, "back");
+    backBtn.className = "sim-open-btn";
+    applyAddressIconButtonStyle(backBtn);
+    addressRow.prepend(backBtn);
+
+    var clear = document.createElement("button");
+    setAddressButtonIcon(clear, "clear");
+    clear.title = "delete browsing data";
+    clear.className = "sim-open-btn";
+    applyAddressIconButtonStyle(clear);
+
+    function openDownloadUI(anchorPoint = null) {
+      document.getElementById("download-ui")?.remove();
+
+      const overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
+
+      const panel = document.createElement("div");
+      panel.id = "download-ui";
+      panel.className = "panel";
+      panel.classList.toggle("dark", data.dark);
+      panel.classList.toggle("light", !data.dark);
+      panel.style.cssText =
+        "position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+      panel.onclick = (e) => e.stopPropagation();
+
+      function cleanup() {
         try {
-          input.value = (activatedTab && activatedTab.iframe && activatedTab.iframe.src)
+          overlay.remove();
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointermove", onPointerMove);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerup", onPointerUp);
+        } catch (e) {}
+      }
+      overlay.onclick = () => cleanup();
+
+      const title = document.createElement("div");
+      title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
+      title.textContent = "Download URL";
+      panel.appendChild(title);
+
+      const label = document.createElement("div");
+      label.style.cssText = "font-size:12px;color:#888;margin-bottom:6px";
+      label.textContent = "Enter URL to download";
+      panel.appendChild(label);
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "https://example.com/file.png";
+      input.style.cssText =
+        "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+      try {
+        input.value =
+          activatedTab && activatedTab.iframe && activatedTab.iframe.src
             ? browserGlobals.unshuffleURL(activatedTab.iframe.src)
             : "";
-        } catch (e) {}
-        panel.appendChild(input);
+      } catch (e) {}
+      panel.appendChild(input);
 
-        const computeName = (u) => {
-          try {
-            const parsed = new URL(u);
-            let n = parsed.pathname.split("/").pop() || "";
-            if (!n || n === "/") n = parsed.searchParams.get("filename") || parsed.searchParams.get("file") || "";
-            if (!n) n = "download";
-            return n.split("?")[0];
-          } catch (e) {
-            return "download";
-          }
-        };
+      const computeName = (u) => {
+        try {
+          const parsed = new URL(u);
+          let n = parsed.pathname.split("/").pop() || "";
+          if (!n || n === "/")
+            n =
+              parsed.searchParams.get("filename") ||
+              parsed.searchParams.get("file") ||
+              "";
+          if (!n) n = "download";
+          return n.split("?")[0];
+        } catch (e) {
+          return "download";
+        }
+      };
 
-        const info = document.createElement("div");
-        info.style.cssText = "font-size:12px;color:#666;margin-bottom:8px";
+      const info = document.createElement("div");
+      info.style.cssText = "font-size:12px;color:#666;margin-bottom:8px";
+      info.textContent = "Filename: " + computeName(input.value || "");
+      panel.appendChild(info);
+      input.oninput = () => {
         info.textContent = "Filename: " + computeName(input.value || "");
-        panel.appendChild(info);
-        input.oninput = () => {
-          info.textContent = "Filename: " + computeName(input.value || "");
-        };
+      };
 
-        const btnRow = document.createElement("div");
-        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:6px";
-        const btnCancel = document.createElement("button");
-        btnCancel.textContent = "Cancel";
-        btnCancel.onclick = () => cleanup();
-        const btnDownload = document.createElement("button");
-        btnDownload.textContent = "Download";
-        btnDownload.style.background = "#4c8bf5";
-        btnDownload.style.color = "#fff";
-        btnDownload.onclick = async () => {
-          const url = (input.value || "").trim();
-          if (!url) return notification("Enter a URL");
-          const filename = computeName(url);
-          try {
-            if (typeof downloadPost === "function") {
-              await downloadPost({ href: url, filename });
-              notification("Download request sent");
-            } else {
-              notification("downloadPost not available");
-            }
-          } catch (e) {
-            console.error("downloadPost error", e);
-            notification("Download failed to start");
+      const btnRow = document.createElement("div");
+      btnRow.style.cssText =
+        "display:flex;justify-content:flex-end;gap:8px;margin-top:6px";
+      const btnCancel = document.createElement("button");
+      btnCancel.textContent = "Cancel";
+      btnCancel.onclick = () => cleanup();
+      const btnDownload = document.createElement("button");
+      btnDownload.textContent = "Download";
+      btnDownload.style.background = "#4c8bf5";
+      btnDownload.style.color = "#fff";
+      btnDownload.onclick = async () => {
+        const url = (input.value || "").trim();
+        if (!url) return notification("Enter a URL");
+        const filename = computeName(url);
+        try {
+          if (typeof downloadPost === "function") {
+            await downloadPost({ href: url, filename });
+            notification("Download request sent");
+          } else {
+            notification("downloadPost not available");
           }
-          cleanup();
-        };
-        btnRow.appendChild(btnCancel);
-        btnRow.appendChild(btnDownload);
-        panel.appendChild(btnRow);
-
-        let isDragging = false;
-        let startX = 0;
-        let startY = 0;
-        let origLeft = 0;
-        let origTop = 0;
-        function onPointerMove(e) {
-          if (!isDragging) return;
-          const dx = e.clientX - startX;
-          const dy = e.clientY - startY;
-          panel.style.left = origLeft + dx + "px";
-          panel.style.top = origTop + dy + "px";
-          panel.style.transform = "";
+        } catch (e) {
+          console.error("downloadPost error", e);
+          notification("Download failed to start");
         }
-        function onPointerUp() {
-          if (!isDragging) return;
-          isDragging = false;
-          title.style.cursor = "grab";
-          try { document.removeEventListener("pointermove", onPointerMove); } catch (e) {}
-          try { document.removeEventListener("pointerup", onPointerUp); } catch (e) {}
-        }
-        title.addEventListener("pointerdown", (ev) => {
-          ev.preventDefault();
-          isDragging = true;
-          startX = ev.clientX;
-          startY = ev.clientY;
-          const r = panel.getBoundingClientRect();
-          origLeft = r.left;
-          origTop = r.top;
-          title.style.cursor = "grabbing";
-          document.addEventListener("pointermove", onPointerMove);
-          document.addEventListener("pointerup", onPointerUp);
-        });
+        cleanup();
+      };
+      btnRow.appendChild(btnCancel);
+      btnRow.appendChild(btnDownload);
+      panel.appendChild(btnRow);
 
-        overlay.appendChild(panel);
-        document.body.appendChild(overlay);
-
-        if (anchorPoint && typeof anchorPoint.x === "number" && typeof anchorPoint.y === "number") {
-          const rect = panel.getBoundingClientRect();
-          const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
-          const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
-          let left = anchorPoint.x - rect.width;
-          let top = anchorPoint.y;
-          left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
-          top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
-          panel.style.left = left + "px";
-          panel.style.top = top + "px";
-          panel.style.transform = "";
-        } else {
-          panel.style.left = "50%";
-          panel.style.top = "50%";
-          panel.style.transform = "translate(-50%,-50%)";
-        }
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let origLeft = 0;
+      let origTop = 0;
+      function onPointerMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        panel.style.left = origLeft + dx + "px";
+        panel.style.top = origTop + dy + "px";
+        panel.style.transform = "";
       }
-
-      var downloadBtn = document.createElement("button");
-      downloadBtn.title = "Download URL";
-      downloadBtn.className = "sim-open-btn";
-      applyAddressIconButtonStyle(downloadBtn);
-      setAddressButtonIcon(downloadBtn, "download");
-      downloadBtn.onclick = function (e) {
-        const buttonRect = downloadBtn.getBoundingClientRect();
-        const x = buttonRect.right || 0;
-        const y = buttonRect.top || 0;
-        openDownloadUI({ x, y });
-      };
-
-      clear.onclick = function () {
-        fetch(zmcdserver, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: data.username, needID: true, password: password }),
-        })
-          .then((res) => res.json())
-          .then((result) => {
-            console.log("id now:", result);
-            browserGlobals.id = result.id;
-          });
-        notification("site data cleared! please close all browser windows!");
-      };
-
-      addressRow.appendChild(downloadBtn);
-      addressRow.appendChild(clear);
-
-      const resizeDiv = document.createElement("div");
-      resizeDiv.style.backgroundColor = "gray"; // visible
-      resizeDiv.style.position = "absolute";
-      resizeDiv.style.width = "5%";
-      resizeDiv.style.height = "3%";
-      resizeDiv.style.left = "85%";
-      resizeDiv.style.top = "10%";
-      resizeDiv.style.zIndex = "9999";
-      resizeDiv.style.display = "none";
-
-      addressRow.prepend(resizeDiv);
-
-      root.addEventListener("pointerdown", function () {
-        resizeDiv.style.display = "none";
+      function onPointerUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        title.style.cursor = "grab";
+        try {
+          document.removeEventListener("pointermove", onPointerMove);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerup", onPointerUp);
+        } catch (e) {}
+      }
+      title.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        isDragging = true;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        const r = panel.getBoundingClientRect();
+        origLeft = r.left;
+        origTop = r.top;
+        title.style.cursor = "grabbing";
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", onPointerUp);
       });
 
-      let previousn = activatedTab.resizeP;
-      resizePulseInterval = setInterval(() => {
-        if (!activatedTab) return;
-        if (previousn === activatedTab.resizeP) {
-          resizeDiv.style.display = "none";
-        }
-        previousn = activatedTab.resizeP;
-      }, 3000 * nhjd);
-      // ⟳ ⋮
-      // iframes
-      var iframes = [];
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
 
-      const leftGroup = document.createElement("div");
-      leftGroup.style.display = "flex";
-      leftGroup.style.alignItems = "center";
-      leftGroup.className = "leftgroup";
-      leftGroup.style.gap = "0px";
-      leftGroup.style.flex = "1";
-      leftGroup.style.minWidth = "0";
-      leftGroup.appendChild(tabsRow);
+      if (
+        anchorPoint &&
+        typeof anchorPoint.x === "number" &&
+        typeof anchorPoint.y === "number"
+      ) {
+        const rect = panel.getBoundingClientRect();
+        const viewportW =
+          window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportH =
+          window.innerHeight || document.documentElement.clientHeight || 0;
+        let left = anchorPoint.x - rect.width;
+        let top = anchorPoint.y;
+        left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
+        top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+        panel.style.transform = "";
+      } else {
+        panel.style.left = "50%";
+        panel.style.top = "50%";
+        panel.style.transform = "translate(-50%,-50%)";
+      }
+    }
 
-      top.appendChild(leftGroup);
-      top.appendChild(topBar);
-      document.body.appendChild(root);
+    var downloadBtn = document.createElement("button");
+    downloadBtn.title = "Download URL";
+    downloadBtn.className = "sim-open-btn";
+    applyAddressIconButtonStyle(downloadBtn);
+    setAddressButtonIcon(downloadBtn, "download");
+    downloadBtn.onclick = function (e) {
+      const buttonRect = downloadBtn.getBoundingClientRect();
+      const x = buttonRect.right || 0;
+      const y = buttonRect.top || 0;
+      openDownloadUI({ x, y });
+    };
 
-      let tabs = [];
-      let activeTabId = null;
-      let tabCounter = 0;
+    clear.onclick = function () {
+      fetch(zmcdserver, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: data.username,
+          needID: true,
+          password: password,
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          console.log("id now:", result);
+          browserGlobals.id = result.id;
+        });
+      notification("site data cleared! please close all browser windows!");
+    };
 
-      // with this:
-      tabsRow.style.display = "flex";
-      tabsRow.style.flex = "1 1 0"; // <-- grow and be the thing that shrinks
-      tabsRow.style.minWidth = "0"; // <-- required for flex children to actually shrink container
-      tabsRow.style.flexWrap = "nowrap";
-      tabsRow.style.overflowX = "auto";
-      tabsRow.style.overflowY = "hidden";
-      leftGroup.style.flex = "1 1 auto";
-      leftGroup.style.minWidth = "0";
+    addressRow.appendChild(downloadBtn);
+    addressRow.appendChild(clear);
+
+    const resizeDiv = document.createElement("div");
+    resizeDiv.style.backgroundColor = "gray"; // visible
+    resizeDiv.style.position = "absolute";
+    resizeDiv.style.width = "5%";
+    resizeDiv.style.height = "3%";
+    resizeDiv.style.left = "85%";
+    resizeDiv.style.top = "10%";
+    resizeDiv.style.zIndex = "9999";
+    resizeDiv.style.display = "none";
+
+    addressRow.prepend(resizeDiv);
+
+    root.addEventListener("pointerdown", function () {
+      resizeDiv.style.display = "none";
+    });
+
+    let previousn = activatedTab.resizeP;
+    resizePulseInterval = setInterval(() => {
+      if (!activatedTab) return;
+      if (previousn === activatedTab.resizeP) {
+        resizeDiv.style.display = "none";
+      }
+      previousn = activatedTab.resizeP;
+    }, 3000 * nhjd);
+    // ⟳ ⋮
+    // iframes
+    var iframes = [];
+
+    const leftGroup = document.createElement("div");
+    leftGroup.style.display = "flex";
+    leftGroup.style.alignItems = "center";
+    leftGroup.className = "leftgroup";
+    leftGroup.style.gap = "0px";
+    leftGroup.style.flex = "1";
+    leftGroup.style.minWidth = "0";
+    leftGroup.appendChild(tabsRow);
+
+    top.appendChild(leftGroup);
+    top.appendChild(topBar);
+    document.body.appendChild(root);
+
+    let tabs = [];
+    let activeTabId = null;
+    let tabCounter = 0;
+
+    // with this:
+    tabsRow.style.display = "flex";
+    tabsRow.style.flex = "1 1 0"; // <-- grow and be the thing that shrinks
+    tabsRow.style.minWidth = "0"; // <-- required for flex children to actually shrink container
+    tabsRow.style.flexWrap = "nowrap";
+    tabsRow.style.overflowX = "auto";
+    tabsRow.style.overflowY = "hidden";
+    leftGroup.style.flex = "1 1 auto";
+    leftGroup.style.minWidth = "0";
+    browserGlobals.tabisDragging = false;
+
+    let dragid = "";
+    let dragindex = 0;
+    let nativeTabDrag = false;
+    let dragoverReordered = false;
+    let crossWindowTransferHandled = false;
+    const resetTabDragState = () => {
       browserGlobals.tabisDragging = false;
+      dragMoved = false;
+      browserGlobals.draggedtab = null;
+      dragid = "";
+      dragindex = 0;
+      nativeTabDrag = false;
+      dragoverReordered = false;
+      crossWindowTransferHandled = false;
+    };
+    const onpointerupAnywhere = (ev, notontab) => {
+      const eventTarget =
+        ev?.target ||
+        (typeof ev?.clientX === "number" && typeof ev?.clientY === "number"
+          ? document.elementFromPoint(ev.clientX, ev.clientY)
+          : null);
+      if (!eventTarget && !notontab) return;
+      console.log("pointerup anywhere:", eventTarget, "notontab?", notontab);
+      if (!browserGlobals.tabisDragging) return;
+      if (!browserGlobals.dragstartwindow || !browserGlobals.draggedtab) {
+        resetTabDragState();
+        return;
+      }
 
-      let dragid = "";
-      let dragindex = 0;
-      let nativeTabDrag = false;
-      let dragoverReordered = false;
-      let crossWindowTransferHandled = false;
-      const resetTabDragState = () => {
-        browserGlobals.tabisDragging = false;
-        dragMoved = false;
-        browserGlobals.draggedtab = null;
-        dragid = "";
-        dragindex = 0;
-        nativeTabDrag = false;
-        dragoverReordered = false;
-        crossWindowTransferHandled = false;
-      };
-      const onpointerupAnywhere = (ev, notontab) => {
-        const eventTarget =
-          ev?.target ||
-          (typeof ev?.clientX === "number" && typeof ev?.clientY === "number"
-            ? document.elementFromPoint(ev.clientX, ev.clientY)
-            : null);
-        if (!eventTarget && !notontab) return;
-        console.log("pointerup anywhere:", eventTarget, "notontab?", notontab);
-        if (!browserGlobals.tabisDragging) return;
-        if (!browserGlobals.dragstartwindow || !browserGlobals.draggedtab) {
-          resetTabDragState();
-          return;
+      // Check if pointerup happened on a tab
+      let targetTab;
+      try {
+        targetTab = eventTarget?.closest(".sim-tab");
+      } catch (e) {}
+      try {
+        let tabbarHit = false;
+        let targetBrowser = null;
+
+        for (const b of browserGlobals.allBrowsers) {
+          if (
+            b.rootElement.querySelector(".sim-chrome-top").contains(eventTarget)
+          ) {
+            tabbarHit = true;
+            targetBrowser = b;
+            break;
+          }
         }
+        if (tabbarHit) {
+          // Determine the element under the cursor
+          const dropTarget =
+            document.elementFromPoint(ev.clientX, ev.clientY) || eventTarget;
 
-        // Check if pointerup happened on a tab
-        let targetTab;
-        try {
-          targetTab = eventTarget?.closest(".sim-tab");
-        } catch (e) {}
-        try {
-          let tabbarHit = false;
+          // Detect which window the cursor is over
           let targetBrowser = null;
 
           for (const b of browserGlobals.allBrowsers) {
-            if (
-              b.rootElement.querySelector(".sim-chrome-top").contains(eventTarget)
-            ) {
-              tabbarHit = true;
+            if (b.rootElement.contains(dropTarget)) {
               targetBrowser = b;
               break;
             }
           }
-          if (tabbarHit) {
-            // Determine the element under the cursor
-            const dropTarget = document.elementFromPoint(
-              ev.clientX,
-              ev.clientY,
-            ) || eventTarget;
-
-            // Detect which window the cursor is over
-            let targetBrowser = null;
-
-            for (const b of browserGlobals.allBrowsers) {
-              if (b.rootElement.contains(dropTarget)) {
-                targetBrowser = b;
-                break;
-              }
-            }
-            // If dropped in the same window: do nothing
-            if (targetBrowser === browserGlobals.dragstartwindow) {
-              // reset drag state
-              resetTabDragState();
-              return;
-            }
-
-            // If dropped in another window
-            if (targetBrowser) {
-              if (crossWindowTransferHandled) {
-                resetTabDragState();
-                return;
-              }
-              crossWindowTransferHandled = true;
-              targetBrowser.addTab(browserGlobals.draggedtab.url, "", browserGlobals.draggedtab.resizeP);
-              browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
-              resetTabDragState();
-              return;
-            }
-
+          // If dropped in the same window: do nothing
+          if (targetBrowser === browserGlobals.dragstartwindow) {
+            // reset drag state
             resetTabDragState();
             return;
           }
-        } catch (e) {}
-        if (!targetTab || targetTab.id !== dragid) {
-          // pointerup happened somewhere else
-          if (crossWindowTransferHandled) {
+
+          // If dropped in another window
+          if (targetBrowser) {
+            if (crossWindowTransferHandled) {
+              resetTabDragState();
+              return;
+            }
+            crossWindowTransferHandled = true;
+            targetBrowser.addTab(
+              browserGlobals.draggedtab.url,
+              "",
+              browserGlobals.draggedtab.resizeP,
+            );
+            browserGlobals.dragstartwindow.closeTab(
+              browserGlobals.draggedtab.id,
+            );
             resetTabDragState();
             return;
           }
-          crossWindowTransferHandled = true;
-          browser(
-            browserGlobals.dragstartwindow.tabs[dragindex].url,
-            browserGlobals.draggedtab.resizeP,
-            ev.clientX - 100,
-            ev.clientY - 20,
-          ); // your custom function
-          // console.log(root);
-          browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
-        }
 
-        resetTabDragState();
-      };
-      function messageHandler(event) {
-        const data = event.data;
-        if (data?.type === "iframe-pointerup") {
-          // console.log("pointerup from iframe:");
-          // console.log("Coordinates:", data.x, data.y);
-          // console.log("Button pressed:", data.button);
-
-          // You can reconstruct a pseudo-event:
-          const e = {
-            clientX: data.x,
-            clientY: data.y,
-            pageX: data.pageX,
-            pageY: data.pageY,
-            button: data.button,
-            buttons: data.buttons,
-            altKey: data.altKey,
-            ctrlKey: data.ctrlKey,
-            shiftKey: data.shiftKey,
-            metaKey: data.metaKey,
-          };
-          onpointerupAnywhere(e, true);
-          // Use pseudoEvent however you want
-          let pointerup = new MouseEvent("pointerup", e);
-          document.dispatchEvent(pointerup);
-          window.dispatchEvent(pointerup);
-          let pointerdown = new MouseEvent("pointerdown", e);
-          document.dispatchEvent(pointerdown);
-          window.dispatchEvent(pointerdown);
-          let CLICK = new MouseEvent("click", e);
-          document.dispatchEvent(CLICK);
-          window.dispatchEvent(CLICK);
+          resetTabDragState();
+          return;
         }
+      } catch (e) {}
+      if (!targetTab || targetTab.id !== dragid) {
+        // pointerup happened somewhere else
+        if (crossWindowTransferHandled) {
+          resetTabDragState();
+          return;
+        }
+        crossWindowTransferHandled = true;
+        browser(
+          browserGlobals.dragstartwindow.tabs[dragindex].url,
+          browserGlobals.draggedtab.resizeP,
+          ev.clientX - 100,
+          ev.clientY - 20,
+        ); // your custom function
+        // console.log(root);
+        browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
       }
-      window.addEventListener("message", messageHandler);
-      window.addEventListener("pointerup", onpointerupAnywhere);
-      renderInterval = setInterval(() => {
-        if(!root) {clearInterval(renderInterval); console.warn('interval cleared, root missing!')};
-        renderTabs();
-      }, 10000);
-      function renderTabs() {
-        if (browserGlobals.tabisDragging || nativeTabDrag) return;
-        var ids = 0;
-        while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
-        leftGroup.appendChild(newTabBtn);
 
-        // tabs
-        tabs.forEach((t) => {
-          const el = document.createElement("div");
-          // inside renderTabs(), after creating el
-          el.style.flex = "0 0 auto";
-          el.id = "id-" + ids;
-          ids++;
-          el.draggable = true;
-          el.name = "tabs";
-          el.style.minWidth = "13.5%"; // or 150–185px if you want a bigger minimum
-          el.style.maxWidth = "13.5%";
-          el.style.overflow = "hidden";
-          el.style.display = "flex";
-          el.style.whiteSpace = "nowrap";
-          el.tabIndex = "0";
+      resetTabDragState();
+    };
+    function messageHandler(event) {
+      const data = event.data;
+      if (data?.type === "iframe-pointerup") {
+        // console.log("pointerup from iframe:");
+        // console.log("Coordinates:", data.x, data.y);
+        // console.log("Button pressed:", data.button);
 
-          el.setAttribute("draggable", "true");
-          let temptab = 0;
-          function countChild(parent, targetElement) {
-            const children = parent.children;
-            let count = 0;
+        // You can reconstruct a pseudo-event:
+        const e = {
+          clientX: data.x,
+          clientY: data.y,
+          pageX: data.pageX,
+          pageY: data.pageY,
+          button: data.button,
+          buttons: data.buttons,
+          altKey: data.altKey,
+          ctrlKey: data.ctrlKey,
+          shiftKey: data.shiftKey,
+          metaKey: data.metaKey,
+        };
+        onpointerupAnywhere(e, true);
+        // Use pseudoEvent however you want
+        let pointerup = new MouseEvent("pointerup", e);
+        document.dispatchEvent(pointerup);
+        window.dispatchEvent(pointerup);
+        let pointerdown = new MouseEvent("pointerdown", e);
+        document.dispatchEvent(pointerdown);
+        window.dispatchEvent(pointerdown);
+        let CLICK = new MouseEvent("click", e);
+        document.dispatchEvent(CLICK);
+        window.dispatchEvent(CLICK);
+      }
+    }
+    window.addEventListener("message", messageHandler);
+    window.addEventListener("pointerup", onpointerupAnywhere);
+    renderInterval = setInterval(() => {
+      if (!root) {
+        clearInterval(renderInterval);
+        console.warn("interval cleared, root missing!");
+      }
+      renderTabs();
+    }, 10000);
+    function renderTabs() {
+      if (browserGlobals.tabisDragging || nativeTabDrag) return;
+      var ids = 0;
+      while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
+      leftGroup.appendChild(newTabBtn);
 
-            for (let i = 0; i < children.length; i++) {
-              if (children[i] === targetElement) {
-                break; // Stop counting when you reach the target element
-              }
-              count++;
+      // tabs
+      tabs.forEach((t) => {
+        const el = document.createElement("div");
+        // inside renderTabs(), after creating el
+        el.style.flex = "0 0 auto";
+        el.id = "id-" + ids;
+        ids++;
+        el.draggable = true;
+        el.name = "tabs";
+        el.style.minWidth = "13.5%"; // or 150–185px if you want a bigger minimum
+        el.style.maxWidth = "13.5%";
+        el.style.overflow = "hidden";
+        el.style.display = "flex";
+        el.style.whiteSpace = "nowrap";
+        el.tabIndex = "0";
+
+        el.setAttribute("draggable", "true");
+        let temptab = 0;
+        function countChild(parent, targetElement) {
+          const children = parent.children;
+          let count = 0;
+
+          for (let i = 0; i < children.length; i++) {
+            if (children[i] === targetElement) {
+              break; // Stop counting when you reach the target element
             }
-
-            return count;
+            count++;
           }
-          function moveTabInArray(tabs, fromIndex, toIndex) {
-            if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex)
-              return tabs;
 
-            const [moved] = tabs.splice(fromIndex, 1);
-
-            // After removing an earlier element, the target index shifts down by 1
-            if (fromIndex < toIndex) toIndex--;
-
-            tabs.splice(toIndex, 0, moved);
+          return count;
+        }
+        function moveTabInArray(tabs, fromIndex, toIndex) {
+          if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex)
             return tabs;
+
+          const [moved] = tabs.splice(fromIndex, 1);
+
+          // After removing an earlier element, the target index shifts down by 1
+          if (fromIndex < toIndex) toIndex--;
+
+          tabs.splice(toIndex, 0, moved);
+          return tabs;
+        }
+        el.addEventListener("pointerup", function () {
+          root.focus();
+        });
+        el.addEventListener("pointerdown", (ev) => {
+          if (ev.target.classList.contains("close")) return;
+          if (activeTabId !== t.id) activateTab(t.id);
+        });
+        el.addEventListener("pointerup", function () {
+          bringToFront(root);
+        });
+        el.addEventListener("dragstart", (ev) => {
+          browserGlobals.dragstartwindow = chromeWindow;
+          browserGlobals.tabisDragging = true;
+          nativeTabDrag = true;
+          dragoverReordered = false;
+          dragMoved = false;
+          dragindex = countChild(tabsRow, el);
+          console.log("dragindex:", dragindex);
+          browserGlobals.draggedtab = tabs[dragindex];
+          dragid = el.id;
+          try {
+            if (ev.dataTransfer) {
+              ev.dataTransfer.effectAllowed = "move";
+              ev.dataTransfer.setData("text/plain", dragid);
+            }
+          } catch (e) {}
+        });
+
+        el.addEventListener("dragover", (e) => {
+          if (
+            !(
+              browserGlobals.tabisDragging &&
+              browserGlobals.dragstartwindow === chromeWindow
+            )
+          )
+            return;
+          e.preventDefault();
+          dragMoved = true;
+          dragoverReordered = true;
+
+          const draggedelement = root.querySelector(`#${dragid}`);
+          if (!draggedelement || draggedelement === el) return;
+
+          const isDraggingRight =
+            draggedelement.compareDocumentPosition(el) &
+            Node.DOCUMENT_POSITION_FOLLOWING;
+
+          let newIndex = countChild(tabsRow, el);
+          if (isDraggingRight) newIndex++;
+
+          tabs = moveTabInArray(tabs, dragindex, newIndex);
+          tabsRow.insertBefore(
+            draggedelement,
+            isDraggingRight ? el.nextSibling : el,
+          );
+          dragindex = countChild(tabsRow, draggedelement);
+        });
+
+        el.addEventListener("dragend", (e) => {
+          if (!browserGlobals.tabisDragging) return;
+          onpointerupAnywhere({
+            clientX: e.clientX,
+            clientY: e.clientY,
+            target: document.elementFromPoint(e.clientX, e.clientY) || e.target,
+          });
+          resetTabDragState();
+          renderTabs();
+        });
+
+        el.addEventListener("pointermove", () => {
+          if (browserGlobals.tabisDragging) dragMoved = true;
+        });
+
+        el.addEventListener("pointerup", (e) => {
+          if (nativeTabDrag) {
+            return;
           }
-          el.addEventListener("pointerup", function () {
-            root.focus();
-          });
-          el.addEventListener("pointerdown", (ev) => {
-            if (ev.target.classList.contains("close")) return;
-            if (activeTabId !== t.id) activateTab(t.id);
-          });
-          el.addEventListener("pointerup", function () {
-            bringToFront(root);
-          });
-          el.addEventListener("dragstart", (ev) => {
-            browserGlobals.dragstartwindow = chromeWindow;
-            browserGlobals.tabisDragging = true;
-            nativeTabDrag = true;
-            dragoverReordered = false;
-            dragMoved = false;
-            dragindex = countChild(tabsRow, el);
-            console.log("dragindex:", dragindex);
-            browserGlobals.draggedtab = tabs[dragindex];
-            dragid = el.id;
-            try {
-              if (ev.dataTransfer) {
-                ev.dataTransfer.effectAllowed = "move";
-                ev.dataTransfer.setData("text/plain", dragid);
-              }
-            } catch (e) {}
-          });
-
-          el.addEventListener("dragover", (e) => {
-            if (!(browserGlobals.tabisDragging && browserGlobals.dragstartwindow === chromeWindow)) return;
-            e.preventDefault();
-            dragMoved = true;
-            dragoverReordered = true;
-
+          if (
+            browserGlobals.tabisDragging &&
+            dragMoved &&
+            browserGlobals.dragstartwindow === chromeWindow
+          ) {
             const draggedelement = root.querySelector(`#${dragid}`);
             if (!draggedelement || draggedelement === el) return;
 
+            // Determine if dragging right
             const isDraggingRight =
               draggedelement.compareDocumentPosition(el) &
               Node.DOCUMENT_POSITION_FOLLOWING;
 
+            // Compute new index BEFORE inserting
             let newIndex = countChild(tabsRow, el);
-            if (isDraggingRight) newIndex++;
+            if (isDraggingRight) newIndex++; // insert after target
 
+            // Update array first
             tabs = moveTabInArray(tabs, dragindex, newIndex);
-            tabsRow.insertBefore(draggedelement, isDraggingRight ? el.nextSibling : el);
-            dragindex = countChild(tabsRow, draggedelement);
-          });
 
-          el.addEventListener("dragend", (e) => {
-            if (!browserGlobals.tabisDragging) return;
-            onpointerupAnywhere({
-              clientX: e.clientX,
-              clientY: e.clientY,
-              target: document.elementFromPoint(e.clientX, e.clientY) || e.target,
-            });
-            resetTabDragState();
-            renderTabs();
-          });
-
-          el.addEventListener("pointermove", () => {
-            if (browserGlobals.tabisDragging) dragMoved = true;
-          });
-
-          el.addEventListener("pointerup", (e) => {
-            if (nativeTabDrag) {
-              return;
-            }
-            if (
-              browserGlobals.tabisDragging &&
-              dragMoved &&
-              browserGlobals.dragstartwindow === chromeWindow
-            ) {
-              const draggedelement = root.querySelector(`#${dragid}`);
-              if (!draggedelement || draggedelement === el) return;
-
-              // Determine if dragging right
-              const isDraggingRight =
-                draggedelement.compareDocumentPosition(el) &
-                Node.DOCUMENT_POSITION_FOLLOWING;
-
-              // Compute new index BEFORE inserting
-              let newIndex = countChild(tabsRow, el);
-              if (isDraggingRight) newIndex++; // insert after target
-
-              // Update array first
-              tabs = moveTabInArray(tabs, dragindex, newIndex);
-
-              // Then update DOM
-              tabsRow.insertBefore(
-                draggedelement,
-                isDraggingRight ? el.nextSibling : el,
-              );
-            }
-            if (
-              browserGlobals.tabisDragging &&
-              dragMoved &&
-              browserGlobals.dragstartwindow !== chromeWindow
-            ) {
-              onpointerupAnywhere(e);
-            }
-
-            resetTabDragState();
-          });
-
-          const title = el.querySelector(".sim-tab-title");
-          if (title) title.style.textOverflow = "ellipsis";
-          el.className = "sim-tab" + (t.id === activeTabId ? " active" : "");
-          el.title = t.title || "Untitled";
-          el.innerHTML = `<span style='display: inline-block;overflow: hidden;white-space: nowrap; text-overflow: ellipsis;' class='sim-tab-title'>${t.title || "Untitled"}</span>
-                    <span class='close' title='Close tab'>&times;</span>`;
-          // close handler
-          el.querySelector(".close").addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            closeTab(t.id);
-          });
-          tabsRow.appendChild(el);
-          tabsRow.appendChild(newTabBtn);
-        });
-        // reorder tabs
-      }
-      window.addEventListener('browser' + root._goldenbodyId, "message", function (e) {
-        if (e.data.type === "FROM_IFRAME") {
-          addTab(e.data.message, "New Tab");
-        }
-        else if(e.data.__goldenbodynewWindow__ && root === browserGlobals.allBrowsers[e.data.allbrowserindex].rootElement) {
-          addTab(e.data.url, "New Tab");
-        }
-      });
-      //render tab end----------------------------------------------------------
-
-      function addTab(url, title, resizeP = preloadsize) {
-
-        const id = "tab-" + ++tabCounter;
-        const iframe = document.createElement("iframe");
-        if(data.lazyloading) iframe.loading = "lazy";
-        iframe.onload = () => {
-          try {
-            // Try to access its document
-            const doc = iframe.contentDocument || iframe.contentWindow.document;
-            // let script = document.createElement('script');
-            // script.textContent = `
-            // const nativePostMessage = window.postMessage;
-            // window.postMessage = function(msg, target) {
-            //   nativePostMessage.call(window, msg, target);
-            // };
-            // `;
-            // doc.appendChild(sc)
-            // If site unreachable, doc will often be null
-            if (!doc || doc.body.innerHTML.trim() === "") {
-              console.log("Site unreachable or failed to load.");
-            } else {
-              console.log("Loaded successfully.");
-            }
-          } catch (e) {
-            // Cross-origin frame loaded, but we can’t read its contents.
-            console.log(
-              "Loaded, but cannot access due to cross-origin restrictions.",
+            // Then update DOM
+            tabsRow.insertBefore(
+              draggedelement,
+              isDraggingRight ? el.nextSibling : el,
             );
           }
-        };
-        iframe.addEventListener("load", function () {
-          let eggpatch = document.createElement("script");
-          eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
-          iframe.contentDocument.body.appendChild(eggpatch);
-          let eggpatch2 = document.createElement("script");
-          eggpatch2.textContent = `
+          if (
+            browserGlobals.tabisDragging &&
+            dragMoved &&
+            browserGlobals.dragstartwindow !== chromeWindow
+          ) {
+            onpointerupAnywhere(e);
+          }
+
+          resetTabDragState();
+        });
+
+        const title = el.querySelector(".sim-tab-title");
+        if (title) title.style.textOverflow = "ellipsis";
+        el.className = "sim-tab" + (t.id === activeTabId ? " active" : "");
+        el.title = t.title || "Untitled";
+        el.innerHTML = `<span style='display: inline-block;overflow: hidden;white-space: nowrap; text-overflow: ellipsis;' class='sim-tab-title'>${t.title || "Untitled"}</span>
+                    <span class='close' title='Close tab'>&times;</span>`;
+        // close handler
+        el.querySelector(".close").addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          closeTab(t.id);
+        });
+        tabsRow.appendChild(el);
+        tabsRow.appendChild(newTabBtn);
+      });
+      // reorder tabs
+    }
+    window.addEventListener(
+      "browser" + root._goldenbodyId,
+      "message",
+      function (e) {
+        if (e.data.type === "FROM_IFRAME") {
+          addTab(e.data.message, "New Tab");
+        } else if (
+          e.data.__goldenbodynewWindow__ &&
+          root ===
+            browserGlobals.allBrowsers[e.data.allbrowserindex].rootElement
+        ) {
+          addTab(e.data.url, "New Tab");
+        }
+      },
+    );
+    //render tab end----------------------------------------------------------
+
+    function addTab(url, title, resizeP = preloadsize) {
+      const id = "tab-" + ++tabCounter;
+      const iframe = document.createElement("iframe");
+      if (data.lazyloading) iframe.loading = "lazy";
+      iframe.onload = () => {
+        try {
+          // Try to access its document
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          // let script = document.createElement('script');
+          // script.textContent = `
+          // const nativePostMessage = window.postMessage;
+          // window.postMessage = function(msg, target) {
+          //   nativePostMessage.call(window, msg, target);
+          // };
+          // `;
+          // doc.appendChild(sc)
+          // If site unreachable, doc will often be null
+          if (!doc || doc.body.innerHTML.trim() === "") {
+            console.log("Site unreachable or failed to load.");
+          } else {
+            console.log("Loaded successfully.");
+          }
+        } catch (e) {
+          // Cross-origin frame loaded, but we can’t read its contents.
+          console.log(
+            "Loaded, but cannot access due to cross-origin restrictions.",
+          );
+        }
+      };
+      iframe.addEventListener("load", function () {
+        let eggpatch = document.createElement("script");
+        eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
+        iframe.contentDocument.body.appendChild(eggpatch);
+        let eggpatch2 = document.createElement("script");
+        eggpatch2.textContent = `
               const nativeURL = window.URL;
               function URLShim(url = '', base) {
                 const normalizedUrl = url == null ? '' : String(url);
@@ -1194,9 +1268,9 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
               URLShim.prototype = nativeURL.prototype;
               window.URL = URLShim;
           `;
-          iframe.contentDocument.body.appendChild(eggpatch2);
-          let themeOverride = document.createElement("script");
-          themeOverride.textContent = `
+        iframe.contentDocument.body.appendChild(eggpatch2);
+        let themeOverride = document.createElement("script");
+        themeOverride.textContent = `
           (function(){
             try{
               window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
@@ -1242,63 +1316,66 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             }catch(e){}
           })();
           `;
-          iframe.contentDocument.body.appendChild(themeOverride);
-            if (!iframe.contentWindow.eruda) {
-                const script = iframe.contentDocument.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/npm/eruda";
-                script.onload = () => {
-                  iframe.contentWindow.eruda.init();
-                  iframe.contentWindow.eruda.get("entryBtn").hide();
-                };
-                iframe.contentDocument.head.appendChild(script);
-              }
-          tab.iframe.contentWindow.postMessage(
-            {
-              message: "GOLDENBODY_id",
-              website: goldenbodywebsite,
-              value: data.id,
-              dark: data.dark
-            },
-            "*",
-          );
-          function handleresize(e, tab) {
-            try {
-              if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
-                e.preventDefault();
-                tab.resizeP += 5;
-                if (tab.resizeP > 500) tab.resizeP = 500;
-                resizeDiv.style.display = "block";
-                let resizescript = document.createElement("script");
-                resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
-                tab.iframe.contentDocument.head.appendChild(resizescript);
-              } else if (e.ctrlKey && e.key === "-") {
-                e.preventDefault();
-                tab.resizeP -= 5;
-                if (tab.resizeP < 25) tab.resizeP = 25;
-                resizeDiv.style.display = "block";
-                let resizescript = document.createElement("script");
-                resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
-                tab.iframe.contentDocument.head.appendChild(resizescript);
-              } else {
-                resizeDiv.style.display = "none";
-              }
-            } catch (e) {}
-          }
-          function handleresizel1(e) {
-            handleresize(e, tab);
-          }
+        iframe.contentDocument.body.appendChild(themeOverride);
+        if (!iframe.contentWindow.eruda) {
+          const script = iframe.contentDocument.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/eruda";
+          script.onload = () => {
+            iframe.contentWindow.eruda.init();
+            iframe.contentWindow.eruda.get("entryBtn").hide();
+          };
+          iframe.contentDocument.head.appendChild(script);
+        }
+        tab.iframe.contentWindow.postMessage(
+          {
+            message: "GOLDENBODY_id",
+            website: goldenbodywebsite,
+            value: data.id,
+            dark: data.dark,
+          },
+          "*",
+        );
+        function handleresize(e, tab) {
+          try {
+            if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
+              e.preventDefault();
+              tab.resizeP += 5;
+              if (tab.resizeP > 500) tab.resizeP = 500;
+              resizeDiv.style.display = "block";
+              let resizescript = document.createElement("script");
+              resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
+              tab.iframe.contentDocument.head.appendChild(resizescript);
+            } else if (e.ctrlKey && e.key === "-") {
+              e.preventDefault();
+              tab.resizeP -= 5;
+              if (tab.resizeP < 25) tab.resizeP = 25;
+              resizeDiv.style.display = "block";
+              let resizescript = document.createElement("script");
+              resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
+              tab.iframe.contentDocument.head.appendChild(resizescript);
+            } else {
+              resizeDiv.style.display = "none";
+            }
+          } catch (e) {}
+        }
+        function handleresizel1(e) {
+          handleresize(e, tab);
+        }
 
-          tab.iframe.contentWindow.addEventListener("keydown", handleresizel1);
-          root.addEventListener("keydown", handleresizel1);
-          if(!tab.iframe.style.display === "none") urlInput.value = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
-          let resizescript = document.createElement("script");
-          resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
-          tab.iframe.contentDocument.head.appendChild(resizescript);
-          // let sfc = tab.iframe.contentDocument.createElement("script");
-          // sfc.src = goldenbodywebsite + "sfc__o.js";
-          // tab.iframe.contentDocument.head.prepend(sfc);
-          var script = tab.iframe.contentDocument.createElement("script");
-          script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+        tab.iframe.contentWindow.addEventListener("keydown", handleresizel1);
+        root.addEventListener("keydown", handleresizel1);
+        if (!tab.iframe.style.display === "none")
+          urlInput.value = browserGlobals.unshuffleURL(
+            iframe.contentWindow.location.href,
+          );
+        let resizescript = document.createElement("script");
+        resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
+        tab.iframe.contentDocument.head.appendChild(resizescript);
+        // let sfc = tab.iframe.contentDocument.createElement("script");
+        // sfc.src = goldenbodywebsite + "sfc__o.js";
+        // tab.iframe.contentDocument.head.prepend(sfc);
+        var script = tab.iframe.contentDocument.createElement("script");
+        script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
   window.parent.postMessage(
     { type: "FROM_IFRAME", message: url },
     "*"
@@ -1306,23 +1383,242 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
 }
 
 `;
-          tab.iframe.contentDocument.head.appendChild(script);
+        tab.iframe.contentDocument.head.appendChild(script);
+      });
+      iframe.addEventListener("load", function onLoad() {
+        const doc = iframe.contentDocument;
+        const win = iframe.contentWindow;
+
+        // Skip if unloaded or invalid
+        if (!doc || !win) return;
+
+        // Remove old handler if exists
+        win.removeEventListener("keydown", win.erudaKeyHandler);
+
+        // Define new handler
+        win.erudaKeyHandler = function (e) {
+          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
+            if (!win.eruda) {
+              iframe.contentWindow._goldenbodyIns = true;
+
+              const script = doc.createElement("script");
+              script.src = "https://cdn.jsdelivr.net/npm/eruda";
+              script.onload = () => {
+                win.eruda.init();
+                win.eruda.get("entryBtn").hide();
+                win.eruda.show();
+              };
+              doc.head.appendChild(script);
+            } else {
+              try {
+                // toggle show/hide
+                if (!win._goldenbodyIns) {
+                  win.eruda.show();
+
+                  win._goldenbodyIns = true;
+                } else {
+                  win.eruda.hide();
+
+                  win._goldenbodyIns = false;
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }
+        };
+
+        // Attach handler
+        win.addEventListener("keydown", win.erudaKeyHandler);
+      });
+      const titleInterval = setInterval(() => {
+        try {
+          if (!iframe || !iframe.contentDocument) {
+            clearInterval(titleInterval);
+            console.warn("Interval cleared: iframe is gone");
+            return;
+          }
+          tab.url = browserGlobals.unshuffleURL(
+            iframe.contentWindow.location.href,
+          );
+          if (iframe.contentDocument.readyState === "complete" && !tab.donotm) {
+            const docTitle = iframe.contentDocument.title || "Untitled";
+            tab.title = docTitle;
+          } else {
+            tab.title = "Loading...";
+          }
+        } catch (e) {
+          clearInterval(titleInterval);
+          console.warn("Interval cleared due to error:", e);
+        }
+        if (previousTabTitle !== tab.title) renderTabs();
+        previousTabTitle = tab.title;
+      }, 1000 * nhjd);
+
+      createPermInput(iframe, url);
+      iframe.tabIndex = "0";
+      iframe.className = "sim-iframe";
+      function iframePatches() {
+        // Get the document inside the iframe
+        const iframeDocument =
+          iframe.contentDocument || iframe.contentWindow.document;
+        if (!iframeDocument || !iframe.contentWindow) return;
+        if (iframe.__gbPatchedDocument === iframeDocument) return;
+        iframe.contentWindow.addEventListener("keydown", function (e) {
+          if (e.ctrlKey && e.key === "n") {
+            e.preventDefault();
+            if (atTop == "browser" || atTop == "") {
+              browser();
+            }
+          } else if (
+            e.ctrlKey &&
+            e.shiftKey &&
+            e.key === "W" &&
+            atTop == "browser"
+          ) {
+            let allIds = [];
+            for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+              allIds.push(
+                browserGlobals.allBrowsers[i].rootElement._goldenbodyId,
+              );
+            }
+            let maxId = Math.max(...allIds);
+            for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+              if (
+                browserGlobals.allBrowsers[i].rootElement._goldenbodyId == maxId
+              ) {
+                browserGlobals.allBrowsers[i].rootElement.remove();
+                browserGlobals.allBrowsers[i].rootElement = null;
+                browserGlobals.allBrowsers.splice(i, 1);
+              }
+            }
+          } else if (e.ctrlKey && e.key === "t") {
+            e.preventDefault();
+
+            addTab("goldenbody://newtab/", "New Tab");
+          }
         });
-        iframe.addEventListener("load", function onLoad() {
-          const doc = iframe.contentDocument;
-          const win = iframe.contentWindow;
 
-          // Skip if unloaded or invalid
-          if (!doc || !win) return;
+        // Create a reusable custom context menu
+        const menu = iframeDocument.createElement("div");
+        menu.style.all = "unset";
 
-          // Remove old handler if exists
-          win.removeEventListener("keydown", win.erudaKeyHandler);
+        menu.id = "custom-context-menu";
+        menu.style.display = "block"; // <-- important!
 
-          // Define new handler
-          win.erudaKeyHandler = function (e) {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
+        menu.style.position = "fixed";
+        menu.style.background = "#222";
+        menu.style.color = "#fff";
+        menu.style.padding = "8px 0";
+        menu.style.borderRadius = "6px";
+        menu.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
+        menu.style.fontFamily = "sans-serif";
+        menu.style.fontSize = "14px";
+        menu.style.display = "none";
+        menu.style.zIndex = "2147483646"; // maximum z-index to ensure it appears on top
+        iframeDocument.body.appendChild(menu);
+
+        // window.addEventListener("pointerdown", function () {
+        //   menu.style.display = "none";
+        // });
+        // Function to show the menu
+        function showMenu(x, y, linkElement, isA, isDownload) {
+          if (isA || isDownload) {
+            menu.innerHTML = ""; // clear old items
+
+            // Create menu items (same as before)
+
+            const openItem = iframeDocument.createElement("div");
+            openItem.style.all = "unset";
+
+            openItem.textContent = "Open link in new tabㅤㅤㅤㅤㅤ";
+            openItem.style.display = "block"; // <-- important!
+            openItem.style.textAlign = "left";
+
+            openItem.style.padding = "6px 16px";
+            openItem.style.cursor = "pointer";
+            openItem.onmouseenter = () => (openItem.style.background = "#444");
+            openItem.style.font = "Arial";
+            openItem.onmouseleave = () => (openItem.style.background = "none");
+            openItem.onclick = () => {
+              addTab(linkElement.href, "New Tab");
+              hideMenu();
+            };
+            menu.appendChild(openItem);
+
+            const openItem2 = iframeDocument.createElement("div");
+            openItem2.style.all = "unset";
+
+            openItem2.textContent = "Open link in new windowㅤㅤㅤㅤㅤ";
+            openItem2.style.display = "block"; // <-- important!
+            openItem2.style.textAlign = "left";
+
+            openItem2.style.padding = "6px 16px";
+            openItem2.style.cursor = "pointer";
+            openItem2.onmouseenter = () =>
+              (openItem2.style.background = "#444");
+            openItem2.style.font = "Arial";
+            openItem2.onmouseleave = () =>
+              (openItem2.style.background = "none");
+            openItem2.onclick = () => {
+              browser(linkElement.href);
+              hideMenu();
+            };
+            menu.appendChild(openItem2);
+
+            const copyItem = iframeDocument.createElement("div");
+            copyItem.style.all = "unset";
+            copyItem.style.display = "block"; // <-- important!
+            copyItem.style.textAlign = "left";
+
+            copyItem.textContent = "Copy link address";
+            copyItem.style.padding = "6px 16px";
+            copyItem.style.cursor = "pointer";
+            copyItem.style.font = "Arial";
+            copyItem.onmouseenter = () => (copyItem.style.background = "#444");
+            copyItem.onmouseleave = () => (copyItem.style.background = "none");
+            copyItem.onclick = async () => {
+              await navigator.clipboard.writeText(linkElement.href);
+              hideMenu();
+            };
+            menu.appendChild(copyItem);
+
+            const download = iframeDocument.createElement("div");
+            download.style.all = "unset";
+            download.style.display = "block"; // <-- important!
+            download.style.textAlign = "left";
+
+            download.textContent = "Download linkㅤㅤㅤㅤㅤ";
+            download.style.padding = "6px 16px";
+            download.style.font = "Arial";
+            download.style.cursor = "pointer";
+            download.onmouseenter = () => (download.style.background = "#444");
+            download.onmouseleave = () => (download.style.background = "none");
+            download.onclick = () => {
+              downloadPost({
+                href: linkElement.href,
+                filename: linkElement.href.split("/").pop().split("?")[0],
+              });
+              hideMenu();
+            };
+            menu.appendChild(download);
+            const inspect = iframeDocument.createElement("div");
+            inspect.style.all = "unset";
+            inspect.style.display = "block"; // <-- important!
+            inspect.style.textAlign = "left";
+
+            inspect.textContent = "inspect ㅤㅤㅤㅤㅤㅤㅤㅤCtrl+Shift+I";
+            inspect.style.padding = "6px 16px";
+            inspect.style.font = "Arial";
+            inspect.style.cursor = "pointer";
+            inspect.onmouseenter = () => (inspect.style.background = "#444");
+            inspect.onmouseleave = () => (inspect.style.background = "none");
+            inspect.onclick = () => {
+              const win = tab.iframe.contentWindow;
+              const doc = tab.iframe.contentDocument;
+              if (!win) return;
               if (!win.eruda) {
-                iframe.contentWindow._goldenbodyIns = true;
+                tab.iframe.contentWindow._goldenbodyIns = true;
 
                 const script = doc.createElement("script");
                 script.src = "https://cdn.jsdelivr.net/npm/eruda";
@@ -1332,397 +1628,168 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
                   win.eruda.show();
                 };
                 doc.head.appendChild(script);
-              } else {
-                try {
-                  // toggle show/hide
-                  if (!win._goldenbodyIns) {
-                    win.eruda.show();
-
-                    win._goldenbodyIns = true;
-                  } else {
-                    win.eruda.hide();
-
-                    win._goldenbodyIns = false;
-                  }
-                } catch (e) {
-                  console.error(e);
-                }
               }
-            }
-          };
+              win.eruda[win._goldenbodyIns ? "hide" : "show"]();
+              win._goldenbodyIns = !win._goldenbodyIns;
 
-          // Attach handler
-          win.addEventListener("keydown", win.erudaKeyHandler);
+              hideMenu();
+            };
+            menu.appendChild(inspect);
+            // Temporarily show the menu off-screen to measure its size
+            menu.style.left = "-9999px";
+            menu.style.top = "-9999px";
+            menu.style.display = "block";
+            const menuRect = menu.getBoundingClientRect();
+
+            // Determine iframe/document boundaries
+            const viewportWidth = iframeDocument.documentElement.clientWidth;
+            const viewportHeight = iframeDocument.documentElement.clientHeight;
+
+            let finalX = x;
+            let finalY = y;
+
+            // Flip horizontally if the menu would go off the right edge
+            if (x + menuRect.width > viewportWidth) {
+              finalX = x - menuRect.width;
+            }
+
+            // Flip vertically if the menu would go off the bottom edge
+            if (y + menuRect.height > viewportHeight) {
+              finalY = y - menuRect.height;
+            }
+
+            // Apply final position
+            menu.style.left = `${Math.max(0, finalX)}px`;
+            menu.style.top = `${Math.max(0, finalY)}px`;
+          } else {
+            menu.innerHTML = "";
+            menu.style.display = "block";
+            const openItem = iframeDocument.createElement("div");
+            openItem.style.all = "unset";
+            openItem.style.display = "block"; // <-- important!
+
+            openItem.textContent = "Backㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ";
+            openItem.style.padding = "6px 16px";
+            openItem.style.textAlign = "left";
+
+            openItem.style.font = "Arial";
+            openItem.style.cursor = "pointer";
+            openItem.onmouseenter = () => (openItem.style.background = "#444");
+            openItem.onmouseleave = () => (openItem.style.background = "none");
+            openItem.onclick = () => {
+              historyNavigate(tab, -1);
+              hideMenu();
+            };
+            menu.appendChild(openItem);
+            const forward = iframeDocument.createElement("div");
+            forward.style.all = "unset";
+            forward.style.display = "block"; // <-- important!
+            forward.style.textAlign = "left";
+
+            forward.textContent = "Forward";
+            forward.style.font = "Arial";
+            forward.style.padding = "6px 16px";
+            forward.style.cursor = "pointer";
+            forward.onmouseenter = () => (forward.style.background = "#444");
+            forward.onmouseleave = () => (forward.style.background = "none");
+            forward.onclick = () => {
+              historyNavigate(tab, 1);
+              hideMenu();
+            };
+            menu.appendChild(forward);
+            const reload = iframeDocument.createElement("div");
+            reload.style.all = "unset";
+            reload.style.display = "block"; // <-- important!
+            reload.style.textAlign = "left";
+
+            reload.textContent = "Reload";
+            reload.style.padding = "6px 16px";
+            reload.style.font = "Arial";
+            reload.style.cursor = "pointer";
+            reload.onmouseenter = () => (reload.style.background = "#444");
+            reload.onmouseleave = () => (reload.style.background = "none");
+            reload.onclick = () => {
+              iframe.contentWindow.location.reload();
+              hideMenu();
+            };
+            menu.appendChild(reload);
+            const inspect = iframeDocument.createElement("div");
+            inspect.style.all = "unset";
+            inspect.style.display = "block"; // <-- important!
+
+            inspect.style.textAlign = "left";
+
+            inspect.textContent = "inspect ㅤㅤㅤㅤㅤㅤㅤㅤCtrl+Shift+I";
+            inspect.style.padding = "6px 16px";
+            inspect.style.font = "Arial";
+            inspect.style.cursor = "pointer";
+            inspect.onmouseenter = () => (inspect.style.background = "#444");
+            inspect.onmouseleave = () => (inspect.style.background = "none");
+            inspect.onclick = () => {
+              const win = tab.iframe.contentWindow;
+              const doc = tab.iframe.contentDocument;
+              if (!win) return;
+              if (!win.eruda) {
+                tab.iframe.contentWindow._goldenbodyIns = true;
+
+                const script = doc.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/eruda";
+                script.onload = () => {
+                  win.eruda.init();
+                  win.eruda.get("entryBtn").hide();
+                  win.eruda.show();
+                };
+                doc.head.appendChild(script);
+              }
+              win.eruda[win._goldenbodyIns ? "hide" : "show"]();
+              win._goldenbodyIns = !win._goldenbodyIns;
+
+              hideMenu();
+            };
+            menu.appendChild(inspect);
+
+            // Temporarily show the menu off-screen to measure its size
+            menu.style.left = "-9999px";
+            menu.style.top = "-9999px";
+            menu.style.display = "block";
+            const menuRect = menu.getBoundingClientRect();
+
+            // Determine iframe/document boundaries
+            const viewportWidth = iframeDocument.documentElement.clientWidth;
+            const viewportHeight = iframeDocument.documentElement.clientHeight;
+
+            let finalX = x;
+            let finalY = y;
+
+            // Flip horizontally if the menu would go off the right edge
+            if (x + menuRect.width > viewportWidth) {
+              finalX = x - menuRect.width;
+            }
+
+            // Flip vertically if the menu would go off the bottom edge
+            if (y + menuRect.height > viewportHeight) {
+              finalY = y - menuRect.height;
+            }
+
+            // Apply final position
+            menu.style.left = `${Math.max(0, finalX)}px`;
+            menu.style.top = `${Math.max(0, finalY)}px`;
+          }
+        }
+        root.addEventListener("keydown", (e) => {
+          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
+            console.log("fired!");
+          }
         });
-        const titleInterval = setInterval(() => {
-          try {
-            if (!iframe || !iframe.contentDocument) {
-              clearInterval(titleInterval);
-              console.warn("Interval cleared: iframe is gone");
-              return;
-            }
-            tab.url = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
-            if (
-              iframe.contentDocument.readyState === "complete" &&
-              !tab.donotm
-            ) {
-              const docTitle = iframe.contentDocument.title || "Untitled";
-              tab.title = docTitle;
-            } else {
-              tab.title = "Loading...";
-            }
-          } catch (e) {
-            clearInterval(titleInterval);
-            console.warn("Interval cleared due to error:", e);
-          }
-          if (previousTabTitle !== tab.title) renderTabs();
-          previousTabTitle = tab.title;
-        }, 1000 * nhjd);
 
-
-        createPermInput(iframe, url);
-        iframe.tabIndex = "0";
-        iframe.className = "sim-iframe";
-        iframe.onload = function () {
-          // Get the document inside the iframe
-          const iframeDocument =
-            iframe.contentDocument || iframe.contentWindow.document;
-          iframe.contentWindow.addEventListener("keydown", function (e) {
-            if (e.ctrlKey && e.key === "n") {
-              e.preventDefault();
-              if (atTop == "browser" || atTop == "") {
-                browser();
-              }
-            } else if (
-              e.ctrlKey &&
-              e.shiftKey &&
-              e.key === "W" &&
-              atTop == "browser"
-            ) {
-              let allIds = [];
-              for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-                allIds.push(browserGlobals.allBrowsers[i].rootElement._goldenbodyId);
-              }
-              let maxId = Math.max(...allIds);
-              for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-                if (browserGlobals.allBrowsers[i].rootElement._goldenbodyId == maxId) {
-                  browserGlobals.allBrowsers[i].rootElement.remove();
-                  browserGlobals.allBrowsers[i].rootElement = null;
-                  browserGlobals.allBrowsers.splice(i, 1);
-                }
-              }
-            } else if (e.ctrlKey && e.key === "t") {
-              e.preventDefault();
-
-              addTab("goldenbody://newtab/", "New Tab");
-            }
-          });
-
-          // Create a reusable custom context menu
-          const menu = iframeDocument.createElement("div");
-          menu.style.all = "unset";
-
-          menu.id = "custom-context-menu";
-          menu.style.display = "block"; // <-- important!
-
-          menu.style.position = "fixed";
-          menu.style.background = "#222";
-          menu.style.color = "#fff";
-          menu.style.padding = "8px 0";
-          menu.style.borderRadius = "6px";
-          menu.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
-          menu.style.fontFamily = "sans-serif";
-          menu.style.fontSize = "14px";
+        // Hide the menu
+        function hideMenu() {
           menu.style.display = "none";
-          menu.style.zIndex = "2147483646"; // maximum z-index to ensure it appears on top
-          iframeDocument.body.appendChild(menu);
+        }
 
-          // window.addEventListener("pointerdown", function () {
-          //   menu.style.display = "none";
-          // });
-          // Function to show the menu
-          function showMenu(x, y, linkElement, isA, isDownload) {
-            if (isA || isDownload) {
-              menu.innerHTML = ""; // clear old items
-
-              // Create menu items (same as before)
-
-              const openItem = iframeDocument.createElement("div");
-              openItem.style.all = "unset";
-
-              openItem.textContent = "Open link in new tabㅤㅤㅤㅤㅤ";
-              openItem.style.display = "block"; // <-- important!
-              openItem.style.textAlign = "left";
-
-              openItem.style.padding = "6px 16px";
-              openItem.style.cursor = "pointer";
-              openItem.onmouseenter = () =>
-                (openItem.style.background = "#444");
-              openItem.style.font = "Arial";
-              openItem.onmouseleave = () =>
-                (openItem.style.background = "none");
-              openItem.onclick = () => {
-                addTab(linkElement.href, "New Tab");
-                hideMenu();
-              };
-              menu.appendChild(openItem);
-
-              const openItem2 = iframeDocument.createElement("div");
-              openItem2.style.all = "unset";
-
-              openItem2.textContent = "Open link in new windowㅤㅤㅤㅤㅤ";
-              openItem2.style.display = "block"; // <-- important!
-              openItem2.style.textAlign = "left";
-
-              openItem2.style.padding = "6px 16px";
-              openItem2.style.cursor = "pointer";
-              openItem2.onmouseenter = () =>
-                (openItem2.style.background = "#444");
-              openItem2.style.font = "Arial";
-              openItem2.onmouseleave = () =>
-                (openItem2.style.background = "none");
-              openItem2.onclick = () => {
-                browser(linkElement.href);
-                hideMenu();
-              };
-              menu.appendChild(openItem2);
-
-              const copyItem = iframeDocument.createElement("div");
-              copyItem.style.all = "unset";
-              copyItem.style.display = "block"; // <-- important!
-              copyItem.style.textAlign = "left";
-
-              copyItem.textContent = "Copy link address";
-              copyItem.style.padding = "6px 16px";
-              copyItem.style.cursor = "pointer";
-              copyItem.style.font = "Arial";
-              copyItem.onmouseenter = () =>
-                (copyItem.style.background = "#444");
-              copyItem.onmouseleave = () =>
-                (copyItem.style.background = "none");
-              copyItem.onclick = async () => {
-                await navigator.clipboard.writeText(linkElement.href);
-                hideMenu();
-              };
-              menu.appendChild(copyItem);
-
-              const download = iframeDocument.createElement("div");
-              download.style.all = "unset";
-              download.style.display = "block"; // <-- important!
-              download.style.textAlign = "left";
-
-              download.textContent = "Download linkㅤㅤㅤㅤㅤ";
-              download.style.padding = "6px 16px";
-              download.style.font = "Arial";
-              download.style.cursor = "pointer";
-              download.onmouseenter = () => (download.style.background = "#444");
-              download.onmouseleave = () => (download.style.background = "none");
-              download.onclick = () => {
-                downloadPost({href: linkElement.href, filename: linkElement.href.split("/").pop().split("?")[0]});
-                hideMenu();
-              };
-              menu.appendChild(download);
-              const inspect = iframeDocument.createElement("div");
-              inspect.style.all = "unset";
-              inspect.style.display = "block"; // <-- important!
-              inspect.style.textAlign = "left";
-
-              inspect.textContent = "inspect ㅤㅤㅤㅤㅤㅤㅤㅤCtrl+Shift+I";
-              inspect.style.padding = "6px 16px";
-              inspect.style.font = "Arial";
-              inspect.style.cursor = "pointer";
-              inspect.onmouseenter = () => (inspect.style.background = "#444");
-              inspect.onmouseleave = () => (inspect.style.background = "none");
-              inspect.onclick = () => {
-                const win = tab.iframe.contentWindow;
-                const doc = tab.iframe.contentDocument;
-                if (!win) return;
-                if (!win.eruda) {
-                  tab.iframe.contentWindow._goldenbodyIns = true;
-
-                  const script = doc.createElement("script");
-                  script.src = "https://cdn.jsdelivr.net/npm/eruda";
-                  script.onload = () => {
-                    win.eruda.init();
-                    win.eruda.get("entryBtn").hide();
-                    win.eruda.show();
-                  };
-                  doc.head.appendChild(script);
-                }
-                win.eruda[win._goldenbodyIns ? "hide" : "show"]();
-                win._goldenbodyIns = !win._goldenbodyIns;
-                
-                hideMenu();
-              };
-              menu.appendChild(inspect);
-              // Temporarily show the menu off-screen to measure its size
-              menu.style.left = "-9999px";
-              menu.style.top = "-9999px";
-              menu.style.display = "block";
-              const menuRect = menu.getBoundingClientRect();
-
-              // Determine iframe/document boundaries
-              const viewportWidth = iframeDocument.documentElement.clientWidth;
-              const viewportHeight =
-                iframeDocument.documentElement.clientHeight;
-
-              let finalX = x;
-              let finalY = y;
-
-              // Flip horizontally if the menu would go off the right edge
-              if (x + menuRect.width > viewportWidth) {
-                finalX = x - menuRect.width;
-              }
-
-              // Flip vertically if the menu would go off the bottom edge
-              if (y + menuRect.height > viewportHeight) {
-                finalY = y - menuRect.height;
-              }
-
-              // Apply final position
-              menu.style.left = `${Math.max(0, finalX)}px`;
-              menu.style.top = `${Math.max(0, finalY)}px`;
-            } else {
-              menu.innerHTML = "";
-              menu.style.display = "block";
-              const openItem = iframeDocument.createElement("div");
-              openItem.style.all = "unset";
-              openItem.style.display = "block"; // <-- important!
-
-              openItem.textContent = "Backㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ";
-              openItem.style.padding = "6px 16px";
-              openItem.style.textAlign = "left";
-
-              openItem.style.font = "Arial";
-              openItem.style.cursor = "pointer";
-              openItem.onmouseenter = () =>
-                (openItem.style.background = "#444");
-              openItem.onmouseleave = () =>
-                (openItem.style.background = "none");
-              openItem.onclick = () => {
-                historyNavigate(tab, -1);
-                hideMenu();
-              };
-              menu.appendChild(openItem);
-              const forward = iframeDocument.createElement("div");
-              forward.style.all = "unset";
-              forward.style.display = "block"; // <-- important!
-              forward.style.textAlign = "left";
-
-              forward.textContent = "Forward";
-              forward.style.font = "Arial";
-              forward.style.padding = "6px 16px";
-              forward.style.cursor = "pointer";
-              forward.onmouseenter = () => (forward.style.background = "#444");
-              forward.onmouseleave = () => (forward.style.background = "none");
-              forward.onclick = () => {
-                historyNavigate(tab, 1);
-                hideMenu();
-              };
-              menu.appendChild(forward);
-              const reload = iframeDocument.createElement("div");
-              reload.style.all = "unset";
-              reload.style.display = "block"; // <-- important!
-              reload.style.textAlign = "left";
-
-              reload.textContent = "Reload";
-              reload.style.padding = "6px 16px";
-              reload.style.font = "Arial";
-              reload.style.cursor = "pointer";
-              reload.onmouseenter = () => (reload.style.background = "#444");
-              reload.onmouseleave = () => (reload.style.background = "none");
-              reload.onclick = () => {
-                iframe.contentWindow.location.reload();
-                hideMenu();
-              };
-              menu.appendChild(reload);
-              const inspect = iframeDocument.createElement("div");
-              inspect.style.all = "unset";
-              inspect.style.display = "block"; // <-- important!
-
-              inspect.style.textAlign = "left";
-
-              inspect.textContent = "inspect ㅤㅤㅤㅤㅤㅤㅤㅤCtrl+Shift+I";
-              inspect.style.padding = "6px 16px";
-              inspect.style.font = "Arial";
-              inspect.style.cursor = "pointer";
-              inspect.onmouseenter = () => (inspect.style.background = "#444");
-              inspect.onmouseleave = () => (inspect.style.background = "none");
-              inspect.onclick = () => {
-                const win = tab.iframe.contentWindow;
-                const doc = tab.iframe.contentDocument;
-                if (!win) return;
-                if (!win.eruda) {
-                  tab.iframe.contentWindow._goldenbodyIns = true;
-
-                  const script = doc.createElement("script");
-                  script.src = "https://cdn.jsdelivr.net/npm/eruda";
-                  script.onload = () => {
-                    win.eruda.init();
-                    win.eruda.get("entryBtn").hide();
-                    win.eruda.show();
-                  };
-                  doc.head.appendChild(script);
-                }
-                win.eruda[win._goldenbodyIns ? "hide" : "show"]();
-                win._goldenbodyIns = !win._goldenbodyIns;
-
-                hideMenu();
-              };
-              menu.appendChild(inspect);
-
-              // Temporarily show the menu off-screen to measure its size
-              menu.style.left = "-9999px";
-              menu.style.top = "-9999px";
-              menu.style.display = "block";
-              const menuRect = menu.getBoundingClientRect();
-
-              // Determine iframe/document boundaries
-              const viewportWidth = iframeDocument.documentElement.clientWidth;
-              const viewportHeight =
-                iframeDocument.documentElement.clientHeight;
-
-              let finalX = x;
-              let finalY = y;
-
-              // Flip horizontally if the menu would go off the right edge
-              if (x + menuRect.width > viewportWidth) {
-                finalX = x - menuRect.width;
-              }
-
-              // Flip vertically if the menu would go off the bottom edge
-              if (y + menuRect.height > viewportHeight) {
-                finalY = y - menuRect.height;
-              }
-
-              // Apply final position
-              menu.style.left = `${Math.max(0, finalX)}px`;
-              menu.style.top = `${Math.max(0, finalY)}px`;
-            }
-          }
-          console.log("keydown handler attached");
-          root.addEventListener("keydown", (e) => {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-              console.log("fired!");
-            }
-          });
-
-          // Hide the menu
-          function hideMenu() {
-            menu.style.display = "none";
-          }
-
-          // Listen for right-clicks inside the iframe
-
-          iframe.contentWindow.addEventListener("contextmenu", function (e) {
-            // Check if the element or document already has a handler
-            const hasInlineHandler = e.target.oncontextmenu !== null;
-
-            // If some other handler already called preventDefault, skip
-            if (hasInlineHandler && e.defaultPrevented) {
-              return; // Let the site's menu show or browser default
-            }
-
+        // Listen for right-clicks inside the iframe
+        if (!iframe.contentWindow.__gbContextMenuHandler) {
+          iframe.contentWindow.__gbContextMenuHandler = function (e) {
             e.preventDefault();
             e.stopPropagation();
             const clickedElement = e.target;
@@ -1731,762 +1798,1095 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
             if (linkElement && linkElement.href && !linkElement.download) {
               console.log("Right-clicked on a link:", linkElement.href);
               showMenu(e.clientX, e.clientY, linkElement, true);
-            } 
-            else if (linkElement && linkElement.download) {
+            } else if (linkElement && linkElement.download) {
               // Handle download links if needed
               showMenu(e.clientX, e.clientY, linkElement, false, true);
-              console.log("Right-clicked on a download link:", linkElement.href);
-            }
-            else {
+              console.log(
+                "Right-clicked on a download link:",
+                linkElement.href,
+              );
+            } else {
               showMenu(e.clientX, e.clientY, null, false);
               console.log("Right-clicked on a non-link element.");
             }
+          };
+        }
+        iframe.contentWindow.removeEventListener(
+          "contextmenu",
+          iframe.contentWindow.__gbContextMenuHandler,
+          true,
+        );
+        iframe.contentWindow.addEventListener(
+          "contextmenu",
+          iframe.contentWindow.__gbContextMenuHandler,
+          true,
+        );
+        iframeDocument.removeEventListener(
+          "contextmenu",
+          iframe.contentWindow.__gbContextMenuHandler,
+          true,
+        );
+        iframeDocument.addEventListener(
+          "contextmenu",
+          iframe.contentWindow.__gbContextMenuHandler,
+          true,
+        );
+
+        function getAbsoluteMousePosition(e) {
+          // e is the MouseEvent in any iframe
+          const topWin = tab.iframe.contentWindow;
+          const rect = topWin.document.body.getBoundingClientRect();
+          let x = e.clientX;
+          let y = e.clientY;
+          let win = e.view;
+
+          // Walk up the iframe chain
+          while (win && win !== topWin) {
+            const frame = win.frameElement;
+            if (!frame) break;
+            const frameRect = frame.getBoundingClientRect();
+            x += frameRect.left;
+            y += frameRect.top;
+            win = win.parent;
+          }
+
+          return { x, y };
+        }
+        // ----------------------------
+        // 1. Make treeData global
+        // ----------------------------
+        let sentreqframe;
+
+        loadTree();
+
+        let fullPath;
+        // Fetch file content from backend
+        async function fetchFileContent(username, fileFullPath) {
+          if (!fileFullPath) throw new Error("No file path provided");
+
+          const res = await fetch(SERVER, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requestFile: true,
+              requestFileName: fileFullPath, // send path relative to root
+              username,
+              password: password, // include password for authentication
+            }),
           });
 
-          function getAbsoluteMousePosition(e) {
-            // e is the MouseEvent in any iframe
-            const topWin = tab.iframe.contentWindow;
-            const rect = topWin.document.body.getBoundingClientRect();
-            let x = e.clientX;
-            let y = e.clientY;
-            let win = e.view;
+          const data = await res.json();
 
-            // Walk up the iframe chain
-            while (win && win !== topWin) {
-              const frame = win.frameElement;
-              if (!frame) break;
-              const frameRect = frame.getBoundingClientRect();
-              x += frameRect.left;
-              y += frameRect.top;
-              win = win.parent;
-            }
-
-            return { x, y };
-          }
-          // ----------------------------
-          // 1. Make treeData global
-          // ----------------------------
-            let sentreqframe;
-
-
-
-
-          loadTree();
-
-
-
-
-          let fullPath;
-          // Fetch file content from backend
-async function fetchFileContent(username, fileFullPath) {
-  if (!fileFullPath) throw new Error("No file path provided");
-
-  const res = await fetch(SERVER, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestFile: true,
-      requestFileName: fileFullPath, // send path relative to root
-      username,
-      password: password, // include password for authentication
-    }),
-  });
-
-  const data = await res.json();
-
-  if (data.kind === 'folder') {
-    throw new Error(`Expected a file but got a folder at ${fileFullPath}`);
-  }
-
-  // For large files, fetch all chunks and combine directly as ArrayBuffer
-  if (data.totalChunks && data.totalChunks > 1) {
-    // Return chunk metadata and first-chunk payload (base64) to caller so
-    // caller can stream chunks instead of allocating a single huge buffer.
-    return data; // { filecontent, fileSize, totalChunks }
-  }
-
-  // For small files, still return base64 from single request
-  return data.filecontent;
-}
-
-
-          function base64ToArrayBuffer(base64) {
-            const binaryString = atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            return bytes.buffer;
-          }
-          function getMimeType(filename) {
-            const ext = filename.split(".").pop().toLowerCase();
-
-            const mimeMap = {
-              // Images
-              png: "image/png",
-              jpg: "image/jpeg",
-              jpeg: "image/jpeg",
-              gif: "image/gif",
-              webp: "image/webp",
-              svg: "image/svg+xml",
-              bmp: "image/bmp",
-              ico: "image/x-icon",
-
-              // Audio
-              mp3: "audio/mpeg",
-              wav: "audio/wav",
-              ogg: "audio/ogg",
-              m4a: "audio/mp4",
-
-              // Video
-              mp4: "video/mp4",
-              webm: "video/webm",
-              ogv: "video/ogg",
-
-              // Text
-              txt: "text/plain",
-              html: "text/html",
-              css: "text/css",
-              js: "application/javascript",
-              json: "application/json",
-              xml: "application/xml",
-
-              // Archives
-              zip: "application/zip",
-              rar: "application/vnd.rar",
-              gz: "application/gzip",
-
-              // PDF
-              pdf: "application/pdf",
-            };
-
-            return mimeMap[ext] || "application/octet-stream";
+          if (data.kind === "folder") {
+            throw new Error(
+              `Expected a file but got a folder at ${fileFullPath}`,
+            );
           }
 
-          // Send file to iframe
-async function sendFileNodeToIframe(username, node, iframe, lastOne=false) {
-    let currentPath = [...pickerCurrentPath];
-    currentPath.splice(0, 1);
-  const fullPath = node[2].path || currentPath.join('/') + '/' + node[0];
-  const result = await fetchFileContent(username, fullPath);
+          // For large files, fetch all chunks and combine directly as ArrayBuffer
+          if (data.totalChunks && data.totalChunks > 1) {
+            // Return chunk metadata and first-chunk payload (base64) to caller so
+            // caller can stream chunks instead of allocating a single huge buffer.
+            return data; // { filecontent, fileSize, totalChunks }
+          }
 
-  // If server returned chunk metadata for a large file, stream chunks
-  const isChunked = result && typeof result === 'object' && result.totalChunks && result.totalChunks > 1;
-  // Handle both base64 strings and ArrayBuffers (small-file fast path)
-  const buffer = !isChunked && typeof result === 'string' ? base64ToArrayBuffer(result) : (!isChunked ? result : null);
-  const type = getMimeType(node[0]);
-  // Compute a webkitRelativePath-like relative path for the file so the
-  // injector can reconstruct directory structure (remove picker base)
-  const fileParts = (fullPath || '').split('/').filter(Boolean);
-  const origPicker = Array.from(pickerCurrentPath || []);
-  const pickerBase = origPicker.slice(1); // drop leading 'root'
-  // remove matching leading segments
-  let relParts = Array.from(fileParts);
-  for (let i = 0; i < pickerBase.length; i++) {
-    if (relParts.length && relParts[0] === pickerBase[i]) relParts.shift();
-    else break;
-  }
-  const webkitRelativePath = relParts.join('/') || node[0];
-
-  // Send in chunks if large to avoid postMessage size limits
-  // Use larger chunks to reduce number of messages, add delays between sends
-  const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
-  if (isChunked) {
-    const CHUNK_SIZE = 10 * 1024 * 1024; // server chunk size
-    const totalChunks = result.totalChunks;
-
-    for (let i = 0; i < totalChunks; i++) {
-      // obtain chunk: first chunk provided inline as base64, others fetched
-      let chunkBuf;
-      if (i === 0) {
-        chunkBuf = base64ToArrayBuffer(result.filecontent);
-      } else {
-        const r = await fetch(SERVER, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requestFile: true, requestFileName: fullPath, chunkIndex: i, username, password }),
-        });
-        const chunkData = await r.json();
-        chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
-      }
-
-      await new Promise(resolve => {
-        iframe.contentWindow.postMessage({
-          __VFS__: true,
-          kind: 'file',
-          name: node[0],
-          type,
-          buffer: chunkBuf,
-          path: fullPath,
-          webkitRelativePath,
-          chunkIndex: i,
-          totalChunks,
-          lastOne: (i === totalChunks - 1) && lastOne,
-        }, '*', [chunkBuf]);
-        setTimeout(resolve, 10);
-      });
-    }
-  } else {
-    if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
-      const chunkSize = MAX_MESSAGE_SIZE;
-      const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * chunkSize;
-        const end = Math.min(start + chunkSize, buffer.byteLength);
-        const chunk = buffer.slice(start, end);
-        await new Promise(resolve => {
-          iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: node[0], type, buffer: chunk, path: fullPath, webkitRelativePath, chunkIndex: i, totalChunks, lastOne: (i === totalChunks - 1) && lastOne }, '*', [chunk]);
-          setTimeout(resolve, 10);
-        });
-      }
-    } else {
-      iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: node[0], type, buffer, path: fullPath, webkitRelativePath, lastOne: lastOne }, '*', [buffer]);
-    }
-  }
-}
-
-async function sendFolderNodeToIframe(username, folderNode, iframe, lastOne = false) {
-  const filesToSend = [];
-
-function walk(node, prefix = '') {
-  const [name, children] = node;
-
-  // If node has a precomputed path use it; otherwise build from prefix
-  let nodePath;
-  if (node && node[2] && node[2].path) {
-    nodePath = node[2].path;
-  } else {
-    nodePath = (prefix ? (prefix + '/' + name) : name);
-    console.warn('VFS: computed missing node.path for', name, '->', nodePath);
-  }
-
-  if (children === null) {
-    filesToSend.push({
-      name,
-      fullPath: nodePath
-    });
-    return;
-  }
-
-  if (Array.isArray(children)) {
-    const nextPrefix = nodePath;
-    for (const child of children) {
-      walk(child, nextPrefix);
-    }
-  }
-}
-
-  walk(folderNode);
-let fileIndex = 0;
-  // 2️⃣ Fetch + send each file with throttling to prevent packet loss
-  for (const file of filesToSend) {
-    fileIndex++;
-    const result = await fetchFileContent(username, file.fullPath);
-    const isChunked = result && typeof result === 'object' && result.totalChunks && result.totalChunks > 1;
-    const buffer = !isChunked && typeof result === 'string' ? base64ToArrayBuffer(result) : (!isChunked ? result : null);
-    const type = getMimeType(file.name);
-    let fileParts = file.fullPath.split('/');
-    let origpickercurrentpath = Array.from(pickerCurrentPath);
-    pickerCurrentPath.splice(0, 1);
-    let pickerparts = pickerCurrentPath;
-    pickerCurrentPath = origpickercurrentpath;
-    for(let j = 0; j < pickerparts.length; j++) {
-      if(fileParts[0] === pickerparts[j]) {
-        fileParts.splice(0, 1);
-      }
-    }
-    file.fullPath = '';
-    let first = true;
-    for(let j = 0; j < fileParts.length; j++) {
-      if(first) {first = false; file.fullPath += fileParts[j];} else{file.fullPath += '/' + fileParts[j];}
-    }
-    
-    if (isChunked) {
-      const totalChunks = result.totalChunks;
-      for (let ci = 0; ci < totalChunks; ci++) {
-        let chunkBuf;
-        if (ci === 0) chunkBuf = base64ToArrayBuffer(result.filecontent);
-        else {
-          const r = await fetch(SERVER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestFile: true, requestFileName: file.fullPath, chunkIndex: ci, username, password: password }) });
-          const cd = await r.json();
-          chunkBuf = base64ToArrayBuffer(cd.filecontent);
+          // For small files, still return base64 from single request
+          return data.filecontent;
         }
-        await new Promise(resolve => {
-          iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: file.name, type, buffer: chunkBuf, webkitRelativePath: file.fullPath, fileIndex: fileIndex - 1, totalFiles: filesToSend.length, chunkIndex: ci, totalChunks, lastOne: (fileIndex == filesToSend.length) && (ci === totalChunks - 1) && lastOne }, '*', [chunkBuf]);
-          setTimeout(resolve, 10);
-        });
-      }
-    } else {
-      // Add delay between messages to prevent packet loss
-      await new Promise(resolve => {
-        iframe.contentWindow.postMessage({ __VFS__: true, kind: 'file', name: file.name, type, buffer, webkitRelativePath: file.fullPath, fileIndex: fileIndex - 1, totalFiles: filesToSend.length, lastOne: (fileIndex == filesToSend.length) && lastOne }, '*', [buffer]);
-        setTimeout(resolve, 10);
-      });
-    }
-  }
-}
 
+        function base64ToArrayBuffer(base64) {
+          const binaryString = atob(base64);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          return bytes.buffer;
+        }
+        function getMimeType(filename) {
+          const ext = filename.split(".").pop().toLowerCase();
 
-          // ----------------------------
-          // 3. Custom picker overlay
-          // ----------------------------
-          let pickerOverlay = null;
-let pickerSelection = [];
-          let pickerCurrentPath = ["root"];
-          let pickerTree = null;
+          const mimeMap = {
+            // Images
+            png: "image/png",
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            gif: "image/gif",
+            webp: "image/webp",
+            svg: "image/svg+xml",
+            bmp: "image/bmp",
+            ico: "image/x-icon",
 
-          function openCustomPickerUI() {
-            if (!window.treeData) {window.loadTree();}
+            // Audio
+            mp3: "audio/mpeg",
+            wav: "audio/wav",
+            ogg: "audio/ogg",
+            m4a: "audio/mp4",
 
-            pickerTree = JSON.parse(JSON.stringify(window.treeData));
-            pickerCurrentPath = ["root"];
-            pickerSelection = [];
+            // Video
+            mp4: "video/mp4",
+            webm: "video/webm",
+            ogv: "video/ogg",
 
-            // Create overlay if it doesn't exist
-            if (!pickerOverlay) {
-              pickerOverlay = document.createElement("div");
-              Object.assign(pickerOverlay.style, {
-                position: "fixed",
-                top: "0",
-                left: "0",
-                right: "0",
-                bottom: "0",
-                background: "rgba(0,0,0,0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 9999,
-              });
-              document.body.appendChild(pickerOverlay);
+            // Text
+            txt: "text/plain",
+            html: "text/html",
+            css: "text/css",
+            js: "application/javascript",
+            json: "application/json",
+            xml: "application/xml",
 
-              const pickerBox = document.createElement("div");
-              pickerBox.className = 'pickerBox';
-              Object.assign(pickerBox.style, {
-                width: "600px",
-                height: "400px",
-                borderRadius: "8px",
-                background: data.dark ? '#222' : '#fff',
-                color: data.dark ? '#eee' : '#000',
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              });
-              pickerOverlay.appendChild(pickerBox);
-              root.tabIndex = '0';
+            // Archives
+            zip: "application/zip",
+            rar: "application/vnd.rar",
+            gz: "application/gzip",
 
-              const breadcrumbDiv = document.createElement("div");
-              breadcrumbDiv.style.padding = "4px";
-              pickerBox.appendChild(breadcrumbDiv);
+            // PDF
+            pdf: "application/pdf",
+          };
 
-              const fileArea = document.createElement("div");
-              fileArea.style.flex = "1";
-              fileArea.style.overflowY = "auto";
-              fileArea.style.borderTop = "1px solid #ccc";
-              pickerBox.appendChild(fileArea);
+          return mimeMap[ext] || "application/octet-stream";
+        }
 
-              const btnBar = document.createElement("div");
-              btnBar.style.padding = "4px";
-              btnBar.style.display = "flex";
-              btnBar.style.justifyContent = "flex-end";
-              pickerBox.appendChild(btnBar);
+        // Send file to iframe
+        async function sendFileNodeToIframe(
+          username,
+          node,
+          iframe,
+          lastOne = false,
+        ) {
+          let currentPath = [...pickerCurrentPath];
+          currentPath.splice(0, 1);
+          const fullPath =
+            node[2].path || currentPath.join("/") + "/" + node[0];
+          const result = await fetchFileContent(username, fullPath);
 
-              const btnCancel = document.createElement("button");
-              btnCancel.textContent = "Cancel";
-              btnBar.appendChild(btnCancel);
+          // If server returned chunk metadata for a large file, stream chunks
+          const isChunked =
+            result &&
+            typeof result === "object" &&
+            result.totalChunks &&
+            result.totalChunks > 1;
+          // Handle both base64 strings and ArrayBuffers (small-file fast path)
+          const buffer =
+            !isChunked && typeof result === "string"
+              ? base64ToArrayBuffer(result)
+              : !isChunked
+                ? result
+                : null;
+          const type = getMimeType(node[0]);
+          // Compute a webkitRelativePath-like relative path for the file so the
+          // injector can reconstruct directory structure (remove picker base)
+          const fileParts = (fullPath || "").split("/").filter(Boolean);
+          const origPicker = Array.from(pickerCurrentPath || []);
+          const pickerBase = origPicker.slice(1); // drop leading 'root'
+          // remove matching leading segments
+          let relParts = Array.from(fileParts);
+          for (let i = 0; i < pickerBase.length; i++) {
+            if (relParts.length && relParts[0] === pickerBase[i])
+              relParts.shift();
+            else break;
+          }
+          const webkitRelativePath = relParts.join("/") || node[0];
 
-              const btnOpen = document.createElement("button");
-              btnOpen.textContent = "Open";
-              btnBar.appendChild(btnOpen);
+          // Send in chunks if large to avoid postMessage size limits
+          // Use larger chunks to reduce number of messages, add delays between sends
+          const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
+          if (isChunked) {
+            const CHUNK_SIZE = 10 * 1024 * 1024; // server chunk size
+            const totalChunks = result.totalChunks;
 
-              function renderPicker() {
-                breadcrumbDiv.innerHTML = "";
-                pickerCurrentPath.forEach((p, i) => {
-                  const span = document.createElement("span");
-                  span.textContent = i === 0 ? "Home" : " / " + p;
-                  span.style.cursor = "pointer";
-                  span.onclick = () => {
-                    pickerCurrentPath = pickerCurrentPath.slice(0, i + 1);
-                    renderPicker();
-                  };
-                  breadcrumbDiv.appendChild(span);
+            for (let i = 0; i < totalChunks; i++) {
+              // obtain chunk: first chunk provided inline as base64, others fetched
+              let chunkBuf;
+              if (i === 0) {
+                chunkBuf = base64ToArrayBuffer(result.filecontent);
+              } else {
+                const r = await fetch(SERVER, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    requestFile: true,
+                    requestFileName: fullPath,
+                    chunkIndex: i,
+                    username,
+                    password,
+                  }),
                 });
-
-                fileArea.innerHTML = "";
-                let node = pickerTree;
-                for (let i = 1; i < pickerCurrentPath.length; i++) {
-                  node = node[1].find((c) => c[0] === pickerCurrentPath[i]);
-                }
-                if (!node || !node[1]) return;
-
-                node[1].forEach((item) => {
-                  const div = document.createElement("div");
-                  div.textContent =
-                    (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
-                  div.style.padding = "4px";
-                  div.style.cursor = "pointer";
-div.onclick = (e) => {
-  const isToggle = e.ctrlKey || e.metaKey;
-
-  if (!isToggle) {
-    // single select
-    pickerSelection = [item];
-    fileArea.querySelectorAll("div")
-      .forEach(d => (d.style.background = ""));
-    div.style.background = "#d0e6ff";
-  } else {
-    // toggle select
-    const idx = pickerSelection.indexOf(item);
-    if (idx >= 0) {
-      pickerSelection.splice(idx, 1);
-      div.style.background = "";
-    } else {
-      pickerSelection.push(item);
-      div.style.background = "#d0e6ff";
-    }
-  }
-};
-
-                  if (Array.isArray(item[1])) {
-                    div.ondblclick = () => {
-                      pickerCurrentPath.push(item[0]);
-                      renderPicker();
-                    };
-                  }
-                  fileArea.appendChild(div);
-                });
+                const chunkData = await r.json();
+                chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
               }
 
-              renderPicker();
-
-              // Cancel / Open buttons
-              let resolvePicker;
-              pickerOverlay.resolvePicker = null;
-
-              pickerOverlay.resolvePicker = null; // define it at the start
-
-              btnCancel.onclick = () => {
-                if (pickerOverlay.resolvePicker) {
-                  pickerOverlay.resolvePicker([]); // resolve promise with empty selection
-                  pickerOverlay.resolvePicker = null;
-                }
-                try {
-                  if (sentreqframe && sentreqframe.contentWindow) {
-                    sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'pickerCancelled' }, '*');
-                  }
-                } catch (e) {}
-                pickerOverlay.remove();
-                pickerOverlay = null;
-                pickerSelection = null;
-              };
-btnOpen.onclick = async () => {
-  const selections = [...pickerSelection]; // snapshot immediately
-  const targetFrame = sentreqframe;        // snapshot iframe
-
-  if (!selections.length) return notification("Select a file or folder");
-  if (!targetFrame) {
-    console.warn("No iframe found");
-    return;
-  }
-
-  // remove picker
-  if (pickerOverlay.resolvePicker) {
-    pickerOverlay.resolvePicker(selections);
-    pickerOverlay.resolvePicker = null;
-  }
-  pickerOverlay.remove();
-  pickerOverlay = null;
-  pickerSelection = [];
-
-  // send all selections
-  let i = 0;
-  for (const sel of selections) {
-    i++;
-    if (Array.isArray(sel[1])) {
-      if(i == selections.length) {await sendFolderNodeToIframe(username, sel, targetFrame, true); continue;}
-      await sendFolderNodeToIframe(username, sel, targetFrame);
-    } else {
-      if(i == selections.length) {await sendFileNodeToIframe(username, sel, targetFrame, true); continue;}
-      await sendFileNodeToIframe(username, sel, targetFrame);
-    }
-  }
-};
-
+              await new Promise((resolve) => {
+                iframe.contentWindow.postMessage(
+                  {
+                    __VFS__: true,
+                    kind: "file",
+                    name: node[0],
+                    type,
+                    buffer: chunkBuf,
+                    path: fullPath,
+                    webkitRelativePath,
+                    chunkIndex: i,
+                    totalChunks,
+                    lastOne: i === totalChunks - 1 && lastOne,
+                  },
+                  "*",
+                  [chunkBuf],
+                );
+                setTimeout(resolve, 10);
+              });
+            }
+          } else {
+            if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
+              const chunkSize = MAX_MESSAGE_SIZE;
+              const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
+              for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, buffer.byteLength);
+                const chunk = buffer.slice(start, end);
+                await new Promise((resolve) => {
+                  iframe.contentWindow.postMessage(
+                    {
+                      __VFS__: true,
+                      kind: "file",
+                      name: node[0],
+                      type,
+                      buffer: chunk,
+                      path: fullPath,
+                      webkitRelativePath,
+                      chunkIndex: i,
+                      totalChunks,
+                      lastOne: i === totalChunks - 1 && lastOne,
+                    },
+                    "*",
+                    [chunk],
+                  );
+                  setTimeout(resolve, 10);
+                });
+              }
             } else {
-              pickerOverlay.style.display = "flex";
+              iframe.contentWindow.postMessage(
+                {
+                  __VFS__: true,
+                  kind: "file",
+                  name: node[0],
+                  type,
+                  buffer,
+                  path: fullPath,
+                  webkitRelativePath,
+                  lastOne: lastOne,
+                },
+                "*",
+                [buffer],
+              );
+            }
+          }
+        }
+
+        async function sendFolderNodeToIframe(
+          username,
+          folderNode,
+          iframe,
+          lastOne = false,
+        ) {
+          const filesToSend = [];
+
+          function walk(node, prefix = "") {
+            const [name, children] = node;
+
+            // If node has a precomputed path use it; otherwise build from prefix
+            let nodePath;
+            if (node && node[2] && node[2].path) {
+              nodePath = node[2].path;
+            } else {
+              nodePath = prefix ? prefix + "/" + name : name;
+              console.warn(
+                "VFS: computed missing node.path for",
+                name,
+                "->",
+                nodePath,
+              );
             }
 
-            return new Promise((res) => (pickerOverlay.resolvePicker = res));
+            if (children === null) {
+              filesToSend.push({
+                name,
+                fullPath: nodePath,
+              });
+              return;
+            }
+
+            if (Array.isArray(children)) {
+              const nextPrefix = nodePath;
+              for (const child of children) {
+                walk(child, nextPrefix);
+              }
+            }
           }
 
-          // ----------------------------
-          // 3b. Custom save-as overlay
-          // ----------------------------
-          let post = filePost;
-          function openCustomSaveUI(suggestedName) {
-            if (!window.treeData) { window.loadTree(); }
+          walk(folderNode);
+          let fileIndex = 0;
+          // 2️⃣ Fetch + send each file with throttling to prevent packet loss
+          for (const file of filesToSend) {
+            fileIndex++;
+            const result = await fetchFileContent(username, file.fullPath);
+            const isChunked =
+              result &&
+              typeof result === "object" &&
+              result.totalChunks &&
+              result.totalChunks > 1;
+            const buffer =
+              !isChunked && typeof result === "string"
+                ? base64ToArrayBuffer(result)
+                : !isChunked
+                  ? result
+                  : null;
+            const type = getMimeType(file.name);
+            let fileParts = file.fullPath.split("/");
+            let origpickercurrentpath = Array.from(pickerCurrentPath);
+            pickerCurrentPath.splice(0, 1);
+            let pickerparts = pickerCurrentPath;
+            pickerCurrentPath = origpickercurrentpath;
+            for (let j = 0; j < pickerparts.length; j++) {
+              if (fileParts[0] === pickerparts[j]) {
+                fileParts.splice(0, 1);
+              }
+            }
+            file.fullPath = "";
+            let first = true;
+            for (let j = 0; j < fileParts.length; j++) {
+              if (first) {
+                first = false;
+                file.fullPath += fileParts[j];
+              } else {
+                file.fullPath += "/" + fileParts[j];
+              }
+            }
 
-            const savePickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
-            let savePickerCurrentPath = ["root"];
-            let savePickerSelection = [];
-
-            const overlay = document.createElement('div');
-            Object.assign(overlay.style, {
-              position: 'fixed', top: '0', left: '0', right: '0', bottom: '0',
-              background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-            });
-            document.body.appendChild(overlay);
-
-            const box = document.createElement('div');
-            Object.assign(box.style, { width: '600px', height: '460px', borderRadius: '8px', background: data.dark ? '#222' : '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
-            overlay.appendChild(box);
-
-            const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '6px'; box.appendChild(breadcrumb);
-            const fileArea = document.createElement('div'); fileArea.style.flex = '1'; fileArea.style.overflowY = 'auto'; fileArea.style.borderTop = '1px solid #ccc'; box.appendChild(fileArea);
-
-            const row = document.createElement('div'); row.style.padding = '8px'; row.style.display = 'flex'; row.style.gap = '8px'; box.appendChild(row);
-            const nameInput = document.createElement('input'); Object.assign(nameInput.style, {flex: '1', padding: '6px'}); nameInput.placeholder = 'filename.txt'; nameInput.value = suggestedName || ''; row.appendChild(nameInput);
-
-            const btnBar = document.createElement('div'); btnBar.style.padding = '6px'; btnBar.style.display = 'flex'; btnBar.style.justifyContent = 'flex-end'; box.appendChild(btnBar);
-            const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnBar.appendChild(btnCancel);
-            const btnSave = document.createElement('button'); btnSave.textContent = 'Save'; btnBar.appendChild(btnSave);
-
-            function render() {
-              breadcrumb.innerHTML = '';
-              savePickerCurrentPath.forEach((p, i) => { const s = document.createElement('span'); s.textContent = i===0 ? 'Home' : ' / ' + p; s.style.cursor = 'pointer'; s.onclick = () => { savePickerCurrentPath = savePickerCurrentPath.slice(0, i+1); render(); }; breadcrumb.appendChild(s); });
-              fileArea.innerHTML = '';
-              let node = savePickerTree;
-              for (let i = 1; i < savePickerCurrentPath.length; i++) { if (!node || !node[1]) break; node = node[1].find(c=>c[0]===savePickerCurrentPath[i]); }
-              if (!node || !node[1]) return;
-              node[1].forEach(item => {
-                const div = document.createElement('div'); div.textContent = (Array.isArray(item[1]) ? '📁 ' : '📄 ') + item[0]; div.style.padding = '6px'; div.style.cursor='pointer';
-                div.onclick = (e) => { const isToggle = e.ctrlKey || e.metaKey; if (!isToggle) { savePickerSelection = [item]; fileArea.querySelectorAll('div').forEach(d=>d.style.background=''); div.style.background='#d0e6ff'; } else { const idx = savePickerSelection.indexOf(item); if (idx>=0){ savePickerSelection.splice(idx,1); div.style.background=''; } else { savePickerSelection.push(item); div.style.background='#d0e6ff'; } } };
-                if (Array.isArray(item[1])) div.ondblclick = () => { savePickerCurrentPath.push(item[0]); render(); };
-                fileArea.appendChild(div);
+            if (isChunked) {
+              const totalChunks = result.totalChunks;
+              for (let ci = 0; ci < totalChunks; ci++) {
+                let chunkBuf;
+                if (ci === 0)
+                  chunkBuf = base64ToArrayBuffer(result.filecontent);
+                else {
+                  const r = await fetch(SERVER, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      requestFile: true,
+                      requestFileName: file.fullPath,
+                      chunkIndex: ci,
+                      username,
+                      password: password,
+                    }),
+                  });
+                  const cd = await r.json();
+                  chunkBuf = base64ToArrayBuffer(cd.filecontent);
+                }
+                await new Promise((resolve) => {
+                  iframe.contentWindow.postMessage(
+                    {
+                      __VFS__: true,
+                      kind: "file",
+                      name: file.name,
+                      type,
+                      buffer: chunkBuf,
+                      webkitRelativePath: file.fullPath,
+                      fileIndex: fileIndex - 1,
+                      totalFiles: filesToSend.length,
+                      chunkIndex: ci,
+                      totalChunks,
+                      lastOne:
+                        fileIndex == filesToSend.length &&
+                        ci === totalChunks - 1 &&
+                        lastOne,
+                    },
+                    "*",
+                    [chunkBuf],
+                  );
+                  setTimeout(resolve, 10);
+                });
+              }
+            } else {
+              // Add delay between messages to prevent packet loss
+              await new Promise((resolve) => {
+                iframe.contentWindow.postMessage(
+                  {
+                    __VFS__: true,
+                    kind: "file",
+                    name: file.name,
+                    type,
+                    buffer,
+                    webkitRelativePath: file.fullPath,
+                    fileIndex: fileIndex - 1,
+                    totalFiles: filesToSend.length,
+                    lastOne: fileIndex == filesToSend.length && lastOne,
+                  },
+                  "*",
+                  [buffer],
+                );
+                setTimeout(resolve, 10);
               });
             }
+          }
+        }
 
-            render();
+        // ----------------------------
+        // 3. Custom picker overlay
+        // ----------------------------
+        let pickerOverlay = null;
+        let pickerSelection = [];
+        let pickerCurrentPath = ["root"];
+        let pickerTree = null;
 
-            btnCancel.onclick = () => {
-              try {
-                if (sentreqframe && sentreqframe.contentWindow) {
-                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'saveTarget', path: null }, '*');
-                }
-              } catch (e) {}
-              overlay.remove();
-            };
-
-            btnSave.onclick = () => {
-              const selections = [...savePickerSelection];
-              const basePath = savePickerCurrentPath.slice(1).join('/');
-              const fname = (nameInput.value || '').trim();
-              if (!fname) { notification('Enter a filename'); return; }
-              let chosen;
-              if (!selections.length) chosen = basePath ? (basePath + '/' + fname) : fname;
-              else {
-                const sel = selections[0];
-                const isFolder = Array.isArray(sel[1]);
-                if (isFolder) chosen = (basePath ? basePath + '/' : '') + fname;
-                else notification('Select a folder to save into');
-              }
-
-              // send response to requesting iframe
-              try {
-                if (sentreqframe && sentreqframe.contentWindow) {
-                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'saveTarget', path: chosen }, '*');
-                }
-              } catch (e) {}
-
-              overlay.remove();
-            };
+        function openCustomPickerUI() {
+          if (!window.treeData) {
+            window.loadTree();
           }
 
-          // ----------------------------
-          // 3c. Custom directory picker overlay
-          // ----------------------------
-          function openCustomDirectoryPickerUI() {
-            if (!window.treeData) { window.loadTree(); }
+          pickerTree = JSON.parse(JSON.stringify(window.treeData));
+          pickerCurrentPath = ["root"];
+          pickerSelection = [];
 
-            const dirPickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
-            let dirPickerCurrentPath = ["root"];
-            let dirPickerSelection = [];
-
-            const overlay = document.createElement('div');
-            Object.assign(overlay.style, {
-              position: 'fixed', top: '0', left: '0', right: '0', bottom: '0',
-              background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+          // Create overlay if it doesn't exist
+          if (!pickerOverlay) {
+            pickerOverlay = document.createElement("div");
+            Object.assign(pickerOverlay.style, {
+              position: "fixed",
+              top: "0",
+              left: "0",
+              right: "0",
+              bottom: "0",
+              background: "rgba(0,0,0,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
             });
-            document.body.appendChild(overlay);
+            document.body.appendChild(pickerOverlay);
 
-            const box = document.createElement('div');
-            Object.assign(box.style, { width: '600px', height: '420px', borderRadius: '8px', background: data.dark ? '#222' : '#fff', color: data.dark ? '#eee' : '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
-            overlay.appendChild(box);
+            const pickerBox = document.createElement("div");
+            pickerBox.className = "pickerBox";
+            Object.assign(pickerBox.style, {
+              width: "600px",
+              height: "400px",
+              borderRadius: "8px",
+              background: data.dark ? "#222" : "#fff",
+              color: data.dark ? "#eee" : "#000",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            });
+            pickerOverlay.appendChild(pickerBox);
+            root.tabIndex = "0";
 
-            const breadcrumb = document.createElement('div'); breadcrumb.style.padding = '6px'; box.appendChild(breadcrumb);
-            const fileArea = document.createElement('div'); fileArea.style.flex = '1'; fileArea.style.overflowY = 'auto'; fileArea.style.borderTop = '1px solid #ccc'; box.appendChild(fileArea);
-            
-            const infoRow = document.createElement('div'); infoRow.style.padding = '6px'; infoRow.style.fontSize = '12px'; infoRow.style.color = '#666'; infoRow.textContent = 'Select a folder'; box.appendChild(infoRow);
+            const breadcrumbDiv = document.createElement("div");
+            breadcrumbDiv.style.padding = "4px";
+            pickerBox.appendChild(breadcrumbDiv);
 
-            const btnBar = document.createElement('div'); btnBar.style.padding = '6px'; btnBar.style.display = 'flex'; btnBar.style.justifyContent = 'flex-end'; box.appendChild(btnBar);
-            const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnBar.appendChild(btnCancel);
-            const btnOpen = document.createElement('button'); btnOpen.textContent = 'Select'; btnBar.appendChild(btnOpen);
+            const fileArea = document.createElement("div");
+            fileArea.style.flex = "1";
+            fileArea.style.overflowY = "auto";
+            fileArea.style.borderTop = "1px solid #ccc";
+            pickerBox.appendChild(fileArea);
 
-            function render() {
-              breadcrumb.innerHTML = '';
-              dirPickerCurrentPath.forEach((p, i) => { const s = document.createElement('span'); s.textContent = i===0 ? 'Home' : ' / ' + p; s.style.cursor = 'pointer'; s.onclick = () => { dirPickerCurrentPath = dirPickerCurrentPath.slice(0, i+1); render(); }; breadcrumb.appendChild(s); });
-              fileArea.innerHTML = '';
-              let node = dirPickerTree;
-              for (let i = 1; i < dirPickerCurrentPath.length; i++) { if (!node || !node[1]) break; node = node[1].find(c=>c[0]===dirPickerCurrentPath[i]); }
+            const btnBar = document.createElement("div");
+            btnBar.style.padding = "4px";
+            btnBar.style.display = "flex";
+            btnBar.style.justifyContent = "flex-end";
+            pickerBox.appendChild(btnBar);
+
+            const btnCancel = document.createElement("button");
+            btnCancel.textContent = "Cancel";
+            btnBar.appendChild(btnCancel);
+
+            const btnOpen = document.createElement("button");
+            btnOpen.textContent = "Open";
+            btnBar.appendChild(btnOpen);
+
+            function renderPicker() {
+              breadcrumbDiv.innerHTML = "";
+              pickerCurrentPath.forEach((p, i) => {
+                const span = document.createElement("span");
+                span.textContent = i === 0 ? "Home" : " / " + p;
+                span.style.cursor = "pointer";
+                span.onclick = () => {
+                  pickerCurrentPath = pickerCurrentPath.slice(0, i + 1);
+                  renderPicker();
+                };
+                breadcrumbDiv.appendChild(span);
+              });
+
+              fileArea.innerHTML = "";
+              let node = pickerTree;
+              for (let i = 1; i < pickerCurrentPath.length; i++) {
+                node = node[1].find((c) => c[0] === pickerCurrentPath[i]);
+              }
               if (!node || !node[1]) return;
-              node[1].forEach(item => {
-                const isFolder = Array.isArray(item[1]);
-                const div = document.createElement('div'); 
-                div.textContent = (isFolder ? '📁 ' : '📄 ') + item[0]; 
-                div.style.padding = '6px'; 
-                div.style.cursor='pointer';
-                div.onclick = (e) => { 
-                  // Only allow selecting folders
-                  if (isFolder) {
-                    const isToggle = e.ctrlKey || e.metaKey;
-                    if (!isToggle) { 
-                      dirPickerSelection = [item]; 
-                      fileArea.querySelectorAll('div').forEach(d=>d.style.background=''); 
-                      div.style.background='#d0e6ff'; 
-                    } else { 
-                      const idx = dirPickerSelection.indexOf(item); 
-                      if (idx>=0){ 
-                        dirPickerSelection.splice(idx,1); 
-                        div.style.background=''; 
-                      } else { 
-                        dirPickerSelection.push(item); 
-                        div.style.background='#d0e6ff'; 
-                      } 
-                    } 
+
+              node[1].forEach((item) => {
+                const div = document.createElement("div");
+                div.textContent =
+                  (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
+                div.style.padding = "4px";
+                div.style.cursor = "pointer";
+                div.onclick = (e) => {
+                  const isToggle = e.ctrlKey || e.metaKey;
+
+                  if (!isToggle) {
+                    // single select
+                    pickerSelection = [item];
+                    fileArea
+                      .querySelectorAll("div")
+                      .forEach((d) => (d.style.background = ""));
+                    div.style.background = "#d0e6ff";
+                  } else {
+                    // toggle select
+                    const idx = pickerSelection.indexOf(item);
+                    if (idx >= 0) {
+                      pickerSelection.splice(idx, 1);
+                      div.style.background = "";
+                    } else {
+                      pickerSelection.push(item);
+                      div.style.background = "#d0e6ff";
+                    }
                   }
                 };
-                if (isFolder) {
-                  div.ondblclick = () => { dirPickerCurrentPath.push(item[0]); render(); };
+
+                if (Array.isArray(item[1])) {
+                  div.ondblclick = () => {
+                    pickerCurrentPath.push(item[0]);
+                    renderPicker();
+                  };
                 }
                 fileArea.appendChild(div);
               });
             }
 
-            render();
+            renderPicker();
+
+            // Cancel / Open buttons
+            let resolvePicker;
+            pickerOverlay.resolvePicker = null;
+
+            pickerOverlay.resolvePicker = null; // define it at the start
 
             btnCancel.onclick = () => {
+              if (pickerOverlay.resolvePicker) {
+                pickerOverlay.resolvePicker([]); // resolve promise with empty selection
+                pickerOverlay.resolvePicker = null;
+              }
               try {
                 if (sentreqframe && sentreqframe.contentWindow) {
-                  sentreqframe.contentWindow.postMessage({ __VFS__: true, kind: 'directoryTarget', path: null, treeNode: null }, '*');
+                  sentreqframe.contentWindow.postMessage(
+                    { __VFS__: true, kind: "pickerCancelled" },
+                    "*",
+                  );
                 }
               } catch (e) {}
-              overlay.remove();
+              pickerOverlay.remove();
+              pickerOverlay = null;
+              pickerSelection = null;
             };
+            btnOpen.onclick = async () => {
+              const selections = [...pickerSelection]; // snapshot immediately
+              const targetFrame = sentreqframe; // snapshot iframe
 
-btnOpen.onclick = () => {
-  const basePath = dirPickerCurrentPath.slice(1).join('/') || 'root';
-  let chosen;
+              if (!selections.length)
+                return notification("Select a file or folder");
+              if (!targetFrame) {
+                console.warn("No iframe found");
+                return;
+              }
 
-  if (dirPickerSelection.length > 0) {
-    const sel = dirPickerSelection[0];
-    if (Array.isArray(sel[1])) {
-      chosen = (basePath !== 'root' ? basePath + '/' : '') + sel[0];
-    } else {
-      notification('Please select a directory');
-      return;
-    }
-  } else {
-    chosen = basePath;
-  }
+              // remove picker
+              if (pickerOverlay.resolvePicker) {
+                pickerOverlay.resolvePicker(selections);
+                pickerOverlay.resolvePicker = null;
+              }
+              pickerOverlay.remove();
+              pickerOverlay = null;
+              pickerSelection = [];
 
-  // Find the actual tree node for the selected path
-  let selectedNode = dirPickerTree;
-  const pathParts = chosen.split('/').filter(p => p && p !== 'root');
-  for (const part of pathParts) {
-    if (!selectedNode || !selectedNode[1]) break;
-    selectedNode = selectedNode[1].find(c => c[0] === part);
-  }
-
-  if (!selectedNode) {
-    notification('Selected directory not found');
-    return;
-  }
-
-  // --- NEW: recursively gather files in the directory ---
-  function collectFiles(node, currentPath) {
-    const files = [];
-    if (!node || !Array.isArray(node[1])) return files;
-    for (const item of node[1]) {
-      const [name, child] = item;
-      const itemPath = currentPath ? currentPath + '/' + name : name;
-      if (Array.isArray(child)) {
-        // folder → recurse
-        files.push(...collectFiles(item, itemPath));
-      } else {
-        // file → add as base64 string (or empty placeholder if contents not loaded)
-        files.push({ path: itemPath, contents: child || '' });
-      }
-    }
-    return files;
-  }
-
-const filesToSend = collectFiles(selectedNode, chosen);
-
-// send directory info
-if (sentreqframe && sentreqframe.contentWindow) {
-  sentreqframe.contentWindow.postMessage({
-    __VFS__: true,
-    kind: 'directoryTarget',
-    path: chosen,
-    treeNode: selectedNode
-  }, '*');
-
-  // send each file as fileData
-  for (const f of filesToSend) {
-    const buffer = f.contents instanceof ArrayBuffer 
-      ? f.contents 
-      : new TextEncoder().encode(f.contents).buffer; // convert string to ArrayBuffer
-
-    sentreqframe.contentWindow.postMessage({
-      __VFS__: true,
-      kind: 'fileData',
-      path: f.path,
-      name: f.path.split('/').pop(),
-      type: 'text/plain',
-      buffer
-    }, '*');
-  }
-}
-
-  overlay.remove();
-};
-
+              // send all selections
+              let i = 0;
+              for (const sel of selections) {
+                i++;
+                if (Array.isArray(sel[1])) {
+                  if (i == selections.length) {
+                    await sendFolderNodeToIframe(
+                      username,
+                      sel,
+                      targetFrame,
+                      true,
+                    );
+                    continue;
+                  }
+                  await sendFolderNodeToIframe(username, sel, targetFrame);
+                } else {
+                  if (i == selections.length) {
+                    await sendFileNodeToIframe(
+                      username,
+                      sel,
+                      targetFrame,
+                      true,
+                    );
+                    continue;
+                  }
+                  await sendFileNodeToIframe(username, sel, targetFrame);
+                }
+              }
+            };
+          } else {
+            pickerOverlay.style.display = "flex";
           }
 
-          // ----------------------------
-          // 4. Listen for iframe requests
-          // ----------------------------
+          return new Promise((res) => (pickerOverlay.resolvePicker = res));
+        }
 
-          if (!root.__vfsMessageListenerAdded) {
-            root.__vfsMessageListenerAdded = true;
-        root.addEventListener("keydown", function (e) {
-          if (e.ctrlKey && e.key === "w") {
-            for(const tab of tabs) {
-              if (tab.iframe.style.display !== "none") {
-                closeTab(tab.id);
+        // ----------------------------
+        // 3b. Custom save-as overlay
+        // ----------------------------
+        let post = filePost;
+        function openCustomSaveUI(suggestedName) {
+          if (!window.treeData) {
+            window.loadTree();
+          }
+
+          const savePickerTree = JSON.parse(
+            JSON.stringify(window.treeData || {}),
+          );
+          let savePickerCurrentPath = ["root"];
+          let savePickerSelection = [];
+
+          const overlay = document.createElement("div");
+          Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            right: "0",
+            bottom: "0",
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          });
+          document.body.appendChild(overlay);
+
+          const box = document.createElement("div");
+          Object.assign(box.style, {
+            width: "600px",
+            height: "460px",
+            borderRadius: "8px",
+            background: data.dark ? "#222" : "#fff",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          });
+          overlay.appendChild(box);
+
+          const breadcrumb = document.createElement("div");
+          breadcrumb.style.padding = "6px";
+          box.appendChild(breadcrumb);
+          const fileArea = document.createElement("div");
+          fileArea.style.flex = "1";
+          fileArea.style.overflowY = "auto";
+          fileArea.style.borderTop = "1px solid #ccc";
+          box.appendChild(fileArea);
+
+          const row = document.createElement("div");
+          row.style.padding = "8px";
+          row.style.display = "flex";
+          row.style.gap = "8px";
+          box.appendChild(row);
+          const nameInput = document.createElement("input");
+          Object.assign(nameInput.style, { flex: "1", padding: "6px" });
+          nameInput.placeholder = "filename.txt";
+          nameInput.value = suggestedName || "";
+          row.appendChild(nameInput);
+
+          const btnBar = document.createElement("div");
+          btnBar.style.padding = "6px";
+          btnBar.style.display = "flex";
+          btnBar.style.justifyContent = "flex-end";
+          box.appendChild(btnBar);
+          const btnCancel = document.createElement("button");
+          btnCancel.textContent = "Cancel";
+          btnBar.appendChild(btnCancel);
+          const btnSave = document.createElement("button");
+          btnSave.textContent = "Save";
+          btnBar.appendChild(btnSave);
+
+          function render() {
+            breadcrumb.innerHTML = "";
+            savePickerCurrentPath.forEach((p, i) => {
+              const s = document.createElement("span");
+              s.textContent = i === 0 ? "Home" : " / " + p;
+              s.style.cursor = "pointer";
+              s.onclick = () => {
+                savePickerCurrentPath = savePickerCurrentPath.slice(0, i + 1);
+                render();
+              };
+              breadcrumb.appendChild(s);
+            });
+            fileArea.innerHTML = "";
+            let node = savePickerTree;
+            for (let i = 1; i < savePickerCurrentPath.length; i++) {
+              if (!node || !node[1]) break;
+              node = node[1].find((c) => c[0] === savePickerCurrentPath[i]);
+            }
+            if (!node || !node[1]) return;
+            node[1].forEach((item) => {
+              const div = document.createElement("div");
+              div.textContent =
+                (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
+              div.style.padding = "6px";
+              div.style.cursor = "pointer";
+              div.onclick = (e) => {
+                const isToggle = e.ctrlKey || e.metaKey;
+                if (!isToggle) {
+                  savePickerSelection = [item];
+                  fileArea
+                    .querySelectorAll("div")
+                    .forEach((d) => (d.style.background = ""));
+                  div.style.background = "#d0e6ff";
+                } else {
+                  const idx = savePickerSelection.indexOf(item);
+                  if (idx >= 0) {
+                    savePickerSelection.splice(idx, 1);
+                    div.style.background = "";
+                  } else {
+                    savePickerSelection.push(item);
+                    div.style.background = "#d0e6ff";
+                  }
+                }
+              };
+              if (Array.isArray(item[1]))
+                div.ondblclick = () => {
+                  savePickerCurrentPath.push(item[0]);
+                  render();
+                };
+              fileArea.appendChild(div);
+            });
+          }
+
+          render();
+
+          btnCancel.onclick = () => {
+            try {
+              if (sentreqframe && sentreqframe.contentWindow) {
+                sentreqframe.contentWindow.postMessage(
+                  { __VFS__: true, kind: "saveTarget", path: null },
+                  "*",
+                );
+              }
+            } catch (e) {}
+            overlay.remove();
+          };
+
+          btnSave.onclick = () => {
+            const selections = [...savePickerSelection];
+            const basePath = savePickerCurrentPath.slice(1).join("/");
+            const fname = (nameInput.value || "").trim();
+            if (!fname) {
+              notification("Enter a filename");
+              return;
+            }
+            let chosen;
+            if (!selections.length)
+              chosen = basePath ? basePath + "/" + fname : fname;
+            else {
+              const sel = selections[0];
+              const isFolder = Array.isArray(sel[1]);
+              if (isFolder) chosen = (basePath ? basePath + "/" : "") + fname;
+              else notification("Select a folder to save into");
+            }
+
+            // send response to requesting iframe
+            try {
+              if (sentreqframe && sentreqframe.contentWindow) {
+                sentreqframe.contentWindow.postMessage(
+                  { __VFS__: true, kind: "saveTarget", path: chosen },
+                  "*",
+                );
+              }
+            } catch (e) {}
+
+            overlay.remove();
+          };
+        }
+
+        // ----------------------------
+        // 3c. Custom directory picker overlay
+        // ----------------------------
+        function openCustomDirectoryPickerUI() {
+          if (!window.treeData) {
+            window.loadTree();
+          }
+
+          const dirPickerTree = JSON.parse(
+            JSON.stringify(window.treeData || {}),
+          );
+          let dirPickerCurrentPath = ["root"];
+          let dirPickerSelection = [];
+
+          const overlay = document.createElement("div");
+          Object.assign(overlay.style, {
+            position: "fixed",
+            top: "0",
+            left: "0",
+            right: "0",
+            bottom: "0",
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          });
+          document.body.appendChild(overlay);
+
+          const box = document.createElement("div");
+          Object.assign(box.style, {
+            width: "600px",
+            height: "420px",
+            borderRadius: "8px",
+            background: data.dark ? "#222" : "#fff",
+            color: data.dark ? "#eee" : "#000",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          });
+          overlay.appendChild(box);
+
+          const breadcrumb = document.createElement("div");
+          breadcrumb.style.padding = "6px";
+          box.appendChild(breadcrumb);
+          const fileArea = document.createElement("div");
+          fileArea.style.flex = "1";
+          fileArea.style.overflowY = "auto";
+          fileArea.style.borderTop = "1px solid #ccc";
+          box.appendChild(fileArea);
+
+          const infoRow = document.createElement("div");
+          infoRow.style.padding = "6px";
+          infoRow.style.fontSize = "12px";
+          infoRow.style.color = "#666";
+          infoRow.textContent = "Select a folder";
+          box.appendChild(infoRow);
+
+          const btnBar = document.createElement("div");
+          btnBar.style.padding = "6px";
+          btnBar.style.display = "flex";
+          btnBar.style.justifyContent = "flex-end";
+          box.appendChild(btnBar);
+          const btnCancel = document.createElement("button");
+          btnCancel.textContent = "Cancel";
+          btnBar.appendChild(btnCancel);
+          const btnOpen = document.createElement("button");
+          btnOpen.textContent = "Select";
+          btnBar.appendChild(btnOpen);
+
+          function render() {
+            breadcrumb.innerHTML = "";
+            dirPickerCurrentPath.forEach((p, i) => {
+              const s = document.createElement("span");
+              s.textContent = i === 0 ? "Home" : " / " + p;
+              s.style.cursor = "pointer";
+              s.onclick = () => {
+                dirPickerCurrentPath = dirPickerCurrentPath.slice(0, i + 1);
+                render();
+              };
+              breadcrumb.appendChild(s);
+            });
+            fileArea.innerHTML = "";
+            let node = dirPickerTree;
+            for (let i = 1; i < dirPickerCurrentPath.length; i++) {
+              if (!node || !node[1]) break;
+              node = node[1].find((c) => c[0] === dirPickerCurrentPath[i]);
+            }
+            if (!node || !node[1]) return;
+            node[1].forEach((item) => {
+              const isFolder = Array.isArray(item[1]);
+              const div = document.createElement("div");
+              div.textContent = (isFolder ? "📁 " : "📄 ") + item[0];
+              div.style.padding = "6px";
+              div.style.cursor = "pointer";
+              div.onclick = (e) => {
+                // Only allow selecting folders
+                if (isFolder) {
+                  const isToggle = e.ctrlKey || e.metaKey;
+                  if (!isToggle) {
+                    dirPickerSelection = [item];
+                    fileArea
+                      .querySelectorAll("div")
+                      .forEach((d) => (d.style.background = ""));
+                    div.style.background = "#d0e6ff";
+                  } else {
+                    const idx = dirPickerSelection.indexOf(item);
+                    if (idx >= 0) {
+                      dirPickerSelection.splice(idx, 1);
+                      div.style.background = "";
+                    } else {
+                      dirPickerSelection.push(item);
+                      div.style.background = "#d0e6ff";
+                    }
+                  }
+                }
+              };
+              if (isFolder) {
+                div.ondblclick = () => {
+                  dirPickerCurrentPath.push(item[0]);
+                  render();
+                };
+              }
+              fileArea.appendChild(div);
+            });
+          }
+
+          render();
+
+          btnCancel.onclick = () => {
+            try {
+              if (sentreqframe && sentreqframe.contentWindow) {
+                sentreqframe.contentWindow.postMessage(
+                  {
+                    __VFS__: true,
+                    kind: "directoryTarget",
+                    path: null,
+                    treeNode: null,
+                  },
+                  "*",
+                );
+              }
+            } catch (e) {}
+            overlay.remove();
+          };
+
+          btnOpen.onclick = () => {
+            const basePath = dirPickerCurrentPath.slice(1).join("/") || "root";
+            let chosen;
+
+            if (dirPickerSelection.length > 0) {
+              const sel = dirPickerSelection[0];
+              if (Array.isArray(sel[1])) {
+                chosen = (basePath !== "root" ? basePath + "/" : "") + sel[0];
+              } else {
+                notification("Please select a directory");
+                return;
+              }
+            } else {
+              chosen = basePath;
+            }
+
+            // Find the actual tree node for the selected path
+            let selectedNode = dirPickerTree;
+            const pathParts = chosen
+              .split("/")
+              .filter((p) => p && p !== "root");
+            for (const part of pathParts) {
+              if (!selectedNode || !selectedNode[1]) break;
+              selectedNode = selectedNode[1].find((c) => c[0] === part);
+            }
+
+            if (!selectedNode) {
+              notification("Selected directory not found");
+              return;
+            }
+
+            // --- NEW: recursively gather files in the directory ---
+            function collectFiles(node, currentPath) {
+              const files = [];
+              if (!node || !Array.isArray(node[1])) return files;
+              for (const item of node[1]) {
+                const [name, child] = item;
+                const itemPath = currentPath ? currentPath + "/" + name : name;
+                if (Array.isArray(child)) {
+                  // folder → recurse
+                  files.push(...collectFiles(item, itemPath));
+                } else {
+                  // file → add as base64 string (or empty placeholder if contents not loaded)
+                  files.push({ path: itemPath, contents: child || "" });
+                }
+              }
+              return files;
+            }
+
+            const filesToSend = collectFiles(selectedNode, chosen);
+
+            // send directory info
+            if (sentreqframe && sentreqframe.contentWindow) {
+              sentreqframe.contentWindow.postMessage(
+                {
+                  __VFS__: true,
+                  kind: "directoryTarget",
+                  path: chosen,
+                  treeNode: selectedNode,
+                },
+                "*",
+              );
+
+              // send each file as fileData
+              for (const f of filesToSend) {
+                const buffer =
+                  f.contents instanceof ArrayBuffer
+                    ? f.contents
+                    : new TextEncoder().encode(f.contents).buffer; // convert string to ArrayBuffer
+
+                sentreqframe.contentWindow.postMessage(
+                  {
+                    __VFS__: true,
+                    kind: "fileData",
+                    path: f.path,
+                    name: f.path.split("/").pop(),
+                    type: "text/plain",
+                    buffer,
+                  },
+                  "*",
+                );
               }
             }
-          }
-        });
-        root.focus();
-            window.addEventListener('browser' + root._goldenbodyId, "message", (e) => {
+
+            overlay.remove();
+          };
+        }
+
+        // ----------------------------
+        // 4. Listen for iframe requests
+        // ----------------------------
+
+        if (!root.__vfsMessageListenerAdded) {
+          root.__vfsMessageListenerAdded = true;
+          root.addEventListener("keydown", function (e) {
+            if (e.ctrlKey && e.key === "w") {
+              for (const tab of tabs) {
+                if (tab.iframe.style.display !== "none") {
+                  closeTab(tab.id);
+                }
+              }
+            }
+          });
+          root.focus();
+          window.addEventListener(
+            "browser" + root._goldenbodyId,
+            "message",
+            (e) => {
               try {
                 // Allow `saveFile` messages to be processed even when the browser root
                 // doesn't have focus. Previously the OR made the whole condition true
                 // whenever a saveFile arrived, causing the handler to return early.
-                const isSaveFile = (e.data?.__VFS__ && e.data.kind === "saveFile");
-                if ((!root || !root.contains(document.activeElement)) && !isSaveFile) return;
-              } catch (e) { return; }
+                const isSaveFile =
+                  e.data?.__VFS__ && e.data.kind === "saveFile";
+                if (
+                  (!root || !root.contains(document.activeElement)) &&
+                  !isSaveFile
+                )
+                  return;
+              } catch (e) {
+                return;
+              }
               if (e.data?.__VFS__ && e.data.kind === "requestPicker") {
                 openCustomPickerUI();
                 sentreqframe = recurseFrames(document, e);
@@ -2510,35 +2910,53 @@ if (sentreqframe && sentreqframe.contentWindow) {
                   // pendingSaves stores { chunks: [ArrayBuffer], bytes: number, source: MessageEvent.source }
                   root.__pendingSaves = root.__pendingSaves || {};
 
-                  const incomingPath = e.data.path || e.data.name || 'unnamed';
-                  const fullPath = incomingPath.startsWith('root/') ? incomingPath : ('root/' + incomingPath);
+                  const incomingPath = e.data.path || e.data.name || "unnamed";
+                  const fullPath = incomingPath.startsWith("root/")
+                    ? incomingPath
+                    : "root/" + incomingPath;
 
                   // Ensure entry
                   if (!root.__pendingSaves[fullPath]) {
-                    root.__pendingSaves[fullPath] = { chunks: [], bytes: 0, source: e.source };
+                    root.__pendingSaves[fullPath] = {
+                      chunks: [],
+                      bytes: 0,
+                      source: e.source,
+                    };
                   }
 
                   const entry = root.__pendingSaves[fullPath];
                   // Accept either raw ArrayBuffer in `buffer` or base64 string in `base64`.
                   if (e.data.buffer) {
                     // Normalize to ArrayBuffer
-                    const ab = e.data.buffer instanceof ArrayBuffer ? e.data.buffer : e.data.buffer.buffer;
+                    const ab =
+                      e.data.buffer instanceof ArrayBuffer
+                        ? e.data.buffer
+                        : e.data.buffer.buffer;
                     entry.chunks.push(ab);
-                    entry.bytes += (ab.byteLength || 0);
+                    entry.bytes += ab.byteLength || 0;
                     // Acknowledge receipt of this chunk so the writer can apply backpressure
                     try {
                       if (e.data._chunkId && e.source && e.source.postMessage) {
-                        e.source.postMessage({ __VFS__: true, kind: 'chunkAck', _chunkId: e.data._chunkId, path: fullPath }, '*');
+                        e.source.postMessage(
+                          {
+                            __VFS__: true,
+                            kind: "chunkAck",
+                            _chunkId: e.data._chunkId,
+                            path: fullPath,
+                          },
+                          "*",
+                        );
                       }
                     } catch (err) {
-                      console.warn('failed to send chunkAck', err);
+                      console.warn("failed to send chunkAck", err);
                     }
                   } else if (e.data.base64) {
                     // convert base64 to ArrayBuffer and store
                     const binary = atob(e.data.base64);
                     const len = binary.length;
                     const bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+                    for (let i = 0; i < len; i++)
+                      bytes[i] = binary.charCodeAt(i);
                     entry.chunks.push(bytes.buffer);
                     entry.bytes += bytes.byteLength;
                   }
@@ -2554,17 +2972,44 @@ if (sentreqframe && sentreqframe.contentWindow) {
                   let totalBytes = entry.bytes;
 
                   // Debug: if totalBytes is zero but chunks exist, compute a fallback
-                  if ((!totalBytes || totalBytes === 0) && entry.chunks && entry.chunks.length) {
+                  if (
+                    (!totalBytes || totalBytes === 0) &&
+                    entry.chunks &&
+                    entry.chunks.length
+                  ) {
                     try {
                       const computed = entry.chunks.reduce((sum, c) => {
-                        try { return sum + (c && (c.byteLength || (c.byteLength === 0 ? 0 : new Uint8Array(c).byteLength)) || 0); } catch (e) { return sum; }
+                        try {
+                          return (
+                            sum +
+                            ((c &&
+                              (c.byteLength ||
+                                (c.byteLength === 0
+                                  ? 0
+                                  : new Uint8Array(c).byteLength))) ||
+                              0)
+                          );
+                        } catch (e) {
+                          return sum;
+                        }
                       }, 0);
                       if (computed > 0) {
-                        console.warn('VFS: computed totalBytes fallback', fullPath, computed, 'from', entry.chunks.length, 'chunks');
+                        console.warn(
+                          "VFS: computed totalBytes fallback",
+                          fullPath,
+                          computed,
+                          "from",
+                          entry.chunks.length,
+                          "chunks",
+                        );
                         totalBytes = computed;
                       }
                     } catch (err) {
-                      console.warn('VFS: failed computing fallback totalBytes for', fullPath, err);
+                      console.warn(
+                        "VFS: failed computing fallback totalBytes for",
+                        fullPath,
+                        err,
+                      );
                     }
                   }
 
@@ -2584,7 +3029,7 @@ if (sentreqframe && sentreqframe.contentWindow) {
 
                   // Helper to convert ArrayBuffer slice to base64
                   function arrayBufferToBase64(buffer) {
-                    let binary = '';
+                    let binary = "";
                     const bytes = new Uint8Array(buffer);
                     const chunk = 0x8000;
                     for (let i = 0; i < bytes.length; i += chunk) {
@@ -2598,21 +3043,49 @@ if (sentreqframe && sentreqframe.contentWindow) {
                     try {
                       if (totalBytes <= MAX_INLINE_BASE64) {
                         const base64 = arrayBufferToBase64(combined);
-                        await post({ saveSnapshot: true, directions: [{ edit: true, path: fullPath, contents: base64, replace:true}, { end: true }] });
+                        await post({
+                          saveSnapshot: true,
+                          directions: [
+                            {
+                              edit: true,
+                              path: fullPath,
+                              contents: base64,
+                              replace: true,
+                            },
+                            { end: true },
+                          ],
+                        });
                       } else {
                         // Large file: chunk it similarly to fileExplorer
                         const total = Math.ceil(totalBytes / CHUNK_SIZE);
 
                         // ensure file placeholder
-                        await post({ saveSnapshot: true, directions: [{ addFile: true, path: fullPath, replace: true }, { end: true }] });
+                        await post({
+                          saveSnapshot: true,
+                          directions: [
+                            { addFile: true, path: fullPath, replace: true },
+                            { end: true },
+                          ],
+                        });
 
                         // Optionally check existing parts (skip for now)
 
                         // Check which parts already exist on server (resume support)
                         let presentParts = [];
                         try {
-                          const chk = await post({ saveSnapshot: true, directions: [{ checkParts: true, path: fullPath }, { end: true }] });
-                          presentParts = (chk && chk.result && chk.result.checkParts && chk.result.checkParts[fullPath]) || [];
+                          const chk = await post({
+                            saveSnapshot: true,
+                            directions: [
+                              { checkParts: true, path: fullPath },
+                              { end: true },
+                            ],
+                          });
+                          presentParts =
+                            (chk &&
+                              chk.result &&
+                              chk.result.checkParts &&
+                              chk.result.checkParts[fullPath]) ||
+                            [];
                         } catch (e) {
                           presentParts = [];
                         }
@@ -2622,18 +3095,38 @@ if (sentreqframe && sentreqframe.contentWindow) {
                         const MAX_CHUNK_RETRIES = 3;
                         const CHUNK_RETRY_BASE_MS = 500;
 
-                        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+                        function sleep(ms) {
+                          return new Promise((r) => setTimeout(r, ms));
+                        }
 
-                        async function uploadChunkWithRetries(path, chunkBase64, index, total) {
+                        async function uploadChunkWithRetries(
+                          path,
+                          chunkBase64,
+                          index,
+                          total,
+                        ) {
                           let attempts = 0;
                           while (true) {
                             try {
-                              await post({ saveSnapshot: true, directions: [{ edit: true, path, chunk: chunkBase64, index, total}, { end: true }] });
+                              await post({
+                                saveSnapshot: true,
+                                directions: [
+                                  {
+                                    edit: true,
+                                    path,
+                                    chunk: chunkBase64,
+                                    index,
+                                    total,
+                                  },
+                                  { end: true },
+                                ],
+                              });
                               return;
                             } catch (err) {
                               attempts++;
                               if (attempts > MAX_CHUNK_RETRIES) throw err;
-                              const backoff = CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
+                              const backoff =
+                                CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
                               await sleep(backoff);
                             }
                           }
@@ -2647,43 +3140,77 @@ if (sentreqframe && sentreqframe.contentWindow) {
                           const slice = combined.slice(start, end);
                           const chunkBase64 = arrayBufferToBase64(slice);
                           try {
-                            await uploadChunkWithRetries(fullPath, chunkBase64, i, total);
+                            await uploadChunkWithRetries(
+                              fullPath,
+                              chunkBase64,
+                              i,
+                              total,
+                            );
                             uploadedCount++;
                           } catch (err) {
-                            console.error(`Failed to upload chunk ${i} for ${fullPath}:`, err);
+                            console.error(
+                              `Failed to upload chunk ${i} for ${fullPath}:`,
+                              err,
+                            );
                             throw err;
                           }
                         }
 
                         // finalize
-                        await post({ saveSnapshot: true, directions: [{ edit: true, path: fullPath, finalize: true }, { end: true }] });
+                        await post({
+                          saveSnapshot: true,
+                          directions: [
+                            { edit: true, path: fullPath, finalize: true },
+                            { end: true },
+                          ],
+                        });
                       }
 
                       // ACK back to source
                       try {
-                        e.source.postMessage({ __VFS__: true, kind: 'saved', path: incomingPath, ok: true }, '*');
+                        e.source.postMessage(
+                          {
+                            __VFS__: true,
+                            kind: "saved",
+                            path: incomingPath,
+                            ok: true,
+                          },
+                          "*",
+                        );
                       } catch (err) {}
                     } catch (err) {
-                      console.error('saveFile handling error', err);
-                      try { e.source.postMessage({ __VFS__: true, kind: 'saved', path: incomingPath, ok: false, error: (err && err.message) || String(err) }, '*'); } catch (err) {}
+                      console.error("saveFile handling error", err);
+                      try {
+                        e.source.postMessage(
+                          {
+                            __VFS__: true,
+                            kind: "saved",
+                            path: incomingPath,
+                            ok: false,
+                            error: (err && err.message) || String(err),
+                          },
+                          "*",
+                        );
+                      } catch (err) {}
                     } finally {
                       // cleanup
                       delete root.__pendingSaves[fullPath];
                     }
                   })();
                 } catch (err) {
-                  console.error('saveFile outer error', err);
+                  console.error("saveFile outer error", err);
                 }
               }
-            });
-          }
+            },
+          );
+        }
 
-          // ----------------------------
-          // 5. Inject override into iframe
-          // ----------------------------
-          const script = document.createElement("script");
-          script.id = 'VFS';
-          script.textContent = `(() => {
+        // ----------------------------
+        // 5. Inject override into iframe
+        // ----------------------------
+        const script = document.createElement("script");
+        script.id = "VFS";
+        script.textContent = `(() => {
   console.log('VFS injector active');
 
           // Provide synthetic FileSystemHandle classes so libraries that use instanceof
@@ -3412,98 +3939,105 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
 
 `;
-          function injectIntoIframe(frame) {
-            try {
-              frame.contentDocument.documentElement.appendChild(script.cloneNode(true));
-            } catch {}
-          }
-          function uninjectIntoFrame(frame) {
-            try {
-              frame.contentDocument.getElementById('VFS').remove();
-            } catch {}
-          }
-          let mediaInterval;
-          const observedDocs = new WeakSet();
-          const trackedFrames = new WeakSet();
+        function injectIntoIframe(frame) {
+          try {
+            frame.contentDocument.documentElement.appendChild(
+              script.cloneNode(true),
+            );
+          } catch {}
+        }
+        function uninjectIntoFrame(frame) {
+          try {
+            frame.contentDocument.getElementById("VFS").remove();
+          } catch {}
+        }
+        let mediaInterval;
+        const observedDocs = new WeakSet();
+        const trackedFrames = new WeakSet();
 
-          function observeDocumentFrames(doc) {
-            if (!doc || observedDocs.has(doc)) return;
-            observedDocs.add(doc);
+        function observeDocumentFrames(doc) {
+          if (!doc || observedDocs.has(doc)) return;
+          observedDocs.add(doc);
 
-            try {
-              const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                  for (const node of mutation.addedNodes) {
-                    if (!node || node.nodeType !== 1) continue;
+          try {
+            const observer = new MutationObserver((mutations) => {
+              for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                  if (!node || node.nodeType !== 1) continue;
 
-                    if (node.tagName === "IFRAME") {
-                      watchFrame(node, doc);
-                      continue;
-                    }
+                  if (node.tagName === "IFRAME") {
+                    watchFrame(node, doc);
+                    continue;
+                  }
 
-                    if (typeof node.querySelectorAll === "function") {
-                      const nestedFrames = node.querySelectorAll("iframe");
-                      for (const nestedFrame of nestedFrames) {
-                        watchFrame(nestedFrame, doc);
-                      }
+                  if (typeof node.querySelectorAll === "function") {
+                    const nestedFrames = node.querySelectorAll("iframe");
+                    for (const nestedFrame of nestedFrames) {
+                      watchFrame(nestedFrame, doc);
                     }
                   }
                 }
-              });
-
-              observer.observe(doc.documentElement || doc, {
-                childList: true,
-                subtree: true,
-              });
-            } catch (e) {
-              // ignored (likely cross-origin restrictions)
-            }
-          }
-
-          function watchFrame(frame, parentDoc = null) {
-            if (!frame || trackedFrames.has(frame)) return;
-            trackedFrames.add(frame);
-
-            frame.addEventListener("load", function onFrameLoad() {
-              try {
-                if (parentDoc) recurseFrames(parentDoc);
-                recurseFrames(frame.contentDocument || frame.contentWindow?.document);
-              } catch (e) {}
+              }
             });
 
-            try {
-              const readyDoc = frame.contentDocument || frame.contentWindow?.document;
-              if (readyDoc && readyDoc.readyState === "complete") {
-                recurseFrames(readyDoc);
-              }
-            } catch (e) {}
+            observer.observe(doc.documentElement || doc, {
+              childList: true,
+              subtree: true,
+            });
+          } catch (e) {
+            // ignored (likely cross-origin restrictions)
           }
+        }
 
-          function recurseFrames(doc, event = null) {
-            if (!doc) return;
-            observeDocumentFrames(doc);
+        function watchFrame(frame, parentDoc = null) {
+          if (!frame || trackedFrames.has(frame)) return;
+          trackedFrames.add(frame);
 
-            // do something for this document (attach context menu, log, etc.)
-            const frames = doc.querySelectorAll("iframe");
+          frame.addEventListener("load", function onFrameLoad() {
+            try {
+              if (parentDoc) recurseFrames(parentDoc);
+              recurseFrames(
+                frame.contentDocument || frame.contentWindow?.document,
+              );
+            } catch (e) {}
+          });
 
-            for (const frame of frames) {
-              try {
-                watchFrame(frame, doc);
-                if(event) {
-                  if(event.source == iframe.contentWindow) {return iframe}
-                  if(event.source == frame.contentWindow) {
-                    return frame;
-                  }
+          try {
+            const readyDoc =
+              frame.contentDocument || frame.contentWindow?.document;
+            if (readyDoc && readyDoc.readyState === "complete") {
+              recurseFrames(readyDoc);
+            }
+          } catch (e) {}
+        }
+
+        function recurseFrames(doc, event = null) {
+          if (!doc) return;
+          observeDocumentFrames(doc);
+
+          // do something for this document (attach context menu, log, etc.)
+          const frames = doc.querySelectorAll("iframe");
+
+          for (const frame of frames) {
+            try {
+              watchFrame(frame, doc);
+              if (event) {
+                if (event.source == iframe.contentWindow) {
+                  return iframe;
                 }
-                if (frame.style.display === "none") continue;
+                if (event.source == frame.contentWindow) {
+                  return frame;
+                }
+              }
+              if (frame.style.display === "none") continue;
 
-                // Wait for the iframe to load (so its contentDocument exists)
-                try {
-                  const win = frame.contentWindow;
-                  if (!frame.contentDocument.getElementById('_gb_a_setter')) {
-                            var script = frame.contentDocument.createElement("script");
-                            script.id = '_gb_a_setter';
-          script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+              // Wait for the iframe to load (so its contentDocument exists)
+              try {
+                const win = frame.contentWindow;
+                if (!frame.contentDocument.getElementById("_gb_a_setter")) {
+                  var script = frame.contentDocument.createElement("script");
+                  script.id = "_gb_a_setter";
+                  script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
   window.parent.postMessage(
     { type: "FROM_IFRAME", message: url },
     "*"
@@ -3511,282 +4045,358 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 }
 
 `;
-          frame.contentDocument.head.appendChild(script);
-                  }
-                  // showOpenFilePicker()
-                  if (frame.contentDocument?.readyState === "complete") {
-                    if(!frame.contentDocument.getElementById('VFS'))
+                  frame.contentDocument.head.appendChild(script);
+                }
+                // showOpenFilePicker()
+                if (frame.contentDocument?.readyState === "complete") {
+                  if (!frame.contentDocument.getElementById("VFS"))
                     injectIntoIframe(frame);
-                  }
+                }
 
-                  win.removeEventListener("keydown", handleReload);
-                  win.addEventListener("keydown", handleReload);
-                  if (!win.handleArrows) {
-                    win.handleArrows = function (e) {
-                      if (document.activeElement !== frame) return;
-                      if (e.ctrlKey && e.altKey) {
-                        e.preventDefault();
-                        if (e.key === "ArrowRight") {
-                          for (let i = 0; i < tabs.length; i++) {
-                            if (tabs[i].id === activatedTab.id) {
-                              activateTab(tabs[i + 1].id);
-                              break;
-                            }
-                          }
-                        } else if (e.key === "ArrowLeft") {
-                          let lastindex = 0;
-                          for (let i = 0; i < tabs.length; i++) {
-                            let currentIndex = i;
-                            if (tabs[i].id === activatedTab.id) {
-                              activateTab(tabs[lastindex].id);
-                              break;
-                            }
-                            lastindex = currentIndex;
+                win.removeEventListener("keydown", handleReload);
+                win.addEventListener("keydown", handleReload);
+                if (!win.handleArrows) {
+                  win.handleArrows = function (e) {
+                    if (document.activeElement !== frame) return;
+                    if (e.ctrlKey && e.altKey) {
+                      e.preventDefault();
+                      if (e.key === "ArrowRight") {
+                        for (let i = 0; i < tabs.length; i++) {
+                          if (tabs[i].id === activatedTab.id) {
+                            activateTab(tabs[i + 1].id);
+                            break;
                           }
                         }
+                      } else if (e.key === "ArrowLeft") {
+                        let lastindex = 0;
+                        for (let i = 0; i < tabs.length; i++) {
+                          let currentIndex = i;
+                          if (tabs[i].id === activatedTab.id) {
+                            activateTab(tabs[lastindex].id);
+                            break;
+                          }
+                          lastindex = currentIndex;
+                        }
                       }
-                    };
-                  }
-                  frame.contentDocument.addEventListener(
+                    }
+                  };
+                }
+                frame.contentDocument.addEventListener("keydown", function () {
+                  document.activeElement.focus();
+                });
+
+                frame.contentDocument.addEventListener("click", hideMenu);
+                if (!frame.contentWindow.onpointerup) {
+                  frame.contentWindow.onpointerup = function (ev) {
+                    window.top.postMessage(
+                      {
+                        type: "iframe-pointerup",
+                        x: ev.clientX,
+                        y: ev.clientY,
+                        pageX: ev.pageX,
+                        pageY: ev.pageY,
+                        button: ev.button,
+                        buttons: ev.buttons,
+                        altKey: ev.altKey,
+                        ctrlKey: ev.ctrlKey,
+                        shiftKey: ev.shiftKey,
+                        metaKey: ev.metaKey,
+                      },
+                      "*",
+                    );
+                  };
+                }
+                if (!win.contextMenuHandler) {
+                  win.contextMenuHandler = function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Attach handler
+                    const { x, y } = getAbsoluteMousePosition(
+                      e,
+                      frame.contentDocument,
+                    );
+
+                    const clickedElement = e.target;
+                    const linkElement = clickedElement.closest("a");
+
+                    if (linkElement && linkElement.href) {
+                      console.log("Right-clicked on a link:", linkElement.href);
+                      showMenu(x, y, linkElement, true);
+                    } else {
+                      showMenu(x, y, null, false);
+                      console.log("Right-clicked on a non-link element.");
+                    }
+                  };
+                }
+
+                const mwin = tab.iframe.contentWindow;
+                win.tabIndex = "0";
+                if (!win.suberudaKeyHandler) {
+                  win.erudaKeyHandler = function (e) {
+                    if (
+                      e.ctrlKey &&
+                      e.shiftKey &&
+                      e.key.toLowerCase() === "i"
+                    ) {
+                      if (!win.eruda) {
+                        iframe.contentWindow._goldenbodyIns = true;
+
+                        const script = doc.createElement("script");
+                        script.src = "https://cdn.jsdelivr.net/npm/eruda";
+                        script.onload = () => {
+                          win.eruda.init();
+                          win.eruda.get("entryBtn").hide();
+                          win.eruda.show();
+                        };
+                        doc.head.appendChild(script);
+                      } else {
+                        try {
+                          // toggle show/hide
+                          if (!win._goldenbodyIns) {
+                            win.eruda.show();
+
+                            win._goldenbodyIns = true;
+                          } else {
+                            win.eruda.hide();
+
+                            win._goldenbodyIns = false;
+                          }
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }
+                    }
+                  };
+
+                  win.suberudaKeyHandler = function (e) {
+                    if (
+                      e.ctrlKey &&
+                      e.shiftKey &&
+                      e.key.toLowerCase() === "i"
+                    ) {
+                      if (frame.contentWindow.parent !== window) {
+                        document.activeElement.contentDocument.body.focus();
+                      }
+                      return;
+                    } else if (
+                      (e.ctrlKey && (e.key === "+" || e.key === "=")) ||
+                      (e.ctrlKey && e.key === "-")
+                    ) {
+                      if (frame.contentWindow.parent !== window) {
+                        document.activeElement.contentDocument.body.focus();
+                      }
+
+                      // handleresize(e, tab);
+                      return;
+                    }
+                  };
+                }
+                function attatch() {
+                  frame.contentWindow.removeEventListener(
                     "keydown",
-                    function () {
-                      document.activeElement.focus();
-                    },
+                    frame.contentWindow.handleArrows,
                   );
 
-                  frame.contentDocument.addEventListener("click", hideMenu);
-                  if (!frame.contentWindow.onpointerup) {
-                    frame.contentWindow.onpointerup = function (ev) {
-                      window.top.postMessage(
-                        {
-                          type: "iframe-pointerup",
-                          x: ev.clientX,
-                          y: ev.clientY,
-                          pageX: ev.pageX,
-                          pageY: ev.pageY,
-                          button: ev.button,
-                          buttons: ev.buttons,
-                          altKey: ev.altKey,
-                          ctrlKey: ev.ctrlKey,
-                          shiftKey: ev.shiftKey,
-                          metaKey: ev.metaKey,
-                        },
-                        "*",
-                      );
-                    };
-                  }
-                  if (!win.contextMenuHandler) {
-                    win.contextMenuHandler = function (e) {
-                      const hasInlineHandler = e.target.oncontextmenu !== null;
-                      if (hasInlineHandler || e.defaultPrevented) return;
-                      e.preventDefault();
-                      e.stopPropagation();
+                  frame.contentWindow.addEventListener(
+                    "keydown",
+                    frame.contentWindow.handleArrows,
+                  );
+                  frame.contentWindow.removeEventListener(
+                    "pointerup",
+                    frame.contentWindow.onpointerup,
+                  );
+                  frame.contentWindow.addEventListener(
+                    "pointerup",
+                    frame.contentWindow.onpointerup,
+                  );
+                  win.removeEventListener("keydown", win.suberudaKeyHandler);
 
-                      // Attach handler
-                      const { x, y } = getAbsoluteMousePosition(
-                        e,
-                        frame.contentDocument,
-                      );
+                  win.addEventListener("keydown", win.suberudaKeyHandler);
+                  frame.contentWindow.removeEventListener(
+                    "contextmenu",
+                    win.contextMenuHandler,
+                    true,
+                  );
 
-                      const clickedElement = e.target;
-                      const linkElement = clickedElement.closest("a");
-
-                      if (linkElement && linkElement.href) {
-                        console.log(
-                          "Right-clicked on a link:",
-                          linkElement.href,
-                        );
-                        showMenu(x, y, linkElement, true);
-                      } else {
-                        showMenu(x, y, null, false);
-                        console.log("Right-clicked on a non-link element.");
-                      }
-                    };
-                  }
-
-                  const mwin = tab.iframe.contentWindow;
-                  win.tabIndex = "0";
-                  if (!win.suberudaKeyHandler) {
-                    win.erudaKeyHandler = function (e) {
-                      if (
-                        e.ctrlKey &&
-                        e.shiftKey &&
-                        e.key.toLowerCase() === "i"
-                      ) {
-                        if (!win.eruda) {
-                          iframe.contentWindow._goldenbodyIns = true;
-
-                          const script = doc.createElement("script");
-                          script.src = "https://cdn.jsdelivr.net/npm/eruda";
-                          script.onload = () => {
-                            win.eruda.init();
-                            win.eruda.get("entryBtn").hide();
-                            win.eruda.show();
-                          };
-                          doc.head.appendChild(script);
-                        } else {
-                          try {
-                            // toggle show/hide
-                            if (!win._goldenbodyIns) {
-                              win.eruda.show();
-
-                              win._goldenbodyIns = true;
-                            } else {
-                              win.eruda.hide();
-
-                              win._goldenbodyIns = false;
-                            }
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }
-                      }
-                    };
-
-                    win.suberudaKeyHandler = function (e) {
-                      if (
-                        e.ctrlKey &&
-                        e.shiftKey &&
-                        e.key.toLowerCase() === "i"
-                      ) {
-                        if (frame.contentWindow.parent !== window) {
-                          document.activeElement.contentDocument.body.focus();
-                        }
-                        return;
-                      } else if (
-                        (e.ctrlKey && (e.key === "+" || e.key === "=")) ||
-                        (e.ctrlKey && e.key === "-")
-                      ) {
-                        if (frame.contentWindow.parent !== window) {
-                          document.activeElement.contentDocument.body.focus();
-                        }
-
-                        // handleresize(e, tab);
-                        return;
-                      }
-                    };
-                  }
-                  function attatch() {
-                    frame.contentWindow.removeEventListener(
-                      "keydown",
-                      frame.contentWindow.handleArrows,
-                    );
-
-                    frame.contentWindow.addEventListener(
-                      "keydown",
-                      frame.contentWindow.handleArrows,
-                    );
-                    frame.contentWindow.removeEventListener(
-                      "pointerup",
-                      frame.contentWindow.onpointerup,
-                    );
-                    frame.contentWindow.addEventListener(
-                      "pointerup",
-                      frame.contentWindow.onpointerup,
-                    );
-                    win.removeEventListener("keydown", win.suberudaKeyHandler);
-
-                    win.addEventListener("keydown", win.suberudaKeyHandler);
-                    frame.contentWindow.removeEventListener(
-                      "contextmenu",
-                      win.contextMenuHandler,
-                    );
-
-                    frame.contentWindow.addEventListener(
-                      "contextmenu",
-                      win.contextMenuHandler,
-                    );
-                  }
-                  attatch();
-                  //   // get all iframes in this document
-                } catch (e) {
-                  // console.warn('Cannot access nested frame:', frame.src);
-                  // console.error(e);
+                  frame.contentWindow.addEventListener(
+                    "contextmenu",
+                    win.contextMenuHandler,
+                    true,
+                  );
                 }
-
-                // If already loaded, go in immediately
-                if (
-                  frame.contentDocument &&
-                  frame.contentDocument.readyState === "complete"
-                ) {
-                    const found = recurseFrames(frame.contentDocument, event);
-                    if (found) return found; // propagate match
-                }
-              } catch (err) {
-                console.warn("Blocked or cross-origin iframe:", frame.src);
+                attatch();
+                //   // get all iframes in this document
+              } catch (e) {
+                // console.warn('Cannot access nested frame:', frame.src);
+                // console.error(e);
               }
+
+              // If already loaded, go in immediately
+              if (
+                frame.contentDocument &&
+                frame.contentDocument.readyState === "complete"
+              ) {
+                const found = recurseFrames(frame.contentDocument, event);
+                if (found) return found; // propagate match
+              }
+            } catch (err) {
+              console.warn("Blocked or cross-origin iframe:", frame.src);
             }
           }
-
-          // Start from the top-level document
-          setTimeout(() => {
-          recurseFrames(iframe.contentDocument);
-          recurseFrames(root);
-          }, 100);
-
-
-          // Hide the menu when clicking elsewhere
-          iframeDocument.addEventListener("click", hideMenu);
-        };
-        if (browserGlobals.proxyurl != "") {
-          iframe.src = a(url, browserGlobals.proxyurl);
-        } else {
-          iframe.src = url;
         }
-        iframe.style.display = "none";
-        root.appendChild(iframe);
-        let loadedurl = url;
-        let donotm = false;
-        const tab = {
-          id,
-          url,
-          title,
-          iframe,
-          resizeP,
-          loadedurl,
-          donotm,
-          history: {
-            stack: [url],
-            index: 0,
-            current: url,
-            currentCanonical: null,
-            suppressNextRecord: false,
-          },
-        };
-        tab.history.currentCanonical = canonicalHistoryUrl(url);
-        tab.iframe.contentWindow.addEventListener("keydown", function (e) {
-          if (e.ctrlKey && e.key === "w") {
-            if (tab.iframe.style.display !== "none") {
-              closeTab(tab.id);
+
+        // Start from the top-level document
+        recurseFrames(iframe.contentDocument);
+        recurseFrames(root);
+
+        // Hide the menu when clicking elsewhere
+        iframeDocument.addEventListener("click", hideMenu);
+        iframe.__gbPatchedDocument = iframeDocument;
+      }
+
+      let patchinterval = null;
+      let patchwindowtimeout = null;
+      const stopIframePatchWatcher = () => {
+        if (patchinterval) {
+          clearInterval(patchinterval);
+          patchinterval = null;
+        }
+        if (patchwindowtimeout) {
+          clearTimeout(patchwindowtimeout);
+          patchwindowtimeout = null;
+        }
+      };
+      const startIframePatchWatcher = (durationMs = 2500) => {
+        if (!patchinterval) {
+          patchinterval = setInterval(() => {
+            if (!iframe || !iframe.isConnected) {
+              stopIframePatchWatcher();
+              return;
             }
-          }
-        });
-
-        if (preloadsize !== 100) {
-          preloadsize = 100;
+            try {
+              iframePatches();
+            } catch (e) {}
+          }, 50);
         }
-        function handleReload(e) {
-          if (
-            e.ctrlKey &&
-            e.key === "r" &&
-            (document.activeElement === root ||
-              document.activeElement === tab.iframe) &&
-            tab.iframe.style.display === "block"
-          ) {
-            e.preventDefault();
-            tab.iframe.contentWindow.location.reload();
+        if (patchwindowtimeout) clearTimeout(patchwindowtimeout);
+        patchwindowtimeout = setTimeout(() => {
+          stopIframePatchWatcher();
+        }, durationMs);
+      };
+
+      const tryPatchNow = () => {
+        try {
+          iframePatches();
+        } catch (e) {}
+      };
+
+      const ensurePatchedSoon = (durationMs = 2500) => {
+        tryPatchNow();
+        if (iframe.__gbPatchedDocument) return;
+        startIframePatchWatcher(durationMs);
+      };
+
+      const attachNavigationArm = () => {
+        try {
+          const win = iframe.contentWindow;
+          if (!win || win.__gbPatchArmAttached) return;
+          win.__gbPatchArmAttached = true;
+          win.addEventListener(
+            "beforeunload",
+            () => {
+              iframe.__gbPatchedDocument = null;
+              startIframePatchWatcher(5000);
+            },
+            { once: true },
+          );
+        } catch (e) {}
+      };
+
+      ensurePatchedSoon(3000);
+      attachNavigationArm();
+      iframe.addEventListener("load", () => {
+        iframe.__gbPatchedDocument = null;
+        ensurePatchedSoon(3000);
+        attachNavigationArm();
+      });
+      iframe.addEventListener("pointerenter", () => {
+        ensurePatchedSoon(1200);
+      });
+      iframe.addEventListener("focus", () => {
+        ensurePatchedSoon(1200);
+      });
+      iframe.addEventListener(
+        "contextmenu",
+        () => {
+          ensurePatchedSoon(1200);
+        },
+        true,
+      );
+
+      if (browserGlobals.proxyurl != "") {
+        iframe.src = a(url, browserGlobals.proxyurl);
+      } else {
+        iframe.src = url;
+      }
+      iframe.style.display = "none";
+      root.appendChild(iframe);
+      let loadedurl = url;
+      let donotm = false;
+      const tab = {
+        id,
+        url,
+        title,
+        iframe,
+        resizeP,
+        loadedurl,
+        donotm,
+        history: {
+          stack: [url],
+          index: 0,
+          current: url,
+          currentCanonical: null,
+          suppressNextRecord: false,
+        },
+      };
+      tab.history.currentCanonical = canonicalHistoryUrl(url);
+      tab.iframe.contentWindow.addEventListener("keydown", function (e) {
+        if (e.ctrlKey && e.key === "w") {
+          if (tab.iframe.style.display !== "none") {
+            closeTab(tab.id);
           }
         }
-        root.addEventListener("keydown", handleReload);
+      });
+      tab.__stopIframePatchWatcher = stopIframePatchWatcher;
 
-        let previousTabTitle = tab.title;
+      if (preloadsize !== 100) {
+        preloadsize = 100;
+      }
+      function handleReload(e) {
+        if (
+          e.ctrlKey &&
+          e.key === "r" &&
+          (document.activeElement === root ||
+            document.activeElement === tab.iframe) &&
+          tab.iframe.style.display === "block"
+        ) {
+          e.preventDefault();
+          tab.iframe.contentWindow.location.reload();
+        }
+      }
+      root.addEventListener("keydown", handleReload);
 
-        tab.title = "Loading...";
+      let previousTabTitle = tab.title;
 
-        tabs.push(tab);
-        activateTab(id);
-        renderTabs();
-        document.addEventListener('browser' + root._goldenbodyId, "keyup", function (e) {
+      tab.title = "Loading...";
+
+      tabs.push(tab);
+      activateTab(id);
+      renderTabs();
+      document.addEventListener(
+        "browser" + root._goldenbodyId,
+        "keyup",
+        function (e) {
           try {
             if (!root.contains(document.activeElement)) return;
           } catch (e) {
@@ -3798,7 +4408,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
             const win = tab.iframe.contentWindow;
             const doc = tab.iframe.contentDocument;
-            if (!win || tab.iframe.style.display === 'none') return;
+            if (!win || tab.iframe.style.display === "none") return;
             if (!win.eruda) {
               tab.iframe.contentWindow._goldenbodyIns = true;
 
@@ -3814,21 +4424,28 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             win.eruda[win._goldenbodyIns ? "hide" : "show"]();
             win._goldenbodyIns = !win._goldenbodyIns;
           }
-        });
+        },
+      );
 
-        return id;
-      }
+      return id;
+    }
 
-      if (preloadlink) {
-        addTab(preloadlink, "New Tab");
-      }
-      window.addEventListener('browser' + root._goldenbodyId, "keydown", function (e) {
-try{        if (
-          document.activeElement !== root &&
-          !root.contains(document.activeElement)
-        )
+    if (preloadlink) {
+      addTab(preloadlink, "New Tab");
+    }
+    window.addEventListener(
+      "browser" + root._goldenbodyId,
+      "keydown",
+      function (e) {
+        try {
+          if (
+            document.activeElement !== root &&
+            !root.contains(document.activeElement)
+          )
+            return;
+        } catch (e) {
           return;
-      } catch(e) {return;}
+        }
         if (e.ctrlKey && e.altKey) {
           e.preventDefault();
           if (e.key === "ArrowRight") {
@@ -3850,43 +4467,304 @@ try{        if (
             }
           }
         }
-      });
+      },
+    );
 
-      function canonicalHistoryUrl(url) {
-        if (!url) return '';
-        try {
-          const parsed = new URL(url);
-          if (parsed.pathname.length > 1 && parsed.pathname.endsWith('/')) {
-            parsed.pathname = parsed.pathname.slice(0, -1);
-          }
-          return parsed.href;
-        } catch (e) {
-          return String(url).replace(/\/+$/, '');
+    function canonicalHistoryUrl(url) {
+      if (!url) return "";
+      try {
+        const parsed = new URL(url);
+        if (parsed.pathname.length > 1 && parsed.pathname.endsWith("/")) {
+          parsed.pathname = parsed.pathname.slice(0, -1);
         }
+        return parsed.href;
+      } catch (e) {
+        return String(url).replace(/\/+$/, "");
       }
+    }
 
-      function historyRecord(tab, url) {
-        if (!tab || !tab.history || !url) return;
-        const canonical = canonicalHistoryUrl(url);
-        if (tab.history.suppressNextRecord) {
-          tab.history.suppressNextRecord = false;
-          if (Array.isArray(tab.history.stack) && tab.history.index >= 0 && tab.history.index < tab.history.stack.length) {
-            tab.history.stack[tab.history.index] = url;
-          }
+    function historyRecord(tab, url) {
+      if (!tab || !tab.history || !url) return;
+      const canonical = canonicalHistoryUrl(url);
+      if (tab.history.suppressNextRecord) {
+        tab.history.suppressNextRecord = false;
+        if (
+          Array.isArray(tab.history.stack) &&
+          tab.history.index >= 0 &&
+          tab.history.index < tab.history.stack.length
+        ) {
+          tab.history.stack[tab.history.index] = url;
+        }
+        tab.history.current = url;
+        tab.history.currentCanonical = canonical;
+        return;
+      }
+      if (
+        Array.isArray(tab.history.stack) &&
+        tab.history.index >= 0 &&
+        tab.history.index < tab.history.stack.length
+      ) {
+        const currentStackCanonical = canonicalHistoryUrl(
+          tab.history.stack[tab.history.index],
+        );
+        if (currentStackCanonical === canonical) {
           tab.history.current = url;
           tab.history.currentCanonical = canonical;
           return;
         }
-        if (Array.isArray(tab.history.stack) && tab.history.index >= 0 && tab.history.index < tab.history.stack.length) {
-          const currentStackCanonical = canonicalHistoryUrl(tab.history.stack[tab.history.index]);
-          if (currentStackCanonical === canonical) {
-            tab.history.current = url;
-            tab.history.currentCanonical = canonical;
-            return;
-          }
-        }
-        if (tab.history.currentCanonical === canonical) return;
+      }
+      if (tab.history.currentCanonical === canonical) return;
 
+      if (tab.history.index < tab.history.stack.length - 1) {
+        tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+      }
+      tab.history.stack.push(url);
+      tab.history.index = tab.history.stack.length - 1;
+      tab.history.current = url;
+      tab.history.currentCanonical = canonical;
+    }
+
+    function historyNavigate(tab, direction) {
+      if (!tab || !tab.history) return;
+      const nextIndex = tab.history.index + direction;
+      if (nextIndex < 0 || nextIndex >= tab.history.stack.length) return;
+
+      const targetUrl = tab.history.stack[nextIndex];
+      tab.history.index = nextIndex;
+      tab.history.current = targetUrl;
+      tab.history.currentCanonical = canonicalHistoryUrl(targetUrl);
+      tab.history.suppressNextRecord = true;
+
+      tab.url = targetUrl;
+      tab.loadedurl = targetUrl;
+      tab.title = "Loading...";
+
+      try {
+        createPermInput(tab.iframe, targetUrl);
+      } catch (e) {}
+      try {
+        tab.iframe.contentWindow.location.href = a(
+          targetUrl,
+          browserGlobals.proxyurl,
+        );
+      } catch (e) {
+        tab.history.suppressNextRecord = false;
+      }
+    }
+
+    function activateTab(id) {
+      try {
+        clearInterval(checkInterval);
+      } catch (a) {}
+      const tab = tabs.find((t) => t.id === id);
+      if (!tab) return;
+      tab.iframe.focus();
+      // Hide all iframes, show only active
+      tabs.forEach((t) => (t.iframe.style.display = "none"));
+      tab.iframe.style.display = "block";
+      backBtn.onclick = function () {
+        historyNavigate(tab, -1);
+      };
+      forwardBtn.onclick = function () {
+        historyNavigate(tab, 1);
+      };
+      reloadBtn.onclick = function () {
+        if (reloadBtn.dataset.mode === "stop") {
+          tab.iframe.contentWindow.stop();
+        } else {
+          tab.iframe.contentWindow.location.reload();
+        }
+      };
+      sitesettingsbtn.onclick = () => {
+        openPermissionsUI(
+          browserGlobals.unshuffleURL(tab.iframe.src),
+          tab.iframe,
+          sitesettingsbtn.getBoundingClientRect(),
+        );
+      };
+      activeTabId = id;
+      urlInput.value = browserGlobals.unshuffleURL(
+        tab.iframe.contentWindow.location.href,
+      );
+      let previousUrl = canonicalHistoryUrl(
+        browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
+      );
+      let previousTabTitle = tab.title;
+      let previousUrlMain = browserGlobals.unshuffleURL(
+        tab.iframe.contentWindow.location.href,
+      );
+
+      // Inject custom styles
+      checkInterval = setInterval(() => {
+        if (browserGlobals.allBrowsers.length == 0) {
+          clearInterval(checkInterval);
+        }
+        try {
+          const currentUrl = browserGlobals.unshuffleURL(
+            tab.iframe.contentWindow.location.href,
+          );
+          const currentCanonical = canonicalHistoryUrl(currentUrl);
+          if (currentCanonical !== previousUrl) {
+            historyRecord(tab, currentUrl);
+            previousUrl = currentCanonical;
+            urlInput.value = currentUrl;
+          }
+          if (currentUrl !== previousUrlMain) {
+            previousUrlMain = currentUrl;
+            if (data.enableURLSync) openUrlInActiveTab(currentUrl);
+          }
+          resizeDiv.innerText = tab.resizeP + "%";
+          activatedTab = tab;
+          if (tab.iframe.contentDocument.readyState !== "complete") {
+            reloadBtn.textContent = "x";
+            reloadBtn.dataset.mode = "stop";
+
+            tab.title = "Loading...";
+          } else {
+            setAddressButtonIcon(reloadBtn, "reload");
+            reloadBtn.dataset.mode = "reload";
+            try {
+              if (tab.iframe.contentDocument.readyState === "complete") {
+                const docTitle =
+                  tab.iframe.contentDocument &&
+                  tab.iframe.contentDocument.title;
+                tab.title = docTitle;
+              }
+            } catch (e) {}
+          }
+          if (previousTabTitle !== tab.title) renderTabs();
+          previousTabTitle = tab.title;
+        } catch (e) {
+          console.error(e);
+          clearInterval(checkInterval);
+        }
+      }, 250 * nhjd);
+      renderTabs();
+    }
+
+    function closeTab(id) {
+      const idx = tabs.findIndex((t) => t.id === id);
+      if (idx === -1) return;
+
+      const removingActive = tabs[idx].id === activeTabId;
+      try {
+        tabs[idx].__stopIframePatchWatcher?.();
+      } catch (e) {}
+      tabs[idx].iframe.src = "about:blank";
+      tabs[idx].iframe.remove();
+      tabs.splice(idx, 1);
+
+      if (removingActive) {
+        if (tabs.length) activateTab(tabs[Math.max(0, idx - 1)].id);
+        else closeWindow(); //addTab('goldenbody://newtab/', 'New Tab');
+      } else {
+        renderTabs();
+      }
+    }
+    if (!preloadlink) addTab("goldenbody://newtab/", "New Tab");
+
+    // --- Open button behavior ---
+    function normalizeUrl(input) {
+      if (input[input.length - 1] != "/") input += "/";
+
+      if (
+        input[0] +
+          input[1] +
+          input[2] +
+          input[3] +
+          input[4] +
+          input[5] +
+          input[6] +
+          input[7] !=
+          "https://" &&
+        input[0] +
+          input[1] +
+          input[2] +
+          input[3] +
+          input[4] +
+          input[5] +
+          input[6] !=
+          "http://" &&
+        !input.startsWith("goldenbody://")
+      )
+        return "https://" + input;
+      else return input;
+    }
+    function isUrl(string) {
+      try {
+        new URL(string);
+        return true;
+      } catch (e) {
+        // If scheme is missing, try prepending 'https://'
+        try {
+          string = `https://${string}`;
+          new URL(string);
+          return string;
+        } catch (e) {
+          return false;
+        }
+      }
+    }
+    function openUrlInActiveTab(rawUrl) {
+      const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
+      if (tabIndex === -1) return;
+      const tab = tabs[tabIndex];
+      const input = String(rawUrl || "").trim();
+      if (!input) {
+        notification("Enter a URL");
+        return;
+      }
+
+      let candidate = input;
+      const urlCheck = isUrl(candidate);
+      if (typeof urlCheck === "string") {
+        candidate = urlCheck;
+      }
+
+      if (candidate.startsWith("javascript:")) {
+        let scriptcontent = "";
+        for (let i = 11; i < candidate.length; i++) {
+          scriptcontent += candidate[i];
+        }
+        let script = document.createElement("script");
+        script.textContent = scriptcontent;
+        tab.iframe.contentDocument.body.appendChild(script);
+        urlInput.value = browserGlobals.unshuffleURL(
+          tab.iframe.contentWindow.location.href,
+        );
+        return;
+      }
+
+      let url = "";
+      try {
+        url = new URL(candidate).href;
+      } catch (e) {
+        // Edge case: allow relative entries in the URL bar.
+        try {
+          const currentBase = browserGlobals.unshuffleURL(
+            tab.iframe.contentWindow.location.href,
+          );
+          url = new URL(candidate, currentBase).href;
+        } catch (e2) {
+          notification("Invalid URL");
+          return;
+        }
+      }
+
+      // Manual URL-bar navigations should become a fresh history point,
+      // including after a prior back/forward operation.
+      const canonical = canonicalHistoryUrl(url);
+      const prevHistorySnapshot = {
+        stack: Array.from(tab.history.stack || []),
+        index: tab.history.index,
+        current: tab.history.current,
+        currentCanonical: tab.history.currentCanonical,
+        suppressNextRecord: tab.history.suppressNextRecord,
+      };
+      const didCreateHistoryEntry = tab.history.currentCanonical !== canonical;
+
+      tab.history.suppressNextRecord = false;
+      if (didCreateHistoryEntry) {
         if (tab.history.index < tab.history.stack.length - 1) {
           tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
         }
@@ -3895,310 +4773,82 @@ try{        if (
         tab.history.current = url;
         tab.history.currentCanonical = canonical;
       }
+      // Prevent duplicate push when poller observes this same navigation.
+      // Important: only do this when a new history entry was created, otherwise
+      // stale suppression can swallow the next real navigation.
+      tab.history.suppressNextRecord = didCreateHistoryEntry;
 
-      function historyNavigate(tab, direction) {
-        if (!tab || !tab.history) return;
-        const nextIndex = tab.history.index + direction;
-        if (nextIndex < 0 || nextIndex >= tab.history.stack.length) return;
-
-        const targetUrl = tab.history.stack[nextIndex];
-        tab.history.index = nextIndex;
-        tab.history.current = targetUrl;
-        tab.history.currentCanonical = canonicalHistoryUrl(targetUrl);
-        tab.history.suppressNextRecord = true;
-
-        tab.url = targetUrl;
-        tab.loadedurl = targetUrl;
-        tab.title = "Loading...";
-
-        try { createPermInput(tab.iframe, targetUrl); } catch (e) {}
-        try {
-          tab.iframe.contentWindow.location.href = a(targetUrl, browserGlobals.proxyurl);
-        } catch (e) {
-          tab.history.suppressNextRecord = false;
-        }
-      }
-
-      function activateTab(id) {
-        try {
-          clearInterval(checkInterval);
-        } catch (a) {}
-        const tab = tabs.find((t) => t.id === id);
-        if (!tab) return;
-
-        // Hide all iframes, show only active
-        tabs.forEach((t) => (t.iframe.style.display = "none"));
-        tab.iframe.style.display = "block";
-        backBtn.onclick = function () {
-          historyNavigate(tab, -1);
-        };
-        forwardBtn.onclick = function () {
-          historyNavigate(tab, 1);
-        };
-        reloadBtn.onclick = function () {
-          if (reloadBtn.dataset.mode === "stop") {
-            tab.iframe.contentWindow.stop();
-          } else {
-            tab.iframe.contentWindow.location.reload();
-          }
-        };
-        sitesettingsbtn.onclick = () => {
-            openPermissionsUI(browserGlobals.unshuffleURL(tab.iframe.src), tab.iframe, sitesettingsbtn.getBoundingClientRect());
-        }
-        activeTabId = id;
-        urlInput.value = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
-        let previousUrl = canonicalHistoryUrl(browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href));
-        let previousTabTitle = tab.title;
-        let previousUrlMain = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
-
-        // Inject custom styles
-        checkInterval = setInterval(() => {
-          if (browserGlobals.allBrowsers.length == 0) {
-            clearInterval(checkInterval);
-          }
-          try {
-            const currentUrl = browserGlobals.unshuffleURL(
-              tab.iframe.contentWindow.location.href,
-            );
-            const currentCanonical = canonicalHistoryUrl(currentUrl);
-            if (currentCanonical !== previousUrl) {
-              historyRecord(tab, currentUrl);
-              previousUrl = currentCanonical;
-              urlInput.value = currentUrl;
-            }
-            if(currentUrl !== previousUrlMain) {
-              previousUrlMain = currentUrl;
-              if(data.enableURLSync) openUrlInActiveTab(currentUrl);
-            }
-            resizeDiv.innerText = tab.resizeP + "%";
-            activatedTab = tab;
-            if (tab.iframe.contentDocument.readyState !== "complete") {
-              reloadBtn.textContent = "x";
-              reloadBtn.dataset.mode = "stop";
-
-              tab.title = "Loading...";
-            } else {
-              setAddressButtonIcon(reloadBtn, "reload");
-              reloadBtn.dataset.mode = "reload";
-              try {
-                if (tab.iframe.contentDocument.readyState === "complete") {
-                  const docTitle =
-                    tab.iframe.contentDocument &&
-                    tab.iframe.contentDocument.title;
-                  tab.title = docTitle;
-                }
-              } catch (e) {}
-            }
-            if (previousTabTitle !== tab.title) renderTabs();
-            previousTabTitle = tab.title;
-          } catch (e) {
-            console.error(e);
-            clearInterval(checkInterval);
-          }
-        }, 250 * nhjd);
-        renderTabs();
-      }
-
-      function closeTab(id) {
-        const idx = tabs.findIndex((t) => t.id === id);
-        if (idx === -1) return;
-
-        const removingActive = tabs[idx].id === activeTabId;
-        tabs[idx].iframe.src = 'about:blank';
-        tabs[idx].iframe.remove();
-        tabs.splice(idx, 1);
-
-        if (removingActive) {
-          if (tabs.length) activateTab(tabs[Math.max(0, idx - 1)].id);
-          else closeWindow(); //addTab('goldenbody://newtab/', 'New Tab');
-        } else {
-          renderTabs();
-        }
-      }
-      if (!preloadlink) addTab("goldenbody://newtab/", "New Tab");
-
-      // --- Open button behavior ---
-      function normalizeUrl(input) {
-        if (input[input.length - 1] != "/") input += "/";
-
-        if (
-          input[0] +
-            input[1] +
-            input[2] +
-            input[3] +
-            input[4] +
-            input[5] +
-            input[6] +
-            input[7] !=
-            "https://" &&
-          input[0] +
-            input[1] +
-            input[2] +
-            input[3] +
-            input[4] +
-            input[5] +
-            input[6] !=
-            "http://" &&
-          !input.startsWith("goldenbody://")
-        )
-          return "https://" + input;
-        else return input;
-      }
-      function isUrl(string) {
-        try {
-          new URL(string);
-          return true;
-        } catch (e) {
-          // If scheme is missing, try prepending 'https://'
-          try {
-            string = `https://${string}`;
-            new URL(string);
-            return string;
-          } catch (e) {
-            return false;
-          }
-        }
-      }
-      function openUrlInActiveTab(rawUrl) {
-        const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
-        if (tabIndex === -1) return;
-        const tab = tabs[tabIndex];
-        const input = String(rawUrl || "").trim();
-        if (!input) {
-          notification("Enter a URL");
-          return;
-        }
-
-        let candidate = input;
-        const urlCheck = isUrl(candidate);
-        if (typeof urlCheck === "string") {
-          candidate = urlCheck;
-        }
-
-        if (candidate.startsWith("javascript:")) {
-          let scriptcontent = "";
-          for (let i = 11; i < candidate.length; i++) {
-            scriptcontent += candidate[i];
-          }
-          let script = document.createElement("script");
-          script.textContent = scriptcontent;
-          tab.iframe.contentDocument.body.appendChild(script);
-          urlInput.value = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
-          return;
-        }
-
-        let url = "";
-        try {
-          url = new URL(candidate).href;
-        } catch (e) {
-          // Edge case: allow relative entries in the URL bar.
-          try {
-            const currentBase = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
-            url = new URL(candidate, currentBase).href;
-          } catch (e2) {
-            notification("Invalid URL");
-            return;
-          }
-        }
-
-        // Manual URL-bar navigations should become a fresh history point,
-        // including after a prior back/forward operation.
-        const canonical = canonicalHistoryUrl(url);
-        const prevHistorySnapshot = {
-          stack: Array.from(tab.history.stack || []),
-          index: tab.history.index,
-          current: tab.history.current,
-          currentCanonical: tab.history.currentCanonical,
-          suppressNextRecord: tab.history.suppressNextRecord,
-        };
-        const didCreateHistoryEntry = tab.history.currentCanonical !== canonical;
-
-        tab.history.suppressNextRecord = false;
-        if (didCreateHistoryEntry) {
-          if (tab.history.index < tab.history.stack.length - 1) {
-            tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
-          }
-          tab.history.stack.push(url);
-          tab.history.index = tab.history.stack.length - 1;
-          tab.history.current = url;
-          tab.history.currentCanonical = canonical;
-        }
-        // Prevent duplicate push when poller observes this same navigation.
-        // Important: only do this when a new history entry was created, otherwise
-        // stale suppression can swallow the next real navigation.
-        tab.history.suppressNextRecord = didCreateHistoryEntry;
-
-        tab.url = url;
-        tab.loadedurl = url;
-        tab.title = "Loading...";
-        if (tabs[tabIndex].iframe) {
+      tab.url = url;
+      tab.loadedurl = url;
+      tab.title = "Loading...";
+      if (tabs[tabIndex].iframe) {
         createPermInput(tab.iframe, url);
-          try {
-            tabs[tabIndex].iframe.src = a(
-              url,
-              browserGlobals.proxyurl,
-            );
-          } catch (e) {
-            tab.history.stack = prevHistorySnapshot.stack;
-            tab.history.index = prevHistorySnapshot.index;
-            tab.history.current = prevHistorySnapshot.current;
-            tab.history.currentCanonical = prevHistorySnapshot.currentCanonical;
-            tab.history.suppressNextRecord = prevHistorySnapshot.suppressNextRecord;
-            notification("Navigation failed");
-            return;
-          }
+        try {
+          tabs[tabIndex].iframe.src = a(url, browserGlobals.proxyurl);
+        } catch (e) {
+          tab.history.stack = prevHistorySnapshot.stack;
+          tab.history.index = prevHistorySnapshot.index;
+          tab.history.current = prevHistorySnapshot.current;
+          tab.history.currentCanonical = prevHistorySnapshot.currentCanonical;
+          tab.history.suppressNextRecord =
+            prevHistorySnapshot.suppressNextRecord;
+          notification("Navigation failed");
+          return;
         }
-
-        urlInput.value = url;
       }
 
-      openBtn.addEventListener("click", () =>
-        openUrlInActiveTab(urlInput.value),
-      );
-      urlInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") openUrlInActiveTab(urlInput.value);
+      urlInput.value = url;
+    }
+
+    openBtn.addEventListener("click", () => openUrlInActiveTab(urlInput.value));
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") openUrlInActiveTab(urlInput.value);
+    });
+
+    // new tab
+    newTabBtn.addEventListener("click", () => {
+      const id = addTab("goldenbody://newtab/", "New Tab");
+      activateTab(id);
+      // urlInput.focus();
+    });
+
+    // drag to move window
+    var currentX;
+    var currentY;
+
+    (function makeDraggable() {
+      let dragging = false,
+        startX = 0,
+        startY = 0,
+        origLeft = 0,
+        origTop = 0,
+        targetel = null;
+      top.addEventListener("pointerdown", (ev) => {
+        targetel = ev.target;
       });
+      top.addEventListener("mousedown", (ev) => {
+        if (
+          ev.target.closest(".sim-tab") ||
+          ev.target === newTabBtn ||
+          ev.target === urlInput ||
+          ev.target === openBtn ||
+          targetel.closest(".sim-tab")
+        )
+          return;
+        dragging = true;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        origLeft = root.offsetLeft;
+        origTop = root.offsetTop;
 
-      // new tab
-      newTabBtn.addEventListener("click", () => {
-        const id = addTab("goldenbody://newtab/", "New Tab");
-        activateTab(id);
-        // urlInput.focus();
+        document.body.style.userSelect = "none";
+        currentX = ev.clientX;
+        currentY = ev.clientY;
       });
-
-      // drag to move window
-      var currentX;
-      var currentY;
-
-      (function makeDraggable() {
-        let dragging = false,
-          startX = 0,
-          startY = 0,
-          origLeft = 0,
-          origTop = 0,
-          targetel = null;
-          top.addEventListener('pointerdown', (ev) => {
-            targetel = ev.target;
-          });
-        top.addEventListener("mousedown", (ev) => {
-          if (
-            ev.target.closest(".sim-tab") ||
-            ev.target === newTabBtn ||
-            ev.target === urlInput ||
-            ev.target === openBtn || targetel.closest(".sim-tab")
-          )
-            return;
-          dragging = true;
-          startX = ev.clientX;
-          startY = ev.clientY;
-          origLeft = root.offsetLeft;
-          origTop = root.offsetTop;
-
-          document.body.style.userSelect = "none";
-          currentX = ev.clientX;
-          currentY = ev.clientY;
-        });
-        window.addEventListener('browser' + root._goldenbodyId, "mousemove", (ev) => {
+      window.addEventListener(
+        "browser" + root._goldenbodyId,
+        "mousemove",
+        (ev) => {
           if (!dragging) {
             startX = 0;
             startY = 0;
@@ -4206,8 +4856,10 @@ try{        if (
           }
 
           if (
-            ((ev.clientX - currentX < -1 || ev.clientX - currentX > 1) && dragging) ||
-            ((ev.clientY - currentY < -1 || ev.clientY - currentY > 1) && dragging)
+            ((ev.clientX - currentX < -1 || ev.clientX - currentX > 1) &&
+              dragging) ||
+            ((ev.clientY - currentY < -1 || ev.clientY - currentY > 1) &&
+              dragging)
           ) {
             applyBounds(savedBounds);
             if (isMaximized) {
@@ -4223,485 +4875,495 @@ try{        if (
           root.style.left = origLeft + dx + "px";
           if (origTop + dy > 0) root.style.top = origTop + dy + "px";
           else root.style.top = "0px";
-        });
-        window.addEventListener('browser' + root._goldenbodyId, "mouseup", () => {
-          dragging = false;
-          document.body.style.userSelect = "";
-          targetel = null;
-        });
-      })();
-      let resizing;
-      function resize() {
-        const el = root;
-        const BW = 8; // fatter edge = easier to grab
-        const minW = 450,
-          minH = 350;
-
-        // ensure positioned & has top/left so we can move edges
-        if (!el.style.position) el.style.position = "fixed";
-        if (!el.style.top) el.style.top = "20px";
-        if (!el.style.left) el.style.left = "20px";
-
-        // state
-        let active = null; // {dir,sx,sy,sw,sh,sl,st}
-        let dir = "";
-
-        // helper: are we on an edge?
-        const hitTest = (e) => {
-          const r = el.getBoundingClientRect();
-          const x = e.clientX,
-            y = e.clientY;
-          const onL = x >= r.left && x <= r.left + BW;
-          const onR = x <= r.right && x >= r.right - BW;
-          const onT = y >= r.top && y <= r.top + BW;
-          const onB = y <= r.bottom && y >= r.bottom - BW;
-
-          if (onT && onL) return "nw";
-          if (onT && onR) return "ne";
-          if (onB && onL) return "sw";
-          if (onB && onR) return "se";
-          if (onL) return "w";
-          if (onR) return "e";
-          if (onT) return "n";
-          if (onB) return "s";
-          return "";
-        };
-        // cursor feedback
-        el.addEventListener("pointermove", (e) => {
-          if (active) return; // don't flicker while resizing
-          const d = hitTest(e);
-          el.style.cursor =
-            d === "nw" || d === "se"
-              ? "nwse-resize"
-              : d === "ne" || d === "sw"
-                ? "nesw-resize"
-                : d === "n" || d === "s"
-                  ? "ns-resize"
-                  : d === "e" || d === "w"
-                    ? "ew-resize"
-                    : "default";
-        });
-
-        // start resize
-        el.addEventListener(
-          "pointerdown",
-          (e) => {
-            dir = hitTest(e);
-            if (!dir) return;
-            resizing = true;
-            e.preventDefault();
-            el.setPointerCapture(e.pointerId); // <- keep events!
-            const r = el.getBoundingClientRect();
-            active = {
-              dir,
-              sx: e.clientX,
-              sy: e.clientY,
-              sw: r.width,
-              sh: r.height,
-              sl: r.left,
-              st: r.top,
-            };
-
-            // stop iframe from eating events
-            el.querySelectorAll("iframe").forEach((f) => {
-              f._oldPE = f.style.pointerEvents;
-              f.style.pointerEvents = "none";
-            });
-
-            document.body.style.userSelect = "none";
-            document.body.style.cursor = getCursorForDir(dir);
-            el.style.willChange = "width, height, left, top";
-          },
-          { passive: false },
-        );
-        let draginterval;
-        // drag
-        el.addEventListener("pointermove", (e) => {
-          if (!active) return;
-          const dx = e.clientX - active.sx;
-          const dy = e.clientY - active.sy;
-          if ((dx > 1 && resizing) || (dy > 1 && resizing)) {
-            applyBounds(getBounds());
-            if (isMaximized) restoreWindow(false);
-          }
-
-          // east / south
-          if (active.dir.includes("e"))
-            el.style.width = Math.max(minW, active.sw + dx) + "px";
-          if (active.dir.includes("s"))
-            el.style.height = Math.max(minH, active.sh + dy) + "px";
-
-          // west / north (move edge)
-          if (active.dir.includes("w")) {
-            const w = Math.max(minW, active.sw - dx);
-            el.style.width = w + "px";
-            el.style.left = active.sl + dx + "px";
-          }
-          if (active.dir.includes("n")) {
-            const newTop = active.st + dy;
-            if (newTop >= 0) {
-              const h = Math.max(minH, active.sh - dy);
-              el.style.height = h + "px";
-              el.style.top = newTop + "px";
-            } else {
-              el.style.top = "0px";
-            }
-          }
-        });
-
-        // end
-        function end() {
-          clearInterval(draginterval);
-          if (!active) return;
-          savedBounds = getBounds();
-          active = null;
-          resizing = false;
-          document.body.style.userSelect = "";
-          document.body.style.cursor = "";
-          el.style.cursor = "default"; // <— add this
-          el.style.willChange = "";
-          el.querySelectorAll("iframe").forEach((f) => {
-            f.style.pointerEvents = f._oldPE || "";
-            delete f._oldPE;
-          });
-        }
-        el.addEventListener("pointerup", end);
-        el.addEventListener("pointercancel", end);
-
-        // better touch behavior
-        el.style.touchAction = "none";
-
-        function getCursorForDir(d) {
-          if (d === "nw" || d === "se") return "nwse-resize";
-          if (d === "ne" || d === "sw") return "nesw-resize";
-          if (d === "n" || d === "s") return "ns-resize";
-          if (d === "e" || d === "w") return "ew-resize";
-          return "default";
-        }
-      }
-      resize();
-
-      return {
-        rootElement: root,
-        iframes,
-        urlInput,
-        openBtn,
-        activatedTab,
-        addTab,
-        activateTab,
-        closeTab,
-        openUrl: openUrlInActiveTab,
-        getBounds,
-        applyBounds,
-        closeWindow,
-        btnMax,
-
-        get isMaximized() {
-          return isMaximized;
         },
-        set isMaximized(v) {
-          isMaximized = !!v;
-        },
-
-        get isMinimized() {
-          return isMinimized;
-        },
-        set isMinimized(v) {
-          isMinimized = !!v;
-        },
-
-        addAndOpen: function (url) {
-          const id = addTab(url);
-          activateTab(id);
-        },
-
-        get tabs() {
-          return tabs;
-        },
-      };
+      );
+      window.addEventListener("browser" + root._goldenbodyId, "mouseup", () => {
+        dragging = false;
+        document.body.style.userSelect = "";
+        targetel = null;
+      });
     })();
-    windowTitleInterval = setInterval(function () {
-      var nextTitle = '';
-      try {
-        nextTitle = String((activatedTab && activatedTab.title) || '').trim();
-      } catch (e) {
-        nextTitle = '';
-      }
-      if (!nextTitle || nextTitle === 'undefined' || nextTitle === 'null') {
-        nextTitle = 'Window';
-      }
-      chromeWindow.title = nextTitle;
-      try {
-        chromeWindow.rootElement.setAttribute("data-title", nextTitle);
-      } catch (e) {}
-    }, 1000 * nhjd);
-    chromeWindow.rootElement.setAttribute("data-title", "Window");
-    browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
-          applyStyles();
+    let resizing;
+    function resize() {
+      const el = root;
+      const BW = 8; // fatter edge = easier to grab
+      const minW = 450,
+        minH = 350;
 
-    function a(url, proxyurl) {
-      function encodeUV(str) {
-        return encodeURIComponent(
-          str
-            .split("")
-            .map((ch, i) =>
-              i % 2 ? String.fromCharCode(ch.charCodeAt(0) ^ 2) : ch,
-            )
-            .join(""),
+      // ensure positioned & has top/left so we can move edges
+      if (!el.style.position) el.style.position = "fixed";
+      if (!el.style.top) el.style.top = "20px";
+      if (!el.style.left) el.style.left = "20px";
+
+      // state
+      let active = null; // {dir,sx,sy,sw,sh,sl,st}
+      let dir = "";
+
+      // helper: are we on an edge?
+      const hitTest = (e) => {
+        const r = el.getBoundingClientRect();
+        const x = e.clientX,
+          y = e.clientY;
+        const onL = x >= r.left && x <= r.left + BW;
+        const onR = x <= r.right && x >= r.right - BW;
+        const onT = y >= r.top && y <= r.top + BW;
+        const onB = y <= r.bottom && y >= r.bottom - BW;
+
+        if (onT && onL) return "nw";
+        if (onT && onR) return "ne";
+        if (onB && onL) return "sw";
+        if (onB && onR) return "se";
+        if (onL) return "w";
+        if (onR) return "e";
+        if (onT) return "n";
+        if (onB) return "s";
+        return "";
+      };
+      // cursor feedback
+      el.addEventListener("pointermove", (e) => {
+        if (active) return; // don't flicker while resizing
+        const d = hitTest(e);
+        el.style.cursor =
+          d === "nw" || d === "se"
+            ? "nwse-resize"
+            : d === "ne" || d === "sw"
+              ? "nesw-resize"
+              : d === "n" || d === "s"
+                ? "ns-resize"
+                : d === "e" || d === "w"
+                  ? "ew-resize"
+                  : "default";
+      });
+
+      // start resize
+      el.addEventListener(
+        "pointerdown",
+        (e) => {
+          dir = hitTest(e);
+          if (!dir) return;
+          resizing = true;
+          e.preventDefault();
+          el.setPointerCapture(e.pointerId); // <- keep events!
+          const r = el.getBoundingClientRect();
+          active = {
+            dir,
+            sx: e.clientX,
+            sy: e.clientY,
+            sw: r.width,
+            sh: r.height,
+            sl: r.left,
+            st: r.top,
+          };
+
+          // stop iframe from eating events
+          el.querySelectorAll("iframe").forEach((f) => {
+            f._oldPE = f.style.pointerEvents;
+            f.style.pointerEvents = "none";
+          });
+
+          document.body.style.userSelect = "none";
+          document.body.style.cursor = getCursorForDir(dir);
+          el.style.willChange = "width, height, left, top";
+        },
+        { passive: false },
+      );
+      let draginterval;
+      // drag
+      el.addEventListener("pointermove", (e) => {
+        if (!active) return;
+        const dx = e.clientX - active.sx;
+        const dy = e.clientY - active.sy;
+        if ((dx > 1 && resizing) || (dy > 1 && resizing)) {
+          applyBounds(getBounds());
+          if (isMaximized) restoreWindow(false);
+        }
+
+        // east / south
+        if (active.dir.includes("e"))
+          el.style.width = Math.max(minW, active.sw + dx) + "px";
+        if (active.dir.includes("s"))
+          el.style.height = Math.max(minH, active.sh + dy) + "px";
+
+        // west / north (move edge)
+        if (active.dir.includes("w")) {
+          const w = Math.max(minW, active.sw - dx);
+          el.style.width = w + "px";
+          el.style.left = active.sl + dx + "px";
+        }
+        if (active.dir.includes("n")) {
+          const newTop = active.st + dy;
+          if (newTop >= 0) {
+            const h = Math.max(minH, active.sh - dy);
+            el.style.height = h + "px";
+            el.style.top = newTop + "px";
+          } else {
+            el.style.top = "0px";
+          }
+        }
+      });
+
+      // end
+      function end() {
+        clearInterval(draginterval);
+        if (!active) return;
+        savedBounds = getBounds();
+        active = null;
+        resizing = false;
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        el.style.cursor = "default"; // <— add this
+        el.style.willChange = "";
+        el.querySelectorAll("iframe").forEach((f) => {
+          f.style.pointerEvents = f._oldPE || "";
+          delete f._oldPE;
+        });
+      }
+      el.addEventListener("pointerup", end);
+      el.addEventListener("pointercancel", end);
+
+      // better touch behavior
+      el.style.touchAction = "none";
+
+      function getCursorForDir(d) {
+        if (d === "nw" || d === "se") return "nwse-resize";
+        if (d === "ne" || d === "sw") return "nesw-resize";
+        if (d === "n" || d === "s") return "ns-resize";
+        if (d === "e" || d === "w") return "ew-resize";
+        return "default";
+      }
+    }
+    resize();
+
+    return {
+      rootElement: root,
+      iframes,
+      urlInput,
+      openBtn,
+      activatedTab,
+      addTab,
+      activateTab,
+      closeTab,
+      openUrl: openUrlInActiveTab,
+      getBounds,
+      applyBounds,
+      closeWindow,
+      btnMax,
+
+      get isMaximized() {
+        return isMaximized;
+      },
+      set isMaximized(v) {
+        isMaximized = !!v;
+      },
+
+      get isMinimized() {
+        return isMinimized;
+      },
+      set isMinimized(v) {
+        isMinimized = !!v;
+      },
+
+      addAndOpen: function (url) {
+        const id = addTab(url);
+        activateTab(id);
+      },
+
+      get tabs() {
+        return tabs;
+      },
+    };
+  })();
+  windowTitleInterval = setInterval(function () {
+    var nextTitle = "";
+    try {
+      nextTitle = String((activatedTab && activatedTab.title) || "").trim();
+    } catch (e) {
+      nextTitle = "";
+    }
+    if (!nextTitle || nextTitle === "undefined" || nextTitle === "null") {
+      nextTitle = "Window";
+    }
+    chromeWindow.title = nextTitle;
+    try {
+      chromeWindow.rootElement.setAttribute("data-title", nextTitle);
+    } catch (e) {}
+  }, 1000 * nhjd);
+  chromeWindow.rootElement.setAttribute("data-title", "Window");
+  browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
+  applyStyles();
+
+  function a(url, proxyurl) {
+    function encodeUV(str) {
+      return encodeURIComponent(
+        str
+          .split("")
+          .map((ch, i) =>
+            i % 2 ? String.fromCharCode(ch.charCodeAt(0) ^ 2) : ch,
+          )
+          .join(""),
+      );
+    }
+
+    function encodeRammerHead(str, proxylink) {
+      if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
+        return goldenbodywebsite + "flowerfeast.html";
+      } else if (
+        str === "goldenbody://app-store/" ||
+        str === "goldenbody://app-store"
+      ) {
+        return goldenbodywebsite + "singlesdaylosesingle.html";
+      }
+      return proxylink + browserGlobals.id + "/" + url;
+    }
+    function encodeScramjet(url, proxylink) {
+      return proxylink + "scramjet/" + url;
+    }
+
+    return encodeRammerHead(url, proxyurl);
+
+    // => hvtrs8%2F-wuw%2Chgrm-uaps%2Ccmm
+  }
+};
+
+// app stuff
+browserGlobals.browsermenu = null;
+browserGlobals.browserButtons = [];
+browserGlobals.browsermenuhandler = function (e, needremove = true) {
+  e.preventDefault();
+
+  // Remove existing menus
+  document.querySelectorAll(".app-menu").forEach((m) => m.remove());
+
+  const menu = document.createElement("div");
+  browserGlobals.browsermenu = menu;
+  try {
+    removeOtherMenus("browser");
+  } catch (e) {}
+  menu.className = "app-menu";
+  Object.assign(menu.style, {
+    position: "fixed",
+    top: `0px`,
+    left: `${e.clientX}px`,
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+    zIndex: 9999999,
+    padding: "4px 0",
+    minWidth: "160px",
+    fontSize: "13px",
+    visibility: "hidden", // so layout isn't disrupted before positioning
+  });
+  data.dark
+    ? menu.classList.toggle("dark", true)
+    : menu.classList.toggle("light", true);
+
+  requestAnimationFrame(() => {
+    const menuHeight = menu.offsetHeight;
+    const fixedTop = e.clientY - menuHeight;
+
+    menu.style.top = `${fixedTop}px`;
+    menu.style.visibility = "visible";
+  });
+  let closeAllitem = document.createElement("div");
+  closeAllitem.textContent = "close all";
+  closeAllitem.style.padding = "6px 10px";
+  closeAllitem.style.cursor = "pointer";
+  closeAllitem.addEventListener("click", function () {
+    for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+      browserGlobals.allBrowsers[i].closeWindow();
+    }
+    browserGlobals.allBrowsers = [];
+  });
+  menu.appendChild(closeAllitem);
+  /*
+   */
+  let hideAll = document.createElement("div");
+  hideAll.textContent = "hide all";
+  hideAll.style.padding = "6px 10px";
+  hideAll.style.cursor = "pointer";
+  hideAll.addEventListener("click", function () {
+    for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+      let instance = browserGlobals.allBrowsers[i];
+      if (!instance.isMaximized) instance.savedBounds = instance.getBounds();
+      instance.rootElement.style.display = "none";
+      instance._isMinimized = true;
+    }
+  });
+  menu.appendChild(hideAll);
+
+  let showAll = document.createElement("div");
+  showAll.textContent = "show all";
+  showAll.style.padding = "6px 10px";
+  showAll.style.cursor = "pointer";
+  showAll.addEventListener("click", function () {
+    browserGlobals.allBrowsers.sort(
+      (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
+    );
+    for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+      let instance = browserGlobals.allBrowsers[i];
+      instance.rootElement.style.display = "block";
+      instance._isMinimized = false;
+      bringToFront(instance.rootElement);
+    }
+  });
+  menu.appendChild(showAll);
+  let opennew = document.createElement("div");
+  opennew.textContent = "new window";
+  opennew.style.padding = "6px 10px";
+  opennew.style.cursor = "pointer";
+  opennew.addEventListener("click", function () {
+    browser();
+  });
+  menu.appendChild(opennew);
+  if (needremove) {
+    let remove = document.createElement("div");
+    remove.textContent = "remove from taskbar";
+    remove.style.padding = "6px 10px";
+    remove.style.cursor = "pointer";
+    remove.addEventListener("click", function () {
+      for (let i = taskbuttons.length; i > 0; i--) {
+        i--;
+        let index = parseInt(getStringAfterChar(e.target.id, "-"));
+        if (
+          index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
+          taskbuttons[i].id.startsWith("🌐")
+        ) {
+          taskbuttons[i].remove();
+          iconid = 0;
+          let newtb = [];
+          for (const a of taskbuttons) {
+            a.id = Array.from(a.id)[0] + "-" + iconid;
+            iconid++;
+            if (Array.from(a.id)[0] !== "▶") {
+              newtb.push(a);
+            } else {
+              a.id = Array.from(a.id)[0];
+              newtb.push(a);
+              iconid--;
+            }
+          }
+          break;
+        }
+        i++;
+      }
+      saveTaskButtons();
+    });
+    menu.appendChild(remove);
+  } else {
+    let remove = document.createElement("div");
+    remove.textContent = "add to taskbar";
+    remove.style.padding = "6px 10px";
+    remove.style.cursor = "pointer";
+    remove.addEventListener("click", function () {
+      addTaskButton("🌐", browser);
+      saveTaskButtons();
+      purgeButtons();
+      for (const browserButton of browserGlobals.browserButtons) {
+        browserButton.addEventListener(
+          "contextmenu",
+          browserGlobals.browsermenuhandler,
         );
       }
-
-      function encodeRammerHead(str, proxylink) {
-        if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
-          return goldenbodywebsite + "flowerfeast.html";
-        }
-        else if (str === "goldenbody://app-store/" || str === "goldenbody://app-store") {
-          return goldenbodywebsite + "singlesdaylosesingle.html";
-        }
-        return proxylink + browserGlobals.id + "/" + url;
-      }
-      function encodeScramjet(url, proxylink) {
-        return proxylink + "scramjet/" + url;
-      }
-
-      return encodeRammerHead(url, proxyurl);
-
-      // => hvtrs8%2F-wuw%2Chgrm-uaps%2Ccmm
-    }
+    });
+    menu.appendChild(remove);
   }
+  const barrier = document.createElement("hr");
+  menu.appendChild(barrier);
 
-
-
-
-
-
-
-
-
-  // app stuff
-  browserGlobals.browsermenu = null;
-  browserGlobals.browserButtons = [];
-  browserGlobals.browsermenuhandler = function(e, needremove = true) {
-    e.preventDefault();
-
-    // Remove existing menus
-    document.querySelectorAll(".app-menu").forEach((m) => m.remove());
-
-    const menu = document.createElement("div");
-    browserGlobals.browsermenu = menu;
-    try {
-      removeOtherMenus('browser');
-    } catch (e) {}
-    menu.className = "app-menu";
-    Object.assign(menu.style, {
-      position: "fixed",
-      top: `0px`,
-      left: `${e.clientX}px`,
-      border: "1px solid #ccc",
-      borderRadius: "4px",
-      boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-      zIndex: 9999999,
-      padding: "4px 0",
-      minWidth: "160px",
-      fontSize: "13px",
-      visibility: "hidden", // so layout isn't disrupted before positioning
-    });
-      data.dark ? menu.classList.toggle('dark', true) : menu.classList.toggle('light', true);
-
-    requestAnimationFrame(() => {
-      const menuHeight = menu.offsetHeight;
-      const fixedTop = e.clientY - menuHeight;
-
-      menu.style.top = `${fixedTop}px`;
-      menu.style.visibility = "visible";
-    });
-    let closeAllitem = document.createElement("div");
-    closeAllitem.textContent = "close all";
-    closeAllitem.style.padding = "6px 10px";
-    closeAllitem.style.cursor = "pointer";
-    closeAllitem.addEventListener("click", function () {
-      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-        browserGlobals.allBrowsers[i].closeWindow();
-      }
-      browserGlobals.allBrowsers = [];
-    });
-    menu.appendChild(closeAllitem);
-    /*
-     */
-    let hideAll = document.createElement("div");
-    hideAll.textContent = "hide all";
-    hideAll.style.padding = "6px 10px";
-    hideAll.style.cursor = "pointer";
-    hideAll.addEventListener("click", function () {
-      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-        let instance = browserGlobals.allBrowsers[i];
-        if (!instance.isMaximized) instance.savedBounds = instance.getBounds();
-        instance.rootElement.style.display = "none";
-        instance._isMinimized = true;
-      }
-    });
-    menu.appendChild(hideAll);
-
-    let showAll = document.createElement("div");
-    showAll.textContent = "show all";
-    showAll.style.padding = "6px 10px";
-    showAll.style.cursor = "pointer";
-    showAll.addEventListener("click", function () {
-      browserGlobals.allBrowsers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
-      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-        let instance = browserGlobals.allBrowsers[i];
-        instance.rootElement.style.display = "block";
-        instance._isMinimized = false;
-        bringToFront(instance.rootElement);
-      }
-    });
-    menu.appendChild(showAll);
-    let opennew = document.createElement("div");
-    opennew.textContent = "new window";
-    opennew.style.padding = "6px 10px";
-    opennew.style.cursor = "pointer";
-    opennew.addEventListener("click", function () {
-      browser();
-    });
-    menu.appendChild(opennew);
-    if (needremove) {
-      let remove = document.createElement("div");
-      remove.textContent = "remove from taskbar";
-      remove.style.padding = "6px 10px";
-      remove.style.cursor = "pointer";
-      remove.addEventListener("click", function () {
-        for (let i = taskbuttons.length; i > 0; i--) {
-          i--;
-          let index = parseInt(getStringAfterChar(e.target.id, "-"));
-          if (
-            index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-            taskbuttons[i].id.startsWith("🌐")
-          ) {
-            taskbuttons[i].remove();
-            iconid = 0;
-            let newtb = [];
-            for (const a of taskbuttons) {
-              a.id = Array.from(a.id)[0] + "-" + iconid;
-              iconid++;
-              if (Array.from(a.id)[0] !== "▶") {
-                newtb.push(a);
-              } else {
-                a.id = Array.from(a.id)[0];
-                newtb.push(a);
-                iconid--;
-              }
-            }
-            break;
-          }
-          i++;
-        }
-        saveTaskButtons();
-      });
-      menu.appendChild(remove);
-    } else {
-      let remove = document.createElement("div");
-      remove.textContent = "add to taskbar";
-      remove.style.padding = "6px 10px";
-      remove.style.cursor = "pointer";
-      remove.addEventListener("click", function () {
-        addTaskButton("🌐", browser);
-        saveTaskButtons();
-        purgeButtons();
-        for (const browserButton of browserGlobals.browserButtons) {
-          browserButton.addEventListener("contextmenu", browserGlobals.browsermenuhandler);
-        }
-      });
-      menu.appendChild(remove);
-    }
-    const barrier = document.createElement("hr");
-    menu.appendChild(barrier);
-
-    if (browserGlobals.allBrowsers.length === 0) {
+  if (browserGlobals.allBrowsers.length === 0) {
+    const item = document.createElement("div");
+    item.textContent = "No open windows";
+    item.style.padding = "6px 10px";
+    menu.appendChild(item);
+  } else {
+    browserGlobals.allBrowsers.forEach((instance, i) => {
       const item = document.createElement("div");
-      item.textContent = "No open windows";
-      item.style.padding = "6px 10px";
-      menu.appendChild(item);
-    } else {
-      browserGlobals.allBrowsers.forEach((instance, i) => {
-        const item = document.createElement("div");
-        item.textContent = instance.title || "Untitled";
-        Object.assign(item.style, {
-            padding: "6px 10px",
-            cursor: "pointer",
-            maxWidth: "185px",
+      item.textContent = instance.title || "Untitled";
+      Object.assign(item.style, {
+        padding: "6px 10px",
+        cursor: "pointer",
+        maxWidth: "185px",
 
-            whiteSpace: "nowrap",      // ⬅️ prevent wrapping
-            overflow: "hidden",        // ⬅️ hide overflow
-            textOverflow: "ellipsis",  // ⬅️ show …
-        });
-        item.addEventListener("click", () => {
-          // Bring to front
-          bringToFront(instance.rootElement);
-
-          // Unminimize if needed
-          const el = instance.rootElement;
-          if (el.style.display === "none") {
-            el.style.display = "block";
-            instance._isMinimized = false;
-          }
-          menu.remove();
-        });
-        menu.appendChild(item);
+        whiteSpace: "nowrap", // ⬅️ prevent wrapping
+        overflow: "hidden", // ⬅️ hide overflow
+        textOverflow: "ellipsis", // ⬅️ show …
       });
-    }
+      item.addEventListener("click", () => {
+        // Bring to front
+        bringToFront(instance.rootElement);
 
-    document.body.appendChild(menu);
-    window.addEventListener("click", () => menu.remove(), { once: true });
+        // Unminimize if needed
+        const el = instance.rootElement;
+        if (el.style.display === "none") {
+          el.style.display = "block";
+          instance._isMinimized = false;
+        }
+        menu.remove();
+      });
+      menu.appendChild(item);
+    });
   }
 
-  window.addEventListener("appUpdated", function (e) {
-    try {
-      const babtn = document.getElementById("browserapp");
-      if (!babtn) return;
+  document.body.appendChild(menu);
+  window.addEventListener("click", () => menu.remove(), { once: true });
+};
 
-      // Avoid attaching the same contextmenu handler repeatedly
-      if (babtn.dataset && babtn.dataset.browserContextBound) return;
+window.addEventListener("appUpdated", function (e) {
+  try {
+    const babtn = document.getElementById("browserapp");
+    if (!babtn) return;
 
-      const bhl1 = function (ev) {
-        browserGlobals.browsermenuhandler(ev, false);
-      };
+    // Avoid attaching the same contextmenu handler repeatedly
+    if (babtn.dataset && babtn.dataset.browserContextBound) return;
 
-      babtn.addEventListener("contextmenu", bhl1);
-      if (babtn.dataset) babtn.dataset.browserContextBound = '1';
-    } catch (e) {}
-  });
+    const bhl1 = function (ev) {
+      browserGlobals.browsermenuhandler(ev, false);
+    };
+
+    babtn.addEventListener("contextmenu", bhl1);
+    if (babtn.dataset) babtn.dataset.browserContextBound = "1";
+  } catch (e) {}
+});
 // Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for browser
 try {
   function attachBrowserContext(btn) {
     try {
       if (!btn || !(btn instanceof HTMLElement)) return;
       if (btn.dataset && btn.dataset.browserContextBound) return;
-      const aid = (btn.dataset && btn.dataset.appId) || btn.id || '';
-      if (!(String(aid) === '🌐' || String(aid) === 'browser')) return;
-      btn.addEventListener('contextmenu', browserGlobals.browsermenuhandler);
-      if (btn.dataset) btn.dataset.browserContextBound = '1';
+      const aid = (btn.dataset && btn.dataset.appId) || btn.id || "";
+      if (!(String(aid) === "🌐" || String(aid) === "browser")) return;
+      btn.addEventListener("contextmenu", browserGlobals.browsermenuhandler);
+      if (btn.dataset) btn.dataset.browserContextBound = "1";
       browserGlobals.browserButtons.push(btn);
     } catch (e) {}
   }
 
   try {
-    const existing = (typeof taskbar !== 'undefined' && taskbar) ? taskbar.querySelectorAll('button') : document.querySelectorAll('button');
+    const existing =
+      typeof taskbar !== "undefined" && taskbar
+        ? taskbar.querySelectorAll("button")
+        : document.querySelectorAll("button");
     for (const b of existing) attachBrowserContext(b);
   } catch (e) {}
 
-  const observerTarget = (typeof taskbar !== 'undefined' && taskbar) ? taskbar : document.body;
+  const observerTarget =
+    typeof taskbar !== "undefined" && taskbar ? taskbar : document.body;
   const mo = new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const n of m.addedNodes) {
         if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches('button')) attachBrowserContext(n);
+        if (n.matches && n.matches("button")) attachBrowserContext(n);
         else {
-          try { n.querySelectorAll && n.querySelectorAll('button') && n.querySelectorAll('button').forEach(attachBrowserContext); } catch (e) {}
+          try {
+            n.querySelectorAll &&
+              n.querySelectorAll("button") &&
+              n.querySelectorAll("button").forEach(attachBrowserContext);
+          } catch (e) {}
         }
       }
     }
   });
   mo.observe(observerTarget, { childList: true, subtree: true });
 } catch (e) {
-  console.error('failed to attach browser context handlers', e);
+  console.error("failed to attach browser context handlers", e);
 }
