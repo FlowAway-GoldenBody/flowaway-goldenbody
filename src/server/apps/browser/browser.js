@@ -1465,6 +1465,48 @@ window.browser = function (
         if (!iframeDocument || !iframe.contentWindow) return;
         if (iframe.__gbPatchedDocument === iframeDocument) return;
         iframe.contentWindow.addEventListener("keydown", function (e) {
+          var switcherMode =
+            (window.windowSwitchState && window.windowSwitchState.active &&
+              window.windowSwitchState.mod) ||
+            "";
+          var wantsCycle =
+            (e.altKey && e.key === "Tab") ||
+            (e.ctrlKey && !e.altKey && e.key === "Tab") ||
+            (e.key === "Tab" && !!switcherMode);
+          if (
+            wantsCycle
+          ) {
+            e.preventDefault();
+            root.focus();
+            var dispatchAlt = e.altKey || switcherMode === "Alt";
+            var dispatchCtrl = e.ctrlKey || switcherMode === "Ctrl";
+            var handledDirectly = false;
+            try {
+              if (typeof window.cycleWindowFocus === "function") {
+                handledDirectly =
+                  window.cycleWindowFocus(
+                    !!e.shiftKey,
+                    dispatchAlt ? "Alt" : "Ctrl",
+                  ) === true;
+              }
+            } catch (err) {}
+            if (handledDirectly) return;
+            try {
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key: "Tab",
+                  code: "Tab",
+                  altKey: !!dispatchAlt,
+                  ctrlKey: !!dispatchCtrl,
+                  shiftKey: !!e.shiftKey,
+                  bubbles: true,
+                  cancelable: true,
+                }),
+              );
+            } catch (err) {}
+            return;
+          }
+
           if (e.ctrlKey && e.key === "n") {
             e.preventDefault();
             if (atTop == "browser" || atTop == "") {
@@ -1497,6 +1539,32 @@ window.browser = function (
 
             addTab("goldenbody://newtab/", "New Tab");
           }
+        });
+        iframe.contentWindow.addEventListener("keyup", function (e) {
+          if (e.key !== "Alt" && e.key !== "Control") return;
+          try {
+            if (
+              typeof window.commitWindowSwitchTarget === "function" &&
+              typeof window.resetWindowSwitchState === "function"
+            ) {
+              window.commitWindowSwitchTarget();
+              window.resetWindowSwitchState();
+              return;
+            }
+          } catch (err) {}
+          try {
+            window.dispatchEvent(
+              new KeyboardEvent("keyup", {
+                key: e.key,
+                code: e.code,
+                altKey: !!e.altKey,
+                ctrlKey: !!e.ctrlKey,
+                shiftKey: !!e.shiftKey,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+          } catch (err) {}
         });
 
         // Create a reusable custom context menu
@@ -4034,6 +4102,79 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
               // Wait for the iframe to load (so its contentDocument exists)
               try {
                 const win = frame.contentWindow;
+                if (!win.__gbWindowSwitchForwardKeydown) {
+                  win.__gbWindowSwitchForwardKeydown = function (e) {
+                    var switcherMode =
+                      (window.windowSwitchState &&
+                        window.windowSwitchState.active &&
+                        window.windowSwitchState.mod) ||
+                      "";
+                    var wantsCycle =
+                      (e.altKey && e.key === "Tab") ||
+                      (e.ctrlKey && !e.altKey && e.key === "Tab") ||
+                      (e.key === "Tab" && !!switcherMode);
+                    if (
+                      wantsCycle
+                    ) {
+                      e.preventDefault();
+                      var dispatchAlt = e.altKey || switcherMode === "Alt";
+                      var dispatchCtrl = e.ctrlKey || switcherMode === "Ctrl";
+                      var handledDirectly = false;
+                      try {
+                        if (typeof window.cycleWindowFocus === "function") {
+                          handledDirectly =
+                            window.cycleWindowFocus(
+                              !!e.shiftKey,
+                              dispatchAlt ? "Alt" : "Ctrl",
+                            ) === true;
+                        }
+                      } catch (err) {}
+                      if (handledDirectly) return;
+                      try {
+                        window.dispatchEvent(
+                          new KeyboardEvent("keydown", {
+                            key: "Tab",
+                            code: "Tab",
+                            altKey: !!dispatchAlt,
+                            ctrlKey: !!dispatchCtrl,
+                            shiftKey: !!e.shiftKey,
+                            bubbles: true,
+                            cancelable: true,
+                          }),
+                        );
+                      } catch (err) {}
+                    }
+                  };
+                }
+                if (!win.__gbWindowSwitchForwardKeyup) {
+                  win.__gbWindowSwitchForwardKeyup = function (e) {
+                    if (e.key !== "Alt" && e.key !== "Control") return;
+                    try {
+                      if (
+                        typeof window.commitWindowSwitchTarget ===
+                          "function" &&
+                        typeof window.resetWindowSwitchState === "function"
+                      ) {
+                        window.commitWindowSwitchTarget();
+                        window.resetWindowSwitchState();
+                        return;
+                      }
+                    } catch (err) {}
+                    try {
+                      window.dispatchEvent(
+                        new KeyboardEvent("keyup", {
+                          key: e.key,
+                          code: e.code,
+                          altKey: !!e.altKey,
+                          ctrlKey: !!e.ctrlKey,
+                          shiftKey: !!e.shiftKey,
+                          bubbles: true,
+                          cancelable: true,
+                        }),
+                      );
+                    } catch (err) {}
+                  };
+                }
                 if (!frame.contentDocument.getElementById("_gb_a_setter")) {
                   var script = frame.contentDocument.createElement("script");
                   script.id = "_gb_a_setter";
@@ -4209,6 +4350,22 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                   frame.contentWindow.addEventListener(
                     "pointerup",
                     frame.contentWindow.onpointerup,
+                  );
+                  win.removeEventListener(
+                    "keydown",
+                    win.__gbWindowSwitchForwardKeydown,
+                  );
+                  win.addEventListener(
+                    "keydown",
+                    win.__gbWindowSwitchForwardKeydown,
+                  );
+                  win.removeEventListener(
+                    "keyup",
+                    win.__gbWindowSwitchForwardKeyup,
+                  );
+                  win.addEventListener(
+                    "keyup",
+                    win.__gbWindowSwitchForwardKeyup,
                   );
                   win.removeEventListener("keydown", win.suberudaKeyHandler);
 
