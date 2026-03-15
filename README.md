@@ -1,29 +1,71 @@
-## WHAT THIS IS:
-flowaway goldenbody is a os interface made with almost pure js, no frameworks and stuff for client side, server side, maybe cuz rammerhead prob used some idk. The only dependency you need is nodejs v16 to v<current> aka 24 or smt.
-so like, you as a user, you basically can install any apps, just drop a folder in the app format in the /apps folder of your account, which has 6 system apps there, plz dont modify them if you dont know what you are doing!!! we dont have a index.html, before doing so if you are local deving this thing plz change all 8080 to 80 in this repo. you go to http://localhost/golendbody.html, you create an account, 3 letter minimum for username and 1 letter minimum for password. you made your 1st acc XD.
-Plz dont come to me saying the restrictions are all client side... its for your own good. IDC if you create a username with '' and password with '' as long as you think thats a safe choice. also bypassing acc creation by modifying `ouchbad.js` does not do any good, you can do absolutely nothing there due to it cant fetch from server with proper credentials.
+## WHAT THIS IS
+Rammerhead / Flowaway (a.k.a. goldenbody) is an OS-like web interface built with vanilla JavaScript and a small Node.js server. It is intentionally lightweight and framework-free on the client.
 
-hosting: try to host it online asap because you can then do what you need.
-if the localhost link dont work try make a cloudflare tunnel via installing cloudflared from brew if you have one or just chatgpt it.
+## MIGRATION NOTES (MAR 2026)
 
-back to apps, so like you open your file explorer on the taskbar or start menu, aka the triangle button on the taskbar. there is a sample app for you already, the GUI is already built, you can add your tweaks to it if you want, but i highly recommend making a new one and replace all the your app something. all the app modifications are live, and to do so, write the global vars and functions there so the cleaning system can reach them, plz dont cause mem leaks. also please please plz use window.yourvar = your_value; or window.yourfunc = () => {...}; or window.yourfunc = async () => {...}; if you dont want to do window.something you can declare the vars like you did in python. plz dont use let/var/function to declare any global vars that you want the cleaner to clean. also your main function CANNOT be declared in any of the above if you want your app to work.
+- **Naming convention**: avoid scattering globals on `window`. Expose a single object per app instead. The project now expects per-app globals under an app-scoped object such as `window.<yourAppName>globals`. Example:
 
-there will be a app store soon at goldenbody://app-store in the browser. there you will download apps through zipped files and you can unzip it on a random unzip files website. we dont support downloads yet so plz use websites that use showDirectoryPicker() or showSaveFilePicker() to download files. its fully implemented in the browser. the browser has handling for every single fs api by now. 
+```js
+// recommended pattern
+window.myappglobals = window.myappglobals || {};
+window.myappglobals.init = function() { /* start */ };
+window.myappglobals.cleanup = function() { /* tidy up */ };
+```
 
-just so you know that this aka the readme.md would prob not be updated as often as the repo, and find new features out by explore! just like you did in minecraft, no one teaches you how to survive or use stuff like redstone, you figure it out urself. it has way more features than i can describe here! bugs are literally fixed DAILY and average 1 commit per DAY. plz note that the whole repo is 90% vibe coded so plz dont be like oh its written by ai... as long as it works its fine, and yes there are really **MILD** event listeners stacking with browser but as long as it dont affect framerate on chromebooks its okay. But it will be fixed some day when i felt like it. AI is a great tool and plz feel free to use it, there are 2 different ways of vibe coding, `just like using free ranger, you can click as fast as possible and miss your shots (messy vibe coding with global vars everywhere, works by chance, aka you can spam and pray you shot the dead center, but its not sustainable) or you can aim well and snipe long range while cs is reloading (reviewing ai generated code and apply patch via the ai or if its complicated then gotta use urself, watch for global scope pollution, focus on whether its what you want, the way its written, if you dont understand the ai code AT ALL i mean that by understanding the code is just as hard as arabic if u never learned it, thats a problem. if thats the case id say, just hop on a game and... if you dont understand some particular stuff, let the ai explain or like you can just do nothin. i dont understand like 1/4 of what the ai wrote but i can still comprehend and fix bugs.);` ignore what i said if you dont know what free ranger is. obviously goldenbody is the 2nd one of what i said, real skill.
+- **Why**: this keeps the global namespace compact and makes automatic cleanup and discovery (by the runtime) reliable.
 
+## LISTENER & INTERVAL GUIDELINES
 
-even though the terminal app is a bit incomplete now, dont worry, it eventually will be ok.
+- **Track resources you create**: attach arrays or a single `_teardown` object to your app root so you can remove listeners and clear timers when the app/window closes. Example pattern:
 
-## Installing and running
+```js
+// attach on init
+const root = chromeWindow.rootElement;
+root._teardown = root._teardown || { intervals: [], listeners: [] };
+root._teardown.intervals.push(setInterval(...));
+root._teardown.listeners.push({ el: someEl, event: 'click', handler });
+someEl.addEventListener('click', handler);
 
-We recommends you to have at least **node v16** to be installed, **node v22** works too. Once you installed nodejs, clone the repo, then run `npm install` and `npm run build`.
+// then on cleanup
+(root._teardown.intervals || []).forEach(clearInterval);
+(root._teardown.listeners || []).forEach(({el,event,handler}) => el.removeEventListener(event, handler));
+```
 
-After, configure your settings in [src/config.js](src/config.js). If you wish to consistently pull updates from this repo without the hassle of merging, create `config.js` in the root folder so they override the configs in `src/`.
+- **Avoid stacking**: do not call `setInterval` or `addEventListener` repeatedly without clearing/removing the previous handles. When the app/window is closed, ensure teardown runs and clears stored handles. The runtime now tracks per-window intervals in many places, but your app should also be defensive.
 
-Finally run the following to start the server: `node src/server.js`
+- **One-shot guards for multi-event flows**: where an action can be triggered by multiple event types (e.g., both `pointerup` and `dragend`), use a one-shot guard (boolean flag) to ensure the transfer or cleanup only happens once.
 
-## DEPENDENCIES
-due to the fact many repo is unclear on this, and i have to reverse engineer almost the whole scramjet repo just to get it to work and shell shockers don't work there, so i switched to rammerhead, it currently does not fully support localhost:8080 due to manuel url rewriting in the client side to route to the server, plz just show the copilot ai next to vscode `public/flowaway.js` and `public/ouchbad.js` and `src/server/zmcd.js` and `src/server/fetchfiles.js` and `src/server/appSocket.js` and let it fix them. or if you are a minimalist just go on and change all '8080' in this repo to '80', thats the port, if you dont know what port is just go to an ai and post this "article". I would still recommend using cloudflare tunnel to do this as i mentioned above, get a $2 domain like mathvariables.xyz. again it just need nodejs to build. you are welcomed to prettify the code cuz before i know how to use copilot i used chatgpt and i rarely formatted the code, the alignment are all over the place.
+## RECENT UPDATES (MAR 2026)
 
-For any user-help issue related questions, especially pertaining to goldenbody, please email me (a1462978843@outlook.com) .
+- Switcher UI now uses OS-style wording (`Switch windows`) and prefers window titles for labels (avoids displaying `undefined`).
+- Detached browser windows are tagged so they appear in the switcher correctly.
+- Fixed tab-drag duplication: cross-window tab transfers are now guarded to prevent double-handling.
+- Reduced interval stacking by tracking and clearing per-window intervals during window teardown.
+
+## QUICK DEV & RUN
+
+- Requirements: Node.js (v16+ recommended).
+- Install and build:
+
+```bash
+npm install
+npm run build
+```
+
+- Configure `src/config.js` or create a local `config.js` to override defaults.
+- Run server:
+
+```bash
+node src/server.js
+```
+
+- If you want external access during development, `cloudflared` is a convenient option for a quick tunnel.
+
+## PROJECT NOTES & CONTRIBUTING
+
+- The codebase is actively developed; expect frequent changes. Small, focused PRs are easiest to review.
+- When adding apps, follow the `window.<yourAppName>globals` pattern and implement a `cleanup` method to avoid leaks.
+
+## CONTACT
+
+For project-related questions: a1462978843@outlook.com
