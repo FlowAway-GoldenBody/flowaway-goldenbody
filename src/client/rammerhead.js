@@ -1,6 +1,9 @@
 (function () {
     var hammerhead = window['%hammerhead%'];
     if (!hammerhead) throw new Error('hammerhead not loaded yet');
+    if (typeof window.__installRammerheadFullscreenDialogs === 'function') {
+        window.__installRammerheadFullscreenDialogs(window);
+    }
     if (hammerhead.settings._settings.sessionId) {
         // task.js already loaded. this will likely never happen though since this file loads before task.js
         console.warn('unexpected task.js to load before rammerhead.js. url shuffling cannot be used');
@@ -13,6 +16,9 @@
     }
 
     function main() {
+        if (typeof window.__installRammerheadFullscreenDialogs === 'function') {
+            window.__installRammerheadFullscreenDialogs(window);
+        }
         fixUrlRewrite();
         fixElementGetter();
         fixCrossWindowLocalStorage();
