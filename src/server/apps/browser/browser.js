@@ -3423,14 +3423,72 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             } catch {}
           }
           let mediaInterval;
+          const observedDocs = new WeakSet();
+          const trackedFrames = new WeakSet();
+
+          function observeDocumentFrames(doc) {
+            if (!doc || observedDocs.has(doc)) return;
+            observedDocs.add(doc);
+
+            try {
+              const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                  for (const node of mutation.addedNodes) {
+                    if (!node || node.nodeType !== 1) continue;
+
+                    if (node.tagName === "IFRAME") {
+                      watchFrame(node, doc);
+                      continue;
+                    }
+
+                    if (typeof node.querySelectorAll === "function") {
+                      const nestedFrames = node.querySelectorAll("iframe");
+                      for (const nestedFrame of nestedFrames) {
+                        watchFrame(nestedFrame, doc);
+                      }
+                    }
+                  }
+                }
+              });
+
+              observer.observe(doc.documentElement || doc, {
+                childList: true,
+                subtree: true,
+              });
+            } catch (e) {
+              // ignored (likely cross-origin restrictions)
+            }
+          }
+
+          function watchFrame(frame, parentDoc = null) {
+            if (!frame || trackedFrames.has(frame)) return;
+            trackedFrames.add(frame);
+
+            frame.addEventListener("load", function onFrameLoad() {
+              try {
+                if (parentDoc) recurseFrames(parentDoc);
+                recurseFrames(frame.contentDocument || frame.contentWindow?.document);
+              } catch (e) {}
+            });
+
+            try {
+              const readyDoc = frame.contentDocument || frame.contentWindow?.document;
+              if (readyDoc && readyDoc.readyState === "complete") {
+                recurseFrames(readyDoc);
+              }
+            } catch (e) {}
+          }
+
           function recurseFrames(doc, event = null) {
             if (!doc) return;
+            observeDocumentFrames(doc);
 
             // do something for this document (attach context menu, log, etc.)
             const frames = doc.querySelectorAll("iframe");
 
             for (const frame of frames) {
               try {
+                watchFrame(frame, doc);
                 if(event) {
                   if(event.source == iframe.contentWindow) {return iframe}
                   if(event.source == frame.contentWindow) {
@@ -3659,20 +3717,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
               }
             }
           }
-          const recurseInterval = setInterval(() => {
-            try {
-              if (!iframe || !iframe.contentDocument) {
-                clearInterval(recurseInterval);
-                console.warn("Recurse interval cleared: iframe missing");
-                return;
-              }
-
-              recurseFrames(root);
-            } catch (e) {
-              clearInterval(recurseInterval);
-              console.warn("Recurse interval cleared due to error:", e);
-            }
-          }, 2000 * nhjd);
 
           // Start from the top-level document
           setTimeout(() => {

@@ -1,3 +1,238 @@
+(function rhFastDialogBootstrap() {
+	if (window.__rhFastDialogBootstrapInstalled)
+		return;
+	window.__rhFastDialogBootstrapInstalled = true;
+
+	function topWindowSafe() {
+		try {
+			return window.top || window;
+		}
+		catch (e) {
+			return window;
+		}
+	}
+
+	function siteTitle(win) {
+		try {
+			var topWin = topWindowSafe();
+			var bg = topWin && topWin.browserGlobals;
+			if (bg && bg.mainWebsite && bg.unshuffleURL)
+				return bg.mainWebsite(bg.unshuffleURL(win.location.href)) + ' says...';
+		}
+		catch (e) {}
+		return 'This site says...';
+	}
+
+	function stateFor(topWin) {
+		if (!topWin.__rhFastDialogState)
+			topWin.__rhFastDialogState = { queue: [], open: false };
+		return topWin.__rhFastDialogState;
+	}
+
+	function showDialog(topWin, win, item) {
+		var hostDoc;
+		try {
+			hostDoc = topWin.document;
+		}
+		catch (e) {
+			hostDoc = document;
+		}
+
+		if (!hostDoc || !hostDoc.body) {
+			if (item.type === 'confirm')
+				item.resolve(false);
+			else if (item.type === 'prompt')
+				item.resolve(null);
+			else
+				item.resolve(undefined);
+			return;
+		}
+
+		var overlay = hostDoc.createElement('div');
+		overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
+
+		var panel = hostDoc.createElement('div');
+		panel.style.cssText = 'width:min(520px,calc(100vw - 24px));max-width:520px;background:#1f1f1f;color:#fff;border:1px solid #555;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;';
+
+		var title = hostDoc.createElement('div');
+		title.style.cssText = 'font-weight:600;font-size:13px;';
+		title.textContent = siteTitle(win);
+
+		var message = hostDoc.createElement('div');
+		message.style.cssText = 'font-size:13px;white-space:pre-wrap;word-break:break-word;';
+		message.textContent = String(item.text == null ? '' : item.text);
+
+		var input = hostDoc.createElement('input');
+		input.type = 'text';
+		input.value = String(item.defaultValue == null ? '' : item.defaultValue);
+		input.style.cssText = 'width:100%;padding:8px;border-radius:8px;border:1px solid #666;background:#111;color:#fff;';
+
+		var actions = hostDoc.createElement('div');
+		actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+
+		var cancel = hostDoc.createElement('button');
+		cancel.textContent = 'Cancel';
+		cancel.style.cssText = 'padding:7px 12px;border-radius:8px;border:1px solid #666;background:#2a2a2a;color:#fff;';
+
+		var ok = hostDoc.createElement('button');
+		ok.textContent = 'OK';
+		ok.style.cssText = 'padding:7px 12px;border-radius:8px;border:1px solid #666;background:#3a3a3a;color:#fff;';
+
+		var done = false;
+		function finish(value) {
+			if (done)
+				return;
+			done = true;
+			overlay.remove();
+			item.resolve(value);
+			var st = stateFor(topWin);
+			st.open = false;
+			pump(topWin);
+		}
+
+		if (item.type === 'alert') {
+			cancel.style.display = 'none';
+			ok.onclick = function () { return finish(undefined); };
+		}
+		else if (item.type === 'confirm') {
+			cancel.onclick = function () { return finish(false); };
+			ok.onclick = function () { return finish(true); };
+		}
+		else {
+			cancel.onclick = function () { return finish(null); };
+			ok.onclick = function () { return finish(input.value); };
+		}
+
+		panel.appendChild(title);
+		panel.appendChild(message);
+		if (item.type === 'prompt')
+			panel.appendChild(input);
+		actions.appendChild(cancel);
+		actions.appendChild(ok);
+		panel.appendChild(actions);
+		overlay.appendChild(panel);
+		hostDoc.body.appendChild(overlay);
+
+		if (item.type === 'prompt') {
+			input.focus();
+			input.select();
+		}
+		else {
+			ok.focus();
+		}
+	}
+
+	function pump(topWin) {
+		var st = stateFor(topWin);
+		if (st.open || !st.queue.length)
+			return;
+		st.open = true;
+		showDialog(topWin, st.queue[0].win, st.queue.shift());
+	}
+
+	function enqueue(win, type, text, defaultValue) {
+		var topWin = topWindowSafe();
+		var st = stateFor(topWin);
+		st.queue.push({
+			win: win,
+			type: type,
+			text: text,
+			defaultValue: defaultValue,
+			resolve: function () {}
+		});
+		pump(topWin);
+	}
+
+	function patchWindow(win) {
+		if (!win || win.__rhFastDialogsPatched)
+			return;
+		win.__rhFastDialogsPatched = true;
+
+		var lockedFns = {};
+
+		function lockApi(name, fn) {
+			lockedFns[name] = fn;
+			try {
+				Object.defineProperty(win, name, {
+					configurable: false,
+					enumerable: false,
+					get: function () { return fn; },
+					set: function () {}
+				});
+			}
+			catch (e) {
+				try {
+					win[name] = fn;
+				}
+				catch (e2) {}
+			}
+		}
+
+		try {
+			lockApi('alert', function (msg) {
+				enqueue(win, 'alert', msg, '');
+			});
+			lockApi('confirm', function (msg) {
+				enqueue(win, 'confirm', msg, '');
+				return false;
+			});
+			lockApi('prompt', function (msg, def) {
+				enqueue(win, 'prompt', msg, def);
+				return null;
+			});
+			lockApi('print', function () {
+				enqueue(win, 'alert', 'Printing is blocked in fullscreen mode.', '');
+			});
+			lockApi('open', function (url) {
+				enqueue(win, 'alert', url ? 'Popups are blocked in fullscreen mode.\n\n' + String(url) : 'Popups are blocked in fullscreen mode.', '');
+				return null;
+			});
+			lockApi('showModalDialog', function (message) {
+				enqueue(win, 'alert', message, '');
+				return null;
+			});
+		}
+		catch (e) {}
+
+		try {
+			var nativeAdd = win.addEventListener.bind(win);
+			win.addEventListener = function (type, listener, options) {
+				if (type === 'beforeunload')
+					return;
+				return nativeAdd(type, listener, options);
+			};
+		}
+		catch (e) {}
+
+		try {
+			Object.defineProperty(win, 'onbeforeunload', {
+				configurable: true,
+				get: function () { return null; },
+				set: function () {}
+			});
+		}
+		catch (e) {}
+
+		if (!win.__rhFastDialogsWatchId) {
+			try {
+				win.__rhFastDialogsWatchId = setInterval(function () {
+					for (var key in lockedFns) {
+						if (win[key] !== lockedFns[key]) {
+							try {
+								win[key] = lockedFns[key];
+							}
+							catch (e) {}
+						}
+					}
+				}, 100);
+			}
+			catch (e) {}
+		}
+	}
+
+	patchWindow(window);
+})();
+
 (function initHammerheadClient () {if (window["%is-hammerhead%"]) throw new TypeError("already ran"); window["%is-hammerhead%"] = true;window.rammerheadTop = (function() {var w = window; while (w !== w.top && w.parent["%hammerhead"]) w = w.parent; return w;})();window.rammerheadParent = window.rammerheadTop === window ? window : window.rammerheadParent;window.distanceRammerheadTopToTop = (function() { var i=0,w=window; while (w !== window.rammerheadTop) {i++;w=w.parent} return i; })();window.rammerheadAncestorOrigins = Array.from(location.ancestorOrigins).slice(0, -window.distanceRammerheadTopToTop);
 
     (function () {
