@@ -28,6 +28,7 @@ terminal = function (posX = 50, posY = 50) {
       zIndex: 1000,
     });
     root.classList.add('terminal');
+    root.dataset.appId = 'terminal';
     bringToFront(root);
     document.body.appendChild(root);
     terminalGlobals.terminalId++;

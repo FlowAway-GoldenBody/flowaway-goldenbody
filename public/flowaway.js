@@ -1512,10 +1512,12 @@ window.removeOtherMenus = function(except) {
     if (!appId && window.apps && Array.isArray(window.apps)) {
       for (const a of window.apps) {
         try {
-          var candidates = [a.entry, a.id, a.icon, a.startbtnid].filter(Boolean);
-          var matched = candidates.some((cid) => el.classList.contains(cid) || el.id === (cid + 'app') || el.id === cid);
+          // Only use real identifier strings (entry function name, startbtnid) for class/id matching.
+          // a.id and a.icon are icon content (emoji or HTML markup), not valid identifiers.
+          var candidates = [a.entry, a.startbtnid].filter(function(c) { return c && typeof c === 'string' && c.length < 64; });
+          var matched = candidates.some(function(cid) { return el.classList.contains(cid) || el.id === (cid + 'app') || el.id === cid; });
           if (matched) {
-            appId = a.entry || a.id || a.icon;
+            appId = a.entry || a.startbtnid;
             break;
           }
         } catch (e) {}
@@ -1533,7 +1535,9 @@ window.removeOtherMenus = function(except) {
     if (!identifier || !window.apps || !Array.isArray(window.apps)) return null;
     for (const a of window.apps) {
       if (!a) continue;
-      if (identifier === a.entry || identifier === a.id || identifier === a.icon || identifier === a.startbtnid) {
+      // Only match against true identifiers (entry function name, startbtnid).
+      // Do NOT match a.id or a.icon — those contain icon HTML/emoji content, not identifiers.
+      if (identifier === a.entry || identifier === a.startbtnid) {
         return a;
       }
     }
@@ -1569,6 +1573,34 @@ window.removeOtherMenus = function(except) {
     } catch (e) {
       return [];
     }
+  }
+
+  function resolveFocusedWindowRoot(windows) {
+    var active = null;
+    try {
+      active = document.activeElement;
+    } catch (e) {
+      active = null;
+    }
+
+    if (active) {
+      try {
+        if (typeof active.closest === 'function') {
+          var candidate = active.closest('.sim-chrome-root');
+          if (candidate && (!windows || windows.indexOf(candidate) !== -1)) {
+            return candidate;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (atTop && windows && windows.length) {
+      for (var i = 0; i < windows.length; i++) {
+        if (resolveWindowAppId(windows[i]) === atTop) return windows[i];
+      }
+    }
+
+    return null;
   }
 
   var windowSwitchState = {
@@ -1695,7 +1727,12 @@ window.removeOtherMenus = function(except) {
 
       var icon = document.createElement('div');
       var iconApp = findAppByIdentifier(appId);
-      icon.textContent = (iconApp && iconApp.icon) || '🗔';
+      var iconValue = (iconApp && iconApp.icon) || '🗔';
+      if (iconValue && iconValue.trim().startsWith('<')) {
+        icon.innerHTML = iconValue;
+      } else {
+        icon.textContent = iconValue;
+      }
       Object.assign(icon.style, {
         width: '28px',
         textAlign: 'center',
@@ -1746,7 +1783,7 @@ window.removeOtherMenus = function(except) {
     windowSwitchState.pendingTarget = null;
   }
 
-  function cycleWindowFocus(reverse, modKey) {
+  function cycleWindowFocus(reverse, modKey, options) {
     var windows = getSwitchableWindows();
     if (!windows || windows.length <= 1) return false;
 
@@ -1765,7 +1802,17 @@ window.removeOtherMenus = function(except) {
       windowSwitchState.active = true;
       windowSwitchState.mod = mod;
       windowSwitchState.order = windows.slice();
-      windowSwitchState.index = 0;
+      var forcedFocusedWindow =
+        options && options.forceCurrentWindow &&
+        windowSwitchState.order.indexOf(options.forceCurrentWindow) !== -1
+          ? options.forceCurrentWindow
+          : null;
+      var focusedWindow =
+        forcedFocusedWindow || resolveFocusedWindowRoot(windowSwitchState.order);
+      var focusedIndex = focusedWindow
+        ? windowSwitchState.order.indexOf(focusedWindow)
+        : -1;
+      windowSwitchState.index = focusedIndex >= 0 ? focusedIndex : 0;
     } else {
       windowSwitchState.order = windowSwitchState.order.filter(function (el) {
         return windows.indexOf(el) !== -1;

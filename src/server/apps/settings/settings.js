@@ -35,6 +35,7 @@ settings = function (posX = 50, posY = 50) {
       zIndex: 1000,
     });
     root.classList.add('settings');
+    root.dataset.appId = 'settings';
     bringToFront(root);
     document.body.appendChild(root);
     settingsGlobals.settingsId++;
