@@ -49,6 +49,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       zIndex: 1000,
     });
     root.classList.add('textEditor');
+    root.dataset.appId = 'textEditor';
     bringToFront(root);
     document.body.appendChild(root);
     textEditorGlobals.textEditorId++;
