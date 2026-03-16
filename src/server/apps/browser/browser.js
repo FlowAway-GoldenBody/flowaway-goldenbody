@@ -862,74 +862,6 @@ window.browser = function (
     let activeTabId = null;
     let tabCounter = 0;
 
-    function cycleBrowserWindowDirect(reverse = false) {
-      try {
-        const all = (browserGlobals.allBrowsers || [])
-          .map((b) => b && b.rootElement)
-          .filter((el) => {
-            if (!el || !el.isConnected) return false;
-            const cs = window.getComputedStyle(el);
-            return cs && cs.display !== "none" && cs.visibility !== "hidden";
-          });
-
-        if (all.length <= 1) return false;
-
-        all.sort((a, b) => {
-          const za = parseInt(a.style.zIndex) || 0;
-          const zb = parseInt(b.style.zIndex) || 0;
-          return zb - za;
-        });
-
-        const currentIndex = all.indexOf(root);
-        const startIndex = currentIndex >= 0 ? currentIndex : 0;
-        const step = reverse ? -1 : 1;
-        const nextIndex = (startIndex + step + all.length) % all.length;
-        const target = all[nextIndex];
-        if (!target || target === root) return false;
-
-        try {
-          bringToFront(target);
-        } catch (e) {}
-        try {
-          if (window.windowSwitchState) {
-            window.windowSwitchState.pendingTarget = target;
-          }
-        } catch (e) {}
-        try {
-          target.focus({ preventScroll: true });
-        } catch (e) {
-          try {
-            target.focus();
-          } catch (err) {}
-        }
-        return true;
-      } catch (e) {
-        return false;
-      }
-    }
-
-    function cycleWindowShortcut(reverse, modKey) {
-      let switched = false;
-      try {
-        if (typeof window.cycleWindowFocus === "function") {
-          switched = !!window.cycleWindowFocus(reverse, modKey, {
-            forceCurrentWindow: root,
-          });
-          const pendingTarget = window.windowSwitchState?.pendingTarget || null;
-          if (switched && pendingTarget === root) {
-            switched = false;
-          }
-        }
-      } catch (e) {
-        switched = false;
-      }
-
-      if (!switched) {
-        switched = cycleBrowserWindowDirect(reverse);
-      }
-      return switched;
-    }
-
     // with this:
     tabsRow.style.display = "flex";
     tabsRow.style.flex = "1 1 0"; // <-- grow and be the thing that shrinks
@@ -1546,11 +1478,11 @@ window.browser = function (
             (e.altKey && e.key === "Tab") ||
             (e.ctrlKey && !e.altKey && e.key === "Tab") ||
             (e.key === "Tab" && !!switcherMode);
-          if (wantsCycle) {
+          if (
+            wantsCycle
+          ) {
             e.preventDefault();
-            e.stopPropagation();
-            var modKey = e.altKey ? "Alt" : (e.ctrlKey ? "Ctrl" : switcherMode);
-            cycleWindowShortcut(!!e.shiftKey, modKey);
+            root.focus();
             return;
           }
 
@@ -1586,13 +1518,8 @@ window.browser = function (
 
             addTab("goldenbody://newtab/", "New Tab");
           }
-        }, true);
-        iframe.contentWindow.addEventListener("keyup", function (e) {
-          if (e.key !== "Alt" && e.key !== "Control") return;
-          try { window.commitWindowSwitchTarget(); } catch (err) {}
-          try { window.resetWindowSwitchState(); } catch (err) {}
-        }, true);
-
+        });
+  
         // Create a reusable custom context menu
         const menu = iframeDocument.createElement("div");
         menu.style.all = "unset";
@@ -4129,28 +4056,79 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
               // Wait for the iframe to load (so its contentDocument exists)
               try {
                 const win = frame.contentWindow;
-                win.__gbWindowSwitchForwardKeydown = function (e) {
-                  var switcherMode =
-                    (window.windowSwitchState &&
-                      window.windowSwitchState.active &&
-                      window.windowSwitchState.mod) ||
-                    "";
-                  var wantsCycle =
-                    (e.altKey && e.key === "Tab") ||
-                    (e.ctrlKey && !e.altKey && e.key === "Tab") ||
-                    (e.key === "Tab" && !!switcherMode);
-                  if (wantsCycle) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var modKey = e.altKey ? "Alt" : (e.ctrlKey ? "Ctrl" : switcherMode);
-                    cycleWindowShortcut(!!e.shiftKey, modKey);
-                  }
-                };
-                win.__gbWindowSwitchForwardKeyup = function (e) {
-                  if (e.key !== "Alt" && e.key !== "Control") return;
-                  try { window.commitWindowSwitchTarget(); } catch (err) {}
-                  try { window.resetWindowSwitchState(); } catch (err) {}
-                };
+                if (!win.__gbWindowSwitchForwardKeydown) {
+                  win.__gbWindowSwitchForwardKeydown = function (e) {
+                    var switcherMode =
+                      (window.windowSwitchState &&
+                        window.windowSwitchState.active &&
+                        window.windowSwitchState.mod) ||
+                      "";
+                    var wantsCycle =
+                      (e.altKey && e.key === "Tab") ||
+                      (e.ctrlKey && !e.altKey && e.key === "Tab") ||
+                      (e.key === "Tab" && !!switcherMode);
+                    if (
+                      wantsCycle
+                    ) {
+                      e.preventDefault();
+                      var dispatchAlt = e.altKey || switcherMode === "Alt";
+                      var dispatchCtrl = e.ctrlKey || switcherMode === "Ctrl";
+                      var handledDirectly = false;
+                      try {
+                        if (typeof window.cycleWindowFocus === "function") {
+                          handledDirectly =
+                            window.cycleWindowFocus(
+                              !!e.shiftKey,
+                              dispatchAlt ? "Alt" : "Ctrl",
+                            ) === true;
+                        }
+                      } catch (err) {}
+                      if (handledDirectly) return;
+                      try {
+                        window.dispatchEvent(
+                          new KeyboardEvent("keydown", {
+                            key: "Tab",
+                            code: "Tab",
+                            altKey: !!dispatchAlt,
+                            ctrlKey: !!dispatchCtrl,
+                            shiftKey: !!e.shiftKey,
+                            bubbles: true,
+                            cancelable: true,
+                          }),
+                        );
+                      } catch (err) {}
+                    }
+                  };
+                }
+                if (!win.__gbWindowSwitchForwardKeyup) {
+                  win.__gbWindowSwitchForwardKeyup = function (e) {
+                    if (e.key !== "Alt" && e.key !== "Control") return;
+                    try {
+                      if (
+                        typeof window.commitWindowSwitchTarget ===
+                          "function" &&
+                        typeof window.resetWindowSwitchState === "function"
+                      ) {
+                        window.commitWindowSwitchTarget();
+                        window.resetWindowSwitchState();
+                        return;
+                      }
+                    } catch (err) {}
+                    try {
+                      window.dispatchEvent(
+                        new KeyboardEvent("keyup", {
+                          key: e.key,
+                          code: e.code,
+                          altKey: !!e.altKey,
+                          ctrlKey: !!e.ctrlKey,
+                          shiftKey: !!e.shiftKey,
+                          bubbles: true,
+                          cancelable: true,
+                        }),
+                      );
+                    } catch (err) {}
+                  };
+                }
                 if (!frame.contentDocument.getElementById("_gb_a_setter")) {
                   var script = frame.contentDocument.createElement("script");
                   script.id = "_gb_a_setter";
@@ -4330,22 +4308,18 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                   win.removeEventListener(
                     "keydown",
                     win.__gbWindowSwitchForwardKeydown,
-                    true,
                   );
                   win.addEventListener(
                     "keydown",
                     win.__gbWindowSwitchForwardKeydown,
-                    true,
                   );
                   win.removeEventListener(
                     "keyup",
                     win.__gbWindowSwitchForwardKeyup,
-                    true,
                   );
                   win.addEventListener(
                     "keyup",
                     win.__gbWindowSwitchForwardKeyup,
-                    true,
                   );
                   win.removeEventListener("keydown", win.suberudaKeyHandler);
 

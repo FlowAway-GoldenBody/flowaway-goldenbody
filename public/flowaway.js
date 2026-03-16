@@ -1845,6 +1845,32 @@ window.removeOtherMenus = function(except) {
     return true;
   }
 
+  function syncWindowSwitchPreview(target, modKey) {
+    if (!target || !target.isConnected) return false;
+
+    var windows = getSwitchableWindows();
+    if (!windows || windows.length <= 1) return false;
+
+    windows.sort(function (a, b) {
+      var za = parseInt(a.style.zIndex) || 0;
+      var zb = parseInt(b.style.zIndex) || 0;
+      return zb - za;
+    });
+
+    var index = windows.indexOf(target);
+    if (index < 0) return false;
+
+    var mod = modKey || windowSwitchState.mod || '';
+    windowSwitchState.active = true;
+    windowSwitchState.mod = mod;
+    windowSwitchState.order = windows;
+    windowSwitchState.index = index;
+    windowSwitchState.pendingTarget = target;
+    windowSwitchState.lastTs = Date.now();
+    renderWindowSwitchPreview(mod);
+    return true;
+  }
+
   // keydown - single binding
   try {
     if (window._flowaway_handlers.onKeydown) window.removeEventListener('keydown', window._flowaway_handlers.onKeydown);
