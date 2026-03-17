@@ -1463,11 +1463,55 @@ window.browser = function (
       createPermInput(iframe, url);
       iframe.tabIndex = "0";
       iframe.className = "sim-iframe";
+      let checkerinterval = null;
+
+      const stopPatchIntegrityChecker = () => {
+        if (checkerinterval) {
+          clearInterval(checkerinterval);
+          checkerinterval = null;
+        }
+      };
+
+      const startPatchIntegrityChecker = () => {
+        if (checkerinterval) return;
+        checkerinterval = setInterval(() => {
+          if (!iframe || !iframe.isConnected) {
+            stopPatchIntegrityChecker();
+            return;
+          }
+
+          let currentDocument = null;
+          let menuNode = null;
+          let hasContextHandler = false;
+          try {
+            currentDocument =
+              iframe.contentDocument || iframe.contentWindow?.document;
+            menuNode = currentDocument?.getElementById("custom-context-menu");
+            hasContextHandler = !!iframe.contentWindow?.__gbContextMenuHandler;
+          } catch (e) {}
+
+          const patchLooksAlive =
+            !!currentDocument &&
+            iframe.__gbPatchedDocument === currentDocument &&
+            !!menuNode &&
+            menuNode.isConnected &&
+            hasContextHandler;
+
+          if (patchLooksAlive) return;
+
+          iframe.__gbPatchedDocument = null;
+          try {
+            iframePatches();
+          } catch (e) {}
+        }, 1500);
+      };
+
       function iframePatches() {
         // Get the document inside the iframe
         const iframeDocument =
           iframe.contentDocument || iframe.contentWindow.document;
         if (!iframeDocument || !iframe.contentWindow) return;
+        startPatchIntegrityChecker();
         if (iframe.__gbPatchedDocument === iframeDocument) return;
         iframe.contentWindow.addEventListener("keydown", function (e) {
           var switcherMode =
@@ -4479,6 +4523,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         }
       });
       tab.__stopIframePatchWatcher = stopIframePatchWatcher;
+      tab.__stopPatchIntegrityChecker = stopPatchIntegrityChecker;
 
       if (preloadsize !== 100) {
         preloadsize = 100;
@@ -4760,6 +4805,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       const removingActive = tabs[idx].id === activeTabId;
       try {
         tabs[idx].__stopIframePatchWatcher?.();
+      } catch (e) {}
+      try {
+        tabs[idx].__stopPatchIntegrityChecker?.();
       } catch (e) {}
       tabs[idx].iframe.src = "about:blank";
       tabs[idx].iframe.remove();
