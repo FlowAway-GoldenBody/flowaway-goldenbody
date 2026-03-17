@@ -1221,9 +1221,7 @@ fileExplorer = function (posX = 50, posY = 50) {
             render();
             return;
           }
-          if (newName.includes(".") && selectedItem[1]) {
-            newName = newName.split(".").join("");
-          }
+
           for (let i = 0; i < fileArea.children.length; i++) {
             try {
               if (fileArea.children[i].children[1].textContent === newName)

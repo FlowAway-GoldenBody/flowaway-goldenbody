@@ -194,11 +194,12 @@
     }
 
     function onDocPointerDown(e) {
-      if (!cm.contains(e.target) && !taskbar.contains(e.target)) closeMenu();
+      if ((!cm.contains(e.target) && !taskbar.contains(e.target)) || e.target === taskbar) closeMenu();
     }
     function onEsc(e) { if (e.key === 'Escape') closeMenu(); }
 
     taskbar.addEventListener('contextmenu', function (ev) {
+      if(ev.target && ev.target.closest && ev.target.closest('.taskbutton')) return; // ignore right-clicks on task buttons
       ev.preventDefault();
       var x = ev.clientX;
       var y = ev.clientY;
@@ -209,6 +210,7 @@
       cm.style.background = data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
       cm.style.display = 'block';
       document.addEventListener('pointerdown', onDocPointerDown);
+      taskbar.addEventListener('pointerdown', onDocPointerDown); // also close if clicking taskbar (but not buttons)
       document.addEventListener('keydown', onEsc);
     });
 

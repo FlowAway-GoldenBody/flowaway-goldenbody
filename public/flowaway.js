@@ -729,13 +729,38 @@ async function extractAppData(appFolder) {
 
   return { id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false, cmf, appGlobalVarStrings };
 }
-
+async function runbootscript() {
+  var b64 = await fetchFileContentByPath(`.boot/gbenv.js`);
+  var scriptText = base64ToUtf8(b64);
+  var s = document.createElement('script');
+  s.type = 'text/javascript';
+  s.textContent = scriptText;
+  document.body.appendChild(s);
+}
+async function runscriptapps() {
+    var rootChildren = (window.treeData && window.treeData[1]) || [];
+    var appsNode = rootChildren.find(c => c[0] === '.noguiapps' && Array.isArray(c[1]));
+    for(const file of appsNode[1]) {
+  var b64 = await fetchFileContentByPath(`.noguiapps/${file[0]}`);
+  var scriptText = base64ToUtf8(b64);
+  var s = document.createElement('script');
+  s.type = 'text/javascript';
+  s.textContent = scriptText;
+  document.body.appendChild(s);
+    }
+}
 async function loadAppsFromTree() {
   if(loaded) return;
   loaded = true;
   window.apps = [];
   if (!window.treeData) await window.loadTree();
   try {
+    try {
+    runbootscript();
+    } catch (e) { console.error('runbootscript error', e); }
+    try {
+    runscriptapps();
+    } catch (e) { console.error('runscriptapps error', e); }
     var rootChildren = (window.treeData && window.treeData[1]) || [];
     var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
     if (!appsNode) return;
