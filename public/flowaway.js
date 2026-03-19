@@ -643,6 +643,22 @@ function toIconImageMarkupFromSource(iconSource) {
   return `<img src="${iconSource}" style="width:1.8em;height:1.8em;max-width:100%;max-height:100%;object-fit:contain;display:block;margin:0 auto;"/>`;
 }
 
+function getPreferredAppIdentifier(app) {
+  if (!app) return '';
+  return app.entry || app.startbtnid || app.id || app.icon || '';
+}
+
+function appMatchesIdentifier(app, identifier) {
+  if (!app || !identifier) return false;
+  var id = String(identifier).trim();
+  if (!id) return false;
+  var candidates = [app.entry, app.startbtnid, app.id, app.icon]
+    .filter(v => typeof v !== 'undefined' && v !== null)
+    .map(v => String(v).trim())
+    .filter(Boolean);
+  return candidates.includes(id);
+}
+
 async function toIconImageMarkup(iconPathOrUrl, folderPath) {
   var iconSource = (iconPathOrUrl || '').trim();
   if (!iconSource) return '';
@@ -681,34 +697,29 @@ async function extractAppData(appFolder) {
   
   // find files
   var jsFile = files.find(f => f.name.toLowerCase().endsWith('.js'))?.relativePath || null;
-  var txtFile = files.find(f => f.name.toLowerCase().endsWith('.txt'))?.relativePath || null;
+  var entryObjectfile = files.find(f => f.name.toLowerCase() === 'entry.json')?.relativePath || null;
   var iconFile = files.find(f => f.name.toLowerCase().startsWith('icon') || f.name.toLowerCase().endsWith('.png') || f.name.toLowerCase().endsWith('.svg'))?.relativePath || null;
 
   var entryName = null;
   var label = folderName;
   var icon = null;
-  var startbtnid = null;
-  var cmf = null;
+  var startbtnid = '';
+  var cmf = false;
+  var cmfl1 = '';
+  var globalvarobject = '';
   var appGlobalVarStrings = [];
-  if (txtFile) {
+  if (entryObjectfile) {
     try {
-      var b64 = await fetchFileContentByPath(`${folderPath}/${txtFile}`);
-      var txt = base64ToUtf8(b64).trim();
-      var lines = txt.split('\n').map(s => s.trim()).filter(Boolean);
-      if (lines.length) entryName = lines[0];
-      if (lines.length > 1) label = lines[1];
-      if (lines.length > 2) startbtnid = lines[2];
-      if (lines.length > 3) {
-        if (isProtectedAppGlobalName(lines[3])) {
-          appGlobalVarStrings.push(lines[3]);
-        } else {
-          cmf = lines[3];
-        }
-      }
-      for(var i = 4; i < lines.length; i++) {
-        appGlobalVarStrings.push(lines[i]);
-      }
-    } catch (e) { console.error('read txt', e); }
+      var b64 = await fetchFileContentByPath(`${folderPath}/${entryObjectfile}`);
+      var entryObj = JSON.parse(base64ToUtf8(b64));
+      entryName = entryObj.name;
+      label = entryObj.label;
+      startbtnid = entryObj.startbtnid || '';
+      cmf = entryObj.cmf || false;
+      cmfl1 = entryObj.cmfl1 || '';
+      globalvarobject = entryObj.globalvarobject || '';
+      appGlobalVarStrings = entryObj.appGlobalVarStrings || [];
+    } catch (e) { console.error('read entry object', e); }
   }
 
   if (iconFile) {
@@ -727,7 +738,7 @@ async function extractAppData(appFolder) {
     }
   }
 
-  return { id: icon, path: folderPath, jsFile, entry: entryName, label, startbtnid, icon, scriptLoaded: false, cmf, appGlobalVarStrings };
+  return { id: entryName || startbtnid || folderName, path: folderPath, jsFile, entry: entryName || startbtnid || folderName, label, startbtnid, icon, scriptLoaded: false, cmf, cmfl1, globalvarobject, appGlobalVarStrings };
 }
 async function runbootscript() {
   var b64 = await fetchFileContentByPath(`.boot/gbenv.js`);
@@ -775,7 +786,7 @@ async function loadAppsFromTree() {
     window.apps.sort((a, b) => a.label.localeCompare(b.label));
 
     // render
-    renderAppsGrid();
+    await renderAppsGrid();
     // reapply task buttons now that apps may be present
     applyTaskButtons();
     purgeButtons();
@@ -861,13 +872,13 @@ async function renderAppsGrid() {
     }
     var div = document.createElement('div');
     div.className = 'app';
-    div.dataset.appId = app.icon;
-    div.id = app.id + 'app';
+    div.dataset.appId = getPreferredAppIdentifier(app);
+    div.id = (app.startbtnid || app.id) + 'app';
     div.style.padding = '10px';
     div.style.borderRadius = '6px';
     div.style.textAlign = 'center';
     div.style.cursor = 'pointer';
-    div.id = app.startbtnid;
+    div.id = app.startbtnid || app.id;
     div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
     container.appendChild(div);
       if (!app.scriptLoaded && app.jsFile) {
@@ -919,12 +930,17 @@ async function renderAppsGrid() {
       } catch (e) {}
     } catch (e) { console.error('failed to load app script', e); }
   }
-
-  }
+  try {
+    var appGlobalObj = app && app.globalvarobject ? window[app.globalvarobject] : null;
+    var l1ContextHandler = (appGlobalObj && app.cmfl1 && typeof appGlobalObj[app.cmfl1] === 'function')
+      ? appGlobalObj[app.cmfl1]
+      : function() { notification('no right click menu attatched for this app!!!'); };
+    div.addEventListener('contextmenu', l1ContextHandler);
+  } catch (e) { console.error('failed to attach context menu', e); }
 }
-
+}
 async function launchApp(appId) {
-  var app = (window.apps || []).find(a => a.id === appId);
+  var app = (window.apps || []).find(a => appMatchesIdentifier(a, appId));
   if (!app) {
     // fallback: try to call a global function named like the appId (or the id listed in entry)
     try {
@@ -999,7 +1015,7 @@ async function launchApp(appId) {
         if (untagged.length) {
           // tag the most recently added
           var candidate = untagged[untagged.length - 1];
-          candidate.dataset.appId = app.entry || app.id;
+          candidate.dataset.appId = getPreferredAppIdentifier(app);
         }
       } catch (e) {}
     }, 40);
@@ -1187,18 +1203,18 @@ async function pollAppChanges(forceMetadataCheck = false) {
         window.apps.splice(appIndex, 1);
         
         // 3. Remove from apps grid
-        var appElement = document.getElementById(app.id + 'app');
+        var appElement = document.getElementById(app.startbtnid || (app.id + 'app')) || document.getElementById(app.id + 'app');
         if (appElement) appElement.remove();
         
         // 4. Remove taskbar button
         var taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn => 
-          (btn.dataset && btn.dataset.appId === app.icon) || 
+          (btn.dataset && appMatchesIdentifier(app, btn.dataset.appId)) || 
           btn.textContent.includes(app.label)
         );
         if (taskbarBtn) taskbarBtn.remove();
         
         // 5. Close all windows with matching appId
-        var appIdToMatch = app.entry || app.icon;
+        var appIdToMatch = getPreferredAppIdentifier(app);
         var windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root => 
           root.dataset && root.dataset.appId === appIdToMatch
         );
@@ -1210,7 +1226,7 @@ async function pollAppChanges(forceMetadataCheck = false) {
       }
     }
     
-    // Second pass: refresh metadata (entry.txt/icon.txt) on change notifications
+    // Second pass: refresh metadata (entry.json/icon.txt) on change notifications
     if (forceMetadataCheck) {
       for (const appFolder of currentAppFolders) {
         var folderName = appFolder[0];
@@ -1244,6 +1260,9 @@ async function pollAppChanges(forceMetadataCheck = false) {
         if (existingApp.startbtnid !== newAppData.startbtnid) {
           appModified = true;
         }
+        if (existingApp.globalvarobject !== newAppData.globalvarobject) {
+          appModified = true;
+        }
 
         if (appModified) {
           // preserve old names so we can remove their globals safely after reload
@@ -1256,9 +1275,10 @@ async function pollAppChanges(forceMetadataCheck = false) {
           existingApp.label = newAppData.label;
           existingApp.startbtnid = newAppData.startbtnid;
           existingApp.id = newAppData.id;
+          existingApp.globalvarobject = newAppData.globalvarobject;
 
           // Update grid icon/label
-          var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app'));
+          var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(existingApp.id + 'app');
           if (appGridElement) {
             appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
           }
@@ -1475,11 +1495,11 @@ window.removeOtherMenus = function(except) {
     // Clear existing task buttons (except first 3)
   // Prefer dynamic apps discovered in /apps
   for (const taskbutton of data.taskbuttons) {
-    const app = (window.apps || []).find(a => a.id === taskbutton);
+    const app = (window.apps || []).find(a => appMatchesIdentifier(a, taskbutton));
     if (app) {
-      const appId = app.id;
-      const btn = addTaskButton(app.icon, () => launchApp(appId));
-      if (btn) btn.dataset.appId = app.icon;
+      const appId = getPreferredAppIdentifier(app);
+      const btn = addTaskButton(app.icon, () => launchApp(appId), app.cmf || false, app.globalvarobject || '');
+      if (btn) btn.dataset.appId = appId;
     }
   }
   window._suppressTaskbarPersist = false;
@@ -1490,7 +1510,9 @@ window.removeOtherMenus = function(except) {
     buttons = [...taskbar.querySelectorAll("button")];
     buttons.splice(0, 3);
     buttons.forEach(b => {
-      b.dataset.appId = b.textContent;
+      if (!b.dataset.appId) {
+        b.dataset.appId = b.textContent;
+      }
     });
     // Build a generic map from appId -> [buttons]
     window.appButtons = window.appButtons || {};
@@ -1958,7 +1980,7 @@ window.removeOtherMenus = function(except) {
         return;
       }
       // fallback: first taskbutton or first discovered app
-      var fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && window.apps[0].id);
+      var fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && getPreferredAppIdentifier(window.apps[0]));
       if (fallback) launchApp(fallback);
       return;
     } else if (e.ctrlKey && e.shiftKey && e.key === "W") {

@@ -140,18 +140,17 @@
                         // Fetch icon and entry files
                         const [iconRes, entryRes] = await Promise.all([
                             fetch(`/appstoreapps/${appName}/icon.txt`),
-                            fetch(`/appstoreapps/${appName}/entry.txt`)
+                            fetch(`/appstoreapps/${appName}/entry.json`)
                         ]);
 
                         if (!iconRes.ok || !entryRes.ok) continue;
 
                         const icon = (await iconRes.text()).trim() || '📦';
-                        const entryText = await entryRes.text();
-                        const entryLines = entryText.split('\n').map(l => l.trim()).filter(l => l);
-                        
-                        // Parse entry.txt (first line is function name, second is display name)
-                        const appFunction = entryLines[0] || appName;
-                        const displayName = entryLines[1] || appName;
+                        const entryObj = await entryRes.json();
+
+                        // Parse entry.json (name + label)
+                        const appFunction = (entryObj && entryObj.name) ? entryObj.name : appName;
+                        const displayName = (entryObj && entryObj.label) ? entryObj.label : appName;
 
                         // Create app card
                         const card = document.createElement('div');

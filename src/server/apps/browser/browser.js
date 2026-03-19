@@ -2307,6 +2307,125 @@ window.browser = function (
         let pickerCurrentPath = ["root"];
         let pickerTree = null;
 
+        function getPickerTheme() {
+          if (data.dark) {
+            return {
+              panelBg: "#1f1f1f",
+              panelText: "#e8e8e8",
+              border: "#3a3a3a",
+              muted: "#a8a8a8",
+              inputBg: "#121212",
+              inputText: "#f2f2f2",
+              buttonBg: "#2a2a2a",
+              buttonText: "#e8e8e8",
+              selectedBg: "#2f5f9f",
+              hoverBg: "#2a2a2a",
+            };
+          }
+          return {
+            panelBg: "#ffffff",
+            panelText: "#111111",
+            border: "#d0d7de",
+            muted: "#666666",
+            inputBg: "#ffffff",
+            inputText: "#111111",
+            buttonBg: "#f3f4f6",
+            buttonText: "#111111",
+            selectedBg: "#d0e6ff",
+            hoverBg: "#f4f7ff",
+          };
+        }
+
+        function stylePickerButton(button, theme, isPrimary = false) {
+          Object.assign(button.style, {
+            borderRadius: "6px",
+            border: isPrimary ? "1px solid #4c8bf5" : `1px solid ${theme.border}`,
+            padding: "6px 12px",
+            cursor: "pointer",
+            background: isPrimary ? "#4c8bf5" : theme.buttonBg,
+            color: isPrimary ? "#ffffff" : theme.buttonText,
+          });
+        }
+
+        function stylePickerDialogBox(box, theme, width, height) {
+          Object.assign(box.style, {
+            position: "fixed",
+            zIndex: "1000000",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%,-50%)",
+            width: width,
+            height: height,
+            minWidth: "420px",
+            minHeight: "320px",
+            maxWidth: "calc(100vw - 24px)",
+            maxHeight: "calc(100vh - 24px)",
+            borderRadius: "8px",
+            background: theme.panelBg,
+            color: theme.panelText,
+            border: `1px solid ${theme.border}`,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxSizing: "border-box",
+            boxShadow: "0 20px 60px rgba(0,0,0,.45)",
+          });
+        }
+
+        function makePickerDialogDraggable(box, dragHandle) {
+          if (!box || !dragHandle) return;
+          dragHandle.style.cursor = "move";
+          dragHandle.style.userSelect = "none";
+          dragHandle.style.touchAction = "none";
+
+          let dragging = false;
+          let startX = 0;
+          let startY = 0;
+          let originLeft = 0;
+          let originTop = 0;
+
+          const move = (ev) => {
+            if (!dragging) return;
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            const rect = box.getBoundingClientRect();
+            const maxLeft = Math.max(0, window.innerWidth - rect.width);
+            const maxTop = Math.max(0, window.innerHeight - rect.height);
+            const nextLeft = Math.min(maxLeft, Math.max(0, originLeft + dx));
+            const nextTop = Math.min(maxTop, Math.max(0, originTop + dy));
+            box.style.left = nextLeft + "px";
+            box.style.top = nextTop + "px";
+          };
+
+          const up = () => {
+            if (!dragging) return;
+            dragging = false;
+            document.removeEventListener("pointermove", move);
+            document.removeEventListener("pointerup", up);
+          };
+
+          dragHandle.addEventListener("pointerdown", (ev) => {
+            if (ev.button !== 0) return;
+            if (
+              ev.target.closest("button, input, select, textarea, a, [role='button']")
+            )
+              return;
+            ev.preventDefault();
+            const rect = box.getBoundingClientRect();
+            box.style.transform = "";
+            box.style.left = rect.left + "px";
+            box.style.top = rect.top + "px";
+            box.style.position = "fixed";
+            startX = ev.clientX;
+            startY = ev.clientY;
+            originLeft = rect.left;
+            originTop = rect.top;
+            dragging = true;
+            document.addEventListener("pointermove", move);
+            document.addEventListener("pointerup", up);
+          });
+        }
+
         function openCustomPickerUI() {
           if (!window.treeData) {
             window.loadTree();
@@ -2318,58 +2437,55 @@ window.browser = function (
 
           // Create overlay if it doesn't exist
           if (!pickerOverlay) {
+            const theme = getPickerTheme();
             pickerOverlay = document.createElement("div");
-            Object.assign(pickerOverlay.style, {
-              position: "fixed",
-              top: "0",
-              left: "0",
-              right: "0",
-              bottom: "0",
-              background: "rgba(0,0,0,0.4)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 9999,
-            });
             document.body.appendChild(pickerOverlay);
 
             const pickerBox = document.createElement("div");
             pickerBox.className = "pickerBox";
-            Object.assign(pickerBox.style, {
-              width: "600px",
-              height: "400px",
-              borderRadius: "8px",
-              background: data.dark ? "#222" : "#fff",
-              color: data.dark ? "#eee" : "#000",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            });
+            stylePickerDialogBox(pickerBox, theme, "600px", "400px");
             pickerOverlay.appendChild(pickerBox);
             root.tabIndex = "0";
 
+            const titleBar = document.createElement("div");
+            titleBar.textContent = "Open File or Folder";
+            Object.assign(titleBar.style, {
+              padding: "8px 10px",
+              fontWeight: "600",
+              borderBottom: `1px solid ${theme.border}`,
+            });
+            pickerBox.appendChild(titleBar);
+            makePickerDialogDraggable(pickerBox, titleBar);
+
             const breadcrumbDiv = document.createElement("div");
-            breadcrumbDiv.style.padding = "4px";
+            Object.assign(breadcrumbDiv.style, {
+              padding: "6px 10px",
+              borderBottom: `1px solid ${theme.border}`,
+            });
             pickerBox.appendChild(breadcrumbDiv);
 
             const fileArea = document.createElement("div");
             fileArea.style.flex = "1";
             fileArea.style.overflowY = "auto";
-            fileArea.style.borderTop = "1px solid #ccc";
+            fileArea.style.background = theme.panelBg;
             pickerBox.appendChild(fileArea);
 
             const btnBar = document.createElement("div");
-            btnBar.style.padding = "4px";
+            btnBar.style.padding = "8px";
             btnBar.style.display = "flex";
+            btnBar.style.gap = "8px";
             btnBar.style.justifyContent = "flex-end";
+            btnBar.style.borderTop = `1px solid ${theme.border}`;
             pickerBox.appendChild(btnBar);
 
             const btnCancel = document.createElement("button");
             btnCancel.textContent = "Cancel";
+            stylePickerButton(btnCancel, theme, false);
             btnBar.appendChild(btnCancel);
 
             const btnOpen = document.createElement("button");
             btnOpen.textContent = "Open";
+            stylePickerButton(btnOpen, theme, true);
             btnBar.appendChild(btnOpen);
 
             function renderPicker() {
@@ -2396,8 +2512,9 @@ window.browser = function (
                 const div = document.createElement("div");
                 div.textContent =
                   (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
-                div.style.padding = "4px";
+                div.style.padding = "6px 10px";
                 div.style.cursor = "pointer";
+                div.style.borderBottom = `1px solid ${theme.border}`;
                 div.onclick = (e) => {
                   const isToggle = e.ctrlKey || e.metaKey;
 
@@ -2407,7 +2524,7 @@ window.browser = function (
                     fileArea
                       .querySelectorAll("div")
                       .forEach((d) => (d.style.background = ""));
-                    div.style.background = "#d0e6ff";
+                    div.style.background = theme.selectedBg;
                   } else {
                     // toggle select
                     const idx = pickerSelection.indexOf(item);
@@ -2416,9 +2533,17 @@ window.browser = function (
                       div.style.background = "";
                     } else {
                       pickerSelection.push(item);
-                      div.style.background = "#d0e6ff";
+                      div.style.background = theme.selectedBg;
                     }
                   }
+                };
+                div.onmouseenter = () => {
+                  if (pickerSelection.includes(item)) return;
+                  div.style.background = theme.hoverBg;
+                };
+                div.onmouseleave = () => {
+                  if (pickerSelection.includes(item)) return;
+                  div.style.background = "";
                 };
 
                 if (Array.isArray(item[1])) {
@@ -2506,7 +2631,9 @@ window.browser = function (
               }
             };
           } else {
-            pickerOverlay.style.display = "flex";
+            pickerOverlay.remove();
+            pickerOverlay = null;
+            return openCustomPickerUI();
           }
 
           return new Promise((res) => (pickerOverlay.resolvePicker = res));
@@ -2521,6 +2648,8 @@ window.browser = function (
             window.loadTree();
           }
 
+          const theme = getPickerTheme();
+
           const savePickerTree = JSON.parse(
             JSON.stringify(window.treeData || {}),
           );
@@ -2528,48 +2657,49 @@ window.browser = function (
           let savePickerSelection = [];
 
           const overlay = document.createElement("div");
-          Object.assign(overlay.style, {
-            position: "fixed",
-            top: "0",
-            left: "0",
-            right: "0",
-            bottom: "0",
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          });
           document.body.appendChild(overlay);
 
           const box = document.createElement("div");
-          Object.assign(box.style, {
-            width: "600px",
-            height: "460px",
-            borderRadius: "8px",
-            background: data.dark ? "#222" : "#fff",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          });
+          stylePickerDialogBox(box, theme, "600px", "460px");
           overlay.appendChild(box);
 
+          const titleBar = document.createElement("div");
+          titleBar.textContent = "Save File";
+          Object.assign(titleBar.style, {
+            padding: "8px 10px",
+            fontWeight: "600",
+            borderBottom: `1px solid ${theme.border}`,
+          });
+          box.appendChild(titleBar);
+          makePickerDialogDraggable(box, titleBar);
+
           const breadcrumb = document.createElement("div");
-          breadcrumb.style.padding = "6px";
+          Object.assign(breadcrumb.style, {
+            padding: "6px 10px",
+            borderBottom: `1px solid ${theme.border}`,
+          });
           box.appendChild(breadcrumb);
           const fileArea = document.createElement("div");
           fileArea.style.flex = "1";
           fileArea.style.overflowY = "auto";
-          fileArea.style.borderTop = "1px solid #ccc";
+          fileArea.style.background = theme.panelBg;
           box.appendChild(fileArea);
 
           const row = document.createElement("div");
           row.style.padding = "8px";
           row.style.display = "flex";
           row.style.gap = "8px";
+          row.style.borderTop = `1px solid ${theme.border}`;
           box.appendChild(row);
           const nameInput = document.createElement("input");
-          Object.assign(nameInput.style, { flex: "1", padding: "6px" });
+          Object.assign(nameInput.style, {
+            flex: "1",
+            padding: "6px",
+            borderRadius: "6px",
+            border: `1px solid ${theme.border}`,
+            background: theme.inputBg,
+            color: theme.inputText,
+          });
           nameInput.placeholder = "filename.txt";
           nameInput.value = suggestedName || "";
           row.appendChild(nameInput);
@@ -2577,13 +2707,17 @@ window.browser = function (
           const btnBar = document.createElement("div");
           btnBar.style.padding = "6px";
           btnBar.style.display = "flex";
+          btnBar.style.gap = "8px";
           btnBar.style.justifyContent = "flex-end";
+          btnBar.style.borderTop = `1px solid ${theme.border}`;
           box.appendChild(btnBar);
           const btnCancel = document.createElement("button");
           btnCancel.textContent = "Cancel";
+          stylePickerButton(btnCancel, theme, false);
           btnBar.appendChild(btnCancel);
           const btnSave = document.createElement("button");
           btnSave.textContent = "Save";
+          stylePickerButton(btnSave, theme, true);
           btnBar.appendChild(btnSave);
 
           function render() {
@@ -2611,6 +2745,7 @@ window.browser = function (
                 (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
               div.style.padding = "6px";
               div.style.cursor = "pointer";
+              div.style.borderBottom = `1px solid ${theme.border}`;
               div.onclick = (e) => {
                 const isToggle = e.ctrlKey || e.metaKey;
                 if (!isToggle) {
@@ -2618,7 +2753,7 @@ window.browser = function (
                   fileArea
                     .querySelectorAll("div")
                     .forEach((d) => (d.style.background = ""));
-                  div.style.background = "#d0e6ff";
+                  div.style.background = theme.selectedBg;
                 } else {
                   const idx = savePickerSelection.indexOf(item);
                   if (idx >= 0) {
@@ -2626,9 +2761,17 @@ window.browser = function (
                     div.style.background = "";
                   } else {
                     savePickerSelection.push(item);
-                    div.style.background = "#d0e6ff";
+                    div.style.background = theme.selectedBg;
                   }
                 }
+              };
+              div.onmouseenter = () => {
+                if (savePickerSelection.includes(item)) return;
+                div.style.background = theme.hoverBg;
+              };
+              div.onmouseleave = () => {
+                if (savePickerSelection.includes(item)) return;
+                div.style.background = "";
               };
               if (Array.isArray(item[1]))
                 div.ondblclick = () => {
@@ -2693,66 +2836,65 @@ window.browser = function (
             window.loadTree();
           }
 
+          const theme = getPickerTheme();
+
           const dirPickerTree = JSON.parse(
             JSON.stringify(window.treeData || {}),
           );
           let dirPickerCurrentPath = ["root"];
-          let dirPickerSelection = [];
+          let dirPickerSelectionPaths = [];
 
           const overlay = document.createElement("div");
-          Object.assign(overlay.style, {
-            position: "fixed",
-            top: "0",
-            left: "0",
-            right: "0",
-            bottom: "0",
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          });
           document.body.appendChild(overlay);
 
           const box = document.createElement("div");
-          Object.assign(box.style, {
-            width: "600px",
-            height: "420px",
-            borderRadius: "8px",
-            background: data.dark ? "#222" : "#fff",
-            color: data.dark ? "#eee" : "#000",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          });
+          stylePickerDialogBox(box, theme, "600px", "420px");
           overlay.appendChild(box);
 
+          const titleBar = document.createElement("div");
+          titleBar.textContent = "Select Directory";
+          Object.assign(titleBar.style, {
+            padding: "8px 10px",
+            fontWeight: "600",
+            borderBottom: `1px solid ${theme.border}`,
+          });
+          box.appendChild(titleBar);
+          makePickerDialogDraggable(box, titleBar);
+
           const breadcrumb = document.createElement("div");
-          breadcrumb.style.padding = "6px";
+          Object.assign(breadcrumb.style, {
+            padding: "6px 10px",
+            borderBottom: `1px solid ${theme.border}`,
+          });
           box.appendChild(breadcrumb);
           const fileArea = document.createElement("div");
           fileArea.style.flex = "1";
           fileArea.style.overflowY = "auto";
-          fileArea.style.borderTop = "1px solid #ccc";
+          fileArea.style.background = theme.panelBg;
           box.appendChild(fileArea);
 
           const infoRow = document.createElement("div");
           infoRow.style.padding = "6px";
           infoRow.style.fontSize = "12px";
-          infoRow.style.color = "#666";
+          infoRow.style.color = theme.muted;
+          infoRow.style.borderTop = `1px solid ${theme.border}`;
           infoRow.textContent = "Select a folder";
           box.appendChild(infoRow);
 
           const btnBar = document.createElement("div");
           btnBar.style.padding = "6px";
           btnBar.style.display = "flex";
+          btnBar.style.gap = "8px";
           btnBar.style.justifyContent = "flex-end";
+          btnBar.style.borderTop = `1px solid ${theme.border}`;
           box.appendChild(btnBar);
           const btnCancel = document.createElement("button");
           btnCancel.textContent = "Cancel";
+          stylePickerButton(btnCancel, theme, false);
           btnBar.appendChild(btnCancel);
           const btnOpen = document.createElement("button");
           btnOpen.textContent = "Select";
+          stylePickerButton(btnOpen, theme, true);
           btnBar.appendChild(btnOpen);
 
           function render() {
@@ -2776,32 +2918,50 @@ window.browser = function (
             if (!node || !node[1]) return;
             node[1].forEach((item) => {
               const isFolder = Array.isArray(item[1]);
+              const currentBasePath = dirPickerCurrentPath
+                .slice(1)
+                .join("/");
+              const itemPath = currentBasePath
+                ? currentBasePath + "/" + item[0]
+                : item[0];
               const div = document.createElement("div");
               div.textContent = (isFolder ? "📁 " : "📄 ") + item[0];
               div.style.padding = "6px";
               div.style.cursor = "pointer";
+              div.style.borderBottom = `1px solid ${theme.border}`;
               div.onclick = (e) => {
                 // Only allow selecting folders
                 if (isFolder) {
                   const isToggle = e.ctrlKey || e.metaKey;
                   if (!isToggle) {
-                    dirPickerSelection = [item];
+                    dirPickerSelectionPaths = [itemPath];
                     fileArea
                       .querySelectorAll("div")
                       .forEach((d) => (d.style.background = ""));
-                    div.style.background = "#d0e6ff";
+                    div.style.background = theme.selectedBg;
                   } else {
-                    const idx = dirPickerSelection.indexOf(item);
+                    const idx = dirPickerSelectionPaths.indexOf(itemPath);
                     if (idx >= 0) {
-                      dirPickerSelection.splice(idx, 1);
+                      dirPickerSelectionPaths.splice(idx, 1);
                       div.style.background = "";
                     } else {
-                      dirPickerSelection.push(item);
-                      div.style.background = "#d0e6ff";
+                      dirPickerSelectionPaths.push(itemPath);
+                      div.style.background = theme.selectedBg;
                     }
                   }
                 }
               };
+              div.onmouseenter = () => {
+                if (!isFolder || dirPickerSelectionPaths.includes(itemPath)) return;
+                div.style.background = theme.hoverBg;
+              };
+              div.onmouseleave = () => {
+                if (!isFolder || dirPickerSelectionPaths.includes(itemPath)) return;
+                div.style.background = "";
+              };
+              if (isFolder && dirPickerSelectionPaths.includes(itemPath)) {
+                div.style.background = theme.selectedBg;
+              }
               if (isFolder) {
                 div.ondblclick = () => {
                   dirPickerCurrentPath.push(item[0]);
@@ -2833,19 +2993,10 @@ window.browser = function (
 
           btnOpen.onclick = () => {
             const basePath = dirPickerCurrentPath.slice(1).join("/") || "root";
-            let chosen;
-
-            if (dirPickerSelection.length > 0) {
-              const sel = dirPickerSelection[0];
-              if (Array.isArray(sel[1])) {
-                chosen = (basePath !== "root" ? basePath + "/" : "") + sel[0];
-              } else {
-                notification("Please select a directory");
-                return;
-              }
-            } else {
-              chosen = basePath;
-            }
+            let chosen =
+              dirPickerSelectionPaths.length > 0
+                ? dirPickerSelectionPaths[0]
+                : basePath;
 
             // Find the actual tree node for the selected path
             let selectedNode = dirPickerTree;
@@ -4515,13 +4666,15 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         },
       };
       tab.history.currentCanonical = canonicalHistoryUrl(url);
-      tab.iframe.contentWindow.addEventListener("keydown", function (e) {
+      const onIframeKeydown = function (e) {
         if (e.ctrlKey && e.key === "w") {
           if (tab.iframe.style.display !== "none") {
             closeTab(tab.id);
           }
         }
-      });
+      };
+      tab.iframe.contentWindow.addEventListener("keydown", onIframeKeydown);
+      tab.__onIframeKeydown = onIframeKeydown;
       tab.__stopIframePatchWatcher = stopIframePatchWatcher;
       tab.__stopPatchIntegrityChecker = stopPatchIntegrityChecker;
 
@@ -4541,6 +4694,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         }
       }
       root.addEventListener("keydown", handleReload);
+      tab.__onRootKeydown = handleReload;
 
       let previousTabTitle = tab.title;
 
@@ -4549,39 +4703,41 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       tabs.push(tab);
       activateTab(id);
       renderTabs();
+      const onDocumentKeyup = function (e) {
+        try {
+          if (!root.contains(document.activeElement)) return;
+        } catch (e) {
+          return;
+        }
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const win = tab.iframe.contentWindow;
+          const doc = tab.iframe.contentDocument;
+          if (!win || tab.iframe.style.display === "none") return;
+          if (!win.eruda) {
+            tab.iframe.contentWindow._goldenbodyIns = true;
+
+            const script = doc.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/npm/eruda";
+            script.onload = () => {
+              win.eruda.init();
+              win.eruda.get("entryBtn").hide();
+              win.eruda.show();
+            };
+            doc.head.appendChild(script);
+          }
+          win.eruda[win._goldenbodyIns ? "hide" : "show"]();
+          win._goldenbodyIns = !win._goldenbodyIns;
+        }
+      };
       document.addEventListener(
         "browser" + root._goldenbodyId,
         "keyup",
-        function (e) {
-          try {
-            if (!root.contains(document.activeElement)) return;
-          } catch (e) {
-            return;
-          }
-          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const win = tab.iframe.contentWindow;
-            const doc = tab.iframe.contentDocument;
-            if (!win || tab.iframe.style.display === "none") return;
-            if (!win.eruda) {
-              tab.iframe.contentWindow._goldenbodyIns = true;
-
-              const script = doc.createElement("script");
-              script.src = "https://cdn.jsdelivr.net/npm/eruda";
-              script.onload = () => {
-                win.eruda.init();
-                win.eruda.get("entryBtn").hide();
-                win.eruda.show();
-              };
-              doc.head.appendChild(script);
-            }
-            win.eruda[win._goldenbodyIns ? "hide" : "show"]();
-            win._goldenbodyIns = !win._goldenbodyIns;
-          }
-        },
+        onDocumentKeyup,
       );
+      tab.__onDocumentKeyup = onDocumentKeyup;
 
       return id;
     }
@@ -4808,6 +4964,24 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       } catch (e) {}
       try {
         tabs[idx].__stopPatchIntegrityChecker?.();
+      } catch (e) {}
+      try {
+        if (tabs[idx].__onIframeKeydown) {
+          tabs[idx].iframe.contentWindow.removeEventListener(
+            "keydown",
+            tabs[idx].__onIframeKeydown,
+          );
+        }
+      } catch (e) {}
+      try {
+        if (tabs[idx].__onRootKeydown) {
+          root.removeEventListener("keydown", tabs[idx].__onRootKeydown);
+        }
+      } catch (e) {}
+      try {
+        if (tabs[idx].__onDocumentKeyup) {
+          document.removeEventListener("keyup", tabs[idx].__onDocumentKeyup);
+        }
       } catch (e) {}
       tabs[idx].iframe.src = "about:blank";
       tabs[idx].iframe.remove();
@@ -5285,8 +5459,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 };
 
 // app stuff
-browserGlobals.browsermenu = null;
-browserGlobals.browserButtons = [];
 browserGlobals.browsermenuhandler = function (e, needremove = true) {
   e.preventDefault();
 
@@ -5294,7 +5466,6 @@ browserGlobals.browsermenuhandler = function (e, needremove = true) {
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
   const menu = document.createElement("div");
-  browserGlobals.browsermenu = menu;
   try {
     removeOtherMenus("browser");
   } catch (e) {}
@@ -5379,33 +5550,9 @@ browserGlobals.browsermenuhandler = function (e, needremove = true) {
     remove.textContent = "remove from taskbar";
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
+    let contextmenuevent = e;
     remove.addEventListener("click", function () {
-      for (let i = taskbuttons.length; i > 0; i--) {
-        i--;
-        let index = parseInt(getStringAfterChar(e.target.id, "-"));
-        if (
-          index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-          taskbuttons[i].id.startsWith("🌐")
-        ) {
-          taskbuttons[i].remove();
-          iconid = 0;
-          let newtb = [];
-          for (const a of taskbuttons) {
-            a.id = Array.from(a.id)[0] + "-" + iconid;
-            iconid++;
-            if (Array.from(a.id)[0] !== "▶") {
-              newtb.push(a);
-            } else {
-              a.id = Array.from(a.id)[0];
-              newtb.push(a);
-              iconid--;
-            }
-          }
-          break;
-        }
-        i++;
-      }
-      saveTaskButtons();
+      removeTaskButton(contextmenuevent.target.closest("button"));
     });
     menu.appendChild(remove);
   } else {
@@ -5414,15 +5561,9 @@ browserGlobals.browsermenuhandler = function (e, needremove = true) {
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
     remove.addEventListener("click", function () {
-      addTaskButton("🌐", browser);
+      addTaskButton("🌐", browser, 'browsermenuhandler', 'browserGlobals');
       saveTaskButtons();
       purgeButtons();
-      for (const browserButton of browserGlobals.browserButtons) {
-        browserButton.addEventListener(
-          "contextmenu",
-          browserGlobals.browsermenuhandler,
-        );
-      }
     });
     menu.appendChild(remove);
   }
@@ -5466,63 +5607,4 @@ browserGlobals.browsermenuhandler = function (e, needremove = true) {
   document.body.appendChild(menu);
   window.addEventListener("click", () => menu.remove(), { once: true });
 };
-
-window.addEventListener("appUpdated", function (e) {
-  try {
-    const babtn = document.getElementById("browserapp");
-    if (!babtn) return;
-
-    // Avoid attaching the same contextmenu handler repeatedly
-    if (babtn.dataset && babtn.dataset.browserContextBound) return;
-
-    const bhl1 = function (ev) {
-      browserGlobals.browsermenuhandler(ev, false);
-    };
-
-    babtn.addEventListener("contextmenu", bhl1);
-    if (babtn.dataset) babtn.dataset.browserContextBound = "1";
-  } catch (e) {}
-});
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for browser
-try {
-  function attachBrowserContext(btn) {
-    try {
-      if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.browserContextBound) return;
-      const aid = (btn.dataset && btn.dataset.appId) || btn.id || "";
-      if (!(String(aid) === "🌐" || String(aid) === "browser")) return;
-      btn.addEventListener("contextmenu", browserGlobals.browsermenuhandler);
-      if (btn.dataset) btn.dataset.browserContextBound = "1";
-      browserGlobals.browserButtons.push(btn);
-    } catch (e) {}
-  }
-
-  try {
-    const existing =
-      typeof taskbar !== "undefined" && taskbar
-        ? taskbar.querySelectorAll("button")
-        : document.querySelectorAll("button");
-    for (const b of existing) attachBrowserContext(b);
-  } catch (e) {}
-
-  const observerTarget =
-    typeof taskbar !== "undefined" && taskbar ? taskbar : document.body;
-  const mo = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const n of m.addedNodes) {
-        if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches("button")) attachBrowserContext(n);
-        else {
-          try {
-            n.querySelectorAll &&
-              n.querySelectorAll("button") &&
-              n.querySelectorAll("button").forEach(attachBrowserContext);
-          } catch (e) {}
-        }
-      }
-    }
-  });
-  mo.observe(observerTarget, { childList: true, subtree: true });
-} catch (e) {
-  console.error("failed to attach browser context handlers", e);
-}
+browserGlobals.browsercontextmenuhandlerL1 = function (e) {browserGlobals.browsermenuhandler(e, false)};

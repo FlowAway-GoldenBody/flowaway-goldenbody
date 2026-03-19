@@ -1,0 +1,15 @@
+{
+  "name": "fileExplorer",
+  "label": "File Explorer",
+  "startbtnid": "explorerapp",
+  "cmf": "fileExplorerContextMenu",
+  "cmfl1": "fileExplorercontextmenuhandlerL1",
+  "globalvarobject": "explorerGlobals",
+  "appGlobalVarStrings": [
+    "explorerButtons",
+    "explorermenu",
+    "allExplorers",
+    "explorerId",
+    "clipboard"
+  ]
+}

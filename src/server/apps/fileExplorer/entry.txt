@@ -1,4 +1,0 @@
-fileExplorer
-File Explorer
-explorerapp
-explorerGlobals
