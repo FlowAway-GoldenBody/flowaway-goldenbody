@@ -347,15 +347,41 @@ window.browser = function (
         });
       }
     });
-    root.addEventListener("keydown", (e) => {
-      // e.target is the element that actually has focus
+    root.__gbShortcutDedupe = { sig: "", ts: 0 };
+    function runBrowserShortcut(key, eventLike = null) {
+      const normalized = String(key || "").toLowerCase();
+      if (normalized !== "t" && normalized !== "n") return false;
 
-      // Only trigger for Shift + T
-      if (e.ctrlKey && e.key === "t") {
-        e.preventDefault();
-
-        addTab("goldenbody://newtab/", "New Tab");
+      const now = Date.now();
+      const sig = `${normalized}:1`;
+      if (
+        root.__gbShortcutDedupe &&
+        root.__gbShortcutDedupe.sig === sig &&
+        now - root.__gbShortcutDedupe.ts < 180
+      ) {
+        if (eventLike && typeof eventLike.preventDefault === "function") {
+          eventLike.preventDefault();
+        }
+        return true;
       }
+      root.__gbShortcutDedupe = { sig, ts: now };
+
+      if (eventLike && typeof eventLike.preventDefault === "function") {
+        eventLike.preventDefault();
+      }
+      if (normalized === "t") {
+        addTab("goldenbody://newtab/", "New Tab");
+        return true;
+      }
+      browser();
+      return true;
+    }
+
+    root.addEventListener("keydown", (e) => {
+      const key = String(e.key || "").toLowerCase();
+      const isCtrlLike = !!(e.ctrlKey || e.metaKey);
+      if (!isCtrlLike) return;
+      runBrowserShortcut(key, e);
     });
     root.addEventListener("click", (e) => {
       // App-specific click handler can be implemented here
@@ -1372,8 +1398,14 @@ window.browser = function (
           handleresize(e, tab);
         }
 
-        tab.iframe.contentWindow.addEventListener("keydown", handleresizel1);
-        root.addEventListener("keydown", handleresizel1);
+        try {
+          if (tab.__onResizeKeydown && tab.__resizeKeyTarget) {
+            tab.__resizeKeyTarget.removeEventListener("keydown", tab.__onResizeKeydown);
+          }
+        } catch (e) {}
+        tab.__onResizeKeydown = handleresizel1;
+        tab.__resizeKeyTarget = tab.iframe.contentWindow;
+        tab.__resizeKeyTarget.addEventListener("keydown", tab.__onResizeKeydown);
         if (!tab.iframe.style.display === "none")
           urlInput.value = browserGlobals.unshuffleURL(
             iframe.contentWindow.location.href,
@@ -1518,7 +1550,14 @@ window.browser = function (
         if (!iframeDocument || !iframe.contentWindow) return;
         startPatchIntegrityChecker();
         if (iframe.__gbPatchedDocument === iframeDocument) return;
-        iframe.contentWindow.addEventListener("keydown", function (e) {
+        const iframeWindow = iframe.contentWindow;
+        if (iframeWindow.__gbBrowserShortcutHandler) {
+          iframeWindow.removeEventListener(
+            "keydown",
+            iframeWindow.__gbBrowserShortcutHandler,
+          );
+        }
+        iframeWindow.__gbBrowserShortcutHandler = function (e) {
           var switcherMode =
             (window.windowSwitchState && window.windowSwitchState.active &&
               window.windowSwitchState.mod) ||
@@ -1535,9 +1574,11 @@ window.browser = function (
             return;
           }
 
-          if (e.ctrlKey && e.key === "n") {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
             e.preventDefault();
-            if (atTop == "browser" || atTop == "") {
+            e.stopPropagation();
+            root.focus();
+            if (!runBrowserShortcut("n", e) && (atTop == "browser" || atTop == "")) {
               browser();
             }
           } else if (
@@ -1562,12 +1603,19 @@ window.browser = function (
                 browserGlobals.allBrowsers.splice(i, 1);
               }
             }
-          } else if (e.ctrlKey && e.key === "t") {
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "t") {
             e.preventDefault();
-
-            addTab("goldenbody://newtab/", "New Tab");
+            e.stopPropagation();
+            root.focus();
+            if (!runBrowserShortcut("t", e)) {
+              addTab("goldenbody://newtab/", "New Tab");
+            }
           }
-        });
+        };
+        iframeWindow.addEventListener(
+          "keydown",
+          iframeWindow.__gbBrowserShortcutHandler,
+        );
   
         // Create a reusable custom context menu
         const menu = iframeDocument.createElement("div");
@@ -1847,12 +1895,6 @@ window.browser = function (
             menu.style.top = `${Math.max(0, finalY)}px`;
           }
         }
-        root.addEventListener("keydown", (e) => {
-          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-            console.log("fired!");
-          }
-        });
-
         // Hide the menu
         function hideMenu() {
           menu.style.display = "none";
@@ -4981,6 +5023,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       try {
         if (tabs[idx].__onRootKeydown) {
           root.removeEventListener("keydown", tabs[idx].__onRootKeydown);
+        }
+      } catch (e) {}
+      try {
+        if (tabs[idx].__onResizeKeydown && tabs[idx].__resizeKeyTarget) {
+          tabs[idx].__resizeKeyTarget.removeEventListener(
+            "keydown",
+            tabs[idx].__onResizeKeydown,
+          );
         }
       } catch (e) {}
       try {
