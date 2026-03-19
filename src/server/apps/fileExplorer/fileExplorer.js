@@ -32,7 +32,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   bringToFront(root);
   document.body.appendChild(root);
   explorerGlobals.explorerId++;
-  root.explorerId = explorerGlobals.explorerId;
+  root._goldenbodyId = explorerGlobals.explorerId;
 
   // --- Top bar ---
   var topBar = false;
@@ -162,6 +162,8 @@ fileExplorer = function (posX = 50, posY = 50) {
       }
     }
     if (index !== false) explorerGlobals.allExplorers.splice(index, 1);
+    // Clean up all event listeners added by this app
+    window.removeAllEventListenersForApp("fileExplorer" + root._goldenbodyId);
   });
 
   // --- Make draggable / resizable ---
@@ -203,7 +205,7 @@ fileExplorer = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("mousemove", (ev) => {
+      window.addEventListener("fileExplorer" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -219,7 +221,7 @@ fileExplorer = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("mouseup", () => {
+      window.addEventListener("fileExplorer" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });
@@ -990,7 +992,7 @@ fileExplorer = function (posX = 50, posY = 50) {
       ? data.maxSpace * 1024 * 1024 * 1024
       : 1 * 1024 * 1024 * 1024; // fallback 1 GB
   // Deselect when clicking outside file items
-  document.addEventListener("click", (e) => {
+  document.addEventListener("fileExplorer" + root._goldenbodyId, "click", (e) => {
     // Ignore clicks inside the context menu
     if (contextMenu.contains(e.target)) return;
 
@@ -1074,8 +1076,8 @@ fileExplorer = function (posX = 50, posY = 50) {
       directions.push({ copy: true, directions: predirections });
     }
   };
-  root.addEventListener("keydown", handlepaste);
-  root.addEventListener("keydown", handlecopy);
+  document.addEventListener("fileExplorer" + root._goldenbodyId, "keydown", handlepaste);
+  document.addEventListener("fileExplorer" + root._goldenbodyId, "keydown", handlecopy);
   // --- CONTEXT MENU ---
   function showContextMenu(clientX, clientY, isFolder, isBlank = false) {
     contextMenu.innerHTML = "";
@@ -1419,7 +1421,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   function hideContextMenu() {
     contextMenu.style.display = "none";
   }
-  document.addEventListener("click", hideContextMenu);
+  document.addEventListener("fileExplorer" + root._goldenbodyId, "click", hideContextMenu);
 
   // --- BUTTONS ---
   refreshBtn.onclick = async () => {

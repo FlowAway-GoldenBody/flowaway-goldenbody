@@ -5,6 +5,7 @@
   "cmf": "fileExplorerContextMenu",
   "cmfl1": "fileExplorercontextmenuhandlerL1",
   "globalvarobject": "explorerGlobals",
+  "allapparray": "allExplorers",
   "appGlobalVarStrings": [
     "explorerButtons",
     "explorermenu",

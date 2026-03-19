@@ -5,6 +5,7 @@
   "cmf": "textEditorContextMenu",
   "cmfl1": "textEditorcontextmenuhandlerL1",
   "globalvarobject": "textEditorGlobals",
+  "allapparray": "alltextEditor",
   "appGlobalVarStrings": [
     "alltextEditor",
     "textEditorId",

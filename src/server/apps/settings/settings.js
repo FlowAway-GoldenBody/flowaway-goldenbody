@@ -167,6 +167,7 @@ settings = function (posX = 50, posY = 50) {
       }
     }
     if (index !== false) settingsGlobals.allSettings.splice(index, 1);
+    window.removeAllEventListenersForApp("settings" + root.settingsId);
   });
 
   // --- Make draggable / resizable ---
@@ -208,7 +209,7 @@ settings = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("mousemove", (ev) => {
+      window.addEventListener("settings" + root.settingsId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -224,7 +225,7 @@ settings = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("mouseup", () => {
+      window.addEventListener("settings" + root.settingsId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });

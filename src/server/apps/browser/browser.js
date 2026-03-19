@@ -357,6 +357,13 @@ window.browser = function (
         addTab("goldenbody://newtab/", "New Tab");
       }
     });
+    root.addEventListener("click", (e) => {
+      // App-specific click handler can be implemented here
+      bringToFront(root);
+    });
+    document.addEventListener("browser" + root._goldenbodyId, "click", (e) => {
+      // Scoped listener for browser app cleanup
+    });
     root.classList.add("browser");
     // --- Top area ---
     const top = document.createElement("div");
@@ -474,7 +481,6 @@ window.browser = function (
     // CLOSE
     btnClose.addEventListener("click", closeWindow);
     function closeWindow() {
-      var windowEventScope = "browser" + root._goldenbodyId;
       try {
         if (resizePulseInterval) {
           clearInterval(resizePulseInterval);
@@ -503,9 +509,8 @@ window.browser = function (
       }
       window.removeEventListener("message", messageHandler);
       window.removeEventListener("pointerup", onpointerupAnywhere);
-      try {
-        window.removeAllEventListenersForApp(windowEventScope);
-      } catch (e) {}
+      // Clean up all event listeners added by this app
+      window.removeAllEventListenersForApp("browser" + root._goldenbodyId);
       root = null;
       _browserCalled = false;
     }
