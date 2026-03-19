@@ -158,6 +158,8 @@ yourApp = function (posX = 50, posY = 50) {
       }
     }
     if (index !== false) your_app_nameGlobals.allyour_app_name.splice(index, 1);
+    // Clean up all event listeners added by this app
+    window.removeAllEventListenersForApp("your_app_name" + root._your_app_nameId);
   });
 
   // --- Make draggable / resizable ---
@@ -199,7 +201,7 @@ yourApp = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("mousemove", (ev) => {
+      window.addEventListener("your_app_name" + root._your_app_nameId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -215,7 +217,7 @@ yourApp = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("mouseup", () => {
+      window.addEventListener("your_app_name" + root._your_app_nameId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });

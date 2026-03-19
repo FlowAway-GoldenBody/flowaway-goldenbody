@@ -194,7 +194,13 @@ var rebuildhandler = function() {
   try {
     // Pause and unload any playing media to avoid audio carrying over
     try { document.querySelectorAll('audio,video').forEach(m => { try { m.pause(); m.src = ''; } catch(e){} }); } catch(e){}
-
+    for(const app of window.apps) {
+      for(const win of app[app.allapparray] || []) {  
+        try {
+          removeAllEventListenersForApp(app.id + win.rootElement._goldenbodyId);
+        } catch(e){}
+      }
+    }
     // Remove all children from the documentElement (head/body) to get a clean slate
     var docEl = document.documentElement;
     while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
@@ -751,13 +757,14 @@ async function runbootscript() {
 async function runscriptapps() {
     var rootChildren = (window.treeData && window.treeData[1]) || [];
     var appsNode = rootChildren.find(c => c[0] === '.noguiapps' && Array.isArray(c[1]));
+    if (!appsNode || !Array.isArray(appsNode[1])) return;
     for(const file of appsNode[1]) {
-  var b64 = await fetchFileContentByPath(`.noguiapps/${file[0]}`);
-  var scriptText = base64ToUtf8(b64);
-  var s = document.createElement('script');
-  s.type = 'text/javascript';
-  s.textContent = scriptText;
-  document.body.appendChild(s);
+      var b64 = await fetchFileContentByPath(`.noguiapps/${file[0]}`);
+      var scriptText = base64ToUtf8(b64);
+      var s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.textContent = scriptText;
+      document.body.appendChild(s);
     }
 }
 async function loadAppsFromTree() {
@@ -767,10 +774,10 @@ async function loadAppsFromTree() {
   if (!window.treeData) await window.loadTree();
   try {
     try {
-    runbootscript();
+    await runbootscript();
     } catch (e) { console.error('runbootscript error', e); }
     try {
-    runscriptapps();
+    await runscriptapps();
     } catch (e) { console.error('runscriptapps error', e); }
     var rootChildren = (window.treeData && window.treeData[1]) || [];
     var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
@@ -779,7 +786,6 @@ async function loadAppsFromTree() {
     for (const appFolder of appFolders) {
       const appData = await extractAppData(appFolder);
       if (appData) window.apps.push(appData);
-      else debugger;
     }
 
     // Sort apps alphabetically by label
@@ -1030,8 +1036,60 @@ var appPollingSocketBackoff = 0;
 var appPollingTimer = null;
 var appPollingInFlight = false;
 var appPollingDirty = false;
+var appPollingPendingFolders = new Set();
+var appPollingNeedsFullResync = false;
 var APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
 var APP_POLLING_DEBOUNCE = 300;
+
+function queueAppPollingHint(msg) {
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.fullResync) appPollingNeedsFullResync = true;
+
+  if (Array.isArray(msg.changedApps)) {
+    for (const appName of msg.changedApps) {
+      var normalized = String(appName || '').trim();
+      if (!normalized || normalized.startsWith('.')) continue;
+      appPollingPendingFolders.add(normalized);
+    }
+  }
+}
+
+function collectAppPollingHint() {
+  var changedApps = Array.from(appPollingPendingFolders);
+  var fullResync = appPollingNeedsFullResync;
+  appPollingPendingFolders.clear();
+  appPollingNeedsFullResync = false;
+  return { changedApps, fullResync };
+}
+
+function refreshAppsUiAfterChanges() {
+  loadAppsFromTree();
+  renderAppsGrid();
+  applyTaskButtons();
+  purgeButtons();
+  setTimeout(() => {
+    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+    window.dispatchEvent(appUpdatedEvent);
+    setTimeout(() => 
+      {
+    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+    window.dispatchEvent(appUpdatedEvent);
+          setTimeout(() => 
+      {
+    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+    window.dispatchEvent(appUpdatedEvent);
+          setTimeout(() => 
+      {
+    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+    window.dispatchEvent(appUpdatedEvent);
+      }
+    , 5000);
+      }
+    , 5000);
+      }
+    , 5000);
+  }, 5000);
+}
 
 function scheduleAppPoll(reason = 'unknown') {
   clearTimeout(appPollingTimer);
@@ -1042,9 +1100,16 @@ function scheduleAppPoll(reason = 'unknown') {
     }
     appPollingInFlight = true;
     try {
-      // Refresh tree data only when a change was reported
-      await window.loadTree();
-      await pollAppChanges(true);
+      var hint = collectAppPollingHint();
+      if (hint.fullResync) {
+        await window.loadTree();
+        await pollAppChanges(hint.changedApps.length > 0, hint.changedApps);
+      } else if (!hint.changedApps.length) {
+        await window.loadTree();
+        await pollAppChanges(true);
+      } else {
+        await pollSpecificAppChanges(hint.changedApps);
+      }
     } catch (e) {
       console.error('[APP POLLING] Scheduled poll error:', e);
     } finally {
@@ -1078,6 +1143,7 @@ var appPollingURL = `${BASE}/server/appSocket`;
     try {
       var msg = JSON.parse(ev.data);
       if (msg && msg.appChanges) {
+        queueAppPollingHint(msg);
         scheduleAppPoll('ws');
       }
     } catch (e) {
@@ -1101,7 +1167,7 @@ var appPollingURL = `${BASE}/server/appSocket`;
   return true;
 }
 
-async function pollAppChanges(forceMetadataCheck = false) {
+async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) {
   if (!window.treeData) return;
   
   try {
@@ -1111,6 +1177,9 @@ async function pollAppChanges(forceMetadataCheck = false) {
     
     // Get current app folders from the file system
     var currentAppFolders = normalizeAppFolders(appsNode[1]);
+    var targetFolderSet = (Array.isArray(targetFolders) && targetFolders.length)
+      ? new Set(targetFolders.map(v => String(v || '').trim()).filter(Boolean))
+      : null;
     hasChanges = false;
     
     // First pass: detect structural changes only (new/deleted folders)
@@ -1228,7 +1297,11 @@ async function pollAppChanges(forceMetadataCheck = false) {
     
     // Second pass: refresh metadata (entry.json/icon.txt) on change notifications
     if (forceMetadataCheck) {
-      for (const appFolder of currentAppFolders) {
+      var foldersForMetadata = targetFolderSet
+        ? currentAppFolders.filter(f => targetFolderSet.has(String(f[0] || '').trim()))
+        : currentAppFolders;
+
+      for (const appFolder of foldersForMetadata) {
         var folderName = appFolder[0];
         var expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
         var existingApp = window.apps.find(a => a.path === expectedPath);
@@ -1263,6 +1336,12 @@ async function pollAppChanges(forceMetadataCheck = false) {
         if (existingApp.globalvarobject !== newAppData.globalvarobject) {
           appModified = true;
         }
+        if (existingApp.cmf !== newAppData.cmf) {
+          appModified = true;
+        }
+        if (existingApp.cmfl1 !== newAppData.cmfl1) {
+          appModified = true;
+        }
 
         if (appModified) {
           // preserve old names so we can remove their globals safely after reload
@@ -1276,6 +1355,9 @@ async function pollAppChanges(forceMetadataCheck = false) {
           existingApp.startbtnid = newAppData.startbtnid;
           existingApp.id = newAppData.id;
           existingApp.globalvarobject = newAppData.globalvarobject;
+          existingApp.cmf = newAppData.cmf;
+          existingApp.cmfl1 = newAppData.cmfl1;
+          existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
 
           // Update grid icon/label
           var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(existingApp.id + 'app');
@@ -1330,7 +1412,11 @@ async function pollAppChanges(forceMetadataCheck = false) {
 
     // Third pass: Check if scripts have changed for existing apps (on change notifications)
     if (forceMetadataCheck) {
-      for (const app of window.apps) {
+      var appsForScriptCheck = targetFolderSet
+        ? window.apps.filter(a => targetFolderSet.has(String((a.path || '').split('/').pop() || '').trim()))
+        : window.apps;
+
+      for (const app of appsForScriptCheck) {
         if (app.jsFile && app._lastScriptHash) {
           try {
             var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
@@ -1388,36 +1474,174 @@ async function pollAppChanges(forceMetadataCheck = false) {
     
     // If any changes detected, re-render and apply
     if (hasChanges && data) {
-      loadAppsFromTree(); // This will re-render the grid and re-apply buttons, but we call it to ensure consistency
-      renderAppsGrid();
-      applyTaskButtons();
-      purgeButtons();
-        setTimeout(() => {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-      setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-            setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-            setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-        }
-      , 5000);
-        }
-      , 5000);
-        }
-      , 5000);
-  }, 5000);
+      refreshAppsUiAfterChanges();
     }
     
   } catch (e) {
     console.error('[APP POLLING] Error during polling:', e);
+  }
+}
+
+async function pollSpecificAppChanges(changedFolders = []) {
+  if (!Array.isArray(changedFolders) || !changedFolders.length) return;
+
+  try {
+    var folderNames = [...new Set(changedFolders.map(v => String(v || '').trim()).filter(Boolean))];
+    var localHasChanges = false;
+    var shouldFallback = false;
+
+    for (const folderName of folderNames) {
+      var expectedPath = `apps/${folderName}`;
+      var existingApp = (window.apps || []).find(a => a.path === expectedPath || ((a.path || '').split('/').pop() === folderName));
+
+      if (!existingApp) {
+        shouldFallback = true;
+        continue;
+      }
+
+      var appFolder = [folderName, [], { path: existingApp.path || expectedPath }];
+      var newAppData = null;
+      try {
+        newAppData = await extractAppData(appFolder);
+      } catch (e) {
+        if (e && e.code === 'ENOENT') {
+          shouldFallback = true;
+          continue;
+        }
+        throw e;
+      }
+      if (!newAppData) continue;
+
+      var appModified = false;
+      var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
+      var entryChanged = existingApp.entry !== newAppData.entry;
+
+      if (entryChanged) appModified = true;
+      if (jsFileChanged) appModified = true;
+      if (existingApp.icon !== newAppData.icon) appModified = true;
+      if (existingApp.label !== newAppData.label) appModified = true;
+      if (existingApp.startbtnid !== newAppData.startbtnid) appModified = true;
+      if (existingApp.globalvarobject !== newAppData.globalvarobject) appModified = true;
+      if (existingApp.cmf !== newAppData.cmf) appModified = true;
+      if (existingApp.cmfl1 !== newAppData.cmfl1) appModified = true;
+
+      if (appModified) {
+        var _oldEntry = existingApp.entry;
+        var _oldCmf = existingApp.cmf;
+        var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
+
+        existingApp.entry = newAppData.entry;
+        existingApp.jsFile = newAppData.jsFile;
+        existingApp.icon = newAppData.icon;
+        existingApp.label = newAppData.label;
+        existingApp.startbtnid = newAppData.startbtnid;
+        existingApp.id = newAppData.id;
+        existingApp.globalvarobject = newAppData.globalvarobject;
+        existingApp.cmf = newAppData.cmf;
+        existingApp.cmfl1 = newAppData.cmfl1;
+        existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
+
+        var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(existingApp.id + 'app');
+        if (appGridElement) {
+          appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
+        }
+
+        if (jsFileChanged && existingApp.jsFile) {
+          try {
+            var b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
+            var scriptText = base64ToUtf8(b64);
+            var currentHash = hashScriptContent(scriptText);
+            if (existingApp.scriptLoaded && existingApp._scriptElement) {
+              existingApp._scriptElement.remove();
+              existingApp.scriptLoaded = false;
+            }
+
+            try {
+              if (_oldEntry && typeof window[_oldEntry] !== 'undefined') {
+                try { delete window[_oldEntry]; } catch (e) {}
+              }
+              if (_oldCmf && !isProtectedAppGlobalName(_oldCmf) && typeof window[_oldCmf] !== 'undefined') {
+                try { delete window[_oldCmf]; } catch (e) {}
+              }
+              if (_oldAppGlobalVarStrings && Array.isArray(_oldAppGlobalVarStrings)) {
+                for (const varName of _oldAppGlobalVarStrings) {
+                  if (isProtectedAppGlobalName(varName)) continue;
+                  if (typeof window[varName] !== 'undefined') {
+                    try { delete window[varName]; } catch (e) {}
+                  }
+                }
+              }
+            } catch (e) {}
+
+            var s = document.createElement('script');
+            s.type = 'text/javascript';
+            s.textContent = scriptText;
+            document.body.appendChild(s);
+            existingApp.scriptLoaded = true;
+            existingApp._scriptElement = s;
+            existingApp._lastScriptHash = currentHash;
+            localHasChanges = true;
+          } catch (e) {
+            console.error(`[APP POLLING] Failed to reload script for ${existingApp.label}:`, e);
+          }
+        }
+
+        localHasChanges = true;
+      }
+
+      if (existingApp.jsFile && existingApp._lastScriptHash) {
+        try {
+          var b64Current = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
+          var scriptTextCurrent = base64ToUtf8(b64Current);
+          var currentHashNow = hashScriptContent(scriptTextCurrent);
+
+          if (currentHashNow !== existingApp._lastScriptHash) {
+            if (existingApp.scriptLoaded && existingApp._scriptElement) {
+              existingApp._scriptElement.remove();
+              existingApp.scriptLoaded = false;
+            }
+
+            try {
+              if (existingApp.entry && typeof window[existingApp.entry] !== 'undefined') { try { delete window[existingApp.entry]; } catch (e) {} }
+              if (existingApp.cmf && !isProtectedAppGlobalName(existingApp.cmf) && typeof window[existingApp.cmf] !== 'undefined') { try { delete window[existingApp.cmf]; } catch (e) {} }
+              if (existingApp.appGlobalVarStrings && Array.isArray(existingApp.appGlobalVarStrings)) {
+                for (const varName of existingApp.appGlobalVarStrings) {
+                  if (isProtectedAppGlobalName(varName)) continue;
+                  if (typeof window[varName] !== 'undefined') {
+                    try { delete window[varName]; } catch (e) {}
+                  }
+                }
+              }
+            } catch (e) {}
+
+            var sCurrent = document.createElement('script');
+            sCurrent.type = 'text/javascript';
+            sCurrent.textContent = scriptTextCurrent;
+            document.body.appendChild(sCurrent);
+            existingApp.scriptLoaded = true;
+            existingApp._scriptElement = sCurrent;
+            existingApp._lastScriptHash = currentHashNow;
+            localHasChanges = true;
+          }
+        } catch (e) {
+          console.error(`[APP POLLING] Failed to check script hash for ${existingApp.label}:`, e);
+        }
+      }
+    }
+
+    if (shouldFallback) {
+      await window.loadTree();
+      await pollAppChanges(true, folderNames);
+      return;
+    }
+
+    if (localHasChanges && data) {
+      refreshAppsUiAfterChanges();
+    }
+  } catch (e) {
+    console.error('[APP POLLING] Targeted poll failed, falling back to full poll:', e);
+    await window.loadTree();
+    await pollAppChanges(true, changedFolders);
   }
 }
 // appUpdated - ensure single binding

@@ -5,7 +5,7 @@
   "cmf": "browsermenuhandler",
   "globalvarobject": "browserGlobals",
   "cmfl1": "browsercontextmenuhandlerL1",
-  "allapps": "allBrowsers",
+  "allapparray": "allBrowsers",
   "appGlobalVarStrings": [
     "browsermenu",
     "browserButtons",

@@ -165,6 +165,8 @@ terminal = function (posX = 50, posY = 50) {
       }
     }
     if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
+    // Clean up all event listeners added by this app
+    window.removeAllEventListenersForApp("terminal" + root._terminalId);
   });
 
   // --- Make draggable / resizable ---
@@ -206,7 +208,7 @@ terminal = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("mousemove", (ev) => {
+      window.addEventListener("terminal" + root._terminalId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -222,7 +224,7 @@ terminal = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("mouseup", () => {
+      window.addEventListener("terminal" + root._terminalId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });
@@ -320,6 +322,13 @@ terminal = function (posX = 50, posY = 50) {
     resize();
     root.tabIndex = "0";
   }
+  
+  // --- EVENT LISTENER ---
+  // Listen to clicks on the terminal for any app-specific handlers
+  document.addEventListener("terminal" + root._terminalId, "click", (e) => {
+    // App-specific click handler can be implemented here
+  });
+  
   terminalGlobals.allTerminals.push({
     rootElement: root,
     btnMax,

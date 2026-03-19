@@ -5,6 +5,7 @@
   "cmf": "settingsContextMenu",
   "cmfl1": "settingscontextmenuhandlerL1",
   "globalvarobject": "settingsGlobals",
+  "allapparray": "allSettings",
   "appGlobalVarStrings": [
     "allSettings",
     "settingsId",
