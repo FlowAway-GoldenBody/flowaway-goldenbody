@@ -1338,34 +1338,9 @@ textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
     remove.textContent = "Remove from taskbar";
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
+    const contextmenuevent = e;
     remove.addEventListener("click", () => {
-      // Remove the setting’s taskbar button if it exists
-      for (let i = taskbuttons.length; i > 0; i--) {
-        i--;
-        let index = parseInt(getStringAfterChar(e.target.id, "-"));
-        if (
-          index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-          taskbuttons[i].id.startsWith("📝")
-        ) {
-          taskbuttons[i].remove();
-          iconid = 0;
-          let newtb = [];
-          for (const a of taskbuttons) {
-            a.id = Array.from(a.id)[0] + "-" + iconid;
-            iconid++;
-            if (Array.from(a.id)[0] !== "▶") {
-              newtb.push(a);
-            } else {
-              a.id = Array.from(a.id)[0];
-              newtb.push(a);
-              iconid--;
-            }
-          }
-          break;
-        }
-        i++;
-      }
-      saveTaskButtons();
+      removeTaskButton(contextmenuevent.target.closest("button"));
       menu.remove();
     });
     menu.appendChild(remove);
@@ -1375,15 +1350,9 @@ textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
     add.style.padding = "6px 10px";
     add.style.cursor = "pointer";
     add.addEventListener("click", function () {
-      let textEditorButton = addTaskButton("📝", textEditor);
+      addTaskButton("📝", textEditor, "textEditorContextMenu", "textEditorGlobals");
       saveTaskButtons();
       purgeButtons();
-      for (const fb of textEditorGlobals.textEditorButtons) {
-        fb.addEventListener(
-          "contextmenu",
-          textEditorGlobals.textEditorContextMenu,
-        );
-      }
     });
     menu.appendChild(add);
   }
@@ -1441,65 +1410,6 @@ textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
   // Remove menu on click outside
   window.addEventListener("click", () => menu.remove(), { once: true });
 };
-
-window.addEventListener("appUpdated", () => {
-  try {
-    const txtbtn = document.getElementById("editorapp");
-    if (!txtbtn) return;
-    if (txtbtn.dataset && txtbtn.dataset.textEditorContextBound) return;
-
-    const handler = function (ev) {
-      textEditorGlobals.textEditorContextMenu(ev, false);
-    };
-
-    txtbtn.addEventListener("contextmenu", handler);
-    if (txtbtn.dataset) txtbtn.dataset.textEditorContextBound = "1";
-  } catch (e) {}
-});
-
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Text Editor
-try {
-  window.attachTextEditorContext = function (btn) {
-    try {
-      if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.textEditorContextBound) return;
-      const aid = (btn.dataset && btn.dataset.appId) || btn.id || "";
-      if (!(String(aid) === "📝" || String(aid) === "editorapp")) return;
-      btn.addEventListener(
-        "contextmenu",
-        textEditorGlobals.textEditorContextMenu,
-      );
-      if (btn.dataset) btn.dataset.textEditorContextBound = "1";
-      textEditorGlobals.textEditorButtons.push(btn);
-    } catch (e) {}
-  };
-
-  try {
-    const existing =
-      typeof taskbar !== "undefined" && taskbar
-        ? taskbar.querySelectorAll("button")
-        : document.querySelectorAll("button");
-    for (const b of existing) attachTextEditorContext(b);
-  } catch (e) {}
-
-  const observerTarget =
-    typeof taskbar !== "undefined" && taskbar ? taskbar : document.body;
-  const mo = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const n of m.addedNodes) {
-        if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches("button")) attachTextEditorContext(n);
-        else {
-          try {
-            n.querySelectorAll &&
-              n.querySelectorAll("button") &&
-              n.querySelectorAll("button").forEach(attachTextEditorContext);
-          } catch (e) {}
-        }
-      }
-    }
-  });
-  mo.observe(observerTarget, { childList: true, subtree: true });
-} catch (e) {
-  console.error("failed to attach textEditor context handlers", e);
-}
+textEditorGlobals.textEditorcontextmenuhandlerL1 = function (e) {
+  textEditorGlobals.textEditorContextMenu(e, false);
+};

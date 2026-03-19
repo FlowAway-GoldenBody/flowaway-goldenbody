@@ -1,0 +1,14 @@
+{
+  "name": "yourApp",
+  "label": "Your App",
+  "startbtnid": "your_app_nameapp",
+  "cmf": "your_app_nameContextMenu",
+  "cmfl1": "your_app_namecontextmenuhandlerL1",
+  "globalvarobject": "your_app_nameGlobals",
+  "appGlobalVarStrings": [
+    "your_app_nameButtons",
+    "your_app_namemenu",
+    "allyour_app_name",
+    "your_app_nameId"
+  ]
+}

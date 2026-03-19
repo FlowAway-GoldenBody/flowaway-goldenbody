@@ -1,4 +1,0 @@
-browser
-Browser
-browserapp
-browserGlobals

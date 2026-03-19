@@ -430,34 +430,9 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
     remove.textContent = "Remove from taskbar";
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
+    const contextmenuevent = e;
     remove.addEventListener("click", () => {
-      // Remove the setting’s taskbar button if it exists
-      for (let i = taskbuttons.length; i > 0; i--) {
-        i--;
-        let index = parseInt(getStringAfterChar(e.target.id, "-"));
-        if (
-          index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-          taskbuttons[i].id.startsWith("🖥️")
-        ) {
-          taskbuttons[i].remove();
-          iconid = 0;
-          let newtb = [];
-          for (const a of taskbuttons) {
-            a.id = Array.from(a.id)[0] + "-" + iconid;
-            iconid++;
-            if (Array.from(a.id)[0] !== "▶") {
-              newtb.push(a);
-            } else {
-              a.id = Array.from(a.id)[0];
-              newtb.push(a);
-              iconid--;
-            }
-          }
-          break;
-        }
-        i++;
-      }
-      saveTaskButtons();
+      removeTaskButton(contextmenuevent.target.closest("button"));
       menu.remove();
     });
     menu.appendChild(remove);
@@ -467,12 +442,9 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
     add.style.padding = "6px 10px";
     add.style.cursor = "pointer";
     add.addEventListener("click", function () {
-      let terminalButton = addTaskButton("🖥️", terminal);
+      addTaskButton("🖥️", terminal, "terminalContextMenu", "terminalGlobals");
       saveTaskButtons();
       purgeButtons();
-      for (const fb of terminalGlobals.terminalButtons) {
-        fb.addEventListener("contextmenu", terminalGlobals.terminalContextMenu);
-      }
     });
     menu.appendChild(add);
   }
@@ -530,62 +502,6 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
   // Remove menu on click outside
   window.addEventListener("click", () => menu.remove(), { once: true });
 };
-
-window.addEventListener("appUpdated", () => {
-  try {
-    const terminalBtn = document.getElementById("terminalapp");
-    if (!terminalBtn) return;
-    if (terminalBtn.dataset && terminalBtn.dataset.terminalContextBound) return;
-
-    const handler = function (ev) {
-      terminalGlobals.terminalContextMenu(ev, false);
-    };
-
-    terminalBtn.addEventListener("contextmenu", handler);
-    if (terminalBtn.dataset) terminalBtn.dataset.terminalContextBound = "1";
-  } catch (e) {}
-});
-
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for terminal
-try {
-  function attachTerminalContext(btn) {
-    try {
-      if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.terminalContextBound) return;
-      const aid = (btn.dataset && btn.dataset.appId) || btn.id || "";
-      if (!(String(aid) === "🖥️" || String(aid) === "terminal")) return;
-      btn.addEventListener("contextmenu", terminalGlobals.terminalContextMenu);
-      if (btn.dataset) btn.dataset.terminalContextBound = "1";
-      terminalGlobals.terminalButtons.push(btn);
-    } catch (e) {}
-  }
-
-  try {
-    const existing =
-      typeof taskbar !== "undefined" && taskbar
-        ? taskbar.querySelectorAll("button")
-        : document.querySelectorAll("button");
-    for (const b of existing) attachTerminalContext(b);
-  } catch (e) {}
-
-  const observerTarget =
-    typeof taskbar !== "undefined" && taskbar ? taskbar : document.body;
-  const mo = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const n of m.addedNodes) {
-        if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches("button")) attachTerminalContext(n);
-        else {
-          try {
-            n.querySelectorAll &&
-              n.querySelectorAll("button") &&
-              n.querySelectorAll("button").forEach(attachTerminalContext);
-          } catch (e) {}
-        }
-      }
-    }
-  });
-  mo.observe(observerTarget, { childList: true, subtree: true });
-} catch (e) {
-  console.error("failed to attach terminal context handlers", e);
-}
+terminalGlobals.terminalcontextmenuhandlerL1 = function (e) {
+  terminalGlobals.terminalContextMenu(e, false);
+};

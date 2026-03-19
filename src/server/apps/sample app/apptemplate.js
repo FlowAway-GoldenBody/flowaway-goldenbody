@@ -426,34 +426,9 @@ your_app_nameGlobals.your_app_nameContextMenu = function (
     remove.textContent = "Remove from taskbar";
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
+    const contextmenuevent = e;
     remove.addEventListener("click", () => {
-      // Remove the setting’s taskbar button if it exists
-      for (let i = taskbuttons.length; i > 0; i--) {
-        i--;
-        let index = parseInt(getStringAfterChar(e.target.id, "-"));
-        if (
-          index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-          taskbuttons[i].id.startsWith("🏠")
-        ) {
-          taskbuttons[i].remove();
-          iconid = 0;
-          let newtb = [];
-          for (const a of taskbuttons) {
-            a.id = Array.from(a.id)[0] + "-" + iconid;
-            iconid++;
-            if (Array.from(a.id)[0] !== "▶") {
-              newtb.push(a);
-            } else {
-              a.id = Array.from(a.id)[0];
-              newtb.push(a);
-              iconid--;
-            }
-          }
-          break;
-        }
-        i++;
-      }
-      saveTaskButtons();
+      removeTaskButton(contextmenuevent.target.closest("button"));
       menu.remove();
     });
     menu.appendChild(remove);
@@ -463,15 +438,9 @@ your_app_nameGlobals.your_app_nameContextMenu = function (
     add.style.padding = "6px 10px";
     add.style.cursor = "pointer";
     add.addEventListener("click", function () {
-      let your_app_nameButton = addTaskButton("🏠", yourApp);
+      addTaskButton("🏠", yourApp, "your_app_nameContextMenu", "your_app_nameGlobals");
       saveTaskButtons();
       purgeButtons();
-      for (const fb of your_app_nameGlobals.your_app_nameButtons) {
-        fb.addEventListener(
-          "contextmenu",
-          your_app_nameGlobals.your_app_nameContextMenu,
-        );
-      }
     });
     menu.appendChild(add);
   }
@@ -529,82 +498,6 @@ your_app_nameGlobals.your_app_nameContextMenu = function (
   // Remove menu on click outside
   window.addEventListener("click", () => menu.remove(), { once: true });
 };
-
-function ehl1(e) {
+your_app_nameGlobals.your_app_namecontextmenuhandlerL1 = function (e) {
   your_app_nameGlobals.your_app_nameContextMenu(e, false);
-}
-window.addEventListener("appUpdated", () => {
-  var your_app_abb_btn;
-  try {
-    your_app_abb_btn = document.getElementById("your_app_nameapp");
-  } catch (e) {
-    setTimeout(() => {
-      var appUpdatedEvent = new CustomEvent("appUpdated", {
-        detail: { apps: window.apps },
-      });
-      window.dispatchEvent(appUpdatedEvent);
-    }, 5000);
-  }
-  try {
-    if (your_app_abb_btn) {
-      if (
-        your_app_abb_btn.dataset &&
-        your_app_abb_btn.dataset.yourAppContextBound
-      )
-        return;
-      const handler = function (ev) {
-        your_app_nameGlobals.your_app_nameContextMenu(ev, false);
-      };
-      your_app_abb_btn.addEventListener("contextmenu", handler);
-      if (your_app_abb_btn.dataset)
-        your_app_abb_btn.dataset.yourAppContextBound = "1";
-    }
-  } catch (e) {}
-});
-
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for yourApp
-try {
-  function attachYourAppContext(btn) {
-    try {
-      if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.yourAppContextBound) return;
-      const aid = (btn.dataset && btn.dataset.appId) || btn.id || "";
-      if (!(String(aid) === "🏠" || String(aid) === "yourApp")) return;
-      btn.addEventListener(
-        "contextmenu",
-        your_app_nameGlobals.your_app_nameContextMenu,
-      );
-      if (btn.dataset) btn.dataset.yourAppContextBound = "1";
-      your_app_nameGlobals.your_app_nameButtons.push(btn);
-    } catch (e) {}
-  }
-
-  try {
-    const existing =
-      typeof taskbar !== "undefined" && taskbar
-        ? taskbar.querySelectorAll("button")
-        : document.querySelectorAll("button");
-    for (const b of existing) attachYourAppContext(b);
-  } catch (e) {}
-
-  const observerTarget =
-    typeof taskbar !== "undefined" && taskbar ? taskbar : document.body;
-  const mo = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const n of m.addedNodes) {
-        if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches("button")) attachYourAppContext(n);
-        else {
-          try {
-            n.querySelectorAll &&
-              n.querySelectorAll("button") &&
-              n.querySelectorAll("button").forEach(attachYourAppContext);
-          } catch (e) {}
-        }
-      }
-    }
-  });
-  mo.observe(observerTarget, { childList: true, subtree: true });
-} catch (e) {
-  console.error("failed to attach yourApp context handlers", e);
-}
+};

@@ -1,0 +1,17 @@
+{
+  "name": "textEditor",
+  "label": "Text Editor",
+  "startbtnid": "editorapp",
+  "cmf": "textEditorContextMenu",
+  "cmfl1": "textEditorcontextmenuhandlerL1",
+  "globalvarobject": "textEditorGlobals",
+  "appGlobalVarStrings": [
+    "alltextEditor",
+    "textEditorId",
+    "__textEditorStyle",
+    "textEditorButtons",
+    "AbortController",
+    "attachTextEditorContext",
+    "textEditormenu"
+  ]
+}

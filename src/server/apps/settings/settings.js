@@ -723,34 +723,9 @@ settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
     remove.textContent = "Remove from taskbar";
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
+    const contextmenuevent = e;
     remove.addEventListener("click", () => {
-      // Remove the setting’s taskbar button if it exists
-      for (let i = taskbuttons.length; i > 0; i--) {
-        i--;
-        let index = parseInt(getStringAfterChar(e.target.id, "-"));
-        if (
-          index === parseInt(getStringAfterChar(taskbuttons[i].id, "-")) &&
-          taskbuttons[i].id.startsWith("⚙")
-        ) {
-          taskbuttons[i].remove();
-          iconid = 0;
-          let newtb = [];
-          for (const a of taskbuttons) {
-            a.id = Array.from(a.id)[0] + "-" + iconid;
-            iconid++;
-            if (Array.from(a.id)[0] !== "▶") {
-              newtb.push(a);
-            } else {
-              a.id = Array.from(a.id)[0];
-              newtb.push(a);
-              iconid--;
-            }
-          }
-          break;
-        }
-        i++;
-      }
-      saveTaskButtons();
+      removeTaskButton(contextmenuevent.target.closest("button"));
       menu.remove();
     });
     menu.appendChild(remove);
@@ -760,12 +735,9 @@ settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
     add.style.padding = "6px 10px";
     add.style.cursor = "pointer";
     add.addEventListener("click", function () {
-      let settingsButton = addTaskButton("⚙", settings);
+      addTaskButton("⚙", settings, "settingsContextMenu", "settingsGlobals");
       saveTaskButtons();
       purgeButtons();
-      for (const fb of settingsGlobals.settingsButtons) {
-        fb.addEventListener("contextmenu", settingsGlobals.settingsContextMenu);
-      }
     });
     menu.appendChild(add);
   }
@@ -823,63 +795,6 @@ settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
   // Remove menu on click outside
   window.addEventListener("click", () => menu.remove(), { once: true });
 };
-
-window.addEventListener("appUpdated", () => {
-  try {
-    const sbtn = document.getElementById("settingsapp");
-    if (!sbtn) return;
-    // avoid duplicate binding
-    if (sbtn.dataset && sbtn.dataset.settingsContextBound) return;
-
-    const handler = function (e) {
-      settingsGlobals.settingsContextMenu(e, false);
-    };
-
-    sbtn.addEventListener("contextmenu", handler);
-    if (sbtn.dataset) sbtn.dataset.settingsContextBound = "1";
-  } catch (e) {}
-});
-
-// Use MutationObserver to attach contextmenu listeners to taskbar/start buttons for Settings
-try {
-  function attachSettingsContext(btn) {
-    try {
-      if (!btn || !(btn instanceof HTMLElement)) return;
-      if (btn.dataset && btn.dataset.settingsContextBound) return;
-      const aid = (btn.dataset && btn.dataset.appId) || btn.id || "";
-      if (!(String(aid) === "⚙" || String(aid) === "settingsapp")) return;
-      btn.addEventListener("contextmenu", settingsGlobals.settingsContextMenu);
-      if (btn.dataset) btn.dataset.settingsContextBound = "1";
-      settingsGlobals.settingsButtons.push(btn);
-    } catch (e) {}
-  }
-
-  try {
-    const existing =
-      typeof taskbar !== "undefined" && taskbar
-        ? taskbar.querySelectorAll("button")
-        : document.querySelectorAll("button");
-    for (const b of existing) attachSettingsContext(b);
-  } catch (e) {}
-
-  const observerTarget =
-    typeof taskbar !== "undefined" && taskbar ? taskbar : document.body;
-  const mo = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const n of m.addedNodes) {
-        if (!(n instanceof HTMLElement)) continue;
-        if (n.matches && n.matches("button")) attachSettingsContext(n);
-        else {
-          try {
-            n.querySelectorAll &&
-              n.querySelectorAll("button") &&
-              n.querySelectorAll("button").forEach(attachSettingsContext);
-          } catch (e) {}
-        }
-      }
-    }
-  });
-  mo.observe(observerTarget, { childList: true, subtree: true });
-} catch (e) {
-  console.error("failed to attach settings context handlers", e);
-}
+settingsGlobals.settingscontextmenuhandlerL1 = function (e) {
+  settingsGlobals.settingsContextMenu(e, false);
+};

@@ -1,0 +1,21 @@
+{
+  "name": "browser",
+  "label": "Browser",
+  "startbtnid": "browserapp",
+  "cmf": "browsermenuhandler",
+  "cmfl1": "browsercontextmenuhandlerL1",
+  "globalvarobject": "browserGlobals",
+  "appGlobalVarStrings": [
+    "browsermenu",
+    "browserButtons",
+    "allBrowsers",
+    "browserId",
+    "id",
+    "proxyurl",
+    "dragstartwindow",
+    "__vfsMessageListenerAdded",
+    "tabisDragging",
+    "draggedtab",
+    "mainWebsite"
+  ]
+}

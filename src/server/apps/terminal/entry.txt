@@ -1,4 +1,0 @@
-terminal
-Terminal
-terminalapp
-terminalGlobals

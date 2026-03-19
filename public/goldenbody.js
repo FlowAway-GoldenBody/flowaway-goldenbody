@@ -284,7 +284,7 @@
     syncTaskButtons();
   });
 
-  function addTaskButton(name, onclickFunc) {
+  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '') {
     var btn = document.createElement("button");
     btn.innerText = name;
     btn.value = name;
@@ -310,6 +310,9 @@
       console.log("Task clicked:", btn.value);
       onclickFunc();
     });
+    if(appcontextmenuhandler) {
+      btn.addEventListener('contextmenu', window[globalvarobjectstring][appcontextmenuhandler])
+    }
     setupTaskButtonDrag(btn);
     taskbar.appendChild(btn);
     syncTaskButtons();
@@ -318,7 +321,10 @@
     }, 100);
     return btn;
   }
-
+  function removeTaskButton(btn) {
+    btn.remove();
+    saveTaskButtons();
+  }
   window._suppressTaskbarPersist = true;
   addTaskButton("⤢", _fullscreen);
   addTaskButton("▶", starthandler);

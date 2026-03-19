@@ -1,4 +1,0 @@
-textEditor
-Text Editor
-editorapp
-textEditorGlobals

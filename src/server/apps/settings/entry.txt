@@ -1,4 +1,0 @@
-settings
-Settings
-settingsapp
-settingsGlobals
