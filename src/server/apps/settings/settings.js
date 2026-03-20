@@ -282,6 +282,8 @@ settings = function (posX = 50, posY = 50) {
           sh: el.offsetHeight,
           sl: el.offsetLeft,
           st: el.offsetTop,
+          startedMaximized: isMaximized,
+          restoredFromMax: false,
         };
         document.body.style.userSelect = "none";
         el.setPointerCapture(e.pointerId);
@@ -289,7 +291,21 @@ settings = function (posX = 50, posY = 50) {
 
       el.addEventListener("pointermove", (e) => {
         if (!active) return;
-        if (isMaximized) restoreWindow(false);
+        if (
+          active.startedMaximized &&
+          !active.restoredFromMax &&
+          (Math.abs(e.clientX - active.sx) > 1 ||
+            Math.abs(e.clientY - active.sy) > 1)
+        ) {
+          restoreWindow(false);
+          active.sx = e.clientX;
+          active.sy = e.clientY;
+          active.sw = el.offsetWidth;
+          active.sh = el.offsetHeight;
+          active.sl = el.offsetLeft;
+          active.st = el.offsetTop;
+          active.restoredFromMax = true;
+        }
         const dx = e.clientX - active.sx,
           dy = e.clientY - active.sy;
         if (active.dir.includes("e"))
