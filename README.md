@@ -4,6 +4,7 @@ flowaway goldenbody is an OS-like web interface built with vanilla JavaScript an
 ## EXAMPLE IMAGE
 ![goldenbody](https://s6.imgcdn.dev/Yv9K0u.png)
 ![goldenbody2](https://s6.imgcdn.dev/Yx57Iy.png)
+![goldenbody3](https://s6.imgcdn.dev/Yx5B78.png)
 
 ## QUICK DEV & RUN
 
