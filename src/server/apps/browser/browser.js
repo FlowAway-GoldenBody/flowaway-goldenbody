@@ -5517,13 +5517,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             sh: r.height,
             sl: r.left,
             st: r.top,
+            startedMaximized: isMaximized,
+            restoredFromMax: false,
           };
-
-          // stop iframe from eating events
-          el.querySelectorAll("iframe").forEach((f) => {
-            f._oldPE = f.style.pointerEvents;
-            f.style.pointerEvents = "none";
-          });
 
           document.body.style.userSelect = "none";
           document.body.style.cursor = getCursorForDir(dir);
@@ -5535,12 +5531,25 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       // drag
       el.addEventListener("pointermove", (e) => {
         if (!active) return;
+        if (
+          active.startedMaximized &&
+          !active.restoredFromMax &&
+          (Math.abs(e.clientX - active.sx) > 1 ||
+            Math.abs(e.clientY - active.sy) > 1)
+        ) {
+          applyBounds(getBounds());
+          restoreWindow(false);
+          const rr = el.getBoundingClientRect();
+          active.sx = e.clientX;
+          active.sy = e.clientY;
+          active.sw = rr.width;
+          active.sh = rr.height;
+          active.sl = rr.left;
+          active.st = rr.top;
+          active.restoredFromMax = true;
+        }
         const dx = e.clientX - active.sx;
         const dy = e.clientY - active.sy;
-        if ((dx > 1 && resizing) || (dy > 1 && resizing)) {
-          applyBounds(getBounds());
-          if (isMaximized) restoreWindow(false);
-        }
 
         // east / south
         if (active.dir.includes("e"))
