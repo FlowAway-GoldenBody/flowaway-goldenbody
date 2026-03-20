@@ -352,8 +352,6 @@ terminal = function (posX = 50, posY = 50) {
 };
 
 // Terminal context menu
-terminalGlobals.terminalButtons = [];
-terminalGlobals.terminalMenu = null;
 terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
   e.preventDefault();
 
@@ -361,7 +359,6 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
   const menu = document.createElement("div");
-  window.terminalGlobals.terminalMenu = menu;
   try {
     removeOtherMenus("terminal");
   } catch (e) {}

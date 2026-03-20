@@ -637,8 +637,6 @@ settings = function (posX = 50, posY = 50) {
 };
 
 //app stuff
-settingsGlobals.settingsButtons = [];
-settingsGlobals.settingsmenu;
 settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
   e.preventDefault();
 
@@ -646,7 +644,6 @@ settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
   const menu = document.createElement("div");
-  settingsGlobals.settingsmenu = menu;
   try {
     removeOtherMenus("settings");
   } catch (e) {}

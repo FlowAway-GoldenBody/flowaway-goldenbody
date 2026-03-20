@@ -338,8 +338,6 @@ yourApp = function (posX = 50, posY = 50) {
 };
 
 //app stuff
-your_app_nameGlobals.your_app_nameButtons = [];
-your_app_nameGlobals.your_app_namemenu;
 your_app_nameGlobals.your_app_nameContextMenu = function (
   e,
   needRemove = true,
@@ -350,7 +348,6 @@ your_app_nameGlobals.your_app_nameContextMenu = function (
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
   const menu = document.createElement("div");
-  your_app_nameGlobals.your_app_namemenu = menu;
   try {
     removeOtherMenus("your_app_name");
   } catch (e) {}
