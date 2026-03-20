@@ -1720,8 +1720,6 @@ fileExplorer = function (posX = 50, posY = 50) {
 };
 
 //app stuff
-explorerGlobals.explorerButtons = [];
-explorerGlobals.explorermenu = null;
 explorerGlobals.fileExplorerContextMenu = function (e, needRemove = true) {
   e.preventDefault();
 
@@ -1729,7 +1727,6 @@ explorerGlobals.fileExplorerContextMenu = function (e, needRemove = true) {
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
   const menu = document.createElement("div");
-  explorerGlobals.explorermenu = menu;
   try {
     removeOtherMenus("fileExplorer");
   } catch (e) {}

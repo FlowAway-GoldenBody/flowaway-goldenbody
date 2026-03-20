@@ -1259,9 +1259,6 @@ textEditor = function (path, posX = 50, posY = 50) {
 };
 
 //app stuff
-textEditorGlobals.textEditorButtons = [];
-textEditorGlobals.AbortControllertextEditormenu;
-textEditorGlobals.textEditormenu;
 textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
   e.preventDefault();
 
@@ -1269,7 +1266,6 @@ textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
 
   const menu = document.createElement("div");
-  textEditorGlobals.textEditormenu = menu;
   try {
     removeOtherMenus("textEditor");
   } catch (e) {}
