@@ -1,6 +1,7 @@
 window.data = data;
 var password = data.password;
 window.loaded = false;
+window.APP_VERSION = 'v1.12.5';
 function calculateVwInPixels(vwValue) {
   const viewportWidth = window.innerWidth; // Get the current viewport width in pixels
   const pixels = (vwValue * viewportWidth) / 100; // Apply the conversion formula
@@ -2330,27 +2331,35 @@ window.removeOtherMenus = function(except) {
       var fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && getPreferredAppIdentifier(window.apps[0]));
       if (fallback) launchApp(fallback);
       return;
-    } else if (e.ctrlKey && e.shiftKey && e.key === "W") {
-      // Close topmost window for the focused app (atTop)
+    } else if (e.ctrlKey && e.shiftKey && keyPart === 'W') {
+      // Close only the topmost app window for the focused app (atTop)
+      e.preventDefault();
+      e.stopPropagation();
       if (!atTop) return;
       try {
-        // Prefer elements explicitly tagged with data-app-id
-        var candidates = Array.from(document.querySelectorAll(`[data-app-id="${atTop}"]`));
-        // fallback: match elements with class name equal to app id
+        var targetAppId = String(atTop || '').trim();
+        if (!targetAppId) return;
+
+        var roots = Array.from(document.querySelectorAll('.sim-chrome-root'));
+        var candidates = roots.filter(root => root.dataset && root.dataset.appId === targetAppId);
+
+        // Fallback for older windows not tagged with dataset app id
         if (!candidates.length) {
-          var byClass = Array.from(document.getElementsByClassName(atTop));
-          for (const el of byClass) candidates.push(el);
+          candidates = roots.filter(root => root.classList && root.classList.contains(targetAppId));
         }
+
         if (!candidates.length) return;
-        // Choose the one with highest z-index or last in document
+
         candidates.sort((a, b) => {
           var za = parseInt(a.style.zIndex) || 0;
           var zb = parseInt(b.style.zIndex) || 0;
           return za - zb;
         });
+
         var top = candidates[candidates.length - 1];
         if (top) top.remove();
       } catch (e) { console.error('close focused app window error', e); }
+      return;
     }
     };
     window.addEventListener('keydown', window._flowaway_handlers.onKeydown);
@@ -3221,4 +3230,4 @@ setTimeout(() => {
       , 5000);
   }, 5000);
 }, 100);
-notification('please remember to update your apps from time to time in goldenbody://app-store in the browser!')
+notification('this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah');

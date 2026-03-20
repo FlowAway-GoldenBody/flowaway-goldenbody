@@ -629,6 +629,155 @@ settings = function (posX = 50, posY = 50) {
   };
 
   mainContainer.append(deleteBtn, deleteStatus);
+  // === About section + draggable dialog ===
+  mainContainer.appendChild(sectionTitle("About"));
+
+  const aboutRow = document.createElement("div");
+  aboutRow.style.display = "flex";
+  aboutRow.style.alignItems = "center";
+  aboutRow.style.justifyContent = "space-between";
+  aboutRow.style.marginTop = "8px";
+
+  const aboutText = document.createElement("div");
+  aboutText.textContent = "Learn more about this app.";
+  aboutText.style.fontSize = "13px";
+
+  const aboutBtn = document.createElement("button");
+  aboutBtn.textContent = "About";
+  aboutBtn.style.marginLeft = "8px";
+
+  aboutRow.append(aboutText, aboutBtn);
+  mainContainer.appendChild(aboutRow);
+
+  function showAboutDialog() {
+    // If already exists, bring to front
+    const existing = document.getElementById("settings-about-dialog");
+    if (existing) {
+      existing.style.display = "flex";
+      existing.style.zIndex = 2001;
+      return;
+    }
+
+    const dlg = document.createElement("div");
+    dlg.id = "settings-about-dialog";
+    Object.assign(dlg.style, {
+      position: "fixed",
+      left: "calc(50% - 260px)",
+      top: "calc(50% - 90px)",
+      width: "520px",
+      minHeight: "180px",
+      minWidth: "420px",
+      background: data && data.dark ? "#222" : "#fff",
+      color: data && data.dark ? "#fff" : "#000",
+      borderRadius: "8px",
+      boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+      zIndex: 2000,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      resize: "both",
+    });
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.justifyContent = "flex-start";
+    header.style.padding = "8px 10px";
+    header.style.cursor = "move";
+    header.style.background = data && data.dark ? "#111" : "#f1f1f1";
+    header.style.flexShrink = "0";
+    header.style.position = "relative";
+
+    const htitle = document.createElement("div");
+    htitle.textContent = "About";
+    htitle.style.fontWeight = "600";
+
+    const closeX = document.createElement("button");
+    closeX.setAttribute("aria-label", "Close dialog");
+    closeX.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 6L18 18" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M18 6L6 18" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+    `;
+    Object.assign(closeX.style, {
+      border: "none",
+      background: "red",
+      cursor: "pointer",
+      width: "35px",
+      height: "23px",
+      padding: "0",
+      display: "grid",
+      placeItems: "center",
+      lineHeight: "0",
+    });
+
+    header.append(htitle);
+    dlg.appendChild(header);
+
+    // position the close button in the top-right corner of the dialog
+    Object.assign(closeX.style, {
+      position: "absolute",
+      right: "8px",
+      top: "8px",
+    });
+    dlg.appendChild(closeX);
+
+    const content = document.createElement("div");
+    content.style.padding = "12px";
+    content.style.fontSize = "13px";
+    content.style.flex = "1";
+    content.style.overflow = "auto";
+    content.innerHTML = `
+      <div style="font-weight:600;margin-bottom:6px">About Flowaway Goldenbody</div>
+      <div style="margin-bottom:6px">An utopia that has EVERYTHING unblocked (anything internet filters block, code your own apps, works on chromebooks), free, open-source, forever.</div>
+      <div style="font-size:12px;color:gray">Version: ${typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown'}</div>
+    `;
+    dlg.appendChild(content);
+
+    document.body.appendChild(dlg);
+
+    // Close handler
+    closeX.addEventListener("click", () => dlg.remove());
+
+    // Make dialog draggable using pointer events on header
+    (function makeDraggableDialog() {
+      let dragging = false;
+      let startX = 0,
+        startY = 0,
+        origLeft = 0,
+        origTop = 0;
+
+      header.addEventListener("pointerdown", (ev) => {
+        dragging = true;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        origLeft = dlg.offsetLeft;
+        origTop = dlg.offsetTop;
+        header.setPointerCapture(ev.pointerId);
+        document.body.style.userSelect = "none";
+      });
+
+      window.addEventListener("pointermove", (ev) => {
+        if (!dragging) return;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        dlg.style.left = origLeft + dx + "px";
+        dlg.style.top = Math.max(0, origTop + dy) + "px";
+      });
+
+      window.addEventListener("pointerup", (ev) => {
+        if (!dragging) return;
+        dragging = false;
+        try {
+          header.releasePointerCapture(ev.pointerId);
+        } catch (e) {}
+        document.body.style.userSelect = "";
+      });
+    })();
+  }
+
+  aboutBtn.addEventListener("click", showAboutDialog);
 
   settingsGlobals.allSettings.push({
     rootElement: root,

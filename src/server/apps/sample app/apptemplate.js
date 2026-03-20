@@ -331,6 +331,11 @@ yourApp = function (posX = 50, posY = 50) {
     resize();
     root.tabIndex = "0";
   }
+  let a = document.createElement('h1');
+  a.textContent = "this is a sample app, edit /apps/sample app/apptemplate.js to make it your own!";
+  a.style.textAlign = "center";
+  a.style.marginTop = "20px";
+  root.appendChild(a);
   your_app_nameGlobals.allyour_app_name.push({
     rootElement: root,
     btnMax,
