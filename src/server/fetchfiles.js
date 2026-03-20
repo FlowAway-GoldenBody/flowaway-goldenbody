@@ -216,7 +216,20 @@ async function handleFetchfiles(req, res) {
       // 2️⃣ REQUEST FILE (supports chunked download for large files)
 if (data.requestFile) {
   const fullPath = path.join(userRoot, data.requestFileName);
-  const stat = await fsp.stat(fullPath);
+  let stat;
+  try {
+    stat = await fsp.stat(fullPath);
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      return res.end(JSON.stringify({
+        missing: true,
+        code: 'ENOENT',
+        kind: 'missing',
+        requestFileName: data.requestFileName
+      }));
+    }
+    throw e;
+  }
   
   if (stat.isFile()) {
     const fileSize = stat.size;
