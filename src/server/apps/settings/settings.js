@@ -639,7 +639,7 @@ settings = function (posX = 50, posY = 50) {
   aboutRow.style.marginTop = "8px";
 
   const aboutText = document.createElement("div");
-  aboutText.textContent = "Learn more about this app.";
+  aboutText.textContent = "About Flowaway Goldenbody";
   aboutText.style.fontSize = "13px";
 
   const aboutBtn = document.createElement("button");
@@ -662,9 +662,10 @@ settings = function (posX = 50, posY = 50) {
     dlg.id = "settings-about-dialog";
     Object.assign(dlg.style, {
       position: "fixed",
-      left: "calc(50% - 260px)",
+      left: "calc(50% - 300px)",
       top: "calc(50% - 90px)",
-      width: "520px",
+      width: "50vw",
+      height: "50vh",
       minHeight: "180px",
       minWidth: "420px",
       background: data && data.dark ? "#222" : "#fff",
