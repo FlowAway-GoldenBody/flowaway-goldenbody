@@ -360,10 +360,22 @@ function annotateTreeWithPaths(tree, basePath = '') {
   }
 }
 window.loadTree = async function () {
-  var data = await filePost({ initFE: true });
-  treeData = data.tree;
+  if (window._flowawayLoadTreePromise) {
+    return window._flowawayLoadTreePromise;
+  }
 
-  annotateTreeWithPaths(treeData); // ✅ ADD THIS LINE
+  window._flowawayLoadTreePromise = (async () => {
+    var data = await filePost({ initFE: true });
+    treeData = data.tree;
+
+    annotateTreeWithPaths(treeData); // ✅ ADD THIS LINE
+  })();
+
+  try {
+    await window._flowawayLoadTreePromise;
+  } finally {
+    window._flowawayLoadTreePromise = null;
+  }
 
   // render();
 };
@@ -398,40 +410,72 @@ function base64ToUtf8(b64OrBuffer) {
   }
 }
 
+window._flowawayFileFetchInFlight = window._flowawayFileFetchInFlight || new Map();
+window._flowawayFileFetchRecent = window._flowawayFileFetchRecent || new Map();
+var FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
+
 async function fetchFileContentByPath(path) {
   if (!path) throw new Error('No path');
-  var res = await filePost({ requestFile: true, requestFileName: path });
+  var normalizedPath = String(path).trim();
+  if (!normalizedPath) throw new Error('No path');
 
-  // If server returned a simple base64 payload for small files
-  if (res && typeof res.filecontent === 'string' && (!res.totalChunks || res.totalChunks <= 1)) {
-    return res.filecontent;
+  var now = Date.now();
+  var recentHit = window._flowawayFileFetchRecent.get(normalizedPath);
+  if (recentHit && (now - recentHit.ts) <= FLOWAWAY_FILE_FETCH_CACHE_MS) {
+    return recentHit.value;
   }
 
-  // If server indicates chunking, fetch all chunks and combine as ArrayBuffer
-  if (res && typeof res.totalChunks === 'number' && res.totalChunks > 1) {
-    var chunks = [];
-    // first chunk
-    if (typeof res.filecontent === 'string') chunks.push(base64ToArrayBuffer(res.filecontent));
-
-    for (let i = 1; i < res.totalChunks; i++) {
-      var part = await filePost({ requestFile: true, requestFileName: path, chunkIndex: i });
-      if (!part || typeof part.filecontent !== 'string') throw new Error('Missing chunk ' + i + ' for ' + path);
-      chunks.push(base64ToArrayBuffer(part.filecontent));
-    }
-
-    // Combine into single ArrayBuffer
-    var total = chunks.reduce((s, c) => s + (c.byteLength || 0), 0);
-    var combined = new Uint8Array(total);
-    var off = 0;
-    for (const c of chunks) {
-      var u = new Uint8Array(c);
-      combined.set(u, off);
-      off += u.byteLength;
-    }
-    return combined.buffer;
+  var inFlight = window._flowawayFileFetchInFlight.get(normalizedPath);
+  if (inFlight) {
+    return inFlight;
   }
 
-  throw new Error('Could not fetch file: ' + path);
+  var req = (async () => {
+    var res = await filePost({ requestFile: true, requestFileName: normalizedPath });
+
+    // If server returned a simple base64 payload for small files
+    if (res && typeof res.filecontent === 'string' && (!res.totalChunks || res.totalChunks <= 1)) {
+      window._flowawayFileFetchRecent.set(normalizedPath, { ts: Date.now(), value: res.filecontent });
+      return res.filecontent;
+    }
+
+    // If server indicates chunking, fetch all chunks and combine as ArrayBuffer
+    if (res && typeof res.totalChunks === 'number' && res.totalChunks > 1) {
+      var chunks = [];
+      // first chunk
+      if (typeof res.filecontent === 'string') chunks.push(base64ToArrayBuffer(res.filecontent));
+
+      for (let i = 1; i < res.totalChunks; i++) {
+        var part = await filePost({ requestFile: true, requestFileName: normalizedPath, chunkIndex: i });
+        if (!part || typeof part.filecontent !== 'string') throw new Error('Missing chunk ' + i + ' for ' + normalizedPath);
+        chunks.push(base64ToArrayBuffer(part.filecontent));
+      }
+
+      // Combine into single ArrayBuffer
+      var total = chunks.reduce((s, c) => s + (c.byteLength || 0), 0);
+      var combined = new Uint8Array(total);
+      var off = 0;
+      for (const c of chunks) {
+        var u = new Uint8Array(c);
+        combined.set(u, off);
+        off += u.byteLength;
+      }
+      var combinedBuffer = combined.buffer;
+      window._flowawayFileFetchRecent.set(normalizedPath, { ts: Date.now(), value: combinedBuffer });
+      return combinedBuffer;
+    }
+
+    throw new Error('Could not fetch file: ' + normalizedPath);
+  })();
+
+  window._flowawayFileFetchInFlight.set(normalizedPath, req);
+  try {
+    return await req;
+  } finally {
+    if (window._flowawayFileFetchInFlight.get(normalizedPath) === req) {
+      window._flowawayFileFetchInFlight.delete(normalizedPath);
+    }
+  }
 }
 async function makeFlowawayFileHandle(name, path, filecontent = null) {
   await filePost({ saveSnapshot: true, directions: [{ edit: true, contents: filecontent, path, replace: true }, { end: true }] });
@@ -604,11 +648,17 @@ function isProtectedAppGlobalName(name) {
 
 // ----------------- DYNAMIC AP LOADER -----------------
 window.apps = window.apps || [];
+window._flowawayMissingFolders = window._flowawayMissingFolders || new Set();
 
 async function getFolderListing(relPath) {
   try {
+    window._flowawayMissingFolders.delete(relPath);
     var r = await filePost({ requestFile: true, requestFileName: relPath });
     if (r && r.kind === 'folder' && Array.isArray(r.files)) return r.files;
+    if (r && (r.missing || r.code === 'ENOENT' || r.kind === 'missing' || r.error === 'ENOENT')) {
+      window._flowawayMissingFolders.add(relPath);
+      return null;
+    }
   } catch (e) { console.error('getFolderListing error', e); }
   return null;
 }
@@ -699,7 +749,14 @@ async function extractAppData(appFolder) {
   var folderName = appFolder[0];
   var folderPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
   var files = await getFolderListing(folderPath);
-  if (!files) return null;
+  if (!files) {
+    if (window._flowawayMissingFolders && window._flowawayMissingFolders.has(folderPath)) {
+      var enoent = new Error(`Missing folder: ${folderPath}`);
+      enoent.code = 'ENOENT';
+      throw enoent;
+    }
+    return null;
+  }
   
   // find files
   var jsFile = files.find(f => f.name.toLowerCase().endsWith('.js'))?.relativePath || null;
@@ -1037,13 +1094,12 @@ var appPollingTimer = null;
 var appPollingInFlight = false;
 var appPollingDirty = false;
 var appPollingPendingFolders = new Set();
-var appPollingNeedsFullResync = false;
+var appPollingSafetyInterval = null;
 var APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
-var APP_POLLING_DEBOUNCE = 300;
+var APP_POLLING_DEBOUNCE = 1000;
 
 function queueAppPollingHint(msg) {
   if (!msg || typeof msg !== 'object') return;
-  if (msg.fullResync) appPollingNeedsFullResync = true;
 
   if (Array.isArray(msg.changedApps)) {
     for (const appName of msg.changedApps) {
@@ -1056,10 +1112,8 @@ function queueAppPollingHint(msg) {
 
 function collectAppPollingHint() {
   var changedApps = Array.from(appPollingPendingFolders);
-  var fullResync = appPollingNeedsFullResync;
   appPollingPendingFolders.clear();
-  appPollingNeedsFullResync = false;
-  return { changedApps, fullResync };
+  return { changedApps };
 }
 
 function refreshAppsUiAfterChanges() {
@@ -1101,10 +1155,7 @@ function scheduleAppPoll(reason = 'unknown') {
     appPollingInFlight = true;
     try {
       var hint = collectAppPollingHint();
-      if (hint.fullResync) {
-        await window.loadTree();
-        await pollAppChanges(hint.changedApps.length > 0, hint.changedApps);
-      } else if (!hint.changedApps.length) {
+      if (!hint.changedApps.length) {
         await window.loadTree();
         await pollAppChanges(true);
       } else {
@@ -1143,6 +1194,7 @@ var appPollingURL = `${BASE}/server/appSocket`;
     try {
       var msg = JSON.parse(ev.data);
       if (msg && msg.appChanges) {
+        if (!Array.isArray(msg.changedApps) || msg.changedApps.length === 0) return;
         queueAppPollingHint(msg);
         scheduleAppPoll('ws');
       }
@@ -1171,6 +1223,7 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
   if (!window.treeData) return;
   
   try {
+    var scriptReloadedPaths = new Set();
     var rootChildren = (window.treeData && window.treeData[1]) || [];
     var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
     if (!appsNode) return;
@@ -1348,6 +1401,8 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
           var _oldEntry = existingApp.entry;
           var _oldCmf = existingApp.cmf;
           var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
+          var _oldId = existingApp.id;
+          var _oldStartbtnid = existingApp.startbtnid;
           existingApp.entry = newAppData.entry;
           existingApp.jsFile = newAppData.jsFile;
           existingApp.icon = newAppData.icon;
@@ -1360,7 +1415,7 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
           existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
 
           // Update grid icon/label
-          var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(existingApp.id + 'app');
+          var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(_oldStartbtnid || (_oldId + 'app')) || document.getElementById(existingApp.id + 'app');
           if (appGridElement) {
             appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
           }
@@ -1399,6 +1454,7 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
               existingApp.scriptLoaded = true;
               existingApp._scriptElement = s;
               existingApp._lastScriptHash = currentHash;
+              scriptReloadedPaths.add(existingApp.path);
               console.log(`[APP POLLING] Script reloaded for: ${existingApp.label}`);
             } catch (e) {
               console.error(`[APP POLLING] Failed to reload script for ${existingApp.label}:`, e);
@@ -1417,6 +1473,7 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
         : window.apps;
 
       for (const app of appsForScriptCheck) {
+        if (scriptReloadedPaths.has(app.path)) continue;
         if (app.jsFile && app._lastScriptHash) {
           try {
             var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
@@ -1489,13 +1546,24 @@ async function pollSpecificAppChanges(changedFolders = []) {
     var folderNames = [...new Set(changedFolders.map(v => String(v || '').trim()).filter(Boolean))];
     var localHasChanges = false;
     var shouldFallback = false;
+    var scriptReloadedPaths = new Set();
 
     for (const folderName of folderNames) {
       var expectedPath = `apps/${folderName}`;
       var existingApp = (window.apps || []).find(a => a.path === expectedPath || ((a.path || '').split('/').pop() === folderName));
 
       if (!existingApp) {
-        shouldFallback = true;
+        // If the folder still exists, this is likely a new app and we need fallback to add it.
+        // If it does not exist, this is likely a delete event for an already-removed app; skip fallback.
+        var folderStillExists = null;
+        try {
+          folderStillExists = await getFolderListing(expectedPath);
+        } catch (e) {
+          folderStillExists = null;
+        }
+        if (Array.isArray(folderStillExists)) {
+          shouldFallback = true;
+        }
         continue;
       }
 
@@ -1504,8 +1572,58 @@ async function pollSpecificAppChanges(changedFolders = []) {
       try {
         newAppData = await extractAppData(appFolder);
       } catch (e) {
-        if (e && e.code === 'ENOENT') {
-          shouldFallback = true;
+        var isEnoent = !!(e && (e.code === 'ENOENT' || String(e.message || '').includes('ENOENT')));
+        if (isEnoent) {
+          try {
+            if (existingApp._scriptElement) existingApp._scriptElement.remove();
+          } catch (ee) {}
+
+          try {
+            if (existingApp.entry && typeof window[existingApp.entry] !== 'undefined') {
+              try { delete window[existingApp.entry]; } catch (ee) {}
+            }
+            if (existingApp.cmf && !isProtectedAppGlobalName(existingApp.cmf) && typeof window[existingApp.cmf] !== 'undefined') {
+              try { delete window[existingApp.cmf]; } catch (ee) {}
+            }
+            if (existingApp.appGlobalVarStrings && Array.isArray(existingApp.appGlobalVarStrings)) {
+              for (const varName of existingApp.appGlobalVarStrings) {
+                if (isProtectedAppGlobalName(varName)) continue;
+                if (typeof window[varName] !== 'undefined') {
+                  try { delete window[varName]; } catch (ee) {}
+                }
+              }
+            }
+          } catch (ee) {}
+
+          var appIndexToDelete = (window.apps || []).findIndex(a => a === existingApp || ((a.path || '').split('/').pop() === folderName));
+          if (appIndexToDelete >= 0) {
+            window.apps.splice(appIndexToDelete, 1);
+          }
+
+          try {
+            var appElementToDelete = document.getElementById(existingApp.startbtnid || (existingApp.id + 'app')) || document.getElementById(existingApp.id + 'app');
+            if (appElementToDelete) appElementToDelete.remove();
+          } catch (ee) {}
+
+          try {
+            var taskbarBtnToDelete = Array.from(taskbar.querySelectorAll('button')).find(btn =>
+              (btn.dataset && appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
+              btn.textContent.includes(existingApp.label)
+            );
+            if (taskbarBtnToDelete) taskbarBtnToDelete.remove();
+          } catch (ee) {}
+
+          try {
+            var appIdToClose = getPreferredAppIdentifier(existingApp);
+            var windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root =>
+              root.dataset && root.dataset.appId === appIdToClose
+            );
+            for (const windowEl of windowsToClose) {
+              windowEl.remove();
+            }
+          } catch (ee) {}
+
+          localHasChanges = true;
           continue;
         }
         throw e;
@@ -1529,6 +1647,8 @@ async function pollSpecificAppChanges(changedFolders = []) {
         var _oldEntry = existingApp.entry;
         var _oldCmf = existingApp.cmf;
         var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
+        var _oldId = existingApp.id;
+        var _oldStartbtnid = existingApp.startbtnid;
 
         existingApp.entry = newAppData.entry;
         existingApp.jsFile = newAppData.jsFile;
@@ -1541,7 +1661,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
         existingApp.cmfl1 = newAppData.cmfl1;
         existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
 
-        var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(existingApp.id + 'app');
+        var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(_oldStartbtnid || (_oldId + 'app')) || document.getElementById(existingApp.id + 'app');
         if (appGridElement) {
           appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
         }
@@ -1580,6 +1700,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
             existingApp.scriptLoaded = true;
             existingApp._scriptElement = s;
             existingApp._lastScriptHash = currentHash;
+            scriptReloadedPaths.add(existingApp.path);
             localHasChanges = true;
           } catch (e) {
             console.error(`[APP POLLING] Failed to reload script for ${existingApp.label}:`, e);
@@ -1589,7 +1710,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
         localHasChanges = true;
       }
 
-      if (existingApp.jsFile && existingApp._lastScriptHash) {
+      if (!scriptReloadedPaths.has(existingApp.path) && existingApp.jsFile && existingApp._lastScriptHash) {
         try {
           var b64Current = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
           var scriptTextCurrent = base64ToUtf8(b64Current);
@@ -1654,12 +1775,14 @@ function startAppPolling() {
   if (appPollingActive) return;
   appPollingActive = true;
 
+  if (!appPollingSafetyInterval) {
+    appPollingSafetyInterval = setInterval(() => {
+      scheduleAppPoll('safety-net');
+    }, 60000);
+  }
+
   var wsStarted = startAppPollingViaWebSocket();
   if (!wsStarted) {
-    // Fallback: very slow polling if WebSocket isn't supported
-    setInterval(() => {
-      scheduleAppPoll('fallback');
-    }, 60000);
     console.log('[APP POLLING] WebSocket unavailable; fallback polling every 60s');
     return;
   }

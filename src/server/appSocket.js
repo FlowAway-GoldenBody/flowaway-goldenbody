@@ -4,13 +4,14 @@ const path = require('path');
 
 const APP_POLLING_PORT = Number(process.env.APP_POLLING_PORT || 3001);
 const APP_POLLING_HOST = process.env.VERIFY_HOST || process.env.VS_HOST || '0.0.0.0';
+const APP_POLL_INTERVAL_MS = Number(process.env.APP_POLL_INTERVAL_MS || 2500);
+const APP_CHANGE_DEBOUNCE_MS = Number(process.env.APP_CHANGE_DEBOUNCE_MS || 400);
 
 const userRootBase = path.resolve(__dirname, './zmcdfiles');
 
 // Track connected clients per user
 const userClients = new Map(); // username -> Set<ws>
-const userWatchers = new Map(); // username -> { watcher, interval, lastApps, debounceTimer, pendingAppFolders, forceFullResync }
-const APP_CHANGE_DEBOUNCE = 1000; // 1 second debounce
+const userWatchers = new Map(); // username -> { watcher, interval, lastApps, debounceTimer, pendingAppFolders }
 
 function getCurrentAppFolders(appsPath) {
   const entries = fs.readdirSync(appsPath, { withFileTypes: true });
@@ -41,11 +42,13 @@ function notifyUserChanges(username) {
   clearTimeout(state.debounceTimer);
   state.debounceTimer = setTimeout(() => {
     const changedApps = [...state.pendingAppFolders];
-    const fullResync = state.forceFullResync || changedApps.length === 0;
+    if (changedApps.length === 0) {
+      return;
+    }
     const message = JSON.stringify({
       appChanges: true,
       changedApps,
-      fullResync,
+      fullResync: false,
       timestamp: Date.now(),
     });
 
@@ -56,20 +59,16 @@ function notifyUserChanges(username) {
     }
 
     state.pendingAppFolders.clear();
-    state.forceFullResync = false;
-    console.log(`[APP POLLING] Broadcasted app changes to ${clients.size} clients (user=${username}, changedApps=${changedApps.length}, fullResync=${fullResync})`);
-  }, APP_CHANGE_DEBOUNCE);
+    console.log(`[APP POLLING] Broadcasted app changes to ${clients.size} clients (user=${username}, changedApps=${changedApps.length})`);
+  }, APP_CHANGE_DEBOUNCE_MS);
 }
 
-function queueUserChanges(username, { changedApp, fullResync = false } = {}) {
+function queueUserChanges(username, { changedApp } = {}) {
   const state = userWatchers.get(username);
   if (!state) return;
 
   if (changedApp) {
     state.pendingAppFolders.add(changedApp);
-  }
-  if (fullResync) {
-    state.forceFullResync = true;
   }
 
   notifyUserChanges(username);
@@ -85,7 +84,6 @@ function ensureUserWatcher(username) {
     lastApps: new Set(),
     debounceTimer: null,
     pendingAppFolders: new Set(),
-    forceFullResync: false,
   };
 
   const attachWatcherIfPossible = () => {
@@ -100,10 +98,34 @@ function ensureUserWatcher(username) {
     try {
       state.watcher = fs.watch(appsPath, { recursive: true }, (eventType, filename) => {
         const changedApp = getChangedAppFolder(filename);
-        const fullResync = !changedApp;
-
         console.log(`[APP POLLING] Detected change in ${username}/apps: ${filename || '(unknown)'}`);
-        queueUserChanges(username, { changedApp, fullResync });
+        if (changedApp) {
+          try {
+            state.lastApps = fs.existsSync(appsPath) ? getCurrentAppFolders(appsPath) : new Set();
+          } catch (e) {
+            state.lastApps = new Set();
+          }
+          queueUserChanges(username, { changedApp });
+          return;
+        }
+
+        try {
+          const current = fs.existsSync(appsPath) ? getCurrentAppFolders(appsPath) : new Set();
+          const deleted = [...state.lastApps].filter(n => !current.has(n));
+          const added = [...current].filter(n => !state.lastApps.has(n));
+
+          if (deleted.length || added.length) {
+            for (const appName of added) state.pendingAppFolders.add(appName);
+            for (const appName of deleted) state.pendingAppFolders.add(appName);
+          } else {
+            for (const appName of current) state.pendingAppFolders.add(appName);
+          }
+
+          state.lastApps = current;
+          notifyUserChanges(username);
+        } catch (e) {
+          console.error(`[APP POLLING] Fallback watch handling error for ${username}: ${e.message}`);
+        }
       });
 
       console.log(`[APP POLLING] Watching apps directory for user ${username}: ${appsPath}`);
@@ -132,7 +154,6 @@ function ensureUserWatcher(username) {
             for (const appName of deleted) {
               state.pendingAppFolders.add(appName);
             }
-            state.forceFullResync = true;
             notifyUserChanges(username);
             state.lastApps = new Set();
           }
@@ -152,14 +173,13 @@ function ensureUserWatcher(username) {
           for (const appName of deleted) {
             state.pendingAppFolders.add(appName);
           }
-          state.forceFullResync = true;
           notifyUserChanges(username);
         }
         state.lastApps = current;
       } catch (e) {
         console.error(`[APP POLLING] Polling error for ${username}: ${e.message}`);
       }
-    }, 10000);
+    }, APP_POLL_INTERVAL_MS);
 
   } catch (e) {
     console.log(`[APP POLLING] Warning: Could not watch apps directory for ${username}: ${e.message}`);
