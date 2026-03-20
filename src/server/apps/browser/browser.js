@@ -1534,7 +1534,12 @@ window.browser = function (
             menuNode.isConnected &&
             hasContextHandler;
 
-          if (patchLooksAlive) return;
+          if (patchLooksAlive) {
+            try {
+              recurseFrames(currentDocument);
+            } catch (e) {}
+            return;
+          }
 
           iframe.__gbPatchedDocument = null;
           try {
@@ -4217,29 +4222,153 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         }
         let mediaInterval;
         const observedDocs = new WeakSet();
+        const observedRoots = new WeakSet();
         const trackedFrames = new WeakSet();
 
+        function installDOMIframeHooks(rootNode) {
+          const win =
+            rootNode?.defaultView || rootNode?.ownerDocument?.defaultView;
+          if (!win || win.__gbIframeDomHooksInstalled) return;
+          win.__gbIframeDomHooksInstalled = true;
+
+          try {
+            const docProto = win.Document && win.Document.prototype;
+            if (docProto && !docProto.__gbCreateElementIframeWrapped) {
+              docProto.__gbCreateElementIframeWrapped = true;
+              const nativeCreateElement = docProto.createElement;
+              docProto.createElement = function (tagName, options) {
+                const created = nativeCreateElement.call(this, tagName, options);
+                try {
+                  if (
+                    String(tagName || "").toLowerCase() === "iframe" &&
+                    created
+                  ) {
+                    watchFrame(created, this);
+                  }
+                } catch (e) {}
+                return created;
+              };
+            }
+          } catch (e) {}
+
+          try {
+            const nodeProto = win.Node && win.Node.prototype;
+            if (nodeProto && !nodeProto.__gbIframeNodeOpsWrapped) {
+              nodeProto.__gbIframeNodeOpsWrapped = true;
+
+              const nativeAppendChild = nodeProto.appendChild;
+              nodeProto.appendChild = function (child) {
+                const ret = nativeAppendChild.call(this, child);
+                try {
+                  scanNodeForFrames(child, this.getRootNode?.() || this);
+                } catch (e) {}
+                return ret;
+              };
+
+              const nativeInsertBefore = nodeProto.insertBefore;
+              nodeProto.insertBefore = function (newNode, referenceNode) {
+                const ret = nativeInsertBefore.call(this, newNode, referenceNode);
+                try {
+                  scanNodeForFrames(newNode, this.getRootNode?.() || this);
+                } catch (e) {}
+                return ret;
+              };
+
+              const nativeReplaceChild = nodeProto.replaceChild;
+              nodeProto.replaceChild = function (newChild, oldChild) {
+                const ret = nativeReplaceChild.call(this, newChild, oldChild);
+                try {
+                  scanNodeForFrames(newChild, this.getRootNode?.() || this);
+                } catch (e) {}
+                return ret;
+              };
+            }
+          } catch (e) {}
+
+          try {
+            const elemProto = win.Element && win.Element.prototype;
+            if (elemProto && !elemProto.__gbIframeAppendOpsWrapped) {
+              elemProto.__gbIframeAppendOpsWrapped = true;
+
+              const nativeAppend = elemProto.append;
+              if (nativeAppend) {
+                elemProto.append = function (...nodes) {
+                  const ret = nativeAppend.apply(this, nodes);
+                  for (const node of nodes) {
+                    try {
+                      scanNodeForFrames(node, this.getRootNode?.() || this);
+                    } catch (e) {}
+                  }
+                  return ret;
+                };
+              }
+
+              const nativePrepend = elemProto.prepend;
+              if (nativePrepend) {
+                elemProto.prepend = function (...nodes) {
+                  const ret = nativePrepend.apply(this, nodes);
+                  for (const node of nodes) {
+                    try {
+                      scanNodeForFrames(node, this.getRootNode?.() || this);
+                    } catch (e) {}
+                  }
+                  return ret;
+                };
+              }
+
+              const nativeAttachShadow = elemProto.attachShadow;
+              if (nativeAttachShadow && !elemProto.__gbAttachShadowWrapped) {
+                elemProto.__gbAttachShadowWrapped = true;
+                elemProto.attachShadow = function (init) {
+                  const sr = nativeAttachShadow.call(this, init);
+                  try {
+                    observeDocumentFrames(sr);
+                    recurseFrames(sr);
+                  } catch (e) {}
+                  return sr;
+                };
+              }
+            }
+          } catch (e) {}
+        }
+
+        function scanNodeForFrames(node, parentRoot) {
+          if (!node) return;
+
+          if (node.nodeType === 1 && node.tagName === "IFRAME") {
+            watchFrame(node, parentRoot);
+          }
+
+          if (typeof node.querySelectorAll === "function") {
+            const nestedFrames = node.querySelectorAll("iframe");
+            for (const nestedFrame of nestedFrames) {
+              watchFrame(nestedFrame, parentRoot);
+            }
+
+            const possibleHosts = node.querySelectorAll("*");
+            for (const host of possibleHosts) {
+              if (host && host.shadowRoot) {
+                observeDocumentFrames(host.shadowRoot);
+              }
+            }
+          }
+
+          if (node.shadowRoot) {
+            observeDocumentFrames(node.shadowRoot);
+          }
+        }
+
         function observeDocumentFrames(doc) {
-          if (!doc || observedDocs.has(doc)) return;
-          observedDocs.add(doc);
+          if (!doc || observedRoots.has(doc)) return;
+          observedRoots.add(doc);
+          if (doc.nodeType === 9) observedDocs.add(doc);
+          installDOMIframeHooks(doc);
 
           try {
             const observer = new MutationObserver((mutations) => {
               for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
-                  if (!node || node.nodeType !== 1) continue;
-
-                  if (node.tagName === "IFRAME") {
-                    watchFrame(node, doc);
-                    continue;
-                  }
-
-                  if (typeof node.querySelectorAll === "function") {
-                    const nestedFrames = node.querySelectorAll("iframe");
-                    for (const nestedFrame of nestedFrames) {
-                      watchFrame(nestedFrame, doc);
-                    }
-                  }
+                  scanNodeForFrames(node, doc);
                 }
               }
             });
@@ -4269,8 +4398,22 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           try {
             const readyDoc =
               frame.contentDocument || frame.contentWindow?.document;
-            if (readyDoc && readyDoc.readyState === "complete") {
+            if (readyDoc) {
               recurseFrames(readyDoc);
+
+              if (readyDoc.readyState !== "complete") {
+                const onReady = () => {
+                  try {
+                    recurseFrames(readyDoc);
+                  } catch (e) {}
+                };
+                readyDoc.addEventListener("readystatechange", onReady, {
+                  once: true,
+                });
+                readyDoc.addEventListener("DOMContentLoaded", onReady, {
+                  once: true,
+                });
+              }
             }
           } catch (e) {}
         }
@@ -4281,6 +4424,18 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
           // do something for this document (attach context menu, log, etc.)
           const frames = doc.querySelectorAll("iframe");
+
+          if (doc.nodeType === 1 && doc.shadowRoot) {
+            recurseFrames(doc.shadowRoot, event);
+          }
+          if (typeof doc.querySelectorAll === "function") {
+            const hosts = doc.querySelectorAll("*");
+            for (const host of hosts) {
+              if (host && host.shadowRoot) {
+                recurseFrames(host.shadowRoot, event);
+              }
+            }
+          }
 
           for (const frame of frames) {
             try {
@@ -4293,11 +4448,11 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                   return frame;
                 }
               }
-              if (frame.style.display === "none") continue;
-
               // Wait for the iframe to load (so its contentDocument exists)
               try {
                 const win = frame.contentWindow;
+                const frameDoc = frame.contentDocument || win?.document;
+                if (!win || !frameDoc) continue;
                 if (!win.__gbWindowSwitchForwardKeydown) {
                   win.__gbWindowSwitchForwardKeydown = function (e) {
                     var switcherMode =
@@ -4371,8 +4526,8 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     } catch (err) {}
                   };
                 }
-                if (!frame.contentDocument.getElementById("_gb_a_setter")) {
-                  var script = frame.contentDocument.createElement("script");
+                if (!frameDoc.getElementById("_gb_a_setter")) {
+                  var script = frameDoc.createElement("script");
                   script.id = "_gb_a_setter";
                   script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
   window.parent.postMessage(
@@ -4382,12 +4537,31 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 }
 
 `;
-                  frame.contentDocument.head.appendChild(script);
+                  frameDoc.head?.appendChild(script);
                 }
-                // showOpenFilePicker()
-                if (frame.contentDocument?.readyState === "complete") {
-                  if (!frame.contentDocument.getElementById("VFS"))
-                    injectIntoIframe(frame);
+                if (!frameDoc.getElementById("VFS")) {
+                  injectIntoIframe(frame);
+                }
+
+                if (!frameDoc.__gbEarlyPatchHook) {
+                  frameDoc.__gbEarlyPatchHook = true;
+                  const retryPatch = () => {
+                    try {
+                      recurseFrames(frameDoc, event);
+                    } catch (e) {}
+                    if (frameDoc.readyState === "complete") {
+                      try {
+                        frameDoc.removeEventListener(
+                          "readystatechange",
+                          retryPatch,
+                        );
+                      } catch (e) {}
+                    }
+                  };
+                  frameDoc.addEventListener("DOMContentLoaded", retryPatch, {
+                    once: true,
+                  });
+                  frameDoc.addEventListener("readystatechange", retryPatch);
                 }
 
                 win.removeEventListener("keydown", handleReload);
@@ -4418,11 +4592,11 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     }
                   };
                 }
-                frame.contentDocument.addEventListener("keydown", function () {
+                frameDoc.addEventListener("keydown", function () {
                   document.activeElement.focus();
                 });
 
-                frame.contentDocument.addEventListener("click", hideMenu);
+                frameDoc.addEventListener("click", hideMenu);
                 if (!frame.contentWindow.onpointerup) {
                   frame.contentWindow.onpointerup = function (ev) {
                     window.top.postMessage(
@@ -4451,7 +4625,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     // Attach handler
                     const { x, y } = getAbsoluteMousePosition(
                       e,
-                      frame.contentDocument,
+                      frameDoc,
                     );
 
                     const clickedElement = e.target;
@@ -4534,7 +4708,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     "keydown",
                     frame.contentWindow.handleArrows,
                   );
-
                   frame.contentWindow.addEventListener(
                     "keydown",
                     frame.contentWindow.handleArrows,
@@ -4587,10 +4760,13 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
               // If already loaded, go in immediately
               if (
-                frame.contentDocument &&
-                frame.contentDocument.readyState === "complete"
+                frame.contentDocument ||
+                frame.contentWindow?.document
               ) {
-                const found = recurseFrames(frame.contentDocument, event);
+                const found = recurseFrames(
+                  frame.contentDocument || frame.contentWindow?.document,
+                  event,
+                );
                 if (found) return found; // propagate match
               }
             } catch (err) {
