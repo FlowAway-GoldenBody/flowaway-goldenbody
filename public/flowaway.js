@@ -1095,6 +1095,7 @@ var appPollingInFlight = false;
 var appPollingDirty = false;
 var appPollingPendingFolders = new Set();
 var appPollingSafetyInterval = null;
+var appPollingReconnectTimer = null;
 var APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
 var APP_POLLING_DEBOUNCE = 1000;
 
@@ -1156,8 +1157,7 @@ function scheduleAppPoll(reason = 'unknown') {
     try {
       var hint = collectAppPollingHint();
       if (!hint.changedApps.length) {
-        await window.loadTree();
-        await pollAppChanges(true);
+        return;
       } else {
         await pollSpecificAppChanges(hint.changedApps);
       }
@@ -1185,6 +1185,10 @@ var appPollingURL = `${BASE}/server/appSocket`;
 
   appPollingSocket.onopen = () => {
     appPollingSocketBackoff = 0;
+    if (appPollingReconnectTimer) {
+      clearTimeout(appPollingReconnectTimer);
+      appPollingReconnectTimer = null;
+    }
     try {
       appPollingSocket.send(JSON.stringify({ subscribeToAppChanges: true, username: data.username }));
     } catch (e) {}
@@ -1211,7 +1215,9 @@ var appPollingURL = `${BASE}/server/appSocket`;
     appPollingSocket = null;
     if (appPollingSocketBackoff < 10) appPollingSocketBackoff++;
     var delay = Math.min(appPollingSocketBackoff * 1000, APP_POLLING_SOCKET_MAX_BACKOFF);
-    setTimeout(() => {
+    if (appPollingReconnectTimer) clearTimeout(appPollingReconnectTimer);
+    appPollingReconnectTimer = setTimeout(() => {
+      appPollingReconnectTimer = null;
       startAppPollingViaWebSocket();
     }, delay);
   };
@@ -1775,15 +1781,9 @@ function startAppPolling() {
   if (appPollingActive) return;
   appPollingActive = true;
 
-  if (!appPollingSafetyInterval) {
-    appPollingSafetyInterval = setInterval(() => {
-      scheduleAppPoll('safety-net');
-    }, 60000);
-  }
-
   var wsStarted = startAppPollingViaWebSocket();
   if (!wsStarted) {
-    console.log('[APP POLLING] WebSocket unavailable; fallback polling every 60s');
+    console.log('[APP POLLING] WebSocket unavailable; no fallback polling');
     return;
   }
 
