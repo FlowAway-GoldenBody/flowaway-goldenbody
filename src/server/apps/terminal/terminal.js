@@ -1,5 +1,7 @@
-// Terminal global vars - dispatch events to running apps to add terminal plugins
-// Command format: <app> <command> <args>
+// this app is a place holder
+// how it works is you reference the path of the app you want to run, the 2nd arg is the command, and the rest is from the app itself.
+// there is a env var map in /.boot/gbenv.js
+
 window.terminalGlobals = {};
 terminalGlobals.allTerminals = [];
 terminalGlobals.terminalId = 0;
@@ -35,8 +37,6 @@ terminal = function (posX = 50, posY = 50) {
   document.body.appendChild(root);
   terminalGlobals.terminalId++;
   root._terminalId = terminalGlobals.terminalId;
-  // per-terminal current working directory (string, e.g. "/" or "/path/to/folder")
-  root._cwd = "/";
 
   // --- Top bar ---
   var topBar = false;
@@ -402,11 +402,10 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
     for (const i of terminalGlobals.allTerminals) {
-      i.rootElement.remove();
+      i.closeWindow();
     }
 
     terminalGlobals.allTerminals = [];
-    menu.remove();
   });
   menu.appendChild(closeAll);
 

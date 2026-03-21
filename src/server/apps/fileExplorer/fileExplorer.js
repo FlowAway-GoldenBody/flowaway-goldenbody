@@ -1769,7 +1769,7 @@ explorerGlobals.fileExplorerContextMenu = function (e, needRemove = true) {
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
     for (const i of explorerGlobals.allExplorers) {
-      i.rootElement.remove();
+      i.closeWindow();
     }
 
     explorerGlobals.allExplorers = [];

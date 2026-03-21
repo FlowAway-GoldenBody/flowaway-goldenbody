@@ -1309,7 +1309,7 @@ textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
     for (const i of textEditorGlobals.alltextEditor) {
-      i.rootElement.remove();
+      i.closeWindow();
     }
 
     textEditorGlobals.alltextEditor = [];
