@@ -2,6 +2,17 @@ window.data = data;
 var password = data.password;
 window.loaded = false;
 window.APP_VERSION = 'v1.12.5';
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 function calculateVwInPixels(vwValue) {
   const viewportWidth = window.innerWidth; // Get the current viewport width in pixels
   const pixels = (vwValue * viewportWidth) / 100; // Apply the conversion formula
@@ -18,27 +29,55 @@ var nativeDocumentEventlister = nativeEventTargetAdd
 var nativeWindowEventlister = nativeEventTargetAdd
   ? nativeEventTargetAdd.bind(window)
   : window.addEventListener.bind(window);
+var nativeEventTargetRemove =
+  window.EventTarget && window.EventTarget.prototype && typeof window.EventTarget.prototype.removeEventListener === 'function'
+    ? window.EventTarget.prototype.removeEventListener
+    : null;
+var nativeDocumentEventRemover = nativeEventTargetRemove
+  ? nativeEventTargetRemove.bind(document)
+  : document.removeEventListener.bind(document);
+var nativeWindowEventRemover = nativeEventTargetRemove
+  ? nativeEventTargetRemove.bind(window)
+  : window.removeEventListener.bind(window);
+
+function isValidEventListener(handler) {
+  return typeof handler === 'function' || !!(handler && typeof handler.handleEvent === 'function');
+}
+
+function normalizeCaptureOption(options) {
+  if (typeof options === 'boolean') return options;
+  if (options && typeof options === 'object' && typeof options.capture === 'boolean') return options.capture;
+  return false;
+}
 
 function normalizeAddEventArgs(a, b, c, d) {
   // Supports both signatures:
   // 1) native: (type, handler, options)
   // 2) scoped: (appname, type, handler, options)
-  if (typeof b === 'string' && (typeof c === 'function' || (c && typeof c === 'object'))) {
+  if (typeof b === 'string' && isValidEventListener(c)) {
     return { appname: String(a || ''), type: b, handler: c, options: d };
   }
   return { appname: '', type: a, handler: b, options: c };
 }
 
 function addScopedListener(targetName, nativeAdd, appname, type, handler, options) {
-  if (typeof type !== 'string' || !(typeof handler === 'function' || (handler && typeof handler === 'object'))) {
+  if (typeof type !== 'string' || !isValidEventListener(handler)) {
     return;
   }
 
   nativeAdd(type, handler, options);
 
   if (!appname) return;
-  window[appname + '_handlers'] = window[appname + '_handlers'] || [];
-  window[appname + '_handlers'].push({ target: targetName, type, handler, options });
+  var scopedAppName = String(appname).trim();
+  if (!scopedAppName) return;
+  window[scopedAppName + '_handlers'] = window[scopedAppName + '_handlers'] || [];
+  window[scopedAppName + '_handlers'].push({
+    target: targetName,
+    type,
+    handler,
+    options,
+    capture: normalizeCaptureOption(options)
+  });
 }
 
 document.addEventListener = function(a, b, c, d) {
@@ -52,21 +91,28 @@ window.addEventListener = function(a, b, c, d) {
 };
 
 window.removeAllEventListenersForApp = function(appname) {
-  var handlers = window[appname + '_handlers'] || [];
-  handlers.forEach(({ target, type, handler, options }) => {
+  var scopedAppName = String(appname || '').trim();
+  if (!scopedAppName) return;
+  var handlers = window[scopedAppName + '_handlers'] || [];
+  handlers.forEach(({ target, type, handler, options, capture }) => {
     if (target === 'document') {
-      try { document.removeEventListener(type, handler, options); } catch (e) {}
+      try { nativeDocumentEventRemover(type, handler, options); } catch (e) {}
+      try { nativeDocumentEventRemover(type, handler, typeof capture === 'boolean' ? capture : normalizeCaptureOption(options)); } catch (e) {}
       return;
     }
     if (target === 'window') {
-      try { window.removeEventListener(type, handler, options); } catch (e) {}
+      try { nativeWindowEventRemover(type, handler, options); } catch (e) {}
+      try { nativeWindowEventRemover(type, handler, typeof capture === 'boolean' ? capture : normalizeCaptureOption(options)); } catch (e) {}
       return;
     }
     // Backward compatibility for older tracked entries without target.
-    try { window.removeEventListener(type, handler, options); } catch (e) {}
-    try { document.removeEventListener(type, handler, options); } catch (e) {}
+    var fallbackCapture = typeof capture === 'boolean' ? capture : normalizeCaptureOption(options);
+    try { nativeWindowEventRemover(type, handler, options); } catch (e) {}
+    try { nativeWindowEventRemover(type, handler, fallbackCapture); } catch (e) {}
+    try { nativeDocumentEventRemover(type, handler, options); } catch (e) {}
+    try { nativeDocumentEventRemover(type, handler, fallbackCapture); } catch (e) {}
   });
-  window[appname + '_handlers'] = [];
+  window[scopedAppName + '_handlers'] = [];
 };
 
 window.windowControlSvgs = {
@@ -3230,4 +3276,5 @@ setTimeout(() => {
       , 5000);
   }, 5000);
 }, 100);
+// user warnings here, you can remove this in your own build if you want
 notification('this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah');

@@ -837,7 +837,7 @@ settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
     for (const i of settingsGlobals.allSettings) {
-      i.rootElement.remove();
+      i.closeWindow();
     }
 
     settingsGlobals.allSettings = [];

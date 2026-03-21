@@ -396,7 +396,7 @@ your_app_nameGlobals.your_app_nameContextMenu = function (
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
     for (const i of your_app_nameGlobals.allyour_app_name) {
-      i.rootElement.remove();
+      i.closeWindow();
     }
 
     your_app_nameGlobals.allyour_app_name = [];
