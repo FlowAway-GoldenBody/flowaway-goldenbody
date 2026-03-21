@@ -406,6 +406,7 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
     }
 
     terminalGlobals.allTerminals = [];
+    menu.remove();
   });
   menu.appendChild(closeAll);
 
