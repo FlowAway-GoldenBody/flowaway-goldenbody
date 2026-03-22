@@ -360,6 +360,7 @@ settings = function (posX = 50, posY = 50) {
   const oldinput = document.createElement("input");
   oldinput.type = "password";
   oldinput.placeholder = "Old password";
+  oldinput.autocomplete = "current-password";
   oldinput.style.width = "calc(100% - 10px)";
   oldinput.style.boxSizing = "border-box";
   oldinput.style.padding = "6px";
@@ -367,6 +368,7 @@ settings = function (posX = 50, posY = 50) {
   const input = document.createElement("input");
   input.type = "password";
   input.placeholder = "New password";
+  input.autocomplete = "new-password";
   input.style.width = "calc(100% - 10px)";
   input.style.boxSizing = "border-box";
   input.style.padding = "6px";
@@ -374,6 +376,7 @@ settings = function (posX = 50, posY = 50) {
   const confirm = document.createElement("input");
   confirm.type = "password";
   confirm.placeholder = "Confirm password";
+  confirm.autocomplete = "new-password";
   confirm.style.width = "calc(100% - 10px)";
   confirm.style.boxSizing = "border-box";
   confirm.style.padding = "6px";
@@ -415,8 +418,12 @@ settings = function (posX = 50, posY = 50) {
       if (res.success) {
         status.textContent = "Password updated successfully.";
         status.style.color = "green";
-        password = input.value; // Update global password variable
-        data.password = input.value; // Update password in data object
+        // If server returned a short-lived auth token, prefer storing that instead
+        if (res.authToken || res.token) {
+          data.authToken = res.authToken || res.token;
+        }
+        // Clear all password inputs
+        oldinput.value = "";
         input.value = "";
         confirm.value = "";
       } else {

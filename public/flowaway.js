@@ -1,5 +1,4 @@
 window.data = data;
-var password = data.password;
 window.loaded = false;
 window.APP_VERSION = 'v1.12.5';
 function formatBytes(bytes, decimals = 2) {
@@ -347,33 +346,44 @@ try {
 
 
 async function filePost(data) {
+  const headers = { "Content-Type": "application/json" };
+  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(SERVER, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
+    headers,
+    body: JSON.stringify({ username, ...data }),
   });
+  if(!data.initFE) {
   setTimeout(() => {
-    loadTree();
-  }, 1000);  
+    try{
+      window.onlyloadTree();
+    } catch (e) {
+      console.error('Error occurred while loading tree', e);
+    }
+  }, 1000);
+  }
   return res.json();
 }
 async function zmcdpost(data) {
+  const headers = { "Content-Type": "application/json" };
+  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(zmcdserver, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
+    headers,
+    body: JSON.stringify({ username, ...data }),
   });
   return res.json();
 }
 async function posttaskbuttons(data) {
+  const headers = { "Content-Type": "application/json" };
+  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(zmcdserver, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       username: username,
       data: data,
       edittaskbuttons: true,
-      password: password, // include password for authentication
     }),
   });
   return res.json();
@@ -381,12 +391,11 @@ async function posttaskbuttons(data) {
 async function downloadPost(data) {
     var res = await fetch(downloadserver, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: (function(){ const h = { "Content-Type": "application/json" }; if (window.data && window.data.authToken) h["Authorization"] = "Bearer " + window.data.authToken; return h; })(),
     body: JSON.stringify({
       username: username,
       data: data,
       edittaskbuttons: true,
-      password: password, // include password for authentication
     }),
   });
   return res.json();
@@ -1847,6 +1856,7 @@ window.loadTree = async function () {
   await loadAppsFromTree();
 };
 loadTree();
+window.onlyloadTree = oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 
 var username = data.username;

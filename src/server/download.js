@@ -8,7 +8,7 @@ let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
 
 // Authenticate user against <directoryPath>/<username>/<username>.txt
-async function authenticateUser(username, providedPassword) {
+async function authenticateUser(username, providedPassword, authHeader) {
   try {
     if (!username) return false;
     const userDir = path.join(directoryPath, username);
@@ -17,7 +17,16 @@ async function authenticateUser(username, providedPassword) {
       const txt = await fsp.readFile(userFile, 'utf8');
       const obj = JSON.parse(txt);
       if (obj && typeof obj.password === 'string' && obj.password.length) {
-        return providedPassword === obj.password;
+        if (providedPassword === obj.password) return true;
+        if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+          const token = authHeader.slice(7).trim();
+          if (Array.isArray(obj.authTokens)) {
+            const now = Date.now();
+            obj.authTokens = obj.authTokens.filter(t => t && t.expires && t.expires > now);
+            return obj.authTokens.some(t => t.token === token && t.expires > now);
+          }
+        }
+        return false;
       }
       return true; // no password set → allow
     } catch (e) {
@@ -66,7 +75,7 @@ function respondJSON(res, code, obj) {
 async function handleDownload(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -90,7 +99,8 @@ async function handleDownload(req, res) {
     if (!username) return respondJSON(res, 400, { error: 'missing username' });
     if (!data.href) return respondJSON(res, 400, { error: 'missing data.href' });
 
-    if (!(await authenticateUser(username, password))) {
+    const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
+    if (!(await authenticateUser(username, password, authHeader))) {
       console.log('download auth failed for', username);
       return respondJSON(res, 401, { error: 'unauthorized' });
     }
