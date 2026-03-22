@@ -352,6 +352,9 @@ async function filePost(data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
   });
+  setTimeout(() => {
+    loadTree();
+  }, 1000);  
   return res.json();
 }
 async function zmcdpost(data) {
