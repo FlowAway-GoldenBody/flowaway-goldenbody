@@ -49,6 +49,7 @@ function updateAllSystemApps() {
     const systemAppDirs = systemEntries
       .filter(e => e.isDirectory() && !e.name.startsWith('.'))
       .map(d => d.name);
+    const sampleAppName = 'sample app';
     
     // Get list of user directories
     const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
@@ -64,11 +65,29 @@ function updateAllSystemApps() {
         }
         
         const userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
+        const userRootPath = path.join(directoryPath, username, 'root');
+        const userBootPath = path.join(userRootPath, '.boot');
+        const userGbenvPath = path.join(userBootPath, 'gbenv.js');
+        const userAppsPath = path.join(userRootPath, 'apps');
+
+        fs.mkdirSync(userRootPath, { recursive: true });
+        fs.mkdirSync(userBootPath, { recursive: true });
+        if (!fs.existsSync(userGbenvPath)) {
+          fs.writeFileSync(userGbenvPath, 'window.__gbenv_shortcut = {};\n');
+        }
+
+        fs.mkdirSync(userAppsPath, { recursive: true });
+        if (systemAppDirs.includes(sampleAppName)) {
+          const srcSampleApp = path.join(systemAppsPath, sampleAppName);
+          const dstSampleApp = path.join(userAppsPath, sampleAppName);
+          if (!fs.existsSync(dstSampleApp)) {
+            fs.cpSync(srcSampleApp, dstSampleApp, { recursive: true });
+          }
+        }
+
         // Check if user has autoupdate systemapps enabled
         userData.autoupdate = __gbconfig.autoupdate; //override for testing, will be removed in production
         if (userData.autoupdate) {
-          const userAppsPath = path.join(directoryPath, username, 'root', 'apps');
-
           // Only replace known system app folders; preserve user-created non-system apps.
           fs.mkdirSync(userAppsPath, { recursive: true });
           for (const appName of systemAppDirs) {

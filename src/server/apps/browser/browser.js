@@ -12,12 +12,393 @@ window.__globalAddTab = function (url, index) {
 };
 browserGlobals.allBrowsers = [];
 browserGlobals.browserId = 0;
-browserGlobals.id = data.id;
 browserGlobals.proxyurl = window.origin + "/";
 browserGlobals.dragstartwindow = null;
 browserGlobals.__vfsMessageListenerAdded = false;
 browserGlobals.tabisDragging = false;
 browserGlobals.draggedtab = 0;
+browserGlobals.profileUserIdPath = "/apps/browser/profile/userID.txt";
+browserGlobals.profileSettingsPath = "/apps/browser/profile/settings.json";
+browserGlobals.profileState = {
+  siteSettings: [],
+  enableURLSync: true,
+  lazyloading: true,
+};
+
+function safeDecodeBase64Text(v) {
+  try {
+    return atob(String(v || ""));
+  } catch (e) {
+    return "";
+  }
+}
+
+function looksLikeSessionId(value) {
+  const s = String(value || "").trim();
+  return /^[A-Za-z0-9._-]{8,}$/.test(s);
+}
+
+function decodeMaybeBase64(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (s[0] === "{" || s[0] === "[") return s;
+  const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
+  if (!looksLikeBase64) return s;
+  const decoded = safeDecodeBase64Text(s);
+  if (!decoded) return s;
+  const trimmed = decoded.trim();
+  if (!trimmed) return s;
+  if (trimmed[0] === "{" || trimmed[0] === "[") return trimmed;
+  if (looksLikeSessionId(trimmed)) return trimmed;
+
+  let printable = 0;
+  for (let i = 0; i < decoded.length; i++) {
+    const code = decoded.charCodeAt(i);
+    if (code === 9 || code === 10 || code === 13 || (code >= 32 && code <= 126)) {
+      printable++;
+    }
+  }
+  const printableRatio = decoded.length ? printable / decoded.length : 0;
+  if (printableRatio >= 0.95) return trimmed;
+
+  return s;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Simple div-based confirmation dialog. Returns true for confirm, false for cancel.
+function showConfirmDialog(title, message) {
+  return new Promise((resolve) => {
+    try {
+      document.getElementById("gb-confirm-overlay")?.remove();
+    } catch (e) {}
+    const overlay = document.createElement("div");
+    overlay.id = "gb-confirm-overlay";
+
+    const isDark = !!(window.data && window.data.dark);
+    overlay.style.cssText = `position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;`;
+    overlay.style.backgroundColor = isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)';
+
+    const panel = document.createElement("div");
+    panel.style.cssText = `width:360px;max-width:90vw;border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.4);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;`;
+    panel.style.background = isDark ? '#0f1113' : '#fff';
+    panel.style.color = isDark ? '#e6eef8' : '#000';
+
+    const h = document.createElement("div");
+    h.style.cssText = "font-weight:700;margin-bottom:8px;font-size:15px;";
+    h.style.color = isDark ? '#fff' : '#111';
+    h.textContent = title || "Confirm";
+
+    const m = document.createElement("div");
+    m.style.cssText = "margin-bottom:12px;font-size:13px;white-space:pre-wrap;";
+    m.style.color = isDark ? '#cbd5e1' : '#333';
+    m.textContent = message || "Are you sure?";
+
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
+
+    const btnCancel = document.createElement("button");
+    btnCancel.textContent = "Cancel";
+    btnCancel.style.cssText = isDark
+      ? "padding:8px 12px;border-radius:6px;background:transparent;border:1px solid #444;color:#ddd;cursor:pointer;"
+      : "padding:8px 12px;border-radius:6px;background:transparent;border:1px solid #ccc;color:#111;cursor:pointer;";
+    btnCancel.onclick = () => {
+      try { overlay.remove(); } catch (e) {}
+      resolve(false);
+    };
+
+    const btnOk = document.createElement("button");
+    btnOk.textContent = "Confirm";
+    btnOk.style.cssText = isDark
+      ? "padding:8px 12px;border-radius:6px;background:#2563eb;color:#fff;border:none;cursor:pointer;"
+      : "padding:8px 12px;border-radius:6px;background:#4c8bf5;color:#fff;border:none;cursor:pointer;";
+    btnOk.onclick = () => {
+      try { overlay.remove(); } catch (e) {}
+      resolve(true);
+    };
+
+    actions.appendChild(btnCancel);
+    actions.appendChild(btnOk);
+    panel.appendChild(h);
+    panel.appendChild(m);
+    panel.appendChild(actions);
+
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    // allow Esc to cancel
+    function onKey(e) {
+      if (e.key === "Escape") {
+        try { overlay.remove(); } catch (err) {}
+        document.removeEventListener("keydown", onKey);
+        resolve(false);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+  });
+}
+async function readProfileTextFileMeta(filePath, options = {}) {
+  const attempts = Math.max(1, Number(options.attempts || 1));
+  const retryDelayMs = Math.max(0, Number(options.retryDelayMs || 0));
+  let lastError = null;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      if (typeof ReadFile === "function") {
+        const res = await ReadFile(filePath);
+        if (!res || res.missing || res.code === "ENOENT" || res.kind === "missing") {
+          if (attempt + 1 < attempts) {
+            if (retryDelayMs > 0) await sleep(retryDelayMs);
+            continue;
+          }
+          return { text: "", missing: true, error: null };
+        }
+        if (typeof res === "string") {
+          return { text: decodeMaybeBase64(res), missing: false, error: null };
+        }
+        if (typeof res.filecontent === "string") {
+          return { text: decodeMaybeBase64(res.filecontent), missing: false, error: null };
+        }
+        return { text: "", missing: false, error: null };
+      }
+
+      if (typeof readFile === "function") {
+        const value = readFile(filePath);
+        return { text: decodeMaybeBase64(value), missing: false, error: null };
+      }
+
+      return { text: "", missing: false, error: new Error("No file reader available") };
+    } catch (e) {
+      lastError = e;
+      if (attempt + 1 < attempts) {
+        if (retryDelayMs > 0) await sleep(retryDelayMs);
+        continue;
+      }
+    }
+  }
+
+  return { text: "", missing: false, error: lastError || new Error("Failed to read file") };
+}
+
+async function readProfileTextFile(filePath) {
+  const result = await readProfileTextFileMeta(filePath, {
+    attempts: 3,
+    retryDelayMs: 120,
+  });
+  return result.text || "";
+}
+
+function defaultBrowserProfile() {
+  return {
+    siteSettings: [],
+    enableURLSync: true,
+    lazyloading: true,
+  };
+}
+
+function normalizeBrowserProfile(parsed) {
+  if (!parsed || typeof parsed !== "object") return defaultBrowserProfile();
+  return {
+    siteSettings: Array.isArray(parsed.siteSettings) ? parsed.siteSettings : [],
+    enableURLSync:
+      typeof parsed.enableURLSync === "boolean" ? parsed.enableURLSync : true,
+    lazyloading:
+      typeof parsed.lazyloading === "boolean" ? parsed.lazyloading : true,
+  };
+}
+
+function isDefaultLikeProfile(profile) {
+  return (
+    !!profile &&
+    Array.isArray(profile.siteSettings) &&
+    profile.siteSettings.length === 0 &&
+    profile.enableURLSync === true &&
+    profile.lazyloading === true
+  );
+}
+
+async function readBrowserProfile() {
+  try {
+    const profileRead = await readProfileTextFileMeta(browserGlobals.profileSettingsPath, {
+      attempts: 4,
+      retryDelayMs: 120,
+    });
+    const raw = profileRead.text;
+    if (!raw) return defaultBrowserProfile();
+    const parsed = JSON.parse(raw);
+    return normalizeBrowserProfile(parsed);
+  } catch (e) {
+    return defaultBrowserProfile();
+  }
+}
+
+async function writeBrowserProfile(profile, options = {}) {
+  const payload = {
+    siteSettings: Array.isArray(profile?.siteSettings) ? profile.siteSettings : [],
+    enableURLSync: !!profile?.enableURLSync,
+    lazyloading: !!profile?.lazyloading,
+  };
+
+  if (!options.force) {
+    try {
+      const existingRead = await readProfileTextFileMeta(
+        browserGlobals.profileSettingsPath,
+        {
+          attempts: 3,
+          retryDelayMs: 100,
+        },
+      );
+      const existingRaw = existingRead.text;
+      if (existingRaw) {
+        const existing = normalizeBrowserProfile(JSON.parse(existingRaw));
+        if (!isDefaultLikeProfile(existing) && isDefaultLikeProfile(payload)) {
+          // Guard against race conditions wiping a real settings file with defaults.
+          return false;
+        }
+      } else if (isDefaultLikeProfile(payload)) {
+        // Never auto-write default profile when existing content is empty/uncertain.
+        // This prevents transient read races from wiping real data.
+        return false;
+      }
+    } catch (e) {
+      // ignore parse/read guard failures and continue with write
+    }
+  }
+
+  const content = btoa(JSON.stringify(payload, null, 2));
+  if (typeof WriteFile === "function") {
+    await WriteFile(browserGlobals.profileSettingsPath, content);
+    return true;
+  }
+  if (typeof filePost === "function") {
+    await filePost({
+      saveSnapshot: true,
+      directions: [
+        {
+          edit: true,
+          path: browserGlobals.profileSettingsPath,
+          contents: content,
+          replace: true,
+        },
+        { end: true },
+      ],
+    });
+    return true;
+  }
+  return false;
+}
+
+async function writeBrowserUserId(id) {
+  const encoded = btoa(String(id || ""));
+  if (typeof WriteFile === "function") {
+    await WriteFile(browserGlobals.profileUserIdPath, encoded);
+    return;
+  }
+  if (typeof filePost === "function") {
+    await filePost({
+      saveSnapshot: true,
+      directions: [
+        {
+          edit: true,
+          path: browserGlobals.profileUserIdPath,
+          contents: encoded,
+          replace: true,
+        },
+        { end: true },
+      ],
+    });
+  }
+}
+
+async function requestNewBrowserSessionId() {
+  const candidates = ["/server/newsession", "/newsession"];
+  let lastError = null;
+  for (const endpoint of candidates) {
+    try {
+      const res = await fetch(endpoint);
+      if (!res.ok) {
+        lastError = new Error(`Failed to create new browser session (${endpoint})`);
+        continue;
+      }
+      const id = (await res.text()).trim();
+      if (id) return id;
+      lastError = new Error(`Empty browser session id (${endpoint})`);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error("Failed to create new browser session");
+}
+
+browserGlobals.profile = defaultBrowserProfile();
+browserGlobals.profileState = normalizeBrowserProfile(browserGlobals.profile);
+browserGlobals.id = "";
+browserGlobals.profileReadyPromise = (async () => {
+  const loadedProfile = await readBrowserProfile();
+  browserGlobals.profile = loadedProfile;
+  browserGlobals.profileState = normalizeBrowserProfile(loadedProfile);
+
+  const idRead = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+    attempts: 5,
+    retryDelayMs: 150,
+  });
+  const persistedId = String(idRead.text || "").trim();
+  if (persistedId) {
+    browserGlobals.id = persistedId;
+    return;
+  }
+
+  if (idRead.error) {
+    return;
+  }
+
+  // One more confirmation pass before generating/writing a new session id.
+  // This avoids replacing an existing id when the first read was transiently empty.
+  const idReadConfirm = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+    attempts: 6,
+    retryDelayMs: 220,
+  });
+  const confirmedId = String(idReadConfirm.text || "").trim();
+  if (confirmedId) {
+    browserGlobals.id = confirmedId;
+    return;
+  }
+  if (idReadConfirm.error) {
+    return;
+  }
+  // Before creating a new session id, ask the user via a div dialog.
+  // If they cancel, re-run the read attempts and only proceed if the id is still missing.
+  while (true) {
+    const ok = await showConfirmDialog(
+      "Create new browser session",
+      "No existing session id found. Create a new browser session id and save it to your profile?",
+    );
+    if (!ok) {
+      // re-check the profile file (attempts) and return if found or errored.
+      const retry = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+        attempts: 6,
+        retryDelayMs: 220,
+      });
+      const retried = String(retry.text || "").trim();
+      if (retried) {
+        browserGlobals.id = retried;
+        break;
+      }
+      if (retry.error) {
+        return;
+      }
+      // else loop and ask again
+      continue;
+    }
+
+    const id = await requestNewBrowserSessionId();
+    browserGlobals.id = id;
+    await writeBrowserUserId(id);
+    break;
+  }
+})().catch(() => {});
+
 browserGlobals.subWebsite = function (url) {
   url = url.split("?");
   url = url[0].split("#");
@@ -71,8 +452,12 @@ window.browser = function (
   posY = 20,
 ) {
   async function updateSiteSettings(iframe, content) {
-    data.enableURLSync = content.enableURLSync;
-    data.lazyloading = content.lazyloading;
+    if (browserGlobals.profileReadyPromise) {
+      await browserGlobals.profileReadyPromise;
+    }
+
+    browserGlobals.profileState.enableURLSync = !!content.enableURLSync;
+    browserGlobals.profileState.lazyloading = !!content.lazyloading;
     if (content.lazyloading)
       browserGlobals.allBrowsers.forEach((b) =>
         b.tabs.forEach((t) => (t.iframe.loading = "lazy")),
@@ -81,14 +466,32 @@ window.browser = function (
       browserGlobals.allBrowsers.forEach((b) =>
         b.tabs.forEach((t) => (t.iframe.loading = "")),
       );
-    content.updateSiteSettings = true;
-    content.url = browserGlobals.mainWebsite(
+
+    const currentUrl = browserGlobals.mainWebsite(
       browserGlobals.unshuffleURL(iframe.src),
     );
-    await zmcdpost(content);
+    const profile = browserGlobals.profile || defaultBrowserProfile();
+    const list = Array.isArray(profile.siteSettings) ? profile.siteSettings : [];
+    let updated = false;
+    for (let i = 0; i < list.length; i++) {
+      if (Array.isArray(list[i]) && list[i][0] === currentUrl) {
+        list[i][1] = content.newSandbox;
+        updated = true;
+      }
+    }
+    if (!updated && content.addTheSite) {
+      list.push([currentUrl, content.newSandbox]);
+    }
+    profile.siteSettings = list;
+    profile.enableURLSync = !!content.enableURLSync;
+    profile.lazyloading = !!content.lazyloading;
+    browserGlobals.profile = profile;
+    browserGlobals.profileState.siteSettings = profile.siteSettings;
+    browserGlobals.profileState.enableURLSync = profile.enableURLSync;
+    browserGlobals.profileState.lazyloading = profile.lazyloading;
+    await writeBrowserProfile(profile);
+
     iframe.sandbox = content.newSandbox;
-    data.siteSettings = await zmcdpost({ requestSiteSettings: true });
-    data.siteSettings = data.siteSettings.siteSettings;
   }
   function createPermInput(iframe, url) {
     url = browserGlobals.mainWebsite(url);
@@ -105,7 +508,7 @@ window.browser = function (
 
     let fullscreen = true;
     let addTheSite = true;
-    let siteSettings = data.siteSettings;
+    let siteSettings = browserGlobals.profileState.siteSettings;
     for (const site of siteSettings) {
       if (url === site[0]) {
         sandbox = site[1];
@@ -206,13 +609,17 @@ window.browser = function (
       secure = "You are viewing a secure official goldenbody webpage";
     section(website);
     section(secure);
-    if (!data.enableURLSync)
+    if (!browserGlobals.profileState.enableURLSync)
       section(
         "Only user-initiated navigations get new permissions. To disable this, open sync perms below.",
       );
     // perms
     const syncpermsSec = section("Sync Perms");
-    let syncperms = checkbox(syncpermsSec, "sync perms", data.enableURLSync);
+    let syncperms = checkbox(
+      syncpermsSec,
+      "sync perms",
+      browserGlobals.profileState.enableURLSync,
+    );
     const info = document.createElement("div");
     info.style.cssText = `
     margin-top:6px;
@@ -226,7 +633,7 @@ window.browser = function (
     let lazyloading = checkbox(
       lazyloadingsect,
       "Lazy Loading",
-      data.lazyloading,
+      browserGlobals.profileState.lazyloading,
     );
 
     // ===============================
@@ -827,21 +1234,25 @@ window.browser = function (
       openDownloadUI({ x, y });
     };
 
-    clear.onclick = function () {
-      fetch(zmcdserver, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: data.username,
-          needID: true,
-          password: password,
-        }),
-      })
-        .then((res) => res.json())
-        .then((result) => {
-          console.log("id now:", result);
-          browserGlobals.id = result.id;
-        });
+    clear.onclick = async function () {
+      const confirmClear = await showConfirmDialog(
+        "Clear site data",
+        "This will reset site settings and generate a new browser session id. Continue?",
+      );
+      if (!confirmClear) return;
+
+      const id = await requestNewBrowserSessionId();
+      browserGlobals.id = id;
+      await writeBrowserUserId(id);
+      browserGlobals.profile = {
+        siteSettings: [],
+        enableURLSync: true,
+        lazyloading: true,
+      };
+      await writeBrowserProfile(browserGlobals.profile, { force: true });
+      browserGlobals.profileState.siteSettings = [];
+      browserGlobals.profileState.enableURLSync = true;
+      browserGlobals.profileState.lazyloading = true;
       notification("site data cleared! please close all browser windows!");
     };
 
@@ -1255,7 +1666,7 @@ window.browser = function (
     function addTab(url, title, resizeP = preloadsize) {
       const id = "tab-" + ++tabCounter;
       const iframe = document.createElement("iframe");
-      if (data.lazyloading) iframe.loading = "lazy";
+      if (browserGlobals.profileState.lazyloading) iframe.loading = "lazy";
       iframe.onload = () => {
         try {
           // Try to access its document
@@ -1366,7 +1777,7 @@ window.browser = function (
           {
             message: "GOLDENBODY_id",
             website: goldenbodywebsite,
-            value: data.id,
+            value: browserGlobals.id,
             dark: data.dark,
           },
           "*",
@@ -1498,6 +1909,20 @@ window.browser = function (
       }, 1000 * nhjd);
 
       createPermInput(iframe, url);
+      if (browserGlobals.profileReadyPromise) {
+        browserGlobals.profileReadyPromise
+          .then(() => {
+            try {
+              createPermInput(
+                iframe,
+                browserGlobals.unshuffleURL(iframe.contentWindow.location.href || url),
+              );
+            } catch (e) {
+              try { createPermInput(iframe, url); } catch (ee) {}
+            }
+          })
+          .catch(() => {});
+      }
       iframe.tabIndex = "0";
       iframe.className = "sim-iframe";
       let checkerinterval = null;
@@ -5145,7 +5570,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             urlInput.value = currentUrl;
           }
           if (currentUrl !== previousUrlMain) {
-            if ((browserGlobals.subWebsite(currentUrl) !== browserGlobals.subWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (data.enableURLSync) openUrlInActiveTab(currentUrl);
+            if ((browserGlobals.subWebsite(currentUrl) !== browserGlobals.subWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (browserGlobals.profileState.enableURLSync) openUrlInActiveTab(currentUrl);
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";
@@ -5739,10 +6164,13 @@ browserGlobals.browsermenuhandler = function (e, needremove = true) {
   closeAllitem.style.padding = "6px 10px";
   closeAllitem.style.cursor = "pointer";
   closeAllitem.addEventListener("click", function () {
-    for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-      browserGlobals.allBrowsers[i].closeWindow();
+    for (const instance of [...browserGlobals.allBrowsers]) {
+      if (instance && typeof instance.closeWindow === "function") {
+        instance.closeWindow();
+      }
     }
     browserGlobals.allBrowsers = [];
+    menu.remove();
   });
   menu.appendChild(closeAllitem);
   /*

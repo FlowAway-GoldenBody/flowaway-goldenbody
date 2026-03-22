@@ -2,6 +2,13 @@
 window.textEditorGlobals = {};
 textEditorGlobals.alltextEditor = [];
 textEditorGlobals.textEditorId = 0;
+textEditorGlobals.settingsPath = "/apps/textEditor/data/settings.json";
+textEditorGlobals.editorSettings = {
+  fontSize: 14,
+  tabSize: 2,
+  autosave: false,
+};
+textEditorGlobals.settingsLoadPromise = null;
 textEditorGlobals.__textEditorStyle = document.createElement("style");
 textEditorGlobals.__textEditorStyle.textContent = `
 .texteditor-topbar.dark{
@@ -14,6 +21,96 @@ textEditorGlobals.__textEditorStyle.textContent = `
 }
 `;
 document.head.appendChild(textEditorGlobals.__textEditorStyle);
+
+function normalizeTextEditorSettings(value) {
+  const base = {
+    fontSize: 14,
+    tabSize: 2,
+    autosave: false,
+  };
+  if (!value || typeof value !== "object") return base;
+  const parsedFontSize = Number(value.fontSize);
+  const parsedTabSize = Number(value.tabSize);
+  return {
+    fontSize:
+      Number.isFinite(parsedFontSize) && parsedFontSize >= 8 && parsedFontSize <= 48
+        ? parsedFontSize
+        : base.fontSize,
+    tabSize:
+      Number.isFinite(parsedTabSize) && parsedTabSize >= 1 && parsedTabSize <= 8
+        ? parsedTabSize
+        : base.tabSize,
+    autosave: !!value.autosave,
+  };
+}
+
+function decodeMaybeBase64Text(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(text) && text.length % 4 === 0;
+  if (!looksLikeBase64) return text;
+  try {
+    return atob(text);
+  } catch (e) {
+    return text;
+  }
+}
+
+async function loadTextEditorSettings(forceRefresh = false) {
+  if (!forceRefresh && textEditorGlobals.settingsLoadPromise) {
+    return textEditorGlobals.settingsLoadPromise;
+  }
+
+  textEditorGlobals.settingsLoadPromise = (async () => {
+    try {
+      let raw = "";
+      if (typeof ReadFile === "function") {
+        const res = await ReadFile(textEditorGlobals.settingsPath);
+        if (res && !res.missing) {
+          if (typeof res.filecontent === "string") raw = decodeMaybeBase64Text(res.filecontent);
+          else if (typeof res === "string") raw = decodeMaybeBase64Text(res);
+        }
+      } else if (typeof readFile === "function") {
+        raw = decodeMaybeBase64Text(readFile(textEditorGlobals.settingsPath));
+      }
+
+      if (raw) {
+        textEditorGlobals.editorSettings = normalizeTextEditorSettings(JSON.parse(raw));
+      }
+    } catch (e) {
+      textEditorGlobals.editorSettings = normalizeTextEditorSettings(textEditorGlobals.editorSettings);
+    }
+    return textEditorGlobals.editorSettings;
+  })();
+
+  return textEditorGlobals.settingsLoadPromise;
+}
+
+async function saveTextEditorSettings(settings) {
+  const normalized = normalizeTextEditorSettings(settings);
+  textEditorGlobals.editorSettings = normalized;
+  textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
+  const content = btoa(JSON.stringify(normalized, null, 2));
+
+  if (typeof WriteFile === "function") {
+    await WriteFile(textEditorGlobals.settingsPath, content, { replace: true });
+    return;
+  }
+  if (typeof filePost === "function") {
+    await filePost({
+      saveSnapshot: true,
+      directions: [
+        { edit: true, path: textEditorGlobals.settingsPath, contents: content, replace: true },
+        { end: true },
+      ],
+    });
+  }
+}
+
+function getTextEditorSettings() {
+  return normalizeTextEditorSettings(textEditorGlobals.editorSettings);
+}
+
 textEditor = function (path, posX = 50, posY = 50) {
   let hasFileOpen = false;
   let editorName;
@@ -22,15 +119,6 @@ textEditor = function (path, posX = 50, posY = 50) {
     window.loadTree();
   }
   startMenu.style.display = "none";
-  async function post(data) {
-    const res = await fetch(SERVER, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, ...data, password: password }),
-    });
-    return res.json();
-  }
-
   let isMaximized = false;
   let _isMinimized = false;
   atTop = "textEditor";
@@ -158,6 +246,15 @@ textEditor = function (path, posX = 50, posY = 50) {
     setWindowMaximizeIcon(btnMax, false);
   }
 
+  function closeWindow() {
+    root.remove();
+    const index = textEditorGlobals.alltextEditor.findIndex(
+      (instance) => instance.rootElement == root,
+    );
+    if (index !== -1) textEditorGlobals.alltextEditor.splice(index, 1);
+    window.removeAllEventListenersForApp("textEditor" + root._textEditorId);
+  }
+
   // Minimize
   btnMin.addEventListener("click", () => {
     savedBounds = getBounds();
@@ -175,18 +272,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   });
 
   // Close
-  btnClose.addEventListener("click", () => {
-    root.remove();
-    let index = false;
-    for (let i = 0; i < textEditorGlobals.alltextEditor.length; i++) {
-      if (textEditorGlobals.alltextEditor[i].rootElement == root) {
-        index = i;
-      }
-    }
-    if (index !== false) textEditorGlobals.alltextEditor.splice(index, 1);
-    // Clean up all event listeners added by this app
-    window.removeAllEventListenersForApp("textEditor" + root._textEditorId);
-  });
+  btnClose.addEventListener("click", closeWindow);
 
   // --- Make draggable / resizable ---
   makeDraggableResizable(root, dragStrip, btnMax);
@@ -439,8 +525,10 @@ textEditor = function (path, posX = 50, posY = 50) {
   editorSettingsBtn.style.cursor = "pointer";
   toolbar.appendChild(editorSettingsBtn);
 
-  editorSettingsBtn.addEventListener("click", () => {
+  editorSettingsBtn.addEventListener("click", async () => {
     if (document.querySelector(".texteditor-settings-overlay")) return; // already open
+    await loadTextEditorSettings();
+    const currentSettings = getTextEditorSettings();
 
     // overlay
     const overlay = document.createElement("div");
@@ -482,7 +570,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     fontInput.max = 48;
     fontInput.style.width = "100px";
     fontInput.value =
-      data?.editorSettings?.fontSize || parseInt(textarea.style.fontSize) || 14;
+      currentSettings.fontSize || parseInt(textarea.style.fontSize) || 14;
 
     const tabLabel = document.createElement("div");
     tabLabel.textContent = "Tab size (spaces)";
@@ -491,14 +579,14 @@ textEditor = function (path, posX = 50, posY = 50) {
     tabInput.min = 1;
     tabInput.max = 8;
     tabInput.style.width = "100px";
-    tabInput.value = data?.editorSettings?.tabSize || 2;
+    tabInput.value = currentSettings.tabSize || 2;
 
     const autosaveRow = document.createElement("div");
     autosaveRow.style.display = "flex";
     autosaveRow.style.alignItems = "center";
     const autosave = document.createElement("input");
     autosave.type = "checkbox";
-    autosave.checked = !!data?.editorSettings?.autosave;
+    autosave.checked = !!currentSettings.autosave;
     const autosaveLabel = document.createElement("span");
     autosaveLabel.textContent = " Autosave";
 
@@ -535,33 +623,29 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (ev.target === overlay) overlay.remove();
     });
 
-    // Apply handler - keep existing server logic (post) as in settings.js
+    // Apply handler - keep existing server logic (filePost) as in settings.js
     btnApply.addEventListener("click", async () => {
       const newSettings = {
         fontSize: Number(fontInput.value),
         tabSize: Number(tabInput.value),
         autosave: !!autosave.checked,
       };
-      data.editorSettings = newSettings;
 
-      // update local data & send to server via textEditor post()
+      const normalized = normalizeTextEditorSettings(newSettings);
+
+      // update local settings and save to app file
       try {
-        if (typeof zmcdpost === "function") {
-          await zmcdpost({
-            setEditorSettings: true,
-            editorSettings: newSettings,
-          });
-        }
+        await saveTextEditorSettings(normalized);
       } catch (e) {
         console.warn("Failed to save editor settings", e);
       }
 
       // apply locally
-      data.editorSettings = newSettings;
-      window.editorSettings = newSettings;
+      textEditorGlobals.editorSettings = normalized;
+      window.editorSettings = normalized;
       try {
         // update this editor's textarea
-        textarea.style.fontSize = (newSettings.fontSize || 14) + "px";
+        textarea.style.fontSize = (normalized.fontSize || 14) + "px";
       } catch (e) {}
 
       // keep parity with settings.js: update any open editors if available
@@ -573,7 +657,7 @@ textEditor = function (path, posX = 50, posY = 50) {
                 const ta =
                   inst.rootElement.querySelector &&
                   inst.rootElement.querySelector(".texteditor-area");
-                if (ta) ta.style.fontSize = (newSettings.fontSize || 14) + "px";
+                if (ta) ta.style.fontSize = (normalized.fontSize || 14) + "px";
               }
             } catch (e) {}
           }
@@ -602,10 +686,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     boxSizing: "border-box",
     fontFamily:
       'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace',
-    fontSize:
-      data.editorSettings && data.editorSettings.fontSize
-        ? data.editorSettings.fontSize + "px"
-        : "14px",
+    fontSize: getTextEditorSettings().fontSize + "px",
     lineHeight: "1.5",
     background: data && data.dark ? "#0f1724" : "white",
     color: data && data.dark ? "#e6eef8" : "#0f1724",
@@ -638,6 +719,16 @@ textEditor = function (path, posX = 50, posY = 50) {
   statusBar.appendChild(statChars);
   statusBar.appendChild(statLines);
   statusBar.appendChild(statPos);
+
+  loadTextEditorSettings()
+    .then((settings) => {
+      try {
+        const normalized = normalizeTextEditorSettings(settings);
+        textEditorGlobals.editorSettings = normalized;
+        textarea.style.fontSize = (normalized.fontSize || 14) + "px";
+      } catch (e) {}
+    })
+    .catch(() => {});
 
   // assemble
   contentWrap.appendChild(toolbar);
@@ -1000,7 +1091,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
   // Assign the editor's path from the picked file (do not reuse old path)
   async function preloadFile() {
-    const res = await post({ requestFile: true, requestFileName: path });
+    const res = await filePost({ requestFile: true, requestFileName: path });
     if (res) {
       hasFileOpen = true;
       if (textarea.style.display === "none") {
@@ -1049,7 +1140,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (!reqName) return;
 
       try {
-        const res = await post({ requestFile: true, requestFileName: reqName });
+        const res = await filePost({ requestFile: true, requestFileName: reqName });
         textarea.value = b64DecodeUnicode(res.filecontent);
         // Assign the editor's path from the picked file (do not reuse old path)
         path = fullPath || picked[0];
@@ -1153,7 +1244,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         if (dirPath) {
           try {
             const base64 = b64EncodeUnicode(textarea.value || "");
-            await post({
+            await filePost({
               saveSnapshot: true,
               directions: [
                 { edit: true, path: dirPath, contents: base64, replace: true },
@@ -1168,7 +1259,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         }
       } else if (auto) {
         const base64 = b64EncodeUnicode(textarea.value || "");
-        await post({
+        await filePost({
           saveSnapshot: true,
           directions: [
             { edit: true, path: dirPath, contents: base64, replace: true },
@@ -1184,7 +1275,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   // input handlers
   textarea.addEventListener("input", () => {
     updateStatus();
-    if (data.editorSettings && data.editorSettings.autosave) {
+    if (getTextEditorSettings().autosave) {
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => doSave(true), 900);
     }
@@ -1200,9 +1291,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       ev.preventDefault();
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const tab = " ".repeat(
-        (data.editorSettings && data.editorSettings.tabSize) || 2,
-      );
+      const tab = " ".repeat(getTextEditorSettings().tabSize || 2);
       textarea.value =
         textarea.value.substring(0, start) +
         tab +
@@ -1231,7 +1320,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         const reqName = toRequestFileName(path);
         if (reqName) {
           try {
-            const res = await post({
+            const res = await filePost({
               requestFile: true,
               requestFileName: reqName,
             });
@@ -1263,6 +1352,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     textEditorId: textEditorGlobals.textEditorId,
     title: titleLabel.textContent,
     textarea,
@@ -1308,8 +1398,14 @@ textEditorGlobals.textEditorContextMenu = function (e, needRemove = true) {
   closeAll.style.padding = "6px 10px";
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
-    for (const i of textEditorGlobals.alltextEditor) {
-      i.closeWindow();
+    for (const i of [...textEditorGlobals.alltextEditor]) {
+      if (i && typeof i.closeWindow === "function") {
+        i.closeWindow();
+      } else if (i && i.rootElement) {
+        try {
+          i.rootElement.remove();
+        } catch (e) {}
+      }
     }
 
     textEditorGlobals.alltextEditor = [];

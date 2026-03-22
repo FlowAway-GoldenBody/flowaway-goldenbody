@@ -132,6 +132,15 @@ yourApp = function (posX = 50, posY = 50) {
     setWindowMaximizeIcon(btnMax, false);
   }
 
+  function closeWindow() {
+    root.remove();
+    const index = your_app_nameGlobals.allyour_app_name.findIndex(
+      (instance) => instance.rootElement == root,
+    );
+    if (index !== -1) your_app_nameGlobals.allyour_app_name.splice(index, 1);
+    window.removeAllEventListenersForApp("your_app_name" + root._your_app_nameId);
+  }
+
   // Minimize
   btnMin.addEventListener("click", () => {
     savedBounds = getBounds();
@@ -149,18 +158,7 @@ yourApp = function (posX = 50, posY = 50) {
   });
 
   // Close
-  btnClose.addEventListener("click", () => {
-    root.remove();
-    let index = false;
-    for (let i = 0; i < your_app_nameGlobals.allyour_app_name.length; i++) {
-      if (your_app_nameGlobals.allyour_app_name[i].rootElement == root) {
-        index = i;
-      }
-    }
-    if (index !== false) your_app_nameGlobals.allyour_app_name.splice(index, 1);
-    // Clean up all event listeners added by this app
-    window.removeAllEventListenersForApp("your_app_name" + root._your_app_nameId);
-  });
+  btnClose.addEventListener("click", closeWindow);
 
   // --- Make draggable / resizable ---
   makeDraggableResizable(root, dragStrip, btnMax);
@@ -354,6 +352,7 @@ yourApp = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     your_app_nameId: root._your_app_nameId,
   };
 };
@@ -395,8 +394,14 @@ your_app_nameGlobals.your_app_nameContextMenu = function (
   closeAll.style.padding = "6px 10px";
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
-    for (const i of your_app_nameGlobals.allyour_app_name) {
-      i.closeWindow();
+    for (const i of [...your_app_nameGlobals.allyour_app_name]) {
+      if (i && typeof i.closeWindow === "function") {
+        i.closeWindow();
+      } else if (i && i.rootElement) {
+        try {
+          i.rootElement.remove();
+        } catch (e) {}
+      }
     }
 
     your_app_nameGlobals.allyour_app_name = [];

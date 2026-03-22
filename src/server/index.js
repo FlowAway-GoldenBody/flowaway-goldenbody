@@ -68,6 +68,23 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const download = require('./download');
     proxyServer.addToOnRequestPipeline((req, res) => {
         if (!req.url) return;
+        if (req.url.startsWith('/server/newsession')) {
+            // Forward to existing Rammerhead route while keeping support for deployments
+            // that only expose /server/* paths.
+            let nextUrl = '/newsession' + (req.url.slice('/server/newsession'.length) || '');
+            try {
+                const parsed = new URL(nextUrl, 'http://localhost');
+                if (config.password && !parsed.searchParams.get('pwd')) {
+                    parsed.searchParams.set('pwd', config.password);
+                }
+                req.url = parsed.pathname + parsed.search;
+            } catch (e) {
+                req.url = config.password
+                    ? `/newsession?pwd=${encodeURIComponent(config.password)}`
+                    : '/newsession';
+            }
+            return;
+        }
         if (req.url.startsWith('/server/zmcd')) {
             // strip prefix so handler sees original paths
             req.url = req.url.slice('/server/zmcd'.length) || '/';
