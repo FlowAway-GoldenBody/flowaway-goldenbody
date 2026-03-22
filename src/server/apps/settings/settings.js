@@ -5,14 +5,6 @@ settingsGlobals.settingsId = 0;
 
 settings = function (posX = 50, posY = 50) {
   startMenu.style.display = "none";
-  async function post(data) {
-    const res = await fetch(zmcdserver, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, ...data, password: password }), // include password for authentication
-    });
-    return res.json();
-  }
 
   let isMaximized = false;
   let _isMinimized = false;
@@ -141,6 +133,15 @@ settings = function (posX = 50, posY = 50) {
     setWindowMaximizeIcon(btnMax, false);
   }
 
+  function closeWindow() {
+    root.remove();
+    const index = settingsGlobals.allSettings.findIndex(
+      (instance) => instance.rootElement == root,
+    );
+    if (index !== -1) settingsGlobals.allSettings.splice(index, 1);
+    window.removeAllEventListenersForApp("settings" + root.settingsId);
+  }
+
   // Minimize
   btnMin.addEventListener("click", () => {
     savedBounds = getBounds();
@@ -158,17 +159,7 @@ settings = function (posX = 50, posY = 50) {
   });
 
   // Close
-  btnClose.addEventListener("click", () => {
-    root.remove();
-    let index = false;
-    for (let i = 0; i < settingsGlobals.allSettings.length; i++) {
-      if (settingsGlobals.allSettings[i].rootElement == root) {
-        index = i;
-      }
-    }
-    if (index !== false) settingsGlobals.allSettings.splice(index, 1);
-    window.removeAllEventListenersForApp("settings" + root.settingsId);
-  });
+  btnClose.addEventListener("click", closeWindow);
 
   // --- Make draggable / resizable ---
   makeDraggableResizable(root, dragStrip, btnMax);
@@ -415,7 +406,7 @@ settings = function (posX = 50, posY = 50) {
     button.textContent = "Saving...";
 
     try {
-      const res = await post({
+      const res = await zmcdpost({
         updatePassword: true,
         oldPassword: oldinput.value,
         newPassword: input.value,
@@ -485,7 +476,7 @@ settings = function (posX = 50, posY = 50) {
   volume.style.width = "calc(100% - 10px)";
 
   volume.oninput = async () => {
-    await post({ changeVolume: true, volume: volume.value });
+    await zmcdpost({ changeVolume: true, volume: volume.value });
     data.volume = volume.value;
     // Optional global hook
     window.dispatchEvent(
@@ -517,7 +508,7 @@ settings = function (posX = 50, posY = 50) {
     // Simple global brightness effect
     document.documentElement.style.filter = `brightness(${brightness.value}%)`;
     data.brightness = brightness.value;
-    await post({
+    await zmcdpost({
       changeBrightness: true,
       brightness: brightness.value,
     });
@@ -550,7 +541,7 @@ settings = function (posX = 50, posY = 50) {
     applyStyles();
 
     // Persist to backend (optional but recommended)
-    await post({
+    await zmcdpost({
       setTheme: true,
       dark: data.dark,
     });
@@ -580,7 +571,7 @@ settings = function (posX = 50, posY = 50) {
     data.autoupdate = autoupdateToggle.checked;
 
     // Persist to backend
-    await post({
+    await zmcdpost({
       setAutoupdate: true,
       autoupdate: data.autoupdate,
     });
@@ -606,7 +597,7 @@ settings = function (posX = 50, posY = 50) {
     deleteBtn.disabled = true;
 
     try {
-      const res = await post({
+      const res = await zmcdpost({
         deleteAcc: true,
         username: username,
         password: oldinput.value,
@@ -787,6 +778,7 @@ settings = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     settingsId: settingsGlobals.settingsId,
   });
   applyStyles();
@@ -798,6 +790,7 @@ settings = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     settingsId: settingsGlobals.settingsId,
   };
 };
@@ -836,8 +829,14 @@ settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
   closeAll.style.padding = "6px 10px";
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
-    for (const i of settingsGlobals.allSettings) {
-      i.closeWindow();
+    for (const i of [...settingsGlobals.allSettings]) {
+      if (i && typeof i.closeWindow === "function") {
+        i.closeWindow();
+      } else if (i && i.rootElement) {
+        try {
+          i.rootElement.remove();
+        } catch (e) {}
+      }
     }
 
     settingsGlobals.allSettings = [];

@@ -152,6 +152,12 @@ fs.cpSync(
   path.join(userDirectoryPath, 'root', 'apps'),
   { recursive: true }
 );
+                        const bootDir = path.join(userDirectoryPath, 'root', '.boot');
+                        fs.mkdirSync(bootDir, { recursive: true });
+                        const gbenvPath = path.join(bootDir, 'gbenv.js');
+                        if (!fs.existsSync(gbenvPath)) {
+                          fs.writeFileSync(gbenvPath, 'window.__gbenv_shortcut = {};\n');
+                        }
             responseContent = newContent;
           }
         } else {
@@ -310,6 +316,9 @@ fs.cpSync(
           }
           responseContent = {siteSettings: userData.siteSettings};
       } else if (data.setEditorSettings) {
+          // Editor settings are now stored in app-local VFS file
+          // (/apps/textEditor/data/settings.json), not in the general
+          // auth/system user file.
           const userFile = directoryPath + data.username + '/' + data.username + '.txt';
           let userData;
           try {
@@ -318,8 +327,13 @@ fs.cpSync(
             res.writeHead(404);
             return res.end(JSON.stringify({ error: "User file not found" }));
           }
-          userData.editorSettings = data.editorSettings;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+          // Cleanup legacy field if it exists so the user file remains
+          // system-only data (taskbuttons, brightness, etc.).
+          if (Object.prototype.hasOwnProperty.call(userData, 'editorSettings')) {
+            delete userData.editorSettings;
+            fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+          }
+          responseContent = { success: true };
         } else if (data.setAutoupdate) {
           const userFile = directoryPath + data.username + '/' + data.username + '.txt';
           let userData;

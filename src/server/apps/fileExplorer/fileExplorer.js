@@ -136,6 +136,15 @@ fileExplorer = function (posX = 50, posY = 50) {
     setWindowMaximizeIcon(btnMax, false);
   }
 
+  function closeWindow() {
+    root.remove();
+    const index = explorerGlobals.allExplorers.findIndex(
+      (instance) => instance.rootElement == root,
+    );
+    if (index !== -1) explorerGlobals.allExplorers.splice(index, 1);
+    window.removeAllEventListenersForApp("fileExplorer" + root._goldenbodyId);
+  }
+
   // Minimize
   btnMin.addEventListener("click", () => {
     savedBounds = getBounds();
@@ -153,18 +162,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   });
 
   // Close
-  btnClose.addEventListener("click", () => {
-    root.remove();
-    let index = false;
-    for (let i = 0; i < explorerGlobals.allExplorers.length; i++) {
-      if (explorerGlobals.allExplorers[i].rootElement == root) {
-        index = i;
-      }
-    }
-    if (index !== false) explorerGlobals.allExplorers.splice(index, 1);
-    // Clean up all event listeners added by this app
-    window.removeAllEventListenersForApp("fileExplorer" + root._goldenbodyId);
-  });
+  btnClose.addEventListener("click", closeWindow);
 
   // --- Make draggable / resizable ---
   makeDraggableResizable(root, dragStrip, btnMax);
@@ -344,16 +342,6 @@ fileExplorer = function (posX = 50, posY = 50) {
   const username = data.username;
   let currentPath = ["root"];
 
-  // --- UTILS ---
-  async function post(data) {
-    const res = await fetch(SERVER, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, ...data, password: password }),
-    });
-    return res.json();
-  }
-
   function getCurrentFolderPath() {
     return currentPath.slice(1).join("/") + (currentPath.length > 1 ? "/" : "");
   }
@@ -455,7 +443,7 @@ fileExplorer = function (posX = 50, posY = 50) {
 
   // --- RENDER ---
   let loadTree = async function () {
-    const data = await post({ initFE: true });
+    const data = await filePost({ initFE: true });
     treeData = data.tree;
     // Restore clipboard from server
     if (data.clipboard && Array.isArray(data.clipboard)) {
@@ -1479,7 +1467,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   let handlesave = async (e) => {
     // console.log(directions);
     directions.push({ end: true });
-    const response = await post({
+    const response = await filePost({
       saveSnapshot: true,
       directions: directions,
     });
@@ -1558,7 +1546,7 @@ fileExplorer = function (posX = 50, posY = 50) {
         const chunkBase64 = await readChunkAsBase64(blob);
         // Only send replace:true on the first chunk (index 0)
         const shouldReplace = index === 0;
-        await post({
+        await filePost({
           saveSnapshot: true,
           directions: [
             {
@@ -1630,7 +1618,7 @@ fileExplorer = function (posX = 50, posY = 50) {
         const total = Math.ceil(f.size / CHUNK_SIZE);
 
         // ensure server has a file placeholder
-        await post({
+        await filePost({
           saveSnapshot: true,
           directions: [
             { addFile: true, path: cp + "/" + newName, replace: true },
@@ -1641,7 +1629,7 @@ fileExplorer = function (posX = 50, posY = 50) {
         // Ask server which parts already exist (resume)
         let presentParts = [];
         try {
-          const chk = await post({
+          const chk = await filePost({
             saveSnapshot: true,
             directions: [
               { checkParts: true, path: cp + "/" + newName },
@@ -1691,7 +1679,7 @@ fileExplorer = function (posX = 50, posY = 50) {
 
         // finalize assembly on server (safe even if all parts were already present)
         try {
-          await post({
+          await filePost({
             saveSnapshot: true,
             directions: [
               { edit: true, path: cp + "/" + newName, finalize: true },
@@ -1720,6 +1708,7 @@ fileExplorer = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     explorerId: explorerGlobals.explorerId,
   });
   applyStyles();
@@ -1731,6 +1720,7 @@ fileExplorer = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     explorerId: explorerGlobals.explorerId,
   };
 };
@@ -1768,8 +1758,14 @@ explorerGlobals.fileExplorerContextMenu = function (e, needRemove = true) {
   closeAll.style.padding = "6px 10px";
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
-    for (const i of explorerGlobals.allExplorers) {
-      i.closeWindow();
+    for (const i of [...explorerGlobals.allExplorers]) {
+      if (i && typeof i.closeWindow === "function") {
+        i.closeWindow();
+      } else if (i && i.rootElement) {
+        try {
+          i.rootElement.remove();
+        } catch (e) {}
+      }
     }
 
     explorerGlobals.allExplorers = [];

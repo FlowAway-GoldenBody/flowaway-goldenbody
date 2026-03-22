@@ -7,9 +7,7 @@ terminalGlobals.allTerminals = [];
 terminalGlobals.terminalId = 0;
 
 terminal = function (posX = 50, posY = 50) {
-  notification(
-    "this app is in active dev, many features are not implemented yet. Stay tuned for updates!",
-  );
+  notification("Terminal is in beta. Type 'help' for available commands.");
   startMenu.style.display = "none";
   let isMaximized = false;
   let _isMinimized = false;
@@ -118,6 +116,18 @@ terminal = function (posX = 50, posY = 50) {
     height: root.style.height,
   };
 
+  function closeWindow() {
+    root.remove();
+    let index = false;
+    for (let i = 0; i < terminalGlobals.allTerminals.length; i++) {
+      if (terminalGlobals.allTerminals[i].rootElement == root) {
+        index = i;
+      }
+    }
+    if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
+    window.removeAllEventListenersForApp("terminal" + root._terminalId);
+  }
+
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
@@ -157,16 +167,7 @@ terminal = function (posX = 50, posY = 50) {
 
   // Close
   btnClose.addEventListener("click", () => {
-    root.remove();
-    let index = false;
-    for (let i = 0; i < terminalGlobals.allTerminals.length; i++) {
-      if (terminalGlobals.allTerminals[i].rootElement == root) {
-        index = i;
-      }
-    }
-    if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
-    // Clean up all event listeners added by this app
-    window.removeAllEventListenersForApp("terminal" + root._terminalId);
+    closeWindow();
   });
 
   // --- Make draggable / resizable ---
@@ -344,6 +345,758 @@ terminal = function (posX = 50, posY = 50) {
   document.addEventListener("terminal" + root._terminalId, "click", (e) => {
     // App-specific click handler can be implemented here
   });
+
+  const terminalSurface = document.createElement("div");
+  Object.assign(terminalSurface.style, {
+    flex: "1",
+    minHeight: "0",
+    margin: "0 8px 8px 8px",
+    borderRadius: "8px",
+    border: data.dark ? "1px solid #2f2f2f" : "1px solid #d8d8d8",
+    background: data.dark ? "#0f0f10" : "#f5f6f8",
+    color: data.dark ? "#d8d8d8" : "#222",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: "13px",
+  });
+
+  const output = document.createElement("div");
+  Object.assign(output.style, {
+    flex: "1",
+    minHeight: "0",
+    overflowY: "auto",
+    padding: "12px",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    lineHeight: "1.35",
+  });
+
+  const inputWrap = document.createElement("div");
+  Object.assign(inputWrap.style, {
+    flexShrink: "0",
+    borderTop: data.dark ? "1px solid #2a2a2a" : "1px solid #dcdcdc",
+    padding: "10px 12px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  });
+
+  const promptLabel = document.createElement("span");
+  promptLabel.style.flexShrink = "0";
+  promptLabel.style.opacity = "0.8";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  Object.assign(input.style, {
+    flex: "1",
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    color: "inherit",
+    font: "inherit",
+  });
+
+  inputWrap.appendChild(promptLabel);
+  inputWrap.appendChild(input);
+  terminalSurface.appendChild(output);
+  terminalSurface.appendChild(inputWrap);
+  root.appendChild(terminalSurface);
+
+  const username = (typeof data !== "undefined" && data && data.username) ? data.username : "guest";
+  let cwdRelPath = "";
+  let commandHistory = [];
+  let historyIndex = -1;
+  const GBENV_PATH = ".boot/gbenv.js";
+  const GBENV_GLOBAL_KEY = "__gbenv_shortcut";
+  let terminalGbenv =
+    typeof window[GBENV_GLOBAL_KEY] === "object" && window[GBENV_GLOBAL_KEY]
+      ? { ...window[GBENV_GLOBAL_KEY] }
+      : typeof window.__gbenv === "object" && window.__gbenv
+      ? { ...window.__gbenv }
+      : {};
+  const terminalEnv = {
+    USER: username,
+    HOME: "~",
+    SHELL: "flowaway-terminal",
+    LANG: "en_US.UTF-8",
+  };
+
+  function cwdDisplayPath() {
+    return cwdRelPath ? `~/${cwdRelPath}` : "~";
+  }
+
+  function updatePrompt() {
+    terminalEnv.PWD = cwdDisplayPath();
+    promptLabel.textContent = `${username}@flowaway:${cwdDisplayPath()}$`;
+  }
+
+  function writeLine(text = "", color = "") {
+    const line = document.createElement("div");
+    line.textContent = text;
+    if (color) line.style.color = color;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+  }
+
+  function renderEnteredCommand(text) {
+    const entered = document.createElement("div");
+    entered.textContent = `${promptLabel.textContent} ${text}`;
+    entered.style.opacity = "0.9";
+    output.appendChild(entered);
+  }
+
+  function parseArgs(raw) {
+    const parts = [];
+    let cur = "";
+    let quote = "";
+
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (quote) {
+        if (ch === quote) {
+          quote = "";
+        } else {
+          cur += ch;
+        }
+        continue;
+      }
+
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        continue;
+      }
+
+      if (/\s/.test(ch)) {
+        if (cur) {
+          parts.push(cur);
+          cur = "";
+        }
+        continue;
+      }
+
+      cur += ch;
+    }
+
+    if (cur) parts.push(cur);
+    return parts;
+  }
+
+  function splitPath(path) {
+    return String(path || "")
+      .split("/")
+      .filter(Boolean);
+  }
+
+  function resolvePath(inputPath) {
+    const raw = String(inputPath || "").trim();
+    if (!raw || raw === ".") return cwdRelPath;
+
+    let baseParts = splitPath(cwdRelPath);
+    let pathToProcess = raw;
+
+    if (raw === "~") return "";
+    if (raw.startsWith("~/")) {
+      baseParts = [];
+      pathToProcess = raw.slice(2);
+    } else if (raw.startsWith("/")) {
+      baseParts = [];
+      pathToProcess = raw.slice(1);
+    }
+
+    const pieces = splitPath(pathToProcess);
+    for (const part of pieces) {
+      if (part === ".") continue;
+      if (part === "..") {
+        if (baseParts.length) baseParts.pop();
+        continue;
+      }
+      baseParts.push(part);
+    }
+
+    return baseParts.join("/");
+  }
+
+  function getTreeNode(relPath) {
+    if (!window.treeData) return null;
+    let cur = window.treeData;
+    const parts = splitPath(relPath);
+    for (const part of parts) {
+      if (!cur || !Array.isArray(cur[1])) return null;
+      cur = cur[1].find((entry) => entry && entry[0] === part);
+      if (!cur) return null;
+    }
+    return cur;
+  }
+
+  function isDirectoryNode(node) {
+    return !!(node && Array.isArray(node[1]));
+  }
+
+  function decodeBase64Utf8(raw) {
+    if (typeof base64ToUtf8 === "function") {
+      return base64ToUtf8(raw);
+    }
+    try {
+      return decodeURIComponent(escape(atob(raw)));
+    } catch (e) {
+      return atob(raw);
+    }
+  }
+
+  async function readFileByPath(relPath) {
+    if (typeof fetchFileContentByPath !== "function") {
+      throw new Error("fetchFileContentByPath is unavailable");
+    }
+    const b64 = await fetchFileContentByPath(relPath);
+    return decodeBase64Utf8(b64);
+  }
+
+  function utf8ToBase64(text) {
+    try {
+      return btoa(unescape(encodeURIComponent(String(text || ""))));
+    } catch (e) {
+      return btoa(String(text || ""));
+    }
+  }
+
+  async function saveTextFileByPath(relPath, text) {
+    if (typeof filePost !== "function") {
+      throw new Error("filePost is unavailable");
+    }
+    await filePost({
+      saveSnapshot: true,
+      directions: [
+        { edit: true, contents: utf8ToBase64(text), path: relPath, replace: true },
+        { end: true },
+      ],
+    });
+    if (typeof window.loadTree === "function") {
+      try {
+        await window.loadTree();
+      } catch (e) {}
+    }
+  }
+
+  async function applySnapshotDirections(directions) {
+    if (typeof filePost !== "function") {
+      throw new Error("filePost is unavailable");
+    }
+    await filePost({
+      saveSnapshot: true,
+      directions: [...directions, { end: true }],
+    });
+    if (typeof window.loadTree === "function") {
+      try {
+        await window.loadTree();
+      } catch (e) {}
+    }
+  }
+
+  function serializeGbenv(map) {
+    const payload = JSON.stringify(map || {}, null, 2);
+    return `window.${GBENV_GLOBAL_KEY} = ${payload};\n`;
+  }
+
+  function parseGbenvScript(scriptText) {
+    const text = String(scriptText || "");
+    const candidates = ["window.__gbenv_shortcut", "window.__gbenv"];
+    for (const keyPath of candidates) {
+      const start = text.indexOf(keyPath);
+      if (start === -1) continue;
+      const eq = text.indexOf("=", start);
+      if (eq === -1) continue;
+      const rhs = text.slice(eq + 1).trim().replace(/;\s*$/, "");
+      try {
+        const obj = Function(`"use strict"; return (${rhs});`)();
+        if (obj && typeof obj === "object") return obj;
+      } catch (e) {}
+    }
+    return {};
+  }
+
+  async function loadGbenvFromDisk() {
+    try {
+      const raw = await readFileByPath(GBENV_PATH);
+      terminalGbenv = parseGbenvScript(raw);
+      window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
+      window.__gbenv = { ...terminalGbenv };
+      return true;
+    } catch (e) {
+      terminalGbenv =
+        typeof window[GBENV_GLOBAL_KEY] === "object" && window[GBENV_GLOBAL_KEY]
+          ? { ...window[GBENV_GLOBAL_KEY] }
+          : typeof window.__gbenv === "object" && window.__gbenv
+          ? { ...window.__gbenv }
+          : {};
+      return false;
+    }
+  }
+
+  async function saveGbenvToDisk() {
+    const out = serializeGbenv(terminalGbenv);
+    await saveTextFileByPath(GBENV_PATH, out);
+    window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
+    window.__gbenv = { ...terminalGbenv };
+  }
+
+  function expandVars(text) {
+    return String(text || "").replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_, key) => {
+      if (Object.prototype.hasOwnProperty.call(terminalEnv, key)) {
+        return terminalEnv[key];
+      }
+      return "";
+    });
+  }
+
+  function listApps() {
+    const appNames = [];
+    if (typeof browser === "function") appNames.push("browser");
+    if (typeof fileExplorer === "function") appNames.push("fileexplorer");
+    if (typeof textEditor === "function") appNames.push("texteditor");
+    if (typeof settings === "function") appNames.push("settings");
+    if (typeof terminal === "function") appNames.push("terminal");
+    return appNames;
+  }
+
+  function openAppByName(name) {
+    const lower = String(name || "").toLowerCase();
+    if (lower === "browser" && typeof browser === "function") return browser(90, 90);
+    if ((lower === "fileexplorer" || lower === "files") && typeof fileExplorer === "function") return fileExplorer(90, 90);
+    if ((lower === "texteditor" || lower === "editor") && typeof textEditor === "function") return textEditor(90, 90);
+    if (lower === "settings" && typeof settings === "function") return settings(90, 90);
+    if (lower === "terminal" && typeof terminal === "function") return terminal(90, 90);
+    return false;
+  }
+
+  async function runCommand(rawText) {
+    const trimmed = String(rawText || "").trim();
+    if (!trimmed) return;
+
+    const tokens = parseArgs(trimmed);
+    if (!tokens.length) return;
+    const command = tokens[0].toLowerCase();
+    const args = tokens.slice(1);
+
+    if (command === "help") {
+      writeLine("Core: help, clear, echo, date, whoami, pwd, history, exit");
+      writeLine("Filesystem: ls [path], cd [path], cat <path>, mkdir <path>, touch <path>, write <path> <text>, rm <path>");
+      writeLine("Apps: apps, open <app>, run <path|function> [args...]");
+      writeLine("Env: env, set <KEY> <VALUE>, unset <KEY>");
+      writeLine("gbenv: gbenv, gbenv get|set|unset|save|reload");
+      writeLine("Tip: quote arguments with spaces, e.g. echo \"hello world\"");
+      return;
+    }
+
+    if (command === "clear") {
+      output.innerHTML = "";
+      return;
+    }
+
+    if (command === "echo") {
+      writeLine(expandVars(args.join(" ")));
+      return;
+    }
+
+    if (command === "date") {
+      writeLine(new Date().toString());
+      return;
+    }
+
+    if (command === "whoami") {
+      writeLine(username);
+      return;
+    }
+
+    if (command === "pwd") {
+      writeLine(cwdDisplayPath());
+      return;
+    }
+
+    if (command === "ls") {
+      const targetRelPath = resolvePath(args[0] || ".");
+      const node = getTreeNode(targetRelPath);
+      if (!node) {
+        writeLine(`ls: cannot access '${args[0] || "."}': no such file or directory`, "#ff7a7a");
+        return;
+      }
+
+      if (!isDirectoryNode(node)) {
+        writeLine(node[0]);
+        return;
+      }
+
+      const children = (node[1] || []).slice().sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      if (!children.length) {
+        writeLine("(empty)");
+        return;
+      }
+      writeLine(children.map((entry) => isDirectoryNode(entry) ? `${entry[0]}/` : entry[0]).join("  "));
+      return;
+    }
+
+    if (command === "history") {
+      commandHistory.forEach((value, index) => {
+        writeLine(`${index + 1}  ${value}`);
+      });
+      return;
+    }
+
+    if (command === "cd") {
+      const target = args[0] || "~";
+      const targetRelPath = resolvePath(target);
+      const node = getTreeNode(targetRelPath);
+      if (!node) {
+        writeLine(`cd: no such file or directory: ${target}`, "#ff7a7a");
+        return;
+      }
+      if (!isDirectoryNode(node)) {
+        writeLine(`cd: not a directory: ${target}`, "#ff7a7a");
+        return;
+      }
+      cwdRelPath = targetRelPath;
+      updatePrompt();
+      return;
+    }
+
+    if (command === "cat") {
+      if (!args[0]) {
+        writeLine("usage: cat <path>");
+        return;
+      }
+
+      const targetRelPath = resolvePath(args[0]);
+      const node = getTreeNode(targetRelPath);
+      if (!node) {
+        writeLine(`cat: ${args[0]}: No such file or directory`, "#ff7a7a");
+        return;
+      }
+      if (isDirectoryNode(node)) {
+        writeLine(`cat: ${args[0]}: Is a directory`, "#ff7a7a");
+        return;
+      }
+
+      try {
+        const content = await readFileByPath(targetRelPath);
+        if (content.length > 6000) {
+          writeLine(content.slice(0, 6000));
+          writeLine("[output truncated]");
+        } else {
+          writeLine(content);
+        }
+      } catch (err) {
+        writeLine(`cat: failed to read '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "mkdir") {
+      if (!args[0]) {
+        writeLine("usage: mkdir <path>");
+        return;
+      }
+      const targetRelPath = resolvePath(args[0]);
+      if (!targetRelPath) {
+        writeLine("mkdir: refusing to create root", "#ff7a7a");
+        return;
+      }
+      const existing = getTreeNode(targetRelPath);
+      if (existing && isDirectoryNode(existing)) {
+        writeLine(`mkdir: ${args[0]}: directory already exists`, "#ffcf5a");
+        return;
+      }
+      if (existing && !isDirectoryNode(existing)) {
+        writeLine(`mkdir: ${args[0]}: file exists`, "#ff7a7a");
+        return;
+      }
+      try {
+        await applySnapshotDirections([{ addFolder: true, path: `root/${targetRelPath}` }]);
+      } catch (e) {
+        writeLine(`mkdir: failed to create '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "touch") {
+      if (!args[0]) {
+        writeLine("usage: touch <path>");
+        return;
+      }
+      const targetRelPath = resolvePath(args[0]);
+      if (!targetRelPath) {
+        writeLine("touch: invalid path", "#ff7a7a");
+        return;
+      }
+      const existing = getTreeNode(targetRelPath);
+      if (existing && isDirectoryNode(existing)) {
+        writeLine(`touch: ${args[0]}: is a directory`, "#ff7a7a");
+        return;
+      }
+      if (existing && !isDirectoryNode(existing)) {
+        return;
+      }
+      try {
+        await applySnapshotDirections([{ addFile: true, path: `root/${targetRelPath}` }]);
+      } catch (e) {
+        writeLine(`touch: failed to create '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "write") {
+      if (!args[0] || args.length < 2) {
+        writeLine("usage: write <path> <text>");
+        return;
+      }
+      const targetRelPath = resolvePath(args[0]);
+      if (!targetRelPath) {
+        writeLine("write: invalid path", "#ff7a7a");
+        return;
+      }
+      const existing = getTreeNode(targetRelPath);
+      if (existing && isDirectoryNode(existing)) {
+        writeLine(`write: ${args[0]}: is a directory`, "#ff7a7a");
+        return;
+      }
+      try {
+        await saveTextFileByPath(targetRelPath, args.slice(1).join(" "));
+      } catch (e) {
+        writeLine(`write: failed to write '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "rm") {
+      if (!args[0]) {
+        writeLine("usage: rm <path>");
+        return;
+      }
+      const targetRelPath = resolvePath(args[0]);
+      if (!targetRelPath) {
+        writeLine("rm: refusing to remove root", "#ff7a7a");
+        return;
+      }
+      const existing = getTreeNode(targetRelPath);
+      if (!existing) {
+        writeLine(`rm: cannot remove '${args[0]}': no such file or directory`, "#ff7a7a");
+        return;
+      }
+      try {
+        await applySnapshotDirections([{ delete: true, path: `root/${targetRelPath}` }]);
+      } catch (e) {
+        writeLine(`rm: failed to remove '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "apps") {
+      writeLine("Openable apps: " + (listApps().join(", ") || "none detected"));
+      return;
+    }
+
+    if (command === "env") {
+      const keys = Object.keys(terminalEnv).sort();
+      keys.forEach((key) => writeLine(`${key}=${terminalEnv[key]}`));
+      return;
+    }
+
+    if (command === "set") {
+      if (!args[0] || args.length < 2) {
+        writeLine("usage: set <KEY> <VALUE>");
+        return;
+      }
+      const key = args[0];
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+        writeLine(`set: invalid variable name '${key}'`, "#ff7a7a");
+        return;
+      }
+      terminalEnv[key] = args.slice(1).join(" ");
+      return;
+    }
+
+    if (command === "unset") {
+      if (!args[0]) {
+        writeLine("usage: unset <KEY>");
+        return;
+      }
+      delete terminalEnv[args[0]];
+      if (args[0] === "PWD") terminalEnv.PWD = cwdDisplayPath();
+      return;
+    }
+
+    if (command === "open") {
+      if (!args[0]) {
+        writeLine("usage: open <app>");
+        return;
+      }
+      const opened = openAppByName(args[0]);
+      if (!opened) {
+        writeLine(`open: unknown app '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "run") {
+      if (!args[0]) {
+        writeLine("usage: run <path|function> [args...]");
+        return;
+      }
+
+      const rawTarget = args[0];
+      const resolvedPath = resolvePath(rawTarget);
+      const gbenv = terminalGbenv || {};
+      const mappedFnName = gbenv[resolvedPath] || gbenv["/" + resolvedPath] || gbenv[rawTarget];
+      const fnName = mappedFnName || rawTarget;
+      const fn = window[fnName];
+
+      if (typeof fn !== "function") {
+        writeLine(`run: function not found for '${rawTarget}'`, "#ff7a7a");
+        return;
+      }
+
+      try {
+        const result = await fn(...args.slice(1));
+        if (typeof result !== "undefined") {
+          if (typeof result === "object") writeLine(JSON.stringify(result));
+          else writeLine(String(result));
+        }
+      } catch (e) {
+        writeLine(`run: execution failed for '${rawTarget}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "gbenv") {
+      const sub = (args[0] || "").toLowerCase();
+
+      if (!sub || sub === "list") {
+        const keys = Object.keys(terminalGbenv || {}).sort();
+        if (!keys.length) {
+          writeLine("gbenv is empty");
+          return;
+        }
+        keys.forEach((key) => writeLine(`${key} => ${terminalGbenv[key]}`));
+        return;
+      }
+
+      if (sub === "get") {
+        const key = args[1];
+        if (!key) {
+          writeLine("usage: gbenv get <scriptPath>");
+          return;
+        }
+        const val = terminalGbenv[key];
+        if (typeof val === "undefined") {
+          writeLine(`gbenv: no mapping for '${key}'`, "#ff7a7a");
+        } else {
+          writeLine(`${key} => ${val}`);
+        }
+        return;
+      }
+
+      if (sub === "set") {
+        if (!args[1] || !args[2]) {
+          writeLine("usage: gbenv set <scriptPath> <functionName>");
+          return;
+        }
+        terminalGbenv[args[1]] = args[2];
+        window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
+        window.__gbenv = { ...terminalGbenv };
+        writeLine(`mapped ${args[1]} => ${args[2]}`);
+        return;
+      }
+
+      if (sub === "unset") {
+        if (!args[1]) {
+          writeLine("usage: gbenv unset <scriptPath>");
+          return;
+        }
+        delete terminalGbenv[args[1]];
+        window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
+        window.__gbenv = { ...terminalGbenv };
+        writeLine(`removed mapping for ${args[1]}`);
+        return;
+      }
+
+      if (sub === "save") {
+        try {
+          await saveGbenvToDisk();
+          writeLine(`saved ${GBENV_PATH}`);
+        } catch (e) {
+          writeLine(`gbenv: failed to save ${GBENV_PATH}`, "#ff7a7a");
+        }
+        return;
+      }
+
+      if (sub === "reload") {
+        const ok = await loadGbenvFromDisk();
+        if (ok) writeLine(`reloaded ${GBENV_PATH}`);
+        else writeLine(`gbenv: failed to load ${GBENV_PATH}`, "#ff7a7a");
+        return;
+      }
+
+      writeLine("usage: gbenv [list|get|set|unset|save|reload] ...");
+      return;
+    }
+
+    if (command === "exit") {
+      closeWindow();
+      return;
+    }
+
+    writeLine(`${command}: command not found`, "#ff7a7a");
+  }
+
+  input.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter") {
+      const entered = input.value;
+      renderEnteredCommand(entered);
+      if (entered.trim()) {
+        commandHistory.push(entered.trim());
+      }
+      historyIndex = commandHistory.length;
+      try {
+        await runCommand(entered);
+      } catch (e) {
+        writeLine("terminal: unexpected command error", "#ff7a7a");
+      }
+      input.value = "";
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      if (!commandHistory.length) return;
+      event.preventDefault();
+      historyIndex = Math.max(0, historyIndex - 1);
+      input.value = commandHistory[historyIndex] || "";
+      input.setSelectionRange(input.value.length, input.value.length);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      if (!commandHistory.length) return;
+      event.preventDefault();
+      historyIndex = Math.min(commandHistory.length, historyIndex + 1);
+      input.value = historyIndex === commandHistory.length ? "" : (commandHistory[historyIndex] || "");
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  });
+
+  root.addEventListener("mousedown", () => {
+    setTimeout(() => {
+      try { input.focus(); } catch (e) {}
+    }, 0);
+  });
+
+  updatePrompt();
+  loadGbenvFromDisk();
+  writeLine("Flowaway terminal (beta)");
+  writeLine("Filesystem + env + gbenv support enabled. Run 'help' to list commands.");
+  setTimeout(() => {
+    try { input.focus(); } catch (e) {}
+  }, 0);
   
   terminalGlobals.allTerminals.push({
     rootElement: root,
@@ -352,6 +1105,7 @@ terminal = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     terminalId: root._terminalId,
   });
   applyStyles();
@@ -363,6 +1117,7 @@ terminal = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    closeWindow,
     terminalId: root._terminalId,
   };
 };
@@ -401,8 +1156,12 @@ terminalGlobals.terminalContextMenu = function (e, needRemove = true) {
   closeAll.style.padding = "6px 10px";
   closeAll.style.cursor = "pointer";
   closeAll.addEventListener("click", () => {
-    for (const i of terminalGlobals.allTerminals) {
-      i.closeWindow();
+    for (const i of [...terminalGlobals.allTerminals]) {
+      if (i && typeof i.closeWindow === "function") {
+        i.closeWindow();
+      } else if (i && i.rootElement) {
+        try { i.rootElement.remove(); } catch (e) {}
+      }
     }
 
     terminalGlobals.allTerminals = [];
