@@ -116,7 +116,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   let editorName;
 
   if (!window.treeData) {
-    window.loadTree();
+    window.onlyloadTree();
   }
   startMenu.style.display = "none";
   let isMaximized = false;
@@ -740,7 +740,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   function openEditorSaveUI() {
     if (!window.treeData) {
       try {
-        window.loadTree();
+        window.onlyloadTree();
       } catch (e) {}
     }
 
@@ -946,7 +946,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   function openEditorPickerUI() {
     if (!window.treeData) {
       try {
-        window.loadTree();
+        window.onlyloadTree();
       } catch (e) {}
     }
 

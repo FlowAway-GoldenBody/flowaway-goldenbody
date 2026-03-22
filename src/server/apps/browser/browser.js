@@ -2400,7 +2400,7 @@ window.browser = function (
         // ----------------------------
         let sentreqframe;
 
-        loadTree();
+        onlyloadTree();
 
         let fullPath;
         // Fetch file content from backend
@@ -2905,7 +2905,7 @@ window.browser = function (
 
         function openCustomPickerUI() {
           if (!window.treeData) {
-            window.loadTree();
+            window.onlyloadTree();
           }
 
           pickerTree = JSON.parse(JSON.stringify(window.treeData));
@@ -3122,7 +3122,7 @@ window.browser = function (
         let post = filePost;
         function openCustomSaveUI(suggestedName) {
           if (!window.treeData) {
-            window.loadTree();
+            window.onlyloadTree();
           }
 
           const theme = getPickerTheme();
@@ -3310,7 +3310,7 @@ window.browser = function (
         // ----------------------------
         function openCustomDirectoryPickerUI() {
           if (!window.treeData) {
-            window.loadTree();
+            window.onlyloadTree();
           }
 
           const theme = getPickerTheme();

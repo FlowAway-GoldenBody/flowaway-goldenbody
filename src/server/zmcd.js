@@ -2,6 +2,7 @@ const http = require('http');
 const generateId = require('../util/generateId');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache.js');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const RammerheadSession = require('../classes/RammerheadSession');
@@ -53,7 +54,7 @@ function handleZMCd(req, res) {
   // Allow CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     // Preflight request
@@ -73,6 +74,7 @@ function handleZMCd(req, res) {
       let responseContent = null; // will store final response to send
       try {
         const data = JSON.parse(body);
+        const authHeader = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
         // console.log('Data from client:', data);
         let filecontents;
         let originalId;
@@ -130,6 +132,8 @@ return; // VERY IMPORTANT
               username: data.username,
               password: data.password,
               id: sessionId,
+              // authTokens holds short-lived bearer tokens: { token, expires }
+              authTokens: [],
               needNewAcc: false,
               taskbuttons: ["🌐", "🗂", "⚙", "📝", "🖥️"],
               brightness: 100,
@@ -158,7 +162,13 @@ fs.cpSync(
                         if (!fs.existsSync(gbenvPath)) {
                           fs.writeFileSync(gbenvPath, 'window.__gbenv_shortcut = {};\n');
                         }
-            responseContent = newContent;
+            // Issue a token for the newly created account and do not return plaintext password
+            const token = crypto.randomBytes(24).toString('hex');
+            const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+            newContent.authTokens = [{ token, expires }];
+            const safeNew = Object.assign({}, newContent);
+            delete safeNew.password;
+            responseContent = Object.assign({}, safeNew, { authToken: token });
           }
         } else {
           // Check credentials
@@ -172,12 +182,29 @@ fs.cpSync(
               responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
               break;
             }
-            if (content.username === data.username && content.password === data.password) {
+            // Helper: clean expired tokens
+            if (!Array.isArray(content.authTokens)) content.authTokens = [];
+            const now = Date.now();
+            content.authTokens = content.authTokens.filter(t => t && t.expires && t.expires > now);
+            // Verify by either password or Bearer token
+            let tokenFromHeader = null;
+            if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
+            const tokenValid = tokenFromHeader && content.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
+            if (content.username === data.username && (content.password === data.password || tokenValid)) {
               if(!content.taskbuttons) {
                   content.taskbuttons = ["🌐", "🗂", "⚙", "📝", "🖥️"];
                   fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
               }
-              responseContent = content;
+              // Issue a short-lived token for the session
+              const token = crypto.randomBytes(24).toString('hex');
+              const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+              content.authTokens = content.authTokens || [];
+              content.authTokens.push({ token, expires });
+              fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content, null, 2));
+              // Do not include password in response
+              const safeContent = Object.assign({}, content);
+              delete safeContent.password;
+              responseContent = Object.assign({}, safeContent, { authToken: token });
               if(content.online) {responseContent = 'error: it looks like another tab is online, if you believe thats a mistake, ask alawgeo in hydrosphere!'; break;}
               break;
             }
@@ -189,7 +216,17 @@ fs.cpSync(
 
         }
         if(data.edittaskbuttons) {
+          // Require auth: either password in body or valid bearer token
           let content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt'));
+          if (!Array.isArray(content.authTokens)) content.authTokens = [];
+          const now = Date.now();
+          content.authTokens = content.authTokens.filter(t => t && t.expires && t.expires > now);
+          let tokenFromHeader = null;
+          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
+          const tokenValid = tokenFromHeader && content.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
+          if (!(data.password === content.password || tokenValid)) {
+            return res.end(JSON.stringify({ error: 'unauthorized' }));
+          }
           content.taskbuttons = data.data;
           fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
         }
@@ -203,14 +240,27 @@ fs.cpSync(
             res.writeHead(404);
             return res.end(JSON.stringify({ error: "User file not found" }));
           }
-          if (data.oldPassword !== userData.password) {
+          // Allow password change if oldPassword matches OR a valid bearer token present
+          if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
+          const now = Date.now();
+          userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
+          let tokenFromHeader = null;
+          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
+          const tokenValid = tokenFromHeader && userData.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
+          if (!(data.oldPassword === userData.password || tokenValid)) {
             return res.end(JSON.stringify({ error: "old password is wrong" }));
           }
 
           userData.password = data.newPassword;
+          // invalidate existing tokens
+          userData.authTokens = [];
+          // issue new token
+          const newToken = crypto.randomBytes(24).toString('hex');
+          const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+          userData.authTokens.push({ token: newToken, expires });
 
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-          return res.end(JSON.stringify({ success: true }));
+          return res.end(JSON.stringify({ success: true, authToken: newToken }));
         }
         else if(data.deleteAcc) {
           const userFile = directoryPath + data.username + '/' + data.username + '.txt';
@@ -221,7 +271,14 @@ fs.cpSync(
             res.writeHead(404);
             return res.end(JSON.stringify({ error: "User file not found" }));
           }
-          if(data.password !== userData.password) {
+          // allow deletion by password OR valid token
+          if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
+          const now = Date.now();
+          userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
+          let tokenFromHeader = null;
+          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
+          const tokenValid = tokenFromHeader && userData.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
+          if(!(data.password === userData.password || tokenValid)) {
             return res.end(JSON.stringify({ error: "wrong password" }));
           }
           try {

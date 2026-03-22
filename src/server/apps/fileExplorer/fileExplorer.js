@@ -442,7 +442,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   };
 
   // --- RENDER ---
-  let loadTree = async function () {
+  let onlyloadTree = async function () {
     const data = await filePost({ initFE: true });
     treeData = data.tree;
     // Restore clipboard from server
@@ -1429,7 +1429,7 @@ fileExplorer = function (posX = 50, posY = 50) {
 
   // --- BUTTONS ---
   refreshBtn.onclick = async () => {
-    window.treeData = loadTree();
+    window.treeData = onlyloadTree();
     render();
   };
   uploadBtn.onclick = () => fileInput.click();
@@ -1699,7 +1699,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   });
 
   // --- INIT ---
-  loadTree();
+  onlyloadTree();
 
   explorerGlobals.allExplorers.push({
     rootElement: root,

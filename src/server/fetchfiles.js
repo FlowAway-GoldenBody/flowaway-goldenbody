@@ -30,7 +30,7 @@ async function walkDir(dir, base = dir) {
       // placed next to the user's folder: <username>/<username>.txt
       // If the user file does not exist or contains no `password` field,
       // authentication is considered not required and the function returns true.
-      async function authenticateUser(username, providedPassword) {
+      async function authenticateUser(username, providedPassword, authHeader) {
         try {
           if (!username) return false;
           const userDir = path.join(directoryPath, username);
@@ -40,7 +40,18 @@ async function walkDir(dir, base = dir) {
             const obj = JSON.parse(txt);
             console.log(providedPassword, obj.password, 'auth attempt for', username);
             if (obj && typeof obj.password === 'string' && obj.password.length) {
-              return providedPassword === obj.password;
+              // Check password match first
+              if (providedPassword === obj.password) return true;
+              // Otherwise check bearer token from header
+              if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.slice(7).trim();
+                if (Array.isArray(obj.authTokens)) {
+                  const now = Date.now();
+                  obj.authTokens = obj.authTokens.filter(t => t && t.expires && t.expires > now);
+                  return obj.authTokens.some(t => t.token === token && t.expires > now);
+                }
+              }
+              return false;
             }
             // no password set → allow
             return true;
@@ -111,7 +122,7 @@ async function buildUserFileTree(rootPath) {
 async function handleFetchfiles(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -126,13 +137,14 @@ async function handleFetchfiles(req, res) {
       const full = new URL(req.url, `http://${req.headers.host}`);
       const username = full.searchParams.get('username');
       const pwd = full.searchParams.get('password');
+      const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
       const rel = full.searchParams.get('path');
       if (!username || !rel) {
         res.writeHead(400);
         return res.end('missing username or path');
       }
       // authenticate download request
-      if (!(await authenticateUser(username, pwd))) {
+      if (!(await authenticateUser(username, pwd, authHeader))) {
         console.log(pwd, 'failed auth for', username);
         res.writeHead(401);
         return res.end('unauthorized');
@@ -196,7 +208,8 @@ async function handleFetchfiles(req, res) {
 
     // Authenticate all POST actions. If the user has a password set
     // in their user file (username.txt) it must match `data.password`.
-    if (!(await authenticateUser(username, data.password))) {
+    const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
+    if (!(await authenticateUser(username, data.password, authHeader))) {
       res.writeHead(401);
         console.log(data.password, 'failed auth for', username);
       return res.end(JSON.stringify({ error: 'unauthorized' }));
