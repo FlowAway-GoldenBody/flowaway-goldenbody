@@ -50,11 +50,11 @@ function updateAllSystemApps() {
       .filter(e => e.isDirectory() && !e.name.startsWith('.'))
       .map(d => d.name);
     const sampleAppName = 'sample app';
-    
+
     // Get list of user directories
     const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
     const userDirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(d => d.name);
-    
+
     for (const username of userDirs) {
       try {
         // Read user data
@@ -63,7 +63,7 @@ function updateAllSystemApps() {
           console.log(`User file not found: ${userFile}`);
           continue;
         }
-        
+
         const userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
         const userRootPath = path.join(directoryPath, username, 'root');
         const userBootPath = path.join(userRootPath, '.boot');
@@ -90,13 +90,43 @@ function updateAllSystemApps() {
         if (userData.autoupdate) {
           // Only replace known system app folders; preserve user-created non-system apps.
           fs.mkdirSync(userAppsPath, { recursive: true });
+          // General behavior: copy system app files but do NOT overwrite existing user files.
+          // If the user does not have the app folder, copy the whole app. If they do,
+          // only copy missing files and folders (do not replace existing files).
+          const copySkipExisting = (srcDir, dstDir) => {
+            const items = fs.readdirSync(srcDir, { withFileTypes: true });
+            for (const it of items) {
+              const srcItem = path.join(srcDir, it.name);
+              const dstItem = path.join(dstDir, it.name);
+              try {
+                if (it.isDirectory()) {
+                  if (!fs.existsSync(dstItem)) fs.mkdirSync(dstItem, { recursive: true });
+                  copySkipExisting(srcItem, dstItem);
+                } else {
+                  if (!fs.existsSync(dstItem)) {
+                    try { fs.copyFileSync(srcItem, dstItem); } catch (e) { /* ignore */ }
+                  }
+                }
+              } catch (e) {
+                // ignore per-item errors
+              }
+            }
+          };
+
           for (const appName of systemAppDirs) {
             const srcAppPath = path.join(systemAppsPath, appName);
             const dstAppPath = path.join(userAppsPath, appName);
-            fs.rmSync(dstAppPath, { recursive: true, force: true });
-            fs.cpSync(srcAppPath, dstAppPath, { recursive: true });
+            try {
+              if (!fs.existsSync(dstAppPath)) {
+                fs.cpSync(srcAppPath, dstAppPath, { recursive: true });
+              } else {
+                copySkipExisting(srcAppPath, dstAppPath);
+              }
+            } catch (e) {
+              console.error(`Failed to update app '${appName}' for user ${username}:`, e);
+            }
           }
-          
+
           console.log(`Updated system apps for user: ${username}`);
         }
       } catch (err) {
