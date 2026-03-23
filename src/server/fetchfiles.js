@@ -28,8 +28,8 @@ async function walkDir(dir, base = dir) {
 
       // Authenticate a username/password pair against a per-user JSON file
       // placed next to the user's folder: <username>/<username>.txt
-      // If the user file does not exist or contains no `password` field,
-      // authentication is considered not required and the function returns true.
+      // If the user file does not exist, authentication fails.
+      // If the user file exists but contains no `password` field, allow.
       async function authenticateUser(username, providedPassword, authHeader) {
         try {
           if (!username) return false;
@@ -56,8 +56,8 @@ async function walkDir(dir, base = dir) {
             // no password set → allow
             return true;
           } catch (e) {
-            // missing or unreadable user file → allow
-            return true;
+            // missing or unreadable user file → deny (prevents recreating deleted accounts)
+            return false;
           }
         } catch (e) {
           return false;
@@ -203,9 +203,6 @@ async function handleFetchfiles(req, res) {
       return res.end(JSON.stringify({ error: 'Missing username' }));
     }
 
-    const userRoot = path.join(directoryPath, username, 'root');
-    await fsp.mkdir(userRoot, { recursive: true });
-
     // Authenticate all POST actions. If the user has a password set
     // in their user file (username.txt) it must match `data.password`.
     const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
@@ -214,6 +211,9 @@ async function handleFetchfiles(req, res) {
         console.log(data.password, 'failed auth for', username);
       return res.end(JSON.stringify({ error: 'unauthorized' }));
     }
+
+    const userRoot = path.join(directoryPath, username, 'root');
+    await fsp.mkdir(userRoot, { recursive: true });
 
   
 

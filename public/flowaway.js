@@ -1,6 +1,7 @@
-window.data = data;
+// Preserve window.data if already set (e.g., from ouchbad.js account creation), otherwise initialize
+if (!window.data) window.data = data;
 window.loaded = false;
-window.APP_VERSION = 'v1.12.5';
+window.APP_VERSION = 'v1.12.7';
 function formatBytes(bytes, decimals = 2) {
   if (bytes === 0) return '0 Bytes';
 
@@ -247,6 +248,7 @@ var rebuildhandler = function() {
         } catch(e){}
       }
     }
+    data.authToken = null;
     // Remove all children from the documentElement (head/body) to get a clean slate
     var docEl = document.documentElement;
     while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
@@ -344,6 +346,91 @@ try {
   window.addEventListener('beforeunload', window._flowaway_handlers.onBeforeUnload);
 } catch (e) {}
 
+function showSessionExpiredDialog() {
+  if (document.getElementById('session-expired-dialog')) {
+    // already shown
+    return;
+  }
+
+  const dlg = document.createElement('div');
+  dlg.id = 'session-expired-dialog';
+  Object.assign(dlg.style, {
+    position: 'fixed',
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '420px',
+    maxWidth: '90vw',
+    background: (window.data && window.data.dark) ? '#222' : '#fff',
+    color: (window.data && window.data.dark) ? '#fff' : '#000',
+    borderRadius: '8px',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+    zIndex: 99999,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    padding: '12px'
+  });
+
+  const header = document.createElement('div');
+  header.style.display = 'flex';
+  header.style.alignItems = 'center';
+  header.style.justifyContent = 'space-between';
+
+  const htitle = document.createElement('div');
+  htitle.textContent = 'Session Expired';
+  htitle.style.fontWeight = '600';
+
+  const closeX = document.createElement('button');
+  closeX.setAttribute('aria-label', 'Close dialog');
+  closeX.textContent = '✕';
+  Object.assign(closeX.style, {
+    border: 'none',
+    background: 'transparent',
+    cursor: 'pointer',
+    width: '32px',
+    height: '28px',
+    padding: '0',
+    display: 'grid',
+    placeItems: 'center',
+    lineHeight: '0',
+    fontSize: '14px'
+  });
+
+  header.append(htitle);
+  header.append(closeX);
+  dlg.appendChild(header);
+
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+  content.style.fontSize = '13px';
+  content.style.flex = '1';
+  content.textContent = 'Your session has expired or you have been logged out. Please sign in again.';
+  dlg.appendChild(content);
+
+  const btnRow = document.createElement('div');
+  btnRow.style.display = 'flex';
+  btnRow.style.justifyContent = 'flex-end';
+  btnRow.style.gap = '8px';
+
+  const reloadBtn = document.createElement('button');
+  reloadBtn.textContent = 'Sign In Again';
+  reloadBtn.style.padding = '6px 10px';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.padding = '6px 10px';
+
+  btnRow.append(closeBtn, reloadBtn);
+  dlg.appendChild(btnRow);
+
+  closeX.addEventListener('click', () => dlg.remove());
+  closeBtn.addEventListener('click', () => dlg.remove());
+  reloadBtn.addEventListener('click', () => rebuildhandler());
+
+  document.body.appendChild(dlg);
+}
+
 
 async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
@@ -354,15 +441,25 @@ async function filePost(data) {
     body: JSON.stringify({ username, ...data }),
   });
   if(!data.initFE) {
-  setTimeout(() => {
-    try{
-      window.onlyloadTree();
-    } catch (e) {
-      console.error('Error occurred while loading tree', e);
-    }
-  }, 1000);
+    setTimeout(() => {
+      try{
+        window.onlyloadTree();
+      } catch (e) {
+        console.error('Error occurred while loading tree', e);
+      }
+    }, 1000);
   }
-  return res.json();
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (body && (body.authToken || body.token)) {
+    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+  }
+  if (res.status === 401 && !firstlogin) {
+    try { showSessionExpiredDialog(); } catch (e) {}
+    return body || { error: 'unauthorized' };
+  }
+  firstlogin = false;
+  return body;
 }
 async function zmcdpost(data) {
   const headers = { "Content-Type": "application/json" };
@@ -372,7 +469,16 @@ async function zmcdpost(data) {
     headers,
     body: JSON.stringify({ username, ...data }),
   });
-  return res.json();
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (body && (body.authToken || body.token)) {
+    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+  }
+  if (res.status === 401) {
+    try { showSessionExpiredDialog(); } catch (e) {}
+    return body || { error: 'unauthorized' };
+  }
+  return body;
 }
 async function posttaskbuttons(data) {
   const headers = { "Content-Type": "application/json" };
@@ -386,7 +492,16 @@ async function posttaskbuttons(data) {
       edittaskbuttons: true,
     }),
   });
-  return res.json();
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (body && (body.authToken || body.token)) {
+    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+  }
+  if (res.status === 401) {
+    try { showSessionExpiredDialog(); } catch (e) {}
+    return body || { error: 'unauthorized' };
+  }
+  return body;
 }
 async function downloadPost(data) {
     var res = await fetch(downloadserver, {
@@ -398,7 +513,16 @@ async function downloadPost(data) {
       edittaskbuttons: true,
     }),
   });
-  return res.json();
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (body && (body.authToken || body.token)) {
+    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+  }
+  if (res.status === 401) {
+    try { showSessionExpiredDialog(); } catch (e) {}
+    return body || { error: 'unauthorized' };
+  }
+  return body;
 }
 function annotateTreeWithPaths(tree, basePath = '') {
   var [name, children, meta = {}] = tree;

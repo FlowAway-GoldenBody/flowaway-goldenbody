@@ -68,76 +68,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Simple div-based confirmation dialog. Returns true for confirm, false for cancel.
-function showConfirmDialog(title, message) {
-  return new Promise((resolve) => {
-    try {
-      document.getElementById("gb-confirm-overlay")?.remove();
-    } catch (e) {}
-    const overlay = document.createElement("div");
-    overlay.id = "gb-confirm-overlay";
 
-    const isDark = !!(window.data && window.data.dark);
-    overlay.style.cssText = `position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:2147483647;`;
-    overlay.style.backgroundColor = isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)';
-
-    const panel = document.createElement("div");
-    panel.style.cssText = `width:360px;max-width:90vw;border-radius:10px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.4);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;`;
-    panel.style.background = isDark ? '#0f1113' : '#fff';
-    panel.style.color = isDark ? '#e6eef8' : '#000';
-
-    const h = document.createElement("div");
-    h.style.cssText = "font-weight:700;margin-bottom:8px;font-size:15px;";
-    h.style.color = isDark ? '#fff' : '#111';
-    h.textContent = title || "Confirm";
-
-    const m = document.createElement("div");
-    m.style.cssText = "margin-bottom:12px;font-size:13px;white-space:pre-wrap;";
-    m.style.color = isDark ? '#cbd5e1' : '#333';
-    m.textContent = message || "Are you sure?";
-
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
-
-    const btnCancel = document.createElement("button");
-    btnCancel.textContent = "Cancel";
-    btnCancel.style.cssText = isDark
-      ? "padding:8px 12px;border-radius:6px;background:transparent;border:1px solid #444;color:#ddd;cursor:pointer;"
-      : "padding:8px 12px;border-radius:6px;background:transparent;border:1px solid #ccc;color:#111;cursor:pointer;";
-    btnCancel.onclick = () => {
-      try { overlay.remove(); } catch (e) {}
-      resolve(false);
-    };
-
-    const btnOk = document.createElement("button");
-    btnOk.textContent = "Confirm";
-    btnOk.style.cssText = isDark
-      ? "padding:8px 12px;border-radius:6px;background:#2563eb;color:#fff;border:none;cursor:pointer;"
-      : "padding:8px 12px;border-radius:6px;background:#4c8bf5;color:#fff;border:none;cursor:pointer;";
-    btnOk.onclick = () => {
-      try { overlay.remove(); } catch (e) {}
-      resolve(true);
-    };
-
-    actions.appendChild(btnCancel);
-    actions.appendChild(btnOk);
-    panel.appendChild(h);
-    panel.appendChild(m);
-    panel.appendChild(actions);
-
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
-    // allow Esc to cancel
-    function onKey(e) {
-      if (e.key === "Escape") {
-        try { overlay.remove(); } catch (err) {}
-        document.removeEventListener("keydown", onKey);
-        resolve(false);
-      }
-    }
-    document.addEventListener("keydown", onKey);
-  });
-}
 async function readProfileTextFileMeta(filePath, options = {}) {
   const attempts = Math.max(1, Number(options.attempts || 1));
   const retryDelayMs = Math.max(0, Number(options.retryDelayMs || 0));
@@ -367,36 +298,9 @@ browserGlobals.profileReadyPromise = (async () => {
   if (idReadConfirm.error) {
     return;
   }
-  // Before creating a new session id, ask the user via a div dialog.
-  // If they cancel, re-run the read attempts and only proceed if the id is still missing.
-  while (true) {
-    const ok = await showConfirmDialog(
-      "Create new browser session",
-      "No existing session id found. Create a new browser session id and save it to your profile?",
-    );
-    if (!ok) {
-      // re-check the profile file (attempts) and return if found or errored.
-      const retry = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
-        attempts: 6,
-        retryDelayMs: 220,
-      });
-      const retried = String(retry.text || "").trim();
-      if (retried) {
-        browserGlobals.id = retried;
-        break;
-      }
-      if (retry.error) {
-        return;
-      }
-      // else loop and ask again
-      continue;
-    }
-
-    const id = await requestNewBrowserSessionId();
-    browserGlobals.id = id;
-    await writeBrowserUserId(id);
-    break;
-  }
+  const id = await requestNewBrowserSessionId();
+  browserGlobals.id = id;
+  await writeBrowserUserId(id);
 })().catch(() => {});
 
 browserGlobals.subWebsite = function (url) {

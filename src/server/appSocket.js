@@ -188,9 +188,16 @@ function ensureUserWatcher(username) {
   userWatchers.set(username, state);
 }
 
-function cleanupUserWatcher(username) {
+function cleanupUserWatcher(username, force = false) {
   const clients = userClients.get(username);
-  if (clients && clients.size > 0) return;
+  if (!force && clients && clients.size > 0) return;
+
+  if (force && clients && clients.size > 0) {
+    for (const client of clients) {
+      try { client.close(); } catch (e) {}
+      try { client.terminate && client.terminate(); } catch (e) {}
+    }
+  }
 
   const state = userWatchers.get(username);
   if (!state) return;
@@ -300,4 +307,4 @@ function handleConnection(ws) {
   });
 }
 
-module.exports = { startAppPollingServer, handleConnection };
+module.exports = { startAppPollingServer, handleConnection, cleanupUserWatcher };
