@@ -405,8 +405,24 @@ function showSessionExpiredDialog() {
   content.style.padding = '8px 0';
   content.style.fontSize = '13px';
   content.style.flex = '1';
-  content.textContent = 'Your session has expired or you have been logged out. Please sign in again.';
+  content.textContent = 'Your session has expired or you have been logged out. Enter your password to refill the session.';
   dlg.appendChild(content);
+
+  const refillInput = document.createElement('input');
+  refillInput.type = 'password';
+  refillInput.placeholder = 'Password';
+  refillInput.autocomplete = 'current-password';
+  refillInput.style.width = '100%';
+  refillInput.style.boxSizing = 'border-box';
+  refillInput.style.padding = '8px';
+  refillInput.style.margin = '2px 0 8px 0';
+  dlg.appendChild(refillInput);
+
+  const status = document.createElement('div');
+  status.style.fontSize = '12px';
+  status.style.minHeight = '16px';
+  status.style.marginBottom = '8px';
+  dlg.appendChild(status);
 
   const btnRow = document.createElement('div');
   btnRow.style.display = 'flex';
@@ -417,15 +433,65 @@ function showSessionExpiredDialog() {
   reloadBtn.textContent = 'Sign In Again';
   reloadBtn.style.padding = '6px 10px';
 
+  const refillBtn = document.createElement('button');
+  refillBtn.textContent = 'Refill Session';
+  refillBtn.style.padding = '6px 10px';
+
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'Close';
   closeBtn.style.padding = '6px 10px';
 
-  btnRow.append(closeBtn, reloadBtn);
+  btnRow.append(closeBtn, refillBtn, reloadBtn);
   dlg.appendChild(btnRow);
 
   closeX.addEventListener('click', () => dlg.remove());
   closeBtn.addEventListener('click', () => dlg.remove());
+  refillBtn.addEventListener('click', async () => {
+    const password = String(refillInput.value || '').trim();
+    if (!password) {
+      status.textContent = 'Enter password first.';
+      status.style.color = 'red';
+      return;
+    }
+
+    refillBtn.disabled = true;
+    refillBtn.textContent = 'Refilling...';
+    status.textContent = '';
+
+    try {
+      const res = await fetch(zmcdserver, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          refillSession: true,
+          username: username,
+          password: password,
+        }),
+      });
+
+      let body = null;
+      try { body = await res.json(); } catch (e) { body = null; }
+
+      if (!res.ok || !body || !body.success || !body.authToken) {
+        throw new Error((body && body.error) || 'Failed to refill session');
+      }
+
+      window.data = window.data || {};
+      window.data.authToken = body.authToken;
+      refillInput.value = '';
+      status.textContent = 'Session refilled. You can continue.';
+      status.style.color = 'green';
+      setTimeout(() => {
+        try { dlg.remove(); } catch (e) {}
+      }, 350);
+    } catch (e) {
+      status.textContent = 'Wrong password or refill failed.';
+      status.style.color = 'red';
+    }
+
+    refillBtn.disabled = false;
+    refillBtn.textContent = 'Refill Session';
+  });
   reloadBtn.addEventListener('click', () => rebuildhandler());
 
   document.body.appendChild(dlg);
