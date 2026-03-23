@@ -573,9 +573,9 @@ terminal = function (posX = 50, posY = 50) {
         { end: true },
       ],
     });
-    if (typeof window.loadTree === "function") {
+    if (typeof window.onlyloadTree === "function") {
       try {
-        await window.loadTree();
+        await window.onlyloadTree();
       } catch (e) {}
     }
   }
@@ -588,9 +588,9 @@ terminal = function (posX = 50, posY = 50) {
       saveSnapshot: true,
       directions: [...directions, { end: true }],
     });
-    if (typeof window.loadTree === "function") {
+    if (typeof window.onlyloadTree === "function") {
       try {
-        await window.loadTree();
+        await window.onlyloadTree();
       } catch (e) {}
     }
   }

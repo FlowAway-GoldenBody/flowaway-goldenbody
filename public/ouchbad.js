@@ -20,7 +20,7 @@ if (!window.__ouchbad_preinit_done) {
     : 'ws://';
   window.__ouchbad_hostname = new URL(window.__ouchbad_baseOrigin).hostname;
 }
-
+var firstlogin = true;
 var BASE = window.__ouchbad_BASE;
 var goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
 var zmcdserver = window.__ouchbad_zmcdserver;
@@ -138,7 +138,9 @@ box.innerHTML = `
 
         msg.textContent = "Success!";
         msg.style.color = "lime";
-        data = zmcdata
+        data = zmcdata;
+        // Explicitly set window.data so flowaway.js can use the authToken immediately
+        window.data = data;
         if(!window.firstlogin && data.username.startsWith("183")) {
           window.firstlogin = true;
     var backgroundMusic = document.createElement('audio');
@@ -157,7 +159,7 @@ box.innerHTML = `
         setTimeout(() => {   let a = document.createElement('script');
   a.src = `${goldenbodywebsite}flowaway.js`;
   document.body.appendChild(a); box.remove(); document.body.style.background = 'white';   document.body.style.color = "#000000ff";
-}, 300);
+}, 500);
       })
       .catch(err => {
         console.error(err);

@@ -30,7 +30,7 @@ async function authenticateUser(username, providedPassword, authHeader) {
       }
       return true; // no password set → allow
     } catch (e) {
-      return true; // missing/unreadable user file → allow by default
+      return false; // missing/unreadable user file → deny (prevents recreating deleted accounts)
     }
   } catch (e) {
     return false;

@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache.js');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const RammerheadSession = require('../classes/RammerheadSession');
+const { cleanupUserWatcher } = require('./appSocket.js');
 
 const logger = new RammerheadLogging({ logLevel: 'debug' });
 const store = new RammerheadSessionFileCache({ logger });
@@ -166,6 +167,8 @@ fs.cpSync(
             const token = crypto.randomBytes(24).toString('hex');
             const expires = Date.now() + 1000 * 60 * 60; // 1 hour
             newContent.authTokens = [{ token, expires }];
+            // persist the authTokens to disk immediately so the token is valid for subsequent requests
+            fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent, null, 2));
             const safeNew = Object.assign({}, newContent);
             delete safeNew.password;
             responseContent = Object.assign({}, safeNew, { authToken: token });
@@ -271,24 +274,61 @@ fs.cpSync(
             res.writeHead(404);
             return res.end(JSON.stringify({ error: "User file not found" }));
           }
-          // allow deletion by password OR valid token
+          // Check auth: password or bearer token
           if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
           const now = Date.now();
           userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
-          let tokenFromHeader = null;
-          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
-          const tokenValid = tokenFromHeader && userData.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
-          if(!(data.password === userData.password || tokenValid)) {
+          let tokenFromHeaderDelete = null;
+          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeaderDelete = authHeader.slice(7).trim();
+          const tokenValidDelete = tokenFromHeaderDelete && userData.authTokens.some(t => t.token === tokenFromHeaderDelete && t.expires > now);
+          if(!(data.password === userData.password || tokenValidDelete)) {
             return res.end(JSON.stringify({ error: "wrong password" }));
           }
           try {
             fs.unlinkSync(sessionPath + userData.id + '.rhfsession');
           } catch (e) {
-            console.log(e);
+            console.log('Session file delete error:', e.message);
           }
-          fs.rmSync(directoryPath + data.username, { recursive: true, force: true });
-          console.log(`Directory deleted: ${directoryPath}`);
-          return res.end(JSON.stringify({ success: true }));
+          // Clean up any file watchers and WebSocket connections before deletion
+          try {
+            cleanupUserWatcher(data.username, true);
+            console.log(`[DELETE] Cleaned up watchers for user: ${data.username}`);
+          } catch (e) {
+            console.error('[DELETE] Error cleaning up watchers:', e.message);
+          }
+          const targetDir = directoryPath + data.username;
+          try {
+            if (fs.existsSync(targetDir)) {
+              console.log(`[DELETE] Target directory exists: ${targetDir}`);
+              console.log(`[DELETE] Directory contents before deletion:`, fs.readdirSync(targetDir));
+              fs.rmSync(targetDir, { recursive: true, force: true });
+              console.log(`[DELETE] rmSync completed for: ${targetDir}`);
+            } else {
+              console.log(`[DELETE] Directory not found: ${targetDir}`);
+            }
+            // verify removal with slight delay
+            setTimeout(() => {
+              if (fs.existsSync(targetDir)) {
+                console.error(`[DELETE] VERIFICATION FAILED - Directory still exists: ${targetDir}`);
+              } else {
+                console.log(`[DELETE] VERIFICATION SUCCESS - Directory removed: ${targetDir}`);
+              }
+            }, 100);
+            
+            // Double check immediately
+            if (fs.existsSync(targetDir)) {
+              console.error('Failed to remove user directory:', targetDir);
+              console.log('Directory still contains:', fs.readdirSync(targetDir));
+              return res.end(JSON.stringify({ error: 'failed to remove account directory' }));
+            }
+            console.log(`Directory deleted: ${targetDir}`);
+            return res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            console.error('Error deleting user directory:', e.message);
+            console.error('Error code:', e.code);
+            console.error('Error path:', e.path);
+            return res.end(JSON.stringify({ error: 'failed to remove account directory', details: String(e) }));
+          }
         } else if(data.changeBrightness) {
           const userFile = directoryPath + data.username + '/' + data.username + '.txt';
           let userData;

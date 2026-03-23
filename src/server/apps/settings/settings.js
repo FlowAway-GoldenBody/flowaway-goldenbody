@@ -618,7 +618,7 @@ settings = function (posX = 50, posY = 50) {
       deleteStatus.style.color = "green";
 
       // Optional: force logout / reload
-      setTimeout(() => location.reload(), 1000);
+      setTimeout(() => rebuildhandler(), 1000);
     } catch {
       deleteStatus.textContent = "Wrong password in old password input.";
       deleteStatus.style.color = "red";
