@@ -218,6 +218,32 @@ fs.cpSync(
           }
 
         }
+        if (data.refillSession) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: 'User file not found' }));
+          }
+
+          if (data.password !== userData.password) {
+            res.writeHead(401);
+            return res.end(JSON.stringify({ error: 'wrong password' }));
+          }
+
+          if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
+          const now = Date.now();
+          userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
+
+          const newToken = crypto.randomBytes(24).toString('hex');
+          const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+          userData.authTokens.push({ token: newToken, expires });
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+
+          return res.end(JSON.stringify({ success: true, authToken: newToken }));
+        }
         if(data.edittaskbuttons) {
           // Require auth: either password in body or valid bearer token
           let content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt'));
