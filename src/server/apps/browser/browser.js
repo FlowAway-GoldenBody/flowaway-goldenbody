@@ -23,6 +23,7 @@ browserGlobals.profileState = {
   siteSettings: [],
   enableURLSync: true,
   lazyloading: true,
+  siteZoom: {},
 };
 
 function safeDecodeBase64Text(v) {
@@ -125,17 +126,28 @@ function defaultBrowserProfile() {
     siteSettings: [],
     enableURLSync: true,
     lazyloading: true,
+    siteZoom: {},
   };
 }
 
 function normalizeBrowserProfile(parsed) {
   if (!parsed || typeof parsed !== "object") return defaultBrowserProfile();
+  const normalizedSiteZoom = {};
+  if (parsed.siteZoom && typeof parsed.siteZoom === "object") {
+    for (const key of Object.keys(parsed.siteZoom)) {
+      const value = Number(parsed.siteZoom[key]);
+      if (Number.isFinite(value)) {
+        normalizedSiteZoom[key] = Math.max(25, Math.min(500, Math.round(value)));
+      }
+    }
+  }
   return {
     siteSettings: Array.isArray(parsed.siteSettings) ? parsed.siteSettings : [],
     enableURLSync:
       typeof parsed.enableURLSync === "boolean" ? parsed.enableURLSync : true,
     lazyloading:
       typeof parsed.lazyloading === "boolean" ? parsed.lazyloading : true,
+    siteZoom: normalizedSiteZoom,
   };
 }
 
@@ -169,6 +181,10 @@ async function writeBrowserProfile(profile, options = {}) {
     siteSettings: Array.isArray(profile?.siteSettings) ? profile.siteSettings : [],
     enableURLSync: !!profile?.enableURLSync,
     lazyloading: !!profile?.lazyloading,
+    siteZoom:
+      profile?.siteZoom && typeof profile.siteZoom === "object"
+        ? profile.siteZoom
+        : {},
   };
 
   if (!options.force) {
@@ -393,6 +409,10 @@ window.browser = function (
     browserGlobals.profileState.siteSettings = profile.siteSettings;
     browserGlobals.profileState.enableURLSync = profile.enableURLSync;
     browserGlobals.profileState.lazyloading = profile.lazyloading;
+    browserGlobals.profileState.siteZoom =
+      profile.siteZoom && typeof profile.siteZoom === "object"
+        ? profile.siteZoom
+        : {};
     await writeBrowserProfile(profile);
 
     iframe.sandbox = content.newSandbox;
@@ -507,8 +527,8 @@ window.browser = function (
       browserGlobals.unshuffleURL(iframe.src),
     );
     let secure = website.startsWith("https://")
-      ? "Connection is Secure"
-      : "Not Secure";
+      ? "Connection to this site is Secure"
+      : "Connection to this site is Not Secure";
     if (website.startsWith("goldenbody://"))
       secure = "You are viewing a secure official goldenbody webpage";
     section(website);
@@ -1152,11 +1172,13 @@ window.browser = function (
         siteSettings: [],
         enableURLSync: true,
         lazyloading: true,
+        siteZoom: {},
       };
       await writeBrowserProfile(browserGlobals.profile, { force: true });
       browserGlobals.profileState.siteSettings = [];
       browserGlobals.profileState.enableURLSync = true;
       browserGlobals.profileState.lazyloading = true;
+      browserGlobals.profileState.siteZoom = {};
       notification("site data cleared! please close all browser windows!");
     };
 
@@ -1686,6 +1708,69 @@ window.browser = function (
           },
           "*",
         );
+        function getSiteZoomKeyForTab(tab) {
+          try {
+            const current = String(
+              tab.iframe.contentWindow.location &&
+                tab.iframe.contentWindow.location.href
+                ? tab.iframe.contentWindow.location.href
+                : tab.url || "",
+            );
+            const unshuffled = browserGlobals.unshuffleURL(current);
+            try {
+              const u = new URL(unshuffled);
+              return (u.protocol + "//" + u.host).toLowerCase();
+            } catch (e) {
+              return browserGlobals.mainWebsite(unshuffled).toLowerCase();
+            }
+          } catch (e) {
+            return "";
+          }
+        }
+
+        function applyZoomToTab(tab) {
+          let resizescript = document.createElement("script");
+          resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
+          tab.iframe.contentDocument.head.appendChild(resizescript);
+        }
+
+        function persistSiteZoomForTab(tab) {
+          const key = getSiteZoomKeyForTab(tab);
+          if (!key) return;
+          const profile = browserGlobals.profile || defaultBrowserProfile();
+          if (!profile.siteZoom || typeof profile.siteZoom !== "object") {
+            profile.siteZoom = {};
+          }
+          profile.siteZoom[key] = tab.resizeP;
+          browserGlobals.profile = profile;
+          browserGlobals.profileState.siteZoom = profile.siteZoom;
+          try {
+            if (browserGlobals.__siteZoomPersistTimer) {
+              clearTimeout(browserGlobals.__siteZoomPersistTimer);
+            }
+            browserGlobals.__siteZoomPersistTimer = setTimeout(() => {
+              writeBrowserProfile(profile).catch(() => {});
+            }, 220);
+          } catch (e) {}
+        }
+
+        function loadSiteZoomForTab(tab) {
+          const key = getSiteZoomKeyForTab(tab);
+          if (!key) return;
+          const profile = browserGlobals.profile || defaultBrowserProfile();
+          const siteZoom =
+            profile.siteZoom && typeof profile.siteZoom === "object"
+              ? profile.siteZoom
+              : {};
+          const z = Number(siteZoom[key]);
+          if (Number.isFinite(z)) {
+            tab.resizeP = Math.max(25, Math.min(500, Math.round(z)));
+          } else {
+            tab.resizeP = 100;
+          }
+        }
+
+        loadSiteZoomForTab(tab);
         function handleresize(e, tab) {
           try {
             if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
@@ -1693,17 +1778,15 @@ window.browser = function (
               tab.resizeP += 5;
               if (tab.resizeP > 500) tab.resizeP = 500;
               resizeDiv.style.display = "block";
-              let resizescript = document.createElement("script");
-              resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
-              tab.iframe.contentDocument.head.appendChild(resizescript);
+              applyZoomToTab(tab);
+              persistSiteZoomForTab(tab);
             } else if (e.ctrlKey && e.key === "-") {
               e.preventDefault();
               tab.resizeP -= 5;
               if (tab.resizeP < 25) tab.resizeP = 25;
               resizeDiv.style.display = "block";
-              let resizescript = document.createElement("script");
-              resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
-              tab.iframe.contentDocument.head.appendChild(resizescript);
+              applyZoomToTab(tab);
+              persistSiteZoomForTab(tab);
             } else {
               resizeDiv.style.display = "none";
             }
@@ -1725,9 +1808,7 @@ window.browser = function (
           urlInput.value = browserGlobals.unshuffleURL(
             iframe.contentWindow.location.href,
           );
-        let resizescript = document.createElement("script");
-        resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
-        tab.iframe.contentDocument.head.appendChild(resizescript);
+        applyZoomToTab(tab);
         // let sfc = tab.iframe.contentDocument.createElement("script");
         // sfc.src = goldenbodywebsite + "sfc__o.js";
         // tab.iframe.contentDocument.head.prepend(sfc);

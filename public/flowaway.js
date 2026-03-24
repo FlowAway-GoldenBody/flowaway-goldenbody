@@ -131,13 +131,6 @@ window.applyWindowControlIcon = function(button, iconName, options = {}) {
   if (!button) return;
   var svg = window.windowControlSvgs[iconName] || '';
   button.innerHTML = svg;
-  // // Prevent parent flex containers from shrinking the control buttons
-  // button.style.display = 'inline-flex';
-  // button.style.alignItems = 'center';
-  // button.style.justifyContent = 'center';
-  // button.style.flex = options.flex || '0 0 auto';
-  // button.style.flexShrink = '0';
-  // Use a slightly wider default to match Windows 11 thin-line spacing
   button.style.minHeight = options.minHeight || '1vh';
 
   // Store metadata on the element so we can recompute on resize
@@ -239,16 +232,78 @@ var hasChanges;
   document.body.style.backgroundRepeat = 'no-repeat';
 var rebuildhandler = function() {
   try {
-    // Pause and unload any playing media to avoid audio carrying over
-    try { document.querySelectorAll('audio,video').forEach(m => { try { m.pause(); m.src = ''; } catch(e){} }); } catch(e){}
-    for(const app of window.apps) {
-      for(const win of app[app.allapparray] || []) {  
+    try {
+        for(const app of window.apps) {
+      for(const win of window[app.globalvarobject][app.allapparray] || []) {  
         try {
           removeAllEventListenersForApp(app.id + win.rootElement._goldenbodyId);
         } catch(e){}
       }
     }
-    data.authToken = null;
+  } catch (e) {console.error('Error during event listener cleanup in rebuildhandler', e);}
+    // Pause and unload any playing media to avoid audio carrying over
+    try { document.querySelectorAll('audio,video').forEach(m => { try { m.pause(); m.src = ''; } catch(e){} }); } catch(e){}
+    try {
+      if (appPollingTimer) clearTimeout(appPollingTimer);
+      if (appPollingReconnectTimer) clearTimeout(appPollingReconnectTimer);
+      if (appPollingSafetyInterval) clearInterval(appPollingSafetyInterval);
+      appPollingTimer = null;
+      appPollingReconnectTimer = null;
+      appPollingSafetyInterval = null;
+      appPollingInFlight = false;
+      appPollingDirty = false;
+      appPollingActive = false;
+      appPollingPendingFolders = new Set();
+      if (appPollingSocket) {
+        try { appPollingSocket.onopen = null; } catch (e) {}
+        try { appPollingSocket.onmessage = null; } catch (e) {}
+        try { appPollingSocket.onerror = null; } catch (e) {}
+        try { appPollingSocket.onclose = null; } catch (e) {}
+        try { appPollingSocket.close(); } catch (e) {}
+      }
+      appPollingSocket = null;
+    } catch (e) {}
+    try {
+      if (window._flowaway_handlers && window._flowaway_handlers.timeIntervalId) {
+        clearInterval(window._flowaway_handlers.timeIntervalId);
+        delete window._flowaway_handlers.timeIntervalId;
+      }
+      if (window._flowaway_handlers && window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+        clearTimeout(window._flowaway_handlers.applyTaskButtonsRetryTimer);
+        delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+      }
+    } catch (e) {}
+    try {
+      var oldTaskbar = document.getElementById('taskbar');
+      if (oldTaskbar) oldTaskbar.remove();
+      var oldStartMenu = document.getElementById('startMenu');
+      if (oldStartMenu) oldStartMenu.remove();
+    } catch (e) {}
+
+    try {
+      window.apps = [];
+      window.appButtons = {};
+      window.appsButtonsApplied = false;
+      window._suppressTaskbarPersist = true;
+    } catch (e) {}
+
+    try {
+      delete window.__ouchbad_preinit_done;
+      delete window.__ouchbad_BASE;
+      delete window.__ouchbad_goldenbodywebsite;
+      delete window.__ouchbad_zmcdserver;
+      delete window.__ouchbad_SERVER;
+      delete window.__ouchbad_downloadserver;
+      delete window.__ouchbad_baseOrigin;
+      delete window.__ouchbad_wsProtocol;
+      delete window.__ouchbad_hostname;
+      delete window._flowawayLoadTreePromise;
+      delete window._flowawayFileFetchInFlight;
+      delete window._flowawayFileFetchRecent;
+      delete window._flowawaySystemHelperState;
+      delete window._flowawayMissingFolders;
+      window.loaded = false;
+    } catch (e) {}
     // Remove all children from the documentElement (head/body) to get a clean slate
     var docEl = document.documentElement;
     while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
@@ -506,15 +561,6 @@ async function filePost(data) {
     headers,
     body: JSON.stringify({ username, ...data }),
   });
-  if(!data.initFE) {
-    setTimeout(() => {
-      try{
-        window.onlyloadTree();
-      } catch (e) {
-        console.error('Error occurred while loading tree', e);
-      }
-    }, 1000);
-  }
   let body = null;
   try { body = await res.json(); } catch (e) { body = null; }
   if (body && (body.authToken || body.token)) {
@@ -1020,6 +1066,7 @@ async function extractAppData(appFolder) {
   var cmfl1 = '';
   var globalvarobject = '';
   var appGlobalVarStrings = [];
+  var allapparray = [];
   if (entryObjectfile) {
     try {
       var b64 = await fetchFileContentByPath(`${folderPath}/${entryObjectfile}`);
@@ -1031,6 +1078,7 @@ async function extractAppData(appFolder) {
       cmfl1 = entryObj.cmfl1 || '';
       globalvarobject = entryObj.globalvarobject || '';
       appGlobalVarStrings = entryObj.appGlobalVarStrings || [];
+      allapparray = entryObj.allapparray || [];
     } catch (e) { console.error('read entry object', e); }
   }
 
@@ -1050,7 +1098,7 @@ async function extractAppData(appFolder) {
     }
   }
 
-  return { id: entryName || startbtnid || folderName, path: folderPath, jsFile, entry: entryName || startbtnid || folderName, label, startbtnid, icon, scriptLoaded: false, cmf, cmfl1, globalvarobject, appGlobalVarStrings };
+  return { id: entryName || startbtnid || folderName, path: folderPath, jsFile, allapparray, entry: entryName || startbtnid || folderName, label, startbtnid, icon, scriptLoaded: false, cmf, cmfl1, globalvarobject, appGlobalVarStrings };
 }
 async function runbootscript() {
   var b64 = await fetchFileContentByPath(`.boot/gbenv.js`);
@@ -2086,21 +2134,80 @@ window.removeOtherMenus = function(except) {
   } catch (e) {}
 };
   function applyTaskButtons() {
-    if(window.apps.length === 0 || window.appsButtonsApplied) return;
+    if(window.appsButtonsApplied) return;
+    if(!window.apps || window.apps.length === 0) return;
+
+    var taskbarReady = false;
+    try {
+      taskbarReady = typeof taskbar !== 'undefined' && !!taskbar && taskbar.isConnected && typeof addTaskButton === 'function';
+    } catch (e) {
+      taskbarReady = false;
+    }
+
+    if (!taskbarReady) {
+      try {
+        if (typeof loadSystemHelperScript === 'function') loadSystemHelperScript();
+      } catch (e) {}
+
+      try {
+        window._flowaway_handlers = window._flowaway_handlers || {};
+        if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+          window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(() => {
+            try {
+              if (window._flowaway_handlers && window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+                clearTimeout(window._flowaway_handlers.applyTaskButtonsRetryTimer);
+                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+              }
+            } catch (e) {}
+            try { applyTaskButtons(); } catch (e) {}
+          }, 200);
+        }
+      } catch (e) {}
+      return;
+    }
+
     window.appsButtonsApplied = true;
     window._suppressTaskbarPersist = true;
-    // Clear existing task buttons (except first 3)
-  // Prefer dynamic apps discovered in /apps
-  for (const taskbutton of data.taskbuttons) {
-    const app = (window.apps || []).find(a => appMatchesIdentifier(a, taskbutton));
-    if (app) {
-      const appId = getPreferredAppIdentifier(app);
-      const btn = addTaskButton(app.icon, () => launchApp(appId), app.cmf || false, app.globalvarobject || '');
-      if (btn) btn.dataset.appId = appId;
+
+    try {
+      // Clear existing dynamic task buttons (keep system buttons in the first two slots)
+      var existingTaskButtons = [...taskbar.querySelectorAll("button.taskbutton")];
+      existingTaskButtons.splice(0, 2);
+      existingTaskButtons.forEach(btn => btn.remove());
+
+      // Prefer dynamic apps discovered in /apps
+      var savedTaskButtons = Array.isArray(data && data.taskbuttons) ? data.taskbuttons : [];
+      var seenAppIds = new Set();
+      for (const taskbutton of savedTaskButtons) {
+        const app = (window.apps || []).find(a => appMatchesIdentifier(a, taskbutton));
+        if (app) {
+          const appId = getPreferredAppIdentifier(app);
+          if (seenAppIds.has(appId)) continue;
+          seenAppIds.add(appId);
+          const btn = addTaskButton(app.icon, () => launchApp(appId), app.cmf || false, app.globalvarobject || '');
+          if (btn) btn.dataset.appId = appId;
+        }
+      }
+      taskbuttons = [...taskbar.querySelectorAll("button")];
+    } catch (e) {
+      window.appsButtonsApplied = false;
+      try {
+        window._flowaway_handlers = window._flowaway_handlers || {};
+        if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+          window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(() => {
+            try {
+              if (window._flowaway_handlers && window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+                clearTimeout(window._flowaway_handlers.applyTaskButtonsRetryTimer);
+                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+              }
+            } catch (e) {}
+            try { applyTaskButtons(); } catch (e) {}
+          }, 200);
+        }
+      } catch (retryErr) {}
+    } finally {
+      window._suppressTaskbarPersist = false;
     }
-  }
-  window._suppressTaskbarPersist = false;
-  taskbuttons = [...taskbar.querySelectorAll("button")];
  }
 
   function purgeButtons() {
@@ -3312,6 +3419,10 @@ var styleTag = document.createElement("style");
   // ----------------- CREATE START BUTTON -----------------
 
   // ----------------- CREATE START MENU -----------------
+  try {
+    var existingStartMenu = document.getElementById('startMenu');
+    if (existingStartMenu) existingStartMenu.remove();
+  } catch (e) {}
   var startMenu = document.createElement("div");
   startMenu.id = "startMenu";
   startMenu.className = 'startMenu';
@@ -3337,8 +3448,6 @@ var styleTag = document.createElement("style");
     </div>
 </div>
 `;
-
-  document.body.appendChild(startMenu);
 
   document.body.appendChild(startMenu);
 
@@ -3451,34 +3560,86 @@ try {
 
   // Do not pre-load specific app scripts here; apps are loaded from the user's `apps/` folder dynamically.
   // Only load system helper script.
-  var sysScript = document.createElement('script');
+    window._flowawaySystemHelperState = { started: false, loaded: false, promise: null };
+    async function loadSystemHelperScript() {
+      var helperState = window._flowawaySystemHelperState || (window._flowawaySystemHelperState = { started: false, loaded: false, promise: null });
+      if (helperState.loaded) return true;
+      if (helperState.promise) return helperState.promise;
 
-setTimeout(() => {
-  sysScript.src = `goldenbody.js`;
-  document.body.appendChild(sysScript);
+      helperState.started = true;
+      helperState.promise = (async () => {
+        var loaded = false;
+
+        try {
+          const headers = { "Content-Type": "application/json" };
+          if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
+
+          const res = await fetch(SERVER, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              username: (window.data && window.data.username) || (data && data.username) || '',
+              requestFile: true,
+              requestFileName: 'goldenbody.js',
+            }),
+          });
+
+          let body = null;
+          try { body = await res.json(); } catch (e) { body = null; }
+
+          if (res.ok && body && typeof body.filecontent === 'string') {
+            var sysScript = document.createElement('script');
+            sysScript.type = 'text/javascript';
+            sysScript.textContent = base64ToUtf8(body.filecontent);
+            document.body.appendChild(sysScript);
+            loaded = true;
+          }
+        } catch (e) {
+          console.warn('failed to load user goldenbody.js from VFS', e);
+        }
+
+        if (!loaded) {
+          var fallbackScript = document.createElement('script');
+          fallbackScript.src = 'goldenbody.js';
+          document.body.appendChild(fallbackScript);
+          loaded = true;
+        }
+
+        helperState.loaded = loaded;
+        helperState.started = loaded;
+        return loaded;
+      })().finally(() => {
+        helperState.promise = null;
+      });
+
+      return helperState.promise;
+    }
+
   setTimeout(() => {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-      setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-            setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-            setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-        }
-      , 5000);
-        }
-      , 5000);
-        }
-      , 5000);
-  }, 5000);
-}, 100);
+    loadSystemHelperScript();
+    setTimeout(() => {
+        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+        window.dispatchEvent(appUpdatedEvent);
+        setTimeout(() => 
+          {
+        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+        window.dispatchEvent(appUpdatedEvent);
+              setTimeout(() => 
+          {
+        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+        window.dispatchEvent(appUpdatedEvent);
+              setTimeout(() => 
+          {
+        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+        window.dispatchEvent(appUpdatedEvent);
+          }
+        , 5000);
+          }
+        , 5000);
+          }
+        , 5000);
+    }, 5000);
+  }, 100);
 // user warnings here, you can remove this in your own build if you want
 notification('this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah');
 

@@ -67,6 +67,18 @@ async function walkDir(dir, base = dir) {
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
 
+function normalizeUserRelativePath(inputPath) {
+  if (typeof inputPath !== 'string') return '';
+  const cleaned = inputPath.replace(/\\/g, '/').trim();
+  if (!cleaned) return '';
+
+  const normalized = path.posix.normalize('/' + cleaned).replace(/^\/+/, '');
+  if (!normalized || normalized === '.') return '';
+  if (normalized.startsWith('..') || normalized.includes('/../')) return '';
+
+  return normalized;
+}
+
 // Storage quota (bytes). Can be overridden by env var STORAGE_QUOTA_BYTES.
 const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 1 * 1024 * 1024 * 1024; // 1 GB default
 // How old can upload part files be before we consider them stale and remove them (hours)
@@ -228,7 +240,16 @@ async function handleFetchfiles(req, res) {
 
       // 2️⃣ REQUEST FILE (supports chunked download for large files)
 if (data.requestFile) {
-  const fullPath = path.join(userRoot, data.requestFileName);
+  const normalizedRequestPath = normalizeUserRelativePath(data.requestFileName);
+  if (!normalizedRequestPath) {
+    return res.end(JSON.stringify({ error: 'Invalid file path' }));
+  }
+
+  const fullPath = path.join(userRoot, normalizedRequestPath);
+  const relativeToRoot = path.relative(userRoot, fullPath);
+  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+    return res.end(JSON.stringify({ error: 'Invalid file path' }));
+  }
   let stat;
   try {
     stat = await fsp.stat(fullPath);

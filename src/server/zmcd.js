@@ -16,7 +16,7 @@ console.log(directoryPath)
 let sessionPath = path.resolve(__dirname, '../../sessions');
 sessionPath += '/'
 console.log(sessionPath)
-
+const projectroot = path.resolve(__dirname, '../../');
 const fsp = require('fs/promises');
 
 function getFolderNamesSync(dirPath) {
@@ -151,6 +151,8 @@ return; // VERY IMPORTANT
             fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent));
             fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
 fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
+fs.cpSync(projectroot + '/public/flowaway.js', userDirectoryPath + 'root/flowaway.js');
+  fs.cpSync(projectroot + '/public/goldenbody.js', userDirectoryPath + 'root/goldenbody.js');
 // Don't create 'apps' — let cpSync do it
 fs.cpSync(
   path.join(__dirname, 'apps'),
@@ -180,8 +182,19 @@ fs.cpSync(
             let content;
             try {
               content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'flowaway.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/public/flowaway.js', directoryPath + data.username + '/' + 'root' + '/' + 'flowaway.js');
+              }
+                try {
+                  fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'goldenbody.js', 'utf8');
+                } catch (e) {
+                  fs.cpSync(projectroot + '/public/goldenbody.js', directoryPath + data.username + '/' + 'root' + '/' + 'goldenbody.js');
+                }
               console.log(content);
             } catch (e) {
+              console.error('Error reading user file:', e.message);
               responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
               break;
             }
