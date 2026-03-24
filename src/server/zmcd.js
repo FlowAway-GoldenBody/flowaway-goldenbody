@@ -241,14 +241,22 @@ fs.cpSync(
             return res.end(JSON.stringify({ error: 'User file not found' }));
           }
 
-          if (data.password !== userData.password) {
-            res.writeHead(401);
-            return res.end(JSON.stringify({ error: 'wrong password' }));
-          }
-
           if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
           const now = Date.now();
           userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
+
+          let tokenFromHeader = null;
+          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
+          const tokenFromBody = typeof data.sessionToken === 'string' ? data.sessionToken.trim() : '';
+          const tokenValid =
+            (tokenFromHeader && userData.authTokens.some(t => t.token === tokenFromHeader && t.expires > now)) ||
+            (tokenFromBody && userData.authTokens.some(t => t.token === tokenFromBody && t.expires > now));
+          const passwordValid = typeof data.password === 'string' && data.password === userData.password;
+
+          if (!(passwordValid || tokenValid)) {
+            res.writeHead(401);
+            return res.end(JSON.stringify({ error: 'unauthorized' }));
+          }
 
           const newToken = crypto.randomBytes(24).toString('hex');
           const expires = Date.now() + 1000 * 60 * 60; // 1 hour

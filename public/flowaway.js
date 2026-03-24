@@ -233,6 +233,10 @@ var hasChanges;
 var rebuildhandler = function() {
   try {
     try {
+      window._flowawayIsRebuilding = true;
+      suppressSessionExpiredDialog(20000);
+    } catch (e) {}
+    try {
         for(const app of window.apps) {
       for(const win of window[app.globalvarobject][app.allapparray] || []) {  
         try {
@@ -460,18 +464,8 @@ function showSessionExpiredDialog() {
   content.style.padding = '8px 0';
   content.style.fontSize = '13px';
   content.style.flex = '1';
-  content.textContent = 'Your session has expired or you have been logged out. Enter your password to refill the session.';
+  content.textContent = 'Your session has expired. Refill using your current session token, or sign in again if needed.';
   dlg.appendChild(content);
-
-  const refillInput = document.createElement('input');
-  refillInput.type = 'password';
-  refillInput.placeholder = 'Password';
-  refillInput.autocomplete = 'current-password';
-  refillInput.style.width = '100%';
-  refillInput.style.boxSizing = 'border-box';
-  refillInput.style.padding = '8px';
-  refillInput.style.margin = '2px 0 8px 0';
-  dlg.appendChild(refillInput);
 
   const status = document.createElement('div');
   status.style.fontSize = '12px';
@@ -502,9 +496,11 @@ function showSessionExpiredDialog() {
   closeX.addEventListener('click', () => dlg.remove());
   closeBtn.addEventListener('click', () => dlg.remove());
   refillBtn.addEventListener('click', async () => {
-    const password = String(refillInput.value || '').trim();
-    if (!password) {
-      status.textContent = 'Enter password first.';
+    const sessionToken = window.data && typeof window.data.authToken === 'string'
+      ? window.data.authToken.trim()
+      : '';
+    if (!sessionToken) {
+      status.textContent = 'No active session token. Sign in again.';
       status.style.color = 'red';
       return;
     }
@@ -514,13 +510,14 @@ function showSessionExpiredDialog() {
     status.textContent = '';
 
     try {
+      const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + sessionToken };
       const res = await fetch(zmcdserver, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           refillSession: true,
-          username: username,
-          password: password,
+          username: getCurrentUsernameForRequests(),
+          sessionToken,
         }),
       });
 
@@ -533,23 +530,60 @@ function showSessionExpiredDialog() {
 
       window.data = window.data || {};
       window.data.authToken = body.authToken;
-      refillInput.value = '';
       status.textContent = 'Session refilled. You can continue.';
       status.style.color = 'green';
       setTimeout(() => {
         try { dlg.remove(); } catch (e) {}
       }, 350);
     } catch (e) {
-      status.textContent = 'Wrong password or refill failed.';
+      status.textContent = 'Session refill failed. Sign in again.';
       status.style.color = 'red';
     }
 
     refillBtn.disabled = false;
     refillBtn.textContent = 'Refill Session';
   });
-  reloadBtn.addEventListener('click', () => rebuildhandler());
+  reloadBtn.addEventListener('click', () => {
+    suppressSessionExpiredDialog(20000);
+    rebuildhandler();
+  });
 
   document.body.appendChild(dlg);
+}
+
+function suppressSessionExpiredDialog(ms = 8000) {
+  var duration = Number(ms);
+  if (!Number.isFinite(duration) || duration < 0) duration = 8000;
+  window._flowawaySuppressSessionExpiredUntil = Date.now() + duration;
+}
+
+function isSessionExpiredDialogSuppressed() {
+  if (window._flowawayIsRebuilding) return true;
+  var until = Number(window._flowawaySuppressSessionExpiredUntil || 0);
+  return until > Date.now();
+}
+
+function getCurrentUsernameForRequests() {
+  var liveUsername = '';
+  try {
+    if (window.data && typeof window.data.username === 'string') {
+      liveUsername = String(window.data.username || '').trim();
+    } else if (typeof data !== 'undefined' && data && typeof data.username === 'string') {
+      liveUsername = String(data.username || '').trim();
+    }
+  } catch (e) {}
+
+  if (liveUsername && liveUsername !== username) {
+    username = liveUsername;
+    suppressSessionExpiredDialog(4000);
+  }
+
+  return liveUsername || username;
+}
+
+function maybeShowSessionExpiredDialog() {
+  if (isSessionExpiredDialogSuppressed()) return;
+  showSessionExpiredDialog();
 }
 
 
@@ -559,7 +593,7 @@ async function filePost(data) {
   var res = await fetch(SERVER, {
     method: "POST",
     headers,
-    body: JSON.stringify({ username, ...data }),
+    body: JSON.stringify({ username: getCurrentUsernameForRequests(), ...data }),
   });
   let body = null;
   try { body = await res.json(); } catch (e) { body = null; }
@@ -567,7 +601,7 @@ async function filePost(data) {
     try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
   }
   if (res.status === 401 && !firstlogin) {
-    try { showSessionExpiredDialog(); } catch (e) {}
+    try { maybeShowSessionExpiredDialog(); } catch (e) {}
     return body || { error: 'unauthorized' };
   }
   firstlogin = false;
@@ -579,7 +613,7 @@ async function zmcdpost(data) {
   var res = await fetch(zmcdserver, {
     method: "POST",
     headers,
-    body: JSON.stringify({ username, ...data }),
+    body: JSON.stringify({ username: getCurrentUsernameForRequests(), ...data }),
   });
   let body = null;
   try { body = await res.json(); } catch (e) { body = null; }
@@ -587,7 +621,7 @@ async function zmcdpost(data) {
     try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
   }
   if (res.status === 401) {
-    try { showSessionExpiredDialog(); } catch (e) {}
+    try { maybeShowSessionExpiredDialog(); } catch (e) {}
     return body || { error: 'unauthorized' };
   }
   return body;
@@ -599,7 +633,7 @@ async function posttaskbuttons(data) {
     method: "POST",
     headers,
     body: JSON.stringify({
-      username: username,
+      username: getCurrentUsernameForRequests(),
       data: data,
       edittaskbuttons: true,
     }),
@@ -610,7 +644,7 @@ async function posttaskbuttons(data) {
     try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
   }
   if (res.status === 401) {
-    try { showSessionExpiredDialog(); } catch (e) {}
+    try { maybeShowSessionExpiredDialog(); } catch (e) {}
     return body || { error: 'unauthorized' };
   }
   return body;
@@ -620,7 +654,7 @@ async function downloadPost(data) {
     method: "POST",
     headers: (function(){ const h = { "Content-Type": "application/json" }; if (window.data && window.data.authToken) h["Authorization"] = "Bearer " + window.data.authToken; return h; })(),
     body: JSON.stringify({
-      username: username,
+      username: getCurrentUsernameForRequests(),
       data: data,
       edittaskbuttons: true,
     }),
@@ -631,7 +665,7 @@ async function downloadPost(data) {
     try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
   }
   if (res.status === 401) {
-    try { showSessionExpiredDialog(); } catch (e) {}
+    try { maybeShowSessionExpiredDialog(); } catch (e) {}
     return body || { error: 'unauthorized' };
   }
   return body;
@@ -3456,7 +3490,12 @@ var styleTag = document.createElement("style");
     const sb = document.getElementById('signOutBtn');
     if (sb) {
       if (window._flowaway_handlers.onSignOut) sb.removeEventListener('click', window._flowaway_handlers.onSignOut);
-      window._flowaway_handlers.onSignOut = () => { try { rebuildhandler(); } catch (e) { console.error('rebuildhandler error', e); } };
+      window._flowaway_handlers.onSignOut = () => {
+        try {
+          suppressSessionExpiredDialog(20000);
+          rebuildhandler();
+        } catch (e) { console.error('rebuildhandler error', e); }
+      };
       sb.addEventListener('click', window._flowaway_handlers.onSignOut);
     }
   } catch (e) { console.error('signOut hookup error', e); }
