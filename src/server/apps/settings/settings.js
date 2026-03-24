@@ -10,7 +10,7 @@ settings = function (posX = 50, posY = 50) {
   let _isMinimized = false;
   atTop = "settings";
   const root = document.createElement("div");
-  root.className = "sim-chrome-root";
+  root.className = "app-root";
   Object.assign(root.style, {
     position: "fixed",
     top: posY + "px",

@@ -654,7 +654,7 @@ window.browser = function (
     // --- Create root container ---
     var root = document.createElement("div");
     root.__vfsMessageListenerAdded = false;
-    root.className = "sim-chrome-root";
+    root.className = "app-root";
     root.dataset.appId = "browser";
     Object.assign(root.style, {
       position: "fixed",

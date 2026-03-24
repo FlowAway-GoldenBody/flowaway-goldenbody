@@ -85,7 +85,7 @@ Every app creates a root container element with standardized attributes:
 
 ```javascript
 const root = document.createElement("div");
-root.className = "sim-chrome-root";
+root.className = "app-root";
 root.dataset.appId = "fileExplorer";  // From entry.json 'name' field
 root._goldenbodyId = explorerGlobals.explorerId;  // Unique instance ID
 root.classList.add("fileExplorer");   // App name for styling
@@ -316,7 +316,7 @@ appNameGlobals.allAppNames.push({
 
 ### CSS Classes
 
-- `.sim-chrome-root` - Main app window container
+- `.app-root` - Main app window container
 - `.[appName]` - App-specific styling class (matches `dataset.appId`)
 - `.appTopBar` - Top bar with window controls
 - `.app-menu` - Context menu styling
@@ -325,7 +325,7 @@ appNameGlobals.allAppNames.push({
 ### Key Styles
 
 ```css
-.sim-chrome-root {
+.app-root {
   position: fixed;
   box-shadow: 0 12px 40px rgba(0,0,0,0.35);
   border-radius: 10px;
@@ -407,7 +407,7 @@ myapp = function (posX = 50, posY = 50) {
   let _isMinimized = false;
   
   const root = document.createElement("div");
-  root.className = "sim-chrome-root";
+  root.className = "app-root";
   root.dataset.appId = "myapp";
   Object.assign(root.style, {
     position: "fixed",
