@@ -55,7 +55,7 @@
     taskbar.style.transform = 'translateY(0)';
     taskbar.style.opacity = 0.8;
     taskbarVisible = true;
-    for(let root of document.querySelectorAll('.sim-chrome-root')){
+    for(let root of document.querySelectorAll('.app-root')){
       if(root.style.height === "100%") {
       root.style.height = `calc(100% - 60px)`;
       }
@@ -66,7 +66,7 @@
     taskbar.style.transform = 'translateY(100%)';
     taskbar.style.opacity = 0;
     taskbarVisible = false;
-    for(let root of document.querySelectorAll('.sim-chrome-root')){
+    for(let root of document.querySelectorAll('.app-root')){
       if(root.style.height === `calc(100% - 60px)`){
       root.style.height = "100%";
       }

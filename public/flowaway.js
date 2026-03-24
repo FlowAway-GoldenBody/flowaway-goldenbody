@@ -1,17 +1,17 @@
 // Preserve window.data if already set (e.g., from ouchbad.js account creation), otherwise initialize
 if (!window.data) window.data = data;
 window.loaded = false;
-window.APP_VERSION = 'v1.12.7';
+window.APP_VERSION = "v1.12.7";
 function formatBytes(bytes, decimals = 2) {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
 
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB"];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 function calculateVwInPixels(vwValue) {
   const viewportWidth = window.innerWidth; // Get the current viewport width in pixels
@@ -19,8 +19,73 @@ function calculateVwInPixels(vwValue) {
   return pixels;
 }
 
+window._flowawayDebugState = window._flowawayDebugState || {
+  enabled: false,
+  errors: [],
+  maxErrors: 200,
+};
+
+window.setFlowawayDebug = function (enabled) {
+  window._flowawayDebugState = window._flowawayDebugState || {
+    enabled: false,
+    errors: [],
+    maxErrors: 200,
+  };
+  window._flowawayDebugState.enabled = !!enabled;
+};
+
+window.getFlowawayErrors = function () {
+  window._flowawayDebugState = window._flowawayDebugState || {
+    enabled: false,
+    errors: [],
+    maxErrors: 200,
+  };
+  return (window._flowawayDebugState.errors || []).slice();
+};
+
+function flowawayDebug(scope, message, meta) {
+  try {
+    if (!window._flowawayDebugState || !window._flowawayDebugState.enabled)
+      return;
+    if (typeof meta === "undefined")
+      console.debug("[FLOWAWAY][" + scope + "] " + message);
+    else console.debug("[FLOWAWAY][" + scope + "] " + message, meta);
+  } catch (e) {}
+}
+
+function flowawayError(scope, message, error, meta) {
+  try {
+    window._flowawayDebugState = window._flowawayDebugState || {
+      enabled: false,
+      errors: [],
+      maxErrors: 200,
+    };
+    var entry = {
+      ts: Date.now(),
+      scope: scope,
+      message: message,
+      meta: meta || null,
+      error: error ? error.stack || error.message || String(error) : null,
+    };
+    window._flowawayDebugState.errors = window._flowawayDebugState.errors || [];
+    window._flowawayDebugState.errors.push(entry);
+    if (
+      window._flowawayDebugState.errors.length >
+      (window._flowawayDebugState.maxErrors || 200)
+    ) {
+      window._flowawayDebugState.errors.shift();
+    }
+  } catch (e) {}
+
+  if (typeof meta === "undefined")
+    console.error("[FLOWAWAY][" + scope + "] " + message, error);
+  else console.error("[FLOWAWAY][" + scope + "] " + message, meta, error);
+}
+
 var nativeEventTargetAdd =
-  window.EventTarget && window.EventTarget.prototype && typeof window.EventTarget.prototype.addEventListener === 'function'
+  window.EventTarget &&
+  window.EventTarget.prototype &&
+  typeof window.EventTarget.prototype.addEventListener === "function"
     ? window.EventTarget.prototype.addEventListener
     : null;
 var nativeDocumentEventlister = nativeEventTargetAdd
@@ -30,7 +95,9 @@ var nativeWindowEventlister = nativeEventTargetAdd
   ? nativeEventTargetAdd.bind(window)
   : window.addEventListener.bind(window);
 var nativeEventTargetRemove =
-  window.EventTarget && window.EventTarget.prototype && typeof window.EventTarget.prototype.removeEventListener === 'function'
+  window.EventTarget &&
+  window.EventTarget.prototype &&
+  typeof window.EventTarget.prototype.removeEventListener === "function"
     ? window.EventTarget.prototype.removeEventListener
     : null;
 var nativeDocumentEventRemover = nativeEventTargetRemove
@@ -41,12 +108,20 @@ var nativeWindowEventRemover = nativeEventTargetRemove
   : window.removeEventListener.bind(window);
 
 function isValidEventListener(handler) {
-  return typeof handler === 'function' || !!(handler && typeof handler.handleEvent === 'function');
+  return (
+    typeof handler === "function" ||
+    !!(handler && typeof handler.handleEvent === "function")
+  );
 }
 
 function normalizeCaptureOption(options) {
-  if (typeof options === 'boolean') return options;
-  if (options && typeof options === 'object' && typeof options.capture === 'boolean') return options.capture;
+  if (typeof options === "boolean") return options;
+  if (
+    options &&
+    typeof options === "object" &&
+    typeof options.capture === "boolean"
+  )
+    return options.capture;
   return false;
 }
 
@@ -54,14 +129,21 @@ function normalizeAddEventArgs(a, b, c, d) {
   // Supports both signatures:
   // 1) native: (type, handler, options)
   // 2) scoped: (appname, type, handler, options)
-  if (typeof b === 'string' && isValidEventListener(c)) {
-    return { appname: String(a || ''), type: b, handler: c, options: d };
+  if (typeof b === "string" && isValidEventListener(c)) {
+    return { appname: String(a || ""), type: b, handler: c, options: d };
   }
-  return { appname: '', type: a, handler: b, options: c };
+  return { appname: "", type: a, handler: b, options: c };
 }
 
-function addScopedListener(targetName, nativeAdd, appname, type, handler, options) {
-  if (typeof type !== 'string' || !isValidEventListener(handler)) {
+function addScopedListener(
+  targetName,
+  nativeAdd,
+  appname,
+  type,
+  handler,
+  options,
+) {
+  if (typeof type !== "string" || !isValidEventListener(handler)) {
     return;
   }
 
@@ -70,49 +152,93 @@ function addScopedListener(targetName, nativeAdd, appname, type, handler, option
   if (!appname) return;
   var scopedAppName = String(appname).trim();
   if (!scopedAppName) return;
-  window[scopedAppName + '_handlers'] = window[scopedAppName + '_handlers'] || [];
-  window[scopedAppName + '_handlers'].push({
+  window[scopedAppName + "_handlers"] =
+    window[scopedAppName + "_handlers"] || [];
+  window[scopedAppName + "_handlers"].push({
     target: targetName,
     type,
     handler,
     options,
-    capture: normalizeCaptureOption(options)
+    capture: normalizeCaptureOption(options),
   });
 }
 
-document.addEventListener = function(a, b, c, d) {
+document.addEventListener = function (a, b, c, d) {
   var parsed = normalizeAddEventArgs(a, b, c, d);
-  addScopedListener('document', nativeDocumentEventlister, parsed.appname, parsed.type, parsed.handler, parsed.options);
+  addScopedListener(
+    "document",
+    nativeDocumentEventlister,
+    parsed.appname,
+    parsed.type,
+    parsed.handler,
+    parsed.options,
+  );
 };
 
-window.addEventListener = function(a, b, c, d) {
+window.addEventListener = function (a, b, c, d) {
   var parsed = normalizeAddEventArgs(a, b, c, d);
-  addScopedListener('window', nativeWindowEventlister, parsed.appname, parsed.type, parsed.handler, parsed.options);
+  addScopedListener(
+    "window",
+    nativeWindowEventlister,
+    parsed.appname,
+    parsed.type,
+    parsed.handler,
+    parsed.options,
+  );
 };
 
-window.removeAllEventListenersForApp = function(appname) {
-  var scopedAppName = String(appname || '').trim();
+window.removeAllEventListenersForApp = function (appname) {
+  var scopedAppName = String(appname || "").trim();
   if (!scopedAppName) return;
-  var handlers = window[scopedAppName + '_handlers'] || [];
+  var handlers = window[scopedAppName + "_handlers"] || [];
   handlers.forEach(({ target, type, handler, options, capture }) => {
-    if (target === 'document') {
-      try { nativeDocumentEventRemover(type, handler, options); } catch (e) {}
-      try { nativeDocumentEventRemover(type, handler, typeof capture === 'boolean' ? capture : normalizeCaptureOption(options)); } catch (e) {}
+    if (target === "document") {
+      try {
+        nativeDocumentEventRemover(type, handler, options);
+      } catch (e) {}
+      try {
+        nativeDocumentEventRemover(
+          type,
+          handler,
+          typeof capture === "boolean"
+            ? capture
+            : normalizeCaptureOption(options),
+        );
+      } catch (e) {}
       return;
     }
-    if (target === 'window') {
-      try { nativeWindowEventRemover(type, handler, options); } catch (e) {}
-      try { nativeWindowEventRemover(type, handler, typeof capture === 'boolean' ? capture : normalizeCaptureOption(options)); } catch (e) {}
+    if (target === "window") {
+      try {
+        nativeWindowEventRemover(type, handler, options);
+      } catch (e) {}
+      try {
+        nativeWindowEventRemover(
+          type,
+          handler,
+          typeof capture === "boolean"
+            ? capture
+            : normalizeCaptureOption(options),
+        );
+      } catch (e) {}
       return;
     }
     // Backward compatibility for older tracked entries without target.
-    var fallbackCapture = typeof capture === 'boolean' ? capture : normalizeCaptureOption(options);
-    try { nativeWindowEventRemover(type, handler, options); } catch (e) {}
-    try { nativeWindowEventRemover(type, handler, fallbackCapture); } catch (e) {}
-    try { nativeDocumentEventRemover(type, handler, options); } catch (e) {}
-    try { nativeDocumentEventRemover(type, handler, fallbackCapture); } catch (e) {}
+    var fallbackCapture =
+      typeof capture === "boolean" ? capture : normalizeCaptureOption(options);
+    try {
+      nativeWindowEventRemover(type, handler, options);
+    } catch (e) {}
+    try {
+      nativeWindowEventRemover(type, handler, fallbackCapture);
+    } catch (e) {}
+    try {
+      nativeDocumentEventRemover(type, handler, options);
+    } catch (e) {}
+    try {
+      nativeDocumentEventRemover(type, handler, fallbackCapture);
+    } catch (e) {}
   });
-  window[scopedAppName + '_handlers'] = [];
+  window[scopedAppName + "_handlers"] = [];
 };
 
 window.windowControlSvgs = {
@@ -126,50 +252,65 @@ window.windowControlSvgs = {
     '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>',
 };
 
-
-window.applyWindowControlIcon = function(button, iconName, options = {}) {
+window.applyWindowControlIcon = function (button, iconName, options = {}) {
   if (!button) return;
-  var svg = window.windowControlSvgs[iconName] || '';
+  var svg = window.windowControlSvgs[iconName] || "";
   button.innerHTML = svg;
-  button.style.minHeight = options.minHeight || '1vh';
+  button.style.minHeight = options.minHeight || "1vh";
 
   // Store metadata on the element so we can recompute on resize
-  button.dataset.flowControl = 'true';
+  button.dataset.flowControl = "true";
   button.dataset.flowControlIcon = iconName;
   // preferred vw amount for this control (numbers only)
-  if (typeof options.minVw !== 'undefined') button.dataset.minVw = String(options.minVw);
-  else button.dataset.minVw = (iconName === 'restore' || iconName === 'maximize') ? '2.6' : '2.3';
+  if (typeof options.minVw !== "undefined")
+    button.dataset.minVw = String(options.minVw);
+  else
+    button.dataset.minVw =
+      iconName === "restore" || iconName === "maximize" ? "2.6" : "2.3";
   // thresholds and fallbacks (pixels) - keep them identical per your request
-  if (typeof options.thresholdPx !== 'undefined') button.dataset.thresholdPx = String(options.thresholdPx);
-  else button.dataset.thresholdPx = (iconName === 'restore' || iconName === 'maximize') ? '35' : '31';
-  if (typeof options.fallbackPx !== 'undefined') button.dataset.fallbackPx = String(options.fallbackPx);
-  else button.dataset.fallbackPx = (iconName === 'restore' || iconName === 'maximize') ? '35' : '31';
+  if (typeof options.thresholdPx !== "undefined")
+    button.dataset.thresholdPx = String(options.thresholdPx);
+  else
+    button.dataset.thresholdPx =
+      iconName === "restore" || iconName === "maximize" ? "35" : "31";
+  if (typeof options.fallbackPx !== "undefined")
+    button.dataset.fallbackPx = String(options.fallbackPx);
+  else
+    button.dataset.fallbackPx =
+      iconName === "restore" || iconName === "maximize" ? "35" : "31";
   // allow overriding the explicit CSS value for minWidth
-  if (typeof options.minWidth !== 'undefined') button.dataset.minWidthOption = String(options.minWidth);
+  if (typeof options.minWidth !== "undefined")
+    button.dataset.minWidthOption = String(options.minWidth);
 
   // Apply sizing now based on current viewport
   if (!window._applyFlowawayControlSizing) {
-    window._applyFlowawayControlSizing = function(btn) {
+    window._applyFlowawayControlSizing = function (btn) {
       if (!btn) return;
       var icon = btn.dataset.flowControlIcon;
-      var vwVal = parseFloat(btn.dataset.minVw) || (icon === 'restore' || icon === 'maximize' ? 2.6 : 2.3);
-      var threshold = parseFloat(btn.dataset.thresholdPx) || (icon === 'restore' || icon === 'maximize' ? 35 : 31);
-      var fallback = btn.dataset.fallbackPx || (icon === 'restore' || icon === 'maximize' ? '35' : '31');
+      var vwVal =
+        parseFloat(btn.dataset.minVw) ||
+        (icon === "restore" || icon === "maximize" ? 2.6 : 2.3);
+      var threshold =
+        parseFloat(btn.dataset.thresholdPx) ||
+        (icon === "restore" || icon === "maximize" ? 35 : 31);
+      var fallback =
+        btn.dataset.fallbackPx ||
+        (icon === "restore" || icon === "maximize" ? "35" : "31");
       var computedPx = calculateVwInPixels(vwVal);
 
       // If a minWidth option was explicitly provided, respect it but cap it
       var opt = btn.dataset.minWidthOption;
       if (opt) {
         var s = String(opt).trim();
-        if (s.endsWith('px')) {
+        if (s.endsWith("px")) {
           var val = parseFloat(s);
           if (!isNaN(val)) {
             var capped = Math.min(val, threshold);
-            btn.style.minWidth = capped + 'px';
+            btn.style.minWidth = capped + "px";
             return;
           }
         }
-        if (s.endsWith('vw')) {
+        if (s.endsWith("vw")) {
           var vwNum = parseFloat(s);
           if (!isNaN(vwNum)) {
             var px = calculateVwInPixels(vwNum);
@@ -177,7 +318,7 @@ window.applyWindowControlIcon = function(button, iconName, options = {}) {
               btn.style.minWidth = s; // safe to use vw
               return;
             } else {
-              btn.style.minWidth = fallback + 'px';
+              btn.style.minWidth = fallback + "px";
               return;
             }
           }
@@ -186,7 +327,7 @@ window.applyWindowControlIcon = function(button, iconName, options = {}) {
         var maybe = parseFloat(s);
         if (!isNaN(maybe)) {
           var capped2 = Math.min(maybe, threshold);
-          btn.style.minWidth = capped2 + 'px';
+          btn.style.minWidth = capped2 + "px";
           return;
         }
         // If we couldn't parse, fallthrough to default behavior
@@ -194,59 +335,79 @@ window.applyWindowControlIcon = function(button, iconName, options = {}) {
 
       // Default behavior: use vw when its computed px is below threshold, otherwise use fallback px
       if (computedPx < threshold) {
-        btn.style.minWidth = vwVal + 'vw';
+        btn.style.minWidth = vwVal + "vw";
       } else {
-        btn.style.minWidth = fallback + 'px';
+        btn.style.minWidth = fallback + "px";
       }
     };
 
     // Add a resize handler that reapplies sizing to tracked controls
     try {
-      if (window._flowaway_handlers && window._flowaway_handlers.onResize) window.removeEventListener('resize', window._flowaway_handlers.onResize);
+      if (window._flowaway_handlers && window._flowaway_handlers.onResize)
+        window.removeEventListener(
+          "resize",
+          window._flowaway_handlers.onResize,
+        );
       window._flowaway_handlers = window._flowaway_handlers || {};
-      window._flowaway_handlers.onResize = function() {
+      window._flowaway_handlers.onResize = function () {
         try {
-          document.querySelectorAll('[data-flow-control]').forEach(b => { try { window._applyFlowawayControlSizing(b); } catch (e) {} });
+          document.querySelectorAll("[data-flow-control]").forEach((b) => {
+            try {
+              window._applyFlowawayControlSizing(b);
+            } catch (e) {}
+          });
         } catch (e) {}
       };
-      window.addEventListener('resize', window._flowaway_handlers.onResize);
+      window.addEventListener("resize", window._flowaway_handlers.onResize);
     } catch (e) {}
   }
 
   // finally apply sizing for this particular button
-  try { window._applyFlowawayControlSizing(button); } catch (e) {}
+  try {
+    window._applyFlowawayControlSizing(button);
+  } catch (e) {}
 };
 
-window.setWindowMaximizeIcon = function(button, isMaximized) {
-  window.applyWindowControlIcon(button, isMaximized ? 'restore' : 'maximize');
+window.setWindowMaximizeIcon = function (button, isMaximized) {
+  window.applyWindowControlIcon(button, isMaximized ? "restore" : "maximize");
 };
-if (typeof data.autohidetaskbar === 'undefined') {
+if (typeof data.autohidetaskbar === "undefined") {
   data.autohidetaskbar = false;
 }
 var hasChanges;
-  var atTop = "";
-  var zTop = 10;
-  document.body.style.backgroundImage = 'url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)';
-  document.body.style.backgroundSize = 'cover';
-  document.body.style.backgroundPosition = 'center';
-  document.body.style.backgroundRepeat = 'no-repeat';
-var rebuildhandler = function() {
+var atTop = "";
+var zTop = 10;
+document.body.style.backgroundImage =
+  "url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)";
+document.body.style.backgroundSize = "cover";
+document.body.style.backgroundPosition = "center";
+document.body.style.backgroundRepeat = "no-repeat";
+var rebuildhandler = function () {
   try {
     try {
       window._flowawayIsRebuilding = true;
       suppressSessionExpiredDialog(20000);
     } catch (e) {}
     try {
-        for(const app of window.apps) {
-      for(const win of window[app.globalvarobject][app.allapparray] || []) {  
-        try {
-          removeAllEventListenersForApp(app.id + win.rootElement._goldenbodyId);
-        } catch(e){}
+      for (const app of window.apps) {
+        for (const win of window[app.globalvarobject][app.allapparray] || []) {
+          try {
+            win.closeWindow();
+          } catch (e) {}
+        }
       }
+    } catch (e) {
+      console.error("Error during event listener cleanup in rebuildhandler", e);
     }
-  } catch (e) {console.error('Error during event listener cleanup in rebuildhandler', e);}
     // Pause and unload any playing media to avoid audio carrying over
-    try { document.querySelectorAll('audio,video').forEach(m => { try { m.pause(); m.src = ''; } catch(e){} }); } catch(e){}
+    try {
+      document.querySelectorAll("audio,video").forEach((m) => {
+        try {
+          m.pause();
+          m.src = "";
+        } catch (e) {}
+      });
+    } catch (e) {}
     try {
       if (appPollingTimer) clearTimeout(appPollingTimer);
       if (appPollingReconnectTimer) clearTimeout(appPollingReconnectTimer);
@@ -259,28 +420,44 @@ var rebuildhandler = function() {
       appPollingActive = false;
       appPollingPendingFolders = new Set();
       if (appPollingSocket) {
-        try { appPollingSocket.onopen = null; } catch (e) {}
-        try { appPollingSocket.onmessage = null; } catch (e) {}
-        try { appPollingSocket.onerror = null; } catch (e) {}
-        try { appPollingSocket.onclose = null; } catch (e) {}
-        try { appPollingSocket.close(); } catch (e) {}
+        try {
+          appPollingSocket.onopen = null;
+        } catch (e) {}
+        try {
+          appPollingSocket.onmessage = null;
+        } catch (e) {}
+        try {
+          appPollingSocket.onerror = null;
+        } catch (e) {}
+        try {
+          appPollingSocket.onclose = null;
+        } catch (e) {}
+        try {
+          appPollingSocket.close();
+        } catch (e) {}
       }
       appPollingSocket = null;
     } catch (e) {}
     try {
-      if (window._flowaway_handlers && window._flowaway_handlers.timeIntervalId) {
+      if (
+        window._flowaway_handlers &&
+        window._flowaway_handlers.timeIntervalId
+      ) {
         clearInterval(window._flowaway_handlers.timeIntervalId);
         delete window._flowaway_handlers.timeIntervalId;
       }
-      if (window._flowaway_handlers && window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+      if (
+        window._flowaway_handlers &&
+        window._flowaway_handlers.applyTaskButtonsRetryTimer
+      ) {
         clearTimeout(window._flowaway_handlers.applyTaskButtonsRetryTimer);
         delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
       }
     } catch (e) {}
     try {
-      var oldTaskbar = document.getElementById('taskbar');
+      var oldTaskbar = document.getElementById("taskbar");
       if (oldTaskbar) oldTaskbar.remove();
-      var oldStartMenu = document.getElementById('startMenu');
+      var oldStartMenu = document.getElementById("startMenu");
       if (oldStartMenu) oldStartMenu.remove();
     } catch (e) {}
 
@@ -313,41 +490,51 @@ var rebuildhandler = function() {
     while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
 
     // Recreate minimal head and body so we can inject ouchbad.js reliably
-    var head = document.createElement('head');
-    var meta = document.createElement('meta'); meta.setAttribute('charset','utf-8');
+    var head = document.createElement("head");
+    var meta = document.createElement("meta");
+    meta.setAttribute("charset", "utf-8");
     head.appendChild(meta);
     docEl.appendChild(head);
 
-    var body = document.createElement('body');
+    var body = document.createElement("body");
     docEl.appendChild(body);
     // Inject homepage loader
-    var script = document.createElement('script');
-    script.src = 'ouchbad.js';
+    var script = document.createElement("script");
+    script.src = "ouchbad.js";
 
     //clear state
     window.appsButtonsApplied = false;
     data = null;
     // small timeout to ensure DOM plumbing finishes
     setTimeout(() => {
-      try { document.body.appendChild(script); } catch (e) { console.error('append homepage script failed', e); location.reload(); }
+      try {
+        document.body.appendChild(script);
+      } catch (e) {
+        console.error("append homepage script failed", e);
+        location.reload();
+      }
     }, 80);
   } catch (err) {
-    console.error('rebuildhandler error, falling back to reload', err);
-    try { location.reload(); } catch (e) { /* ignore */ }
+    console.error("rebuildhandler error, falling back to reload", err);
+    try {
+      location.reload();
+    } catch (e) {
+      /* ignore */
+    }
   }
-}
+};
 var worldvolume = 0.5;
 
-window.findNodeByPath = function(relPath) {
-        var parts = relPath.split("/");
-        var current = treeData;
-        for (let i = 1; i < parts.length; i++) {
-          if (!current[1]) return null;
-          current = current[1].find((c) => c[0] === parts[i]);
-        }
-        return current;
-      }
-window.removeNodeFromTree = function(node, pathParts) {
+window.findNodeByPath = function (relPath) {
+  var parts = relPath.split("/");
+  var current = treeData;
+  for (let i = 1; i < parts.length; i++) {
+    if (!current[1]) return null;
+    current = current[1].find((c) => c[0] === parts[i]);
+  }
+  return current;
+};
+window.removeNodeFromTree = function (node, pathParts) {
   if (!node || !Array.isArray(node[1])) return false;
 
   var [target, ...rest] = pathParts;
@@ -366,7 +553,7 @@ window.removeNodeFromTree = function(node, pathParts) {
   }
 
   return false; // not found
-}
+};
 // global vars
 var savedScrollX = 0;
 var savedScrollY = 0;
@@ -377,11 +564,13 @@ window._flowaway_handlers = window._flowaway_handlers || {};
 
 // Scroll lock - ensure single binding
 try {
-  if (window._flowaway_handlers.onScroll) window.removeEventListener('scroll', window._flowaway_handlers.onScroll);
-  window._flowaway_handlers.onScroll = () => { window.scrollTo(savedScrollX, savedScrollY); };
-  window.addEventListener('scroll', window._flowaway_handlers.onScroll);
+  if (window._flowaway_handlers.onScroll)
+    window.removeEventListener("scroll", window._flowaway_handlers.onScroll);
+  window._flowaway_handlers.onScroll = () => {
+    window.scrollTo(savedScrollX, savedScrollY);
+  };
+  window.addEventListener("scroll", window._flowaway_handlers.onScroll);
 } catch (e) {}
-
 
 savedScrollX = window.scrollX;
 savedScrollY = window.scrollY;
@@ -394,125 +583,148 @@ overflow: hidden;
 document.body.appendChild(bodyStyle);
 // Prevent default context menu (single binding)
 try {
-  if (window._flowaway_handlers.onContextMenu) window.removeEventListener('contextmenu', window._flowaway_handlers.onContextMenu);
-  window._flowaway_handlers.onContextMenu = function (e) { e.preventDefault(); };
-  window.addEventListener('contextmenu', window._flowaway_handlers.onContextMenu);
+  if (window._flowaway_handlers.onContextMenu)
+    window.removeEventListener(
+      "contextmenu",
+      window._flowaway_handlers.onContextMenu,
+    );
+  window._flowaway_handlers.onContextMenu = function (e) {
+    e.preventDefault();
+  };
+  window.addEventListener(
+    "contextmenu",
+    window._flowaway_handlers.onContextMenu,
+  );
 } catch (e) {}
 // content
 try {
-  if (window._flowaway_handlers.onBeforeUnload) window.removeEventListener('beforeunload', window._flowaway_handlers.onBeforeUnload);
-  window._flowaway_handlers.onBeforeUnload = function (event) { event.preventDefault(); };
-  window.addEventListener('beforeunload', window._flowaway_handlers.onBeforeUnload);
+  if (window._flowaway_handlers.onBeforeUnload)
+    window.removeEventListener(
+      "beforeunload",
+      window._flowaway_handlers.onBeforeUnload,
+    );
+  window._flowaway_handlers.onBeforeUnload = function (event) {
+    event.preventDefault();
+  };
+  window.addEventListener(
+    "beforeunload",
+    window._flowaway_handlers.onBeforeUnload,
+  );
 } catch (e) {}
 
 function showSessionExpiredDialog() {
-  if (document.getElementById('session-expired-dialog')) {
+  if (document.getElementById("session-expired-dialog")) {
     // already shown
     return;
   }
 
-  const dlg = document.createElement('div');
-  dlg.id = 'session-expired-dialog';
+  const dlg = document.createElement("div");
+  dlg.id = "session-expired-dialog";
   Object.assign(dlg.style, {
-    position: 'fixed',
-    left: '50%',
-    top: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '420px',
-    maxWidth: '90vw',
-    background: (window.data && window.data.dark) ? '#222' : '#fff',
-    color: (window.data && window.data.dark) ? '#fff' : '#000',
-    borderRadius: '8px',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+    position: "fixed",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "420px",
+    maxWidth: "90vw",
+    background: window.data && window.data.dark ? "#222" : "#fff",
+    color: window.data && window.data.dark ? "#fff" : "#000",
+    borderRadius: "8px",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
     zIndex: 99999,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-    padding: '12px'
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    padding: "12px",
   });
 
-  const header = document.createElement('div');
-  header.style.display = 'flex';
-  header.style.alignItems = 'center';
-  header.style.justifyContent = 'space-between';
+  const header = document.createElement("div");
+  header.style.display = "flex";
+  header.style.alignItems = "center";
+  header.style.justifyContent = "space-between";
 
-  const htitle = document.createElement('div');
-  htitle.textContent = 'Session Expired';
-  htitle.style.fontWeight = '600';
+  const htitle = document.createElement("div");
+  htitle.textContent = "Session Expired";
+  htitle.style.fontWeight = "600";
 
-  const closeX = document.createElement('button');
-  closeX.setAttribute('aria-label', 'Close dialog');
-  closeX.textContent = '✕';
+  const closeX = document.createElement("button");
+  closeX.setAttribute("aria-label", "Close dialog");
+  closeX.textContent = "✕";
   Object.assign(closeX.style, {
-    border: 'none',
-    background: 'transparent',
-    cursor: 'pointer',
-    width: '32px',
-    height: '28px',
-    padding: '0',
-    display: 'grid',
-    placeItems: 'center',
-    lineHeight: '0',
-    fontSize: '14px'
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    width: "32px",
+    height: "28px",
+    padding: "0",
+    display: "grid",
+    placeItems: "center",
+    lineHeight: "0",
+    fontSize: "14px",
   });
 
   header.append(htitle);
   header.append(closeX);
   dlg.appendChild(header);
 
-  const content = document.createElement('div');
-  content.style.padding = '8px 0';
-  content.style.fontSize = '13px';
-  content.style.flex = '1';
-  content.textContent = 'Your session has expired. Refill using your current session token, or sign in again if needed.';
+  const content = document.createElement("div");
+  content.style.padding = "8px 0";
+  content.style.fontSize = "13px";
+  content.style.flex = "1";
+  content.textContent =
+    "Your session has expired. Refill using your current session token, or sign in again if needed.";
   dlg.appendChild(content);
 
-  const status = document.createElement('div');
-  status.style.fontSize = '12px';
-  status.style.minHeight = '16px';
-  status.style.marginBottom = '8px';
+  const status = document.createElement("div");
+  status.style.fontSize = "12px";
+  status.style.minHeight = "16px";
+  status.style.marginBottom = "8px";
   dlg.appendChild(status);
 
-  const btnRow = document.createElement('div');
-  btnRow.style.display = 'flex';
-  btnRow.style.justifyContent = 'flex-end';
-  btnRow.style.gap = '8px';
+  const btnRow = document.createElement("div");
+  btnRow.style.display = "flex";
+  btnRow.style.justifyContent = "flex-end";
+  btnRow.style.gap = "8px";
 
-  const reloadBtn = document.createElement('button');
-  reloadBtn.textContent = 'Sign In Again';
-  reloadBtn.style.padding = '6px 10px';
+  const reloadBtn = document.createElement("button");
+  reloadBtn.textContent = "Sign In Again";
+  reloadBtn.style.padding = "6px 10px";
 
-  const refillBtn = document.createElement('button');
-  refillBtn.textContent = 'Refill Session';
-  refillBtn.style.padding = '6px 10px';
+  const refillBtn = document.createElement("button");
+  refillBtn.textContent = "Refill Session";
+  refillBtn.style.padding = "6px 10px";
 
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = 'Close';
-  closeBtn.style.padding = '6px 10px';
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "Close";
+  closeBtn.style.padding = "6px 10px";
 
   btnRow.append(closeBtn, refillBtn, reloadBtn);
   dlg.appendChild(btnRow);
 
-  closeX.addEventListener('click', () => dlg.remove());
-  closeBtn.addEventListener('click', () => dlg.remove());
-  refillBtn.addEventListener('click', async () => {
-    const sessionToken = window.data && typeof window.data.authToken === 'string'
-      ? window.data.authToken.trim()
-      : '';
+  closeX.addEventListener("click", () => dlg.remove());
+  closeBtn.addEventListener("click", () => dlg.remove());
+  refillBtn.addEventListener("click", async () => {
+    const sessionToken =
+      window.data && typeof window.data.authToken === "string"
+        ? window.data.authToken.trim()
+        : "";
     if (!sessionToken) {
-      status.textContent = 'No active session token. Sign in again.';
-      status.style.color = 'red';
+      status.textContent = "No active session token. Sign in again.";
+      status.style.color = "red";
       return;
     }
 
     refillBtn.disabled = true;
-    refillBtn.textContent = 'Refilling...';
-    status.textContent = '';
+    refillBtn.textContent = "Refilling...";
+    status.textContent = "";
 
     try {
-      const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + sessionToken };
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + sessionToken,
+      };
       const res = await fetch(zmcdserver, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: JSON.stringify({
           refillSession: true,
@@ -522,28 +734,34 @@ function showSessionExpiredDialog() {
       });
 
       let body = null;
-      try { body = await res.json(); } catch (e) { body = null; }
+      try {
+        body = await res.json();
+      } catch (e) {
+        body = null;
+      }
 
       if (!res.ok || !body || !body.success || !body.authToken) {
-        throw new Error((body && body.error) || 'Failed to refill session');
+        throw new Error((body && body.error) || "Failed to refill session");
       }
 
       window.data = window.data || {};
       window.data.authToken = body.authToken;
-      status.textContent = 'Session refilled. You can continue.';
-      status.style.color = 'green';
+      status.textContent = "Session refilled. You can continue.";
+      status.style.color = "green";
       setTimeout(() => {
-        try { dlg.remove(); } catch (e) {}
+        try {
+          dlg.remove();
+        } catch (e) {}
       }, 350);
     } catch (e) {
-      status.textContent = 'Session refill failed. Sign in again.';
-      status.style.color = 'red';
+      status.textContent = "Session refill failed. Sign in again.";
+      status.style.color = "red";
     }
 
     refillBtn.disabled = false;
-    refillBtn.textContent = 'Refill Session';
+    refillBtn.textContent = "Refill Session";
   });
-  reloadBtn.addEventListener('click', () => {
+  reloadBtn.addEventListener("click", () => {
     suppressSessionExpiredDialog(20000);
     rebuildhandler();
   });
@@ -564,12 +782,16 @@ function isSessionExpiredDialogSuppressed() {
 }
 
 function getCurrentUsernameForRequests() {
-  var liveUsername = '';
+  var liveUsername = "";
   try {
-    if (window.data && typeof window.data.username === 'string') {
-      liveUsername = String(window.data.username || '').trim();
-    } else if (typeof data !== 'undefined' && data && typeof data.username === 'string') {
-      liveUsername = String(data.username || '').trim();
+    if (window.data && typeof window.data.username === "string") {
+      liveUsername = String(window.data.username || "").trim();
+    } else if (
+      typeof data !== "undefined" &&
+      data &&
+      typeof data.username === "string"
+    ) {
+      liveUsername = String(data.username || "").trim();
     }
   } catch (e) {}
 
@@ -586,49 +808,75 @@ function maybeShowSessionExpiredDialog() {
   showSessionExpiredDialog();
 }
 
-
 async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
-  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
+  if (window.data && window.data.authToken)
+    headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(SERVER, {
     method: "POST",
     headers,
-    body: JSON.stringify({ username: getCurrentUsernameForRequests(), ...data }),
+    body: JSON.stringify({
+      username: getCurrentUsernameForRequests(),
+      ...data,
+    }),
   });
   let body = null;
-  try { body = await res.json(); } catch (e) { body = null; }
+  try {
+    body = await res.json();
+  } catch (e) {
+    body = null;
+  }
   if (body && (body.authToken || body.token)) {
-    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+    try {
+      window.data = window.data || {};
+      window.data.authToken = body.authToken || body.token;
+    } catch (e) {}
   }
   if (res.status === 401 && !firstlogin) {
-    try { maybeShowSessionExpiredDialog(); } catch (e) {}
-    return body || { error: 'unauthorized' };
+    try {
+      maybeShowSessionExpiredDialog();
+    } catch (e) {}
+    return body || { error: "unauthorized" };
   }
   firstlogin = false;
   return body;
 }
 async function zmcdpost(data) {
   const headers = { "Content-Type": "application/json" };
-  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
+  if (window.data && window.data.authToken)
+    headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(zmcdserver, {
     method: "POST",
     headers,
-    body: JSON.stringify({ username: getCurrentUsernameForRequests(), ...data }),
+    body: JSON.stringify({
+      username: getCurrentUsernameForRequests(),
+      ...data,
+    }),
   });
   let body = null;
-  try { body = await res.json(); } catch (e) { body = null; }
+  try {
+    body = await res.json();
+  } catch (e) {
+    body = null;
+  }
   if (body && (body.authToken || body.token)) {
-    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+    try {
+      window.data = window.data || {};
+      window.data.authToken = body.authToken || body.token;
+    } catch (e) {}
   }
   if (res.status === 401) {
-    try { maybeShowSessionExpiredDialog(); } catch (e) {}
-    return body || { error: 'unauthorized' };
+    try {
+      maybeShowSessionExpiredDialog();
+    } catch (e) {}
+    return body || { error: "unauthorized" };
   }
   return body;
 }
 async function posttaskbuttons(data) {
   const headers = { "Content-Type": "application/json" };
-  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
+  if (window.data && window.data.authToken)
+    headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(zmcdserver, {
     method: "POST",
     headers,
@@ -639,20 +887,34 @@ async function posttaskbuttons(data) {
     }),
   });
   let body = null;
-  try { body = await res.json(); } catch (e) { body = null; }
+  try {
+    body = await res.json();
+  } catch (e) {
+    body = null;
+  }
   if (body && (body.authToken || body.token)) {
-    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+    try {
+      window.data = window.data || {};
+      window.data.authToken = body.authToken || body.token;
+    } catch (e) {}
   }
   if (res.status === 401) {
-    try { maybeShowSessionExpiredDialog(); } catch (e) {}
-    return body || { error: 'unauthorized' };
+    try {
+      maybeShowSessionExpiredDialog();
+    } catch (e) {}
+    return body || { error: "unauthorized" };
   }
   return body;
 }
 async function downloadPost(data) {
-    var res = await fetch(downloadserver, {
+  var res = await fetch(downloadserver, {
     method: "POST",
-    headers: (function(){ const h = { "Content-Type": "application/json" }; if (window.data && window.data.authToken) h["Authorization"] = "Bearer " + window.data.authToken; return h; })(),
+    headers: (function () {
+      const h = { "Content-Type": "application/json" };
+      if (window.data && window.data.authToken)
+        h["Authorization"] = "Bearer " + window.data.authToken;
+      return h;
+    })(),
     body: JSON.stringify({
       username: getCurrentUsernameForRequests(),
       data: data,
@@ -660,25 +922,29 @@ async function downloadPost(data) {
     }),
   });
   let body = null;
-  try { body = await res.json(); } catch (e) { body = null; }
+  try {
+    body = await res.json();
+  } catch (e) {
+    body = null;
+  }
   if (body && (body.authToken || body.token)) {
-    try { window.data = window.data || {}; window.data.authToken = body.authToken || body.token; } catch (e) {}
+    try {
+      window.data = window.data || {};
+      window.data.authToken = body.authToken || body.token;
+    } catch (e) {}
   }
   if (res.status === 401) {
-    try { maybeShowSessionExpiredDialog(); } catch (e) {}
-    return body || { error: 'unauthorized' };
+    try {
+      maybeShowSessionExpiredDialog();
+    } catch (e) {}
+    return body || { error: "unauthorized" };
   }
   return body;
 }
-function annotateTreeWithPaths(tree, basePath = '') {
+function annotateTreeWithPaths(tree, basePath = "") {
   var [name, children, meta = {}] = tree;
 
-  var path =
-    name === 'root'
-      ? ''
-      : basePath
-      ? `${basePath}/${name}`
-      : name;
+  var path = name === "root" ? "" : basePath ? `${basePath}/${name}` : name;
 
   tree[2] = { ...meta, path };
 
@@ -722,35 +988,40 @@ function base64ToArrayBuffer(base64) {
 function base64ToUtf8(b64OrBuffer) {
   try {
     // If caller passed an ArrayBuffer or Uint8Array, decode directly
-    if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {
-      var buf = b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
-      return new TextDecoder('utf-8').decode(buf);
+    if (
+      b64OrBuffer &&
+      (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))
+    ) {
+      var buf =
+        b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
+      return new TextDecoder("utf-8").decode(buf);
     }
 
     // Otherwise assume base64 string
-    var buf = base64ToArrayBuffer(String(b64OrBuffer || ''));
-    return new TextDecoder('utf-8').decode(buf);
+    var buf = base64ToArrayBuffer(String(b64OrBuffer || ""));
+    return new TextDecoder("utf-8").decode(buf);
   } catch (e) {
     try {
       // fallback to atob for environments without TextDecoder support
-      if (typeof b64OrBuffer === 'string') return atob(b64OrBuffer);
+      if (typeof b64OrBuffer === "string") return atob(b64OrBuffer);
     } catch (ee) {}
-    return '';
+    return "";
   }
 }
 
-window._flowawayFileFetchInFlight = window._flowawayFileFetchInFlight || new Map();
+window._flowawayFileFetchInFlight =
+  window._flowawayFileFetchInFlight || new Map();
 window._flowawayFileFetchRecent = window._flowawayFileFetchRecent || new Map();
 var FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
 
 async function fetchFileContentByPath(path) {
-  if (!path) throw new Error('No path');
+  if (!path) throw new Error("No path");
   var normalizedPath = String(path).trim();
-  if (!normalizedPath) throw new Error('No path');
+  if (!normalizedPath) throw new Error("No path");
 
   var now = Date.now();
   var recentHit = window._flowawayFileFetchRecent.get(normalizedPath);
-  if (recentHit && (now - recentHit.ts) <= FLOWAWAY_FILE_FETCH_CACHE_MS) {
+  if (recentHit && now - recentHit.ts <= FLOWAWAY_FILE_FETCH_CACHE_MS) {
     return recentHit.value;
   }
 
@@ -760,23 +1031,39 @@ async function fetchFileContentByPath(path) {
   }
 
   var req = (async () => {
-    var res = await filePost({ requestFile: true, requestFileName: normalizedPath });
+    var res = await filePost({
+      requestFile: true,
+      requestFileName: normalizedPath,
+    });
 
     // If server returned a simple base64 payload for small files
-    if (res && typeof res.filecontent === 'string' && (!res.totalChunks || res.totalChunks <= 1)) {
-      window._flowawayFileFetchRecent.set(normalizedPath, { ts: Date.now(), value: res.filecontent });
+    if (
+      res &&
+      typeof res.filecontent === "string" &&
+      (!res.totalChunks || res.totalChunks <= 1)
+    ) {
+      window._flowawayFileFetchRecent.set(normalizedPath, {
+        ts: Date.now(),
+        value: res.filecontent,
+      });
       return res.filecontent;
     }
 
     // If server indicates chunking, fetch all chunks and combine as ArrayBuffer
-    if (res && typeof res.totalChunks === 'number' && res.totalChunks > 1) {
+    if (res && typeof res.totalChunks === "number" && res.totalChunks > 1) {
       var chunks = [];
       // first chunk
-      if (typeof res.filecontent === 'string') chunks.push(base64ToArrayBuffer(res.filecontent));
+      if (typeof res.filecontent === "string")
+        chunks.push(base64ToArrayBuffer(res.filecontent));
 
       for (let i = 1; i < res.totalChunks; i++) {
-        var part = await filePost({ requestFile: true, requestFileName: normalizedPath, chunkIndex: i });
-        if (!part || typeof part.filecontent !== 'string') throw new Error('Missing chunk ' + i + ' for ' + normalizedPath);
+        var part = await filePost({
+          requestFile: true,
+          requestFileName: normalizedPath,
+          chunkIndex: i,
+        });
+        if (!part || typeof part.filecontent !== "string")
+          throw new Error("Missing chunk " + i + " for " + normalizedPath);
         chunks.push(base64ToArrayBuffer(part.filecontent));
       }
 
@@ -790,11 +1077,14 @@ async function fetchFileContentByPath(path) {
         off += u.byteLength;
       }
       var combinedBuffer = combined.buffer;
-      window._flowawayFileFetchRecent.set(normalizedPath, { ts: Date.now(), value: combinedBuffer });
+      window._flowawayFileFetchRecent.set(normalizedPath, {
+        ts: Date.now(),
+        value: combinedBuffer,
+      });
       return combinedBuffer;
     }
 
-    throw new Error('Could not fetch file: ' + normalizedPath);
+    throw new Error("Could not fetch file: " + normalizedPath);
   })();
 
   window._flowawayFileFetchInFlight.set(normalizedPath, req);
@@ -807,53 +1097,124 @@ async function fetchFileContentByPath(path) {
   }
 }
 async function makeFlowawayFileHandle(name, path, filecontent = null) {
-  await filePost({ saveSnapshot: true, directions: [{ edit: true, contents: filecontent, path, replace: true }, { end: true }] });
+  await filePost({
+    saveSnapshot: true,
+    directions: [
+      { edit: true, contents: filecontent, path, replace: true },
+      { end: true },
+    ],
+  });
   return {
-    kind: 'file',
+    kind: "file",
     name,
     path,
     async getFile() {
       var res = await fetchFileContentByPath(path);
-      var buf = (res instanceof ArrayBuffer || ArrayBuffer.isView(res)) ? res : base64ToArrayBuffer(String(res || ''));
-      var type = (function (n) { var ext = n.split('.').pop().toLowerCase(); var m = { txt: 'text/plain', js: 'application/javascript', json: 'application/json', html: 'text/html' }; return m[ext] || 'application/octet-stream'; })(name);
+      var buf =
+        res instanceof ArrayBuffer || ArrayBuffer.isView(res)
+          ? res
+          : base64ToArrayBuffer(String(res || ""));
+      var type = (function (n) {
+        var ext = n.split(".").pop().toLowerCase();
+        var m = {
+          txt: "text/plain",
+          js: "application/javascript",
+          json: "application/json",
+          html: "text/html",
+        };
+        return m[ext] || "application/octet-stream";
+      })(name);
       return new File([buf], name, { type });
-    }
+    },
   };
 }
 
 function createPickerModal(tree, options = {}) {
-  var { allowDirectory = false, multiple = false, save = false, suggestedName = '', filecontent = null } = options;
-  var overlay = document.createElement('div');
-  Object.assign(overlay.style, { position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000 });
-  var box = document.createElement('div');
-  Object.assign(box.style, { width: '700px', height: '500px', background: data.dark ? '#1e1e1e' : '#fff', color: data.dark ? '#eee' : '#000', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' });
+  var {
+    allowDirectory = false,
+    multiple = false,
+    save = false,
+    suggestedName = "",
+    filecontent = null,
+  } = options;
+  var overlay = document.createElement("div");
+  Object.assign(overlay.style, {
+    position: "fixed",
+    inset: "0",
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100000,
+  });
+  var box = document.createElement("div");
+  Object.assign(box.style, {
+    width: "700px",
+    height: "500px",
+    background: data.dark ? "#1e1e1e" : "#fff",
+    color: data.dark ? "#eee" : "#000",
+    borderRadius: "8px",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  });
   overlay.appendChild(box);
-  var breadcrumb = document.createElement('div'); breadcrumb.style.padding = '8px'; box.appendChild(breadcrumb);
-  var fileArea = document.createElement('div'); Object.assign(fileArea.style, { flex: '1', overflow: 'auto', padding: '8px', borderTop: '1px solid #ddd' }); box.appendChild(fileArea);
-  var saveContainer = document.createElement('div'); saveContainer.style.padding = '8px'; box.appendChild(saveContainer);
-  var bar = document.createElement('div'); bar.style.padding = '8px'; bar.style.display = 'flex'; bar.style.justifyContent = 'flex-end'; box.appendChild(bar);
-  var cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel'; bar.appendChild(cancelBtn);
-  var okBtn = document.createElement('button'); okBtn.textContent = save ?'Save' : 'Open'; okBtn.style.marginLeft = '8px'; bar.appendChild(okBtn);
+  var breadcrumb = document.createElement("div");
+  breadcrumb.style.padding = "8px";
+  box.appendChild(breadcrumb);
+  var fileArea = document.createElement("div");
+  Object.assign(fileArea.style, {
+    flex: "1",
+    overflow: "auto",
+    padding: "8px",
+    borderTop: "1px solid #ddd",
+  });
+  box.appendChild(fileArea);
+  var saveContainer = document.createElement("div");
+  saveContainer.style.padding = "8px";
+  box.appendChild(saveContainer);
+  var bar = document.createElement("div");
+  bar.style.padding = "8px";
+  bar.style.display = "flex";
+  bar.style.justifyContent = "flex-end";
+  box.appendChild(bar);
+  var cancelBtn = document.createElement("button");
+  cancelBtn.textContent = "Cancel";
+  bar.appendChild(cancelBtn);
+  var okBtn = document.createElement("button");
+  okBtn.textContent = save ? "Save" : "Open";
+  okBtn.style.marginLeft = "8px";
+  bar.appendChild(okBtn);
 
-  var currentPath = ['root'];
+  var currentPath = ["root"];
   var selection = [];
   var filenameInput = null;
 
   function render() {
-    breadcrumb.innerHTML = '';
+    breadcrumb.innerHTML = "";
     currentPath.forEach((p, i) => {
-      var span = document.createElement('span'); span.textContent = i === 0 ? 'Home' : ' / ' + p; span.style.cursor = 'pointer'; span.onclick = () => { currentPath = currentPath.slice(0, i + 1); render(); }; breadcrumb.appendChild(span);
+      var span = document.createElement("span");
+      span.textContent = i === 0 ? "Home" : " / " + p;
+      span.style.cursor = "pointer";
+      span.onclick = () => {
+        currentPath = currentPath.slice(0, i + 1);
+        render();
+      };
+      breadcrumb.appendChild(span);
     });
-    fileArea.innerHTML = '';
+    fileArea.innerHTML = "";
     var node = JSON.parse(JSON.stringify(tree));
     for (let i = 1; i < currentPath.length; i++) {
-      node = (node[1] || []).find(c => c[0] === currentPath[i]);
+      node = (node[1] || []).find((c) => c[0] === currentPath[i]);
       if (!node) return;
     }
     if (!node || !node[1]) return;
-    node[1].forEach(item => {
+    node[1].forEach((item) => {
       var isDir = Array.isArray(item[1]);
-      var div = document.createElement('div'); div.style.padding = '6px'; div.style.cursor = 'pointer'; div.textContent = (isDir ? '📁 ' : '📄 ') + item[0];
+      var div = document.createElement("div");
+      div.style.padding = "6px";
+      div.style.cursor = "pointer";
+      div.textContent = (isDir ? "📁 " : "📄 ") + item[0];
       div.onclick = (e) => {
         var toggle = e.ctrlKey || e.metaKey;
 
@@ -862,31 +1223,48 @@ function createPickerModal(tree, options = {}) {
         // still navigate into the directory (see ondblclick below).
         if (isDir && !allowDirectory) {
           // Optionally provide a light hover/preview effect but do not add to selection
-          fileArea.querySelectorAll('div').forEach(d => d.style.background = '');
-          div.style.background = '#f0f0f0';
+          fileArea
+            .querySelectorAll("div")
+            .forEach((d) => (d.style.background = ""));
+          div.style.background = "#f0f0f0";
           return;
         }
 
         if (!toggle || !multiple) {
           selection = [item];
-          fileArea.querySelectorAll('div').forEach(d => d.style.background = '');
-          div.style.background = '#d0e6ff';
+          fileArea
+            .querySelectorAll("div")
+            .forEach((d) => (d.style.background = ""));
+          div.style.background = "#d0e6ff";
         } else {
           var idx = selection.indexOf(item);
-          if (idx >= 0) { selection.splice(idx, 1); div.style.background = ''; } else { selection.push(item); div.style.background = '#d0e6ff'; }
+          if (idx >= 0) {
+            selection.splice(idx, 1);
+            div.style.background = "";
+          } else {
+            selection.push(item);
+            div.style.background = "#d0e6ff";
+          }
         }
       };
-      if (isDir) div.ondblclick = () => { currentPath.push(item[0]); render(); };
+      if (isDir)
+        div.ondblclick = () => {
+          currentPath.push(item[0]);
+          render();
+        };
       fileArea.appendChild(div);
     });
     // If this modal is a Save dialog, render filename input
-    saveContainer.innerHTML = '';
+    saveContainer.innerHTML = "";
     if (save) {
-      var lbl = document.createElement('div'); lbl.textContent = 'Filename:'; lbl.style.marginBottom = '6px'; saveContainer.appendChild(lbl);
-      filenameInput = document.createElement('input');
-      filenameInput.style.width = '100%';
-      filenameInput.placeholder = 'filename.txt';
-      filenameInput.value = suggestedName || '';
+      var lbl = document.createElement("div");
+      lbl.textContent = "Filename:";
+      lbl.style.marginBottom = "6px";
+      saveContainer.appendChild(lbl);
+      filenameInput = document.createElement("input");
+      filenameInput.style.width = "100%";
+      filenameInput.placeholder = "filename.txt";
+      filenameInput.value = suggestedName || "";
       saveContainer.appendChild(filenameInput);
     }
   }
@@ -896,38 +1274,54 @@ function createPickerModal(tree, options = {}) {
   document.body.appendChild(overlay);
 
   return new Promise((resolve) => {
-    cancelBtn.onclick = () => { overlay.remove(); resolve(null); };
+    cancelBtn.onclick = () => {
+      overlay.remove();
+      resolve(null);
+    };
     okBtn.onclick = async () => {
       // Save flow: return a chosen full path string
       if (save) {
         // determine selected folder (prefer selected dir, otherwise currentPath)
-        var folderPath = currentPath.slice(1).join('/');
+        var folderPath = currentPath.slice(1).join("/");
         if (selection.length && Array.isArray(selection[0][1])) {
           var sel = selection[0];
-          folderPath = (sel[2] && sel[2].path) ? sel[2].path : (currentPath.slice(1).join('/'));
+          folderPath =
+            sel[2] && sel[2].path
+              ? sel[2].path
+              : currentPath.slice(1).join("/");
         }
-        var fname = (filenameInput && filenameInput.value || '').trim();
-        if (!fname) { notification('Enter filename'); return; }
+        var fname = ((filenameInput && filenameInput.value) || "").trim();
+        if (!fname) {
+          notification("Enter filename");
+          return;
+        }
         overlay.remove();
-        var chosen = folderPath ? ('/' + folderPath + '/' + fname) : fname;
-        var returnValue = {path: chosen, name: fname, filecontent: filecontent};
+        var chosen = folderPath ? "/" + folderPath + "/" + fname : fname;
+        var returnValue = {
+          path: chosen,
+          name: fname,
+          filecontent: filecontent,
+        };
         return resolve(returnValue);
       }
 
-        overlay.remove();
-        if (!selection.length) return resolve(null);
-        // If directory-only requested, return selected folder node(s)
-        if (allowDirectory) {
-          var dirs = selection.filter(s => Array.isArray(s[1]));
-          if (multiple) return resolve(dirs);
-          return resolve(dirs[0] || null);
-        }
+      overlay.remove();
+      if (!selection.length) return resolve(null);
+      // If directory-only requested, return selected folder node(s)
+      if (allowDirectory) {
+        var dirs = selection.filter((s) => Array.isArray(s[1]));
+        if (multiple) return resolve(dirs);
+        return resolve(dirs[0] || null);
+      }
       // otherwise return file nodes
-      var files = selection.filter(s => !Array.isArray(s[1]));
+      var files = selection.filter((s) => !Array.isArray(s[1]));
       // map to handles with full path from annotated tree
-      var handles = files.map(f => {
+      var handles = files.map((f) => {
         // f is [name, null, meta]
-        var path = (f[2] && f[2].path) ? f[2].path : (currentPath.slice(1).concat([f[0]]).join('/'));
+        var path =
+          f[2] && f[2].path
+            ? f[2].path
+            : currentPath.slice(1).concat([f[0]]).join("/");
         return makeFlowawayFileHandle(f[0], path);
       });
       resolve(handles);
@@ -938,24 +1332,35 @@ function createPickerModal(tree, options = {}) {
 // Global functions
 window.flowawayOpenFilePicker = async function (options = {}) {
   if (!window.treeData) await window.loadTree();
-  var res = await createPickerModal(window.treeData, { allowDirectory: false, multiple: !!options.multiple });
+  var res = await createPickerModal(window.treeData, {
+    allowDirectory: false,
+    multiple: !!options.multiple,
+  });
   return res; // array of handles or null
 };
 
 window.flowawayDirectoryPicker = async function (options = {}) {
   if (!window.treeData) await window.loadTree();
   options.allowDirectory = true;
-  console.log(options)
+  console.log(options);
   var sel = await createPickerModal(window.treeData, options);
   // return folder node (the array structure)
   return sel; // may be null
 };
 
-window.flowawaySaveFilePicker = async function (options = {}, suggestedPath = '') {
+window.flowawaySaveFilePicker = async function (
+  options = {},
+  suggestedPath = "",
+) {
   if (!window.treeData) await window.loadTree();
   // Use the picker modal with save input enabled for consistent UI
-  var chosen = await createPickerModal(window.treeData, { allowDirectory: true, save: true, suggestedName: suggestedPath.split('/').pop() || '', filecontent: options.filecontent || null });
-  console.log(chosen)
+  var chosen = await createPickerModal(window.treeData, {
+    allowDirectory: true,
+    save: true,
+    suggestedName: suggestedPath.split("/").pop() || "",
+    filecontent: options.filecontent || null,
+  });
+  console.log(chosen);
   return makeFlowawayFileHandle(chosen.name, chosen.path, chosen.filecontent);
 };
 
@@ -964,15 +1369,17 @@ function hashScriptContent(text) {
   var hash = 0;
   for (let i = 0; i < text.length; i++) {
     var char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   return Math.abs(hash).toString(16);
 }
 
 function isProtectedAppGlobalName(name) {
-  if (!name || typeof name !== 'string') return false;
-  return /Globals$/.test(name) || name === 'apps' || name === '_flowaway_handlers';
+  if (!name || typeof name !== "string") return false;
+  return (
+    /Globals$/.test(name) || name === "apps" || name === "_flowaway_handlers"
+  );
 }
 
 // ----------------- DYNAMIC AP LOADER -----------------
@@ -983,23 +1390,33 @@ async function getFolderListing(relPath) {
   try {
     window._flowawayMissingFolders.delete(relPath);
     var r = await filePost({ requestFile: true, requestFileName: relPath });
-    if (r && r.kind === 'folder' && Array.isArray(r.files)) return r.files;
-    if (r && (r.missing || r.code === 'ENOENT' || r.kind === 'missing' || r.error === 'ENOENT')) {
+    if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
+    if (
+      r &&
+      (r.missing ||
+        r.code === "ENOENT" ||
+        r.kind === "missing" ||
+        r.error === "ENOENT")
+    ) {
       window._flowawayMissingFolders.add(relPath);
       return null;
     }
-  } catch (e) { console.error('getFolderListing error', e); }
+  } catch (e) {
+    console.error("getFolderListing error", e);
+  }
   return null;
 }
 
 function normalizeAppFolders(folders) {
   var seen = new Set();
   var list = [];
-  for (const folder of (folders || [])) {
-    if (!Array.isArray(folder) || typeof folder[0] !== 'string') continue;
+  for (const folder of folders || []) {
+    if (!Array.isArray(folder) || typeof folder[0] !== "string") continue;
     var folderName = folder[0].trim();
-    if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
-    var folderPath = (folder[2] && folder[2].path) ? folder[2].path : `apps/${folderName}`;
+    if (!folderName || folderName === ".DS_Store" || folderName.startsWith("."))
+      continue;
+    var folderPath =
+      folder[2] && folder[2].path ? folder[2].path : `apps/${folderName}`;
     var key = String(folderPath).toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -1009,28 +1426,32 @@ function normalizeAppFolders(folders) {
 }
 
 function isImageIconValue(value) {
-  if (!value || typeof value !== 'string') return false;
+  if (!value || typeof value !== "string") return false;
   var normalized = value.trim().toLowerCase();
   if (!normalized) return false;
-  if (normalized.startsWith('data:image/')) return true;
-  normalized = normalized.split('?')[0].split('#')[0];
-  return normalized.endsWith('.png') || normalized.endsWith('.svg');
+  if (normalized.startsWith("data:image/")) return true;
+  normalized = normalized.split("?")[0].split("#")[0];
+  return normalized.endsWith(".png") || normalized.endsWith(".svg");
 }
 
 function getIconMimeType(pathOrValue) {
-  var normalized = (pathOrValue || '').trim().toLowerCase().split('?')[0].split('#')[0];
-  if (normalized.endsWith('.svg')) return 'image/svg+xml';
-  return 'image/png';
+  var normalized = (pathOrValue || "")
+    .trim()
+    .toLowerCase()
+    .split("?")[0]
+    .split("#")[0];
+  if (normalized.endsWith(".svg")) return "image/svg+xml";
+  return "image/png";
 }
 
 function toIconImageMarkupFromSource(iconSource) {
-  if (!iconSource) return '';
+  if (!iconSource) return "";
   return `<img src="${iconSource}" style="width:1.8em;height:1.8em;max-width:100%;max-height:100%;object-fit:contain;display:block;margin:0 auto;"/>`;
 }
 
 function getPreferredAppIdentifier(app) {
-  if (!app) return '';
-  return app.entry || app.startbtnid || app.id || app.icon || '';
+  if (!app) return "";
+  return app.entry || app.startbtnid || app.id || app.icon || "";
 }
 
 function appMatchesIdentifier(app, identifier) {
@@ -1038,87 +1459,116 @@ function appMatchesIdentifier(app, identifier) {
   var id = String(identifier).trim();
   if (!id) return false;
   var candidates = [app.entry, app.startbtnid, app.id, app.icon]
-    .filter(v => typeof v !== 'undefined' && v !== null)
-    .map(v => String(v).trim())
+    .filter((v) => typeof v !== "undefined" && v !== null)
+    .map((v) => String(v).trim())
     .filter(Boolean);
   return candidates.includes(id);
 }
 
 async function toIconImageMarkup(iconPathOrUrl, folderPath) {
-  var iconSource = (iconPathOrUrl || '').trim();
-  if (!iconSource) return '';
+  var iconSource = (iconPathOrUrl || "").trim();
+  if (!iconSource) return "";
 
-  if (iconSource.startsWith('data:image/')) {
+  if (iconSource.startsWith("data:image/")) {
     return toIconImageMarkupFromSource(iconSource);
   }
 
-  if (iconSource.startsWith('http://') || iconSource.startsWith('https://') || iconSource.startsWith('/')) {
+  if (
+    iconSource.startsWith("http://") ||
+    iconSource.startsWith("https://") ||
+    iconSource.startsWith("/")
+  ) {
     return toIconImageMarkupFromSource(iconSource);
   }
 
-  var normalizedPath = iconSource.replace(/^\.\//, '');
-  if (!normalizedPath.startsWith('apps/')) {
+  var normalizedPath = iconSource.replace(/^\.\//, "");
+  if (!normalizedPath.startsWith("apps/")) {
     normalizedPath = `${folderPath}/${normalizedPath}`;
   }
 
   try {
     var iconB64 = await fetchFileContentByPath(normalizedPath);
-    if (!iconB64) return '';
+    if (!iconB64) return "";
     var mimeType = getIconMimeType(normalizedPath);
     return toIconImageMarkupFromSource(`data:${mimeType};base64,${iconB64}`);
   } catch (e) {
-    console.error('read icon image', e);
+    console.error("read icon image", e);
   }
 
-  return '';
+  return "";
 }
 
 // Helper function to extract app data from an app folder
 async function extractAppData(appFolder) {
   var folderName = appFolder[0];
-  var folderPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
+  var folderPath =
+    appFolder[2] && appFolder[2].path
+      ? appFolder[2].path
+      : `apps/${folderName}`;
   var files = await getFolderListing(folderPath);
   if (!files) {
-    if (window._flowawayMissingFolders && window._flowawayMissingFolders.has(folderPath)) {
+    if (
+      window._flowawayMissingFolders &&
+      window._flowawayMissingFolders.has(folderPath)
+    ) {
       var enoent = new Error(`Missing folder: ${folderPath}`);
-      enoent.code = 'ENOENT';
+      enoent.code = "ENOENT";
       throw enoent;
     }
     return null;
   }
-  
+
   // find files
-  var jsFile = files.find(f => f.name.toLowerCase().endsWith('.js'))?.relativePath || null;
-  var entryObjectfile = files.find(f => f.name.toLowerCase() === 'entry.json')?.relativePath || null;
-  var iconFile = files.find(f => f.name.toLowerCase().startsWith('icon') || f.name.toLowerCase().endsWith('.png') || f.name.toLowerCase().endsWith('.svg'))?.relativePath || null;
+  var jsFile =
+    files.find((f) => f.name.toLowerCase().endsWith(".js"))?.relativePath ||
+    null;
+  var entryObjectfile =
+    files.find((f) => f.name.toLowerCase() === "entry.json")?.relativePath ||
+    null;
+  var iconFile =
+    files.find(
+      (f) =>
+        f.name.toLowerCase().startsWith("icon") ||
+        f.name.toLowerCase().endsWith(".png") ||
+        f.name.toLowerCase().endsWith(".svg"),
+    )?.relativePath || null;
 
   var entryName = null;
   var label = folderName;
   var icon = null;
-  var startbtnid = '';
+  var startbtnid = "";
   var cmf = false;
-  var cmfl1 = '';
-  var globalvarobject = '';
+  var cmfl1 = "";
+  var globalvarobject = "";
   var appGlobalVarStrings = [];
   var allapparray = [];
   if (entryObjectfile) {
     try {
-      var b64 = await fetchFileContentByPath(`${folderPath}/${entryObjectfile}`);
+      var b64 = await fetchFileContentByPath(
+        `${folderPath}/${entryObjectfile}`,
+      );
       var entryObj = JSON.parse(base64ToUtf8(b64));
       entryName = entryObj.name;
       label = entryObj.label;
-      startbtnid = entryObj.startbtnid || '';
+      startbtnid = entryObj.startbtnid || "";
       cmf = entryObj.cmf || false;
-      cmfl1 = entryObj.cmfl1 || '';
-      globalvarobject = entryObj.globalvarobject || '';
+      cmfl1 = entryObj.cmfl1 || "";
+      globalvarobject = entryObj.globalvarobject || "";
       appGlobalVarStrings = entryObj.appGlobalVarStrings || [];
       allapparray = entryObj.allapparray || [];
-    } catch (e) { console.error('read entry object', e); }
+    } catch (e) {
+      console.error("read entry object", e);
+    }
   }
 
   if (iconFile) {
-    if (iconFile.toLowerCase().endsWith('.png') || iconFile.toLowerCase().endsWith('.svg')) {
-      icon = (await toIconImageMarkup(`${folderPath}/${iconFile}`, folderPath)) || icon;
+    if (
+      iconFile.toLowerCase().endsWith(".png") ||
+      iconFile.toLowerCase().endsWith(".svg")
+    ) {
+      icon =
+        (await toIconImageMarkup(`${folderPath}/${iconFile}`, folderPath)) ||
+        icon;
     } else {
       try {
         var b64 = await fetchFileContentByPath(`${folderPath}/${iconFile}`);
@@ -1128,52 +1578,88 @@ async function extractAppData(appFolder) {
         } else {
           icon = parsedIcon || icon;
         }
-      } catch (e) { console.error('read icon txt', e); }
+      } catch (e) {
+        console.error("read icon txt", e);
+      }
     }
   }
 
-  return { id: entryName || startbtnid || folderName, path: folderPath, jsFile, allapparray, entry: entryName || startbtnid || folderName, label, startbtnid, icon, scriptLoaded: false, cmf, cmfl1, globalvarobject, appGlobalVarStrings };
+  return {
+    id: entryName || startbtnid || folderName,
+    path: folderPath,
+    jsFile,
+    allapparray,
+    entry: entryName || startbtnid || folderName,
+    label,
+    startbtnid,
+    icon,
+    scriptLoaded: false,
+    cmf,
+    cmfl1,
+    globalvarobject,
+    appGlobalVarStrings,
+  };
 }
 async function runbootscript() {
   var b64 = await fetchFileContentByPath(`.boot/gbenv.js`);
   var scriptText = base64ToUtf8(b64);
-  var s = document.createElement('script');
-  s.type = 'text/javascript';
+  var s = document.createElement("script");
+  s.type = "text/javascript";
   s.textContent = scriptText;
   document.body.appendChild(s);
 }
 async function runscriptapps() {
-    var rootChildren = (window.treeData && window.treeData[1]) || [];
-    var appsNode = rootChildren.find(c => c[0] === '.noguiapps' && Array.isArray(c[1]));
-    if (!appsNode || !Array.isArray(appsNode[1])) return;
-    for(const file of appsNode[1]) {
+  var rootChildren = (window.treeData && window.treeData[1]) || [];
+  var appsNode = rootChildren.find(
+    (c) => c[0] === ".noguiapps" && Array.isArray(c[1]),
+  );
+  if (!appsNode || !Array.isArray(appsNode[1])) return;
+  for (const file of appsNode[1]) {
+    try {
       var b64 = await fetchFileContentByPath(`.noguiapps/${file[0]}`);
       var scriptText = base64ToUtf8(b64);
-      var s = document.createElement('script');
-      s.type = 'text/javascript';
+      var s = document.createElement("script");
+      s.type = "text/javascript";
       s.textContent = scriptText;
       document.body.appendChild(s);
+    } catch (e) {
+      flowawayError("runscriptapps", "Failed to load non-GUI app script", e, {
+        file: file && file[0],
+      });
     }
+  }
 }
 async function loadAppsFromTree() {
-  if(loaded) return;
+  if (loaded) return;
   loaded = true;
   window.apps = [];
   if (!window.treeData) await window.loadTree();
   try {
     try {
-    await runbootscript();
-    } catch (e) { console.error('runbootscript error', e); }
+      await runbootscript();
+    } catch (e) {
+      console.error("runbootscript error", e);
+    }
     try {
-    await runscriptapps();
-    } catch (e) { console.error('runscriptapps error', e); }
+      await runscriptapps();
+    } catch (e) {
+      console.error("runscriptapps error", e);
+    }
     var rootChildren = (window.treeData && window.treeData[1]) || [];
-    var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
+    var appsNode = rootChildren.find(
+      (c) => c[0] === "apps" && Array.isArray(c[1]),
+    );
     if (!appsNode) return;
     var appFolders = normalizeAppFolders(appsNode[1]);
     for (const appFolder of appFolders) {
-      const appData = await extractAppData(appFolder);
-      if (appData) window.apps.push(appData);
+      try {
+        const appData = await extractAppData(appFolder);
+        if (appData) window.apps.push(appData);
+      } catch (e) {
+        flowawayError("loadAppsFromTree", "Failed to parse app folder", e, {
+          folder: appFolder && appFolder[0],
+        });
+      }
     }
 
     // Sort apps alphabetically by label
@@ -1184,168 +1670,246 @@ async function loadAppsFromTree() {
     // reapply task buttons now that apps may be present
     applyTaskButtons();
     purgeButtons();
+    setTimeout(() => {
+      var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
       setTimeout(() => {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-      setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-            setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-            setTimeout(() => 
-        {
-      var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-        }
-      , 5000);
-        }
-      , 5000);
-        }
-      , 5000);
-  }, 5000);
+        var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+        window.dispatchEvent(appUpdatedEvent);
+        setTimeout(() => {
+          var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+          window.dispatchEvent(appUpdatedEvent);
+          setTimeout(() => {
+            var appUpdatedEvent = new CustomEvent("appUpdated", {
+              detail: null,
+            });
+            window.dispatchEvent(appUpdatedEvent);
+          }, 5000);
+        }, 5000);
+      }, 5000);
+    }, 5000);
     // Start polling for app changes
     startAppPolling();
-  } catch (e) { console.error('loadAppsFromTree error', e); }
+  } catch (e) {
+    flowawayError("loadAppsFromTree", "loadAppsFromTree failed", e);
+  }
 }
 
 async function renderAppsGrid() {
-  var container = document.getElementById('appsGrid');
+  var container = document.getElementById("appsGrid");
   if (!container) return;
   // Remove all current children to render fresh
-  container.innerHTML = '';
+  container.innerHTML = "";
   for (const app of window.apps) {
-    if(!app.icon) {
+    try {
+      if (!app.icon) {
+        if (!app.scriptLoaded && app.jsFile) {
+          try {
+            var b64NoIcon = await fetchFileContentByPath(
+              `${app.path}/${app.jsFile}`,
+            );
+            var scriptTextNoIcon = base64ToUtf8(b64NoIcon);
+            app._lastScriptHash = hashScriptContent(scriptTextNoIcon);
+            try {
+              if (app.entry && typeof window[app.entry] !== "undefined") {
+                try {
+                  delete window[app.entry];
+                } catch (e) {}
+              }
+              if (
+                app.cmf &&
+                !isProtectedAppGlobalName(app.cmf) &&
+                typeof window[app.cmf] !== "undefined"
+              ) {
+                try {
+                  delete window[app.cmf];
+                } catch (e) {}
+              }
+              if (
+                app.appGlobalVarStrings &&
+                Array.isArray(app.appGlobalVarStrings)
+              ) {
+                for (const varName of app.appGlobalVarStrings) {
+                  if (isProtectedAppGlobalName(varName)) continue;
+                  if (typeof window[varName] !== "undefined") {
+                    try {
+                      delete window[varName];
+                    } catch (e) {}
+                  }
+                }
+              }
+            } catch (e) {}
+            var beforeGlobalsNoIcon = new Set(
+              Object.getOwnPropertyNames(window),
+            );
+            var sNoIcon = document.createElement("script");
+            sNoIcon.type = "text/javascript";
+            sNoIcon.textContent = scriptTextNoIcon;
+            document.body.appendChild(sNoIcon);
+            app.scriptLoaded = true;
+            app._scriptElement = sNoIcon;
+            try {
+              app._addedGlobals = [];
+              var captureAddedNoIcon = () => {
+                try {
+                  var afterNoIcon = Object.getOwnPropertyNames(window);
+                  var newlyNoIcon = afterNoIcon.filter(
+                    (k) =>
+                      !beforeGlobalsNoIcon.has(k) &&
+                      !(app._addedGlobals || []).includes(k),
+                  );
+                  if (newlyNoIcon.length)
+                    app._addedGlobals = [
+                      ...new Set([
+                        ...(app._addedGlobals || []),
+                        ...newlyNoIcon,
+                      ]),
+                    ];
+                } catch (e) {}
+              };
+              captureAddedNoIcon();
+              setTimeout(captureAddedNoIcon, 120);
+              setTimeout(captureAddedNoIcon, 800);
+              setTimeout(captureAddedNoIcon, 2500);
+            } catch (e) {}
+          } catch (e) {
+            flowawayError(
+              "renderAppsGrid",
+              "Failed to load app script (no icon)",
+              e,
+              { appId: app && app.id, path: app && app.path },
+            );
+          }
+        }
+        continue;
+      }
+      var div = document.createElement("div");
+      div.className = "app";
+      div.dataset.appId = getPreferredAppIdentifier(app);
+      div.id = (app.startbtnid || app.id) + "app";
+      div.style.padding = "10px";
+      div.style.borderRadius = "6px";
+      div.style.textAlign = "center";
+      div.style.cursor = "pointer";
+      div.id = app.startbtnid || app.id;
+      div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
+      container.appendChild(div);
       if (!app.scriptLoaded && app.jsFile) {
         try {
-          var b64NoIcon = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-          var scriptTextNoIcon = base64ToUtf8(b64NoIcon);
-          app._lastScriptHash = hashScriptContent(scriptTextNoIcon);
+          var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+          var scriptText = base64ToUtf8(b64);
+          // Store hash for future change detection
+          app._lastScriptHash = hashScriptContent(scriptText);
+          // Prefer removing globals created by previous script rather than deleting app metadata
           try {
-            if (app.entry && typeof window[app.entry] !== 'undefined') {
-              try { delete window[app.entry]; } catch (e) {}
+            if (app.entry && typeof window[app.entry] !== "undefined") {
+              try {
+                delete window[app.entry];
+              } catch (e) {}
             }
-            if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') {
-              try { delete window[app.cmf]; } catch (e) {}
+            if (
+              app.cmf &&
+              !isProtectedAppGlobalName(app.cmf) &&
+              typeof window[app.cmf] !== "undefined"
+            ) {
+              try {
+                delete window[app.cmf];
+              } catch (e) {}
             }
-            if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
+            if (
+              app.appGlobalVarStrings &&
+              Array.isArray(app.appGlobalVarStrings)
+            ) {
               for (const varName of app.appGlobalVarStrings) {
                 if (isProtectedAppGlobalName(varName)) continue;
-                if (typeof window[varName] !== 'undefined') {
-                  try { delete window[varName]; } catch (e) {}
+                if (typeof window[varName] !== "undefined") {
+                  try {
+                    delete window[varName];
+                  } catch (e) {}
                 }
               }
             }
           } catch (e) {}
-          var beforeGlobalsNoIcon = new Set(Object.getOwnPropertyNames(window));
-          var sNoIcon = document.createElement('script');
-          sNoIcon.type = 'text/javascript';
-          sNoIcon.textContent = scriptTextNoIcon;
-          document.body.appendChild(sNoIcon);
+          // snapshot globals before injection
+          var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
+          var s = document.createElement("script");
+          s.type = "text/javascript";
+          s.textContent = scriptText;
+          document.body.appendChild(s);
           app.scriptLoaded = true;
-          app._scriptElement = sNoIcon;
+          app._scriptElement = s;
+          // record any globals the script introduced (best-effort)
           try {
             app._addedGlobals = [];
-            var captureAddedNoIcon = () => {
+            var captureAdded = () => {
               try {
-                var afterNoIcon = Object.getOwnPropertyNames(window);
-                var newlyNoIcon = afterNoIcon.filter(k => !beforeGlobalsNoIcon.has(k) && !(app._addedGlobals || []).includes(k));
-                if (newlyNoIcon.length) app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newlyNoIcon])];
+                var after = Object.getOwnPropertyNames(window);
+                var newly = after.filter(
+                  (k) =>
+                    !beforeGlobals.has(k) &&
+                    !(app._addedGlobals || []).includes(k),
+                );
+                if (newly.length)
+                  app._addedGlobals = [
+                    ...new Set([...(app._addedGlobals || []), ...newly]),
+                  ];
               } catch (e) {}
             };
-            captureAddedNoIcon();
-            setTimeout(captureAddedNoIcon, 120);
-            setTimeout(captureAddedNoIcon, 800);
-            setTimeout(captureAddedNoIcon, 2500);
+            // immediate capture and a few delayed captures to catch async initializers
+            captureAdded();
+            setTimeout(captureAdded, 120);
+            setTimeout(captureAdded, 800);
+            setTimeout(captureAdded, 2500);
           } catch (e) {}
-        } catch (e) { console.error('failed to load app script', e); }
+        } catch (e) {
+          flowawayError("renderAppsGrid", "Failed to load app script", e, {
+            appId: app && app.id,
+            path: app && app.path,
+          });
+        }
       }
+      try {
+        var appGlobalObj =
+          app && app.globalvarobject ? window[app.globalvarobject] : null;
+        var l1ContextHandler =
+          appGlobalObj &&
+          app.cmfl1 &&
+          typeof appGlobalObj[app.cmfl1] === "function"
+            ? appGlobalObj[app.cmfl1]
+            : function () {
+                notification("no right click menu attatched for this app!!!");
+              };
+        div.addEventListener("contextmenu", l1ContextHandler);
+      } catch (e) {
+        flowawayError(
+          "renderAppsGrid",
+          "Failed to attach app context menu",
+          e,
+          { appId: app && app.id },
+        );
+      }
+    } catch (e) {
+      flowawayError("renderAppsGrid", "Failed while rendering app tile", e, {
+        appId: app && app.id,
+        path: app && app.path,
+      });
       continue;
     }
-    var div = document.createElement('div');
-    div.className = 'app';
-    div.dataset.appId = getPreferredAppIdentifier(app);
-    div.id = (app.startbtnid || app.id) + 'app';
-    div.style.padding = '10px';
-    div.style.borderRadius = '6px';
-    div.style.textAlign = 'center';
-    div.style.cursor = 'pointer';
-    div.id = app.startbtnid || app.id;
-    div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
-    container.appendChild(div);
-      if (!app.scriptLoaded && app.jsFile) {
-    try {
-      var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-      var scriptText = base64ToUtf8(b64);
-      // Store hash for future change detection
-      app._lastScriptHash = hashScriptContent(scriptText);
-      // Prefer removing globals created by previous script rather than deleting app metadata
-      try {
-        if (app.entry && typeof window[app.entry] !== 'undefined') {
-          try { delete window[app.entry]; } catch (e) {}
-        }
-        if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') {
-          try { delete window[app.cmf]; } catch (e) {}
-        }
-        if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
-          for (const varName of app.appGlobalVarStrings) {
-            if (isProtectedAppGlobalName(varName)) continue;
-            if (typeof window[varName] !== 'undefined') {
-              try { delete window[varName]; } catch (e) {}
-            }
-          }
-        }
-      } catch (e) {}
-      // snapshot globals before injection
-      var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
-      var s = document.createElement('script');
-      s.type = 'text/javascript';
-      s.textContent = scriptText;
-      document.body.appendChild(s);
-      app.scriptLoaded = true;
-      app._scriptElement = s;
-      // record any globals the script introduced (best-effort)
-      try {
-        app._addedGlobals = [];
-        var captureAdded = () => {
-          try {
-            var after = Object.getOwnPropertyNames(window);
-            var newly = after.filter(k => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k));
-            if (newly.length) app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
-          } catch (e) {}
-        };
-        // immediate capture and a few delayed captures to catch async initializers
-        captureAdded();
-        setTimeout(captureAdded, 120);
-        setTimeout(captureAdded, 800);
-        setTimeout(captureAdded, 2500);
-      } catch (e) {}
-    } catch (e) { console.error('failed to load app script', e); }
   }
-  try {
-    var appGlobalObj = app && app.globalvarobject ? window[app.globalvarobject] : null;
-    var l1ContextHandler = (appGlobalObj && app.cmfl1 && typeof appGlobalObj[app.cmfl1] === 'function')
-      ? appGlobalObj[app.cmfl1]
-      : function() { notification('no right click menu attatched for this app!!!'); };
-    div.addEventListener('contextmenu', l1ContextHandler);
-  } catch (e) { console.error('failed to attach context menu', e); }
-}
 }
 async function launchApp(appId) {
-  var app = (window.apps || []).find(a => appMatchesIdentifier(a, appId));
+  var app = (window.apps || []).find((a) => appMatchesIdentifier(a, appId));
   if (!app) {
     // fallback: try to call a global function named like the appId (or the id listed in entry)
     try {
       var globalFn = window[appId] || null;
-      if (typeof globalFn === 'function') return globalFn();
+      if (typeof globalFn === "function") return globalFn();
     } catch (e) {}
-    console.warn('App not found:', appId);
+    flowawayError("launchApp", "App not found", null, { appId: appId });
     return;
   }
 
-    if (!app.scriptLoaded && app.jsFile) {
+  if (!app.scriptLoaded && app.jsFile) {
     try {
       var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
       var scriptText = base64ToUtf8(b64);
@@ -1353,25 +1917,35 @@ async function launchApp(appId) {
       app._lastScriptHash = hashScriptContent(scriptText);
       // Remove any prior globals exposed by a previous version of this app
       try {
-        if (app.entry && typeof window[app.entry] !== 'undefined') {
-          try { delete window[app.entry]; } catch (e) {}
+        if (app.entry && typeof window[app.entry] !== "undefined") {
+          try {
+            delete window[app.entry];
+          } catch (e) {}
         }
-        if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') {
-          try { delete window[app.cmf]; } catch (e) {}
+        if (
+          app.cmf &&
+          !isProtectedAppGlobalName(app.cmf) &&
+          typeof window[app.cmf] !== "undefined"
+        ) {
+          try {
+            delete window[app.cmf];
+          } catch (e) {}
         }
         if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
           for (const varName of app.appGlobalVarStrings) {
             if (isProtectedAppGlobalName(varName)) continue;
-            if (typeof window[varName] !== 'undefined') {
-              try { delete window[varName]; } catch (e) {}
+            if (typeof window[varName] !== "undefined") {
+              try {
+                delete window[varName];
+              } catch (e) {}
             }
           }
         }
       } catch (e) {}
       // snapshot globals before injection
       var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
-      var s = document.createElement('script');
-      s.type = 'text/javascript';
+      var s = document.createElement("script");
+      s.type = "text/javascript";
       s.textContent = scriptText;
       document.body.appendChild(s);
       app.scriptLoaded = true;
@@ -1382,8 +1956,14 @@ async function launchApp(appId) {
         var captureAdded = () => {
           try {
             var after = Object.getOwnPropertyNames(window);
-            var newly = after.filter(k => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k));
-            if (newly.length) app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
+            var newly = after.filter(
+              (k) =>
+                !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k),
+            );
+            if (newly.length)
+              app._addedGlobals = [
+                ...new Set([...(app._addedGlobals || []), ...newly]),
+              ];
           } catch (e) {}
         };
         captureAdded();
@@ -1391,21 +1971,32 @@ async function launchApp(appId) {
         setTimeout(captureAdded, 800);
         setTimeout(captureAdded, 2500);
       } catch (e) {}
-    } catch (e) { console.error('failed to load app script', e); }
+    } catch (e) {
+      flowawayError("launchApp", "Failed to load app script", e, {
+        appId: app && app.id,
+        path: app && app.path,
+      });
+    }
   }
 
   try {
-    if (app.entry && typeof window[app.entry] === 'function') {
+    if (app.entry && typeof window[app.entry] === "function") {
       window[app.entry]();
-    } else if (typeof window[app.id] === 'function') {
+    } else if (typeof window[app.id] === "function") {
       window[app.id]();
+    } else {
+      flowawayError("launchApp", "No callable entry function for app", null, {
+        appId: app && app.id,
+        entry: app && app.entry,
+      });
+      return;
     }
     // After the app varructs its UI, try to tag the new top-level window(s) with appId
     setTimeout(() => {
       try {
-        var roots = Array.from(document.querySelectorAll('.sim-chrome-root'));
+        var roots = Array.from(document.querySelectorAll(".app-root"));
         // find ones without app id yet
-        var untagged = roots.filter(r => !r.dataset || !r.dataset.appId);
+        var untagged = roots.filter((r) => !r.dataset || !r.dataset.appId);
         if (untagged.length) {
           // tag the most recently added
           var candidate = untagged[untagged.length - 1];
@@ -1414,7 +2005,12 @@ async function launchApp(appId) {
       } catch (e) {}
     }, 40);
     return;
-  } catch (e) { console.error('launchApp error', e); }
+  } catch (e) {
+    flowawayError("launchApp", "launchApp execution failed", e, {
+      appId: app && app.id,
+      entry: app && app.entry,
+    });
+  }
 }
 
 // ===== LIVE APP POLLING =====
@@ -1431,12 +2027,12 @@ var APP_POLLING_SOCKET_MAX_BACKOFF = 60 * 1000; // max 60s
 var APP_POLLING_DEBOUNCE = 1000;
 
 function queueAppPollingHint(msg) {
-  if (!msg || typeof msg !== 'object') return;
+  if (!msg || typeof msg !== "object") return;
 
   if (Array.isArray(msg.changedApps)) {
     for (const appName of msg.changedApps) {
-      var normalized = String(appName || '').trim();
-      if (!normalized || normalized.startsWith('.')) continue;
+      var normalized = String(appName || "").trim();
+      if (!normalized || normalized.startsWith(".")) continue;
       appPollingPendingFolders.add(normalized);
     }
   }
@@ -1449,35 +2045,45 @@ function collectAppPollingHint() {
 }
 
 function refreshAppsUiAfterChanges() {
-  loadAppsFromTree();
-  renderAppsGrid();
-  applyTaskButtons();
-  purgeButtons();
+  try {
+    loadAppsFromTree();
+  } catch (e) {
+    flowawayError("refreshAppsUiAfterChanges", "loadAppsFromTree failed", e);
+  }
+  try {
+    renderAppsGrid();
+  } catch (e) {
+    flowawayError("refreshAppsUiAfterChanges", "renderAppsGrid failed", e);
+  }
+  try {
+    applyTaskButtons();
+  } catch (e) {
+    flowawayError("refreshAppsUiAfterChanges", "applyTaskButtons failed", e);
+  }
+  try {
+    purgeButtons();
+  } catch (e) {
+    flowawayError("refreshAppsUiAfterChanges", "purgeButtons failed", e);
+  }
   setTimeout(() => {
-    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+    var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
     window.dispatchEvent(appUpdatedEvent);
-    setTimeout(() => 
-      {
-    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-    window.dispatchEvent(appUpdatedEvent);
-          setTimeout(() => 
-      {
-    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-    window.dispatchEvent(appUpdatedEvent);
-          setTimeout(() => 
-      {
-    var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-    window.dispatchEvent(appUpdatedEvent);
-      }
-    , 5000);
-      }
-    , 5000);
-      }
-    , 5000);
+    setTimeout(() => {
+      var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+      setTimeout(() => {
+        var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+        window.dispatchEvent(appUpdatedEvent);
+        setTimeout(() => {
+          var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+          window.dispatchEvent(appUpdatedEvent);
+        }, 5000);
+      }, 5000);
+    }, 5000);
   }, 5000);
 }
 
-function scheduleAppPoll(reason = 'unknown') {
+function scheduleAppPoll(reason = "unknown") {
   clearTimeout(appPollingTimer);
   appPollingTimer = setTimeout(async () => {
     if (appPollingInFlight) {
@@ -1493,25 +2099,28 @@ function scheduleAppPoll(reason = 'unknown') {
         await pollSpecificAppChanges(hint.changedApps);
       }
     } catch (e) {
-      console.error('[APP POLLING] Scheduled poll error:', e);
+      console.error("[APP POLLING] Scheduled poll error:", e);
     } finally {
       appPollingInFlight = false;
       if (appPollingDirty) {
         appPollingDirty = false;
-        scheduleAppPoll('coalesced');
+        scheduleAppPoll("coalesced");
       }
     }
   }, APP_POLLING_DEBOUNCE);
 }
 
 function startAppPollingViaWebSocket() {
-  if (typeof WebSocket === 'undefined') return false;
-  if (appPollingSocket && (appPollingSocket.readyState === WebSocket.OPEN || appPollingSocket.readyState === WebSocket.CONNECTING)) {
+  if (typeof WebSocket === "undefined") return false;
+  if (
+    appPollingSocket &&
+    (appPollingSocket.readyState === WebSocket.OPEN ||
+      appPollingSocket.readyState === WebSocket.CONNECTING)
+  ) {
     return true;
   }
 
-
-var appPollingURL = `${BASE}/server/appSocket`;
+  var appPollingURL = `${BASE}/server/appSocket`;
   appPollingSocket = new WebSocket(appPollingURL);
 
   appPollingSocket.onopen = () => {
@@ -1521,7 +2130,12 @@ var appPollingURL = `${BASE}/server/appSocket`;
       appPollingReconnectTimer = null;
     }
     try {
-      appPollingSocket.send(JSON.stringify({ subscribeToAppChanges: true, username: data.username }));
+      appPollingSocket.send(
+        JSON.stringify({
+          subscribeToAppChanges: true,
+          username: data.username,
+        }),
+      );
     } catch (e) {}
   };
 
@@ -1529,23 +2143,27 @@ var appPollingURL = `${BASE}/server/appSocket`;
     try {
       var msg = JSON.parse(ev.data);
       if (msg && msg.appChanges) {
-        if (!Array.isArray(msg.changedApps) || msg.changedApps.length === 0) return;
+        if (!Array.isArray(msg.changedApps) || msg.changedApps.length === 0)
+          return;
         queueAppPollingHint(msg);
-        scheduleAppPoll('ws');
+        scheduleAppPoll("ws");
       }
     } catch (e) {
-      console.error('[APP POLLING] Error parsing WebSocket message:', e);
+      console.error("[APP POLLING] Error parsing WebSocket message:", e);
     }
   };
 
   appPollingSocket.onerror = (err) => {
-    console.warn('[APP POLLING] WebSocket error', err);
+    console.warn("[APP POLLING] WebSocket error", err);
   };
 
   appPollingSocket.onclose = (e) => {
     appPollingSocket = null;
     if (appPollingSocketBackoff < 10) appPollingSocketBackoff++;
-    var delay = Math.min(appPollingSocketBackoff * 1000, APP_POLLING_SOCKET_MAX_BACKOFF);
+    var delay = Math.min(
+      appPollingSocketBackoff * 1000,
+      APP_POLLING_SOCKET_MAX_BACKOFF,
+    );
     if (appPollingReconnectTimer) clearTimeout(appPollingReconnectTimer);
     appPollingReconnectTimer = setTimeout(() => {
       appPollingReconnectTimer = null;
@@ -1556,190 +2174,626 @@ var appPollingURL = `${BASE}/server/appSocket`;
   return true;
 }
 
-async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) {
+async function pollAppChanges(
+  forceMetadataCheck = false,
+  targetFolders = null,
+) {
   if (!window.treeData) return;
-  
+
   try {
     var scriptReloadedPaths = new Set();
     var rootChildren = (window.treeData && window.treeData[1]) || [];
-    var appsNode = rootChildren.find(c => c[0] === 'apps' && Array.isArray(c[1]));
+    var appsNode = rootChildren.find(
+      (c) => c[0] === "apps" && Array.isArray(c[1]),
+    );
     if (!appsNode) return;
-    
+
     // Get current app folders from the file system
     var currentAppFolders = normalizeAppFolders(appsNode[1]);
-    var targetFolderSet = (Array.isArray(targetFolders) && targetFolders.length)
-      ? new Set(targetFolders.map(v => String(v || '').trim()).filter(Boolean))
-      : null;
+    var targetFolderSet =
+      Array.isArray(targetFolders) && targetFolders.length
+        ? new Set(
+            targetFolders.map((v) => String(v || "").trim()).filter(Boolean),
+          )
+        : null;
     hasChanges = false;
-    
+
     // First pass: detect structural changes only (new/deleted folders)
-    var currentFolderNames = new Set(currentAppFolders.map(f => f[0]));
-    var knownFolderNames = new Set(window.apps.map(a => {
-      var path = a.path;
-      return path.split('/').pop(); // Extract folder name from path
-    }));
-    
+    var currentFolderNames = new Set(currentAppFolders.map((f) => f[0]));
+    var knownFolderNames = new Set(
+      window.apps.map((a) => {
+        var path = a.path;
+        return path.split("/").pop(); // Extract folder name from path
+      }),
+    );
+
     // Check for new folders or deleted folders at folder level
-    var hasStructuralChanges = 
+    var hasStructuralChanges =
       currentFolderNames.size !== knownFolderNames.size ||
-      Array.from(currentFolderNames).some(name => !knownFolderNames.has(name));
-    
+      Array.from(currentFolderNames).some(
+        (name) => !knownFolderNames.has(name),
+      );
+
     // Handle new and deleted apps (structural changes)
     if (hasStructuralChanges) {
       // Check for new apps
       for (const appFolder of currentAppFolders) {
-        var folderName = appFolder[0];
-        var expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
-        
-        var existingApp = window.apps.find(a => a.path === expectedPath);
-        
-        if (!existingApp) {
-          // New app detected - fetch its metadata
-          var newAppData = await extractAppData(appFolder);
-          if (newAppData) {
-            window.apps.push(newAppData);
-            window.apps.sort((a, b) => a.label.localeCompare(b.label));
-            console.log(`[APP POLLING] New app detected: ${newAppData.label}`);
-            hasChanges = true;
+        try {
+          var folderName = appFolder[0];
+          var expectedPath =
+            appFolder[2] && appFolder[2].path
+              ? appFolder[2].path
+              : `apps/${folderName}`;
+
+          var existingApp = window.apps.find((a) => a.path === expectedPath);
+
+          if (!existingApp) {
+            var newAppData = await extractAppData(appFolder);
+            if (newAppData) {
+              window.apps.push(newAppData);
+              window.apps.sort((a, b) => a.label.localeCompare(b.label));
+              flowawayDebug("pollAppChanges", "New app detected", {
+                label: newAppData.label,
+                path: newAppData.path,
+              });
+              hasChanges = true;
+            }
           }
+        } catch (e) {
+          flowawayError(
+            "pollAppChanges",
+            "Failed while handling new app folder",
+            e,
+            { folder: appFolder && appFolder[0] },
+          );
         }
       }
-      
+
       // Check for deleted apps
       var appsToDelete = [];
       for (let i = 0; i < window.apps.length; i++) {
         var app = window.apps[i];
-        var stillExists = currentAppFolders.some(f => {
-          var expectedPath = (f[2] && f[2].path) ? f[2].path : `apps/${f[0]}`;
+        var stillExists = currentAppFolders.some((f) => {
+          var expectedPath = f[2] && f[2].path ? f[2].path : `apps/${f[0]}`;
           return expectedPath === app.path;
         });
-        
+
         if (!stillExists) {
           appsToDelete.push(i);
         }
       }
-      
+
       // Delete apps in reverse order to maintain indices
       for (let i = appsToDelete.length - 1; i >= 0; i--) {
-        var appIndex = appsToDelete[i];
-        var app = window.apps[appIndex];
-        
-        console.log(`[APP POLLING] App deleted: ${app.label}`);
-        
-        // 0. Clean up global variables and functions
         try {
-          // Only clear the entry point function if it exists
-          if (app.entry && window[app.entry]) {
-            try {
-              window[app.entry] = null;
-              delete window[app.entry];
-              if (app.cmf && !isProtectedAppGlobalName(app.cmf)) {
-                delete window[app.cmf];
-              }
-              if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
-                for (const varName of app.appGlobalVarStrings) {
-                  if (isProtectedAppGlobalName(varName)) continue;
-                  if (typeof window[varName] !== 'undefined') {
-                    try { delete window[varName]; } catch (e) {}
+          var appIndex = appsToDelete[i];
+          var app = window.apps[appIndex];
+
+          flowawayDebug("pollAppChanges", "App deleted", {
+            label: app && app.label,
+            path: app && app.path,
+          });
+
+          // 0. Clean up global variables and functions
+          try {
+            // Only clear the entry point function if it exists
+            if (app.entry && window[app.entry]) {
+              try {
+                window[app.entry] = null;
+                delete window[app.entry];
+                if (app.cmf && !isProtectedAppGlobalName(app.cmf)) {
+                  delete window[app.cmf];
+                }
+                if (
+                  app.appGlobalVarStrings &&
+                  Array.isArray(app.appGlobalVarStrings)
+                ) {
+                  for (const varName of app.appGlobalVarStrings) {
+                    if (isProtectedAppGlobalName(varName)) continue;
+                    if (typeof window[varName] !== "undefined") {
+                      try {
+                        delete window[varName];
+                      } catch (e) {}
+                    }
                   }
                 }
+                console.log(
+                  `[APP POLLING] Cleared entry function: ${app.entry}`,
+                );
+              } catch (e) {
+                console.warn(
+                  `[APP POLLING] Could not clear entry function ${app.entry}:`,
+                  e,
+                );
               }
-              console.log(`[APP POLLING] Cleared entry function: ${app.entry}`);
-            } catch (e) {
-              console.warn(`[APP POLLING] Could not clear entry function ${app.entry}:`, e);
             }
+          } catch (e) {
+            console.warn(
+              `[APP POLLING] Error cleaning entry function for ${app.label}:`,
+              e,
+            );
           }
+
+          // 1. Remove script element from DOM if loaded
+          if (app._scriptElement) {
+            app._scriptElement.remove();
+          }
+
+          // 2. Remove from apps array
+          window.apps.splice(appIndex, 1);
+
+          // 3. Remove from apps grid
+          var appElement =
+            document.getElementById(app.startbtnid || app.id + "app") ||
+            document.getElementById(app.id + "app");
+          if (appElement) appElement.remove();
+
+          // 4. Remove taskbar button
+          var taskbarBtn = Array.from(taskbar.querySelectorAll("button")).find(
+            (btn) =>
+              (btn.dataset && appMatchesIdentifier(app, btn.dataset.appId)) ||
+              btn.textContent.includes(app.label),
+          );
+          if (taskbarBtn) taskbarBtn.remove();
+
+          // 5. Close all windows with matching appId
+          var appIdToMatch = getPreferredAppIdentifier(app);
+          var windowsToClose = Array.from(
+            document.querySelectorAll(".app-root"),
+          ).filter(
+            (root) => root.dataset && root.dataset.appId === appIdToMatch,
+          );
+          for (const windowEl of windowsToClose) {
+            windowEl.remove();
+          }
+
+          hasChanges = true;
         } catch (e) {
-          console.warn(`[APP POLLING] Error cleaning entry function for ${app.label}:`, e);
+          flowawayError("pollAppChanges", "Failed while deleting app", e, {
+            index: i,
+          });
         }
-        
-        // 1. Remove script element from DOM if loaded
-        if (app._scriptElement) {
-          app._scriptElement.remove();
-        }
-        
-        // 2. Remove from apps array
-        window.apps.splice(appIndex, 1);
-        
-        // 3. Remove from apps grid
-        var appElement = document.getElementById(app.startbtnid || (app.id + 'app')) || document.getElementById(app.id + 'app');
-        if (appElement) appElement.remove();
-        
-        // 4. Remove taskbar button
-        var taskbarBtn = Array.from(taskbar.querySelectorAll('button')).find(btn => 
-          (btn.dataset && appMatchesIdentifier(app, btn.dataset.appId)) || 
-          btn.textContent.includes(app.label)
-        );
-        if (taskbarBtn) taskbarBtn.remove();
-        
-        // 5. Close all windows with matching appId
-        var appIdToMatch = getPreferredAppIdentifier(app);
-        var windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root => 
-          root.dataset && root.dataset.appId === appIdToMatch
-        );
-        for (const windowEl of windowsToClose) {
-          windowEl.remove();
-        }
-        
-        hasChanges = true;
       }
     }
-    
+
     // Second pass: refresh metadata (entry.json/icon.txt) on change notifications
     if (forceMetadataCheck) {
       var foldersForMetadata = targetFolderSet
-        ? currentAppFolders.filter(f => targetFolderSet.has(String(f[0] || '').trim()))
+        ? currentAppFolders.filter((f) =>
+            targetFolderSet.has(String(f[0] || "").trim()),
+          )
         : currentAppFolders;
 
       for (const appFolder of foldersForMetadata) {
-        var folderName = appFolder[0];
-        var expectedPath = (appFolder[2] && appFolder[2].path) ? appFolder[2].path : `apps/${folderName}`;
-        var existingApp = window.apps.find(a => a.path === expectedPath);
-        if (!existingApp) continue;
+        try {
+          var folderName = appFolder[0];
+          var expectedPath =
+            appFolder[2] && appFolder[2].path
+              ? appFolder[2].path
+              : `apps/${folderName}`;
+          var existingApp = window.apps.find((a) => a.path === expectedPath);
+          if (!existingApp) continue;
 
-        var newAppData = await extractAppData(appFolder);
+          var newAppData = await extractAppData(appFolder);
+          if (!newAppData) continue;
+
+          var appModified = false;
+          var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
+          var entryChanged = existingApp.entry !== newAppData.entry;
+
+          if (entryChanged) {
+            console.log(
+              `[APP POLLING] ${existingApp.label}: entry changed from ${existingApp.entry} to ${newAppData.entry}`,
+            );
+            appModified = true;
+          }
+          if (jsFileChanged) {
+            console.log(
+              `[APP POLLING] ${existingApp.label}: JS file changed from ${existingApp.jsFile} to ${newAppData.jsFile}`,
+            );
+            appModified = true;
+          }
+          if (existingApp.icon !== newAppData.icon) {
+            console.log(`[APP POLLING] ${existingApp.label}: icon changed`);
+            appModified = true;
+          }
+          if (existingApp.label !== newAppData.label) {
+            console.log(
+              `[APP POLLING] App label changed from ${existingApp.label} to ${newAppData.label}`,
+            );
+            appModified = true;
+          }
+          if (existingApp.startbtnid !== newAppData.startbtnid) {
+            appModified = true;
+          }
+          if (existingApp.globalvarobject !== newAppData.globalvarobject) {
+            appModified = true;
+          }
+          if (existingApp.cmf !== newAppData.cmf) {
+            appModified = true;
+          }
+          if (existingApp.cmfl1 !== newAppData.cmfl1) {
+            appModified = true;
+          }
+
+          if (appModified) {
+            // preserve old names so we can remove their globals safely after reload
+            var _oldEntry = existingApp.entry;
+            var _oldCmf = existingApp.cmf;
+            var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
+            var _oldId = existingApp.id;
+            var _oldStartbtnid = existingApp.startbtnid;
+            existingApp.entry = newAppData.entry;
+            existingApp.jsFile = newAppData.jsFile;
+            existingApp.icon = newAppData.icon;
+            existingApp.label = newAppData.label;
+            existingApp.startbtnid = newAppData.startbtnid;
+            existingApp.id = newAppData.id;
+            existingApp.globalvarobject = newAppData.globalvarobject;
+            existingApp.cmf = newAppData.cmf;
+            existingApp.cmfl1 = newAppData.cmfl1;
+            existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
+
+            // Update grid icon/label
+            var appGridElement =
+              document.getElementById(
+                newAppData.startbtnid || newAppData.id + "app",
+              ) ||
+              document.getElementById(_oldStartbtnid || _oldId + "app") ||
+              document.getElementById(existingApp.id + "app");
+            if (appGridElement) {
+              appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
+            }
+
+            // Reload script if JS file changed
+            if (jsFileChanged && existingApp.jsFile) {
+              try {
+                var b64 = await fetchFileContentByPath(
+                  `${existingApp.path}/${existingApp.jsFile}`,
+                );
+                var scriptText = base64ToUtf8(b64);
+                var currentHash = hashScriptContent(scriptText);
+                if (existingApp.scriptLoaded && existingApp._scriptElement) {
+                  existingApp._scriptElement.remove();
+                  existingApp.scriptLoaded = false;
+                }
+                // remove previous entry/cmf globals if they exist (use preserved names)
+                try {
+                  if (_oldEntry && typeof window[_oldEntry] !== "undefined") {
+                    try {
+                      delete window[_oldEntry];
+                    } catch (e) {}
+                  }
+                  if (
+                    _oldCmf &&
+                    !isProtectedAppGlobalName(_oldCmf) &&
+                    typeof window[_oldCmf] !== "undefined"
+                  ) {
+                    try {
+                      delete window[_oldCmf];
+                    } catch (e) {}
+                  }
+                  if (
+                    _oldAppGlobalVarStrings &&
+                    Array.isArray(_oldAppGlobalVarStrings)
+                  ) {
+                    for (const varName of _oldAppGlobalVarStrings) {
+                      if (isProtectedAppGlobalName(varName)) continue;
+                      if (typeof window[varName] !== "undefined") {
+                        try {
+                          delete window[varName];
+                        } catch (e) {}
+                      }
+                    }
+                  }
+                } catch (e) {}
+                var s = document.createElement("script");
+                s.type = "text/javascript";
+                s.textContent = scriptText;
+                document.body.appendChild(s);
+                existingApp.scriptLoaded = true;
+                existingApp._scriptElement = s;
+                existingApp._lastScriptHash = currentHash;
+                scriptReloadedPaths.add(existingApp.path);
+                console.log(
+                  `[APP POLLING] Script reloaded for: ${existingApp.label}`,
+                );
+              } catch (e) {
+                console.error(
+                  `[APP POLLING] Failed to reload script for ${existingApp.label}:`,
+                  e,
+                );
+              }
+            }
+
+            hasChanges = true;
+          }
+        } catch (e) {
+          flowawayError(
+            "pollAppChanges",
+            "Failed while refreshing app metadata",
+            e,
+            { folder: appFolder && appFolder[0] },
+          );
+        }
+      }
+    }
+
+    // Third pass: Check if scripts have changed for existing apps (on change notifications)
+    if (forceMetadataCheck) {
+      var appsForScriptCheck = targetFolderSet
+        ? window.apps.filter((a) =>
+            targetFolderSet.has(
+              String((a.path || "").split("/").pop() || "").trim(),
+            ),
+          )
+        : window.apps;
+
+      for (const app of appsForScriptCheck) {
+        try {
+          if (scriptReloadedPaths.has(app.path)) continue;
+          if (app.jsFile && app._lastScriptHash) {
+            try {
+              var b64 = await fetchFileContentByPath(
+                `${app.path}/${app.jsFile}`,
+              );
+              var scriptText = base64ToUtf8(b64);
+              var currentHash = hashScriptContent(scriptText);
+
+              if (currentHash !== app._lastScriptHash) {
+                console.log(
+                  `[APP POLLING] ${app.label}: JS file content changed`,
+                );
+
+                if (app.scriptLoaded && app._scriptElement) {
+                  app._scriptElement.remove();
+                  app.scriptLoaded = false;
+                }
+
+                if (app.entry && window[app.entry]) {
+                  try {
+                    window[app.entry] = null;
+                    delete window[app.entry];
+                  } catch (e) {}
+                }
+
+                try {
+                  app._lastScriptHash = currentHash;
+                  // remove prior globals exposed by this app before re-injecting
+                  try {
+                    if (app.entry && typeof window[app.entry] !== "undefined") {
+                      try {
+                        delete window[app.entry];
+                      } catch (e) {}
+                    }
+                    if (
+                      app.cmf &&
+                      !isProtectedAppGlobalName(app.cmf) &&
+                      typeof window[app.cmf] !== "undefined"
+                    ) {
+                      try {
+                        delete window[app.cmf];
+                      } catch (e) {}
+                    }
+                    if (
+                      app.appGlobalVarStrings &&
+                      Array.isArray(app.appGlobalVarStrings)
+                    ) {
+                      for (const varName of app.appGlobalVarStrings) {
+                        if (isProtectedAppGlobalName(varName)) continue;
+                        if (typeof window[varName] !== "undefined") {
+                          try {
+                            delete window[varName];
+                          } catch (e) {}
+                        }
+                      }
+                    }
+                  } catch (e) {}
+                  var s = document.createElement("script");
+                  s.type = "text/javascript";
+                  s.textContent = scriptText;
+                  document.body.appendChild(s);
+                  app.scriptLoaded = true;
+                  app._scriptElement = s;
+                  console.log(
+                    `[APP POLLING] Script reloaded for: ${app.label}`,
+                  );
+                  hasChanges = true;
+                } catch (e) {
+                  console.error(
+                    `[APP POLLING] Failed to reload script for ${app.label}:`,
+                    e,
+                  );
+                }
+              }
+            } catch (e) {
+              flowawayError(
+                "pollAppChanges",
+                "Failed to check script hash",
+                e,
+                { appId: app && app.id, label: app && app.label },
+              );
+            }
+          }
+        } catch (e) {
+          flowawayError(
+            "pollAppChanges",
+            "Failed while processing app script check",
+            e,
+            { appId: app && app.id, label: app && app.label },
+          );
+        }
+      }
+    }
+
+    // If any changes detected, re-render and apply
+    if (hasChanges && data) {
+      refreshAppsUiAfterChanges();
+    }
+  } catch (e) {
+    flowawayError("pollAppChanges", "Error during polling", e);
+  }
+}
+
+async function pollSpecificAppChanges(changedFolders = []) {
+  if (!Array.isArray(changedFolders) || !changedFolders.length) return;
+
+  try {
+    var folderNames = [
+      ...new Set(
+        changedFolders.map((v) => String(v || "").trim()).filter(Boolean),
+      ),
+    ];
+    var localHasChanges = false;
+    var shouldFallback = false;
+    var scriptReloadedPaths = new Set();
+
+    for (const folderName of folderNames) {
+      try {
+        var expectedPath = `apps/${folderName}`;
+        var existingApp = (window.apps || []).find(
+          (a) =>
+            a.path === expectedPath ||
+            (a.path || "").split("/").pop() === folderName,
+        );
+
+        if (!existingApp) {
+          // If the folder still exists, this is likely a new app and we need fallback to add it.
+          // If it does not exist, this is likely a delete event for an already-removed app; skip fallback.
+          var folderStillExists = null;
+          try {
+            folderStillExists = await getFolderListing(expectedPath);
+          } catch (e) {
+            folderStillExists = null;
+          }
+          if (Array.isArray(folderStillExists)) {
+            shouldFallback = true;
+          }
+          continue;
+        }
+
+        var appFolder = [
+          folderName,
+          [],
+          { path: existingApp.path || expectedPath },
+        ];
+        var newAppData = null;
+        try {
+          newAppData = await extractAppData(appFolder);
+        } catch (e) {
+          var isEnoent = !!(
+            e &&
+            (e.code === "ENOENT" || String(e.message || "").includes("ENOENT"))
+          );
+          if (isEnoent) {
+            try {
+              if (existingApp._scriptElement)
+                existingApp._scriptElement.remove();
+            } catch (ee) {}
+
+            try {
+              if (
+                existingApp.entry &&
+                typeof window[existingApp.entry] !== "undefined"
+              ) {
+                try {
+                  delete window[existingApp.entry];
+                } catch (ee) {}
+              }
+              if (
+                existingApp.cmf &&
+                !isProtectedAppGlobalName(existingApp.cmf) &&
+                typeof window[existingApp.cmf] !== "undefined"
+              ) {
+                try {
+                  delete window[existingApp.cmf];
+                } catch (ee) {}
+              }
+              if (
+                existingApp.appGlobalVarStrings &&
+                Array.isArray(existingApp.appGlobalVarStrings)
+              ) {
+                for (const varName of existingApp.appGlobalVarStrings) {
+                  if (isProtectedAppGlobalName(varName)) continue;
+                  if (typeof window[varName] !== "undefined") {
+                    try {
+                      delete window[varName];
+                    } catch (ee) {}
+                  }
+                }
+              }
+            } catch (ee) {}
+
+            var appIndexToDelete = (window.apps || []).findIndex(
+              (a) =>
+                a === existingApp ||
+                (a.path || "").split("/").pop() === folderName,
+            );
+            if (appIndexToDelete >= 0) {
+              window.apps.splice(appIndexToDelete, 1);
+            }
+
+            try {
+              var appElementToDelete =
+                document.getElementById(
+                  existingApp.startbtnid || existingApp.id + "app",
+                ) || document.getElementById(existingApp.id + "app");
+              if (appElementToDelete) appElementToDelete.remove();
+            } catch (ee) {}
+
+            try {
+              var taskbarBtnToDelete = Array.from(
+                taskbar.querySelectorAll("button"),
+              ).find(
+                (btn) =>
+                  (btn.dataset &&
+                    appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
+                  btn.textContent.includes(existingApp.label),
+              );
+              if (taskbarBtnToDelete) taskbarBtnToDelete.remove();
+            } catch (ee) {}
+
+            try {
+              var appIdToClose = getPreferredAppIdentifier(existingApp);
+              var windowsToClose = Array.from(
+                document.querySelectorAll(".app-root"),
+              ).filter(
+                (root) => root.dataset && root.dataset.appId === appIdToClose,
+              );
+              for (const windowEl of windowsToClose) {
+                windowEl.remove();
+              }
+            } catch (ee) {}
+
+            localHasChanges = true;
+            continue;
+          }
+          throw e;
+        }
         if (!newAppData) continue;
 
         var appModified = false;
         var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
         var entryChanged = existingApp.entry !== newAppData.entry;
 
-        if (entryChanged) {
-          console.log(`[APP POLLING] ${existingApp.label}: entry changed from ${existingApp.entry} to ${newAppData.entry}`);
+        if (entryChanged) appModified = true;
+        if (jsFileChanged) appModified = true;
+        if (existingApp.icon !== newAppData.icon) appModified = true;
+        if (existingApp.label !== newAppData.label) appModified = true;
+        if (existingApp.startbtnid !== newAppData.startbtnid)
           appModified = true;
-        }
-        if (jsFileChanged) {
-          console.log(`[APP POLLING] ${existingApp.label}: JS file changed from ${existingApp.jsFile} to ${newAppData.jsFile}`);
+        if (existingApp.globalvarobject !== newAppData.globalvarobject)
           appModified = true;
-        }
-        if (existingApp.icon !== newAppData.icon) {
-          console.log(`[APP POLLING] ${existingApp.label}: icon changed`);
-          appModified = true;
-        }
-        if (existingApp.label !== newAppData.label) {
-          console.log(`[APP POLLING] App label changed from ${existingApp.label} to ${newAppData.label}`);
-          appModified = true;
-        }
-        if (existingApp.startbtnid !== newAppData.startbtnid) {
-          appModified = true;
-        }
-        if (existingApp.globalvarobject !== newAppData.globalvarobject) {
-          appModified = true;
-        }
-        if (existingApp.cmf !== newAppData.cmf) {
-          appModified = true;
-        }
-        if (existingApp.cmfl1 !== newAppData.cmfl1) {
-          appModified = true;
-        }
+        if (existingApp.cmf !== newAppData.cmf) appModified = true;
+        if (existingApp.cmfl1 !== newAppData.cmfl1) appModified = true;
 
         if (appModified) {
-          // preserve old names so we can remove their globals safely after reload
           var _oldEntry = existingApp.entry;
           var _oldCmf = existingApp.cmf;
           var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
           var _oldId = existingApp.id;
           var _oldStartbtnid = existingApp.startbtnid;
+
           existingApp.entry = newAppData.entry;
           existingApp.jsFile = newAppData.jsFile;
           existingApp.icon = newAppData.icon;
@@ -1751,339 +2805,154 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
           existingApp.cmfl1 = newAppData.cmfl1;
           existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
 
-          // Update grid icon/label
-          var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(_oldStartbtnid || (_oldId + 'app')) || document.getElementById(existingApp.id + 'app');
+          var appGridElement =
+            document.getElementById(
+              newAppData.startbtnid || newAppData.id + "app",
+            ) ||
+            document.getElementById(_oldStartbtnid || _oldId + "app") ||
+            document.getElementById(existingApp.id + "app");
           if (appGridElement) {
             appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
           }
 
-          // Reload script if JS file changed
           if (jsFileChanged && existingApp.jsFile) {
             try {
-              var b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
+              var b64 = await fetchFileContentByPath(
+                `${existingApp.path}/${existingApp.jsFile}`,
+              );
               var scriptText = base64ToUtf8(b64);
               var currentHash = hashScriptContent(scriptText);
               if (existingApp.scriptLoaded && existingApp._scriptElement) {
                 existingApp._scriptElement.remove();
                 existingApp.scriptLoaded = false;
               }
-              // remove previous entry/cmf globals if they exist (use preserved names)
+
               try {
-                if (_oldEntry && typeof window[_oldEntry] !== 'undefined') {
-                  try { delete window[_oldEntry]; } catch (e) {}
+                if (_oldEntry && typeof window[_oldEntry] !== "undefined") {
+                  try {
+                    delete window[_oldEntry];
+                  } catch (e) {}
                 }
-                if (_oldCmf && !isProtectedAppGlobalName(_oldCmf) && typeof window[_oldCmf] !== 'undefined') {
-                  try { delete window[_oldCmf]; } catch (e) {}
+                if (
+                  _oldCmf &&
+                  !isProtectedAppGlobalName(_oldCmf) &&
+                  typeof window[_oldCmf] !== "undefined"
+                ) {
+                  try {
+                    delete window[_oldCmf];
+                  } catch (e) {}
                 }
-                if (_oldAppGlobalVarStrings && Array.isArray(_oldAppGlobalVarStrings)) {
+                if (
+                  _oldAppGlobalVarStrings &&
+                  Array.isArray(_oldAppGlobalVarStrings)
+                ) {
                   for (const varName of _oldAppGlobalVarStrings) {
                     if (isProtectedAppGlobalName(varName)) continue;
-                    if (typeof window[varName] !== 'undefined') {
-                      try { delete window[varName]; } catch (e) {}
+                    if (typeof window[varName] !== "undefined") {
+                      try {
+                        delete window[varName];
+                      } catch (e) {}
                     }
                   }
                 }
               } catch (e) {}
-              var s = document.createElement('script');
-              s.type = 'text/javascript';
+
+              var s = document.createElement("script");
+              s.type = "text/javascript";
               s.textContent = scriptText;
               document.body.appendChild(s);
               existingApp.scriptLoaded = true;
               existingApp._scriptElement = s;
               existingApp._lastScriptHash = currentHash;
               scriptReloadedPaths.add(existingApp.path);
-              console.log(`[APP POLLING] Script reloaded for: ${existingApp.label}`);
+              localHasChanges = true;
             } catch (e) {
-              console.error(`[APP POLLING] Failed to reload script for ${existingApp.label}:`, e);
+              console.error(
+                `[APP POLLING] Failed to reload script for ${existingApp.label}:`,
+                e,
+              );
             }
           }
-
-          hasChanges = true;
-        }
-      }
-    }
-
-    // Third pass: Check if scripts have changed for existing apps (on change notifications)
-    if (forceMetadataCheck) {
-      var appsForScriptCheck = targetFolderSet
-        ? window.apps.filter(a => targetFolderSet.has(String((a.path || '').split('/').pop() || '').trim()))
-        : window.apps;
-
-      for (const app of appsForScriptCheck) {
-        if (scriptReloadedPaths.has(app.path)) continue;
-        if (app.jsFile && app._lastScriptHash) {
-          try {
-            var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-            var scriptText = base64ToUtf8(b64);
-            var currentHash = hashScriptContent(scriptText);
-            
-            if (currentHash !== app._lastScriptHash) {
-              console.log(`[APP POLLING] ${app.label}: JS file content changed`);
-              
-              if (app.scriptLoaded && app._scriptElement) {
-                app._scriptElement.remove();
-                app.scriptLoaded = false;
-              }
-              
-              if (app.entry && window[app.entry]) {
-                try {
-                  window[app.entry] = null;
-                  delete window[app.entry];
-                } catch (e) {}
-              }
-              
-                try {
-                app._lastScriptHash = currentHash;
-                // remove prior globals exposed by this app before re-injecting
-                try {
-                  if (app.entry && typeof window[app.entry] !== 'undefined') { try { delete window[app.entry]; } catch (e) {} }
-                  if (app.cmf && !isProtectedAppGlobalName(app.cmf) && typeof window[app.cmf] !== 'undefined') { try { delete window[app.cmf]; } catch (e) {} }
-                  if (app.appGlobalVarStrings && Array.isArray(app.appGlobalVarStrings)) {
-                    for (const varName of app.appGlobalVarStrings) {
-                      if (isProtectedAppGlobalName(varName)) continue;
-                      if (typeof window[varName] !== 'undefined') {
-                        try { delete window[varName]; } catch (e) {}
-                      }
-                    }
-                  }
-                } catch (e) {}
-                var s = document.createElement('script');
-                s.type = 'text/javascript';
-                s.textContent = scriptText;
-                document.body.appendChild(s);
-                app.scriptLoaded = true;
-                app._scriptElement = s;
-                console.log(`[APP POLLING] Script reloaded for: ${app.label}`);
-                hasChanges = true;
-              } catch (e) {
-                console.error(`[APP POLLING] Failed to reload script for ${app.label}:`, e);
-              }
-            }
-          } catch (e) {
-            console.error(`[APP POLLING] Failed to check script hash for ${app.label}:`, e);
-          }
-        }
-      }
-    }
-    
-    // If any changes detected, re-render and apply
-    if (hasChanges && data) {
-      refreshAppsUiAfterChanges();
-    }
-    
-  } catch (e) {
-    console.error('[APP POLLING] Error during polling:', e);
-  }
-}
-
-async function pollSpecificAppChanges(changedFolders = []) {
-  if (!Array.isArray(changedFolders) || !changedFolders.length) return;
-
-  try {
-    var folderNames = [...new Set(changedFolders.map(v => String(v || '').trim()).filter(Boolean))];
-    var localHasChanges = false;
-    var shouldFallback = false;
-    var scriptReloadedPaths = new Set();
-
-    for (const folderName of folderNames) {
-      var expectedPath = `apps/${folderName}`;
-      var existingApp = (window.apps || []).find(a => a.path === expectedPath || ((a.path || '').split('/').pop() === folderName));
-
-      if (!existingApp) {
-        // If the folder still exists, this is likely a new app and we need fallback to add it.
-        // If it does not exist, this is likely a delete event for an already-removed app; skip fallback.
-        var folderStillExists = null;
-        try {
-          folderStillExists = await getFolderListing(expectedPath);
-        } catch (e) {
-          folderStillExists = null;
-        }
-        if (Array.isArray(folderStillExists)) {
-          shouldFallback = true;
-        }
-        continue;
-      }
-
-      var appFolder = [folderName, [], { path: existingApp.path || expectedPath }];
-      var newAppData = null;
-      try {
-        newAppData = await extractAppData(appFolder);
-      } catch (e) {
-        var isEnoent = !!(e && (e.code === 'ENOENT' || String(e.message || '').includes('ENOENT')));
-        if (isEnoent) {
-          try {
-            if (existingApp._scriptElement) existingApp._scriptElement.remove();
-          } catch (ee) {}
-
-          try {
-            if (existingApp.entry && typeof window[existingApp.entry] !== 'undefined') {
-              try { delete window[existingApp.entry]; } catch (ee) {}
-            }
-            if (existingApp.cmf && !isProtectedAppGlobalName(existingApp.cmf) && typeof window[existingApp.cmf] !== 'undefined') {
-              try { delete window[existingApp.cmf]; } catch (ee) {}
-            }
-            if (existingApp.appGlobalVarStrings && Array.isArray(existingApp.appGlobalVarStrings)) {
-              for (const varName of existingApp.appGlobalVarStrings) {
-                if (isProtectedAppGlobalName(varName)) continue;
-                if (typeof window[varName] !== 'undefined') {
-                  try { delete window[varName]; } catch (ee) {}
-                }
-              }
-            }
-          } catch (ee) {}
-
-          var appIndexToDelete = (window.apps || []).findIndex(a => a === existingApp || ((a.path || '').split('/').pop() === folderName));
-          if (appIndexToDelete >= 0) {
-            window.apps.splice(appIndexToDelete, 1);
-          }
-
-          try {
-            var appElementToDelete = document.getElementById(existingApp.startbtnid || (existingApp.id + 'app')) || document.getElementById(existingApp.id + 'app');
-            if (appElementToDelete) appElementToDelete.remove();
-          } catch (ee) {}
-
-          try {
-            var taskbarBtnToDelete = Array.from(taskbar.querySelectorAll('button')).find(btn =>
-              (btn.dataset && appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
-              btn.textContent.includes(existingApp.label)
-            );
-            if (taskbarBtnToDelete) taskbarBtnToDelete.remove();
-          } catch (ee) {}
-
-          try {
-            var appIdToClose = getPreferredAppIdentifier(existingApp);
-            var windowsToClose = Array.from(document.querySelectorAll('.sim-chrome-root')).filter(root =>
-              root.dataset && root.dataset.appId === appIdToClose
-            );
-            for (const windowEl of windowsToClose) {
-              windowEl.remove();
-            }
-          } catch (ee) {}
 
           localHasChanges = true;
-          continue;
-        }
-        throw e;
-      }
-      if (!newAppData) continue;
-
-      var appModified = false;
-      var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
-      var entryChanged = existingApp.entry !== newAppData.entry;
-
-      if (entryChanged) appModified = true;
-      if (jsFileChanged) appModified = true;
-      if (existingApp.icon !== newAppData.icon) appModified = true;
-      if (existingApp.label !== newAppData.label) appModified = true;
-      if (existingApp.startbtnid !== newAppData.startbtnid) appModified = true;
-      if (existingApp.globalvarobject !== newAppData.globalvarobject) appModified = true;
-      if (existingApp.cmf !== newAppData.cmf) appModified = true;
-      if (existingApp.cmfl1 !== newAppData.cmfl1) appModified = true;
-
-      if (appModified) {
-        var _oldEntry = existingApp.entry;
-        var _oldCmf = existingApp.cmf;
-        var _oldAppGlobalVarStrings = existingApp.appGlobalVarStrings;
-        var _oldId = existingApp.id;
-        var _oldStartbtnid = existingApp.startbtnid;
-
-        existingApp.entry = newAppData.entry;
-        existingApp.jsFile = newAppData.jsFile;
-        existingApp.icon = newAppData.icon;
-        existingApp.label = newAppData.label;
-        existingApp.startbtnid = newAppData.startbtnid;
-        existingApp.id = newAppData.id;
-        existingApp.globalvarobject = newAppData.globalvarobject;
-        existingApp.cmf = newAppData.cmf;
-        existingApp.cmfl1 = newAppData.cmfl1;
-        existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
-
-        var appGridElement = document.getElementById(newAppData.startbtnid || (newAppData.id + 'app')) || document.getElementById(_oldStartbtnid || (_oldId + 'app')) || document.getElementById(existingApp.id + 'app');
-        if (appGridElement) {
-          appGridElement.innerHTML = `${existingApp.icon}<br><span style="font-size:14px;">${existingApp.label}</span>`;
         }
 
-        if (jsFileChanged && existingApp.jsFile) {
+        if (
+          !scriptReloadedPaths.has(existingApp.path) &&
+          existingApp.jsFile &&
+          existingApp._lastScriptHash
+        ) {
           try {
-            var b64 = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
-            var scriptText = base64ToUtf8(b64);
-            var currentHash = hashScriptContent(scriptText);
-            if (existingApp.scriptLoaded && existingApp._scriptElement) {
-              existingApp._scriptElement.remove();
-              existingApp.scriptLoaded = false;
-            }
+            var b64Current = await fetchFileContentByPath(
+              `${existingApp.path}/${existingApp.jsFile}`,
+            );
+            var scriptTextCurrent = base64ToUtf8(b64Current);
+            var currentHashNow = hashScriptContent(scriptTextCurrent);
 
-            try {
-              if (_oldEntry && typeof window[_oldEntry] !== 'undefined') {
-                try { delete window[_oldEntry]; } catch (e) {}
+            if (currentHashNow !== existingApp._lastScriptHash) {
+              if (existingApp.scriptLoaded && existingApp._scriptElement) {
+                existingApp._scriptElement.remove();
+                existingApp.scriptLoaded = false;
               }
-              if (_oldCmf && !isProtectedAppGlobalName(_oldCmf) && typeof window[_oldCmf] !== 'undefined') {
-                try { delete window[_oldCmf]; } catch (e) {}
-              }
-              if (_oldAppGlobalVarStrings && Array.isArray(_oldAppGlobalVarStrings)) {
-                for (const varName of _oldAppGlobalVarStrings) {
-                  if (isProtectedAppGlobalName(varName)) continue;
-                  if (typeof window[varName] !== 'undefined') {
-                    try { delete window[varName]; } catch (e) {}
+
+              try {
+                if (
+                  existingApp.entry &&
+                  typeof window[existingApp.entry] !== "undefined"
+                ) {
+                  try {
+                    delete window[existingApp.entry];
+                  } catch (e) {}
+                }
+                if (
+                  existingApp.cmf &&
+                  !isProtectedAppGlobalName(existingApp.cmf) &&
+                  typeof window[existingApp.cmf] !== "undefined"
+                ) {
+                  try {
+                    delete window[existingApp.cmf];
+                  } catch (e) {}
+                }
+                if (
+                  existingApp.appGlobalVarStrings &&
+                  Array.isArray(existingApp.appGlobalVarStrings)
+                ) {
+                  for (const varName of existingApp.appGlobalVarStrings) {
+                    if (isProtectedAppGlobalName(varName)) continue;
+                    if (typeof window[varName] !== "undefined") {
+                      try {
+                        delete window[varName];
+                      } catch (e) {}
+                    }
                   }
                 }
-              }
-            } catch (e) {}
+              } catch (e) {}
 
-            var s = document.createElement('script');
-            s.type = 'text/javascript';
-            s.textContent = scriptText;
-            document.body.appendChild(s);
-            existingApp.scriptLoaded = true;
-            existingApp._scriptElement = s;
-            existingApp._lastScriptHash = currentHash;
-            scriptReloadedPaths.add(existingApp.path);
-            localHasChanges = true;
+              var sCurrent = document.createElement("script");
+              sCurrent.type = "text/javascript";
+              sCurrent.textContent = scriptTextCurrent;
+              document.body.appendChild(sCurrent);
+              existingApp.scriptLoaded = true;
+              existingApp._scriptElement = sCurrent;
+              existingApp._lastScriptHash = currentHashNow;
+              localHasChanges = true;
+            }
           } catch (e) {
-            console.error(`[APP POLLING] Failed to reload script for ${existingApp.label}:`, e);
+            flowawayError(
+              "pollSpecificAppChanges",
+              "Failed to check script hash",
+              e,
+              { folder: folderName, appId: existingApp && existingApp.id },
+            );
           }
         }
-
-        localHasChanges = true;
-      }
-
-      if (!scriptReloadedPaths.has(existingApp.path) && existingApp.jsFile && existingApp._lastScriptHash) {
-        try {
-          var b64Current = await fetchFileContentByPath(`${existingApp.path}/${existingApp.jsFile}`);
-          var scriptTextCurrent = base64ToUtf8(b64Current);
-          var currentHashNow = hashScriptContent(scriptTextCurrent);
-
-          if (currentHashNow !== existingApp._lastScriptHash) {
-            if (existingApp.scriptLoaded && existingApp._scriptElement) {
-              existingApp._scriptElement.remove();
-              existingApp.scriptLoaded = false;
-            }
-
-            try {
-              if (existingApp.entry && typeof window[existingApp.entry] !== 'undefined') { try { delete window[existingApp.entry]; } catch (e) {} }
-              if (existingApp.cmf && !isProtectedAppGlobalName(existingApp.cmf) && typeof window[existingApp.cmf] !== 'undefined') { try { delete window[existingApp.cmf]; } catch (e) {} }
-              if (existingApp.appGlobalVarStrings && Array.isArray(existingApp.appGlobalVarStrings)) {
-                for (const varName of existingApp.appGlobalVarStrings) {
-                  if (isProtectedAppGlobalName(varName)) continue;
-                  if (typeof window[varName] !== 'undefined') {
-                    try { delete window[varName]; } catch (e) {}
-                  }
-                }
-              }
-            } catch (e) {}
-
-            var sCurrent = document.createElement('script');
-            sCurrent.type = 'text/javascript';
-            sCurrent.textContent = scriptTextCurrent;
-            document.body.appendChild(sCurrent);
-            existingApp.scriptLoaded = true;
-            existingApp._scriptElement = sCurrent;
-            existingApp._lastScriptHash = currentHashNow;
-            localHasChanges = true;
-          }
-        } catch (e) {
-          console.error(`[APP POLLING] Failed to check script hash for ${existingApp.label}:`, e);
-        }
+      } catch (e) {
+        flowawayError(
+          "pollSpecificAppChanges",
+          "Failed while processing changed app folder",
+          e,
+          { folder: folderName },
+        );
       }
     }
 
@@ -2097,16 +2966,26 @@ async function pollSpecificAppChanges(changedFolders = []) {
       refreshAppsUiAfterChanges();
     }
   } catch (e) {
-    console.error('[APP POLLING] Targeted poll failed, falling back to full poll:', e);
+    flowawayError(
+      "pollSpecificAppChanges",
+      "Targeted poll failed, falling back to full poll",
+      e,
+    );
     await window.loadTree();
     await pollAppChanges(true, changedFolders);
   }
 }
 // appUpdated - ensure single binding
 try {
-  if (window._flowaway_handlers.onAppUpdated) window.removeEventListener('appUpdated', window._flowaway_handlers.onAppUpdated);
-  window._flowaway_handlers.onAppUpdated = (e) => { purgeButtons(); };
-  window.addEventListener('appUpdated', window._flowaway_handlers.onAppUpdated);
+  if (window._flowaway_handlers.onAppUpdated)
+    window.removeEventListener(
+      "appUpdated",
+      window._flowaway_handlers.onAppUpdated,
+    );
+  window._flowaway_handlers.onAppUpdated = (e) => {
+    purgeButtons();
+  };
+  window.addEventListener("appUpdated", window._flowaway_handlers.onAppUpdated);
 } catch (e) {}
 function startAppPolling() {
   if (appPollingActive) return;
@@ -2114,11 +2993,11 @@ function startAppPolling() {
 
   var wsStarted = startAppPollingViaWebSocket();
   if (!wsStarted) {
-    console.log('[APP POLLING] WebSocket unavailable; no fallback polling');
+    console.log("[APP POLLING] WebSocket unavailable; no fallback polling");
     return;
   }
 
-  console.log('[APP POLLING] WebSocket polling enabled');
+  console.log("[APP POLLING] WebSocket polling enabled");
 }
 
 // Ensure loadAppsFromTree runs after initial tree load
@@ -2133,546 +3012,641 @@ window.onlyloadTree = oldLoadTree;
 
 var username = data.username;
 
-
-
-
-
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding
 try {
-  if (window._flowaway_handlers.onFullscreenChange) document.removeEventListener('fullscreenchange', window._flowaway_handlers.onFullscreenChange);
+  if (window._flowaway_handlers.onFullscreenChange)
+    document.removeEventListener(
+      "fullscreenchange",
+      window._flowaway_handlers.onFullscreenChange,
+    );
   window._flowaway_handlers.onFullscreenChange = async () => {
     if (document.fullscreenElement) {
-      if (navigator.keyboard && typeof navigator.keyboard.lock === 'function') {
-        try { await navigator.keyboard.lock(['Escape']); } catch (e) {}
+      if (navigator.keyboard && typeof navigator.keyboard.lock === "function") {
+        try {
+          await navigator.keyboard.lock(["Escape"]);
+        } catch (e) {}
       }
     } else {
-      if (navigator.keyboard && typeof navigator.keyboard.unlock === 'function') {
-        try { navigator.keyboard.unlock(); } catch (e) {}
+      if (
+        navigator.keyboard &&
+        typeof navigator.keyboard.unlock === "function"
+      ) {
+        try {
+          navigator.keyboard.unlock();
+        } catch (e) {}
       }
     }
   };
-  document.addEventListener('fullscreenchange', window._flowaway_handlers.onFullscreenChange);
+  document.addEventListener(
+    "fullscreenchange",
+    window._flowaway_handlers.onFullscreenChange,
+  );
 } catch (e) {}
 
-window.removeOtherMenus = function(except) {
+window.removeOtherMenus = function (except) {
   try {
     // Remove any menus with the shared .app-menu class (used across apps)
-    var menus = document.querySelectorAll('.app-menu');
+    var menus = document.querySelectorAll(".app-menu");
     for (const m of menus) {
       try {
         if (except && m.dataset && m.dataset.appId === except) continue;
       } catch (e) {}
-      try { m.remove(); } catch (e) {}
+      try {
+        m.remove();
+      } catch (e) {}
     }
   } catch (e) {}
 };
-  function applyTaskButtons() {
-    if(window.appsButtonsApplied) return;
-    if(!window.apps || window.apps.length === 0) return;
+function applyTaskButtons() {
+  if (window.appsButtonsApplied) return;
+  if (!window.apps || window.apps.length === 0) return;
 
-    var taskbarReady = false;
+  var taskbarReady = false;
+  try {
+    taskbarReady =
+      typeof taskbar !== "undefined" &&
+      !!taskbar &&
+      taskbar.isConnected &&
+      typeof addTaskButton === "function";
+  } catch (e) {
+    taskbarReady = false;
+  }
+
+  if (!taskbarReady) {
     try {
-      taskbarReady = typeof taskbar !== 'undefined' && !!taskbar && taskbar.isConnected && typeof addTaskButton === 'function';
-    } catch (e) {
-      taskbarReady = false;
-    }
-
-    if (!taskbarReady) {
-      try {
-        if (typeof loadSystemHelperScript === 'function') loadSystemHelperScript();
-      } catch (e) {}
-
-      try {
-        window._flowaway_handlers = window._flowaway_handlers || {};
-        if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
-          window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(() => {
-            try {
-              if (window._flowaway_handlers && window._flowaway_handlers.applyTaskButtonsRetryTimer) {
-                clearTimeout(window._flowaway_handlers.applyTaskButtonsRetryTimer);
-                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
-              }
-            } catch (e) {}
-            try { applyTaskButtons(); } catch (e) {}
-          }, 200);
-        }
-      } catch (e) {}
-      return;
-    }
-
-    window.appsButtonsApplied = true;
-    window._suppressTaskbarPersist = true;
-
-    try {
-      // Clear existing dynamic task buttons (keep system buttons in the first two slots)
-      var existingTaskButtons = [...taskbar.querySelectorAll("button.taskbutton")];
-      existingTaskButtons.splice(0, 2);
-      existingTaskButtons.forEach(btn => btn.remove());
-
-      // Prefer dynamic apps discovered in /apps
-      var savedTaskButtons = Array.isArray(data && data.taskbuttons) ? data.taskbuttons : [];
-      var seenAppIds = new Set();
-      for (const taskbutton of savedTaskButtons) {
-        const app = (window.apps || []).find(a => appMatchesIdentifier(a, taskbutton));
-        if (app) {
-          const appId = getPreferredAppIdentifier(app);
-          if (seenAppIds.has(appId)) continue;
-          seenAppIds.add(appId);
-          const btn = addTaskButton(app.icon, () => launchApp(appId), app.cmf || false, app.globalvarobject || '');
-          if (btn) btn.dataset.appId = appId;
-        }
-      }
-      taskbuttons = [...taskbar.querySelectorAll("button")];
-    } catch (e) {
-      window.appsButtonsApplied = false;
-      try {
-        window._flowaway_handlers = window._flowaway_handlers || {};
-        if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
-          window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(() => {
-            try {
-              if (window._flowaway_handlers && window._flowaway_handlers.applyTaskButtonsRetryTimer) {
-                clearTimeout(window._flowaway_handlers.applyTaskButtonsRetryTimer);
-                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
-              }
-            } catch (e) {}
-            try { applyTaskButtons(); } catch (e) {}
-          }, 200);
-        }
-      } catch (retryErr) {}
-    } finally {
-      window._suppressTaskbarPersist = false;
-    }
- }
-
-  function purgeButtons() {
-    buttons = [...taskbar.querySelectorAll("button")];
-    buttons.splice(0, 3);
-    buttons.forEach(b => {
-      if (!b.dataset.appId) {
-        b.dataset.appId = b.textContent;
-      }
-    });
-    // Build a generic map from appId -> [buttons]
-    window.appButtons = window.appButtons || {};
-    window.appButtons = {};
-    for (let i = 0; i < taskbuttons.length; i++) {
-      let tb = taskbuttons[i];
-      var id;
-      try {
-        id = tb.dataset.appId;
-      } catch (e) {}
-      if (!id) continue;
-      window.appButtons[id] = window.appButtons[id] || [];
-      window.appButtons[id].push(tb);
-    }
-  }
-
-  function saveTaskButtons(silence = true) {
-    var buttons = [...taskbar.querySelectorAll("button")];
-    buttons.splice(0, 2);
-    var postdata = [];
-    for (const b of buttons) {
-        if (b.dataset && b.dataset.appId) {
-        postdata.push(b.dataset.appId);
-      } else {
-        // If no dataset, try to infer id from value or textContent
-        var inferred = (b.value && String(b.value).trim()) || (b.textContent && String(b.textContent).trim());
-        if (inferred) postdata.push(inferred);
-      }
-    }
-    if (!silence) notification('taskbuttons saved!');
-    posttaskbuttons(postdata);
-  }
-  function bringToFront(el) {
-    if (!el) return;
-    var appId = resolveWindowAppId(el);
-    atTop = appId || '';
-    el.style.zIndex = String(++zTop);
-  }
-
-  function resolveWindowAppId(el) {
-    if (!el) return '';
-    var appId = el.dataset && el.dataset.appId;
-    if (!appId) appId = el.getAttribute && el.getAttribute('data-app-id');
-    if (!appId && window.apps && Array.isArray(window.apps)) {
-      for (const a of window.apps) {
-        try {
-          // Only use real identifier strings (entry function name, startbtnid) for class/id matching.
-          // a.id and a.icon are icon content (emoji or HTML markup), not valid identifiers.
-          var candidates = [a.entry, a.startbtnid].filter(function(c) { return c && typeof c === 'string' && c.length < 64; });
-          var matched = candidates.some(function(cid) { return el.classList.contains(cid) || el.id === (cid + 'app') || el.id === cid; });
-          if (matched) {
-            appId = a.entry || a.startbtnid;
-            break;
-          }
-        } catch (e) {}
-      }
-    }
-    if (!appId) {
-      try {
-        if (el.classList && el.classList.contains('browser')) appId = 'browser';
-      } catch (e) {}
-    }
-    return appId || '';
-  }
-
-  function findAppByIdentifier(identifier) {
-    if (!identifier || !window.apps || !Array.isArray(window.apps)) return null;
-    for (const a of window.apps) {
-      if (!a) continue;
-      // Only match against true identifiers (entry function name, startbtnid).
-      // Do NOT match a.id or a.icon — those contain icon HTML/emoji content, not identifiers.
-      if (identifier === a.entry || identifier === a.startbtnid) {
-        return a;
-      }
-    }
-    return null;
-  }
-
-  function resolveWindowLabel(el) {
-    var appId = resolveWindowAppId(el);
-    var windowTitle = '';
-    try {
-      windowTitle = ((el && el.getAttribute && el.getAttribute('data-title')) || '').trim();
+      if (typeof loadSystemHelperScript === "function")
+        loadSystemHelperScript();
     } catch (e) {}
-    if (windowTitle && windowTitle !== 'undefined' && windowTitle !== 'null') return windowTitle;
 
-    var appMeta = findAppByIdentifier(appId);
-    if (appMeta) {
-      var appLabel = (appMeta.label || appMeta.name || '').trim();
-      if (appLabel && appLabel !== 'undefined' && appLabel !== 'null') return appLabel;
-    }
-    if (appId && appId !== 'browser' && appId !== 'undefined' && appId !== 'null') return appId;
-    return 'Window';
+    try {
+      window._flowaway_handlers = window._flowaway_handlers || {};
+      if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+        window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(
+          () => {
+            try {
+              if (
+                window._flowaway_handlers &&
+                window._flowaway_handlers.applyTaskButtonsRetryTimer
+              ) {
+                clearTimeout(
+                  window._flowaway_handlers.applyTaskButtonsRetryTimer,
+                );
+                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+              }
+            } catch (e) {}
+            try {
+              applyTaskButtons();
+            } catch (e) {}
+          },
+          200,
+        );
+      }
+    } catch (e) {}
+    return;
   }
 
+  window.appsButtonsApplied = true;
+  window._suppressTaskbarPersist = true;
 
-  function getSwitchableWindows() {
-    try {
-      return Array.from(document.querySelectorAll('.sim-chrome-root')).filter((el) => {
-        if (!el || !el.isConnected) return false;
-        var cs = window.getComputedStyle(el);
-        if (!cs) return false;
-        return cs.display !== 'none' && cs.visibility !== 'hidden';
-      });
-    } catch (e) {
-      return [];
-    }
-  }
+  try {
+    // Clear existing dynamic task buttons (keep system buttons in the first two slots)
+    var existingTaskButtons = [
+      ...taskbar.querySelectorAll("button.taskbutton"),
+    ];
+    existingTaskButtons.splice(0, 2);
+    existingTaskButtons.forEach((btn) => btn.remove());
 
-  function resolveFocusedWindowRoot(windows) {
-    var active = null;
-    try {
-      active = document.activeElement;
-    } catch (e) {
-      active = null;
-    }
-
-    if (active) {
-      try {
-        if (typeof active.closest === 'function') {
-          var candidate = active.closest('.sim-chrome-root');
-          if (candidate && (!windows || windows.indexOf(candidate) !== -1)) {
-            return candidate;
-          }
-        }
-      } catch (e) {}
-    }
-
-    if (atTop && windows && windows.length) {
-      for (var i = 0; i < windows.length; i++) {
-        if (resolveWindowAppId(windows[i]) === atTop) return windows[i];
+    // Prefer dynamic apps discovered in /apps
+    var savedTaskButtons = Array.isArray(data && data.taskbuttons)
+      ? data.taskbuttons
+      : [];
+    var seenAppIds = new Set();
+    for (const taskbutton of savedTaskButtons) {
+      const app = (window.apps || []).find((a) =>
+        appMatchesIdentifier(a, taskbutton),
+      );
+      if (app) {
+        const appId = getPreferredAppIdentifier(app);
+        if (seenAppIds.has(appId)) continue;
+        seenAppIds.add(appId);
+        const btn = addTaskButton(
+          app.icon,
+          () => launchApp(appId),
+          app.cmf || false,
+          app.globalvarobject || "",
+        );
+        if (btn) btn.dataset.appId = appId;
       }
     }
-
-    return null;
-  }
-
-  var windowSwitchState = {
-    active: false,
-    mod: '',
-    order: [],
-    index: 0,
-    lastTs: 0,
-    pendingTarget: null,
-    previewRoot: null,
-    previewList: null,
-  };
-
-  function ensureWindowSwitchPreview() {
-    if (windowSwitchState.previewRoot && windowSwitchState.previewRoot.isConnected) return;
-
-    var root = document.createElement('div');
-    root.setAttribute('aria-hidden', 'true');
-    Object.assign(root.style, {
-      position: 'fixed',
-      inset: '0',
-      zIndex: '2147483646',
-      display: 'none',
-      alignItems: 'center',
-      justifyContent: 'center',
-      pointerEvents: 'none',
-      background: 'rgba(0, 0, 0, 0.12)',
-      backdropFilter: 'blur(2px)',
-    });
-
-    var panel = document.createElement('div');
-    var systemDark = data.dark;
-    Object.assign(panel.style, {
-      minWidth: '520px',
-      maxWidth: '88vw',
-      maxHeight: '76vh',
-      overflow: 'hidden',
-      borderRadius: '14px',
-      background: systemDark ? 'rgba(26,26,26,0.96)' : 'rgba(245,245,245,0.96)',
-      color: systemDark ? '#fff' : '#111',
-      border: systemDark ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(0,0,0,0.1)',
-      boxShadow: '0 14px 40px rgba(0,0,0,0.35)',
-      padding: '12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    });
-
-    var title = document.createElement('div');
-    title.textContent = 'Switch windows';
-    title.style.fontSize = '13px';
-    title.style.opacity = '0.75';
-    title.style.padding = '0 6px';
-
-    var list = document.createElement('div');
-    Object.assign(list.style, {
-      display: 'flex',
-      flexDirection: 'row',
-      gap: '10px',
-      overflowX: 'auto',
-      overflowY: 'hidden',
-      maxWidth: '84vw',
-      minHeight: '130px',
-      padding: '2px',
-    });
-
-    panel.appendChild(title);
-    panel.appendChild(list);
-    root.appendChild(panel);
-    document.body.appendChild(root);
-
-    windowSwitchState.previewRoot = root;
-    windowSwitchState.previewList = list;
-  }
-
-  function hideWindowSwitchPreview() {
-    if (!windowSwitchState.previewRoot) return;
-    windowSwitchState.previewRoot.style.display = 'none';
-  }
-
-  function renderWindowSwitchPreview(modLabel) {
-    ensureWindowSwitchPreview();
-    if (!windowSwitchState.previewRoot || !windowSwitchState.previewList) return;
-
-    var list = windowSwitchState.previewList;
-    var panel = list.parentElement;
-    var systemDark = data.dark;
-    if (panel) {
-      panel.style.background = systemDark ? 'rgba(26,26,26,0.96)' : 'rgba(245,245,245,0.96)';
-      panel.style.color = systemDark ? '#fff' : '#111';
-      panel.style.border = systemDark ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(0,0,0,0.1)';
-    }
-    list.innerHTML = '';
-    var order = windowSwitchState.order || [];
-    var selectedRow = null;
-
-    for (var i = 0; i < order.length; i++) {
-      var el = order[i];
-      var appId = resolveWindowAppId(el);
-      var appLabel = resolveWindowLabel(el);
-      var active = i === windowSwitchState.index;
-
-      var row = document.createElement('div');
-      Object.assign(row.style, {
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '10px',
-        borderRadius: '10px',
-        padding: '12px 14px',
-        minWidth: '150px',
-        maxWidth: '150px',
-        minHeight: '110px',
-        boxSizing: 'border-box',
-        background: active
-          ? (systemDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)')
-          : (systemDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
-        border: active
-          ? (systemDark ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(0,0,0,0.24)')
-          : (systemDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'),
-      });
-
-      var icon = document.createElement('div');
-      var iconApp = findAppByIdentifier(appId);
-      var iconValue = (iconApp && iconApp.icon) || '🗔';
-      if (iconValue && iconValue.trim().startsWith('<')) {
-        icon.innerHTML = iconValue;
-      } else {
-        icon.textContent = iconValue;
+    taskbuttons = [...taskbar.querySelectorAll("button")];
+  } catch (e) {
+    window.appsButtonsApplied = false;
+    try {
+      window._flowaway_handlers = window._flowaway_handlers || {};
+      if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
+        window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(
+          () => {
+            try {
+              if (
+                window._flowaway_handlers &&
+                window._flowaway_handlers.applyTaskButtonsRetryTimer
+              ) {
+                clearTimeout(
+                  window._flowaway_handlers.applyTaskButtonsRetryTimer,
+                );
+                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+              }
+            } catch (e) {}
+            try {
+              applyTaskButtons();
+            } catch (e) {}
+          },
+          200,
+        );
       }
-      Object.assign(icon.style, {
-        width: '28px',
-        textAlign: 'center',
-        fontSize: '24px',
-        lineHeight: '1',
-      });
+    } catch (retryErr) {}
+  } finally {
+    window._suppressTaskbarPersist = false;
+  }
+}
 
-      var text = document.createElement('div');
-      text.textContent = appLabel;
-      text.style.fontSize = '14px';
-      text.style.fontWeight = active ? '600' : '500';
-      text.style.textAlign = 'center';
-      text.style.maxWidth = '100%';
-      text.style.overflow = 'hidden';
-      text.style.textOverflow = 'ellipsis';
-      text.style.whiteSpace = 'nowrap';
-
-      row.appendChild(icon);
-      row.appendChild(text);
-      list.appendChild(row);
-      if (active) selectedRow = row;
+function purgeButtons() {
+  buttons = [...taskbar.querySelectorAll("button")];
+  buttons.splice(0, 3);
+  buttons.forEach((b) => {
+    if (!b.dataset.appId) {
+      b.dataset.appId = b.textContent;
     }
-
-    if (selectedRow && selectedRow.scrollIntoView) {
-      try {
-        selectedRow.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
-      } catch (e) {}
-    }
-
-    windowSwitchState.previewRoot.style.display = 'flex';
-    windowSwitchState.previewRoot.setAttribute('data-mod', modLabel || '');
+  });
+  // Build a generic map from appId -> [buttons]
+  window.appButtons = window.appButtons || {};
+  window.appButtons = {};
+  for (let i = 0; i < taskbuttons.length; i++) {
+    let tb = taskbuttons[i];
+    var id;
+    try {
+      id = tb.dataset.appId;
+    } catch (e) {}
+    if (!id) continue;
+    window.appButtons[id] = window.appButtons[id] || [];
+    window.appButtons[id].push(tb);
   }
+}
 
-  function commitWindowSwitchTarget() {
-    var target = windowSwitchState.pendingTarget;
-    if (!target || !target.isConnected) return;
-    bringToFront(target);
-    try { target.focus({ preventScroll: true }); } catch (e) { try { target.focus(); } catch (err) {} }
-  }
-
-  function resetWindowSwitchState() {
-    hideWindowSwitchPreview();
-    windowSwitchState.active = false;
-    windowSwitchState.mod = '';
-    windowSwitchState.order = [];
-    windowSwitchState.index = 0;
-    windowSwitchState.lastTs = 0;
-    windowSwitchState.pendingTarget = null;
-  }
-
-  function cycleWindowFocus(reverse, modKey, options) {
-    var windows = getSwitchableWindows();
-    if (!windows || windows.length <= 1) return false;
-
-    windows.sort(function (a, b) {
-      var za = parseInt(a.style.zIndex) || 0;
-      var zb = parseInt(b.style.zIndex) || 0;
-      return zb - za;
-    });
-
-    var now = Date.now();
-    var mod = modKey || '';
-    var timedOut = (now - windowSwitchState.lastTs) > 1500;
-    var shouldReset = !windowSwitchState.active || windowSwitchState.mod !== mod || timedOut;
-
-    if (shouldReset) {
-      windowSwitchState.active = true;
-      windowSwitchState.mod = mod;
-      windowSwitchState.order = windows.slice();
-      var forcedFocusedWindow =
-        options && options.forceCurrentWindow &&
-        windowSwitchState.order.indexOf(options.forceCurrentWindow) !== -1
-          ? options.forceCurrentWindow
-          : null;
-      var focusedWindow =
-        forcedFocusedWindow || resolveFocusedWindowRoot(windowSwitchState.order);
-      var focusedIndex = focusedWindow
-        ? windowSwitchState.order.indexOf(focusedWindow)
-        : -1;
-      windowSwitchState.index = focusedIndex >= 0 ? focusedIndex : 0;
+function saveTaskButtons(silence = true) {
+  var buttons = [...taskbar.querySelectorAll("button")];
+  buttons.splice(0, 2);
+  var postdata = [];
+  for (const b of buttons) {
+    if (b.dataset && b.dataset.appId) {
+      postdata.push(b.dataset.appId);
     } else {
-      windowSwitchState.order = windowSwitchState.order.filter(function (el) {
-        return windows.indexOf(el) !== -1;
-      });
-      for (var i = 0; i < windows.length; i++) {
-        if (windowSwitchState.order.indexOf(windows[i]) === -1) {
-          windowSwitchState.order.push(windows[i]);
-        }
-      }
-      if (!windowSwitchState.order.length) {
-        windowSwitchState.order = windows.slice();
-        windowSwitchState.index = 0;
-      }
-      if (windowSwitchState.index >= windowSwitchState.order.length) {
-        windowSwitchState.index = 0;
-      }
+      // If no dataset, try to infer id from value or textContent
+      var inferred =
+        (b.value && String(b.value).trim()) ||
+        (b.textContent && String(b.textContent).trim());
+      if (inferred) postdata.push(inferred);
     }
+  }
+  if (!silence) notification("taskbuttons saved!");
+  posttaskbuttons(postdata);
+}
+function bringToFront(el) {
+  if (!el) return;
+  var appId = resolveWindowAppId(el);
+  atTop = appId || "";
+  el.style.zIndex = String(++zTop);
+}
 
-    var count = windowSwitchState.order.length;
-    if (count <= 1) return false;
+function resolveWindowAppId(el) {
+  if (!el) return "";
+  var appId = el.dataset && el.dataset.appId;
+  if (!appId) appId = el.getAttribute && el.getAttribute("data-app-id");
+  if (!appId && window.apps && Array.isArray(window.apps)) {
+    for (const a of window.apps) {
+      try {
+        // Only use real identifier strings (entry function name, startbtnid) for class/id matching.
+        // a.id and a.icon are icon content (emoji or HTML markup), not valid identifiers.
+        var candidates = [a.entry, a.startbtnid].filter(function (c) {
+          return c && typeof c === "string" && c.length < 64;
+        });
+        var matched = candidates.some(function (cid) {
+          return (
+            el.classList.contains(cid) || el.id === cid + "app" || el.id === cid
+          );
+        });
+        if (matched) {
+          appId = a.entry || a.startbtnid;
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+  if (!appId) {
+    try {
+      if (el.classList && el.classList.contains("browser")) appId = "browser";
+    } catch (e) {}
+  }
+  return appId || "";
+}
 
-    var step = reverse ? -1 : 1;
-    windowSwitchState.index = (windowSwitchState.index + step + count) % count;
-    var target = windowSwitchState.order[windowSwitchState.index];
-    if (!target) return false;
+function findAppByIdentifier(identifier) {
+  if (!identifier || !window.apps || !Array.isArray(window.apps)) return null;
+  for (const a of window.apps) {
+    if (!a) continue;
+    // Only match against true identifiers (entry function name, startbtnid).
+    // Do NOT match a.id or a.icon — those contain icon HTML/emoji content, not identifiers.
+    if (identifier === a.entry || identifier === a.startbtnid) {
+      return a;
+    }
+  }
+  return null;
+}
 
-    windowSwitchState.pendingTarget = target;
-    windowSwitchState.lastTs = now;
-    renderWindowSwitchPreview(mod);
-    return true;
+function resolveWindowLabel(el) {
+  var appId = resolveWindowAppId(el);
+  var windowTitle = "";
+  try {
+    windowTitle = (
+      (el && el.getAttribute && el.getAttribute("data-title")) ||
+      ""
+    ).trim();
+  } catch (e) {}
+  if (windowTitle && windowTitle !== "undefined" && windowTitle !== "null")
+    return windowTitle;
+
+  var appMeta = findAppByIdentifier(appId);
+  if (appMeta) {
+    var appLabel = (appMeta.label || appMeta.name || "").trim();
+    if (appLabel && appLabel !== "undefined" && appLabel !== "null")
+      return appLabel;
+  }
+  if (appId && appId !== "browser" && appId !== "undefined" && appId !== "null")
+    return appId;
+  return "Window";
+}
+
+function getSwitchableWindows() {
+  try {
+    return Array.from(document.querySelectorAll(".app-root")).filter((el) => {
+      if (!el || !el.isConnected) return false;
+      var cs = window.getComputedStyle(el);
+      if (!cs) return false;
+      return cs.display !== "none" && cs.visibility !== "hidden";
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+function resolveFocusedWindowRoot(windows) {
+  var active = null;
+  try {
+    active = document.activeElement;
+  } catch (e) {
+    active = null;
   }
 
-  function syncWindowSwitchPreview(target, modKey) {
-    if (!target || !target.isConnected) return false;
+  if (active) {
+    try {
+      if (typeof active.closest === "function") {
+        var candidate = active.closest(".app-root");
+        if (candidate && (!windows || windows.indexOf(candidate) !== -1)) {
+          return candidate;
+        }
+      }
+    } catch (e) {}
+  }
 
-    var windows = getSwitchableWindows();
-    if (!windows || windows.length <= 1) return false;
+  if (atTop && windows && windows.length) {
+    for (var i = 0; i < windows.length; i++) {
+      if (resolveWindowAppId(windows[i]) === atTop) return windows[i];
+    }
+  }
 
-    windows.sort(function (a, b) {
-      var za = parseInt(a.style.zIndex) || 0;
-      var zb = parseInt(b.style.zIndex) || 0;
-      return zb - za;
+  return null;
+}
+
+var windowSwitchState = {
+  active: false,
+  mod: "",
+  order: [],
+  index: 0,
+  lastTs: 0,
+  pendingTarget: null,
+  previewRoot: null,
+  previewList: null,
+};
+
+function ensureWindowSwitchPreview() {
+  if (
+    windowSwitchState.previewRoot &&
+    windowSwitchState.previewRoot.isConnected
+  )
+    return;
+
+  var root = document.createElement("div");
+  root.setAttribute("aria-hidden", "true");
+  Object.assign(root.style, {
+    position: "fixed",
+    inset: "0",
+    zIndex: "2147483646",
+    display: "none",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+    background: "rgba(0, 0, 0, 0.12)",
+    backdropFilter: "blur(2px)",
+  });
+
+  var panel = document.createElement("div");
+  var systemDark = data.dark;
+  Object.assign(panel.style, {
+    minWidth: "520px",
+    maxWidth: "88vw",
+    maxHeight: "76vh",
+    overflow: "hidden",
+    borderRadius: "14px",
+    background: systemDark ? "rgba(26,26,26,0.96)" : "rgba(245,245,245,0.96)",
+    color: systemDark ? "#fff" : "#111",
+    border: systemDark
+      ? "1px solid rgba(255,255,255,0.14)"
+      : "1px solid rgba(0,0,0,0.1)",
+    boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
+    padding: "12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    fontFamily: "system-ui, -apple-system, sans-serif",
+  });
+
+  var title = document.createElement("div");
+  title.textContent = "Switch windows";
+  title.style.fontSize = "13px";
+  title.style.opacity = "0.75";
+  title.style.padding = "0 6px";
+
+  var list = document.createElement("div");
+  Object.assign(list.style, {
+    display: "flex",
+    flexDirection: "row",
+    gap: "10px",
+    overflowX: "auto",
+    overflowY: "hidden",
+    maxWidth: "84vw",
+    minHeight: "130px",
+    padding: "2px",
+  });
+
+  panel.appendChild(title);
+  panel.appendChild(list);
+  root.appendChild(panel);
+  document.body.appendChild(root);
+
+  windowSwitchState.previewRoot = root;
+  windowSwitchState.previewList = list;
+}
+
+function hideWindowSwitchPreview() {
+  if (!windowSwitchState.previewRoot) return;
+  windowSwitchState.previewRoot.style.display = "none";
+}
+
+function renderWindowSwitchPreview(modLabel) {
+  ensureWindowSwitchPreview();
+  if (!windowSwitchState.previewRoot || !windowSwitchState.previewList) return;
+
+  var list = windowSwitchState.previewList;
+  var panel = list.parentElement;
+  var systemDark = data.dark;
+  if (panel) {
+    panel.style.background = systemDark
+      ? "rgba(26,26,26,0.96)"
+      : "rgba(245,245,245,0.96)";
+    panel.style.color = systemDark ? "#fff" : "#111";
+    panel.style.border = systemDark
+      ? "1px solid rgba(255,255,255,0.14)"
+      : "1px solid rgba(0,0,0,0.1)";
+  }
+  list.innerHTML = "";
+  var order = windowSwitchState.order || [];
+  var selectedRow = null;
+
+  for (var i = 0; i < order.length; i++) {
+    var el = order[i];
+    var appId = resolveWindowAppId(el);
+    var appLabel = resolveWindowLabel(el);
+    var active = i === windowSwitchState.index;
+
+    var row = document.createElement("div");
+    Object.assign(row.style, {
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: "10px",
+      borderRadius: "10px",
+      padding: "12px 14px",
+      minWidth: "150px",
+      maxWidth: "150px",
+      minHeight: "110px",
+      boxSizing: "border-box",
+      background: active
+        ? systemDark
+          ? "rgba(255,255,255,0.16)"
+          : "rgba(0,0,0,0.12)"
+        : systemDark
+          ? "rgba(255,255,255,0.05)"
+          : "rgba(0,0,0,0.04)",
+      border: active
+        ? systemDark
+          ? "1px solid rgba(255,255,255,0.28)"
+          : "1px solid rgba(0,0,0,0.24)"
+        : systemDark
+          ? "1px solid rgba(255,255,255,0.08)"
+          : "1px solid rgba(0,0,0,0.08)",
     });
 
-    var index = windows.indexOf(target);
-    if (index < 0) return false;
+    var icon = document.createElement("div");
+    var iconApp = findAppByIdentifier(appId);
+    var iconValue = (iconApp && iconApp.icon) || "🗔";
+    if (iconValue && iconValue.trim().startsWith("<")) {
+      icon.innerHTML = iconValue;
+    } else {
+      icon.textContent = iconValue;
+    }
+    Object.assign(icon.style, {
+      width: "28px",
+      textAlign: "center",
+      fontSize: "24px",
+      lineHeight: "1",
+    });
 
-    var mod = modKey || windowSwitchState.mod || '';
+    var text = document.createElement("div");
+    text.textContent = appLabel;
+    text.style.fontSize = "14px";
+    text.style.fontWeight = active ? "600" : "500";
+    text.style.textAlign = "center";
+    text.style.maxWidth = "100%";
+    text.style.overflow = "hidden";
+    text.style.textOverflow = "ellipsis";
+    text.style.whiteSpace = "nowrap";
+
+    row.appendChild(icon);
+    row.appendChild(text);
+    list.appendChild(row);
+    if (active) selectedRow = row;
+  }
+
+  if (selectedRow && selectedRow.scrollIntoView) {
+    try {
+      selectedRow.scrollIntoView({
+        behavior: "auto",
+        block: "nearest",
+        inline: "center",
+      });
+    } catch (e) {}
+  }
+
+  windowSwitchState.previewRoot.style.display = "flex";
+  windowSwitchState.previewRoot.setAttribute("data-mod", modLabel || "");
+}
+
+function commitWindowSwitchTarget() {
+  var target = windowSwitchState.pendingTarget;
+  if (!target || !target.isConnected) return;
+  bringToFront(target);
+  try {
+    target.focus({ preventScroll: true });
+  } catch (e) {
+    try {
+      target.focus();
+    } catch (err) {}
+  }
+}
+
+function resetWindowSwitchState() {
+  hideWindowSwitchPreview();
+  windowSwitchState.active = false;
+  windowSwitchState.mod = "";
+  windowSwitchState.order = [];
+  windowSwitchState.index = 0;
+  windowSwitchState.lastTs = 0;
+  windowSwitchState.pendingTarget = null;
+}
+
+function cycleWindowFocus(reverse, modKey, options) {
+  var windows = getSwitchableWindows();
+  if (!windows || windows.length <= 1) return false;
+
+  windows.sort(function (a, b) {
+    var za = parseInt(a.style.zIndex) || 0;
+    var zb = parseInt(b.style.zIndex) || 0;
+    return zb - za;
+  });
+
+  var now = Date.now();
+  var mod = modKey || "";
+  var timedOut = now - windowSwitchState.lastTs > 1500;
+  var shouldReset =
+    !windowSwitchState.active || windowSwitchState.mod !== mod || timedOut;
+
+  if (shouldReset) {
     windowSwitchState.active = true;
     windowSwitchState.mod = mod;
-    windowSwitchState.order = windows;
-    windowSwitchState.index = index;
-    windowSwitchState.pendingTarget = target;
-    windowSwitchState.lastTs = Date.now();
-    renderWindowSwitchPreview(mod);
-    return true;
+    windowSwitchState.order = windows.slice();
+    var forcedFocusedWindow =
+      options &&
+      options.forceCurrentWindow &&
+      windowSwitchState.order.indexOf(options.forceCurrentWindow) !== -1
+        ? options.forceCurrentWindow
+        : null;
+    var focusedWindow =
+      forcedFocusedWindow || resolveFocusedWindowRoot(windowSwitchState.order);
+    var focusedIndex = focusedWindow
+      ? windowSwitchState.order.indexOf(focusedWindow)
+      : -1;
+    windowSwitchState.index = focusedIndex >= 0 ? focusedIndex : 0;
+  } else {
+    windowSwitchState.order = windowSwitchState.order.filter(function (el) {
+      return windows.indexOf(el) !== -1;
+    });
+    for (var i = 0; i < windows.length; i++) {
+      if (windowSwitchState.order.indexOf(windows[i]) === -1) {
+        windowSwitchState.order.push(windows[i]);
+      }
+    }
+    if (!windowSwitchState.order.length) {
+      windowSwitchState.order = windows.slice();
+      windowSwitchState.index = 0;
+    }
+    if (windowSwitchState.index >= windowSwitchState.order.length) {
+      windowSwitchState.index = 0;
+    }
   }
 
-  // keydown - single binding
-  try {
-    if (window._flowaway_handlers.onKeydown) window.removeEventListener('keydown', window._flowaway_handlers.onKeydown);
-    window._flowaway_handlers.onKeydown = function (e) {
+  var count = windowSwitchState.order.length;
+  if (count <= 1) return false;
+
+  var step = reverse ? -1 : 1;
+  windowSwitchState.index = (windowSwitchState.index + step + count) % count;
+  var target = windowSwitchState.order[windowSwitchState.index];
+  if (!target) return false;
+
+  windowSwitchState.pendingTarget = target;
+  windowSwitchState.lastTs = now;
+  renderWindowSwitchPreview(mod);
+  return true;
+}
+
+function syncWindowSwitchPreview(target, modKey) {
+  if (!target || !target.isConnected) return false;
+
+  var windows = getSwitchableWindows();
+  if (!windows || windows.length <= 1) return false;
+
+  windows.sort(function (a, b) {
+    var za = parseInt(a.style.zIndex) || 0;
+    var zb = parseInt(b.style.zIndex) || 0;
+    return zb - za;
+  });
+
+  var index = windows.indexOf(target);
+  if (index < 0) return false;
+
+  var mod = modKey || windowSwitchState.mod || "";
+  windowSwitchState.active = true;
+  windowSwitchState.mod = mod;
+  windowSwitchState.order = windows;
+  windowSwitchState.index = index;
+  windowSwitchState.pendingTarget = target;
+  windowSwitchState.lastTs = Date.now();
+  renderWindowSwitchPreview(mod);
+  return true;
+}
+
+// keydown - single binding
+try {
+  if (window._flowaway_handlers.onKeydown)
+    window.removeEventListener("keydown", window._flowaway_handlers.onKeydown);
+  window._flowaway_handlers.onKeydown = function (e) {
     // Build normalized combo e.g. 'Ctrl+Shift+N'
     var parts = [];
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.altKey) parts.push('Alt');
-    if (e.shiftKey) parts.push('Shift');
+    if (e.ctrlKey) parts.push("Ctrl");
+    if (e.altKey) parts.push("Alt");
+    if (e.shiftKey) parts.push("Shift");
     var keyPart = String(e.key).toUpperCase();
     parts.push(keyPart);
-    var combo = parts.join('+');
+    var combo = parts.join("+");
 
     // Alt+Tab (and Ctrl+Tab fallback): cycle focused app window
-    if ((e.altKey && e.key === 'Tab') || (e.ctrlKey && !e.altKey && e.key === 'Tab')) {
+    if (
+      (e.altKey && e.key === "Tab") ||
+      (e.ctrlKey && !e.altKey && e.key === "Tab")
+    ) {
       e.preventDefault();
-      cycleWindowFocus(!!e.shiftKey, e.altKey ? 'Alt' : 'Ctrl');
+      cycleWindowFocus(!!e.shiftKey, e.altKey ? "Alt" : "Ctrl");
       return;
     }
 
@@ -2685,57 +3659,90 @@ window.removeOtherMenus = function(except) {
 
     // Keyboard shortcuts: Brightness and Volume
     // Ctrl+Alt+ArrowUp / Ctrl+Alt+ArrowDown -> brightness +/-5
-    if (e.ctrlKey && !e.shiftKey && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    if (
+      e.ctrlKey &&
+      !e.shiftKey &&
+      e.altKey &&
+      (e.key === "ArrowUp" || e.key === "ArrowDown")
+    ) {
       e.preventDefault();
-      var delta = e.key === 'ArrowUp' ? 5 : -5;
-      data.brightness = Math.min(100, Math.max(0, (parseInt(data.brightness) || 0) + delta));
+      var delta = e.key === "ArrowUp" ? 5 : -5;
+      data.brightness = Math.min(
+        100,
+        Math.max(0, (parseInt(data.brightness) || 0) + delta),
+      );
       document.documentElement.style.filter = `brightness(${data.brightness}%)`;
-      try { zmcdpost({ changeBrightness: true, brightness: data.brightness }); } catch (err) {}
-      try { notification(`Brightness: ${data.brightness}%`); } catch (e) {}
+      try {
+        zmcdpost({ changeBrightness: true, brightness: data.brightness });
+      } catch (err) {}
+      try {
+        notification(`Brightness: ${data.brightness}%`);
+      } catch (e) {}
       return;
     }
 
     // Ctrl+Shift+ArrowUp / Ctrl+Shift+ArrowDown -> volume +/-5
-    if (e.ctrlKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    if (
+      e.ctrlKey &&
+      e.shiftKey &&
+      (e.key === "ArrowUp" || e.key === "ArrowDown")
+    ) {
       e.preventDefault();
-      var delta = e.key === 'ArrowUp' ? 5 : -5;
-      data.volume = Math.min(100, Math.max(0, (parseInt(data.volume) || 0) + delta));
+      var delta = e.key === "ArrowUp" ? 5 : -5;
+      data.volume = Math.min(
+        100,
+        Math.max(0, (parseInt(data.volume) || 0) + delta),
+      );
       setAllMediaVolume(data.volume / 100);
       // inform other parts of UI
-      window.dispatchEvent(new CustomEvent('system-volume', { detail: data.volume }));
-      try { zmcdpost({ changeVolume: true, volume: data.volume }); } catch (err) {}
-      try { notification(`Volume: ${data.volume}%`); } catch (e) {}
+      window.dispatchEvent(
+        new CustomEvent("system-volume", { detail: data.volume }),
+      );
+      try {
+        zmcdpost({ changeVolume: true, volume: data.volume });
+      } catch (err) {}
+      try {
+        notification(`Volume: ${data.volume}%`);
+      } catch (e) {}
       return;
     }
 
     // Default: Ctrl+N -> open new instance of focused app or a sensible default
-    if (e.ctrlKey && keyPart === 'N') {
+    if (e.ctrlKey && keyPart === "N") {
       e.preventDefault();
-      var focusedApp = atTop || '';
-      if (focusedApp && typeof launchApp === 'function') {
+      var focusedApp = atTop || "";
+      if (focusedApp && typeof launchApp === "function") {
         // attempt to open another instance of focused app
         launchApp(focusedApp);
         return;
       }
       // fallback: first taskbutton or first discovered app
-      var fallback = (data.taskbuttons && data.taskbuttons[0]) || (window.apps && window.apps[0] && getPreferredAppIdentifier(window.apps[0]));
+      var fallback =
+        (data.taskbuttons && data.taskbuttons[0]) ||
+        (window.apps &&
+          window.apps[0] &&
+          getPreferredAppIdentifier(window.apps[0]));
       if (fallback) launchApp(fallback);
       return;
-    } else if (e.ctrlKey && e.shiftKey && keyPart === 'W') {
+    } else if (e.ctrlKey && e.shiftKey && keyPart === "W") {
       // Close only the topmost app window for the focused app (atTop)
       e.preventDefault();
       e.stopPropagation();
       if (!atTop) return;
       try {
-        var targetAppId = String(atTop || '').trim();
+        var targetAppId = String(atTop || "").trim();
         if (!targetAppId) return;
 
-        var roots = Array.from(document.querySelectorAll('.sim-chrome-root'));
-        var candidates = roots.filter(root => root.dataset && root.dataset.appId === targetAppId);
+        var roots = Array.from(document.querySelectorAll(".app-root"));
+        var candidates = roots.filter(
+          (root) => root.dataset && root.dataset.appId === targetAppId,
+        );
 
         // Fallback for older windows not tagged with dataset app id
         if (!candidates.length) {
-          candidates = roots.filter(root => root.classList && root.classList.contains(targetAppId));
+          candidates = roots.filter(
+            (root) => root.classList && root.classList.contains(targetAppId),
+          );
         }
 
         if (!candidates.length) return;
@@ -2748,41 +3755,54 @@ window.removeOtherMenus = function(except) {
 
         var top = candidates[candidates.length - 1];
         if (top) top.remove();
-      } catch (e) { console.error('close focused app window error', e); }
+      } catch (e) {
+        console.error("close focused app window error", e);
+      }
       return;
     }
-    };
-    window.addEventListener('keydown', window._flowaway_handlers.onKeydown);
+  };
+  window.addEventListener("keydown", window._flowaway_handlers.onKeydown);
 
-    if (window._flowaway_handlers.onKeyup) window.removeEventListener('keyup', window._flowaway_handlers.onKeyup);
-    window._flowaway_handlers.onKeyup = function (e) {
-      if (e.key === 'Alt' || e.key === 'Control') {
-        commitWindowSwitchTarget();
-        resetWindowSwitchState();
-      }
-    };
-    window.addEventListener('keyup', window._flowaway_handlers.onKeyup);
-
-    if (window._flowaway_handlers.onBlur) window.removeEventListener('blur', window._flowaway_handlers.onBlur);
-    window._flowaway_handlers.onBlur = function () {
+  if (window._flowaway_handlers.onKeyup)
+    window.removeEventListener("keyup", window._flowaway_handlers.onKeyup);
+  window._flowaway_handlers.onKeyup = function (e) {
+    if (e.key === "Alt" || e.key === "Control") {
+      commitWindowSwitchTarget();
       resetWindowSwitchState();
-    };
-    window.addEventListener('blur', window._flowaway_handlers.onBlur);
+    }
+  };
+  window.addEventListener("keyup", window._flowaway_handlers.onKeyup);
 
-    if (window._flowaway_handlers.onVisibilityChange) document.removeEventListener('visibilitychange', window._flowaway_handlers.onVisibilityChange);
-    window._flowaway_handlers.onVisibilityChange = function () {
-      if (document.hidden) resetWindowSwitchState();
-    };
-    document.addEventListener('visibilitychange', window._flowaway_handlers.onVisibilityChange);
-  } catch (e) {}
+  if (window._flowaway_handlers.onBlur)
+    window.removeEventListener("blur", window._flowaway_handlers.onBlur);
+  window._flowaway_handlers.onBlur = function () {
+    resetWindowSwitchState();
+  };
+  window.addEventListener("blur", window._flowaway_handlers.onBlur);
+
+  if (window._flowaway_handlers.onVisibilityChange)
+    document.removeEventListener(
+      "visibilitychange",
+      window._flowaway_handlers.onVisibilityChange,
+    );
+  window._flowaway_handlers.onVisibilityChange = function () {
+    if (document.hidden) resetWindowSwitchState();
+  };
+  document.addEventListener(
+    "visibilitychange",
+    window._flowaway_handlers.onVisibilityChange,
+  );
+} catch (e) {}
 
 function applyStyles() {
   try {
-    var roots = document.querySelectorAll('.sim-chrome-root');
+    var roots = document.querySelectorAll(".app-root");
     for (const r of roots) {
-      r.classList.toggle('dark', data.dark);
-      r.classList.toggle('light', !data.dark);
-      try { r.dispatchEvent(new CustomEvent('styleapplied', {})); } catch (e) {}
+      r.classList.toggle("dark", data.dark);
+      r.classList.toggle("light", !data.dark);
+      try {
+        r.dispatchEvent(new CustomEvent("styleapplied", {}));
+      } catch (e) {}
     }
   } catch (e) {}
 
@@ -2797,7 +3817,7 @@ function applyStyles() {
   startMenu.classList.toggle("light", !data.dark);
   taskbar.classList.toggle("dark", data.dark);
   taskbar.classList.toggle("light", !data.dark);
-  for(var button of taskbuttons) {
+  for (var button of taskbuttons) {
     button.classList.toggle("dark", data.dark);
     button.classList.toggle("light", !data.dark);
   }
@@ -2807,61 +3827,74 @@ setTimeout(() => {
 }, 100);
 
 // Ensure apps are loaded shortly after startup (safe-guard if tree already present)
-setTimeout(() => { try { loadAppsFromTree(); } catch (e) {} }, 200);
+setTimeout(() => {
+  try {
+    loadAppsFromTree();
+  } catch (e) {}
+}, 200);
 function mainRecurseFrames(doc) {
   if (!doc) return null;
 
   var frames = doc.querySelectorAll("iframe");
 
-    for (const frame of frames) {
-      const childDoc = frame.contentDocument;
+  for (const frame of frames) {
+    const childDoc = frame.contentDocument;
     function setAllMediaVolume(newVolume) {
       // Ensure the volume is between 0.0 and 1.0
       newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
       // Select all audio and video elements
       var mediaElements = [];
-      try{mediaElements = childDoc.querySelectorAll('audio, video');}catch(e){}
+      try {
+        mediaElements = childDoc.querySelectorAll("audio, video");
+      } catch (e) {}
 
-      mediaElements.forEach(element => {
+      mediaElements.forEach((element) => {
         element.volume = newVolume;
       });
     }
-      setAllMediaVolume(data.volume / 100);
-      // Recurse into child document if accessible
-      if (childDoc) {
-        mainRecurseFrames(childDoc);
-      }
+    setAllMediaVolume(data.volume / 100);
+    // Recurse into child document if accessible
+    if (childDoc) {
+      mainRecurseFrames(childDoc);
+    }
   }
 
   return null;
 }
 
-    document.documentElement.style.filter =
-      `brightness(${data.brightness}%)`;
+document.documentElement.style.filter = `brightness(${data.brightness}%)`;
 function setAllMediaVolume(newVolume) {
   // Ensure the volume is between 0.0 and 1.0
   newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
   // Select all audio and video elements
-  var mediaElements = document.querySelectorAll('audio, video');
+  var mediaElements = document.querySelectorAll("audio, video");
 
-  mediaElements.forEach(element => {
+  mediaElements.forEach((element) => {
     element.volume = newVolume;
   });
 }
-    try {
-      if (window._flowaway_handlers.onSystemVolume) window.removeEventListener('system-volume', window._flowaway_handlers.onSystemVolume);
-      window._flowaway_handlers.onSystemVolume = (e) => { setAllMediaVolume(e.detail / 100); };
-      window.addEventListener('system-volume', window._flowaway_handlers.onSystemVolume);
-    } catch (e) {}
+try {
+  if (window._flowaway_handlers.onSystemVolume)
+    window.removeEventListener(
+      "system-volume",
+      window._flowaway_handlers.onSystemVolume,
+    );
+  window._flowaway_handlers.onSystemVolume = (e) => {
+    setAllMediaVolume(e.detail / 100);
+  };
+  window.addEventListener(
+    "system-volume",
+    window._flowaway_handlers.onSystemVolume,
+  );
+} catch (e) {}
 // 1. Create a new MutationObserver instance with a callback function
 var observer = new MutationObserver((mutationsList, observer) => {
-  if(mutationsList) {
-      setAllMediaVolume(data.volume / 100);
-      mainRecurseFrames(document);
-      document.documentElement.style.filter =
-      `brightness(${data.brightness}%)`;
+  if (mutationsList) {
+    setAllMediaVolume(data.volume / 100);
+    mainRecurseFrames(document);
+    document.documentElement.style.filter = `brightness(${data.brightness}%)`;
   }
 });
 
@@ -2870,113 +3903,121 @@ var targetNode = document.body;
 
 // 3. Configure the observer with an options object
 var config = {
-    childList: true, // Observe direct children addition/removal
-    attributes: true, // Observe attribute changes
-    characterData: true, // Observe changes to text content
-    subtree: true, // Observe changes in the entire subtree (children, grandchildren, etc.)
-    attributeOldValue: true, // Record the old value of the attribute
-    characterDataOldValue: true // Record the old value of the character data
+  childList: true, // Observe direct children addition/removal
+  attributes: true, // Observe attribute changes
+  characterData: true, // Observe changes to text content
+  subtree: true, // Observe changes in the entire subtree (children, grandchildren, etc.)
+  attributeOldValue: true, // Record the old value of the attribute
+  characterDataOldValue: true, // Record the old value of the character data
 };
 
 // 4. Start observing the target node with the specified configuration
 try {
   if (window._flowaway_handlers.observer) {
-    try { window._flowaway_handlers.observer.disconnect(); } catch (e) {}
+    try {
+      window._flowaway_handlers.observer.disconnect();
+    } catch (e) {}
   }
   window._flowaway_handlers.observer = observer;
   observer.observe(targetNode, config);
 } catch (e) {
-  try { observer.observe(targetNode, config); } catch (ee) {}
+  try {
+    observer.observe(targetNode, config);
+  } catch (ee) {}
 }
 
 // To stop observing later:
 // observer.disconnect();
-      
-    setAllMediaVolume(parseInt(data.volume) / 100);
+
+setAllMediaVolume(parseInt(data.volume) / 100);
 // helpers global
-  function getStringAfterChar(str, char) {
-    var index = str.indexOf(char);
-    if (index !== -1) {
-      // Add 1 to the index to start after the character itself
-      return str.substring(index + 1);
-    } else {
-      // Return the original string or handle the case where the character is not found
-      return str;
-    }
+function getStringAfterChar(str, char) {
+  var index = str.indexOf(char);
+  if (index !== -1) {
+    // Add 1 to the index to start after the character itself
+    return str.substring(index + 1);
+  } else {
+    // Return the original string or handle the case where the character is not found
+    return str;
   }
+}
 
-  // Global notification helper: call notification("message") to show a temporary toast for 3s
-function notification (message) {
-    try {
-      if (!message && message !== 0) return;
-      // Ensure a container exists
-      var container = document.getElementById('global-notifications');
-      if (!container) {
-        container = document.createElement('div');
-        container.id = 'global-notifications';
-        Object.assign(container.style, {
-          position: 'fixed',
-          right: '20px',
-          bottom: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          zIndex: 9999999,
-          pointerEvents: 'none'
-        });
-        document.body.appendChild(container);
-      }
-
-      var toast = document.createElement('div');
-      toast.textContent = String(message);
-      Object.assign(toast.style, {
-        background: 'rgba(0,0,0,0.8)',
-        color: 'white',
-        padding: '8px 12px',
-        borderRadius: '8px',
-        maxWidth: '320px',
-        boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
-        opacity: '0',
-        transform: 'translateY(6px)',
-        transition: 'opacity 220ms ease, transform 220ms ease',
-        pointerEvents: 'auto',
-        fontSize: '13px',
-        lineHeight: '1.2'
+// Global notification helper: call notification("message") to show a temporary toast for 3s
+function notification(message) {
+  try {
+    if (!message && message !== 0) return;
+    // Ensure a container exists
+    var container = document.getElementById("global-notifications");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "global-notifications";
+      Object.assign(container.style, {
+        position: "fixed",
+        right: "20px",
+        bottom: "20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        zIndex: 9999999,
+        pointerEvents: "none",
       });
-
-      container.appendChild(toast);
-
-      // Force layout then animate in
-      requestAnimationFrame(() => {
-        toast.style.opacity = '1';
-        toast.style.transform = 'translateY(0)';
-      });
-
-      // Remove after 3s
-      var dismissMs = 3000;
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(6px)';
-        setTimeout(() => {
-          try { toast.remove(); } catch (e) {}
-          // remove container if empty
-          if (container && container.children.length === 0) {
-            try { container.remove(); } catch (e) {}
-          }
-        }, 260);
-      }, dismissMs);
-      return toast;
-    } catch (e) {
-      console.error('notify error', e);
+      document.body.appendChild(container);
     }
-  };
-  var style = document.createElement("style");
-  style.textContent = `
+
+    var toast = document.createElement("div");
+    toast.textContent = String(message);
+    Object.assign(toast.style, {
+      background: "rgba(0,0,0,0.8)",
+      color: "white",
+      padding: "8px 12px",
+      borderRadius: "8px",
+      maxWidth: "320px",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+      opacity: "0",
+      transform: "translateY(6px)",
+      transition: "opacity 220ms ease, transform 220ms ease",
+      pointerEvents: "auto",
+      fontSize: "13px",
+      lineHeight: "1.2",
+    });
+
+    container.appendChild(toast);
+
+    // Force layout then animate in
+    requestAnimationFrame(() => {
+      toast.style.opacity = "1";
+      toast.style.transform = "translateY(0)";
+    });
+
+    // Remove after 3s
+    var dismissMs = 3000;
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(6px)";
+      setTimeout(() => {
+        try {
+          toast.remove();
+        } catch (e) {}
+        // remove container if empty
+        if (container && container.children.length === 0) {
+          try {
+            container.remove();
+          } catch (e) {}
+        }
+      }, 260);
+    }, dismissMs);
+    return toast;
+  } catch (e) {
+    console.error("notify error", e);
+  }
+}
+var style = document.createElement("style");
+style.textContent = `
 
 /* =========================================================
    🌞 LIGHT THEME (default)
 ========================================================= */
-.sim-chrome-root * {
+.app-root * {
   /* box-sizing: border-box; */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
@@ -3090,89 +4131,89 @@ function notification (message) {
   background: #ededf0;
   color: black;
 }
-.sim-chrome-root.light {
+.app-root.light {
   background: #eee;
   color: #222;
 }
 
-.sim-chrome-root.light .sim-chrome-top {
+.app-root.light .sim-chrome-top {
   background: linear-gradient(#f6f7f8, #ededf0);
 }
 
-.sim-chrome-root.light .sim-chrome-tabs {
+.app-root.light .sim-chrome-tabs {
   background: transparent;
 }
 
-.sim-chrome-root.light .sim-tab {
+.app-root.light .sim-tab {
   color: #333;
 }
 
-.sim-chrome-root.light .sim-tab.active {
+.app-root.light .sim-tab.active {
   background: rgba(0,0,0,0.06);
   box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
 }
 
-.sim-chrome-root.light .sim-tab .close {
+.app-root.light .sim-tab .close {
   color: #777;
 }
 
 /* Address row */
-.sim-chrome-root.light .sim-address-row {
+.app-root.light .sim-address-row {
   background: transparent;
   margin: 0 8px;
 }
 
 /* URL / proxy inputs */
-.sim-chrome-root.light .sim-url-input,
-.sim-chrome-root.light .sim-proxy-input {
+.app-root.light .sim-url-input,
+.app-root.light .sim-proxy-input {
   background: #fff;
   color: #222;
   border: 1px solid rgba(0,0,0,0.12);
 }
 
 /* Buttons */
-.sim-chrome-root.light .sim-open-btn,
-.sim-chrome-root.light .sim-fullscreen-btn,
-.sim-chrome-root.light .sim-netab-btn {
+.app-root.light .sim-open-btn,
+.app-root.light .sim-fullscreen-btn,
+.app-root.light .sim-netab-btn {
   background: #fff;
   color: #222;
   border: 1px solid rgba(0,0,0,0.12);
 }
 
 /* Toolbar */
-.sim-chrome-root.light .sim-toolbar {
+.app-root.light .sim-toolbar {
   background: #fff;
   border-top: 1px solid rgba(0,0,0,0.06);
 }
 
 /* Iframe area */
-.sim-chrome-root.light .sim-iframe {
+.app-root.light .sim-iframe {
   background: #fff;
 }
 
 /* Status text */
-.sim-chrome-root.light .sim-status {
+.app-root.light .sim-status {
   color: #666;
 }
 
 /* Top draggable bar */
-.sim-chrome-root.light .appTopBar {
+.app-root.light .appTopBar {
   background: #ccc;
 }
 
 /* Window control buttons */
-.sim-chrome-root.light .btnMaxColor,
-.sim-chrome-root.light .btnMinColor {
+.app-root.light .btnMaxColor,
+.app-root.light .btnMinColor {
   background: white;
   color: #000;
 }
 
-.sim-chrome-root.light .misc {
+.app-root.light .misc {
   background: white;
   color: black;
 }
 
-.sim-chrome-root.light .misc2 {
+.app-root.light .misc2 {
   background: black;
   color: #eee;
 }
@@ -3189,87 +4230,87 @@ function notification (message) {
   background: #444;
   color: #fff;
 }
-.sim-chrome-root.dark .sim-address-row {
+.app-root.dark .sim-address-row {
   background: #222; margin: 0 8px;
 }
 
 /* Iframe background */
-.sim-chrome-root.dark .sim-iframe {
+.app-root.dark .sim-iframe {
   background: #111; /* deep dark, matches content area */
 }
-.sim-chrome-root.dark {
+.app-root.dark {
   background:#1e1e1e;
   color:#ddd;
 }
 
-.sim-chrome-root.dark .sim-chrome-top {
+.app-root.dark .sim-chrome-top {
   background: linear-gradient(#2a2a2a,#1f1f1f);
 }
 
-.sim-chrome-root.dark .sim-tab {
+.app-root.dark .sim-tab {
   color:#ddd;
 }
 
-.sim-chrome-root.dark .sim-tab.active {
+.app-root.dark .sim-tab.active {
   background: rgba(255,255,255,0.08);
 }
 
-.sim-chrome-root.dark .sim-tab .close {
+.app-root.dark .sim-tab .close {
   color:rgba(251, 248, 248, 1);
 }
-  .sim-chrome-root.dark .sim-url-input { flex:1; height:32px; background-color: "black"; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
-.sim-chrome-root.dark .sim-url-input,
-.sim-chrome-root.dark .sim-proxy-input {
+  .app-root.dark .sim-url-input { flex:1; height:32px; background-color: "black"; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
+.app-root.dark .sim-url-input,
+.app-root.dark .sim-proxy-input {
   background:#2a2a2a;
   color:#eee;
   border:1px solid rgba(255,255,255,0.15);
 }
 
-.sim-chrome-root.dark .sim-open-btn,
-.sim-chrome-root.dark .sim-fullscreen-btn,
-.sim-chrome-root.dark .sim-netab-btn {
+.app-root.dark .sim-open-btn,
+.app-root.dark .sim-fullscreen-btn,
+.app-root.dark .sim-netab-btn {
   background:#2a2a2a;
   color:#eee;
   border:1px solid rgba(255,255,255,0.15);
 }
 
-.sim-chrome-root.dark .sim-toolbar {
+.app-root.dark .sim-toolbar {
   background:#1e1e1e;
   border-top:1px solid rgba(255,255,255,0.08);
 }
 
-.sim-chrome-root.dark .sim-iframe {
+.app-root.dark .sim-iframe {
   background:#111;
 }
 
-.sim-chrome-root.dark .sim-status {
+.app-root.dark .sim-status {
   color:#aaa;
 }
 
-.sim-chrome-root.dark .app-menu {
+.app-root.dark .app-menu {
   color: black;
 }
 
-.sim-chrome-root.dark .btnMaxColor {
+.app-root.dark .btnMaxColor {
   color: white;
   background: black;
 }
 
-.sim-chrome-root.dark .btnMinColor {
+.app-root.dark .btnMinColor {
   color: white;
   background: black;
 }
 
-.sim-chrome-root.dark .appTopBar {
+.app-root.dark .appTopBar {
   background: #444;
 }
 
-.sim-chrome-root.dark .misc {
+.app-root.dark .misc {
   background: black;
   color: white;
 }
 
-.sim-chrome-root.dark .misc2 {
+.app-root.dark .misc2 {
   background: #444;
   color: white;
 }
@@ -3283,7 +4324,7 @@ function notification (message) {
    📱 Responsive
 ========================================================= */
 @media (max-width: 600px) {
-  .sim-chrome-root {
+  .app-root {
     left:6px;
     right:6px;
     width:auto;
@@ -3324,8 +4365,8 @@ function notification (message) {
 
 `;
 
-  document.head.appendChild(style);
-  var css = `
+document.head.appendChild(style);
+var css = `
 
     .startMenu {
         position: fixed;
@@ -3447,21 +4488,21 @@ function notification (message) {
 
 `;
 var styleTag = document.createElement("style");
-  styleTag.textContent = css;
-  document.head.appendChild(styleTag);
+styleTag.textContent = css;
+document.head.appendChild(styleTag);
 
-  // ----------------- CREATE START BUTTON -----------------
+// ----------------- CREATE START BUTTON -----------------
 
-  // ----------------- CREATE START MENU -----------------
-  try {
-    var existingStartMenu = document.getElementById('startMenu');
-    if (existingStartMenu) existingStartMenu.remove();
-  } catch (e) {}
-  var startMenu = document.createElement("div");
-  startMenu.id = "startMenu";
-  startMenu.className = 'startMenu';
-  startMenu.style.zIndex = 999;
-  startMenu.innerHTML = `
+// ----------------- CREATE START MENU -----------------
+try {
+  var existingStartMenu = document.getElementById("startMenu");
+  if (existingStartMenu) existingStartMenu.remove();
+} catch (e) {}
+var startMenu = document.createElement("div");
+startMenu.id = "startMenu";
+startMenu.className = "startMenu";
+startMenu.style.zIndex = 999;
+startMenu.innerHTML = `
 
 <h3 style="margin:0 0 10px 0; font-size:18px;">Apps</h3>
 
@@ -3483,258 +4524,319 @@ var styleTag = document.createElement("style");
 </div>
 `;
 
-  document.body.appendChild(startMenu);
+document.body.appendChild(startMenu);
 
-  // Wire up sign out button (now inside the statusRight area) to call rebuildhandler
-  try {
-    const sb = document.getElementById('signOutBtn');
-    if (sb) {
-      if (window._flowaway_handlers.onSignOut) sb.removeEventListener('click', window._flowaway_handlers.onSignOut);
-      window._flowaway_handlers.onSignOut = () => {
-        try {
-          suppressSessionExpiredDialog(20000);
-          rebuildhandler();
-        } catch (e) { console.error('rebuildhandler error', e); }
-      };
-      sb.addEventListener('click', window._flowaway_handlers.onSignOut);
-    }
-  } catch (e) { console.error('signOut hookup error', e); }
-
-
+// Wire up sign out button (now inside the statusRight area) to call rebuildhandler
+try {
+  const sb = document.getElementById("signOutBtn");
+  if (sb) {
+    if (window._flowaway_handlers.onSignOut)
+      sb.removeEventListener("click", window._flowaway_handlers.onSignOut);
+    window._flowaway_handlers.onSignOut = () => {
+      try {
+        suppressSessionExpiredDialog(20000);
+        rebuildhandler();
+      } catch (e) {
+        console.error("rebuildhandler error", e);
+      }
+    };
+    sb.addEventListener("click", window._flowaway_handlers.onSignOut);
+  }
+} catch (e) {
+  console.error("signOut hookup error", e);
+}
 
 // -------- TIME --------
 function updateTime() {
-    var now = new Date();
-    var time = now.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    document.getElementById("timeStatus").textContent = time;
+  var now = new Date();
+  var time = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  document.getElementById("timeStatus").textContent = time;
 }
 
 updateTime();
 try {
-  if (window._flowaway_handlers.timeIntervalId) clearInterval(window._flowaway_handlers.timeIntervalId);
+  if (window._flowaway_handlers.timeIntervalId)
+    clearInterval(window._flowaway_handlers.timeIntervalId);
   window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000);
-} catch (e) { window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000); }
+} catch (e) {
+  window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000);
+}
 
 // -------- BATTERY --------
 if (navigator.getBattery) {
-    navigator.getBattery().then(battery => {
-        function updateBattery() {
-            var level = Math.round(battery.level * 100);
-            var charging = battery.charging ? "⚡" : "";
-            document.getElementById("batteryStatus").textContent =
-                `🔋 ${level}% ${charging}`;
-        }
+  navigator.getBattery().then((battery) => {
+    function updateBattery() {
+      var level = Math.round(battery.level * 100);
+      var charging = battery.charging ? "⚡" : "";
+      document.getElementById("batteryStatus").textContent =
+        `🔋 ${level}% ${charging}`;
+    }
 
-        updateBattery();
+    updateBattery();
+    try {
+      if (
+        window._flowaway_handlers.battery &&
+        window._flowaway_handlers.battery.ref
+      ) {
         try {
-          if (window._flowaway_handlers.battery && window._flowaway_handlers.battery.ref) {
-            try { window._flowaway_handlers.battery.ref.removeEventListener('levelchange', window._flowaway_handlers.battery.levelHandler); } catch (e) {}
-            try { window._flowaway_handlers.battery.ref.removeEventListener('chargingchange', window._flowaway_handlers.battery.chargingHandler); } catch (e) {}
-          }
-          window._flowaway_handlers.battery = { ref: battery, levelHandler: updateBattery, chargingHandler: updateBattery };
-          battery.addEventListener('levelchange', window._flowaway_handlers.battery.levelHandler);
-          battery.addEventListener('chargingchange', window._flowaway_handlers.battery.chargingHandler);
+          window._flowaway_handlers.battery.ref.removeEventListener(
+            "levelchange",
+            window._flowaway_handlers.battery.levelHandler,
+          );
         } catch (e) {}
-    });
+        try {
+          window._flowaway_handlers.battery.ref.removeEventListener(
+            "chargingchange",
+            window._flowaway_handlers.battery.chargingHandler,
+          );
+        } catch (e) {}
+      }
+      window._flowaway_handlers.battery = {
+        ref: battery,
+        levelHandler: updateBattery,
+        chargingHandler: updateBattery,
+      };
+      battery.addEventListener(
+        "levelchange",
+        window._flowaway_handlers.battery.levelHandler,
+      );
+      battery.addEventListener(
+        "chargingchange",
+        window._flowaway_handlers.battery.chargingHandler,
+      );
+    } catch (e) {}
+  });
 } else {
-    document.getElementById("batteryStatus").textContent = "🔋 N/A";
+  document.getElementById("batteryStatus").textContent = "🔋 N/A";
 }
 function updateWiFi() {
-    var wifi = document.getElementById("wifiStatus");
-    if (navigator.onLine) {
-        wifi.textContent = "🛜";
-        wifi.title = "Online";
-    } else {
-        wifi.textContent = "❌🛜";
-        wifi.title = "Offline";
-    }
+  var wifi = document.getElementById("wifiStatus");
+  if (navigator.onLine) {
+    wifi.textContent = "🛜";
+    wifi.title = "Online";
+  } else {
+    wifi.textContent = "❌🛜";
+    wifi.title = "Offline";
+  }
 }
 
 updateWiFi();
 try {
-  if (window._flowaway_handlers.onOnline) window.removeEventListener('online', window._flowaway_handlers.onOnline);
-  if (window._flowaway_handlers.onOffline) window.removeEventListener('offline', window._flowaway_handlers.onOffline);
+  if (window._flowaway_handlers.onOnline)
+    window.removeEventListener("online", window._flowaway_handlers.onOnline);
+  if (window._flowaway_handlers.onOffline)
+    window.removeEventListener("offline", window._flowaway_handlers.onOffline);
   window._flowaway_handlers.onOnline = updateWiFi;
   window._flowaway_handlers.onOffline = updateWiFi;
-  window.addEventListener('online', window._flowaway_handlers.onOnline);
-  window.addEventListener('offline', window._flowaway_handlers.onOffline);
+  window.addEventListener("online", window._flowaway_handlers.onOnline);
+  window.addEventListener("offline", window._flowaway_handlers.onOffline);
 } catch (e) {}
 
-  // ----------------- TOGGLE START MENU -----------------
-  var starthandler = () => {
-    startMenu.style.display =
-      startMenu.style.display === "block" ? "none" : "block";
+// ----------------- TOGGLE START MENU -----------------
+var starthandler = () => {
+  startMenu.style.display =
+    startMenu.style.display === "block" ? "none" : "block";
+};
+
+// ----------------- OPEN APP ACTION -----------------
+// Delegated click handler: apps rendered dynamically will set data-app-id to the app id
+try {
+  if (window._flowaway_handlers.onStartMenuClick)
+    startMenu.removeEventListener(
+      "click",
+      window._flowaway_handlers.onStartMenuClick,
+    );
+  window._flowaway_handlers.onStartMenuClick = (e) => {
+    var el = e.target;
+    while (el && !el.classList.contains("app")) el = el.parentElement;
+    if (!el) return;
+    var appId = el.dataset.appId;
+    if (!appId) return;
+    launchApp(appId);
+    startMenu.style.display = "none";
   };
+  startMenu.addEventListener(
+    "click",
+    window._flowaway_handlers.onStartMenuClick,
+  );
+} catch (e) {}
 
-  // ----------------- OPEN APP ACTION -----------------
-  // Delegated click handler: apps rendered dynamically will set data-app-id to the app id
-  try {
-    if (window._flowaway_handlers.onStartMenuClick) startMenu.removeEventListener('click', window._flowaway_handlers.onStartMenuClick);
-    window._flowaway_handlers.onStartMenuClick = (e) => {
-      var el = e.target;
-      while (el && !el.classList.contains('app')) el = el.parentElement;
-      if (!el) return;
-      var appId = el.dataset.appId;
-      if (!appId) return;
-      launchApp(appId);
-      startMenu.style.display = 'none';
-    };
-    startMenu.addEventListener('click', window._flowaway_handlers.onStartMenuClick);
-  } catch (e) {}
+// ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
+try {
+  if (window._flowaway_handlers.onDocumentClick)
+    document.removeEventListener(
+      "click",
+      window._flowaway_handlers.onDocumentClick,
+    );
+  window._flowaway_handlers.onDocumentClick = (e) => {
+    if (
+      !startMenu.contains(e.target) &&
+      e.target !== document.getElementById("▶")
+    ) {
+      startMenu.style.display = "none";
+    }
+  };
+  document.addEventListener("click", window._flowaway_handlers.onDocumentClick);
+} catch (e) {}
 
-  // ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
-  try {
-    if (window._flowaway_handlers.onDocumentClick) document.removeEventListener('click', window._flowaway_handlers.onDocumentClick);
-    window._flowaway_handlers.onDocumentClick = (e) => {
-      if (!startMenu.contains(e.target) && e.target !== document.getElementById('▶')) {
-        startMenu.style.display = 'none';
-      }
-    };
-    document.addEventListener('click', window._flowaway_handlers.onDocumentClick);
-  } catch (e) {}
+// Do not pre-load specific app scripts here; apps are loaded from the user's `apps/` folder dynamically.
+// Only load system helper script.
+window._flowawaySystemHelperState = {
+  started: false,
+  loaded: false,
+  promise: null,
+};
+async function loadSystemHelperScript() {
+  var helperState =
+    window._flowawaySystemHelperState ||
+    (window._flowawaySystemHelperState = {
+      started: false,
+      loaded: false,
+      promise: null,
+    });
+  if (helperState.loaded) return true;
+  if (helperState.promise) return helperState.promise;
 
+  helperState.started = true;
+  helperState.promise = (async () => {
+    var loaded = false;
 
-  // Do not pre-load specific app scripts here; apps are loaded from the user's `apps/` folder dynamically.
-  // Only load system helper script.
-    window._flowawaySystemHelperState = { started: false, loaded: false, promise: null };
-    async function loadSystemHelperScript() {
-      var helperState = window._flowawaySystemHelperState || (window._flowawaySystemHelperState = { started: false, loaded: false, promise: null });
-      if (helperState.loaded) return true;
-      if (helperState.promise) return helperState.promise;
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (window.data && window.data.authToken)
+        headers["Authorization"] = "Bearer " + window.data.authToken;
 
-      helperState.started = true;
-      helperState.promise = (async () => {
-        var loaded = false;
-
-        try {
-          const headers = { "Content-Type": "application/json" };
-          if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
-
-          const res = await fetch(SERVER, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              username: (window.data && window.data.username) || (data && data.username) || '',
-              requestFile: true,
-              requestFileName: 'goldenbody.js',
-            }),
-          });
-
-          let body = null;
-          try { body = await res.json(); } catch (e) { body = null; }
-
-          if (res.ok && body && typeof body.filecontent === 'string') {
-            var sysScript = document.createElement('script');
-            sysScript.type = 'text/javascript';
-            sysScript.textContent = base64ToUtf8(body.filecontent);
-            document.body.appendChild(sysScript);
-            loaded = true;
-          }
-        } catch (e) {
-          console.warn('failed to load user goldenbody.js from VFS', e);
-        }
-
-        if (!loaded) {
-          var fallbackScript = document.createElement('script');
-          fallbackScript.src = 'goldenbody.js';
-          document.body.appendChild(fallbackScript);
-          loaded = true;
-        }
-
-        helperState.loaded = loaded;
-        helperState.started = loaded;
-        return loaded;
-      })().finally(() => {
-        helperState.promise = null;
+      const res = await fetch(SERVER, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          username:
+            (window.data && window.data.username) ||
+            (data && data.username) ||
+            "",
+          requestFile: true,
+          requestFileName: "goldenbody.js",
+        }),
       });
 
-      return helperState.promise;
+      let body = null;
+      try {
+        body = await res.json();
+      } catch (e) {
+        body = null;
+      }
+
+      if (res.ok && body && typeof body.filecontent === "string") {
+        var sysScript = document.createElement("script");
+        sysScript.type = "text/javascript";
+        sysScript.textContent = base64ToUtf8(body.filecontent);
+        document.body.appendChild(sysScript);
+        loaded = true;
+      }
+    } catch (e) {
+      console.warn("failed to load user goldenbody.js from VFS", e);
     }
 
+    if (!loaded) {
+      var fallbackScript = document.createElement("script");
+      fallbackScript.src = "goldenbody.js";
+      document.body.appendChild(fallbackScript);
+      loaded = true;
+    }
+
+    helperState.loaded = loaded;
+    helperState.started = loaded;
+    return loaded;
+  })().finally(() => {
+    helperState.promise = null;
+  });
+
+  return helperState.promise;
+}
+
+setTimeout(() => {
+  loadSystemHelperScript();
   setTimeout(() => {
-    loadSystemHelperScript();
+    var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+    window.dispatchEvent(appUpdatedEvent);
     setTimeout(() => {
-        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
+      var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+      window.dispatchEvent(appUpdatedEvent);
+      setTimeout(() => {
+        var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
         window.dispatchEvent(appUpdatedEvent);
-        setTimeout(() => 
-          {
-        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-        window.dispatchEvent(appUpdatedEvent);
-              setTimeout(() => 
-          {
-        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-        window.dispatchEvent(appUpdatedEvent);
-              setTimeout(() => 
-          {
-        var appUpdatedEvent = new CustomEvent('appUpdated', { detail: null });
-        window.dispatchEvent(appUpdatedEvent);
-          }
-        , 5000);
-          }
-        , 5000);
-          }
-        , 5000);
+        setTimeout(() => {
+          var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+          window.dispatchEvent(appUpdatedEvent);
+        }, 5000);
+      }, 5000);
     }, 5000);
-  }, 100);
+  }, 5000);
+}, 100);
 // user warnings here, you can remove this in your own build if you want
-notification('this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah');
-
-
-
-
-
-
+notification(
+  "this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah",
+);
 
 // ----------------- Convenience file helpers -----------------
 // These wrap the existing `filePost` API so apps can easily perform
 // common VFS actions. Responses are the raw server responses; use
 // `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 
-window.ReadFile = async function(relPath) {
-  if (!relPath) throw new Error('No path');
-  return await filePost({ requestFile: true, requestFileName: String(relPath) });
+window.ReadFile = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  return await filePost({
+    requestFile: true,
+    requestFileName: String(relPath),
+  });
 };
 
-window.WriteFile = async function(relPath, contents, options = {}) {
-  if (!relPath) throw new Error('No path');
+window.WriteFile = async function (relPath, contents, options = {}) {
+  if (!relPath) throw new Error("No path");
   // Use the saveSnapshot + directions API to perform edits
-  if(options.buffer) {
+  if (options.buffer) {
     contents = arrayBufferToBase64(contents);
   }
-  const directions = [{ edit: true, path: String(relPath), contents: String(contents || ''), replace: !!options.replace }, { end: true }];
-  return await filePost({ saveSnapshot: true, directions });
-};
-
-window.DeleteFile = async function(relPath) {
-  if (!relPath) throw new Error('No path');
-  const directions = [{ delete: true, path: String(relPath) }, { end: true }];
-  return await filePost({ saveSnapshot: true, directions });
-};
-
-window.RenameFile = async function(relPath, newName) {
-  if (!relPath) throw new Error('No path');
-  if (!newName) throw new Error('No new name');
-  const directions = [{ rename: true, path: String(relPath), newName: String(newName) }, { end: true }];
-  return await filePost({ saveSnapshot: true, directions });
-};
-
-// clipboardItems: array of { path: 'root/dir/file', isCut: true|false }
-window.PasteFile = async function(destinationRelPath, clipboardItems) {
-  if (!destinationRelPath) throw new Error('No destination path');
-  if (!Array.isArray(clipboardItems) || !clipboardItems.length) throw new Error('No clipboard items');
   const directions = [
-    { copy: true, directions: clipboardItems },
-    { paste: true, path: String(destinationRelPath) },
-    { end: true }
+    {
+      edit: true,
+      path: String(relPath),
+      contents: String(contents || ""),
+      replace: !!options.replace,
+    },
+    { end: true },
   ];
   return await filePost({ saveSnapshot: true, directions });
 };
 
+window.DeleteFile = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const directions = [{ delete: true, path: String(relPath) }, { end: true }];
+  return await filePost({ saveSnapshot: true, directions });
+};
 
+window.RenameFile = async function (relPath, newName) {
+  if (!relPath) throw new Error("No path");
+  if (!newName) throw new Error("No new name");
+  const directions = [
+    { rename: true, path: String(relPath), newName: String(newName) },
+    { end: true },
+  ];
+  return await filePost({ saveSnapshot: true, directions });
+};
 
-
-
-
+// clipboardItems: array of { path: 'root/dir/file', isCut: true|false }
+window.PasteFile = async function (destinationRelPath, clipboardItems) {
+  if (!destinationRelPath) throw new Error("No destination path");
+  if (!Array.isArray(clipboardItems) || !clipboardItems.length)
+    throw new Error("No clipboard items");
+  const directions = [
+    { copy: true, directions: clipboardItems },
+    { paste: true, path: String(destinationRelPath) },
+    { end: true },
+  ];
+  return await filePost({ saveSnapshot: true, directions });
+};

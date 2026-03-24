@@ -123,7 +123,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   let _isMinimized = false;
   atTop = "textEditor";
   const root = document.createElement("div");
-  root.className = "sim-chrome-root";
+  root.className = "app-root";
   Object.assign(root.style, {
     position: "fixed",
     top: posY + "px",
