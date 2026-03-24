@@ -2388,18 +2388,26 @@ window.browser = function (
         onlyloadTree();
 
         let fullPath;
+        function getSessionAuthHeaders() {
+          const headers = { "Content-Type": "application/json" };
+          const token =
+            window.data && typeof window.data.authToken === "string"
+              ? window.data.authToken.trim()
+              : "";
+          if (token) headers.Authorization = "Bearer " + token;
+          return headers;
+        }
         // Fetch file content from backend
         async function fetchFileContent(username, fileFullPath) {
           if (!fileFullPath) throw new Error("No file path provided");
 
           const res = await fetch(SERVER, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getSessionAuthHeaders(),
             body: JSON.stringify({
               requestFile: true,
               requestFileName: fileFullPath, // send path relative to root
               username,
-              password: password, // include password for authentication
             }),
           });
 
@@ -2532,13 +2540,12 @@ window.browser = function (
               } else {
                 const r = await fetch(SERVER, {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: getSessionAuthHeaders(),
                   body: JSON.stringify({
                     requestFile: true,
                     requestFileName: fullPath,
                     chunkIndex: i,
                     username,
-                    password,
                   }),
                 });
                 const chunkData = await r.json();
@@ -2701,13 +2708,12 @@ window.browser = function (
                 else {
                   const r = await fetch(SERVER, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: getSessionAuthHeaders(),
                     body: JSON.stringify({
                       requestFile: true,
                       requestFileName: file.fullPath,
                       chunkIndex: ci,
                       username,
-                      password: password,
                     }),
                   });
                   const cd = await r.json();
