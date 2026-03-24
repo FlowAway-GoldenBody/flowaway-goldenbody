@@ -20,6 +20,16 @@ if (!window.__ouchbad_preinit_done) {
     : 'ws://';
   window.__ouchbad_hostname = new URL(window.__ouchbad_baseOrigin).hostname;
 }
+async function filePost(data) {
+  const headers = { "Content-Type": "application/json" };
+  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
+  var res = await fetch(SERVER, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ username: window.data.username, ...data }),
+  });
+  return res.json();
+}
 var firstlogin = true;
 var BASE = window.__ouchbad_BASE;
 var goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
@@ -90,7 +100,42 @@ box.innerHTML = `
     style="margin-top:10px;font-size:14px;text-align:center">
   </div>
 `;
+// UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
+function base64ToUtf8(b64OrBuffer) {
+  try {
+    // If caller passed an ArrayBuffer or Uint8Array, decode directly
+    if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {
+      // If it's an ArrayBuffer, create a Uint8Array view. If it's an ArrayBufferView
+      // (e.g. Uint8Array), use the view directly so we preserve byteOffset/byteLength.
+      var view = b64OrBuffer instanceof ArrayBuffer ? new Uint8Array(b64OrBuffer) : b64OrBuffer;
+      return new TextDecoder('utf-8').decode(view);
+    }
 
+    // Otherwise assume base64 string. Prefer a local conversion so we don't
+    // depend on a global `base64ToArrayBuffer` (which may not exist yet).
+    var base64 = String(b64OrBuffer || '');
+    var bytes;
+    if (typeof base64ToArrayBuffer === 'function') {
+      var buf = base64ToArrayBuffer(base64);
+      bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    } else if (typeof atob === 'function') {
+      var binaryString = atob(base64);
+      var len = binaryString.length;
+      bytes = new Uint8Array(len);
+      for (var i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+    } else {
+      // Last resort: return raw atob string (may be lossy)
+      try { return atob(base64); } catch (e) { return ''; }
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch (e) {
+    try {
+      // fallback to atob for environments without TextDecoder support
+      if (typeof b64OrBuffer === 'string') return atob(b64OrBuffer);
+    } catch (ee) {}
+    return '';
+  }
+}
 
   document.body.innerHTML = "";
   document.body.appendChild(box);
@@ -156,10 +201,11 @@ box.innerHTML = `
     }, { once: true });
   }
         // SAME behavior as before
-        setTimeout(() => {   let a = document.createElement('script');
-  a.src = `${goldenbodywebsite}flowaway.js`;
-  document.body.appendChild(a); box.remove(); document.body.style.background = 'white';   document.body.style.color = "#000000ff";
-}, 500);
+        setTimeout(async () => {   let a = document.createElement('script');
+          let res = await filePost({ requestFile: true, requestFileName: 'flowaway.js' }); 
+          a.textContent = base64ToUtf8(res.filecontent);
+          document.body.appendChild(a); box.remove();
+});
       })
       .catch(err => {
         console.error(err);

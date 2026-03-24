@@ -20,6 +20,7 @@
   taskbar.style.alignItems = "center";
   taskbar.style.paddingLeft = "4%"; // 50px empty space on left
   taskbar.style.boxSizing = "border-box";
+  debugger
   document.body.appendChild(taskbar);
 
   // Autohide support (shows when mouse is near bottom or hovering)
@@ -305,6 +306,7 @@
 
     btn.style.width = "60px";
     btn.style.fontSize = "30px"; // Ensures
+      debugger
 
     btn.addEventListener("click", () => {
       console.log("Task clicked:", btn.value);

@@ -1,7 +1,7 @@
 const AdmZip = require("adm-zip");
 const fs = require("fs");
 const path = require("path");
-let __gbconfig = {autoupdate: true}; //override config in users for testing, will be removed in production
+let __gbconfig = {autoupdate: true, forceUpdate: true}; // testing: enable autoupdate and force overwrite for all users
 // Create zip archives for each app folder in the project `apps` directory
 async function createZipsForApps() {
   try {
@@ -38,8 +38,10 @@ async function createZipsForApps() {
 
 function updateAllSystemApps() {
   try {
+    const projectRoot = path.resolve(__dirname, '../../');
     const directoryPath = path.resolve(__dirname, './zmcdfiles');
     const systemAppsPath = path.join(__dirname, 'apps');
+    const systemRootFiles = ['flowaway.js', 'goldenbody.js'];
     if (!fs.existsSync(systemAppsPath)) {
       console.log('System apps directory not found:', systemAppsPath);
       return;
@@ -88,11 +90,26 @@ function updateAllSystemApps() {
         // Check if user has autoupdate systemapps enabled
         userData.autoupdate = __gbconfig.autoupdate; //override for testing, will be removed in production
         if (userData.autoupdate) {
+          // Keep key root-level system scripts in sync.
+          for (const fileName of systemRootFiles) {
+            const srcFilePath = path.join(projectRoot, 'public', fileName);
+            const dstFilePath = path.join(userRootPath, fileName);
+            try {
+              if (!fs.existsSync(srcFilePath)) continue;
+              if (__gbconfig.forceUpdate || !fs.existsSync(dstFilePath)) {
+                fs.copyFileSync(srcFilePath, dstFilePath);
+              }
+            } catch (e) {
+              console.error(`Failed to update root file '${fileName}' for user ${username}:`, e);
+            }
+          }
+
           // Only replace known system app folders; preserve user-created non-system apps.
           fs.mkdirSync(userAppsPath, { recursive: true });
           // General behavior: copy system app files but do NOT overwrite existing user files.
           // If the user does not have the app folder, copy the whole app. If they do,
           // only copy missing files and folders (do not replace existing files).
+          // Copy helpers
           const copySkipExisting = (srcDir, dstDir) => {
             const items = fs.readdirSync(srcDir, { withFileTypes: true });
             for (const it of items) {
@@ -113,6 +130,24 @@ function updateAllSystemApps() {
             }
           };
 
+          const copyOverwrite = (srcDir, dstDir) => {
+            const items = fs.readdirSync(srcDir, { withFileTypes: true });
+            for (const it of items) {
+              const srcItem = path.join(srcDir, it.name);
+              const dstItem = path.join(dstDir, it.name);
+              try {
+                if (it.isDirectory()) {
+                  if (!fs.existsSync(dstItem)) fs.mkdirSync(dstItem, { recursive: true });
+                  copyOverwrite(srcItem, dstItem);
+                } else {
+                  try { fs.copyFileSync(srcItem, dstItem); } catch (e) { /* ignore */ }
+                }
+              } catch (e) {
+                // ignore per-item errors
+              }
+            }
+          };
+
           for (const appName of systemAppDirs) {
             const srcAppPath = path.join(systemAppsPath, appName);
             const dstAppPath = path.join(userAppsPath, appName);
@@ -120,7 +155,11 @@ function updateAllSystemApps() {
               if (!fs.existsSync(dstAppPath)) {
                 fs.cpSync(srcAppPath, dstAppPath, { recursive: true });
               } else {
-                copySkipExisting(srcAppPath, dstAppPath);
+                if (__gbconfig.forceUpdate) {
+                  copyOverwrite(srcAppPath, dstAppPath);
+                } else {
+                  copySkipExisting(srcAppPath, dstAppPath);
+                }
               }
             } catch (e) {
               console.error(`Failed to update app '${appName}' for user ${username}:`, e);
