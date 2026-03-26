@@ -388,7 +388,6 @@ var rebuildhandler = function () {
   try {
     try {
       window._flowawayIsRebuilding = true;
-      suppressSessionExpiredDialog(20000);
     } catch (e) {}
     try {
       for (const app of window.apps) {
@@ -616,7 +615,7 @@ try {
 } catch (e) {}
 
 function showSessionExpiredDialog() {
-  if (document.getElementById("session-expired-dialog")) {
+  if (document.getElementById("session-expired-dialog") || window._flowawayIsRebuilding) {
     // already shown
     return;
   }
@@ -765,24 +764,15 @@ function showSessionExpiredDialog() {
     refillBtn.textContent = "Refill Session";
   });
   reloadBtn.addEventListener("click", () => {
-    suppressSessionExpiredDialog(20000);
     rebuildhandler();
   });
 
   document.body.appendChild(dlg);
 }
 
-function suppressSessionExpiredDialog(ms = 8000) {
-  var duration = Number(ms);
-  if (!Number.isFinite(duration) || duration < 0) duration = 8000;
-  window._flowawaySuppressSessionExpiredUntil = Date.now() + duration;
-}
-
-function isSessionExpiredDialogSuppressed() {
-  if (window._flowawayIsRebuilding) return true;
-  var until = Number(window._flowawaySuppressSessionExpiredUntil || 0);
-  return until > Date.now();
-}
+// Session-expired suppression removed. Previously set/checked a global
+// `window._flowawaySuppressSessionExpiredUntil`; this logic is no longer
+// required and has been removed.
 
 function getCurrentUsernameForRequests() {
   var liveUsername = "";
@@ -800,16 +790,11 @@ function getCurrentUsernameForRequests() {
 
   if (liveUsername && liveUsername !== username) {
     username = liveUsername;
-    suppressSessionExpiredDialog(4000);
   }
 
   return liveUsername || username;
 }
 
-function maybeShowSessionExpiredDialog() {
-  if (isSessionExpiredDialogSuppressed()) return;
-  showSessionExpiredDialog();
-}
 
 async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
@@ -837,7 +822,7 @@ async function filePost(data) {
   }
   if (res.status === 401 && !firstlogin) {
     try {
-      maybeShowSessionExpiredDialog();
+      showSessionExpiredDialog();
     } catch (e) {}
     return body || { error: "unauthorized" };
   }
@@ -870,7 +855,7 @@ async function zmcdpost(data) {
   }
   if (res.status === 401) {
     try {
-      maybeShowSessionExpiredDialog();
+      showSessionExpiredDialog();
     } catch (e) {}
     return body || { error: "unauthorized" };
   }
@@ -903,7 +888,7 @@ async function posttaskbuttons(data) {
   }
   if (res.status === 401) {
     try {
-      maybeShowSessionExpiredDialog();
+      showSessionExpiredDialog();
     } catch (e) {}
     return body || { error: "unauthorized" };
   }
@@ -938,7 +923,7 @@ async function downloadPost(data) {
   }
   if (res.status === 401) {
     try {
-      maybeShowSessionExpiredDialog();
+      showSessionExpiredDialog();
     } catch (e) {}
     return body || { error: "unauthorized" };
   }
@@ -4971,7 +4956,6 @@ try {
       sb.removeEventListener("click", window._flowaway_handlers.onSignOut);
     window._flowaway_handlers.onSignOut = () => {
       try {
-        suppressSessionExpiredDialog(20000);
         rebuildhandler();
       } catch (e) {
         console.error("rebuildhandler error", e);
