@@ -330,6 +330,7 @@ browserGlobals.unshuffleURL = function (url) {
   } else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
     return "goldenbody://app-store/";
   }
+  if(!url.includes(BASE)) {return url};
   url = url.split("/");
   if (url) {
     if (typeof url === "string") {
@@ -2075,7 +2076,7 @@ window.browser = function (
             openItem.style.font = "Arial";
             openItem.onmouseleave = () => (openItem.style.background = "none");
             openItem.onclick = () => {
-              addTab(linkElement.href, "New Tab");
+              addTab(browserGlobals.unshuffleURL(linkElement.href), "New Tab");
               hideMenu();
             };
             menu.appendChild(openItem);
@@ -2095,7 +2096,7 @@ window.browser = function (
             openItem2.onmouseleave = () =>
               (openItem2.style.background = "none");
             openItem2.onclick = () => {
-              browser(linkElement.href);
+              browser(browserGlobals.unshuffleURL(linkElement.href));
               hideMenu();
             };
             menu.appendChild(openItem2);
@@ -2112,7 +2113,7 @@ window.browser = function (
             copyItem.onmouseenter = () => (copyItem.style.background = "#444");
             copyItem.onmouseleave = () => (copyItem.style.background = "none");
             copyItem.onclick = async () => {
-              await navigator.clipboard.writeText(linkElement.href);
+              await navigator.clipboard.writeText(browserGlobals.unshuffleURL(linkElement.href));
               hideMenu();
             };
             menu.appendChild(copyItem);
@@ -2130,7 +2131,7 @@ window.browser = function (
             download.onmouseleave = () => (download.style.background = "none");
             download.onclick = () => {
               downloadPost({
-                href: linkElement.href,
+                href: browserGlobals.unshuffleURL(linkElement.href),
                 filename: linkElement.href.split("/").pop().split("?")[0],
               });
               hideMenu();
