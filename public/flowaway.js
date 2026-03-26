@@ -2,6 +2,14 @@
 if (!window.data) window.data = data;
 window.loaded = false;
 window.APP_VERSION = "v1.12.7";
+
+if (typeof data.autohidetaskbar === "undefined") {
+  data.autohidetaskbar = false;
+}
+var hasChanges;
+var atTop = "";
+var zTop = 10;
+
 function formatBytes(bytes, decimals = 2) {
   if (bytes === 0) return "0 Bytes";
 
@@ -371,12 +379,6 @@ window.applyWindowControlIcon = function (button, iconName, options = {}) {
 window.setWindowMaximizeIcon = function (button, isMaximized) {
   window.applyWindowControlIcon(button, isMaximized ? "restore" : "maximize");
 };
-if (typeof data.autohidetaskbar === "undefined") {
-  data.autohidetaskbar = false;
-}
-var hasChanges;
-var atTop = "";
-var zTop = 10;
 document.body.style.backgroundImage =
   "url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)";
 document.body.style.backgroundSize = "cover";
@@ -390,7 +392,8 @@ var rebuildhandler = function () {
     } catch (e) {}
     try {
       for (const app of window.apps) {
-        for (const win of window[app.globalvarobject][app.allapparray] || []) {
+        if(!window[app.globalvarobject][app.allapparray]) continue;
+        for (const win of window[app.globalvarobject][app.allapparray]) {
           try {
             win.closeWindow();
           } catch (e) {}
@@ -1696,10 +1699,11 @@ async function loadAppsFromTree() {
 }
 
 async function renderAppsGrid() {
-  var container = document.getElementById("appsGrid");
-  if (!container) return;
-  // Remove all current children to render fresh
-  container.innerHTML = "";
+  // Load config and render pinned apps
+  if (!window._startMenuConfig) await loadStartMenuConfig();
+  await renderPinnedAppsGrid();
+  // Also load all app scripts
+  if (!window.apps) return;
   for (const app of window.apps) {
     try {
       if (!app.icon) {
@@ -1783,17 +1787,8 @@ async function renderAppsGrid() {
         }
         continue;
       }
-      var div = document.createElement("div");
-      div.className = "app";
-      div.dataset.appId = getPreferredAppIdentifier(app);
-      div.id = (app.startbtnid || app.id) + "app";
-      div.style.padding = "10px";
-      div.style.borderRadius = "6px";
-      div.style.textAlign = "center";
-      div.style.cursor = "pointer";
-      div.id = app.startbtnid || app.id;
-      div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
-      container.appendChild(div);
+      // Skip old rendering - handled by new renderPinnedAppsGrid/renderAllAppsGrid/renderRecentsGrid
+      // Just load the app script
       if (!app.scriptLoaded && app.jsFile) {
         try {
           var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
@@ -1868,28 +1863,8 @@ async function renderAppsGrid() {
           });
         }
       }
-      try {
-        var appGlobalObj =
-          app && app.globalvarobject ? window[app.globalvarobject] : null;
-        var l1ContextHandler =
-          appGlobalObj &&
-          app.cmfl1 &&
-          typeof appGlobalObj[app.cmfl1] === "function"
-            ? appGlobalObj[app.cmfl1]
-            : function () {
-                notification("no right click menu attatched for this app!!!");
-              };
-        div.addEventListener("contextmenu", l1ContextHandler);
-      } catch (e) {
-        flowawayError(
-          "renderAppsGrid",
-          "Failed to attach app context menu",
-          e,
-          { appId: app && app.id },
-        );
-      }
     } catch (e) {
-      flowawayError("renderAppsGrid", "Failed while rendering app tile", e, {
+      flowawayError("renderAppsGrid", "Failed while loading app", e, {
         appId: app && app.id,
         path: app && app.path,
       });
@@ -4382,7 +4357,7 @@ var css = `
 
     .startMenuBody {
       position: absolute;
-      top: 52px;
+      top: 88px;
       left: 10px;
       right: 10px;
       bottom: 74px;
@@ -4485,6 +4460,135 @@ var css = `
     background: #e6e6e6;
 }
 
+/* Start Menu Tabs */
+.startMenuTabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.startMenuTab {
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: 0.2s;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.startMenuTab.active {
+  border-bottom-color: #4A90E2;
+  color: #4A90E2;
+}
+
+.startMenu.dark .startMenuTab:hover {
+  background: #333;
+}
+
+.startMenu.light .startMenuTab:hover {
+  background: #f0f0f0;
+}
+
+/* Tab Content Sections */
+.tabSection {
+  display: none;
+}
+
+.tabSection.active {
+  display: block;
+}
+
+/* App Grid Improvements */
+.tabSection.active.grid-view {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.tabSection.active.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tabSection.list-view .app {
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tabSection.grid-view .app {
+  margin: 0;
+  min-width: 0;
+}
+
+/* Dragging feedback */
+.app {
+  user-select: none;
+}
+
+.app.dragging {
+  opacity: 0.5;
+  background: rgba(255,255,255,0.2) !important;
+}
+
+.app.drag-over {
+  border: 2px dashed #4A90E2;
+  background: rgba(74, 144, 226, 0.1) !important;
+}
+
+.app:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* Context Menu */
+.app-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #2a2a2a;
+  color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  min-width: 180px;
+}
+
+.startMenu.light .app-context-menu {
+  background: #f5f5f5;
+  color: black;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+.context-menu-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  transition: 0.1s;
+}
+
+.context-menu-item:hover {
+  background: rgba(74, 144, 226, 0.2);
+}
+
+.context-menu-item.danger:hover {
+  background: rgba(229, 62, 62, 0.2);
+  color: #e53e3e;
+}
+
+.startMenu.light .context-menu-item:hover {
+  background: rgba(74, 144, 226, 0.1);
+}
 
 `;
 var styleTag = document.createElement("style");
@@ -4493,7 +4597,71 @@ document.head.appendChild(styleTag);
 
 // ----------------- CREATE START BUTTON -----------------
 
-// ----------------- CREATE START MENU -----------------
+// ============= START MENU CONFIG SYSTEM =============
+window._startMenuConfig = null;
+
+async function loadStartMenuConfig() {
+  try {
+    const configPath = 'startmenuAppConfig/startMenu-config.json';
+    const configData = await fetchFileContentByPath(configPath);
+    const configText = base64ToUtf8(configData);
+    window._startMenuConfig = JSON.parse(configText);
+    return window._startMenuConfig;
+  } catch (e) {
+    flowawayError('startMenu', 'Failed to load config, using defaults', e);
+    window._startMenuConfig = {
+      version: '1.0',
+      pinnedApps: [],
+      hiddenApps: [],
+      appOrder: [],
+      recents: [],
+      maxRecents: 5,
+      displayMode: 'grid',
+      gridColumns: 4
+    };
+    return window._startMenuConfig;
+  }
+}
+
+async function saveStartMenuConfig() {
+  try {
+    if (!window._startMenuConfig) return;
+    const configJson = JSON.stringify(window._startMenuConfig, null, 2);
+    await filePost({
+      action: 'saveStartMenuConfig',
+      configJson: configJson
+    });
+  } catch (e) {
+    flowawayError('startMenu', 'Failed to save config', e);
+  }
+}
+
+function addToRecents(appId) {
+  if (!window._startMenuConfig) return;
+  const recents = window._startMenuConfig.recents || [];
+  const index = recents.indexOf(appId);
+  if (index > -1) recents.splice(index, 1);
+  recents.unshift(appId);
+  if (recents.length > (window._startMenuConfig.maxRecents || 5)) {
+    recents.pop();
+  }
+  window._startMenuConfig.recents = recents;
+  saveStartMenuConfig();
+}
+
+function removeFromStartMenu(appId) {
+  if (!window._startMenuConfig) return;
+  const pinnedApps = window._startMenuConfig.pinnedApps || [];
+  const index = pinnedApps.indexOf(appId);
+  if (index > -1) {
+    pinnedApps.splice(index, 1);
+    window._startMenuConfig.pinnedApps = pinnedApps;
+    saveStartMenuConfig();
+    renderPinnedAppsGrid();
+  }
+}
+
+// ============= CREATE START MENU -================
 try {
   var existingStartMenu = document.getElementById("startMenu");
   if (existingStartMenu) existingStartMenu.remove();
@@ -4504,11 +4672,18 @@ startMenu.className = "startMenu";
 startMenu.style.zIndex = 999;
 startMenu.innerHTML = `
 
-<h3 style="margin:0 0 10px 0; font-size:18px;">Apps</h3>
+<h3 style="margin:0 0 10px 0; font-size:18px;">Start</h3>
+
+<div class="startMenuTabs">
+  <button class="startMenuTab active" data-tab="pinned">Pinned</button>
+  <button class="startMenuTab" data-tab="recents">Recent</button>
+  <button class="startMenuTab" data-tab="all">All Apps</button>
+</div>
 
 <div class="startMenuBody">
-    <!-- Dynamic apps grid (populated from user's /apps folder) -->
-    <div id="appsGrid"></div>
+    <div id="appsGrid" class="tabSection active grid-view" data-tab="pinned"></div>
+    <div id="recentsGrid" class="tabSection grid-view" data-tab="recents"></div>
+    <div id="allAppsGrid" class="tabSection grid-view" data-tab="all"></div>
 </div>
 
     <div class="statusBar">
@@ -4526,9 +4701,271 @@ startMenu.innerHTML = `
 
 document.body.appendChild(startMenu);
 
+// Load config on startup
+(async () => {
+  await loadStartMenuConfig();
+  await loadAppsFromTree();
+})();
+
+// ============= TAB SWITCHING =============
+window.tabButtons = startMenu.querySelectorAll('.startMenuTab');
+window.tabSections = startMenu.querySelectorAll('.tabSection');
+
+function switchTab(tabName) {
+  if (!tabName) return;
+  try {
+    document
+      .querySelectorAll('.app-context-menu, .app-menu')
+      .forEach(function (menuNode) {
+        try {
+          menuNode.remove();
+        } catch (e) {}
+      });
+  } catch (e) {}
+  // Hide all sections
+  tabSections.forEach(function (section) {
+    section.classList.remove('active');
+    section.style.display = 'none';
+  });
+  // Deactivate all tabs
+  tabButtons.forEach(function (btn) {
+    btn.classList.remove('active');
+  });
+  
+  // Show selected section
+  var section = startMenu.querySelector(`.tabSection[data-tab="${tabName}"]`);
+  if (section) {
+    section.classList.add('active');
+    section.style.display = section.classList.contains('list-view')
+      ? 'flex'
+      : 'grid';
+  }
+  
+  // Activate selected tab
+  var btn = startMenu.querySelector(`.startMenuTab[data-tab="${tabName}"]`);
+  if (btn) btn.classList.add('active');
+  
+  // Render appropriate grid
+  if (tabName === 'pinned') renderPinnedAppsGrid();
+  else if (tabName === 'recents') renderRecentsGrid();
+  else if (tabName === 'all') renderAllAppsGrid();
+}
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    switchTab(this.dataset && this.dataset.tab);
+  });
+});
+
+// ============= RENDER FUNCTIONS ============= 
+async function renderPinnedAppsGrid() {
+  const container = document.getElementById('appsGrid');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  if (!window._startMenuConfig || !window.apps) return;
+  
+  const pinnedApps = window._startMenuConfig.pinnedApps || [];
+  const appsMap = new Map(window.apps.map(app => [
+    getPreferredAppIdentifier(app), app
+  ]));
+  
+  for (const appId of pinnedApps) {
+    const app = appsMap.get(appId);
+    if (!app || !app.icon) continue;
+    createAppTile(app, container, true);
+  }
+}
+
+async function renderRecentsGrid() {
+  const container = document.getElementById('recentsGrid');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  if (!window._startMenuConfig || !window.apps) return;
+  
+  const recents = window._startMenuConfig.recents || [];
+  const appsMap = new Map(window.apps.map(app => [
+    getPreferredAppIdentifier(app), app
+  ]));
+  
+  for (const appId of recents) {
+    const app = appsMap.get(appId);
+    if (!app || !app.icon) continue;
+    createAppTile(app, container, false);
+  }
+  
+  if (container.children.length === 0) {
+    container.innerHTML = '<p style="text-align:center;opacity:0.6;font-size:13px;">No recent apps</p>';
+  }
+}
+
+async function renderAllAppsGrid() {
+  const container = document.getElementById('allAppsGrid');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  if (!window.apps) return;
+  
+  for (const app of window.apps) {
+    if (!app.icon) continue;
+    createAppTile(app, container, false);
+  }
+}
+
+function createAppTile(app, container, draggable) {
+  const div = document.createElement('div');
+  div.className = 'app';
+  div.dataset.appId = getPreferredAppIdentifier(app);
+  div.id = (app.startbtnid || app.id) + 'app';
+  div.style.padding = '10px';
+  div.style.borderRadius = '6px';
+  div.style.textAlign = 'center';
+  div.style.cursor = 'pointer';
+  if (draggable) {
+    div.draggable = true;
+  }
+  div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
+  
+  // Drag events for reordering pinned apps
+  if (draggable) {
+    div.addEventListener('dragstart', (e) => {
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('appId', div.dataset.appId);
+    });
+    
+    div.addEventListener('dragend', () => {
+      div.classList.remove('dragging');
+      document.querySelectorAll('.app.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+    
+    div.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      div.classList.add('drag-over');
+    });
+    
+    div.addEventListener('dragleave', () => {
+      div.classList.remove('drag-over');
+    });
+    
+    div.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      div.classList.remove('drag-over');
+      const appId = e.dataTransfer.getData('appId');
+      const pinnedApps = window._startMenuConfig.pinnedApps || [];
+      const fromIndex = pinnedApps.indexOf(appId);
+      const toIndex = pinnedApps.indexOf(div.dataset.appId);
+      if (fromIndex > -1 && toIndex > -1 && fromIndex !== toIndex) {
+        pinnedApps.splice(fromIndex, 1);
+        pinnedApps.splice(toIndex, 0, appId);
+        window._startMenuConfig.pinnedApps = pinnedApps;
+        await saveStartMenuConfig();
+        renderPinnedAppsGrid();
+      }
+    });
+  }
+
+  function runAppPackageContextMenu(evt) {
+    try {
+      var appGlobalObj =
+        app && app.globalvarobject ? window[app.globalvarobject] : null;
+      var l1ContextHandler =
+        appGlobalObj &&
+        app.cmfl1 &&
+        typeof appGlobalObj[app.cmfl1] === 'function'
+          ? appGlobalObj[app.cmfl1]
+          : null;
+      if (l1ContextHandler) {
+        l1ContextHandler.call(appGlobalObj, evt);
+      }
+    } catch (err) {
+      flowawayError('createAppTile', 'Failed to run app package context menu', err, {
+        appId: app && app.id,
+      });
+    }
+  }
+  
+  // Context menu
+  div.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    runAppPackageContextMenu(e);
+    showAppContextMenu(e.clientX, e.clientY, app, draggable);
+  });
+  
+  // Click to launch
+  div.addEventListener('click', () => {
+    addToRecents(div.dataset.appId);
+    launchApp(div.dataset.appId);
+    startMenu.style.display = 'none';
+  });
+  
+  container.appendChild(div);
+}
+
+function showAppContextMenu(x, y, app, canPin) {
+  // Remove existing menu
+  const existing = document.querySelector('.app-context-menu');
+  if (existing) existing.remove();
+  
+  const menu = document.createElement('div');
+  menu.className = 'app-context-menu';
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  
+  const appId = getPreferredAppIdentifier(app);
+  const pinnedApps = window._startMenuConfig.pinnedApps || [];
+  const isPinned = pinnedApps.includes(appId);
+  
+  let html = '';
+  
+  if (!canPin && !isPinned) {
+    html += `<button class="context-menu-item" data-action="pin">📌 Pin to Start Menu</button>`;
+  } else if (!canPin && isPinned) {
+    html += `<button class="context-menu-item danger" data-action="unpin">📌 Unpin from Start Menu</button>`;
+  }
+  
+  if (canPin) {
+    html += `<button class="context-menu-item danger" data-action="remove">❌ Remove from Start Menu</button>`;
+  }
+  
+  menu.innerHTML = html;
+  document.body.appendChild(menu);
+  
+  // Attach handlers
+  menu.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const action = item.dataset.action;
+      if (action === 'pin') {
+        pinnedApps.push(appId);
+        window._startMenuConfig.pinnedApps = pinnedApps;
+        await saveStartMenuConfig();
+        switchTab('pinned');
+      } else if (action === 'unpin' || action === 'remove') {
+        removeFromStartMenu(appId);
+      }
+      menu.remove();
+    });
+  });
+  
+  // Close on outside click
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 0);
+}
+
 // Wire up sign out button (now inside the statusRight area) to call rebuildhandler
 try {
-  const sb = document.getElementById("signOutBtn");
+  var sb = document.getElementById("signOutBtn");
   if (sb) {
     if (window._flowaway_handlers.onSignOut)
       sb.removeEventListener("click", window._flowaway_handlers.onSignOut);
@@ -4639,30 +5076,15 @@ try {
 var starthandler = () => {
   startMenu.style.display =
     startMenu.style.display === "block" ? "none" : "block";
+  // Auto-switch to pinned tab when opening
+  if (startMenu.style.display === "block") {
+    switchTab("pinned");
+  }
 };
 
-// ----------------- OPEN APP ACTION -----------------
-// Delegated click handler: apps rendered dynamically will set data-app-id to the app id
-try {
-  if (window._flowaway_handlers.onStartMenuClick)
-    startMenu.removeEventListener(
-      "click",
-      window._flowaway_handlers.onStartMenuClick,
-    );
-  window._flowaway_handlers.onStartMenuClick = (e) => {
-    var el = e.target;
-    while (el && !el.classList.contains("app")) el = el.parentElement;
-    if (!el) return;
-    var appId = el.dataset.appId;
-    if (!appId) return;
-    launchApp(appId);
-    startMenu.style.display = "none";
-  };
-  startMenu.addEventListener(
-    "click",
-    window._flowaway_handlers.onStartMenuClick,
-  );
-} catch (e) {}
+// Note: App launching is now handled by createAppTile click handler
+// which includes addToRecents and closes the menu
+
 
 // ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
 try {
@@ -4672,6 +5094,14 @@ try {
       window._flowaway_handlers.onDocumentClick,
     );
   window._flowaway_handlers.onDocumentClick = (e) => {
+    var contextMenuRoot = e.target && e.target.closest
+      ? e.target.closest(
+          '.app-context-menu, .app-menu, #custom-context-menu, [id*="context-menu"], [class*="context-menu"], [class*="contextmenu"], .misc',
+        )
+      : null;
+    if (contextMenuRoot) {
+      return;
+    }
     if (
       !startMenu.contains(e.target) &&
       e.target !== document.getElementById("▶")

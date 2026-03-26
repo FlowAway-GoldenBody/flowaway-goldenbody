@@ -165,6 +165,29 @@ fs.cpSync(
                         if (!fs.existsSync(gbenvPath)) {
                           fs.writeFileSync(gbenvPath, 'window.__gbenv_shortcut = {};\n');
                         }
+                        
+                        // Create startmenuAppConfig directory and startMenu-config.json for new user
+                        const userStartMenuPath = path.join(userDirectoryPath, 'root', 'startmenuAppConfig');
+                        fs.mkdirSync(userStartMenuPath, { recursive: true });
+                        const userStartMenuConfigPath = path.join(userStartMenuPath, 'startMenu-config.json');
+                        const sourceStartMenuConfigPath = path.join(__dirname, 'app-config', 'startMenu-config.json');
+                        if (!fs.existsSync(userStartMenuConfigPath)) {
+                          if (fs.existsSync(sourceStartMenuConfigPath)) {
+                            fs.copyFileSync(sourceStartMenuConfigPath, userStartMenuConfigPath);
+                          } else {
+                            const defaultStartMenuConfig = {
+                              version: '1.0',
+                              pinnedApps: [],
+                              hiddenApps: [],
+                              appOrder: [],
+                              recents: [],
+                              maxRecents: 5,
+                              displayMode: 'grid',
+                              gridColumns: 4
+                            };
+                            fs.writeFileSync(userStartMenuConfigPath, JSON.stringify(defaultStartMenuConfig, null, 2));
+                          }
+                        }
             // Issue a token for the newly created account and do not return plaintext password
             const token = crypto.randomBytes(24).toString('hex');
             const expires = Date.now() + 1000 * 60 * 60; // 1 hour
@@ -192,6 +215,34 @@ fs.cpSync(
                 } catch (e) {
                   fs.cpSync(projectroot + '/public/goldenbody.js', directoryPath + data.username + '/' + 'root' + '/' + 'goldenbody.js');
                 }
+              
+              // Ensure startMenu-config.json exists for existing users
+              try {
+                const userAppsPath = path.join(directoryPath, data.username, 'root', 'startmenuAppConfig');
+                fs.mkdirSync(userAppsPath, { recursive: true });
+                const startMenuConfigPath = path.join(userAppsPath, 'startMenu-config.json');
+                const sourceStartMenuConfigPath = path.join(__dirname, 'app-config', 'startMenu-config.json');
+                if (!fs.existsSync(startMenuConfigPath)) {
+                  if (fs.existsSync(sourceStartMenuConfigPath)) {
+                    fs.copyFileSync(sourceStartMenuConfigPath, startMenuConfigPath);
+                  } else {
+                    const defaultStartMenuConfig = {
+                      version: '1.0',
+                      pinnedApps: [],
+                      hiddenApps: [],
+                      appOrder: [],
+                      recents: [],
+                      maxRecents: 5,
+                      displayMode: 'grid',
+                      gridColumns: 4
+                    };
+                    fs.writeFileSync(startMenuConfigPath, JSON.stringify(defaultStartMenuConfig, null, 2));
+                  }
+                }
+              } catch (e) {
+                console.warn('Failed to ensure startMenu-config.json for user', data.username, e);
+              }
+              
               console.log(content);
             } catch (e) {
               console.error('Error reading user file:', e.message);

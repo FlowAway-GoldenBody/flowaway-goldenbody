@@ -11,7 +11,7 @@ window.__globalAddTab = function (url, index) {
   return t.iframe.contentWindow;
 };
 browserGlobals.allBrowsers = [];
-browserGlobals.browserId = 0;
+browserGlobals.goldenbodyId = 0;
 browserGlobals.proxyurl = window.origin + "/";
 browserGlobals.dragstartwindow = null;
 browserGlobals.__vfsMessageListenerAdded = false;
@@ -667,8 +667,8 @@ window.browser = function (
       overflow: "hidden",
     });
     bringToFront(root);
-    browserGlobals.browserId++;
-    root._goldenbodyId = browserGlobals.browserId;
+    browserGlobals.goldenbodyId++;
+    root._goldenbodyId = browserGlobals.goldenbodyId;
     root.tabIndex = "0";
     root.addEventListener("styleapplied", () => {
       for (const tab of tabs) {

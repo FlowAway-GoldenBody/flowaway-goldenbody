@@ -530,8 +530,18 @@ async function applyDirections(rootPath, directions, username) {
 
     if (dir.delete) {
       const targetPath = resolvePath(dir.path);
-      if(targetPath.split('/').at(-1) === 'apps') {
-        continue; // prevent deleting 'apps' folder
+      const relativeTarget = path
+        .relative(rootPath, targetPath)
+        .replace(/\\/g, '/');
+      if (relativeTarget === 'apps') {
+        continue; // prevent deleting root 'apps' folder only
+      }
+      const targetExists = await fsp
+        .access(targetPath)
+        .then(() => true)
+        .catch(() => false);
+      if (!targetExists) {
+        continue;
       }
       // Move to hidden .trash folder instead of permanently deleting
       const trashDir = path.join(rootPath, '.trash');
@@ -542,7 +552,23 @@ async function applyDirections(rootPath, directions, username) {
       if (await fsp.access(trashDest).then(() => true).catch(() => false)) {
         trashDest = path.join(trashDir, `${Date.now()}_${itemName}`);
       }
-      await fsp.rename(targetPath, trashDest);
+      try {
+        await fsp.rename(targetPath, trashDest);
+      } catch (e) {
+        if (e && (e.code === 'ENOENT' || e.code === 'ENOTDIR')) {
+          continue;
+        }
+        try {
+          await fs.move(targetPath, trashDest, { overwrite: false });
+        } catch (moveErr) {
+          console.error('soft-delete move failed', {
+            targetPath,
+            trashDest,
+            error: moveErr && (moveErr.stack || moveErr.message || String(moveErr)),
+          });
+          continue;
+        }
+      }
 
       // Clean up any server-side clipboard entries that reference this path
       try {
@@ -909,6 +935,21 @@ if (data.saveSnapshot) {
 
   return res.end(JSON.stringify({ success: true, result, clipboard: result.clipboard }));
 }
+
+// Save start menu config
+if (data.action === 'saveStartMenuConfig' && data.configJson) {
+  try {
+    const configPath = path.join(userRoot, 'startmenuAppConfig', 'startMenu-config.json');
+    await fsp.mkdir(path.dirname(configPath), { recursive: true });
+    await fsp.writeFile(configPath, data.configJson, 'utf8');
+    return res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    console.error('Failed to save startMenu config:', err);
+    res.writeHead(500);
+    return res.end(JSON.stringify({ error: 'Failed to save config: ' + err.message }));
+  }
+}
+
 
 
       res.writeHead(400);

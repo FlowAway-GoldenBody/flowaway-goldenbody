@@ -1,7 +1,7 @@
 //explorer global vars
 window.explorerGlobals = {};
 explorerGlobals.allExplorers = [];
-explorerGlobals.explorerId = 0;
+explorerGlobals.goldenbodyId = 0;
 explorerGlobals.clipboard = {
   item: null, // tree node reference
   path: null, // full path string
@@ -31,8 +31,8 @@ fileExplorer = function (posX = 50, posY = 50) {
   root.dataset.appId = "fileExplorer";
   bringToFront(root);
   document.body.appendChild(root);
-  explorerGlobals.explorerId++;
-  root._goldenbodyId = explorerGlobals.explorerId;
+  explorerGlobals.goldenbodyId++;
+  root._goldenbodyId = explorerGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -996,7 +996,7 @@ fileExplorer = function (posX = 50, posY = 50) {
       ? data.maxSpace * 1024 * 1024 * 1024
       : 1 * 1024 * 1024 * 1024; // fallback 1 GB
   // Deselect when clicking outside file items
-  document.addEventListener("fileExplorer" + root._goldenbodyId, "click", (e) => {
+  root.addEventListener("click", (e) => {
     // Ignore clicks inside the context menu
     if (contextMenu.contains(e.target)) return;
 
@@ -1709,7 +1709,7 @@ fileExplorer = function (posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    explorerId: explorerGlobals.explorerId,
+    goldenbodyId: explorerGlobals.goldenbodyId,
   });
   applyStyles();
 
@@ -1721,7 +1721,7 @@ fileExplorer = function (posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    explorerId: explorerGlobals.explorerId,
+    goldenbodyId: explorerGlobals.goldenbodyId,
   };
 };
 

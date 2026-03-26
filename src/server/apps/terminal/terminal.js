@@ -4,7 +4,7 @@
 
 window.terminalGlobals = {};
 terminalGlobals.allTerminals = [];
-terminalGlobals.terminalId = 0;
+terminalGlobals.goldenbodyId = 0;
 
 terminal = function (posX = 50, posY = 50) {
   notification("Terminal is in beta. Type 'help' for available commands.");
@@ -33,8 +33,8 @@ terminal = function (posX = 50, posY = 50) {
   root.dataset.appId = "terminal";
   bringToFront(root);
   document.body.appendChild(root);
-  terminalGlobals.terminalId++;
-  root._terminalId = terminalGlobals.terminalId;
+  terminalGlobals.goldenbodyId++;
+  root._goldenbodyId = terminalGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -125,7 +125,7 @@ terminal = function (posX = 50, posY = 50) {
       }
     }
     if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
-    window.removeAllEventListenersForApp("terminal" + root._terminalId);
+    window.removeAllEventListenersForApp("terminal" + root._goldenbodyId);
   }
 
   function maximizeWindow() {
@@ -209,7 +209,7 @@ terminal = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("terminal" + root._terminalId, "mousemove", (ev) => {
+      window.addEventListener("terminal" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -225,7 +225,7 @@ terminal = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("terminal" + root._terminalId, "mouseup", () => {
+      window.addEventListener("terminal" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });
@@ -342,7 +342,7 @@ terminal = function (posX = 50, posY = 50) {
   
   // --- EVENT LISTENER ---
   // Listen to clicks on the terminal for any app-specific handlers
-  document.addEventListener("terminal" + root._terminalId, "click", (e) => {
+  document.addEventListener("terminal" + root._goldenbodyId, "click", (e) => {
     // App-specific click handler can be implemented here
   });
 
@@ -1106,7 +1106,7 @@ terminal = function (posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    terminalId: root._terminalId,
+    goldenbodyId: root._goldenbodyId,
   });
   applyStyles();
 
@@ -1118,7 +1118,7 @@ terminal = function (posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    terminalId: root._terminalId,
+    goldenbodyId: root._goldenbodyId,
   };
 };
 
