@@ -1,7 +1,7 @@
 //textEditor global vars
 window.textEditorGlobals = {};
 textEditorGlobals.alltextEditor = [];
-textEditorGlobals.textEditorId = 0;
+textEditorGlobals.goldenbodyId = 0;
 textEditorGlobals.settingsPath = "/apps/textEditor/data/settings.json";
 textEditorGlobals.editorSettings = {
   fontSize: 14,
@@ -142,8 +142,8 @@ textEditor = function (path, posX = 50, posY = 50) {
   root.dataset.appId = "textEditor";
   bringToFront(root);
   document.body.appendChild(root);
-  textEditorGlobals.textEditorId++;
-  root._textEditorId = textEditorGlobals.textEditorId;
+  textEditorGlobals.goldenbodyId++;
+  root._goldenbodyId = textEditorGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -252,7 +252,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       (instance) => instance.rootElement == root,
     );
     if (index !== -1) textEditorGlobals.alltextEditor.splice(index, 1);
-    window.removeAllEventListenersForApp("textEditor" + root._textEditorId);
+    window.removeAllEventListenersForApp("textEditor" + root._goldenbodyId);
   }
 
   // Minimize
@@ -313,7 +313,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("textEditor" + root._textEditorId, "mousemove", (ev) => {
+      window.addEventListener("textEditor" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -329,7 +329,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("textEditor" + root._textEditorId, "mouseup", () => {
+      window.addEventListener("textEditor" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });
@@ -446,7 +446,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   
   // --- EVENT LISTENER ---
   // Listen to clicks on the text editor for any app-specific handlers
-  document.addEventListener("textEditor" + root._textEditorId, "click", (e) => {
+  document.addEventListener("textEditor" + root._goldenbodyId, "click", (e) => {
     // App-specific click handler can be implemented here
   });
   
@@ -917,7 +917,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   // wire New/Open actions
   newBtn.addEventListener("click", async () => {
     // Use the Save As picker to choose a new file path (keeps UX consistent)
-    editorName = `Untitled-${textEditorGlobals.textEditorId}`;
+    editorName = `Untitled-${textEditorGlobals.goldenbodyId}`;
     if (path) {
       editorName = path.split("/").pop() || editorName;
     }
@@ -931,7 +931,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     }
     path = chosen;
     titleLabel.textContent = editorName;
-    storageKey = `textEditor:${textEditorGlobals.textEditorId}:${editorName}:content`;
+    storageKey = `textEditor:${textEditorGlobals.goldenbodyId}:${editorName}:content`;
     textarea.value = "";
     updateStatus();
     // Immediately save the empty/new file to the server
@@ -1102,7 +1102,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       textarea.value = b64DecodeUnicode(res.filecontent);
       editorName = path.split("/").pop() || editorName;
       titleLabel.textContent = editorName;
-      storageKey = `textEditor:${textEditorGlobals.textEditorId}:${editorName || "untitled"}:content`;
+      storageKey = `textEditor:${textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
       updateStatus();
       returnObject.title = titleLabel.textContent;
     }
@@ -1146,7 +1146,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         path = fullPath || picked[0];
         editorName = path.split("/").pop() || editorName;
         titleLabel.textContent = editorName;
-        storageKey = `textEditor:${textEditorGlobals.textEditorId}:${editorName || "untitled"}:content`;
+        storageKey = `textEditor:${textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
         updateStatus();
       } catch (e) {
         console.warn("Failed to fetch picked file", e);
@@ -1353,7 +1353,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    textEditorId: textEditorGlobals.textEditorId,
+    goldenbodyId: textEditorGlobals.goldenbodyId,
     title: titleLabel.textContent,
     textarea,
   };

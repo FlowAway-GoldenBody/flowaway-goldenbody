@@ -1,7 +1,7 @@
 //settings global vars
 window.settingsGlobals = {};
 settingsGlobals.allSettings = [];
-settingsGlobals.settingsId = 0;
+settingsGlobals.goldenbodyId = 0;
 
 settings = function (posX = 50, posY = 50) {
   startMenu.style.display = "none";
@@ -29,8 +29,8 @@ settings = function (posX = 50, posY = 50) {
   root.dataset.appId = "settings";
   bringToFront(root);
   document.body.appendChild(root);
-  settingsGlobals.settingsId++;
-  root.settingsId = settingsGlobals.settingsId;
+  settingsGlobals.goldenbodyId++;
+  root.goldenbodyId = settingsGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -139,7 +139,7 @@ settings = function (posX = 50, posY = 50) {
       (instance) => instance.rootElement == root,
     );
     if (index !== -1) settingsGlobals.allSettings.splice(index, 1);
-    window.removeAllEventListenersForApp("settings" + root.settingsId);
+    window.removeAllEventListenersForApp("settings" + root.goldenbodyId);
   }
 
   // Minimize
@@ -200,7 +200,7 @@ settings = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("settings" + root.settingsId, "mousemove", (ev) => {
+      window.addEventListener("settings" + root.goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -216,7 +216,7 @@ settings = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("settings" + root.settingsId, "mouseup", () => {
+      window.addEventListener("settings" + root.goldenbodyId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });
@@ -566,7 +566,7 @@ settings = function (posX = 50, posY = 50) {
   autoupdateRow.style.marginTop = "8px";
 
   const autoupdateLabel = document.createElement("div");
-  autoupdateLabel.textContent = "Auto-Update System Apps";
+  autoupdateLabel.textContent = "Auto-Update System/System Apps";
   autoupdateLabel.style.fontSize = "13px";
 
   const autoupdateToggle = document.createElement("input");
@@ -786,7 +786,7 @@ settings = function (posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    settingsId: settingsGlobals.settingsId,
+    goldenbodyId: settingsGlobals.goldenbodyId,
   });
   applyStyles();
 
@@ -798,7 +798,7 @@ settings = function (posX = 50, posY = 50) {
     getBounds,
     applyBounds,
     closeWindow,
-    settingsId: settingsGlobals.settingsId,
+    goldenbodyId: settingsGlobals.goldenbodyId,
   };
 };
 
