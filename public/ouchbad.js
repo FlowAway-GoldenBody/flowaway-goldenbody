@@ -200,6 +200,9 @@ function base64ToUtf8(b64OrBuffer) {
       }
     }, { once: true });
   }
+  setTimeout(() => {
+  window._flowawayIsRebuilding = false;
+  }, 5000);
         // SAME behavior as before
         setTimeout(async () => {   let a = document.createElement('script');
           let res = await filePost({ requestFile: true, requestFileName: 'flowaway.js' }); 

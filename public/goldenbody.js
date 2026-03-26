@@ -307,8 +307,19 @@
     btn.style.fontSize = "30px"; // Ensures
 
     btn.addEventListener("click", () => {
-      console.log("Task clicked:", btn.value);
-      onclickFunc();
+      try {
+        console.log("Task clicked:", btn.value);
+        onclickFunc();
+      } catch (e) {
+        try { console.error('Task button onclick error', e); } catch (e2) {}
+      }
+      // Add clicked task to recent apps grid if available. Guard for missing function.
+      try {
+        var aid = (btn.dataset && btn.dataset.appId) ? btn.dataset.appId : (btn.value && String(btn.value).trim());
+        if (aid && typeof addToRecents === 'function') {
+          try { addToRecents(aid); } catch (e) { /* non-fatal */ }
+        }
+      } catch (e) {}
     });
     if(appcontextmenuhandler) {
       btn.addEventListener('contextmenu', window[globalvarobjectstring][appcontextmenuhandler])
