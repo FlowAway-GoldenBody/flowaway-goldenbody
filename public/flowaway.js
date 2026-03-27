@@ -1,5 +1,6 @@
 // Preserve window.data if already set (e.g., from ouchbad.js account creation), otherwise initialize
 if (!window.data) window.data = data;
+window.____gbEventListners = [];
 window.loaded = false;
 window.APP_VERSION = "v1.12.7";
 
@@ -9,7 +10,16 @@ if (typeof data.autohidetaskbar === "undefined") {
 var hasChanges;
 var atTop = "";
 var zTop = 10;
-
+function removeAllEventListernersInWindow() {
+  for (const listener of window.____gbEventListners) {
+    try {
+      window.removeEventListener(listener.type, listener.handler, listener.options);
+    } catch (e) {
+      console.error("Error removing event listener", e);
+    }
+  }
+  window.____gbEventListners = [];
+}
 function formatBytes(bytes, decimals = 2) {
   if (bytes === 0) return "0 Bytes";
 
@@ -154,7 +164,7 @@ function addScopedListener(
   if (typeof type !== "string" || !isValidEventListener(handler)) {
     return;
   }
-
+  window.____gbEventListners.push({type, handler, options});
   nativeAdd(type, handler, options);
 
   if (!appname) return;
@@ -389,18 +399,8 @@ var rebuildhandler = function () {
     try {
       window._flowawayIsRebuilding = true;
     } catch (e) {}
-    try {
-      for (const app of window.apps) {
-        if(!window[app.globalvarobject][app.allapparray]) continue;
-        for (const win of window[app.globalvarobject][app.allapparray]) {
-          try {
-            win.closeWindow();
-          } catch (e) {}
-        }
-      }
-    } catch (e) {
-      console.error("Error during event listener cleanup in rebuildhandler", e);
-    }
+    // remove all event listeners to refresh the environment.
+    removeAllEventListernersInWindow();
     // Pause and unload any playing media to avoid audio carrying over
     try {
       document.querySelectorAll("audio,video").forEach((m) => {
