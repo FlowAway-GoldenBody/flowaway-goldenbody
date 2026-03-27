@@ -683,6 +683,27 @@ function showSessionExpiredDialog() {
   status.style.marginBottom = "8px";
   dlg.appendChild(status);
 
+  // Password input for password-based refill
+  const pwdRow = document.createElement("div");
+  pwdRow.style.display = "flex";
+  pwdRow.style.gap = "8px";
+  pwdRow.style.alignItems = "center";
+  pwdRow.style.marginBottom = "8px";
+
+  const pwdInput = document.createElement("input");
+  pwdInput.type = "password";
+  pwdInput.placeholder = "Account password";
+  Object.assign(pwdInput.style, {
+    flex: "1",
+    padding: "6px",
+    borderRadius: "6px",
+    border: "1px solid #ccc",
+    boxSizing: "border-box",
+  });
+
+  pwdRow.appendChild(pwdInput);
+  dlg.appendChild(pwdRow);
+
   const btnRow = document.createElement("div");
   btnRow.style.display = "flex";
   btnRow.style.justifyContent = "flex-end";
@@ -706,62 +727,79 @@ function showSessionExpiredDialog() {
   closeX.addEventListener("click", () => dlg.remove());
   closeBtn.addEventListener("click", () => dlg.remove());
   refillBtn.addEventListener("click", async () => {
-    const sessionToken =
-      window.data && typeof window.data.authToken === "string"
-        ? window.data.authToken.trim()
-        : "";
-    if (!sessionToken) {
-      status.textContent = "No active session token. Sign in again.";
+    // When user clicks refill, don't attempt token-based refill automatically.
+    // Instead prompt for password and only send a password-based refill when provided.
+    const uname = (function () {
+      const u = getCurrentUsernameForRequests();
+      if (u && typeof u === 'string' && u.trim()) return u.trim();
+      if (window.data && typeof window.data.username === 'string') return window.data.username.trim();
+      return '';
+    })();
+
+    if (!uname) {
+      status.textContent = "No username available. Sign in again.";
       status.style.color = "red";
       return;
     }
 
+    const password = (pwdInput && typeof pwdInput.value === 'string') ? pwdInput.value.trim() : '';
+
+    // If no password provided yet, focus the input and ask the user to enter it.
+    if (!password) {
+      status.textContent = "Enter your account password above and click Refill to submit.";
+      status.style.color = "#c66";
+      try { pwdInput.focus(); } catch (e) {}
+      return;
+    }
+
+    // Now send password-based refill request (do not rely on existing session token)
     refillBtn.disabled = true;
     refillBtn.textContent = "Refilling...";
     status.textContent = "";
 
     try {
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + sessionToken,
-      };
       const res = await fetch(zmcdserver, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          refillSession: true,
-          username: getCurrentUsernameForRequests(),
-          sessionToken,
-        }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refillSession: true, username: uname, password }),
       });
 
       let body = null;
-      try {
-        body = await res.json();
-      } catch (e) {
-        body = null;
+      try { body = await res.json(); } catch (e) { body = null; }
+
+      if (!res.ok) {
+        const serverMsg = (body && body.error) || body || res.statusText || 'unknown error';
+        status.textContent = `Session refill failed: ${serverMsg} (HTTP ${res.status})`;
+        status.style.color = 'red';
+        console.error('Refill failed:', res.status, body);
+        refillBtn.disabled = false;
+        refillBtn.textContent = 'Refill Session';
+        return;
       }
 
-      if (!res.ok || !body || !body.success || !body.authToken) {
-        throw new Error((body && body.error) || "Failed to refill session");
+      if (!body || !body.success || !body.authToken) {
+        const serverMsg = (body && body.error) || 'Invalid server response';
+        status.textContent = `Session refill failed: ${serverMsg}`;
+        status.style.color = 'red';
+        console.error('Refill unexpected response:', body);
+        refillBtn.disabled = false;
+        refillBtn.textContent = 'Refill Session';
+        return;
       }
 
       window.data = window.data || {};
       window.data.authToken = body.authToken;
-      status.textContent = "Session refilled. You can continue.";
-      status.style.color = "green";
-      setTimeout(() => {
-        try {
-          dlg.remove();
-        } catch (e) {}
-      }, 350);
-    } catch (e) {
-      status.textContent = "Session refill failed. Sign in again.";
-      status.style.color = "red";
+      status.textContent = 'Session refilled. You can continue.';
+      status.style.color = 'green';
+      setTimeout(() => { try { dlg.remove(); } catch (e) {} }, 350);
+    } catch (err) {
+      console.error('Refill request error', err);
+      status.textContent = 'Session refill failed. Sign in again.';
+      status.style.color = 'red';
     }
 
     refillBtn.disabled = false;
-    refillBtn.textContent = "Refill Session";
+    refillBtn.textContent = 'Refill Session';
   });
   reloadBtn.addEventListener("click", () => {
     rebuildhandler();
@@ -2970,7 +3008,7 @@ loadTree();
 window.onlyloadTree = oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 
-var username = data.username;
+var username = (typeof data !== 'undefined' && data && typeof data.username === 'string') ? data.username : '';
 
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding

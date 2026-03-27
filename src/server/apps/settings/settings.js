@@ -652,7 +652,6 @@ settings = function (posX = 50, posY = 50) {
     const existing = document.getElementById("settings-about-dialog");
     if (existing) {
       existing.style.display = "flex";
-      existing.style.zIndex = 2001;
       return;
     }
 
@@ -670,13 +669,12 @@ settings = function (posX = 50, posY = 50) {
       color: data && data.dark ? "#fff" : "#000",
       borderRadius: "8px",
       boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
-      zIndex: 2000,
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
       resize: "both",
     });
-
+    bringToFront(dlg);
     const header = document.createElement("div");
     header.style.display = "flex";
     header.style.alignItems = "center";
@@ -686,7 +684,7 @@ settings = function (posX = 50, posY = 50) {
     header.style.background = data && data.dark ? "#111" : "#f1f1f1";
     header.style.flexShrink = "0";
     header.style.position = "relative";
-
+    header.onclick = () => bringToFront(dlg);
     const htitle = document.createElement("div");
     htitle.textContent = "About";
     htitle.style.fontWeight = "600";
