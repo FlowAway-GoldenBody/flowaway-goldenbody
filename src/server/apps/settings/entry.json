@@ -2,8 +2,6 @@
   "name": "settings",
   "label": "Settings",
   "startbtnid": "settingsapp",
-  "cmf": "settingsContextMenu",
-  "cmfl1": "settingscontextmenuhandlerL1",
   "globalvarobject": "settingsGlobals",
   "allapparray": "allSettings",
   "appGlobalVarStrings": [

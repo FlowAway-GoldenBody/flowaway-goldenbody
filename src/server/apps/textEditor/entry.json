@@ -2,8 +2,6 @@
   "name": "textEditor",
   "label": "Text Editor",
   "startbtnid": "editorapp",
-  "cmf": "textEditorContextMenu",
-  "cmfl1": "textEditorcontextmenuhandlerL1",
   "globalvarobject": "textEditorGlobals",
   "allapparray": "alltextEditor",
   "appGlobalVarStrings": [

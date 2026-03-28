@@ -2,8 +2,6 @@
   "name": "fileExplorer",
   "label": "File Explorer",
   "startbtnid": "explorerapp",
-  "cmf": "fileExplorerContextMenu",
-  "cmfl1": "fileExplorercontextmenuhandlerL1",
   "globalvarobject": "explorerGlobals",
   "allapparray": "allExplorers",
   "appGlobalVarStrings": [

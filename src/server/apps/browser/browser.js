@@ -2056,99 +2056,93 @@ window.browser = function (
         // window.addEventListener("pointerdown", function () {
         //   menu.style.display = "none";
         // });
-        // Function to show the menu
-        function showMenu(x, y, linkElement, isA, isDownload) {
-          if (isA || isDownload) {
-            menu.innerHTML = ""; // clear old items
+        function normalizeContextMenuUrl(url) {
+          if (!url || typeof url !== "string") return "";
+          try {
+            return browserGlobals.unshuffleURL(url);
+          } catch (e) {
+            return url;
+          }
+        }
 
-            // Create menu items (same as before)
+        function contextMenuFilename(url, fallback = "download") {
+          const normalized = normalizeContextMenuUrl(url);
+          try {
+            const parsed = new URL(
+              normalized,
+              iframe.contentWindow?.location?.href || undefined,
+            );
+            const name = decodeURIComponent(
+              (parsed.pathname || "").split("/").pop() || "",
+            );
+            if (name) return name;
+          } catch (e) {}
 
-            const openItem = iframeDocument.createElement("div");
-            openItem.style.all = "unset";
+          const stripped = String(normalized).split("?")[0].split("#")[0];
+          const fallbackName = stripped.split("/").pop();
+          return fallbackName || fallback;
+        }
 
-            openItem.textContent = "Open link in new tabㅤㅤㅤㅤ ㅤ";
-            openItem.style.display = "block"; // <-- important!
-            openItem.style.textAlign = "left";
+        function getContextMenuData(e) {
+          const clickedElement = e && e.target ? e.target : null;
+          const linkElement = clickedElement?.closest
+            ? clickedElement.closest("a[href]")
+            : null;
+          const imageElement = clickedElement?.closest
+            ? clickedElement.closest("img[src]")
+            : null;
+          const eventView =
+            (e && e.view) || clickedElement?.ownerDocument?.defaultView || null;
+          const isSubFrame = !!(eventView && eventView !== iframe.contentWindow);
 
-            openItem.style.padding = "6px 16px";
-            openItem.style.cursor = "pointer";
-            openItem.onmouseenter = () => (openItem.style.background = "#444");
-            openItem.style.font = "Arial";
-            openItem.onmouseleave = () => (openItem.style.background = "none");
-            openItem.onclick = () => {
-              addTab(browserGlobals.unshuffleURL(linkElement.href), "New Tab");
-              hideMenu();
-            };
-            menu.appendChild(openItem);
+          let frameUrl = "";
+          if (isSubFrame) {
+            try {
+              frameUrl = eventView.location.href || "";
+            } catch (err) {
+              try {
+                frameUrl = eventView.frameElement?.src || "";
+              } catch (innerErr) {}
+            }
+          }
 
-            const openItem2 = iframeDocument.createElement("div");
-            openItem2.style.all = "unset";
+          return {
+            clickedElement,
+            linkElement,
+            imageElement,
+            frameView: isSubFrame ? eventView : null,
+            frameUrl,
+            isDownload: !!(linkElement && linkElement.download),
+          };
+        }
 
-            openItem2.textContent = "Open link in new windowㅤㅤㅤㅤㅤ";
-            openItem2.style.display = "block"; // <-- important!
-            openItem2.style.textAlign = "left";
+        function addContextMenuItem(label, onClick) {
+          const item = iframeDocument.createElement("div");
+          item.style.all = "unset";
+          item.style.display = "block";
+          item.style.textAlign = "left";
+          item.textContent = label;
+          item.style.padding = "6px 16px";
+          item.style.font = "Arial";
+          item.style.cursor = "pointer";
+          item.onmouseenter = () => (item.style.background = "#444");
+          item.onmouseleave = () => (item.style.background = "none");
+          item.onclick = async () => {
+            try {
+              await onClick();
+            } catch (e) {
+              console.error(e);
+            }
+            hideMenu();
+          };
+          menu.appendChild(item);
+          return item;
+        }
 
-            openItem2.style.padding = "6px 16px";
-            openItem2.style.cursor = "pointer";
-            openItem2.onmouseenter = () =>
-              (openItem2.style.background = "#444");
-            openItem2.style.font = "Arial";
-            openItem2.onmouseleave = () =>
-              (openItem2.style.background = "none");
-            openItem2.onclick = () => {
-              browser(browserGlobals.unshuffleURL(linkElement.href));
-              hideMenu();
-            };
-            menu.appendChild(openItem2);
-
-            const copyItem = iframeDocument.createElement("div");
-            copyItem.style.all = "unset";
-            copyItem.style.display = "block"; // <-- important!
-            copyItem.style.textAlign = "left";
-
-            copyItem.textContent = "Copy link address";
-            copyItem.style.padding = "6px 16px";
-            copyItem.style.cursor = "pointer";
-            copyItem.style.font = "Arial";
-            copyItem.onmouseenter = () => (copyItem.style.background = "#444");
-            copyItem.onmouseleave = () => (copyItem.style.background = "none");
-            copyItem.onclick = async () => {
-              await navigator.clipboard.writeText(browserGlobals.unshuffleURL(linkElement.href));
-              hideMenu();
-            };
-            menu.appendChild(copyItem);
-
-            const download = iframeDocument.createElement("div");
-            download.style.all = "unset";
-            download.style.display = "block"; // <-- important!
-            download.style.textAlign = "left";
-
-            download.textContent = "Download linkㅤㅤㅤㅤㅤ";
-            download.style.padding = "6px 16px";
-            download.style.font = "Arial";
-            download.style.cursor = "pointer";
-            download.onmouseenter = () => (download.style.background = "#444");
-            download.onmouseleave = () => (download.style.background = "none");
-            download.onclick = () => {
-              downloadPost({
-                href: browserGlobals.unshuffleURL(linkElement.href),
-                filename: linkElement.href.split("/").pop().split("?")[0],
-              });
-              hideMenu();
-            };
-            menu.appendChild(download);
-            const inspect = iframeDocument.createElement("div");
-            inspect.style.all = "unset";
-            inspect.style.display = "block"; // <-- important!
-            inspect.style.textAlign = "left";
-
-            inspect.textContent = "inspect\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0 \xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0Ctrl+Shift+I";
-            inspect.style.padding = "6px 16px";
-            inspect.style.font = "Arial";
-            inspect.style.cursor = "pointer";
-            inspect.onmouseenter = () => (inspect.style.background = "#444");
-            inspect.onmouseleave = () => (inspect.style.background = "none");
-            inspect.onclick = () => {
+        function addInspectContextMenuItem() {
+          addContextMenuItem(
+            "inspect\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0Ctrl+Shift+I",
+            () => {
               const win = tab.iframe.contentWindow;
               const doc = tab.iframe.contentDocument;
               if (!win) return;
@@ -2163,42 +2157,93 @@ window.browser = function (
                   win.eruda.show();
                 };
                 doc.head.appendChild(script);
+                return;
               }
               win.eruda[win._goldenbodyIns ? "hide" : "show"]();
               win._goldenbodyIns = !win._goldenbodyIns;
+            },
+          );
+        }
 
-              hideMenu();
-            };
-            menu.appendChild(inspect);
-            // Temporarily show the menu off-screen to measure its size
-            menu.style.left = "-9999px";
-            menu.style.top = "-9999px";
-            menu.style.display = "block";
-            const menuRect = menu.getBoundingClientRect();
+        // Function to show the menu
+        function showMenu(x, y, contextData = {}) {
+          menu.innerHTML = "";
+          menu.style.display = "block";
 
-            // Determine iframe/document boundaries
-            const viewportWidth = iframeDocument.documentElement.clientWidth;
-            const viewportHeight = iframeDocument.documentElement.clientHeight;
+          const linkElement = contextData.linkElement || null;
+          const imageElement = contextData.imageElement || null;
+          const frameView = contextData.frameView || null;
+          const frameUrl = contextData.frameUrl || "";
 
-            let finalX = x;
-            let finalY = y;
+          const hasLink = !!(linkElement && linkElement.href);
+          const hasImage = !!(imageElement && imageElement.src);
+          const hasFrame = !!(frameView && frameUrl);
 
-            // Flip horizontally if the menu would go off the right edge
-            if (x + menuRect.width > viewportWidth) {
-              finalX = x - menuRect.width;
+          if (hasLink || hasImage || hasFrame) {
+            if (hasLink) {
+              const linkUrl = normalizeContextMenuUrl(linkElement.href);
+              addContextMenuItem("Open link in new tabㅤㅤㅤㅤ ㅤ", () => {
+                addTab(linkUrl, "New Tab");
+              });
+              addContextMenuItem("Open link in new windowㅤㅤㅤㅤㅤ", () => {
+                browser(linkUrl);
+              });
+              addContextMenuItem("Copy link address", async () => {
+                await navigator.clipboard.writeText(linkUrl);
+              });
+              addContextMenuItem("Download linkㅤㅤㅤㅤㅤ", () => {
+                downloadPost({
+                  href: linkUrl,
+                  filename: contextMenuFilename(linkElement.href, "download"),
+                });
+              });
             }
 
-            // Flip vertically if the menu would go off the bottom edge
-            if (y + menuRect.height > viewportHeight) {
-              finalY = y - menuRect.height;
+            if (hasImage) {
+              const imageUrl = normalizeContextMenuUrl(imageElement.src);
+              addContextMenuItem("Open image in new tab", () => {
+                addTab(imageUrl, "Image");
+              });
+              addContextMenuItem("Open image in new window", () => {
+                browser(imageUrl);
+              });
+              addContextMenuItem("Copy image address", async () => {
+                await navigator.clipboard.writeText(imageUrl);
+              });
+              addContextMenuItem("Download image", () => {
+                downloadPost({
+                  href: imageUrl,
+                  filename: contextMenuFilename(imageElement.src, "image"),
+                });
+              });
             }
 
-            // Apply final position
-            menu.style.left = `${Math.max(0, finalX)}px`;
-            menu.style.top = `${Math.max(0, finalY)}px`;
+            if (hasFrame) {
+              const normalizedFrameUrl = normalizeContextMenuUrl(frameUrl);
+              addContextMenuItem("Open frame in new tab", () => {
+                addTab(normalizedFrameUrl, "Frame");
+              });
+              addContextMenuItem("Open frame in new window", () => {
+                browser(normalizedFrameUrl);
+              });
+              addContextMenuItem("Copy frame URL", async () => {
+                await navigator.clipboard.writeText(normalizedFrameUrl);
+              });
+              addContextMenuItem("Reload frame", () => {
+                try {
+                  frameView.location.reload();
+                } catch (e) {
+                  try {
+                    if (frameView.frameElement) {
+                      frameView.frameElement.src = frameView.frameElement.src;
+                    }
+                  } catch (innerErr) {}
+                }
+              });
+            }
+
+            addInspectContextMenuItem();
           } else {
-            menu.innerHTML = "";
-            menu.style.display = "block";
             const openItem = iframeDocument.createElement("div");
             openItem.style.all = "unset";
             openItem.style.display = "block"; // <-- important!
@@ -2248,68 +2293,35 @@ window.browser = function (
               hideMenu();
             };
             menu.appendChild(reload);
-            const inspect = iframeDocument.createElement("div");
-            inspect.style.all = "unset";
-            inspect.style.display = "block"; // <-- important!
-
-            inspect.style.textAlign = "left";
-
-            inspect.textContent = "inspect\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0Ctrl+Shift+I";
-            inspect.style.padding = "6px 16px";
-            inspect.style.font = "Arial";
-            inspect.style.cursor = "pointer";
-            inspect.onmouseenter = () => (inspect.style.background = "#444");
-            inspect.onmouseleave = () => (inspect.style.background = "none");
-            inspect.onclick = () => {
-              const win = tab.iframe.contentWindow;
-              const doc = tab.iframe.contentDocument;
-              if (!win) return;
-              if (!win.eruda) {
-                tab.iframe.contentWindow._goldenbodyIns = true;
-
-                const script = doc.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/npm/eruda";
-                script.onload = () => {
-                  win.eruda.init();
-                  win.eruda.get("entryBtn").hide();
-                  win.eruda.show();
-                };
-                doc.head.appendChild(script);
-              }
-              win.eruda[win._goldenbodyIns ? "hide" : "show"]();
-              win._goldenbodyIns = !win._goldenbodyIns;
-
-              hideMenu();
-            };
-            menu.appendChild(inspect);
-
-            // Temporarily show the menu off-screen to measure its size
-            menu.style.left = "-9999px";
-            menu.style.top = "-9999px";
-            menu.style.display = "block";
-            const menuRect = menu.getBoundingClientRect();
-
-            // Determine iframe/document boundaries
-            const viewportWidth = iframeDocument.documentElement.clientWidth;
-            const viewportHeight = iframeDocument.documentElement.clientHeight;
-
-            let finalX = x;
-            let finalY = y;
-
-            // Flip horizontally if the menu would go off the right edge
-            if (x + menuRect.width > viewportWidth) {
-              finalX = x - menuRect.width;
-            }
-
-            // Flip vertically if the menu would go off the bottom edge
-            if (y + menuRect.height > viewportHeight) {
-              finalY = y - menuRect.height;
-            }
-
-            // Apply final position
-            menu.style.left = `${Math.max(0, finalX)}px`;
-            menu.style.top = `${Math.max(0, finalY)}px`;
+            addInspectContextMenuItem();
           }
+
+          // Temporarily show the menu off-screen to measure its size
+          menu.style.left = "-9999px";
+          menu.style.top = "-9999px";
+          menu.style.display = "block";
+          const menuRect = menu.getBoundingClientRect();
+
+          // Determine iframe/document boundaries
+          const viewportWidth = iframeDocument.documentElement.clientWidth;
+          const viewportHeight = iframeDocument.documentElement.clientHeight;
+
+          let finalX = x;
+          let finalY = y;
+
+          // Flip horizontally if the menu would go off the right edge
+          if (x + menuRect.width > viewportWidth) {
+            finalX = x - menuRect.width;
+          }
+
+          // Flip vertically if the menu would go off the bottom edge
+          if (y + menuRect.height > viewportHeight) {
+            finalY = y - menuRect.height;
+          }
+
+          // Apply final position
+          menu.style.left = `${Math.max(0, finalX)}px`;
+          menu.style.top = `${Math.max(0, finalY)}px`;
         }
         // Hide the menu
         function hideMenu() {
@@ -2321,21 +2333,22 @@ window.browser = function (
           iframe.contentWindow.__gbContextMenuHandler = function (e) {
             e.preventDefault();
             e.stopPropagation();
-            const clickedElement = e.target;
-            const linkElement = clickedElement.closest("a");
+            const contextData = getContextMenuData(e);
+            showMenu(e.clientX, e.clientY, contextData);
 
-            if (linkElement && linkElement.href && !linkElement.download) {
-              console.log("Right-clicked on a link:", linkElement.href);
-              showMenu(e.clientX, e.clientY, linkElement, true);
-            } else if (linkElement && linkElement.download) {
-              // Handle download links if needed
-              showMenu(e.clientX, e.clientY, linkElement, false, true);
+            if (contextData.linkElement && contextData.linkElement.href) {
               console.log(
-                "Right-clicked on a download link:",
-                linkElement.href,
+                "Right-clicked on a link:",
+                contextData.linkElement.href,
               );
+            } else if (contextData.imageElement && contextData.imageElement.src) {
+              console.log(
+                "Right-clicked on an image:",
+                contextData.imageElement.src,
+              );
+            } else if (contextData.frameUrl) {
+              console.log("Right-clicked inside a frame:", contextData.frameUrl);
             } else {
-              showMenu(e.clientX, e.clientY, null, false);
               console.log("Right-clicked on a non-link element.");
             }
           };
@@ -4530,7 +4543,7 @@ FileSystemFileHandle.prototype.getFile = async function () {
         
         reject(new Error('File request timed out'));
       }
-    }, 3000);
+    }, 30000);
   });
 
   this._file = file;
@@ -5044,15 +5057,23 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                       e,
                       frameDoc,
                     );
+                    const contextData = getContextMenuData(e);
 
-                    const clickedElement = e.target;
-                    const linkElement = clickedElement.closest("a");
+                    showMenu(x, y, contextData);
 
-                    if (linkElement && linkElement.href) {
-                      console.log("Right-clicked on a link:", linkElement.href);
-                      showMenu(x, y, linkElement, true);
+                    if (contextData.linkElement && contextData.linkElement.href) {
+                      console.log(
+                        "Right-clicked on a link:",
+                        contextData.linkElement.href,
+                      );
+                    } else if (contextData.imageElement && contextData.imageElement.src) {
+                      console.log(
+                        "Right-clicked on an image:",
+                        contextData.imageElement.src,
+                      );
+                    } else if (contextData.frameUrl) {
+                      console.log("Right-clicked inside a frame:", contextData.frameUrl);
                     } else {
-                      showMenu(x, y, null, false);
                       console.log("Right-clicked on a non-link element.");
                     }
                   };
@@ -5562,7 +5583,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             urlInput.value = currentUrl;
           }
           if (currentUrl !== previousUrlMain) {
-            if ((browserGlobals.subWebsite(currentUrl) !== browserGlobals.subWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (browserGlobals.profileState.enableURLSync) openUrlInActiveTab(currentUrl);
+            if ((browserGlobals.mainWebsite(currentUrl) !== browserGlobals.mainWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (browserGlobals.profileState.enableURLSync) openUrlInActiveTab(currentUrl);
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";

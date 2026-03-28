@@ -2,9 +2,7 @@
   "name": "browser",
   "label": "Browser",
   "startbtnid": "browserapp",
-  "cmf": "browsermenuhandler",
   "globalvarobject": "browserGlobals",
-  "cmfl1": "browsercontextmenuhandlerL1",
   "allapparray": "allBrowsers",
   "appGlobalVarStrings": [
     "browsermenu",

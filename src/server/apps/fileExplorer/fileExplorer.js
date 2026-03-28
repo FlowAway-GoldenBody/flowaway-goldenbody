@@ -669,7 +669,6 @@ fileExplorer = function (posX = 50, posY = 50) {
       div.style.borderBottom = "1px solid #eee";
       div.style.cursor = "pointer";
       div.draggable = true;
-
       // Highlight selected
       if (selectedItems.includes(item)) div.style.background = "#d0e6ff";
 
@@ -1049,6 +1048,18 @@ fileExplorer = function (posX = 50, posY = 50) {
       selectedItem = null;
       render();
     }
+
+    const tag = String((e.target && e.target.tagName) || "").toUpperCase();
+    const keepNativeFocus =
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      !!(e.target && e.target.isContentEditable);
+    if (!keepNativeFocus) {
+      try {
+        root.focus();
+      } catch (err) {}
+    }
   });
   function getFullPathFromNode(node, pathArray = []) {
     if (!node) return pathArray.join("/");
@@ -1056,7 +1067,13 @@ fileExplorer = function (posX = 50, posY = 50) {
     return pathArray.join("/");
   }
   let handlepaste = (e) => {
+    if (e !== "cmp") {
+      if (!e || !e.target || !root.contains(e.target)) return;
+      if (e.repeat) return;
+    }
     if ((e.ctrlKey && e.key.toLowerCase() === "v") || e == "cmp") {
+      if (e && typeof e.preventDefault === "function") e.preventDefault();
+      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
       const targetPath = [...currentPath]; // current folder path array
       // Quota check: sum total size of clipboard items
       let currentUsed = getNodeSize(treeData);
@@ -1100,7 +1117,13 @@ fileExplorer = function (posX = 50, posY = 50) {
     }
   };
   let handlecopy = (e) => {
+    if (e !== "copy") {
+      if (!e || !e.target || !root.contains(e.target)) return;
+      if (e.repeat) return;
+    }
     if ((e.ctrlKey && e.key.toLowerCase() === "c") || e == "copy") {
+      if (e && typeof e.preventDefault === "function") e.preventDefault();
+      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
       explorerGlobals.clipboard = selectedItems.map((item) => ({
         node: item,
         path: getCurrentFolderPath() + item[0],
@@ -1122,8 +1145,8 @@ fileExplorer = function (posX = 50, posY = 50) {
       directions.push({ copy: true, directions: predirections });
     }
   };
-  document.addEventListener("fileExplorer" + root._goldenbodyId, "keydown", handlepaste);
-  document.addEventListener("fileExplorer" + root._goldenbodyId, "keydown", handlecopy);
+  root.addEventListener("keydown", handlepaste);
+  root.addEventListener("keydown", handlecopy);
   // --- CONTEXT MENU ---
   function showContextMenu(clientX, clientY, isFolder, isBlank = false) {
     contextMenu.innerHTML = "";

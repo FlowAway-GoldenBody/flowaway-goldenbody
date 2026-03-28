@@ -2,8 +2,6 @@
   "name": "yourApp",
   "label": "Your App",
   "startbtnid": "your_app_nameapp",
-  "cmf": "your_app_nameContextMenu",
-  "cmfl1": "your_app_namecontextmenuhandlerL1",
   "globalvarobject": "your_app_nameGlobals",
   "allapparray": "allyour_app_name",
   "appGlobalVarStrings": [
