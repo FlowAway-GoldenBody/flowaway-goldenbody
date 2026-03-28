@@ -132,6 +132,16 @@ function updateAllSystemApps() {
               if (!fs.existsSync(srcFilePath)) continue;
               if (__gbconfig.forceUpdate || !fs.existsSync(dstFilePath)) {
                 fs.copyFileSync(srcFilePath, dstFilePath);
+              } else {
+                try {
+                  const srcStat = fs.statSync(srcFilePath);
+                  const dstStat = fs.statSync(dstFilePath);
+                  if (srcStat.mtimeMs > dstStat.mtimeMs) {
+                    fs.copyFileSync(srcFilePath, dstFilePath);
+                  }
+                } catch (e) {
+                  // ignore stat/copy errors per-file
+                }
               }
             } catch (e) {
               console.error(`Failed to update root file '${fileName}' for user ${username}:`, e);
@@ -210,6 +220,37 @@ function updateAllSystemApps() {
             }
           };
 
+          // Copy and overwrite only when source file is newer than destination.
+          const copyIfSrcNewer = (srcDir, dstDir) => {
+            const items = fs.readdirSync(srcDir, { withFileTypes: true });
+            for (const it of items) {
+              const srcItem = path.join(srcDir, it.name);
+              const dstItem = path.join(dstDir, it.name);
+              try {
+                if (it.isDirectory()) {
+                  if (!fs.existsSync(dstItem)) fs.mkdirSync(dstItem, { recursive: true });
+                  copyIfSrcNewer(srcItem, dstItem);
+                } else {
+                  if (!fs.existsSync(dstItem)) {
+                    try { fs.copyFileSync(srcItem, dstItem); } catch (e) { /* ignore */ }
+                  } else {
+                    try {
+                      const srcStat = fs.statSync(srcItem);
+                      const dstStat = fs.statSync(dstItem);
+                      if (srcStat.mtimeMs > dstStat.mtimeMs) {
+                        try { fs.copyFileSync(srcItem, dstItem); } catch (e) { /* ignore */ }
+                      }
+                    } catch (e) {
+                      // ignore stat or copy errors per-item
+                    }
+                  }
+                }
+              } catch (e) {
+                // ignore per-item errors
+              }
+            }
+          };
+
           for (const appName of systemAppDirs) {
             const srcAppPath = path.join(systemAppsPath, appName);
             const dstAppPath = path.join(userAppsPath, appName);
@@ -220,7 +261,8 @@ function updateAllSystemApps() {
                 if (__gbconfig.forceUpdate) {
                   copyOverwrite(srcAppPath, dstAppPath);
                 } else {
-                  copySkipExisting(srcAppPath, dstAppPath);
+                  // For users with autoupdate enabled, overwrite only when source is newer.
+                  copyIfSrcNewer(srcAppPath, dstAppPath);
                 }
               }
             } catch (e) {

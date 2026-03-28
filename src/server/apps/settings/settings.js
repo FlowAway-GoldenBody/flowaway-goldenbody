@@ -142,11 +142,53 @@ settings = function (posX = 50, posY = 50) {
     window.removeAllEventListenersForApp("settings" + root.goldenbodyId);
   }
 
-  // Minimize
-  btnMin.addEventListener("click", () => {
+  function hideWindow() {
     savedBounds = getBounds();
     root.style.display = "none";
     _isMinimized = true;
+  }
+
+  function showWindow() {
+    root.style.display = "flex";
+    _isMinimized = false;
+    bringToFront(root);
+  }
+
+  function closeAll() {
+    for (const instance of [...settingsGlobals.allSettings]) {
+      if (instance && typeof instance.closeWindow === "function") {
+        instance.closeWindow();
+      }
+    }
+    settingsGlobals.allSettings = [];
+  }
+
+  function hideAll() {
+    for (const instance of settingsGlobals.allSettings) {
+      if (instance && typeof instance.hideWindow === "function") {
+        instance.hideWindow();
+      }
+    }
+  }
+
+  function showAll() {
+    settingsGlobals.allSettings.sort(
+      (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
+    );
+    for (const instance of settingsGlobals.allSettings) {
+      if (instance && typeof instance.showWindow === "function") {
+        instance.showWindow();
+      }
+    }
+  }
+
+  function newWindow() {
+    settings(50, 50);
+  }
+
+  // Minimize
+  btnMin.addEventListener("click", () => {
+    hideWindow();
   });
 
   // Maximize / Restore
@@ -783,7 +825,17 @@ settings = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    showWindow,
+    hideWindow,
     closeWindow,
+    showAll,
+    hideAll,
+    closeAll,
+    newWindow,
+    showall: showAll,
+    hideall: hideAll,
+    closeall: closeAll,
+    newwindow: newWindow,
     goldenbodyId: settingsGlobals.goldenbodyId,
   });
   applyStyles();
@@ -795,174 +847,19 @@ settings = function (posX = 50, posY = 50) {
     isMaximized,
     getBounds,
     applyBounds,
+    showWindow,
+    hideWindow,
     closeWindow,
+    showAll,
+    hideAll,
+    closeAll,
+    newWindow,
+    showall: showAll,
+    hideall: hideAll,
+    closeall: closeAll,
+    newwindow: newWindow,
     goldenbodyId: settingsGlobals.goldenbodyId,
   };
 };
 
-//app stuff
-settingsGlobals.settingsContextMenu = function (e, needRemove = true) {
-  e.preventDefault();
 
-  // Remove any existing menus
-  document.querySelectorAll(".app-menu").forEach((m) => m.remove());
-
-  const menu = document.createElement("div");
-  try {
-    removeOtherMenus("settings");
-  } catch (e) {}
-  menu.className = "app-menu";
-  Object.assign(menu.style, {
-    position: "fixed",
-    left: `${e.clientX}px`,
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-    zIndex: 9999999,
-    padding: "4px 0",
-    minWidth: "160px",
-    fontSize: "13px",
-    visibility: "hidden", // hide temporarily so offsetHeight works
-  });
-  data.dark
-    ? menu.classList.toggle("dark", true)
-    : menu.classList.toggle("light", true);
-
-  // --- Menu items ---
-  const closeAll = document.createElement("div");
-  closeAll.textContent = "Close all";
-  closeAll.style.padding = "6px 10px";
-  closeAll.style.cursor = "pointer";
-  closeAll.addEventListener("click", () => {
-    for (const i of [...settingsGlobals.allSettings]) {
-      if (i && typeof i.closeWindow === "function") {
-        i.closeWindow();
-      } else if (i && i.rootElement) {
-        try {
-          i.rootElement.remove();
-        } catch (e) {}
-      }
-    }
-
-    settingsGlobals.allSettings = [];
-    menu.remove();
-  });
-  menu.appendChild(closeAll);
-
-  const hideAll = document.createElement("div");
-  hideAll.textContent = "Hide all";
-  hideAll.style.padding = "6px 10px";
-  hideAll.style.cursor = "pointer";
-  hideAll.addEventListener("click", () => {
-    for (const i of settingsGlobals.allSettings) {
-      i.rootElement.style.display = "none";
-    }
-    menu.remove();
-  });
-  menu.appendChild(hideAll);
-
-  const showAll = document.createElement("div");
-  showAll.textContent = "Show all";
-  showAll.style.padding = "6px 10px";
-  showAll.style.cursor = "pointer";
-  showAll.addEventListener("click", () => {
-    settingsGlobals.allSettings.sort(
-      (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
-    );
-    for (const i of settingsGlobals.allSettings) {
-      i.rootElement.style.display = "block";
-      bringToFront(i.rootElement);
-    }
-    menu.remove();
-  });
-  menu.appendChild(showAll);
-
-  const newWindow = document.createElement("div");
-  newWindow.textContent = "New window";
-  newWindow.style.padding = "6px 10px";
-  newWindow.style.cursor = "pointer";
-  newWindow.addEventListener("click", () => {
-    settings(50, 50);
-    menu.remove();
-  });
-  menu.appendChild(newWindow);
-  if (needRemove) {
-    const remove = document.createElement("div");
-    remove.textContent = "Remove from taskbar";
-    remove.style.padding = "6px 10px";
-    remove.style.cursor = "pointer";
-    const contextmenuevent = e;
-    remove.addEventListener("click", () => {
-      removeTaskButton(contextmenuevent.target.closest("button"));
-      menu.remove();
-    });
-    menu.appendChild(remove);
-  } else {
-    const add = document.createElement("div");
-    add.textContent = "Add to taskbar";
-    add.style.padding = "6px 10px";
-    add.style.cursor = "pointer";
-    add.addEventListener("click", function () {
-      addTaskButton("⚙", settings, "settingsContextMenu", "settingsGlobals");
-      saveTaskButtons();
-      purgeButtons();
-    });
-    menu.appendChild(add);
-  }
-  const barrier = document.createElement("hr");
-  menu.appendChild(barrier);
-
-  if (settingsGlobals.allSettings.length === 0) {
-    const item = document.createElement("div");
-    item.textContent = "No open windows";
-    item.style.padding = "6px 10px";
-    menu.appendChild(item);
-  } else {
-    settingsGlobals.allSettings.forEach((instance, i) => {
-      const item = document.createElement("div");
-      item.textContent = instance.title || `Settings ${i + 1}`;
-
-      Object.assign(item.style, {
-        padding: "6px 10px",
-        cursor: "pointer",
-        maxWidth: "185px",
-
-        whiteSpace: "nowrap", // ⬅️ prevent wrapping
-        overflow: "hidden", // ⬅️ hide overflow
-        textOverflow: "ellipsis", // ⬅️ show …
-      });
-
-      item.addEventListener("click", () => {
-        // Bring to front
-        bringToFront(instance.rootElement);
-
-        // Unminimize if hidden
-        if (instance.rootElement.style.display === "none") {
-          instance.rootElement.style.display = "flex";
-          instance.rootElement._isMinimized = false;
-          instance.rootElement._isMaximized = false;
-        }
-        menu.remove();
-      });
-
-      menu.appendChild(item);
-    });
-  }
-
-  document.body.appendChild(menu);
-
-  // --- Position menu above click ---
-  requestAnimationFrame(() => {
-    const menuHeight = menu.offsetHeight;
-    let top = e.clientY - menuHeight; // above click
-    if (top < 0) top = 0; // prevent going off screen
-    menu.style.top = `${top}px`;
-    menu.style.visibility = "visible";
-  });
-
-  // Remove menu on click outside
-  window.addEventListener("click", () => menu.remove(), { once: true });
-};
-settingsGlobals.settingscontextmenuhandlerL1 = function (e) {
-  settingsGlobals.settingsContextMenu(e, false);
-};
