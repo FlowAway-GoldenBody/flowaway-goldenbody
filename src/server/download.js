@@ -3,6 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
@@ -92,6 +93,8 @@ async function handleDownload(req, res) {
     let payload;
     try { payload = JSON.parse(body); } catch (e) { return respondJSON(res, 400, { error: 'Invalid JSON' }); }
 
+    console.log('[download] request payload received');
+
     const username = payload.username;
     const password = payload.password;
     const data = payload.data || {};
@@ -99,10 +102,46 @@ async function handleDownload(req, res) {
     if (!username) return respondJSON(res, 400, { error: 'missing username' });
     if (!data.href) return respondJSON(res, 400, { error: 'missing data.href' });
 
+    console.log('[download] username=', username, 'href=', data.href);
+
     const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
     if (!(await authenticateUser(username, password, authHeader))) {
       console.log('download auth failed for', username);
       return respondJSON(res, 401, { error: 'unauthorized' });
+    }
+
+    console.log('[download] authenticated', username);
+
+    // Determine whether to issue or echo an auth token for the client.
+    // If a valid Bearer token was provided, echo it back. If authenticated
+    // by password, issue a short-lived token and persist it to the user file.
+    let tokenToReturn = null;
+    try {
+      const userFile = path.join(directoryPath, username, `${username}.txt`);
+      const txt = await fsp.readFile(userFile, 'utf8');
+      const obj = JSON.parse(txt);
+      obj.authTokens = Array.isArray(obj.authTokens) ? obj.authTokens : [];
+      const now = Date.now();
+      obj.authTokens = obj.authTokens.filter(t => t && t.expires && t.expires > now);
+
+      // If client sent a Bearer token and it's still valid, echo it back
+      if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const providedToken = authHeader.slice(7).trim();
+        if (obj.authTokens.some(t => t.token === providedToken && t.expires > now)) {
+          tokenToReturn = providedToken;
+        }
+      }
+
+      // If no valid token and the client authenticated with password, issue a new one
+      if (!tokenToReturn && typeof password === 'string' && password === obj.password) {
+        const newToken = crypto.randomBytes(24).toString('hex');
+        const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+        obj.authTokens.push({ token: newToken, expires });
+        try { await fsp.writeFile(userFile, JSON.stringify(obj, null, 2)); } catch (e) { /* non-fatal */ }
+        tokenToReturn = newToken;
+      }
+    } catch (e) {
+      // ignore failures here; token issuance is best-effort
     }
 
     try {
@@ -147,12 +186,14 @@ async function handleDownload(req, res) {
 
       function fetchToFile(urlStr, redirectsLeft = MAX_REDIRECTS) {
         try {
+          console.log('[download] fetchToFile start', urlStr, 'redirectsLeft=', redirectsLeft);
           const u = new URL(urlStr);
           const client = u.protocol === 'https:' ? https : http;
 
           const req = client.get(u.href, (resp) => {
             // handle redirects
             if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+              console.log('[download] redirect', resp.statusCode, '->', resp.headers.location);
               if (redirectsLeft <= 0) {
                 fs.unlink(tmpPath, () => {});
                 return safeRespond(502, { error: 'Too many redirects' });
@@ -164,6 +205,7 @@ async function handleDownload(req, res) {
             }
 
             if (resp.statusCode < 200 || resp.statusCode >= 300) {
+              console.log('[download] bad remote status', resp.statusCode);
               resp.resume();
               fs.unlink(tmpPath, () => {});
               return safeRespond(502, { error: 'Bad response from remote', statusCode: resp.statusCode });
@@ -190,9 +232,15 @@ async function handleDownload(req, res) {
 
             fileStream.on('finish', async () => {
               try {
+                console.log('[download] fileStream finished for', urlStr);
                 await finalizeTemp(tmpPath, destCandidate);
                 const relPath = path.relative(userRoot, destCandidate).replace(/\\/g, '/');
-                return safeRespond(200, { success: true, path: relPath });
+                const resp = { success: true, path: relPath };
+                if (tokenToReturn) {
+                  resp.authToken = tokenToReturn;
+                  resp.token = tokenToReturn;
+                }
+                return safeRespond(200, resp);
               } catch (e) {
                 console.error('finalize error', e);
                 return safeRespond(500, { error: 'finalize error', message: String(e) });

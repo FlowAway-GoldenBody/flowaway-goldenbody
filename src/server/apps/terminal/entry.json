@@ -2,8 +2,6 @@
   "name": "terminal",
   "label": "Terminal",
   "startbtnid": "terminalapp",
-  "cmf": "terminalContextMenu",
-  "cmfl1": "terminalcontextmenuhandlerL1",
   "globalvarobject": "terminalGlobals",
   "allapparray": "allTerminals",
   "appGlobalVarStrings": [

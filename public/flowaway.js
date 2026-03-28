@@ -1567,8 +1567,6 @@ async function extractAppData(appFolder) {
   var label = folderName;
   var icon = null;
   var startbtnid = "";
-  var cmf = "cmf";
-  var cmfl1 = "cmfl1";
   var globalvarobject = "";
   var appGlobalVarStrings = [];
   var allapparray = [];
@@ -1581,8 +1579,6 @@ async function extractAppData(appFolder) {
       entryName = entryObj.name;
       label = entryObj.label;
       startbtnid = entryObj.startbtnid || "";
-      cmf = "cmf";
-      cmfl1 = "cmfl1";
       globalvarobject = entryObj.globalvarobject || "";
       appGlobalVarStrings = entryObj.appGlobalVarStrings || [];
       allapparray = entryObj.allapparray || [];
@@ -1624,8 +1620,6 @@ async function extractAppData(appFolder) {
     startbtnid,
     icon,
     scriptLoaded: false,
-    cmf,
-    cmfl1,
     globalvarobject,
     appGlobalVarStrings,
   };
@@ -3420,7 +3414,7 @@ function applyTaskButtons() {
         const btn = addTaskButton(
           app.icon,
           () => launchApp(appId),
-          app.cmf || "cmf",
+          "cmf",
           "",
           appId,
         );

@@ -419,5 +419,3 @@ yourApp = function (posX = 50, posY = 50) {
     goldenbodyId: root._goldenbodyId,
   };
 };
-
-
