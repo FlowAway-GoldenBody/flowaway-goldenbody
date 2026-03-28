@@ -1404,7 +1404,11 @@ function hashScriptContent(text) {
 function isProtectedAppGlobalName(name) {
   if (!name || typeof name !== "string") return false;
   return (
-    /Globals$/.test(name) || name === "apps" || name === "_flowaway_handlers"
+    /Globals$/.test(name) ||
+    name === "apps" ||
+    name === "_flowaway_handlers" ||
+    name === "cmf" ||
+    name === "cmfl1"
   );
 }
 
@@ -1563,8 +1567,8 @@ async function extractAppData(appFolder) {
   var label = folderName;
   var icon = null;
   var startbtnid = "";
-  var cmf = false;
-  var cmfl1 = "";
+  var cmf = "cmf";
+  var cmfl1 = "cmfl1";
   var globalvarobject = "";
   var appGlobalVarStrings = [];
   var allapparray = [];
@@ -1577,8 +1581,8 @@ async function extractAppData(appFolder) {
       entryName = entryObj.name;
       label = entryObj.label;
       startbtnid = entryObj.startbtnid || "";
-      cmf = entryObj.cmf || false;
-      cmfl1 = entryObj.cmfl1 || "";
+      cmf = "cmf";
+      cmfl1 = "cmfl1";
       globalvarobject = entryObj.globalvarobject || "";
       appGlobalVarStrings = entryObj.appGlobalVarStrings || [];
       allapparray = entryObj.allapparray || [];
@@ -3056,6 +3060,291 @@ window.removeOtherMenus = function (except) {
     }
   } catch (e) {}
 };
+
+window.resolveAppFromEvent = function (evt, appOverride = null) {
+  if (appOverride && typeof appOverride === "object") return appOverride;
+  try {
+    var appId =
+      evt &&
+      evt.target &&
+      evt.target.closest &&
+      evt.target.closest("[data-app-id], [data-appid]")
+        ? evt.target.closest("[data-app-id], [data-appid]").dataset.appId ||
+          evt.target.closest("[data-app-id], [data-appid]").dataset.appid
+        : "";
+
+    if (!appId && evt && evt.target && evt.target.closest) {
+      var taskBtn = evt.target.closest("button.taskbutton");
+      if (taskBtn) {
+        appId =
+          (taskBtn.dataset && taskBtn.dataset.appId) ||
+          (taskBtn.value && String(taskBtn.value).trim()) ||
+          "";
+      }
+    }
+
+    if (!appId) return null;
+    return (window.apps || []).find((a) => appMatchesIdentifier(a, appId)) || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+window.getAppInstances = function (app) {
+  if (!app || !app.globalvarobject || !app.allapparray) return [];
+  try {
+    var appGlobalObj = window[app.globalvarobject];
+    var list = appGlobalObj && appGlobalObj[app.allapparray];
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+window.showUnifiedAppContextMenu = function (e, appOverride = null, needRemove = true) {
+  if (!e) return;
+  e.preventDefault();
+
+  var app = window.resolveAppFromEvent(e, appOverride);
+  if (!app) return;
+
+  document.querySelectorAll(".app-menu").forEach((m) => m.remove());
+
+  const menu = document.createElement("div");
+  try {
+    removeOtherMenus(app.id || app.entry || "");
+  } catch (err) {}
+
+  menu.className = "app-menu";
+  if (app && app.id) menu.dataset.appId = String(app.id);
+  Object.assign(menu.style, {
+    position: "fixed",
+    left: `${e.clientX}px`,
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+    zIndex: 9999999,
+    padding: "4px 0",
+    minWidth: "160px",
+    fontSize: "13px",
+    visibility: "hidden",
+  });
+  data.dark
+    ? menu.classList.toggle("dark", true)
+    : menu.classList.toggle("light", true);
+
+  function withInstances(handler) {
+    try {
+      var instances = window.getAppInstances(app);
+      handler(instances);
+    } catch (err) {}
+    menu.remove();
+  }
+
+  const closeAll = document.createElement("div");
+  closeAll.textContent = "Close all";
+  closeAll.style.padding = "6px 10px";
+  closeAll.style.cursor = "pointer";
+  closeAll.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.closeAll === "function") {
+        first.closeAll();
+        return;
+      }
+      for (const instance of [...instances]) {
+        if (instance && typeof instance.closeWindow === "function") {
+          instance.closeWindow();
+        }
+      }
+    });
+  });
+  menu.appendChild(closeAll);
+
+  const hideAll = document.createElement("div");
+  hideAll.textContent = "Hide all";
+  hideAll.style.padding = "6px 10px";
+  hideAll.style.cursor = "pointer";
+  hideAll.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.hideAll === "function") {
+        first.hideAll();
+        return;
+      }
+      for (const instance of instances) {
+        if (instance && typeof instance.hideWindow === "function") {
+          instance.hideWindow();
+        } else if (instance && instance.rootElement) {
+          instance.rootElement.style.display = "none";
+        }
+      }
+    });
+  });
+  menu.appendChild(hideAll);
+
+  const showAll = document.createElement("div");
+  showAll.textContent = "Show all";
+  showAll.style.padding = "6px 10px";
+  showAll.style.cursor = "pointer";
+  showAll.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.showAll === "function") {
+        first.showAll();
+        return;
+      }
+      instances.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      for (const instance of instances) {
+        if (instance && typeof instance.showWindow === "function") {
+          instance.showWindow();
+        } else if (instance && instance.rootElement) {
+          instance.rootElement.style.display = "block";
+          bringToFront(instance.rootElement);
+        }
+      }
+    });
+  });
+  menu.appendChild(showAll);
+
+  const newWindow = document.createElement("div");
+  newWindow.textContent = "New window";
+  newWindow.style.padding = "6px 10px";
+  newWindow.style.cursor = "pointer";
+  newWindow.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.newWindow === "function") {
+        first.newWindow();
+      } else {
+        launchApp(getPreferredAppIdentifier(app));
+      }
+    });
+  });
+  menu.appendChild(newWindow);
+
+  if (needRemove) {
+    const remove = document.createElement("div");
+    remove.textContent = "Remove from taskbar";
+    remove.style.padding = "6px 10px";
+    remove.style.cursor = "pointer";
+    const contextMenuEvent = e;
+    remove.addEventListener("click", () => {
+      var btn =
+        contextMenuEvent && contextMenuEvent.target && contextMenuEvent.target.closest
+          ? contextMenuEvent.target.closest("button.taskbutton")
+          : null;
+      if (btn) {
+        removeTaskButton(btn);
+        try {
+          saveTaskButtons();
+          purgeButtons();
+        } catch (err) {}
+      }
+      menu.remove();
+    });
+    menu.appendChild(remove);
+  } else {
+    const appId = getPreferredAppIdentifier(app);
+    const existingBtn = document.querySelector(
+      `button.taskbutton[data-app-id="${appId}"]`,
+    );
+
+    if (existingBtn) {
+      const remove = document.createElement("div");
+      remove.textContent = "Remove from taskbar";
+      remove.style.padding = "6px 10px";
+      remove.style.cursor = "pointer";
+      remove.addEventListener("click", function () {
+        removeTaskButton(existingBtn);
+        try {
+          saveTaskButtons();
+          purgeButtons();
+        } catch (err) {}
+        menu.remove();
+      });
+      menu.appendChild(remove);
+    } else {
+      const add = document.createElement("div");
+      add.textContent = "Add to taskbar";
+      add.style.padding = "6px 10px";
+      add.style.cursor = "pointer";
+      add.addEventListener("click", function () {
+        const btn = addTaskButton(
+          app.icon,
+          () => launchApp(appId),
+          "cmf",
+          "",
+          appId,
+        );
+        if (btn) btn.dataset.appId = appId;
+        saveTaskButtons();
+        purgeButtons();
+        menu.remove();
+      });
+      menu.appendChild(add);
+    }
+  }
+
+  const barrier = document.createElement("hr");
+  menu.appendChild(barrier);
+
+  const instances = window.getAppInstances(app);
+  if (instances.length === 0) {
+    const item = document.createElement("div");
+    item.textContent = "No open windows";
+    item.style.padding = "6px 10px";
+    menu.appendChild(item);
+  } else {
+    instances.forEach((instance, i) => {
+      const item = document.createElement("div");
+      item.textContent = instance.title || `${app.label || "Window"} ${i + 1}`;
+      Object.assign(item.style, {
+        padding: "6px 10px",
+        cursor: "pointer",
+        maxWidth: "185px",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      });
+
+      item.addEventListener("click", () => {
+        try {
+          if (instance && typeof instance.showWindow === "function") {
+            instance.showWindow();
+          } else if (instance && instance.rootElement) {
+            instance.rootElement.style.display = "block";
+            bringToFront(instance.rootElement);
+          }
+        } catch (err) {}
+        menu.remove();
+      });
+
+      menu.appendChild(item);
+    });
+  }
+
+  document.body.appendChild(menu);
+
+  requestAnimationFrame(() => {
+    const menuHeight = menu.offsetHeight;
+    let top = e.clientY - menuHeight;
+    if (top < 0) top = 0;
+    menu.style.top = `${top}px`;
+    menu.style.visibility = "visible";
+  });
+
+  window.addEventListener("click", () => menu.remove(), { once: true });
+};
+
+window.cmf = function (e, appOverride = null) {
+  window.showUnifiedAppContextMenu(e, appOverride, true);
+};
+
+window.cmfl1 = function (e, appOverride = null) {
+  window.showUnifiedAppContextMenu(e, appOverride, false);
+};
+
 function applyTaskButtons() {
   if (window.appsButtonsApplied) return;
   if (!window.apps || window.apps.length === 0) return;
@@ -3131,8 +3420,9 @@ function applyTaskButtons() {
         const btn = addTaskButton(
           app.icon,
           () => launchApp(appId),
-          app.cmf || false,
-          app.globalvarobject || "",
+          app.cmf || "cmf",
+          "",
+          appId,
         );
         if (btn) btn.dataset.appId = appId;
       }
@@ -4894,16 +5184,8 @@ function createAppTile(app, container, draggable) {
 
   function runAppPackageContextMenu(evt) {
     try {
-      var appGlobalObj =
-        app && app.globalvarobject ? window[app.globalvarobject] : null;
-      var l1ContextHandler =
-        appGlobalObj &&
-        app.cmfl1 &&
-        typeof appGlobalObj[app.cmfl1] === 'function'
-          ? appGlobalObj[app.cmfl1]
-          : null;
-      if (l1ContextHandler) {
-        l1ContextHandler.call(appGlobalObj, evt);
+      if (typeof window.cmfl1 === "function") {
+        window.cmfl1(evt, app);
       }
     } catch (err) {
       flowawayError('createAppTile', 'Failed to run app package context menu', err, {

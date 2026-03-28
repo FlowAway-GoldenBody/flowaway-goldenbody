@@ -6061,6 +6061,18 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       get tabs() {
         return tabs;
       },
+
+      showWindow: function () {
+        root.style.display = "block";
+        isMinimized = false;
+        bringToFront(root);
+      },
+
+      hideWindow: function () {
+        if (!isMaximized) this.savedBounds = getBounds();
+        root.style.display = "none";
+        isMinimized = true;
+      },
     };
   })();
   windowTitleInterval = setInterval(function () {
@@ -6079,6 +6091,38 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     } catch (e) {}
   }, 1000 * nhjd);
   chromeWindow.rootElement.setAttribute("data-title", "Window");
+  chromeWindow.closeAll = function () {
+    for (const instance of [...browserGlobals.allBrowsers]) {
+      if (instance && typeof instance.closeWindow === "function") {
+        instance.closeWindow();
+      }
+    }
+    browserGlobals.allBrowsers = [];
+  };
+  chromeWindow.hideAll = function () {
+    for (const instance of browserGlobals.allBrowsers) {
+      if (instance && typeof instance.hideWindow === "function") {
+        instance.hideWindow();
+      }
+    }
+  };
+  chromeWindow.showAll = function () {
+    browserGlobals.allBrowsers.sort(
+      (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
+    );
+    for (const instance of browserGlobals.allBrowsers) {
+      if (instance && typeof instance.showWindow === "function") {
+        instance.showWindow();
+      }
+    }
+  };
+  chromeWindow.newWindow = function () {
+    browser();
+  };
+  chromeWindow.showall = chromeWindow.showAll;
+  chromeWindow.hideall = chromeWindow.hideAll;
+  chromeWindow.closeall = chromeWindow.closeAll;
+  chromeWindow.newwindow = chromeWindow.newWindow;
   browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
   applyStyles();
 
@@ -6115,156 +6159,3 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
   }
 };
 
-// app stuff
-browserGlobals.browsermenuhandler = function (e, needremove = true) {
-  e.preventDefault();
-
-  // Remove existing menus
-  document.querySelectorAll(".app-menu").forEach((m) => m.remove());
-
-  const menu = document.createElement("div");
-  try {
-    removeOtherMenus("browser");
-  } catch (e) {}
-  menu.className = "app-menu";
-  Object.assign(menu.style, {
-    position: "fixed",
-    top: `0px`,
-    left: `${e.clientX}px`,
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-    zIndex: 9999999,
-    padding: "4px 0",
-    minWidth: "160px",
-    fontSize: "13px",
-    visibility: "hidden", // so layout isn't disrupted before positioning
-  });
-  data.dark
-    ? menu.classList.toggle("dark", true)
-    : menu.classList.toggle("light", true);
-
-  requestAnimationFrame(() => {
-    const menuHeight = menu.offsetHeight;
-    const fixedTop = e.clientY - menuHeight;
-
-    menu.style.top = `${fixedTop}px`;
-    menu.style.visibility = "visible";
-  });
-  let closeAllitem = document.createElement("div");
-  closeAllitem.textContent = "close all";
-  closeAllitem.style.padding = "6px 10px";
-  closeAllitem.style.cursor = "pointer";
-  closeAllitem.addEventListener("click", function () {
-    for (const instance of [...browserGlobals.allBrowsers]) {
-      if (instance && typeof instance.closeWindow === "function") {
-        instance.closeWindow();
-      }
-    }
-    browserGlobals.allBrowsers = [];
-    menu.remove();
-  });
-  menu.appendChild(closeAllitem);
-  /*
-   */
-  let hideAll = document.createElement("div");
-  hideAll.textContent = "hide all";
-  hideAll.style.padding = "6px 10px";
-  hideAll.style.cursor = "pointer";
-  hideAll.addEventListener("click", function () {
-    for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-      let instance = browserGlobals.allBrowsers[i];
-      if (!instance.isMaximized) instance.savedBounds = instance.getBounds();
-      instance.rootElement.style.display = "none";
-      instance._isMinimized = true;
-    }
-  });
-  menu.appendChild(hideAll);
-
-  let showAll = document.createElement("div");
-  showAll.textContent = "show all";
-  showAll.style.padding = "6px 10px";
-  showAll.style.cursor = "pointer";
-  showAll.addEventListener("click", function () {
-    browserGlobals.allBrowsers.sort(
-      (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
-    );
-    for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
-      let instance = browserGlobals.allBrowsers[i];
-      instance.rootElement.style.display = "block";
-      instance._isMinimized = false;
-      bringToFront(instance.rootElement);
-    }
-  });
-  menu.appendChild(showAll);
-  let opennew = document.createElement("div");
-  opennew.textContent = "new window";
-  opennew.style.padding = "6px 10px";
-  opennew.style.cursor = "pointer";
-  opennew.addEventListener("click", function () {
-    browser();
-  });
-  menu.appendChild(opennew);
-  if (needremove) {
-    let remove = document.createElement("div");
-    remove.textContent = "remove from taskbar";
-    remove.style.padding = "6px 10px";
-    remove.style.cursor = "pointer";
-    let contextmenuevent = e;
-    remove.addEventListener("click", function () {
-      removeTaskButton(contextmenuevent.target.closest("button"));
-    });
-    menu.appendChild(remove);
-  } else {
-    let remove = document.createElement("div");
-    remove.textContent = "add to taskbar";
-    remove.style.padding = "6px 10px";
-    remove.style.cursor = "pointer";
-    remove.addEventListener("click", function () {
-      addTaskButton("🌐", browser, 'browsermenuhandler', 'browserGlobals');
-      saveTaskButtons();
-      purgeButtons();
-    });
-    menu.appendChild(remove);
-  }
-  const barrier = document.createElement("hr");
-  menu.appendChild(barrier);
-
-  if (browserGlobals.allBrowsers.length === 0) {
-    const item = document.createElement("div");
-    item.textContent = "No open windows";
-    item.style.padding = "6px 10px";
-    menu.appendChild(item);
-  } else {
-    browserGlobals.allBrowsers.forEach((instance, i) => {
-      const item = document.createElement("div");
-      item.textContent = instance.title || "Untitled";
-      Object.assign(item.style, {
-        padding: "6px 10px",
-        cursor: "pointer",
-        maxWidth: "185px",
-
-        whiteSpace: "nowrap", // ⬅️ prevent wrapping
-        overflow: "hidden", // ⬅️ hide overflow
-        textOverflow: "ellipsis", // ⬅️ show …
-      });
-      item.addEventListener("click", () => {
-        // Bring to front
-        bringToFront(instance.rootElement);
-
-        // Unminimize if needed
-        const el = instance.rootElement;
-        if (el.style.display === "none") {
-          el.style.display = "block";
-          instance._isMinimized = false;
-        }
-        menu.remove();
-      });
-      menu.appendChild(item);
-    });
-  }
-
-  document.body.appendChild(menu);
-  window.addEventListener("click", () => menu.remove(), { once: true });
-};
-browserGlobals.browsercontextmenuhandlerL1 = function (e) {browserGlobals.browsermenuhandler(e, false)};

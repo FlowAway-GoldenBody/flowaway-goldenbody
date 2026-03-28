@@ -284,7 +284,7 @@
     syncTaskButtons();
   });
 
-  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '') {
+  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '') {
     var btn = document.createElement("button");
     btn.innerText = name;
     btn.value = name;
@@ -321,8 +321,27 @@
         }
       } catch (e) {}
     });
-    if(appcontextmenuhandler) {
-      btn.addEventListener('contextmenu', window[globalvarobjectstring][appcontextmenuhandler])
+    if (appId) {
+      btn.dataset.appId = appId;
+    }
+    if (appcontextmenuhandler) {
+      var contextHandler = null;
+      if (typeof appcontextmenuhandler === "function") {
+        contextHandler = appcontextmenuhandler;
+      } else if (typeof appcontextmenuhandler === "string") {
+        if (
+          globalvarobjectstring &&
+          window[globalvarobjectstring] &&
+          typeof window[globalvarobjectstring][appcontextmenuhandler] === "function"
+        ) {
+          contextHandler = window[globalvarobjectstring][appcontextmenuhandler];
+        } else if (typeof window[appcontextmenuhandler] === "function") {
+          contextHandler = window[appcontextmenuhandler];
+        }
+      }
+      if (contextHandler) {
+        btn.addEventListener("contextmenu", contextHandler);
+      }
     }
     setupTaskButtonDrag(btn);
     taskbar.appendChild(btn);
