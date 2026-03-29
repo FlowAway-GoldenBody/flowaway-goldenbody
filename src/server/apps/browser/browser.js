@@ -976,7 +976,64 @@ window.browser = function (
     clear.title = "delete browsing data";
     clear.className = "sim-open-btn";
     applyAddressIconButtonStyle(clear);
+    function showConfirmDialog(title, message) {
+      return new Promise((resolve) => {
+        document.getElementById("confirm-dialog")?.remove();
 
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;";
+
+        const dialog = document.createElement("div");
+        dialog.id = "confirm-dialog";
+        dialog.className = "panel";
+        dialog.classList.toggle("dark", data.dark);
+        dialog.classList.toggle("light", !data.dark);
+        dialog.style.cssText =
+          "position:relative;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
+
+        const titleEl = document.createElement("div");
+        titleEl.style.cssText = "font-weight:600;margin-bottom:12px;font-size:16px;";
+        titleEl.textContent = title;
+        dialog.appendChild(titleEl);
+
+        const msgEl = document.createElement("div");
+        msgEl.style.cssText =`font-size:14px;color:#${data.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+        msgEl.textContent = message;
+        dialog.appendChild(msgEl);
+
+        const btnRow = document.createElement("div");
+        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
+
+        const btnCancel = document.createElement("button");
+        btnCancel.textContent = "Cancel";
+        btnCancel.style.cssText = "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
+        btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
+        btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
+        btnCancel.onclick = () => {
+          overlay.remove();
+          resolve(false);
+        };
+
+        const btnConfirm = document.createElement("button");
+        btnConfirm.textContent = "Continue";
+        btnConfirm.style.cssText = "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
+        btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
+        btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
+        btnConfirm.onclick = () => {
+          overlay.remove();
+          resolve(true);
+        };
+
+        btnRow.appendChild(btnCancel);
+        btnRow.appendChild(btnConfirm);
+        dialog.appendChild(btnRow);
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        btnConfirm.focus();
+      });
+    }
     function openDownloadUI(anchorPoint = null) {
       document.getElementById("download-ui")?.remove();
 
@@ -1162,7 +1219,7 @@ window.browser = function (
     clear.onclick = async function () {
       const confirmClear = await showConfirmDialog(
         "Clear site data",
-        "This will reset site settings and generate a new browser session id. Continue?",
+        "This will reset site settings and clear your browsing data. Continue?",
       );
       if (!confirmClear) return;
 
