@@ -14,6 +14,7 @@ function removeAllEventListernersInWindow() {
   for (const listener of window.____gbEventListners) {
     try {
       window.removeEventListener(listener.type, listener.handler, listener.options);
+      document.removeEventListener(listener.type, listener.handler, listener.options);
     } catch (e) {
       console.error("Error removing event listener", e);
     }

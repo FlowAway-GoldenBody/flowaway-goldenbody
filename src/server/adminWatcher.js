@@ -126,7 +126,7 @@ function updateAllSystemApps() {
         if (userData.autoupdate) {
           // Keep key root-level system scripts in sync.
           for (const fileName of systemRootFiles) {
-            const srcFilePath = path.join(projectRoot, 'public', fileName);
+            const srcFilePath = path.join(projectRoot, 'src', 'server', 'systemfiles', fileName);
             const dstFilePath = path.join(userRootPath, fileName);
             try {
               if (!fs.existsSync(srcFilePath)) continue;
