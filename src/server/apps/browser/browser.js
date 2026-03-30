@@ -868,7 +868,7 @@ window.browser = function (
       window.removeEventListener("message", messageHandler);
       window.removeEventListener("pointerup", onpointerupAnywhere);
       // Clean up all event listeners added by this app
-      window.removeAllEventListenersForApp("browser" + root._goldenbodyId);
+      window.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
       root = null;
       _browserCalled = false;
     }
@@ -2072,6 +2072,7 @@ window.browser = function (
                 browserGlobals.allBrowsers[i].rootElement._goldenbodyId == maxId
               ) {
                 browserGlobals.allBrowsers[i].rootElement.remove();
+                removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
                 browserGlobals.allBrowsers[i].rootElement = null;
                 browserGlobals.allBrowsers.splice(i, 1);
               }

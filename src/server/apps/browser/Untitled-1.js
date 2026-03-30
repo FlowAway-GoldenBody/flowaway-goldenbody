@@ -1,0 +1,5875 @@
+//browser global vars
+window.browserGlobals = {};
+window.__globalAddTab = function (url, index) {
+    let t = browserGlobals.allBrowsers[index].addTab(url, 'New Tab');
+    for (const tab of browserGlobals.allBrowsers[index].tabs) {
+        if (tab.id == t) {
+            t = tab;
+            break;
+        }
+    }
+    return t.iframe.contentWindow;
+};
+browserGlobals.allBrowsers = [];
+browserGlobals.goldenbodyId = 0;
+browserGlobals.proxyurl = window.origin + '/';
+browserGlobals.dragstartwindow = null;
+browserGlobals.__vfsMessageListenerAdded = false;
+browserGlobals.tabisDragging = false;
+browserGlobals.draggedtab = 0;
+browserGlobals.profileUserIdPath = '/apps/browser/profile/userID.txt';
+browserGlobals.profileSettingsPath = '/apps/browser/profile/settings.json';
+browserGlobals.profileState = {
+    siteSettings: [],
+    enableURLSync: true,
+    lazyloading: true,
+    siteZoom: {}
+};
+
+function safeDecodeBase64Text(v) {
+    try {
+        return atob(String(v || ''));
+    } catch (e) {
+        return '';
+    }
+}
+
+function looksLikeSessionId(value) {
+    const s = String(value || '').trim();
+    return /^[A-Za-z0-9._-]{8,}$/.test(s);
+}
+
+function decodeMaybeBase64(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    if (s[0] === '{' || s[0] === '[') return s;
+    const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
+    if (!looksLikeBase64) return s;
+    const decoded = safeDecodeBase64Text(s);
+    if (!decoded) return s;
+    const trimmed = decoded.trim();
+    if (!trimmed) return s;
+    if (trimmed[0] === '{' || trimmed[0] === '[') return trimmed;
+    if (looksLikeSessionId(trimmed)) return trimmed;
+
+    let printable = 0;
+    for (let i = 0; i < decoded.length; i++) {
+        const code = decoded.charCodeAt(i);
+        if (code === 9 || code === 10 || code === 13 || (code >= 32 && code <= 126)) {
+            printable++;
+        }
+    }
+    const printableRatio = decoded.length ? printable / decoded.length : 0;
+    if (printableRatio >= 0.95) return trimmed;
+
+    return s;
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function readProfileTextFileMeta(filePath, options = {}) {
+    const attempts = Math.max(1, Number(options.attempts || 1));
+    const retryDelayMs = Math.max(0, Number(options.retryDelayMs || 0));
+    let lastError = null;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+            if (typeof ReadFile === 'function') {
+                const res = await ReadFile(filePath);
+                if (!res || res.missing || res.code === 'ENOENT' || res.kind === 'missing') {
+                    if (attempt + 1 < attempts) {
+                        if (retryDelayMs > 0) await sleep(retryDelayMs);
+                        continue;
+                    }
+                    return { text: '', missing: true, error: null };
+                }
+                if (typeof res === 'string') {
+                    return { text: decodeMaybeBase64(res), missing: false, error: null };
+                }
+                if (typeof res.filecontent === 'string') {
+                    return { text: decodeMaybeBase64(res.filecontent), missing: false, error: null };
+                }
+                return { text: '', missing: false, error: null };
+            }
+
+            if (typeof readFile === 'function') {
+                const value = readFile(filePath);
+                return { text: decodeMaybeBase64(value), missing: false, error: null };
+            }
+
+            return { text: '', missing: false, error: new Error('No file reader available') };
+        } catch (e) {
+            lastError = e;
+            if (attempt + 1 < attempts) {
+                if (retryDelayMs > 0) await sleep(retryDelayMs);
+                continue;
+            }
+        }
+    }
+
+    return { text: '', missing: false, error: lastError || new Error('Failed to read file') };
+}
+
+async function readProfileTextFile(filePath) {
+    const result = await readProfileTextFileMeta(filePath, {
+        attempts: 3,
+        retryDelayMs: 120
+    });
+    return result.text || '';
+}
+
+function defaultBrowserProfile() {
+    return {
+        siteSettings: [],
+        enableURLSync: true,
+        lazyloading: true,
+        siteZoom: {}
+    };
+}
+
+function normalizeBrowserProfile(parsed) {
+    if (!parsed || typeof parsed !== 'object') return defaultBrowserProfile();
+    const normalizedSiteZoom = {};
+    if (parsed.siteZoom && typeof parsed.siteZoom === 'object') {
+        for (const key of Object.keys(parsed.siteZoom)) {
+            const value = Number(parsed.siteZoom[key]);
+            if (Number.isFinite(value)) {
+                normalizedSiteZoom[key] = Math.max(25, Math.min(500, Math.round(value)));
+            }
+        }
+    }
+    return {
+        siteSettings: Array.isArray(parsed.siteSettings) ? parsed.siteSettings : [],
+        enableURLSync: typeof parsed.enableURLSync === 'boolean' ? parsed.enableURLSync : true,
+        lazyloading: typeof parsed.lazyloading === 'boolean' ? parsed.lazyloading : true,
+        siteZoom: normalizedSiteZoom
+    };
+}
+
+function isDefaultLikeProfile(profile) {
+    return (
+        !!profile &&
+        Array.isArray(profile.siteSettings) &&
+        profile.siteSettings.length === 0 &&
+        profile.enableURLSync === true &&
+        profile.lazyloading === true
+    );
+}
+
+async function readBrowserProfile() {
+    try {
+        const profileRead = await readProfileTextFileMeta(browserGlobals.profileSettingsPath, {
+            attempts: 4,
+            retryDelayMs: 120
+        });
+        const raw = profileRead.text;
+        if (!raw) return defaultBrowserProfile();
+        const parsed = JSON.parse(raw);
+        return normalizeBrowserProfile(parsed);
+    } catch (e) {
+        return defaultBrowserProfile();
+    }
+}
+
+async function writeBrowserProfile(profile, options = {}) {
+    const payload = {
+        siteSettings: Array.isArray(profile?.siteSettings) ? profile.siteSettings : [],
+        enableURLSync: !!profile?.enableURLSync,
+        lazyloading: !!profile?.lazyloading,
+        siteZoom: profile?.siteZoom && typeof profile.siteZoom === 'object' ? profile.siteZoom : {}
+    };
+
+    if (!options.force) {
+        try {
+            const existingRead = await readProfileTextFileMeta(browserGlobals.profileSettingsPath, {
+                attempts: 3,
+                retryDelayMs: 100
+            });
+            const existingRaw = existingRead.text;
+            if (existingRaw) {
+                const existing = normalizeBrowserProfile(JSON.parse(existingRaw));
+                if (!isDefaultLikeProfile(existing) && isDefaultLikeProfile(payload)) {
+                    // Guard against race conditions wiping a real settings file with defaults.
+                    return false;
+                }
+            } else if (isDefaultLikeProfile(payload)) {
+                // Never auto-write default profile when existing content is empty/uncertain.
+                // This prevents transient read races from wiping real data.
+                return false;
+            }
+        } catch (e) {
+            // ignore parse/read guard failures and continue with write
+        }
+    }
+
+    const content = btoa(JSON.stringify(payload, null, 2));
+    if (typeof WriteFile === 'function') {
+        await WriteFile(browserGlobals.profileSettingsPath, content);
+        return true;
+    }
+    if (typeof filePost === 'function') {
+        await filePost({
+            saveSnapshot: true,
+            directions: [
+                {
+                    edit: true,
+                    path: browserGlobals.profileSettingsPath,
+                    contents: content,
+                    replace: true
+                },
+                { end: true }
+            ]
+        });
+        return true;
+    }
+    return false;
+}
+
+async function writeBrowserUserId(id) {
+    const encoded = btoa(String(id || ''));
+    if (typeof WriteFile === 'function') {
+        await WriteFile(browserGlobals.profileUserIdPath, encoded);
+        return;
+    }
+    if (typeof filePost === 'function') {
+        await filePost({
+            saveSnapshot: true,
+            directions: [
+                {
+                    edit: true,
+                    path: browserGlobals.profileUserIdPath,
+                    contents: encoded,
+                    replace: true
+                },
+                { end: true }
+            ]
+        });
+    }
+}
+
+async function requestNewBrowserSessionId() {
+    const candidates = ['/server/newsession', '/newsession'];
+    let lastError = null;
+    for (const endpoint of candidates) {
+        try {
+            const res = await fetch(endpoint);
+            if (!res.ok) {
+                lastError = new Error(`Failed to create new browser session (${endpoint})`);
+                continue;
+            }
+            const id = (await res.text()).trim();
+            if (id) return id;
+            lastError = new Error(`Empty browser session id (${endpoint})`);
+        } catch (e) {
+            lastError = e;
+        }
+    }
+    throw lastError || new Error('Failed to create new browser session');
+}
+
+browserGlobals.profile = defaultBrowserProfile();
+browserGlobals.profileState = normalizeBrowserProfile(browserGlobals.profile);
+browserGlobals.id = '';
+browserGlobals.profileReadyPromise = (async () => {
+    const loadedProfile = await readBrowserProfile();
+    browserGlobals.profile = loadedProfile;
+    browserGlobals.profileState = normalizeBrowserProfile(loadedProfile);
+
+    const idRead = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+        attempts: 5,
+        retryDelayMs: 150
+    });
+    const persistedId = String(idRead.text || '').trim();
+    if (persistedId) {
+        browserGlobals.id = persistedId;
+        return;
+    }
+
+    if (idRead.error) {
+        return;
+    }
+
+    // One more confirmation pass before generating/writing a new session id.
+    // This avoids replacing an existing id when the first read was transiently empty.
+    const idReadConfirm = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+        attempts: 6,
+        retryDelayMs: 220
+    });
+    const confirmedId = String(idReadConfirm.text || '').trim();
+    if (confirmedId) {
+        browserGlobals.id = confirmedId;
+        return;
+    }
+    if (idReadConfirm.error) {
+        return;
+    }
+    const id = await requestNewBrowserSessionId();
+    browserGlobals.id = id;
+    await writeBrowserUserId(id);
+})().catch(() => {});
+
+browserGlobals.subWebsite = function (url) {
+    url = url.split('?');
+    url = url[0].split('#');
+    return url[0];
+};
+browserGlobals.unshuffleURL = function (url) {
+    if (url === goldenbodywebsite + 'flowerfeast.html') {
+        return 'goldenbody://newtab/';
+    } else if (url === goldenbodywebsite + 'singlesdaylosesingle.html') {
+        return 'goldenbody://app-store/';
+    }
+    if (!url.includes(BASE)) {
+        return url;
+    }
+    url = url.split('/');
+    if (url) {
+        if (typeof url === 'string') {
+            return url;
+        }
+    }
+    url.splice(0, 4);
+    let newUrl = '';
+    for (let i = 0; i < url.length; i++) {
+        if (i !== 0) {
+            if (i === 1) newUrl += '//' + url[i];
+            else if (i === 2) newUrl += url[i];
+            else newUrl += '/' + url[i];
+        } else {
+            newUrl += url[i];
+        }
+    }
+    return newUrl;
+};
+// browser global functions
+browserGlobals.mainWebsite = function (string) {
+    let s = '';
+    let anti_numtots = 0;
+    for (let i = 0; i < string.length; i++) {
+        if (string[i] === '/') anti_numtots++;
+        if (string[i] === '?' || string[i] === '&' || anti_numtots === 3) {
+            s += string[i];
+            return s;
+        } else {
+            s += string[i];
+        }
+    }
+    return s;
+};
+
+window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, posY = 20) {
+    async function updateSiteSettings(iframe, content) {
+        if (browserGlobals.profileReadyPromise) {
+            await browserGlobals.profileReadyPromise;
+        }
+
+        browserGlobals.profileState.enableURLSync = !!content.enableURLSync;
+        browserGlobals.profileState.lazyloading = !!content.lazyloading;
+        if (content.lazyloading)
+            browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => (t.iframe.loading = 'lazy')));
+        else browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => (t.iframe.loading = '')));
+
+        const currentUrl = browserGlobals.mainWebsite(browserGlobals.unshuffleURL(iframe.src));
+        const profile = browserGlobals.profile || defaultBrowserProfile();
+        const list = Array.isArray(profile.siteSettings) ? profile.siteSettings : [];
+        let updated = false;
+        for (let i = 0; i < list.length; i++) {
+            if (Array.isArray(list[i]) && list[i][0] === currentUrl) {
+                list[i][1] = content.newSandbox;
+                updated = true;
+            }
+        }
+        if (!updated && content.addTheSite) {
+            list.push([currentUrl, content.newSandbox]);
+        }
+        profile.siteSettings = list;
+        profile.enableURLSync = !!content.enableURLSync;
+        profile.lazyloading = !!content.lazyloading;
+        browserGlobals.profile = profile;
+        browserGlobals.profileState.siteSettings = profile.siteSettings;
+        browserGlobals.profileState.enableURLSync = profile.enableURLSync;
+        browserGlobals.profileState.lazyloading = profile.lazyloading;
+        browserGlobals.profileState.siteZoom =
+            profile.siteZoom && typeof profile.siteZoom === 'object' ? profile.siteZoom : {};
+        await writeBrowserProfile(profile);
+
+        iframe.sandbox = content.newSandbox;
+    }
+    function createPermInput(iframe, url) {
+        url = browserGlobals.mainWebsite(url);
+
+        let sandbox = `
+    allow-forms
+    allow-modals
+    allow-orientation-lock
+    allow-pointer-lock
+    allow-presentation
+    allow-same-origin
+    allow-scripts
+  `.trim();
+
+        let fullscreen = true;
+        let addTheSite = true;
+        let siteSettings = browserGlobals.profileState.siteSettings;
+        for (const site of siteSettings) {
+            if (url === site[0]) {
+                sandbox = site[1];
+                addTheSite = false;
+            }
+        }
+        iframe.sandbox = sandbox;
+        return { sandbox, addTheSite };
+    }
+    function openPermissionsUI(url, iframe, anchorRect = null) {
+        const perms = createPermInput(iframe, url) || {
+            sandbox: ''
+        };
+
+        // --- Cleanup old UI
+        document.getElementById('perm-ui')?.remove();
+
+        // --- Overlay (click outside to close)
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:999999;
+  `;
+        overlay.onclick = () => overlay.remove();
+
+        // --- Floating panel
+        const panel = document.createElement('div');
+        panel.id = 'perm-ui';
+        panel.onclick = (e) => e.stopPropagation();
+        panel.className = 'panel';
+        panel.classList.toggle('dark', data.dark);
+        panel.classList.toggle('light', !data.dark);
+        panel.style.cssText = `
+    position:fixed;
+    width:320px;
+    border-radius:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+    padding:14px;
+    font-family:system-ui;
+    font-size:13px;
+    max-height:400px;
+    overflow:auto;
+  `;
+
+        if (anchorRect) {
+            panel.style.left = anchorRect.left + 'px';
+            panel.style.top = anchorRect.bottom + 6 + 'px';
+        } else {
+            panel.style.left = '50%';
+            panel.style.top = '50%';
+            panel.style.transform = 'translate(-50%,-50%)';
+        }
+
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        // --- Helpers
+        const sandboxSet = new Set(
+            perms.sandbox
+                ?.split(' ')
+                .map((v) => v.trim())
+                .filter(Boolean)
+        );
+
+        function section(title) {
+            const d = document.createElement('div');
+            d.style.marginBottom = '10px';
+            d.innerHTML = `<div style="font-weight:600;margin-bottom:6px">${title}</div>`;
+            panel.appendChild(d);
+            return d;
+        }
+
+        function checkbox(parent, label, checked, disabled = false) {
+            const row = document.createElement('label');
+            row.style.cssText =
+                'display:flex;align-items:center;gap:6px;margin-bottom:4px;opacity:' + (disabled ? 0.5 : 1);
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = checked;
+            cb.disabled = disabled;
+            row.append(cb, document.createTextNode(label));
+            parent.appendChild(row);
+            return cb;
+        }
+
+        // ===============================
+        // FULLSCREEN
+        // ===============================
+        let website = browserGlobals.mainWebsite(browserGlobals.unshuffleURL(iframe.src));
+        let secure = website.startsWith('https://')
+            ? 'Connection to this site is Secure'
+            : 'Connection to this site is Not Secure';
+        if (website.startsWith('goldenbody://')) secure = 'You are viewing a secure official goldenbody webpage';
+        section(website);
+        section(secure);
+        if (!browserGlobals.profileState.enableURLSync)
+            section('Only user-initiated navigations get new permissions. To disable this, open sync perms below.');
+        // perms
+        const syncpermsSec = section('Sync Perms');
+        let syncperms = checkbox(syncpermsSec, 'sync perms', browserGlobals.profileState.enableURLSync);
+        const info = document.createElement('div');
+        info.style.cssText = `
+    margin-top:6px;
+    font-size:11px;
+    color:#aaa;
+  `;
+        info.textContent =
+            'This is only for people with privacy needs, may cause bugs when many redirects happens at 1 time';
+        syncpermsSec.appendChild(info);
+        let lazyloadingsect = section('Performance');
+        let lazyloading = checkbox(lazyloadingsect, 'Lazy Loading', browserGlobals.profileState.lazyloading);
+
+        // ===============================
+        // SANDBOX
+        // ===============================
+        const sandboxSec = section('Site Settings');
+        const SANDBOX_LIST = [
+            'allow-forms',
+            'allow-modals',
+            'allow-orientation-lock',
+            'allow-pointer-lock',
+            'allow-presentation',
+            'allow-scripts',
+            'allow-same-origin' // LOCKED
+        ];
+
+        const sandboxCheckboxes = {};
+
+        for (const perm of SANDBOX_LIST) {
+            const locked = perm === 'allow-same-origin';
+            sandboxCheckboxes[perm] = checkbox(
+                sandboxSec,
+                perm + (locked ? ' (locked)' : ''),
+                sandboxSet.has(perm),
+                locked
+            );
+        }
+
+        // Warning
+        const warn = document.createElement('div');
+        warn.style.cssText = `
+    margin-top:6px;
+    font-size:11px;
+    color:#aaa;
+  `;
+        warn.textContent = 'allow-same-origin cannot be changed.';
+        sandboxSec.appendChild(warn);
+
+        // ===============================
+        // ACTIONS
+        // ===============================
+        const actions = document.createElement('div');
+        actions.style.cssText = `
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:12px;
+  `;
+
+        const cancel = document.createElement('button');
+        cancel.textContent = 'Cancel';
+        cancel.onclick = () => overlay.remove();
+
+        const apply = document.createElement('button');
+        apply.textContent = 'Apply';
+        apply.style.background = '#4c8bf5';
+        apply.style.color = '#fff';
+
+        apply.onclick = () => {
+            // ===== LOGIC HOOK (YOU IMPLEMENT) =====
+            notification('reload this page to apply your updated settings!');
+
+            const newSandbox = Object.entries(sandboxCheckboxes)
+                .filter(([_, cb]) => cb.checked)
+                .map(([k]) => k)
+                .join(' ');
+
+            updateSiteSettings(iframe, {
+                newSandbox: newSandbox,
+                addTheSite: perms.addTheSite,
+                enableURLSync: syncperms.checked,
+                lazyloading: lazyloading.checked
+            });
+
+            overlay.remove();
+        };
+
+        actions.append(cancel, apply);
+        panel.appendChild(actions);
+    }
+
+    var checkInterval = null;
+    var activatedTab = 0;
+    let isMaximized = false;
+    let _isMinimized = false;
+    if (posX < 0) {
+        posX = 0;
+    }
+    if (posY < 0) {
+        posY = 0;
+    }
+    atTop = 'browser';
+    const chromeWindow = (function createChromeLikeUI() {
+        // --- Create root container ---
+        var root = document.createElement('div');
+        root.__vfsMessageListenerAdded = false;
+        root.className = 'app-root';
+        root.dataset.appId = 'browser';
+        Object.assign(root.style, {
+            position: 'fixed',
+            top: posY + 'px',
+            left: posX + 'px',
+            width: '1000px',
+            height: '640px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+            borderRadius: '10px',
+            overflow: 'hidden'
+        });
+        bringToFront(root);
+        browserGlobals.goldenbodyId++;
+        root._goldenbodyId = browserGlobals.goldenbodyId;
+        root.tabIndex = '0';
+        root.addEventListener('styleapplied', () => {
+            for (const tab of tabs) {
+                tab.iframe.contentWindow.postMessage({
+                    __goldenbodyChangeTheme__: true,
+                    dark: data.dark
+                });
+            }
+        });
+        root.__gbShortcutDedupe = { sig: '', ts: 0 };
+        function runBrowserShortcut(key, eventLike = null) {
+            const normalized = String(key || '').toLowerCase();
+            if (normalized !== 't' && normalized !== 'n') return false;
+
+            const now = Date.now();
+            const sig = `${normalized}:1`;
+            if (
+                root.__gbShortcutDedupe &&
+                root.__gbShortcutDedupe.sig === sig &&
+                now - root.__gbShortcutDedupe.ts < 180
+            ) {
+                if (eventLike && typeof eventLike.preventDefault === 'function') {
+                    eventLike.preventDefault();
+                }
+                return true;
+            }
+            root.__gbShortcutDedupe = { sig, ts: now };
+
+            if (eventLike && typeof eventLike.preventDefault === 'function') {
+                eventLike.preventDefault();
+            }
+            if (normalized === 't') {
+                addTab('goldenbody://newtab/', 'New Tab');
+                return true;
+            }
+            browser();
+            return true;
+        }
+
+        root.addEventListener('keydown', (e) => {
+            const key = String(e.key || '').toLowerCase();
+            const isCtrlLike = !!(e.ctrlKey || e.metaKey);
+            if (!isCtrlLike) return;
+            runBrowserShortcut(key, e);
+        });
+        root.addEventListener('click', (e) => {
+            // App-specific click handler can be implemented here
+            bringToFront(root);
+        });
+        document.addEventListener('browser' + root._goldenbodyId, 'click', (e) => {
+            // Scoped listener for browser app cleanup
+        });
+        root.classList.add('browser');
+        // --- Top area ---
+        const top = document.createElement('div');
+        top.className = 'sim-chrome-top';
+        top.style.justifyContent = 'space-between';
+        root.appendChild(top);
+
+        top.addEventListener('click', function () {
+            bringToFront(root);
+        });
+        var topBar = false;
+        if (!topBar) {
+            topBar = document.createElement('div');
+            topBar.className = 'appTopBar';
+            topBar.style.display = 'flex';
+            topBar.style.justifyContent = 'flex-end';
+            topBar.style.alignItems = 'center';
+            topBar.style.padding = '2px';
+            topBar.style.cursor = 'move';
+            topBar.style.flexShrink = '0';
+        }
+
+        var btnMin = document.createElement('button');
+        btnMin.title = 'Minimize';
+        btnMin.className = 'btnMinColor';
+        topBar.appendChild(btnMin);
+
+        var btnMax = document.createElement('button');
+        btnMax.className = 'btnMaxColor';
+        btnMax.title = 'Maximize/Restore';
+        topBar.appendChild(btnMax);
+
+        var btnClose = document.createElement('button');
+        btnClose.title = 'Close';
+        btnClose.style.color = 'white';
+        btnClose.style.backgroundColor = 'red';
+        topBar.appendChild(btnClose);
+
+        [topBar, btnMin, btnMax, btnClose].forEach((el) => {
+            el.style.margin = '0 2px';
+            el.style.border = 'none';
+            el.style.padding = '4px 6px';
+            el.style.fontSize = '14px';
+            el.style.cursor = 'pointer';
+        });
+        const applyWindowControlIcon = window.applyWindowControlIcon || function () {};
+        const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+        applyWindowControlIcon(btnMin, 'minimize');
+        setWindowMaximizeIcon(btnMax, false);
+        applyWindowControlIcon(btnClose, 'close');
+
+        function getBounds() {
+            return {
+                left: root.style.left,
+                top: root.style.top,
+                width: root.style.width,
+                height: root.style.height,
+                position: root.style.position || 'fixed'
+            };
+        }
+        var savedBounds = getBounds();
+        let resizePulseInterval = null;
+        let renderInterval = null;
+        let windowTitleInterval = null;
+
+        function applyBounds(b) {
+            root.style.position = 'absolute';
+            root.style.left = b.left;
+            root.style.top = b.top;
+            root.style.width = b.width;
+            root.style.height = b.height;
+        }
+
+        function maximizeWindow() {
+            savedBounds = getBounds();
+            root.style.position = 'absolute';
+            root.style.left = '0';
+            root.style.top = '0';
+            root.style.width = '100%';
+            root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : '100%';
+            root.style.borderRadius = '0px';
+            isMaximized = true;
+            _isMinimized = false;
+            setWindowMaximizeIcon(btnMax, true);
+        }
+
+        function restoreWindow(useOriginalBounds = true) {
+            if (useOriginalBounds && savedBounds) {
+                applyBounds(savedBounds);
+            }
+            root.style.borderRadius = '10px';
+            isMaximized = false;
+            _isMinimized = false;
+            setWindowMaximizeIcon(btnMax, false);
+        }
+
+        // MINIMIZE
+        btnMin.addEventListener('click', function () {
+            if (!isMaximized) savedBounds = getBounds();
+            root.style.display = 'none';
+            _isMinimized = true;
+        });
+
+        // MAXIMIZE / RESTORE
+        btnMax.addEventListener('click', function () {
+            if (!isMaximized) {
+                maximizeWindow();
+            } else {
+                restoreWindow(true);
+            }
+        });
+
+        // CLOSE
+        btnClose.addEventListener('click', closeWindow);
+        function closeWindow() {
+            try {
+                if (resizePulseInterval) {
+                    clearInterval(resizePulseInterval);
+                    resizePulseInterval = null;
+                }
+            } catch (e) {}
+            try {
+                if (renderInterval) {
+                    clearInterval(renderInterval);
+                    renderInterval = null;
+                }
+            } catch (e) {}
+            try {
+                if (windowTitleInterval) {
+                    clearInterval(windowTitleInterval);
+                    windowTitleInterval = null;
+                }
+            } catch (e) {}
+
+            root.remove();
+
+            // Remove from browserGlobals.allBrowsers
+            const index = browserGlobals.allBrowsers.indexOf(chromeWindow);
+            if (index !== -1) {
+                browserGlobals.allBrowsers.splice(index, 1);
+            }
+            window.removeEventListener('message', messageHandler);
+            window.removeEventListener('pointerup', onpointerupAnywhere);
+            // Clean up all event listeners added by this app
+            window.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
+            root = null;
+            _browserCalled = false;
+        }
+
+        const tabsRow = document.createElement('div');
+        tabsRow.className = 'sim-chrome-tabs';
+        tabsRow.style.flex = '0 1 auto';
+        tabsRow.style.minWidth = '0px';
+        tabsRow.style.overflowX = 'auto';
+        tabsRow.style.whiteSpace = 'nowrap';
+
+        // new tab button
+        const newTabBtn = document.createElement('button');
+        newTabBtn.className = 'sim-open-btn';
+        newTabBtn.innerText = '+';
+        newTabBtn.title = 'New tab';
+        Object.assign(newTabBtn.style, {
+            width: '28px',
+            padding: '6px',
+            fontSize: '16px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: '0'
+        });
+
+        // address row
+        const addressRow = document.createElement('div');
+        addressRow.className = 'sim-address-row';
+        root.appendChild(addressRow);
+
+        const urlInput = document.createElement('input');
+        urlInput.className = 'sim-url-input';
+        urlInput.type = 'text';
+        urlInput.placeholder = 'Enter URL (e.g. https://example.com, goldenbody://newtab/, goldenbody://app-store/)';
+        urlInput.autocapitalize = 'off';
+        urlInput.autocomplete = 'off';
+        urlInput.spellcheck = false;
+        addressRow.appendChild(urlInput);
+        const applyAddressIconButtonStyle = (button) => {
+            Object.assign(button.style, {
+                minWidth: '34px',
+                padding: '0 12px',
+                fontSize: '16px'
+            });
+        };
+
+        const addressIconSvg = {
+            settings:
+                '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.16.5.65.85 1.19.85H21a2 2 0 1 1 0 4h-.41c-.54 0-1.03.35-1.19.85z"></path></svg>',
+            reload: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <!-- circular arc (stops earlier to leave a gap) --> <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/> <!-- arrow --> <polyline points="20 4 20 9 15 9"/> </svg>',
+            forward:
+                '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
+            back: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
+            clear: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+            download:
+                '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+        };
+
+        const setAddressButtonIcon = (button, iconName) => {
+            button.innerHTML = addressIconSvg[iconName] || '';
+        };
+
+        const openBtn = document.createElement('button');
+        openBtn.className = 'sim-open-btn';
+        openBtn.title = 'open url';
+        setAddressButtonIcon(openBtn, 'forward');
+        addressRow.appendChild(openBtn);
+
+        var sitesettingsbtn = document.createElement('button');
+        sitesettingsbtn.title = 'Site Settings';
+        setAddressButtonIcon(sitesettingsbtn, 'settings');
+        sitesettingsbtn.className = 'sim-open-btn';
+        applyAddressIconButtonStyle(sitesettingsbtn);
+
+        addressRow.prepend(sitesettingsbtn);
+
+        var reloadBtn = document.createElement('button');
+        reloadBtn.title = 'Reload';
+        reloadBtn.className = 'sim-open-btn';
+        applyAddressIconButtonStyle(reloadBtn);
+        setAddressButtonIcon(reloadBtn, 'reload');
+        reloadBtn.dataset.mode = 'reload';
+        addressRow.prepend(reloadBtn);
+
+        var forwardBtn = document.createElement('button');
+        forwardBtn.title = 'Forward';
+        setAddressButtonIcon(forwardBtn, 'forward');
+        forwardBtn.className = 'sim-open-btn';
+        applyAddressIconButtonStyle(forwardBtn);
+        addressRow.prepend(forwardBtn);
+
+        var backBtn = document.createElement('button');
+        backBtn.title = 'Back';
+        setAddressButtonIcon(backBtn, 'back');
+        backBtn.className = 'sim-open-btn';
+        applyAddressIconButtonStyle(backBtn);
+        addressRow.prepend(backBtn);
+
+        var clear = document.createElement('button');
+        setAddressButtonIcon(clear, 'clear');
+        clear.title = 'delete browsing data';
+        clear.className = 'sim-open-btn';
+        applyAddressIconButtonStyle(clear);
+        function showConfirmDialog(title, message) {
+            return new Promise((resolve) => {
+                document.getElementById('confirm-dialog')?.remove();
+
+                const overlay = document.createElement('div');
+                overlay.style.cssText =
+                    'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;';
+
+                const dialog = document.createElement('div');
+                dialog.id = 'confirm-dialog';
+                dialog.className = 'panel';
+                dialog.classList.toggle('dark', data.dark);
+                dialog.classList.toggle('light', !data.dark);
+                dialog.style.cssText =
+                    'position:relative;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;';
+
+                const titleEl = document.createElement('div');
+                titleEl.style.cssText = 'font-weight:600;margin-bottom:12px;font-size:16px;';
+                titleEl.textContent = title;
+                dialog.appendChild(titleEl);
+
+                const msgEl = document.createElement('div');
+                msgEl.style.cssText = `font-size:14px;color:#${
+                    data.dark ? 'ccc' : '666'
+                };margin-bottom:20px;line-height:1.5;`;
+                msgEl.textContent = message;
+                dialog.appendChild(msgEl);
+
+                const btnRow = document.createElement('div');
+                btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+
+                const btnCancel = document.createElement('button');
+                btnCancel.textContent = 'Cancel';
+                btnCancel.style.cssText =
+                    'padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;';
+                btnCancel.onmouseenter = () => (btnCancel.style.background = '#e8e8e8');
+                btnCancel.onmouseleave = () => (btnCancel.style.background = '#f5f5f5');
+                btnCancel.onclick = () => {
+                    overlay.remove();
+                    resolve(false);
+                };
+
+                const btnConfirm = document.createElement('button');
+                btnConfirm.textContent = 'Continue';
+                btnConfirm.style.cssText =
+                    'padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;';
+                btnConfirm.onmouseenter = () => (btnConfirm.style.background = '#3a75d4');
+                btnConfirm.onmouseleave = () => (btnConfirm.style.background = '#4c8bf5');
+                btnConfirm.onclick = () => {
+                    overlay.remove();
+                    resolve(true);
+                };
+
+                btnRow.appendChild(btnCancel);
+                btnRow.appendChild(btnConfirm);
+                dialog.appendChild(btnRow);
+
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                btnConfirm.focus();
+            });
+        }
+        function openDownloadUI(anchorPoint = null) {
+            document.getElementById('download-ui')?.remove();
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;';
+
+            const panel = document.createElement('div');
+            panel.id = 'download-ui';
+            panel.className = 'panel';
+            panel.classList.toggle('dark', data.dark);
+            panel.classList.toggle('light', !data.dark);
+            panel.style.cssText =
+                'position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;';
+            panel.onclick = (e) => e.stopPropagation();
+
+            function cleanup() {
+                try {
+                    overlay.remove();
+                } catch (e) {}
+                try {
+                    document.removeEventListener('pointermove', onPointerMove);
+                } catch (e) {}
+                try {
+                    document.removeEventListener('pointerup', onPointerUp);
+                } catch (e) {}
+            }
+            overlay.onclick = () => cleanup();
+
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:600;margin-bottom:8px;cursor:grab';
+            title.textContent = 'Download URL';
+            panel.appendChild(title);
+
+            const label = document.createElement('div');
+            label.style.cssText = 'font-size:12px;color:#888;margin-bottom:6px';
+            label.textContent = 'Enter URL to download';
+            panel.appendChild(label);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'https://example.com/file.png';
+            input.style.cssText = 'width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc';
+            try {
+                input.value =
+                    activatedTab && activatedTab.iframe && activatedTab.iframe.src
+                        ? browserGlobals.unshuffleURL(activatedTab.iframe.src)
+                        : '';
+            } catch (e) {}
+            panel.appendChild(input);
+
+            const computeName = (u) => {
+                try {
+                    const parsed = new URL(u);
+                    let n = parsed.pathname.split('/').pop() || '';
+                    if (!n || n === '/')
+                        n = parsed.searchParams.get('filename') || parsed.searchParams.get('file') || '';
+                    if (!n) n = 'download';
+                    return n.split('?')[0];
+                } catch (e) {
+                    return 'download';
+                }
+            };
+
+            const info = document.createElement('div');
+            info.style.cssText = 'font-size:12px;color:#666;margin-bottom:8px';
+            info.textContent = 'Filename: ' + computeName(input.value || '');
+            panel.appendChild(info);
+            input.oninput = () => {
+                info.textContent = 'Filename: ' + computeName(input.value || '');
+            };
+
+            const btnRow = document.createElement('div');
+            btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:6px';
+            const btnCancel = document.createElement('button');
+            btnCancel.textContent = 'Cancel';
+            btnCancel.onclick = () => cleanup();
+            const btnDownload = document.createElement('button');
+            btnDownload.textContent = 'Download';
+            btnDownload.style.background = '#4c8bf5';
+            btnDownload.style.color = '#fff';
+            btnDownload.onclick = async () => {
+                const url = (input.value || '').trim();
+                if (!url) return notification('Enter a URL');
+                const filename = computeName(url);
+                try {
+                    if (typeof downloadPost === 'function') {
+                        await downloadPost({ href: url, filename });
+                        notification('Download request sent');
+                    } else {
+                        notification('downloadPost not available');
+                    }
+                } catch (e) {
+                    console.error('downloadPost error', e);
+                    notification('Download failed to start');
+                }
+                cleanup();
+            };
+            btnRow.appendChild(btnCancel);
+            btnRow.appendChild(btnDownload);
+            panel.appendChild(btnRow);
+
+            let isDragging = false;
+            let startX = 0;
+            let startY = 0;
+            let origLeft = 0;
+            let origTop = 0;
+            function onPointerMove(e) {
+                if (!isDragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                panel.style.left = origLeft + dx + 'px';
+                panel.style.top = origTop + dy + 'px';
+                panel.style.transform = '';
+            }
+            function onPointerUp() {
+                if (!isDragging) return;
+                isDragging = false;
+                title.style.cursor = 'grab';
+                try {
+                    document.removeEventListener('pointermove', onPointerMove);
+                } catch (e) {}
+                try {
+                    document.removeEventListener('pointerup', onPointerUp);
+                } catch (e) {}
+            }
+            title.addEventListener('pointerdown', (ev) => {
+                ev.preventDefault();
+                isDragging = true;
+                startX = ev.clientX;
+                startY = ev.clientY;
+                const r = panel.getBoundingClientRect();
+                origLeft = r.left;
+                origTop = r.top;
+                title.style.cursor = 'grabbing';
+                document.addEventListener('pointermove', onPointerMove);
+                document.addEventListener('pointerup', onPointerUp);
+            });
+
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+
+            if (anchorPoint && typeof anchorPoint.x === 'number' && typeof anchorPoint.y === 'number') {
+                const rect = panel.getBoundingClientRect();
+                const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+                const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+                let left = anchorPoint.x - rect.width;
+                let top = anchorPoint.y;
+                left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
+                top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
+                panel.style.left = left + 'px';
+                panel.style.top = top + 'px';
+                panel.style.transform = '';
+            } else {
+                panel.style.left = '50%';
+                panel.style.top = '50%';
+                panel.style.transform = 'translate(-50%,-50%)';
+            }
+        }
+
+        var downloadBtn = document.createElement('button');
+        downloadBtn.title = 'Download URL';
+        downloadBtn.className = 'sim-open-btn';
+        applyAddressIconButtonStyle(downloadBtn);
+        setAddressButtonIcon(downloadBtn, 'download');
+        downloadBtn.onclick = function (e) {
+            const buttonRect = downloadBtn.getBoundingClientRect();
+            const x = buttonRect.right || 0;
+            const y = buttonRect.top || 0;
+            openDownloadUI({ x, y });
+        };
+
+        clear.onclick = async function () {
+            const confirmClear = await showConfirmDialog(
+                'Clear site data',
+                'This will reset site settings and clear your browsing data. Continue?'
+            );
+            if (!confirmClear) return;
+
+            const id = await requestNewBrowserSessionId();
+            browserGlobals.id = id;
+            await writeBrowserUserId(id);
+            browserGlobals.profile = {
+                siteSettings: [],
+                enableURLSync: true,
+                lazyloading: true,
+                siteZoom: {}
+            };
+            await writeBrowserProfile(browserGlobals.profile, { force: true });
+            browserGlobals.profileState.siteSettings = [];
+            browserGlobals.profileState.enableURLSync = true;
+            browserGlobals.profileState.lazyloading = true;
+            browserGlobals.profileState.siteZoom = {};
+            notification('site data cleared! please close all browser windows!');
+        };
+
+        addressRow.appendChild(downloadBtn);
+        addressRow.appendChild(clear);
+
+        const resizeDiv = document.createElement('div');
+        resizeDiv.style.backgroundColor = 'gray'; // visible
+        resizeDiv.style.position = 'absolute';
+        resizeDiv.style.width = '5%';
+        resizeDiv.style.height = '3%';
+        resizeDiv.style.left = '85%';
+        resizeDiv.style.top = '10%';
+        resizeDiv.style.zIndex = '9999';
+        resizeDiv.style.display = 'none';
+
+        addressRow.prepend(resizeDiv);
+
+        root.addEventListener('pointerdown', function () {
+            resizeDiv.style.display = 'none';
+        });
+
+        let previousn = activatedTab.resizeP;
+        resizePulseInterval = setInterval(() => {
+            if (!activatedTab) return;
+            if (previousn === activatedTab.resizeP) {
+                resizeDiv.style.display = 'none';
+            }
+            previousn = activatedTab.resizeP;
+        }, 3000 * nhjd);
+        // ⟳ ⋮
+        // iframes
+        var iframes = [];
+
+        const leftGroup = document.createElement('div');
+        leftGroup.style.display = 'flex';
+        leftGroup.style.alignItems = 'center';
+        leftGroup.className = 'leftgroup';
+        leftGroup.style.gap = '0px';
+        leftGroup.style.flex = '1';
+        leftGroup.style.minWidth = '0';
+        leftGroup.appendChild(tabsRow);
+
+        top.appendChild(leftGroup);
+        top.appendChild(topBar);
+        document.body.appendChild(root);
+
+        let tabs = [];
+        let activeTabId = null;
+        let tabCounter = 0;
+
+        // with this:
+        tabsRow.style.display = 'flex';
+        tabsRow.style.flex = '1 1 0'; // <-- grow and be the thing that shrinks
+        tabsRow.style.minWidth = '0'; // <-- required for flex children to actually shrink container
+        tabsRow.style.flexWrap = 'nowrap';
+        tabsRow.style.overflowX = 'auto';
+        tabsRow.style.overflowY = 'hidden';
+        leftGroup.style.flex = '1 1 auto';
+        leftGroup.style.minWidth = '0';
+        browserGlobals.tabisDragging = false;
+
+        let dragid = '';
+        let dragindex = 0;
+        let nativeTabDrag = false;
+        let dragoverReordered = false;
+        let crossWindowTransferHandled = false;
+        const resetTabDragState = () => {
+            browserGlobals.tabisDragging = false;
+            dragMoved = false;
+            browserGlobals.draggedtab = null;
+            dragid = '';
+            dragindex = 0;
+            nativeTabDrag = false;
+            dragoverReordered = false;
+            crossWindowTransferHandled = false;
+        };
+        const onpointerupAnywhere = (ev, notontab) => {
+            const eventTarget =
+                ev?.target ||
+                (typeof ev?.clientX === 'number' && typeof ev?.clientY === 'number'
+                    ? document.elementFromPoint(ev.clientX, ev.clientY)
+                    : null);
+            if (!eventTarget && !notontab) return;
+            console.log('pointerup anywhere:', eventTarget, 'notontab?', notontab);
+            if (!browserGlobals.tabisDragging) return;
+            if (!browserGlobals.dragstartwindow || !browserGlobals.draggedtab) {
+                resetTabDragState();
+                return;
+            }
+
+            // Check if pointerup happened on a tab
+            let targetTab;
+            try {
+                targetTab = eventTarget?.closest('.sim-tab');
+            } catch (e) {}
+            try {
+                let tabbarHit = false;
+                let targetBrowser = null;
+
+                for (const b of browserGlobals.allBrowsers) {
+                    if (b.rootElement.querySelector('.sim-chrome-top').contains(eventTarget)) {
+                        tabbarHit = true;
+                        targetBrowser = b;
+                        break;
+                    }
+                }
+                if (tabbarHit) {
+                    // Determine the element under the cursor
+                    const dropTarget = document.elementFromPoint(ev.clientX, ev.clientY) || eventTarget;
+
+                    // Detect which window the cursor is over
+                    let targetBrowser = null;
+
+                    for (const b of browserGlobals.allBrowsers) {
+                        if (b.rootElement.contains(dropTarget)) {
+                            targetBrowser = b;
+                            break;
+                        }
+                    }
+                    // If dropped in the same window: do nothing
+                    if (targetBrowser === browserGlobals.dragstartwindow) {
+                        // reset drag state
+                        resetTabDragState();
+                        return;
+                    }
+
+                    // If dropped in another window
+                    if (targetBrowser) {
+                        if (crossWindowTransferHandled) {
+                            resetTabDragState();
+                            return;
+                        }
+                        crossWindowTransferHandled = true;
+                        targetBrowser.addTab(browserGlobals.draggedtab.url, '', browserGlobals.draggedtab.resizeP);
+                        browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
+                        resetTabDragState();
+                        return;
+                    }
+
+                    resetTabDragState();
+                    return;
+                }
+            } catch (e) {}
+            if (!targetTab || targetTab.id !== dragid) {
+                // pointerup happened somewhere else
+                if (crossWindowTransferHandled) {
+                    resetTabDragState();
+                    return;
+                }
+                crossWindowTransferHandled = true;
+                browser(
+                    browserGlobals.dragstartwindow.tabs[dragindex].url,
+                    browserGlobals.draggedtab.resizeP,
+                    ev.clientX - 100,
+                    ev.clientY - 20
+                ); // your custom function
+                // console.log(root);
+                browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
+            }
+
+            resetTabDragState();
+        };
+        function messageHandler(event) {
+            const data = event.data;
+            if (data?.type === 'iframe-pointerup') {
+                // console.log("pointerup from iframe:");
+                // console.log("Coordinates:", data.x, data.y);
+                // console.log("Button pressed:", data.button);
+
+                // You can reconstruct a pseudo-event:
+                const e = {
+                    clientX: data.x,
+                    clientY: data.y,
+                    pageX: data.pageX,
+                    pageY: data.pageY,
+                    button: data.button,
+                    buttons: data.buttons,
+                    altKey: data.altKey,
+                    ctrlKey: data.ctrlKey,
+                    shiftKey: data.shiftKey,
+                    metaKey: data.metaKey
+                };
+                onpointerupAnywhere(e, true);
+                // Use pseudoEvent however you want
+                let pointerup = new MouseEvent('pointerup', e);
+                document.dispatchEvent(pointerup);
+                window.dispatchEvent(pointerup);
+                let pointerdown = new MouseEvent('pointerdown', e);
+                document.dispatchEvent(pointerdown);
+                window.dispatchEvent(pointerdown);
+                let CLICK = new MouseEvent('click', e);
+                document.dispatchEvent(CLICK);
+                window.dispatchEvent(CLICK);
+            }
+        }
+        window.addEventListener('message', messageHandler);
+        window.addEventListener('pointerup', onpointerupAnywhere);
+        renderInterval = setInterval(() => {
+            if (!root) {
+                clearInterval(renderInterval);
+                console.warn('interval cleared, root missing!');
+            }
+            renderTabs();
+        }, 10000);
+        function renderTabs() {
+            if (browserGlobals.tabisDragging || nativeTabDrag) return;
+            var ids = 0;
+            while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
+            leftGroup.appendChild(newTabBtn);
+
+            // tabs
+            tabs.forEach((t) => {
+                const el = document.createElement('div');
+                // inside renderTabs(), after creating el
+                el.style.flex = '0 0 auto';
+                el.id = 'id-' + ids;
+                ids++;
+                el.draggable = true;
+                el.name = 'tabs';
+                el.style.minWidth = '13.5%'; // or 150–185px if you want a bigger minimum
+                el.style.maxWidth = '13.5%';
+                el.style.overflow = 'hidden';
+                el.style.display = 'flex';
+                el.style.whiteSpace = 'nowrap';
+                el.tabIndex = '0';
+
+                el.setAttribute('draggable', 'true');
+                let temptab = 0;
+                function countChild(parent, targetElement) {
+                    const children = parent.children;
+                    let count = 0;
+
+                    for (let i = 0; i < children.length; i++) {
+                        if (children[i] === targetElement) {
+                            break; // Stop counting when you reach the target element
+                        }
+                        count++;
+                    }
+
+                    return count;
+                }
+                function moveTabInArray(tabs, fromIndex, toIndex) {
+                    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return tabs;
+
+                    const [moved] = tabs.splice(fromIndex, 1);
+
+                    // After removing an earlier element, the target index shifts down by 1
+                    if (fromIndex < toIndex) toIndex--;
+
+                    tabs.splice(toIndex, 0, moved);
+                    return tabs;
+                }
+                el.addEventListener('pointerup', function () {
+                    root.focus();
+                });
+                el.addEventListener('pointerdown', (ev) => {
+                    if (ev.target.classList.contains('close')) return;
+                    if (activeTabId !== t.id) activateTab(t.id);
+                });
+                el.addEventListener('pointerup', function () {
+                    bringToFront(root);
+                });
+                el.addEventListener('dragstart', (ev) => {
+                    browserGlobals.dragstartwindow = chromeWindow;
+                    browserGlobals.tabisDragging = true;
+                    nativeTabDrag = true;
+                    dragoverReordered = false;
+                    dragMoved = false;
+                    dragindex = countChild(tabsRow, el);
+                    console.log('dragindex:', dragindex);
+                    browserGlobals.draggedtab = tabs[dragindex];
+                    dragid = el.id;
+                    try {
+                        if (ev.dataTransfer) {
+                            ev.dataTransfer.effectAllowed = 'move';
+                            ev.dataTransfer.setData('text/plain', dragid);
+                        }
+                    } catch (e) {}
+                });
+
+                el.addEventListener('dragover', (e) => {
+                    if (!(browserGlobals.tabisDragging && browserGlobals.dragstartwindow === chromeWindow)) return;
+                    e.preventDefault();
+                    dragMoved = true;
+                    dragoverReordered = true;
+
+                    const draggedelement = root.querySelector(`#${dragid}`);
+                    if (!draggedelement || draggedelement === el) return;
+
+                    const isDraggingRight =
+                        draggedelement.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING;
+
+                    let newIndex = countChild(tabsRow, el);
+                    if (isDraggingRight) newIndex++;
+
+                    tabs = moveTabInArray(tabs, dragindex, newIndex);
+                    tabsRow.insertBefore(draggedelement, isDraggingRight ? el.nextSibling : el);
+                    dragindex = countChild(tabsRow, draggedelement);
+                });
+
+                el.addEventListener('dragend', (e) => {
+                    if (!browserGlobals.tabisDragging) return;
+                    onpointerupAnywhere({
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        target: document.elementFromPoint(e.clientX, e.clientY) || e.target
+                    });
+                    resetTabDragState();
+                    renderTabs();
+                });
+
+                el.addEventListener('pointermove', () => {
+                    if (browserGlobals.tabisDragging) dragMoved = true;
+                });
+
+                el.addEventListener('pointerup', (e) => {
+                    if (nativeTabDrag) {
+                        return;
+                    }
+                    if (browserGlobals.tabisDragging && dragMoved && browserGlobals.dragstartwindow === chromeWindow) {
+                        const draggedelement = root.querySelector(`#${dragid}`);
+                        if (!draggedelement || draggedelement === el) return;
+
+                        // Determine if dragging right
+                        const isDraggingRight =
+                            draggedelement.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING;
+
+                        // Compute new index BEFORE inserting
+                        let newIndex = countChild(tabsRow, el);
+                        if (isDraggingRight) newIndex++; // insert after target
+
+                        // Update array first
+                        tabs = moveTabInArray(tabs, dragindex, newIndex);
+
+                        // Then update DOM
+                        tabsRow.insertBefore(draggedelement, isDraggingRight ? el.nextSibling : el);
+                    }
+                    if (browserGlobals.tabisDragging && dragMoved && browserGlobals.dragstartwindow !== chromeWindow) {
+                        onpointerupAnywhere(e);
+                    }
+
+                    resetTabDragState();
+                });
+
+                const title = el.querySelector('.sim-tab-title');
+                if (title) title.style.textOverflow = 'ellipsis';
+                el.className = 'sim-tab' + (t.id === activeTabId ? ' active' : '');
+                el.title = t.title || 'Untitled';
+                el.innerHTML = `<span style='display: inline-block;overflow: hidden;white-space: nowrap; text-overflow: ellipsis;' class='sim-tab-title'>${
+                    t.title || 'Untitled'
+                }</span>
+                    <span class='close' title='Close tab'>&times;</span>`;
+                // close handler
+                el.querySelector('.close').addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    closeTab(t.id);
+                });
+                tabsRow.appendChild(el);
+                tabsRow.appendChild(newTabBtn);
+            });
+            // reorder tabs
+        }
+        window.addEventListener('browser' + root._goldenbodyId, 'message', function (e) {
+            if (e.data.type === 'FROM_IFRAME') {
+                addTab(e.data.message, 'New Tab');
+            } else if (
+                e.data.__goldenbodynewWindow__ &&
+                root === browserGlobals.allBrowsers[e.data.allbrowserindex].rootElement
+            ) {
+                addTab(e.data.url, 'New Tab');
+            }
+        });
+        //render tab end----------------------------------------------------------
+
+        function addTab(url, title, resizeP = preloadsize) {
+            const id = 'tab-' + ++tabCounter;
+            const iframe = document.createElement('iframe');
+            if (browserGlobals.profileState.lazyloading) iframe.loading = 'lazy';
+            iframe.onload = () => {
+                try {
+                    // Try to access its document
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    // let script = document.createElement('script');
+                    // script.textContent = `
+                    // const nativePostMessage = window.postMessage;
+                    // window.postMessage = function(msg, target) {
+                    //   nativePostMessage.call(window, msg, target);
+                    // };
+                    // `;
+                    // doc.appendChild(sc)
+                    // If site unreachable, doc will often be null
+                    if (!doc || doc.body.innerHTML.trim() === '') {
+                        console.log('Site unreachable or failed to load.');
+                    } else {
+                        console.log('Loaded successfully.');
+                    }
+                } catch (e) {
+                    // Cross-origin frame loaded, but we can’t read its contents.
+                    console.log('Loaded, but cannot access due to cross-origin restrictions.');
+                }
+            };
+            iframe.addEventListener('load', function () {
+                let eggpatch = document.createElement('script');
+                eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
+                iframe.contentDocument.body.appendChild(eggpatch);
+                let eggpatch2 = document.createElement('script');
+                eggpatch2.textContent = `
+              const nativeURL = window.URL;
+              function URLShim(url = '', base) {
+                const normalizedUrl = url == null ? '' : String(url);
+                const hasBase = arguments.length > 1;
+
+                if (hasBase) {
+                  const normalizedBase = base == null ? '' : String(base);
+                  return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
+                }
+
+                return new nativeURL(normalizedUrl || window.location.href);
+              }
+
+              Object.setPrototypeOf(URLShim, nativeURL);
+              URLShim.prototype = nativeURL.prototype;
+              window.URL = URLShim;
+          `;
+                iframe.contentDocument.body.appendChild(eggpatch2);
+                let themeOverride = document.createElement('script');
+                themeOverride.textContent = `
+          (function(){
+            try{
+              window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
+              function readTopDark(){
+                try{
+                  if(window.top && window.top.data && typeof window.top.data.dark !== 'undefined') return !!window.top.data.dark;
+                }catch(e){}
+                return null;
+              }
+              var last = readTopDark();
+              var original = window.__originalMatchMedia;
+              function createMQ(matches){
+                var listeners = [];
+                var obj = {
+                  media: '(prefers-color-scheme: dark)',
+                  matches: !!matches,
+                  addListener: function(cb){ if(typeof cb==='function') listeners.push(cb); },
+                  removeListener: function(cb){ listeners = listeners.filter(function(l){return l!==cb}); },
+                  addEventListener: function(ev, cb){ if(ev==='change' && typeof cb==='function') listeners.push(cb); },
+                  removeEventListener: function(ev, cb){ if(ev==='change') listeners = listeners.filter(function(l){return l!==cb}); },
+                  dispatchEvent: function(e){ listeners.forEach(function(cb){try{cb(e);}catch(e){}}); return true; }
+                };
+                obj._notify = function(){
+                  var ev = {matches: obj.matches, media: obj.media};
+                  listeners.slice().forEach(function(cb){ try{ cb(ev); }catch(e){} });
+                };
+                return obj;
+              }
+              var mqInstance = createMQ(last === null ? original('(prefers-color-scheme: dark)').matches : last);
+              window.matchMedia = function(media){
+                if(media === '(prefers-color-scheme: dark)') return mqInstance;
+                return original(media);
+              };
+              setInterval(function(){
+                var cur = readTopDark();
+                if(cur === null) return;
+                cur = !!cur;
+                if(cur !== mqInstance.matches){
+                  mqInstance.matches = cur;
+                  mqInstance._notify();
+                }
+              }, 500);
+            }catch(e){}
+          })();
+          `;
+                iframe.contentDocument.body.appendChild(themeOverride);
+                if (!iframe.contentWindow.eruda) {
+                    const script = iframe.contentDocument.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                    script.onload = () => {
+                        iframe.contentWindow.eruda.init();
+                        iframe.contentWindow.eruda.get('entryBtn').hide();
+                    };
+                    iframe.contentDocument.head.appendChild(script);
+                }
+                tab.iframe.contentWindow.postMessage(
+                    {
+                        message: 'GOLDENBODY_id',
+                        website: goldenbodywebsite,
+                        value: browserGlobals.id,
+                        dark: data.dark
+                    },
+                    '*'
+                );
+                function getSiteZoomKeyForTab(tab) {
+                    try {
+                        const current = String(
+                            tab.iframe.contentWindow.location && tab.iframe.contentWindow.location.href
+                                ? tab.iframe.contentWindow.location.href
+                                : tab.url || ''
+                        );
+                        const unshuffled = browserGlobals.unshuffleURL(current);
+                        try {
+                            const u = new URL(unshuffled);
+                            return (u.protocol + '//' + u.host).toLowerCase();
+                        } catch (e) {
+                            return browserGlobals.mainWebsite(unshuffled).toLowerCase();
+                        }
+                    } catch (e) {
+                        return '';
+                    }
+                }
+
+                function applyZoomToTab(tab) {
+                    let resizescript = document.createElement('script');
+                    resizescript.textContent = `document.body.style.zoom = ${tab.resizeP} + '%' || '100%'; // shrink page inside iframe`;
+                    tab.iframe.contentDocument.head.appendChild(resizescript);
+                }
+
+                function persistSiteZoomForTab(tab) {
+                    const key = getSiteZoomKeyForTab(tab);
+                    if (!key) return;
+                    const profile = browserGlobals.profile || defaultBrowserProfile();
+                    if (!profile.siteZoom || typeof profile.siteZoom !== 'object') {
+                        profile.siteZoom = {};
+                    }
+                    profile.siteZoom[key] = tab.resizeP;
+                    browserGlobals.profile = profile;
+                    browserGlobals.profileState.siteZoom = profile.siteZoom;
+                    try {
+                        if (browserGlobals.__siteZoomPersistTimer) {
+                            clearTimeout(browserGlobals.__siteZoomPersistTimer);
+                        }
+                        browserGlobals.__siteZoomPersistTimer = setTimeout(() => {
+                            writeBrowserProfile(profile).catch(() => {});
+                        }, 220);
+                    } catch (e) {}
+                }
+
+                function loadSiteZoomForTab(tab) {
+                    const key = getSiteZoomKeyForTab(tab);
+                    if (!key) return;
+                    const profile = browserGlobals.profile || defaultBrowserProfile();
+                    const siteZoom = profile.siteZoom && typeof profile.siteZoom === 'object' ? profile.siteZoom : {};
+                    const z = Number(siteZoom[key]);
+                    if (Number.isFinite(z)) {
+                        tab.resizeP = Math.max(25, Math.min(500, Math.round(z)));
+                    } else {
+                        tab.resizeP = 100;
+                    }
+                }
+
+                loadSiteZoomForTab(tab);
+                function handleresize(e, tab) {
+                    try {
+                        if (e.ctrlKey && (e.key === '=' || e.key === '+')) {
+                            e.preventDefault();
+                            tab.resizeP += 5;
+                            if (tab.resizeP > 500) tab.resizeP = 500;
+                            resizeDiv.style.display = 'block';
+                            applyZoomToTab(tab);
+                            persistSiteZoomForTab(tab);
+                        } else if (e.ctrlKey && e.key === '-') {
+                            e.preventDefault();
+                            tab.resizeP -= 5;
+                            if (tab.resizeP < 25) tab.resizeP = 25;
+                            resizeDiv.style.display = 'block';
+                            applyZoomToTab(tab);
+                            persistSiteZoomForTab(tab);
+                        } else {
+                            resizeDiv.style.display = 'none';
+                        }
+                    } catch (e) {}
+                }
+                function handleresizel1(e) {
+                    handleresize(e, tab);
+                }
+
+                try {
+                    if (tab.__onResizeKeydown && tab.__resizeKeyTarget) {
+                        tab.__resizeKeyTarget.removeEventListener('keydown', tab.__onResizeKeydown);
+                    }
+                } catch (e) {}
+                tab.__onResizeKeydown = handleresizel1;
+                tab.__resizeKeyTarget = tab.iframe.contentWindow;
+                tab.__resizeKeyTarget.addEventListener('keydown', tab.__onResizeKeydown);
+                if (!tab.iframe.style.display === 'none')
+                    urlInput.value = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
+                applyZoomToTab(tab);
+                // let sfc = tab.iframe.contentDocument.createElement("script");
+                // sfc.src = goldenbodywebsite + "sfc__o.js";
+                // tab.iframe.contentDocument.head.prepend(sfc);
+                var script = tab.iframe.contentDocument.createElement('script');
+                script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+  window.parent.postMessage(
+    { type: "FROM_IFRAME", message: url },
+    "*"
+  );
+}
+
+`;
+                tab.iframe.contentDocument.head.appendChild(script);
+            });
+            iframe.addEventListener('load', function onLoad() {
+                const doc = iframe.contentDocument;
+                const win = iframe.contentWindow;
+
+                // Skip if unloaded or invalid
+                if (!doc || !win) return;
+
+                // Remove old handler if exists
+                win.removeEventListener('keydown', win.erudaKeyHandler);
+
+                // Define new handler
+                win.erudaKeyHandler = function (e) {
+                    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+                        if (!win.eruda) {
+                            iframe.contentWindow._goldenbodyIns = true;
+
+                            const script = doc.createElement('script');
+                            script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                            script.onload = () => {
+                                win.eruda.init();
+                                win.eruda.get('entryBtn').hide();
+                                win.eruda.show();
+                            };
+                            doc.head.appendChild(script);
+                        } else {
+                            try {
+                                // toggle show/hide
+                                if (!win._goldenbodyIns) {
+                                    win.eruda.show();
+
+                                    win._goldenbodyIns = true;
+                                } else {
+                                    win.eruda.hide();
+
+                                    win._goldenbodyIns = false;
+                                }
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }
+                    }
+                };
+
+                // Attach handler
+                win.addEventListener('keydown', win.erudaKeyHandler);
+            });
+            const titleInterval = setInterval(() => {
+                try {
+                    if (!iframe || !iframe.contentDocument) {
+                        clearInterval(titleInterval);
+                        console.warn('Interval cleared: iframe is gone');
+                        return;
+                    }
+                    tab.url = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
+                    if (iframe.contentDocument.readyState === 'complete' && !tab.donotm) {
+                        const docTitle = iframe.contentDocument.title || 'Untitled';
+                        tab.title = docTitle;
+                    } else {
+                        tab.title = 'Loading...';
+                    }
+                } catch (e) {
+                    clearInterval(titleInterval);
+                    console.warn('Interval cleared due to error:', e);
+                }
+                if (previousTabTitle !== tab.title) renderTabs();
+                previousTabTitle = tab.title;
+            }, 1000 * nhjd);
+
+            createPermInput(iframe, url);
+            if (browserGlobals.profileReadyPromise) {
+                browserGlobals.profileReadyPromise
+                    .then(() => {
+                        try {
+                            createPermInput(
+                                iframe,
+                                browserGlobals.unshuffleURL(iframe.contentWindow.location.href || url)
+                            );
+                        } catch (e) {
+                            try {
+                                createPermInput(iframe, url);
+                            } catch (ee) {}
+                        }
+                    })
+                    .catch(() => {});
+            }
+            iframe.tabIndex = '0';
+            iframe.className = 'sim-iframe';
+            let checkerinterval = null;
+
+            const stopPatchIntegrityChecker = () => {
+                if (checkerinterval) {
+                    clearInterval(checkerinterval);
+                    checkerinterval = null;
+                }
+            };
+
+            const startPatchIntegrityChecker = () => {
+                if (checkerinterval) return;
+                checkerinterval = setInterval(() => {
+                    if (!iframe || !iframe.isConnected) {
+                        stopPatchIntegrityChecker();
+                        return;
+                    }
+
+                    let currentDocument = null;
+                    let menuNode = null;
+                    let hasContextHandler = false;
+                    try {
+                        currentDocument = iframe.contentDocument || iframe.contentWindow?.document;
+                        menuNode = currentDocument?.getElementById('custom-context-menu');
+                        hasContextHandler = !!iframe.contentWindow?.__gbContextMenuHandler;
+                    } catch (e) {}
+
+                    const patchLooksAlive =
+                        !!currentDocument &&
+                        iframe.__gbPatchedDocument === currentDocument &&
+                        !!menuNode &&
+                        menuNode.isConnected &&
+                        hasContextHandler;
+
+                    if (patchLooksAlive) {
+                        try {
+                            recurseFrames(currentDocument);
+                        } catch (e) {}
+                        return;
+                    }
+
+                    iframe.__gbPatchedDocument = null;
+                    try {
+                        iframePatches();
+                    } catch (e) {}
+                }, 1500);
+            };
+
+            function iframePatches() {
+                // Get the document inside the iframe
+                const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+                if (!iframeDocument || !iframe.contentWindow) return;
+                startPatchIntegrityChecker();
+                if (iframe.__gbPatchedDocument === iframeDocument) return;
+                const iframeWindow = iframe.contentWindow;
+                if (iframeWindow.__gbBrowserShortcutHandler) {
+                    iframeWindow.removeEventListener('keydown', iframeWindow.__gbBrowserShortcutHandler);
+                }
+                iframeWindow.__gbBrowserShortcutHandler = function (e) {
+                    var switcherMode =
+                        (window.windowSwitchState && window.windowSwitchState.active && window.windowSwitchState.mod) ||
+                        '';
+                    var wantsCycle =
+                        (e.altKey && e.key === 'Tab') ||
+                        (e.ctrlKey && !e.altKey && e.key === 'Tab') ||
+                        (e.key === 'Tab' && !!switcherMode);
+                    if (wantsCycle) {
+                        e.preventDefault();
+                        root.focus();
+                        return;
+                    }
+
+                    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        root.focus();
+                        if (!runBrowserShortcut('n', e) && (atTop == 'browser' || atTop == '')) {
+                            browser();
+                        }
+                    } else if (e.ctrlKey && e.shiftKey && e.key === 'W' && atTop == 'browser') {
+                        let allIds = [];
+                        for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+                            allIds.push(browserGlobals.allBrowsers[i].rootElement._goldenbodyId);
+                        }
+                        let maxId = Math.max(...allIds);
+                        for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+                            if (browserGlobals.allBrowsers[i].rootElement._goldenbodyId == maxId) {
+                                browserGlobals.allBrowsers[i].rootElement.remove();
+                                removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
+                                browserGlobals.allBrowsers[i].rootElement = null;
+                                browserGlobals.allBrowsers.splice(i, 1);
+                            }
+                        }
+                    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        root.focus();
+                        if (!runBrowserShortcut('t', e)) {
+                            addTab('goldenbody://newtab/', 'New Tab');
+                        }
+                    }
+                };
+                iframeWindow.addEventListener('keydown', iframeWindow.__gbBrowserShortcutHandler);
+
+                // Create a reusable custom context menu
+                const menu = iframeDocument.createElement('div');
+                menu.style.all = 'unset';
+
+                menu.id = 'custom-context-menu';
+                menu.style.display = 'block'; // <-- important!
+
+                menu.style.position = 'fixed';
+                menu.style.background = '#222';
+                menu.style.color = '#fff';
+                menu.style.minWidth = '15vw';
+                menu.style.padding = '8px 0';
+                menu.style.borderRadius = '6px';
+                menu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+                menu.style.fontFamily = 'sans-serif';
+                menu.style.fontSize = '14px';
+                menu.style.display = 'none';
+                menu.style.zIndex = '2147483646'; // maximum z-index to ensure it appears on top
+                iframeDocument.body.appendChild(menu);
+
+                // window.addEventListener("pointerdown", function () {
+                //   menu.style.display = "none";
+                // });
+                function normalizeContextMenuUrl(url) {
+                    if (!url || typeof url !== 'string') return '';
+                    try {
+                        return browserGlobals.unshuffleURL(url);
+                    } catch (e) {
+                        return url;
+                    }
+                }
+
+                function contextMenuFilename(url, fallback = 'download') {
+                    const normalized = normalizeContextMenuUrl(url);
+                    try {
+                        const parsed = new URL(normalized, iframe.contentWindow?.location?.href || undefined);
+                        const name = decodeURIComponent((parsed.pathname || '').split('/').pop() || '');
+                        if (name) return name;
+                    } catch (e) {}
+
+                    const stripped = String(normalized).split('?')[0].split('#')[0];
+                    const fallbackName = stripped.split('/').pop();
+                    return fallbackName || fallback;
+                }
+
+                function getContextMenuData(e) {
+                    const clickedElement = e && e.target ? e.target : null;
+                    const linkElement = clickedElement?.closest ? clickedElement.closest('a[href]') : null;
+                    const imageElement = clickedElement?.closest ? clickedElement.closest('img[src]') : null;
+                    const eventView = (e && e.view) || clickedElement?.ownerDocument?.defaultView || null;
+                    const isSubFrame = !!(eventView && eventView !== iframe.contentWindow);
+
+                    let frameUrl = '';
+                    if (isSubFrame) {
+                        try {
+                            frameUrl = eventView.location.href || '';
+                        } catch (err) {
+                            try {
+                                frameUrl = eventView.frameElement?.src || '';
+                            } catch (innerErr) {}
+                        }
+                    }
+
+                    return {
+                        clickedElement,
+                        linkElement,
+                        imageElement,
+                        frameView: isSubFrame ? eventView : null,
+                        frameUrl,
+                        isDownload: !!(linkElement && linkElement.download)
+                    };
+                }
+
+                function addContextMenuItem(label, onClick) {
+                    const item = iframeDocument.createElement('div');
+                    item.style.all = 'unset';
+                    item.style.display = 'block';
+                    item.style.textAlign = 'left';
+                    item.textContent = label;
+                    item.style.padding = '6px 16px';
+                    item.style.font = 'Arial';
+                    item.style.cursor = 'pointer';
+                    item.onmouseenter = () => (item.style.background = '#444');
+                    item.onmouseleave = () => (item.style.background = 'none');
+                    item.onclick = async () => {
+                        try {
+                            await onClick();
+                        } catch (e) {
+                            console.error(e);
+                        }
+                        hideMenu();
+                    };
+                    menu.appendChild(item);
+                    return item;
+                }
+
+                function addInspectContextMenuItem() {
+                    addContextMenuItem(
+                        'inspect\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0Ctrl+Shift+I',
+                        () => {
+                            const win = tab.iframe.contentWindow;
+                            const doc = tab.iframe.contentDocument;
+                            if (!win) return;
+                            if (!win.eruda) {
+                                tab.iframe.contentWindow._goldenbodyIns = true;
+
+                                const script = doc.createElement('script');
+                                script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                                script.onload = () => {
+                                    win.eruda.init();
+                                    win.eruda.get('entryBtn').hide();
+                                    win.eruda.show();
+                                };
+                                doc.head.appendChild(script);
+                                return;
+                            }
+                            win.eruda[win._goldenbodyIns ? 'hide' : 'show']();
+                            win._goldenbodyIns = !win._goldenbodyIns;
+                        }
+                    );
+                }
+
+                // Function to show the menu
+                function showMenu(x, y, contextData = {}) {
+                    menu.innerHTML = '';
+                    menu.style.display = 'block';
+
+                    const linkElement = contextData.linkElement || null;
+                    const imageElement = contextData.imageElement || null;
+                    const frameView = contextData.frameView || null;
+                    const frameUrl = contextData.frameUrl || '';
+
+                    const hasLink = !!(linkElement && linkElement.href);
+                    const hasImage = !!(imageElement && imageElement.src);
+                    const hasFrame = !!(frameView && frameUrl);
+
+                    if (hasLink || hasImage || hasFrame) {
+                        if (hasLink) {
+                            const linkUrl = normalizeContextMenuUrl(linkElement.href);
+                            addContextMenuItem('Open link in new tabㅤㅤㅤㅤ ㅤ', () => {
+                                addTab(linkUrl, 'New Tab');
+                            });
+                            addContextMenuItem('Open link in new windowㅤㅤㅤㅤㅤ', () => {
+                                browser(linkUrl);
+                            });
+                            addContextMenuItem('Copy link address', async () => {
+                                await navigator.clipboard.writeText(linkUrl);
+                            });
+                            addContextMenuItem('Download linkㅤㅤㅤㅤㅤ', () => {
+                                downloadPost({
+                                    href: linkUrl,
+                                    filename: contextMenuFilename(linkElement.href, 'download')
+                                });
+                            });
+                        }
+
+                        if (hasImage) {
+                            const imageUrl = normalizeContextMenuUrl(imageElement.src);
+                            addContextMenuItem('Open image in new tab', () => {
+                                addTab(imageUrl, 'Image');
+                            });
+                            addContextMenuItem('Open image in new window', () => {
+                                browser(imageUrl);
+                            });
+                            addContextMenuItem('Copy image address', async () => {
+                                await navigator.clipboard.writeText(imageUrl);
+                            });
+                            addContextMenuItem('Download image', () => {
+                                downloadPost({
+                                    href: imageUrl,
+                                    filename: contextMenuFilename(imageElement.src, 'image')
+                                });
+                            });
+                        }
+
+                        if (hasFrame) {
+                            const normalizedFrameUrl = normalizeContextMenuUrl(frameUrl);
+                            addContextMenuItem('Open frame in new tab', () => {
+                                addTab(normalizedFrameUrl, 'Frame');
+                            });
+                            addContextMenuItem('Open frame in new window', () => {
+                                browser(normalizedFrameUrl);
+                            });
+                            addContextMenuItem('Copy frame URL', async () => {
+                                await navigator.clipboard.writeText(normalizedFrameUrl);
+                            });
+                            addContextMenuItem('Reload frame', () => {
+                                try {
+                                    frameView.location.reload();
+                                } catch (e) {
+                                    try {
+                                        if (frameView.frameElement) {
+                                            frameView.frameElement.src = frameView.frameElement.src;
+                                        }
+                                    } catch (innerErr) {}
+                                }
+                            });
+                        }
+
+                        addInspectContextMenuItem();
+                    } else {
+                        const openItem = iframeDocument.createElement('div');
+                        openItem.style.all = 'unset';
+                        openItem.style.display = 'block'; // <-- important!
+
+                        openItem.textContent = 'Backㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ';
+                        openItem.style.padding = '6px 16px';
+                        openItem.style.textAlign = 'left';
+
+                        openItem.style.font = 'Arial';
+                        openItem.style.cursor = 'pointer';
+                        openItem.onmouseenter = () => (openItem.style.background = '#444');
+                        openItem.onmouseleave = () => (openItem.style.background = 'none');
+                        openItem.onclick = () => {
+                            historyNavigate(tab, -1);
+                            hideMenu();
+                        };
+                        menu.appendChild(openItem);
+                        const forward = iframeDocument.createElement('div');
+                        forward.style.all = 'unset';
+                        forward.style.display = 'block'; // <-- important!
+                        forward.style.textAlign = 'left';
+
+                        forward.textContent = 'Forward';
+                        forward.style.font = 'Arial';
+                        forward.style.padding = '6px 16px';
+                        forward.style.cursor = 'pointer';
+                        forward.onmouseenter = () => (forward.style.background = '#444');
+                        forward.onmouseleave = () => (forward.style.background = 'none');
+                        forward.onclick = () => {
+                            historyNavigate(tab, 1);
+                            hideMenu();
+                        };
+                        menu.appendChild(forward);
+                        const reload = iframeDocument.createElement('div');
+                        reload.style.all = 'unset';
+                        reload.style.display = 'block'; // <-- important!
+                        reload.style.textAlign = 'left';
+
+                        reload.textContent = 'Reload';
+                        reload.style.padding = '6px 16px';
+                        reload.style.font = 'Arial';
+                        reload.style.cursor = 'pointer';
+                        reload.onmouseenter = () => (reload.style.background = '#444');
+                        reload.onmouseleave = () => (reload.style.background = 'none');
+                        reload.onclick = () => {
+                            iframe.contentWindow.location.reload();
+                            hideMenu();
+                        };
+                        menu.appendChild(reload);
+                        addInspectContextMenuItem();
+                    }
+
+                    // Temporarily show the menu off-screen to measure its size
+                    menu.style.left = '-9999px';
+                    menu.style.top = '-9999px';
+                    menu.style.display = 'block';
+                    const menuRect = menu.getBoundingClientRect();
+
+                    // Determine iframe/document boundaries
+                    const viewportWidth = iframeDocument.documentElement.clientWidth;
+                    const viewportHeight = iframeDocument.documentElement.clientHeight;
+
+                    let finalX = x;
+                    let finalY = y;
+
+                    // Flip horizontally if the menu would go off the right edge
+                    if (x + menuRect.width > viewportWidth) {
+                        finalX = x - menuRect.width;
+                    }
+
+                    // Flip vertically if the menu would go off the bottom edge
+                    if (y + menuRect.height > viewportHeight) {
+                        finalY = y - menuRect.height;
+                    }
+
+                    // Apply final position
+                    menu.style.left = `${Math.max(0, finalX)}px`;
+                    menu.style.top = `${Math.max(0, finalY)}px`;
+                }
+                // Hide the menu
+                function hideMenu() {
+                    menu.style.display = 'none';
+                }
+
+                // Listen for right-clicks inside the iframe
+                if (!iframe.contentWindow.__gbContextMenuHandler) {
+                    iframe.contentWindow.__gbContextMenuHandler = function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const contextData = getContextMenuData(e);
+                        showMenu(e.clientX, e.clientY, contextData);
+
+                        if (contextData.linkElement && contextData.linkElement.href) {
+                            console.log('Right-clicked on a link:', contextData.linkElement.href);
+                        } else if (contextData.imageElement && contextData.imageElement.src) {
+                            console.log('Right-clicked on an image:', contextData.imageElement.src);
+                        } else if (contextData.frameUrl) {
+                            console.log('Right-clicked inside a frame:', contextData.frameUrl);
+                        } else {
+                            console.log('Right-clicked on a non-link element.');
+                        }
+                    };
+                }
+                iframe.contentWindow.removeEventListener(
+                    'contextmenu',
+                    iframe.contentWindow.__gbContextMenuHandler,
+                    true
+                );
+                iframe.contentWindow.addEventListener('contextmenu', iframe.contentWindow.__gbContextMenuHandler, true);
+                iframeDocument.removeEventListener('contextmenu', iframe.contentWindow.__gbContextMenuHandler, true);
+                iframeDocument.addEventListener('contextmenu', iframe.contentWindow.__gbContextMenuHandler, true);
+
+                function getAbsoluteMousePosition(e) {
+                    // e is the MouseEvent in any iframe
+                    const topWin = tab.iframe.contentWindow;
+                    const rect = topWin.document.body.getBoundingClientRect();
+                    let x = e.clientX;
+                    let y = e.clientY;
+                    let win = e.view;
+
+                    // Walk up the iframe chain
+                    while (win && win !== topWin) {
+                        const frame = win.frameElement;
+                        if (!frame) break;
+                        const frameRect = frame.getBoundingClientRect();
+                        x += frameRect.left;
+                        y += frameRect.top;
+                        win = win.parent;
+                    }
+
+                    return { x, y };
+                }
+                // ----------------------------
+                // 1. Make treeData global
+                // ----------------------------
+                let sentreqframe;
+
+                onlyloadTree();
+
+                let fullPath;
+                function getSessionAuthHeaders() {
+                    const headers = { 'Content-Type': 'application/json' };
+                    const token =
+                        window.data && typeof window.data.authToken === 'string' ? window.data.authToken.trim() : '';
+                    if (token) headers.Authorization = 'Bearer ' + token;
+                    return headers;
+                }
+                // Fetch file content from backend
+                async function fetchFileContent(username, fileFullPath) {
+                    if (!fileFullPath) throw new Error('No file path provided');
+
+                    const res = await fetch(SERVER, {
+                        method: 'POST',
+                        headers: getSessionAuthHeaders(),
+                        body: JSON.stringify({
+                            requestFile: true,
+                            requestFileName: fileFullPath, // send path relative to root
+                            username
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    if (data.kind === 'folder') {
+                        throw new Error(`Expected a file but got a folder at ${fileFullPath}`);
+                    }
+
+                    // For large files, fetch all chunks and combine directly as ArrayBuffer
+                    if (data.totalChunks && data.totalChunks > 1) {
+                        // Return chunk metadata and first-chunk payload (base64) to caller so
+                        // caller can stream chunks instead of allocating a single huge buffer.
+                        return data; // { filecontent, fileSize, totalChunks }
+                    }
+
+                    // For small files, still return base64 from single request
+                    return data.filecontent;
+                }
+
+                function base64ToArrayBuffer(base64) {
+                    const binaryString = atob(base64);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    return bytes.buffer;
+                }
+                function getMimeType(filename) {
+                    const ext = filename.split('.').pop().toLowerCase();
+
+                    const mimeMap = {
+                        // Images
+                        png: 'image/png',
+                        jpg: 'image/jpeg',
+                        jpeg: 'image/jpeg',
+                        gif: 'image/gif',
+                        webp: 'image/webp',
+                        svg: 'image/svg+xml',
+                        bmp: 'image/bmp',
+                        ico: 'image/x-icon',
+
+                        // Audio
+                        mp3: 'audio/mpeg',
+                        wav: 'audio/wav',
+                        ogg: 'audio/ogg',
+                        m4a: 'audio/mp4',
+
+                        // Video
+                        mp4: 'video/mp4',
+                        webm: 'video/webm',
+                        ogv: 'video/ogg',
+
+                        // Text
+                        txt: 'text/plain',
+                        html: 'text/html',
+                        css: 'text/css',
+                        js: 'application/javascript',
+                        json: 'application/json',
+                        xml: 'application/xml',
+
+                        // Archives
+                        zip: 'application/zip',
+                        rar: 'application/vnd.rar',
+                        gz: 'application/gzip',
+
+                        // PDF
+                        pdf: 'application/pdf'
+                    };
+
+                    return mimeMap[ext] || 'application/octet-stream';
+                }
+
+                // Send file to iframe
+                async function sendFileNodeToIframe(username, node, iframe, lastOne = false) {
+                    let currentPath = [...pickerCurrentPath];
+                    currentPath.splice(0, 1);
+                    const fullPath = node[2].path || currentPath.join('/') + '/' + node[0];
+                    const result = await fetchFileContent(username, fullPath);
+
+                    // If server returned chunk metadata for a large file, stream chunks
+                    const isChunked =
+                        result && typeof result === 'object' && result.totalChunks && result.totalChunks > 1;
+                    // Handle both base64 strings and ArrayBuffers (small-file fast path)
+                    const buffer =
+                        !isChunked && typeof result === 'string'
+                            ? base64ToArrayBuffer(result)
+                            : !isChunked
+                            ? result
+                            : null;
+                    const type = getMimeType(node[0]);
+                    // Compute a webkitRelativePath-like relative path for the file so the
+                    // injector can reconstruct directory structure (remove picker base)
+                    const fileParts = (fullPath || '').split('/').filter(Boolean);
+                    const origPicker = Array.from(pickerCurrentPath || []);
+                    const pickerBase = origPicker.slice(1); // drop leading 'root'
+                    // remove matching leading segments
+                    let relParts = Array.from(fileParts);
+                    for (let i = 0; i < pickerBase.length; i++) {
+                        if (relParts.length && relParts[0] === pickerBase[i]) relParts.shift();
+                        else break;
+                    }
+                    const webkitRelativePath = relParts.join('/') || node[0];
+
+                    // Send in chunks if large to avoid postMessage size limits
+                    // Use larger chunks to reduce number of messages, add delays between sends
+                    const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
+                    if (isChunked) {
+                        const CHUNK_SIZE = 10 * 1024 * 1024; // server chunk size
+                        const totalChunks = result.totalChunks;
+
+                        for (let i = 0; i < totalChunks; i++) {
+                            // obtain chunk: first chunk provided inline as base64, others fetched
+                            let chunkBuf;
+                            if (i === 0) {
+                                chunkBuf = base64ToArrayBuffer(result.filecontent);
+                            } else {
+                                const r = await fetch(SERVER, {
+                                    method: 'POST',
+                                    headers: getSessionAuthHeaders(),
+                                    body: JSON.stringify({
+                                        requestFile: true,
+                                        requestFileName: fullPath,
+                                        chunkIndex: i,
+                                        username
+                                    })
+                                });
+                                const chunkData = await r.json();
+                                chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
+                            }
+
+                            await new Promise((resolve) => {
+                                iframe.contentWindow.postMessage(
+                                    {
+                                        __VFS__: true,
+                                        kind: 'file',
+                                        name: node[0],
+                                        type,
+                                        buffer: chunkBuf,
+                                        path: fullPath,
+                                        webkitRelativePath,
+                                        chunkIndex: i,
+                                        totalChunks,
+                                        lastOne: i === totalChunks - 1 && lastOne
+                                    },
+                                    '*',
+                                    [chunkBuf]
+                                );
+                                setTimeout(resolve, 10);
+                            });
+                        }
+                    } else {
+                        if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
+                            const chunkSize = MAX_MESSAGE_SIZE;
+                            const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
+                            for (let i = 0; i < totalChunks; i++) {
+                                const start = i * chunkSize;
+                                const end = Math.min(start + chunkSize, buffer.byteLength);
+                                const chunk = buffer.slice(start, end);
+                                await new Promise((resolve) => {
+                                    iframe.contentWindow.postMessage(
+                                        {
+                                            __VFS__: true,
+                                            kind: 'file',
+                                            name: node[0],
+                                            type,
+                                            buffer: chunk,
+                                            path: fullPath,
+                                            webkitRelativePath,
+                                            chunkIndex: i,
+                                            totalChunks,
+                                            lastOne: i === totalChunks - 1 && lastOne
+                                        },
+                                        '*',
+                                        [chunk]
+                                    );
+                                    setTimeout(resolve, 10);
+                                });
+                            }
+                        } else {
+                            iframe.contentWindow.postMessage(
+                                {
+                                    __VFS__: true,
+                                    kind: 'file',
+                                    name: node[0],
+                                    type,
+                                    buffer,
+                                    path: fullPath,
+                                    webkitRelativePath,
+                                    lastOne: lastOne
+                                },
+                                '*',
+                                [buffer]
+                            );
+                        }
+                    }
+                }
+
+                async function sendFolderNodeToIframe(username, folderNode, iframe, lastOne = false) {
+                    const filesToSend = [];
+
+                    function walk(node, prefix = '') {
+                        const [name, children] = node;
+
+                        // If node has a precomputed path use it; otherwise build from prefix
+                        let nodePath;
+                        if (node && node[2] && node[2].path) {
+                            nodePath = node[2].path;
+                        } else {
+                            nodePath = prefix ? prefix + '/' + name : name;
+                            console.warn('VFS: computed missing node.path for', name, '->', nodePath);
+                        }
+
+                        if (children === null) {
+                            filesToSend.push({
+                                name,
+                                fullPath: nodePath
+                            });
+                            return;
+                        }
+
+                        if (Array.isArray(children)) {
+                            const nextPrefix = nodePath;
+                            for (const child of children) {
+                                walk(child, nextPrefix);
+                            }
+                        }
+                    }
+
+                    walk(folderNode);
+                    let fileIndex = 0;
+                    // 2️⃣ Fetch + send each file with throttling to prevent packet loss
+                    for (const file of filesToSend) {
+                        fileIndex++;
+                        const result = await fetchFileContent(username, file.fullPath);
+                        const isChunked =
+                            result && typeof result === 'object' && result.totalChunks && result.totalChunks > 1;
+                        const buffer =
+                            !isChunked && typeof result === 'string'
+                                ? base64ToArrayBuffer(result)
+                                : !isChunked
+                                ? result
+                                : null;
+                        const type = getMimeType(file.name);
+                        let fileParts = file.fullPath.split('/');
+                        let origpickercurrentpath = Array.from(pickerCurrentPath);
+                        pickerCurrentPath.splice(0, 1);
+                        let pickerparts = pickerCurrentPath;
+                        pickerCurrentPath = origpickercurrentpath;
+                        for (let j = 0; j < pickerparts.length; j++) {
+                            if (fileParts[0] === pickerparts[j]) {
+                                fileParts.splice(0, 1);
+                            }
+                        }
+                        file.fullPath = '';
+                        let first = true;
+                        for (let j = 0; j < fileParts.length; j++) {
+                            if (first) {
+                                first = false;
+                                file.fullPath += fileParts[j];
+                            } else {
+                                file.fullPath += '/' + fileParts[j];
+                            }
+                        }
+
+                        if (isChunked) {
+                            const totalChunks = result.totalChunks;
+                            for (let ci = 0; ci < totalChunks; ci++) {
+                                let chunkBuf;
+                                if (ci === 0) chunkBuf = base64ToArrayBuffer(result.filecontent);
+                                else {
+                                    const r = await fetch(SERVER, {
+                                        method: 'POST',
+                                        headers: getSessionAuthHeaders(),
+                                        body: JSON.stringify({
+                                            requestFile: true,
+                                            requestFileName: file.fullPath,
+                                            chunkIndex: ci,
+                                            username
+                                        })
+                                    });
+                                    const cd = await r.json();
+                                    chunkBuf = base64ToArrayBuffer(cd.filecontent);
+                                }
+                                await new Promise((resolve) => {
+                                    iframe.contentWindow.postMessage(
+                                        {
+                                            __VFS__: true,
+                                            kind: 'file',
+                                            name: file.name,
+                                            type,
+                                            buffer: chunkBuf,
+                                            webkitRelativePath: file.fullPath,
+                                            fileIndex: fileIndex - 1,
+                                            totalFiles: filesToSend.length,
+                                            chunkIndex: ci,
+                                            totalChunks,
+                                            lastOne:
+                                                fileIndex == filesToSend.length && ci === totalChunks - 1 && lastOne
+                                        },
+                                        '*',
+                                        [chunkBuf]
+                                    );
+                                    setTimeout(resolve, 10);
+                                });
+                            }
+                        } else {
+                            // Add delay between messages to prevent packet loss
+                            await new Promise((resolve) => {
+                                iframe.contentWindow.postMessage(
+                                    {
+                                        __VFS__: true,
+                                        kind: 'file',
+                                        name: file.name,
+                                        type,
+                                        buffer,
+                                        webkitRelativePath: file.fullPath,
+                                        fileIndex: fileIndex - 1,
+                                        totalFiles: filesToSend.length,
+                                        lastOne: fileIndex == filesToSend.length && lastOne
+                                    },
+                                    '*',
+                                    [buffer]
+                                );
+                                setTimeout(resolve, 10);
+                            });
+                        }
+                    }
+                }
+
+                // ----------------------------
+                // 3. Custom picker overlay
+                // ----------------------------
+                let pickerOverlay = null;
+                let pickerSelection = [];
+                let pickerCurrentPath = ['root'];
+                let pickerTree = null;
+
+                function getPickerTheme() {
+                    if (data.dark) {
+                        return {
+                            panelBg: '#1f1f1f',
+                            panelText: '#e8e8e8',
+                            border: '#3a3a3a',
+                            muted: '#a8a8a8',
+                            inputBg: '#121212',
+                            inputText: '#f2f2f2',
+                            buttonBg: '#2a2a2a',
+                            buttonText: '#e8e8e8',
+                            selectedBg: '#2f5f9f',
+                            hoverBg: '#2a2a2a'
+                        };
+                    }
+                    return {
+                        panelBg: '#ffffff',
+                        panelText: '#111111',
+                        border: '#d0d7de',
+                        muted: '#666666',
+                        inputBg: '#ffffff',
+                        inputText: '#111111',
+                        buttonBg: '#f3f4f6',
+                        buttonText: '#111111',
+                        selectedBg: '#d0e6ff',
+                        hoverBg: '#f4f7ff'
+                    };
+                }
+
+                function stylePickerButton(button, theme, isPrimary = false) {
+                    Object.assign(button.style, {
+                        borderRadius: '6px',
+                        border: isPrimary ? '1px solid #4c8bf5' : `1px solid ${theme.border}`,
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        background: isPrimary ? '#4c8bf5' : theme.buttonBg,
+                        color: isPrimary ? '#ffffff' : theme.buttonText
+                    });
+                }
+
+                function stylePickerDialogBox(box, theme, width, height) {
+                    Object.assign(box.style, {
+                        position: 'fixed',
+                        zIndex: '1000000',
+                        left: '50%',
+                        top: '50%',
+                        transform: 'translate(-50%,-50%)',
+                        width: width,
+                        height: height,
+                        minWidth: '420px',
+                        minHeight: '320px',
+                        maxWidth: 'calc(100vw - 24px)',
+                        maxHeight: 'calc(100vh - 24px)',
+                        borderRadius: '8px',
+                        background: theme.panelBg,
+                        color: theme.panelText,
+                        border: `1px solid ${theme.border}`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box',
+                        boxShadow: '0 20px 60px rgba(0,0,0,.45)'
+                    });
+                }
+
+                function makePickerDialogDraggable(box, dragHandle) {
+                    if (!box || !dragHandle) return;
+                    dragHandle.style.cursor = 'move';
+                    dragHandle.style.userSelect = 'none';
+                    dragHandle.style.touchAction = 'none';
+
+                    let dragging = false;
+                    let startX = 0;
+                    let startY = 0;
+                    let originLeft = 0;
+                    let originTop = 0;
+
+                    const move = (ev) => {
+                        if (!dragging) return;
+                        const dx = ev.clientX - startX;
+                        const dy = ev.clientY - startY;
+                        const rect = box.getBoundingClientRect();
+                        const maxLeft = Math.max(0, window.innerWidth - rect.width);
+                        const maxTop = Math.max(0, window.innerHeight - rect.height);
+                        const nextLeft = Math.min(maxLeft, Math.max(0, originLeft + dx));
+                        const nextTop = Math.min(maxTop, Math.max(0, originTop + dy));
+                        box.style.left = nextLeft + 'px';
+                        box.style.top = nextTop + 'px';
+                    };
+
+                    const up = () => {
+                        if (!dragging) return;
+                        dragging = false;
+                        document.removeEventListener('pointermove', move);
+                        document.removeEventListener('pointerup', up);
+                    };
+
+                    dragHandle.addEventListener('pointerdown', (ev) => {
+                        if (ev.button !== 0) return;
+                        if (ev.target.closest("button, input, select, textarea, a, [role='button']")) return;
+                        ev.preventDefault();
+                        const rect = box.getBoundingClientRect();
+                        box.style.transform = '';
+                        box.style.left = rect.left + 'px';
+                        box.style.top = rect.top + 'px';
+                        box.style.position = 'fixed';
+                        startX = ev.clientX;
+                        startY = ev.clientY;
+                        originLeft = rect.left;
+                        originTop = rect.top;
+                        dragging = true;
+                        document.addEventListener('pointermove', move);
+                        document.addEventListener('pointerup', up);
+                    });
+                }
+
+                function openCustomPickerUI() {
+                    if (!window.treeData) {
+                        window.onlyloadTree();
+                    }
+
+                    pickerTree = JSON.parse(JSON.stringify(window.treeData));
+                    pickerCurrentPath = ['root'];
+                    pickerSelection = [];
+
+                    // Create overlay if it doesn't exist
+                    if (!pickerOverlay) {
+                        const theme = getPickerTheme();
+                        pickerOverlay = document.createElement('div');
+                        document.body.appendChild(pickerOverlay);
+
+                        const pickerBox = document.createElement('div');
+                        pickerBox.className = 'pickerBox';
+                        stylePickerDialogBox(pickerBox, theme, '600px', '400px');
+                        pickerOverlay.appendChild(pickerBox);
+                        root.tabIndex = '0';
+
+                        const titleBar = document.createElement('div');
+                        titleBar.textContent = 'Open File or Folder';
+                        Object.assign(titleBar.style, {
+                            padding: '8px 10px',
+                            fontWeight: '600',
+                            borderBottom: `1px solid ${theme.border}`
+                        });
+                        pickerBox.appendChild(titleBar);
+                        makePickerDialogDraggable(pickerBox, titleBar);
+
+                        const breadcrumbDiv = document.createElement('div');
+                        Object.assign(breadcrumbDiv.style, {
+                            padding: '6px 10px',
+                            borderBottom: `1px solid ${theme.border}`
+                        });
+                        pickerBox.appendChild(breadcrumbDiv);
+
+                        const fileArea = document.createElement('div');
+                        fileArea.style.flex = '1';
+                        fileArea.style.overflowY = 'auto';
+                        fileArea.style.background = theme.panelBg;
+                        pickerBox.appendChild(fileArea);
+
+                        const btnBar = document.createElement('div');
+                        btnBar.style.padding = '8px';
+                        btnBar.style.display = 'flex';
+                        btnBar.style.gap = '8px';
+                        btnBar.style.justifyContent = 'flex-end';
+                        btnBar.style.borderTop = `1px solid ${theme.border}`;
+                        pickerBox.appendChild(btnBar);
+
+                        const btnCancel = document.createElement('button');
+                        btnCancel.textContent = 'Cancel';
+                        stylePickerButton(btnCancel, theme, false);
+                        btnBar.appendChild(btnCancel);
+
+                        const btnOpen = document.createElement('button');
+                        btnOpen.textContent = 'Open';
+                        stylePickerButton(btnOpen, theme, true);
+                        btnBar.appendChild(btnOpen);
+
+                        function renderPicker() {
+                            breadcrumbDiv.innerHTML = '';
+                            pickerCurrentPath.forEach((p, i) => {
+                                const span = document.createElement('span');
+                                span.textContent = i === 0 ? 'Home' : ' / ' + p;
+                                span.style.cursor = 'pointer';
+                                span.onclick = () => {
+                                    pickerCurrentPath = pickerCurrentPath.slice(0, i + 1);
+                                    renderPicker();
+                                };
+                                breadcrumbDiv.appendChild(span);
+                            });
+
+                            fileArea.innerHTML = '';
+                            let node = pickerTree;
+                            for (let i = 1; i < pickerCurrentPath.length; i++) {
+                                node = node[1].find((c) => c[0] === pickerCurrentPath[i]);
+                            }
+                            if (!node || !node[1]) return;
+
+                            node[1].forEach((item) => {
+                                const div = document.createElement('div');
+                                div.textContent = (Array.isArray(item[1]) ? '📁 ' : '📄 ') + item[0];
+                                div.style.padding = '6px 10px';
+                                div.style.cursor = 'pointer';
+                                div.style.borderBottom = `1px solid ${theme.border}`;
+                                div.onclick = (e) => {
+                                    const isToggle = e.ctrlKey || e.metaKey;
+
+                                    if (!isToggle) {
+                                        // single select
+                                        pickerSelection = [item];
+                                        fileArea.querySelectorAll('div').forEach((d) => (d.style.background = ''));
+                                        div.style.background = theme.selectedBg;
+                                    } else {
+                                        // toggle select
+                                        const idx = pickerSelection.indexOf(item);
+                                        if (idx >= 0) {
+                                            pickerSelection.splice(idx, 1);
+                                            div.style.background = '';
+                                        } else {
+                                            pickerSelection.push(item);
+                                            div.style.background = theme.selectedBg;
+                                        }
+                                    }
+                                };
+                                div.onmouseenter = () => {
+                                    if (pickerSelection.includes(item)) return;
+                                    div.style.background = theme.hoverBg;
+                                };
+                                div.onmouseleave = () => {
+                                    if (pickerSelection.includes(item)) return;
+                                    div.style.background = '';
+                                };
+
+                                if (Array.isArray(item[1])) {
+                                    div.ondblclick = () => {
+                                        pickerCurrentPath.push(item[0]);
+                                        renderPicker();
+                                    };
+                                }
+                                fileArea.appendChild(div);
+                            });
+                        }
+
+                        renderPicker();
+
+                        // Cancel / Open buttons
+                        let resolvePicker;
+                        pickerOverlay.resolvePicker = null;
+
+                        pickerOverlay.resolvePicker = null; // define it at the start
+
+                        btnCancel.onclick = () => {
+                            if (pickerOverlay.resolvePicker) {
+                                pickerOverlay.resolvePicker([]); // resolve promise with empty selection
+                                pickerOverlay.resolvePicker = null;
+                            }
+                            try {
+                                if (sentreqframe && sentreqframe.contentWindow) {
+                                    sentreqframe.contentWindow.postMessage(
+                                        { __VFS__: true, kind: 'pickerCancelled' },
+                                        '*'
+                                    );
+                                }
+                            } catch (e) {}
+                            pickerOverlay.remove();
+                            pickerOverlay = null;
+                            pickerSelection = null;
+                        };
+                        btnOpen.onclick = async () => {
+                            const selections = [...pickerSelection]; // snapshot immediately
+                            const targetFrame = sentreqframe; // snapshot iframe
+
+                            if (!selections.length) return notification('Select a file or folder');
+                            if (!targetFrame) {
+                                console.warn('No iframe found');
+                                return;
+                            }
+
+                            // remove picker
+                            if (pickerOverlay.resolvePicker) {
+                                pickerOverlay.resolvePicker(selections);
+                                pickerOverlay.resolvePicker = null;
+                            }
+                            pickerOverlay.remove();
+                            pickerOverlay = null;
+                            pickerSelection = [];
+
+                            // send all selections
+                            let i = 0;
+                            for (const sel of selections) {
+                                i++;
+                                if (Array.isArray(sel[1])) {
+                                    if (i == selections.length) {
+                                        await sendFolderNodeToIframe(username, sel, targetFrame, true);
+                                        continue;
+                                    }
+                                    await sendFolderNodeToIframe(username, sel, targetFrame);
+                                } else {
+                                    if (i == selections.length) {
+                                        await sendFileNodeToIframe(username, sel, targetFrame, true);
+                                        continue;
+                                    }
+                                    await sendFileNodeToIframe(username, sel, targetFrame);
+                                }
+                            }
+                        };
+                    } else {
+                        pickerOverlay.remove();
+                        pickerOverlay = null;
+                        return openCustomPickerUI();
+                    }
+
+                    return new Promise((res) => (pickerOverlay.resolvePicker = res));
+                }
+
+                // ----------------------------
+                // 3b. Custom save-as overlay
+                // ----------------------------
+                let post = filePost;
+                function openCustomSaveUI(suggestedName) {
+                    if (!window.treeData) {
+                        window.onlyloadTree();
+                    }
+
+                    const theme = getPickerTheme();
+
+                    const savePickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
+                    let savePickerCurrentPath = ['root'];
+                    let savePickerSelection = [];
+
+                    const overlay = document.createElement('div');
+                    document.body.appendChild(overlay);
+
+                    const box = document.createElement('div');
+                    stylePickerDialogBox(box, theme, '600px', '460px');
+                    overlay.appendChild(box);
+
+                    const titleBar = document.createElement('div');
+                    titleBar.textContent = 'Save File';
+                    Object.assign(titleBar.style, {
+                        padding: '8px 10px',
+                        fontWeight: '600',
+                        borderBottom: `1px solid ${theme.border}`
+                    });
+                    box.appendChild(titleBar);
+                    makePickerDialogDraggable(box, titleBar);
+
+                    const breadcrumb = document.createElement('div');
+                    Object.assign(breadcrumb.style, {
+                        padding: '6px 10px',
+                        borderBottom: `1px solid ${theme.border}`
+                    });
+                    box.appendChild(breadcrumb);
+                    const fileArea = document.createElement('div');
+                    fileArea.style.flex = '1';
+                    fileArea.style.overflowY = 'auto';
+                    fileArea.style.background = theme.panelBg;
+                    box.appendChild(fileArea);
+
+                    const row = document.createElement('div');
+                    row.style.padding = '8px';
+                    row.style.display = 'flex';
+                    row.style.gap = '8px';
+                    row.style.borderTop = `1px solid ${theme.border}`;
+                    box.appendChild(row);
+                    const nameInput = document.createElement('input');
+                    Object.assign(nameInput.style, {
+                        flex: '1',
+                        padding: '6px',
+                        borderRadius: '6px',
+                        border: `1px solid ${theme.border}`,
+                        background: theme.inputBg,
+                        color: theme.inputText
+                    });
+                    nameInput.placeholder = 'filename.txt';
+                    nameInput.value = suggestedName || '';
+                    row.appendChild(nameInput);
+
+                    const btnBar = document.createElement('div');
+                    btnBar.style.padding = '6px';
+                    btnBar.style.display = 'flex';
+                    btnBar.style.gap = '8px';
+                    btnBar.style.justifyContent = 'flex-end';
+                    btnBar.style.borderTop = `1px solid ${theme.border}`;
+                    box.appendChild(btnBar);
+                    const btnCancel = document.createElement('button');
+                    btnCancel.textContent = 'Cancel';
+                    stylePickerButton(btnCancel, theme, false);
+                    btnBar.appendChild(btnCancel);
+                    const btnSave = document.createElement('button');
+                    btnSave.textContent = 'Save';
+                    stylePickerButton(btnSave, theme, true);
+                    btnBar.appendChild(btnSave);
+
+                    function render() {
+                        breadcrumb.innerHTML = '';
+                        savePickerCurrentPath.forEach((p, i) => {
+                            const s = document.createElement('span');
+                            s.textContent = i === 0 ? 'Home' : ' / ' + p;
+                            s.style.cursor = 'pointer';
+                            s.onclick = () => {
+                                savePickerCurrentPath = savePickerCurrentPath.slice(0, i + 1);
+                                render();
+                            };
+                            breadcrumb.appendChild(s);
+                        });
+                        fileArea.innerHTML = '';
+                        let node = savePickerTree;
+                        for (let i = 1; i < savePickerCurrentPath.length; i++) {
+                            if (!node || !node[1]) break;
+                            node = node[1].find((c) => c[0] === savePickerCurrentPath[i]);
+                        }
+                        if (!node || !node[1]) return;
+                        node[1].forEach((item) => {
+                            const div = document.createElement('div');
+                            div.textContent = (Array.isArray(item[1]) ? '📁 ' : '📄 ') + item[0];
+                            div.style.padding = '6px';
+                            div.style.cursor = 'pointer';
+                            div.style.borderBottom = `1px solid ${theme.border}`;
+                            div.onclick = (e) => {
+                                const isToggle = e.ctrlKey || e.metaKey;
+                                if (!isToggle) {
+                                    savePickerSelection = [item];
+                                    fileArea.querySelectorAll('div').forEach((d) => (d.style.background = ''));
+                                    div.style.background = theme.selectedBg;
+                                } else {
+                                    const idx = savePickerSelection.indexOf(item);
+                                    if (idx >= 0) {
+                                        savePickerSelection.splice(idx, 1);
+                                        div.style.background = '';
+                                    } else {
+                                        savePickerSelection.push(item);
+                                        div.style.background = theme.selectedBg;
+                                    }
+                                }
+                            };
+                            div.onmouseenter = () => {
+                                if (savePickerSelection.includes(item)) return;
+                                div.style.background = theme.hoverBg;
+                            };
+                            div.onmouseleave = () => {
+                                if (savePickerSelection.includes(item)) return;
+                                div.style.background = '';
+                            };
+                            if (Array.isArray(item[1]))
+                                div.ondblclick = () => {
+                                    savePickerCurrentPath.push(item[0]);
+                                    render();
+                                };
+                            fileArea.appendChild(div);
+                        });
+                    }
+
+                    render();
+
+                    btnCancel.onclick = () => {
+                        try {
+                            if (sentreqframe && sentreqframe.contentWindow) {
+                                sentreqframe.contentWindow.postMessage(
+                                    { __VFS__: true, kind: 'saveTarget', path: null },
+                                    '*'
+                                );
+                            }
+                        } catch (e) {}
+                        overlay.remove();
+                    };
+
+                    btnSave.onclick = () => {
+                        const selections = [...savePickerSelection];
+                        const basePath = savePickerCurrentPath.slice(1).join('/');
+                        const fname = (nameInput.value || '').trim();
+                        if (!fname) {
+                            notification('Enter a filename');
+                            return;
+                        }
+                        let chosen;
+                        if (!selections.length) chosen = basePath ? basePath + '/' + fname : fname;
+                        else {
+                            const sel = selections[0];
+                            const isFolder = Array.isArray(sel[1]);
+                            if (isFolder) chosen = (basePath ? basePath + '/' : '') + fname;
+                            else notification('Select a folder to save into');
+                        }
+
+                        // send response to requesting iframe
+                        try {
+                            if (sentreqframe && sentreqframe.contentWindow) {
+                                sentreqframe.contentWindow.postMessage(
+                                    { __VFS__: true, kind: 'saveTarget', path: chosen },
+                                    '*'
+                                );
+                            }
+                        } catch (e) {}
+
+                        overlay.remove();
+                    };
+                }
+
+                // ----------------------------
+                // 3c. Custom directory picker overlay
+                // ----------------------------
+                function openCustomDirectoryPickerUI() {
+                    if (!window.treeData) {
+                        window.onlyloadTree();
+                    }
+
+                    const theme = getPickerTheme();
+
+                    const dirPickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
+                    let dirPickerCurrentPath = ['root'];
+                    let dirPickerSelectionPaths = [];
+
+                    const overlay = document.createElement('div');
+                    document.body.appendChild(overlay);
+
+                    const box = document.createElement('div');
+                    stylePickerDialogBox(box, theme, '600px', '420px');
+                    overlay.appendChild(box);
+
+                    const titleBar = document.createElement('div');
+                    titleBar.textContent = 'Select Directory';
+                    Object.assign(titleBar.style, {
+                        padding: '8px 10px',
+                        fontWeight: '600',
+                        borderBottom: `1px solid ${theme.border}`
+                    });
+                    box.appendChild(titleBar);
+                    makePickerDialogDraggable(box, titleBar);
+
+                    const breadcrumb = document.createElement('div');
+                    Object.assign(breadcrumb.style, {
+                        padding: '6px 10px',
+                        borderBottom: `1px solid ${theme.border}`
+                    });
+                    box.appendChild(breadcrumb);
+                    const fileArea = document.createElement('div');
+                    fileArea.style.flex = '1';
+                    fileArea.style.overflowY = 'auto';
+                    fileArea.style.background = theme.panelBg;
+                    box.appendChild(fileArea);
+
+                    const infoRow = document.createElement('div');
+                    infoRow.style.padding = '6px';
+                    infoRow.style.fontSize = '12px';
+                    infoRow.style.color = theme.muted;
+                    infoRow.style.borderTop = `1px solid ${theme.border}`;
+                    infoRow.textContent = 'Select a folder';
+                    box.appendChild(infoRow);
+
+                    const btnBar = document.createElement('div');
+                    btnBar.style.padding = '6px';
+                    btnBar.style.display = 'flex';
+                    btnBar.style.gap = '8px';
+                    btnBar.style.justifyContent = 'flex-end';
+                    btnBar.style.borderTop = `1px solid ${theme.border}`;
+                    box.appendChild(btnBar);
+                    const btnCancel = document.createElement('button');
+                    btnCancel.textContent = 'Cancel';
+                    stylePickerButton(btnCancel, theme, false);
+                    btnBar.appendChild(btnCancel);
+                    const btnOpen = document.createElement('button');
+                    btnOpen.textContent = 'Select';
+                    stylePickerButton(btnOpen, theme, true);
+                    btnBar.appendChild(btnOpen);
+
+                    function render() {
+                        breadcrumb.innerHTML = '';
+                        dirPickerCurrentPath.forEach((p, i) => {
+                            const s = document.createElement('span');
+                            s.textContent = i === 0 ? 'Home' : ' / ' + p;
+                            s.style.cursor = 'pointer';
+                            s.onclick = () => {
+                                dirPickerCurrentPath = dirPickerCurrentPath.slice(0, i + 1);
+                                render();
+                            };
+                            breadcrumb.appendChild(s);
+                        });
+                        fileArea.innerHTML = '';
+                        let node = dirPickerTree;
+                        for (let i = 1; i < dirPickerCurrentPath.length; i++) {
+                            if (!node || !node[1]) break;
+                            node = node[1].find((c) => c[0] === dirPickerCurrentPath[i]);
+                        }
+                        if (!node || !node[1]) return;
+                        node[1].forEach((item) => {
+                            const isFolder = Array.isArray(item[1]);
+                            const currentBasePath = dirPickerCurrentPath.slice(1).join('/');
+                            const itemPath = currentBasePath ? currentBasePath + '/' + item[0] : item[0];
+                            const div = document.createElement('div');
+                            div.textContent = (isFolder ? '📁 ' : '📄 ') + item[0];
+                            div.style.padding = '6px';
+                            div.style.cursor = 'pointer';
+                            div.style.borderBottom = `1px solid ${theme.border}`;
+                            div.onclick = (e) => {
+                                // Only allow selecting folders
+                                if (isFolder) {
+                                    const isToggle = e.ctrlKey || e.metaKey;
+                                    if (!isToggle) {
+                                        dirPickerSelectionPaths = [itemPath];
+                                        fileArea.querySelectorAll('div').forEach((d) => (d.style.background = ''));
+                                        div.style.background = theme.selectedBg;
+                                    } else {
+                                        const idx = dirPickerSelectionPaths.indexOf(itemPath);
+                                        if (idx >= 0) {
+                                            dirPickerSelectionPaths.splice(idx, 1);
+                                            div.style.background = '';
+                                        } else {
+                                            dirPickerSelectionPaths.push(itemPath);
+                                            div.style.background = theme.selectedBg;
+                                        }
+                                    }
+                                }
+                            };
+                            div.onmouseenter = () => {
+                                if (!isFolder || dirPickerSelectionPaths.includes(itemPath)) return;
+                                div.style.background = theme.hoverBg;
+                            };
+                            div.onmouseleave = () => {
+                                if (!isFolder || dirPickerSelectionPaths.includes(itemPath)) return;
+                                div.style.background = '';
+                            };
+                            if (isFolder && dirPickerSelectionPaths.includes(itemPath)) {
+                                div.style.background = theme.selectedBg;
+                            }
+                            if (isFolder) {
+                                div.ondblclick = () => {
+                                    dirPickerCurrentPath.push(item[0]);
+                                    render();
+                                };
+                            }
+                            fileArea.appendChild(div);
+                        });
+                    }
+
+                    render();
+
+                    btnCancel.onclick = () => {
+                        try {
+                            if (sentreqframe && sentreqframe.contentWindow) {
+                                sentreqframe.contentWindow.postMessage(
+                                    {
+                                        __VFS__: true,
+                                        kind: 'directoryTarget',
+                                        path: null,
+                                        treeNode: null
+                                    },
+                                    '*'
+                                );
+                            }
+                        } catch (e) {}
+                        overlay.remove();
+                    };
+
+                    btnOpen.onclick = () => {
+                        const basePath = dirPickerCurrentPath.slice(1).join('/') || 'root';
+                        let chosen = dirPickerSelectionPaths.length > 0 ? dirPickerSelectionPaths[0] : basePath;
+
+                        // Find the actual tree node for the selected path
+                        let selectedNode = dirPickerTree;
+                        const pathParts = chosen.split('/').filter((p) => p && p !== 'root');
+                        for (const part of pathParts) {
+                            if (!selectedNode || !selectedNode[1]) break;
+                            selectedNode = selectedNode[1].find((c) => c[0] === part);
+                        }
+
+                        if (!selectedNode) {
+                            notification('Selected directory not found');
+                            return;
+                        }
+
+                        // --- NEW: recursively gather files in the directory ---
+                        function collectFiles(node, currentPath) {
+                            const files = [];
+                            if (!node || !Array.isArray(node[1])) return files;
+                            for (const item of node[1]) {
+                                const [name, child] = item;
+                                const itemPath = currentPath ? currentPath + '/' + name : name;
+                                if (Array.isArray(child)) {
+                                    // folder → recurse
+                                    files.push(...collectFiles(item, itemPath));
+                                } else {
+                                    // file → add as base64 string (or empty placeholder if contents not loaded)
+                                    files.push({ path: itemPath, contents: child || '' });
+                                }
+                            }
+                            return files;
+                        }
+
+                        const filesToSend = collectFiles(selectedNode, chosen);
+
+                        // send directory info
+                        if (sentreqframe && sentreqframe.contentWindow) {
+                            sentreqframe.contentWindow.postMessage(
+                                {
+                                    __VFS__: true,
+                                    kind: 'directoryTarget',
+                                    path: chosen,
+                                    treeNode: selectedNode
+                                },
+                                '*'
+                            );
+
+                            // send each file as fileData
+                            for (const f of filesToSend) {
+                                const buffer =
+                                    f.contents instanceof ArrayBuffer
+                                        ? f.contents
+                                        : new TextEncoder().encode(f.contents).buffer; // convert string to ArrayBuffer
+
+                                sentreqframe.contentWindow.postMessage(
+                                    {
+                                        __VFS__: true,
+                                        kind: 'fileData',
+                                        path: f.path,
+                                        name: f.path.split('/').pop(),
+                                        type: 'text/plain',
+                                        buffer
+                                    },
+                                    '*'
+                                );
+                            }
+                        }
+
+                        overlay.remove();
+                    };
+                }
+
+                // ----------------------------
+                // 4. Listen for iframe requests
+                // ----------------------------
+
+                if (!root.__vfsMessageListenerAdded) {
+                    root.__vfsMessageListenerAdded = true;
+                    root.addEventListener('keydown', function (e) {
+                        if (e.ctrlKey && e.key === 'w') {
+                            for (const tab of tabs) {
+                                if (tab.iframe.style.display !== 'none') {
+                                    closeTab(tab.id);
+                                }
+                            }
+                        }
+                    });
+                    root.focus();
+                    window.addEventListener('browser' + root._goldenbodyId, 'message', (e) => {
+                        try {
+                            // Allow `saveFile` messages to be processed even when the browser root
+                            // doesn't have focus. Previously the OR made the whole condition true
+                            // whenever a saveFile arrived, causing the handler to return early.
+                            const isSaveFile = e.data?.__VFS__ && e.data.kind === 'saveFile';
+                            if ((!root || !root.contains(document.activeElement)) && !isSaveFile) return;
+                        } catch (e) {
+                            return;
+                        }
+                        if (e.data?.__VFS__ && e.data.kind === 'requestPicker') {
+                            openCustomPickerUI();
+                            sentreqframe = recurseFrames(document, e);
+                        }
+                        if (e.data?.__VFS__ && e.data.kind === 'requestSavePicker') {
+                            // open save-as UI and record requesting frame
+                            openCustomSaveUI(e.data.suggestedName);
+                            sentreqframe = recurseFrames(document, e);
+                        }
+                        if (e.data?.__VFS__ && e.data.kind === 'requestDirectoryPicker') {
+                            // open directory picker UI and record requesting frame
+                            openCustomDirectoryPickerUI();
+                            sentreqframe = recurseFrames(document, e);
+                        }
+                        if (e.data?.__VFS__ && e.data.kind === 'saveFile') {
+                            try {
+                                // Robust save handling that mirrors fileExplorer upload behaviour.
+                                const MAX_INLINE_BASE64 = 250 * 1024 * 1024; // 250MB
+                                const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+
+                                // pendingSaves stores { chunks: [ArrayBuffer], bytes: number, source: MessageEvent.source }
+                                root.__pendingSaves = root.__pendingSaves || {};
+
+                                const incomingPath = e.data.path || e.data.name || 'unnamed';
+                                const fullPath = incomingPath.startsWith('root/')
+                                    ? incomingPath
+                                    : 'root/' + incomingPath;
+
+                                // Ensure entry
+                                if (!root.__pendingSaves[fullPath]) {
+                                    root.__pendingSaves[fullPath] = {
+                                        chunks: [],
+                                        bytes: 0,
+                                        source: e.source
+                                    };
+                                }
+
+                                const entry = root.__pendingSaves[fullPath];
+                                // Accept either raw ArrayBuffer in `buffer` or base64 string in `base64`.
+                                if (e.data.buffer) {
+                                    // Normalize to ArrayBuffer
+                                    const ab =
+                                        e.data.buffer instanceof ArrayBuffer ? e.data.buffer : e.data.buffer.buffer;
+                                    entry.chunks.push(ab);
+                                    entry.bytes += ab.byteLength || 0;
+                                    // Acknowledge receipt of this chunk so the writer can apply backpressure
+                                    try {
+                                        if (e.data._chunkId && e.source && e.source.postMessage) {
+                                            e.source.postMessage(
+                                                {
+                                                    __VFS__: true,
+                                                    kind: 'chunkAck',
+                                                    _chunkId: e.data._chunkId,
+                                                    path: fullPath
+                                                },
+                                                '*'
+                                            );
+                                        }
+                                    } catch (err) {
+                                        console.warn('failed to send chunkAck', err);
+                                    }
+                                } else if (e.data.base64) {
+                                    // convert base64 to ArrayBuffer and store
+                                    const binary = atob(e.data.base64);
+                                    const len = binary.length;
+                                    const bytes = new Uint8Array(len);
+                                    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+                                    entry.chunks.push(bytes.buffer);
+                                    entry.bytes += bytes.byteLength;
+                                }
+
+                                const finalize = !!e.data.lastOne;
+
+                                if (!finalize) {
+                                    // waiting for more data
+                                    return;
+                                }
+
+                                // Assemble full ArrayBuffer
+                                let totalBytes = entry.bytes;
+
+                                // Debug: if totalBytes is zero but chunks exist, compute a fallback
+                                if ((!totalBytes || totalBytes === 0) && entry.chunks && entry.chunks.length) {
+                                    try {
+                                        const computed = entry.chunks.reduce((sum, c) => {
+                                            try {
+                                                return (
+                                                    sum +
+                                                    ((c &&
+                                                        (c.byteLength ||
+                                                            (c.byteLength === 0 ? 0 : new Uint8Array(c).byteLength))) ||
+                                                        0)
+                                                );
+                                            } catch (e) {
+                                                return sum;
+                                            }
+                                        }, 0);
+                                        if (computed > 0) {
+                                            console.warn(
+                                                'VFS: computed totalBytes fallback',
+                                                fullPath,
+                                                computed,
+                                                'from',
+                                                entry.chunks.length,
+                                                'chunks'
+                                            );
+                                            totalBytes = computed;
+                                        }
+                                    } catch (err) {
+                                        console.warn('VFS: failed computing fallback totalBytes for', fullPath, err);
+                                    }
+                                }
+
+                                let combined;
+                                if (entry.chunks.length === 1) {
+                                    combined = entry.chunks[0];
+                                } else {
+                                    combined = new Uint8Array(totalBytes);
+                                    let offset = 0;
+                                    for (const c of entry.chunks) {
+                                        const arr = new Uint8Array(c);
+                                        combined.set(arr, offset);
+                                        offset += arr.length;
+                                    }
+                                    combined = combined.buffer;
+                                }
+
+                                // Helper to convert ArrayBuffer slice to base64
+                                function arrayBufferToBase64(buffer) {
+                                    let binary = '';
+                                    const bytes = new Uint8Array(buffer);
+                                    const chunk = 0x8000;
+                                    for (let i = 0; i < bytes.length; i += chunk) {
+                                        const sub = bytes.subarray(i, i + chunk);
+                                        binary += String.fromCharCode.apply(null, sub);
+                                    }
+                                    return btoa(binary);
+                                }
+
+                                (async () => {
+                                    try {
+                                        if (totalBytes <= MAX_INLINE_BASE64) {
+                                            const base64 = arrayBufferToBase64(combined);
+                                            await post({
+                                                saveSnapshot: true,
+                                                directions: [
+                                                    {
+                                                        edit: true,
+                                                        path: fullPath,
+                                                        contents: base64,
+                                                        replace: true
+                                                    },
+                                                    { end: true }
+                                                ]
+                                            });
+                                        } else {
+                                            // Large file: chunk it similarly to fileExplorer
+                                            const total = Math.ceil(totalBytes / CHUNK_SIZE);
+
+                                            // ensure file placeholder
+                                            await post({
+                                                saveSnapshot: true,
+                                                directions: [
+                                                    { addFile: true, path: fullPath, replace: true },
+                                                    { end: true }
+                                                ]
+                                            });
+
+                                            // Optionally check existing parts (skip for now)
+
+                                            // Check which parts already exist on server (resume support)
+                                            let presentParts = [];
+                                            try {
+                                                const chk = await post({
+                                                    saveSnapshot: true,
+                                                    directions: [{ checkParts: true, path: fullPath }, { end: true }]
+                                                });
+                                                presentParts =
+                                                    (chk &&
+                                                        chk.result &&
+                                                        chk.result.checkParts &&
+                                                        chk.result.checkParts[fullPath]) ||
+                                                    [];
+                                            } catch (e) {
+                                                presentParts = [];
+                                            }
+
+                                            const presentSet = new Set(presentParts);
+
+                                            const MAX_CHUNK_RETRIES = 3;
+                                            const CHUNK_RETRY_BASE_MS = 500;
+
+                                            function sleep(ms) {
+                                                return new Promise((r) => setTimeout(r, ms));
+                                            }
+
+                                            async function uploadChunkWithRetries(path, chunkBase64, index, total) {
+                                                let attempts = 0;
+                                                while (true) {
+                                                    try {
+                                                        await post({
+                                                            saveSnapshot: true,
+                                                            directions: [
+                                                                {
+                                                                    edit: true,
+                                                                    path,
+                                                                    chunk: chunkBase64,
+                                                                    index,
+                                                                    total
+                                                                },
+                                                                { end: true }
+                                                            ]
+                                                        });
+                                                        return;
+                                                    } catch (err) {
+                                                        attempts++;
+                                                        if (attempts > MAX_CHUNK_RETRIES) throw err;
+                                                        const backoff = CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
+                                                        await sleep(backoff);
+                                                    }
+                                                }
+                                            }
+
+                                            let uploadedCount = presentSet.size;
+                                            for (let i = 0; i < total; i++) {
+                                                if (presentSet.has(i)) continue; // already uploaded
+                                                const start = i * CHUNK_SIZE;
+                                                const end = Math.min(totalBytes, start + CHUNK_SIZE);
+                                                const slice = combined.slice(start, end);
+                                                const chunkBase64 = arrayBufferToBase64(slice);
+                                                try {
+                                                    await uploadChunkWithRetries(fullPath, chunkBase64, i, total);
+                                                    uploadedCount++;
+                                                } catch (err) {
+                                                    console.error(`Failed to upload chunk ${i} for ${fullPath}:`, err);
+                                                    throw err;
+                                                }
+                                            }
+
+                                            // finalize
+                                            await post({
+                                                saveSnapshot: true,
+                                                directions: [
+                                                    { edit: true, path: fullPath, finalize: true },
+                                                    { end: true }
+                                                ]
+                                            });
+                                        }
+
+                                        // ACK back to source
+                                        try {
+                                            e.source.postMessage(
+                                                {
+                                                    __VFS__: true,
+                                                    kind: 'saved',
+                                                    path: incomingPath,
+                                                    ok: true
+                                                },
+                                                '*'
+                                            );
+                                        } catch (err) {}
+                                    } catch (err) {
+                                        console.error('saveFile handling error', err);
+                                        try {
+                                            e.source.postMessage(
+                                                {
+                                                    __VFS__: true,
+                                                    kind: 'saved',
+                                                    path: incomingPath,
+                                                    ok: false,
+                                                    error: (err && err.message) || String(err)
+                                                },
+                                                '*'
+                                            );
+                                        } catch (err) {}
+                                    } finally {
+                                        // cleanup
+                                        delete root.__pendingSaves[fullPath];
+                                    }
+                                })();
+                            } catch (err) {
+                                console.error('saveFile outer error', err);
+                            }
+                        }
+                    });
+                }
+
+                // ----------------------------
+                // 5. Inject override into iframe
+                // ----------------------------
+                const script = document.createElement('script');
+                script.id = 'VFS';
+                script.textContent = `(() => {
+  console.log('VFS injector active');
+
+          // Provide synthetic FileSystemHandle classes so libraries that use instanceof
+          // checks (e.g., FileSystemObserver) accept our synthetic handles.
+          function FileSystemHandle() {}
+          function FileSystemFileHandle() { FileSystemHandle.call(this); }
+          FileSystemFileHandle.prototype = Object.create(FileSystemHandle.prototype);
+          FileSystemFileHandle.prototype.constructor = FileSystemFileHandle;
+          function FileSystemDirectoryHandle() { FileSystemHandle.call(this); }
+          FileSystemDirectoryHandle.prototype = Object.create(FileSystemHandle.prototype);
+          FileSystemDirectoryHandle.prototype.constructor = FileSystemDirectoryHandle;
+
+          // Polyfill common methods on prototypes so returned handles behave like
+          // native FileSystemHandle objects.
+
+
+FileSystemFileHandle.prototype.createWritable = async function () {
+  const path = this.path;
+  const name = this.name;
+
+  // Delegate to native handle if present
+  try {
+    if (this._file && (this._file.handle || this._file.fileHandle)) {
+      const h = this._file.handle || this._file.fileHandle;
+      if (h.createWritable) return await h.createWritable();
+    }
+  } catch {}
+
+  if (!path) {
+    const remote = await window.showSaveFilePicker({ suggestedName: name });
+    return await remote.createWritable();
+  }
+
+  let closed = false;
+  let pendingWrites = [];
+
+  // ✅ REAL WritableStream with proper async handling
+  const stream = new WritableStream({
+    async write(chunk) {
+      if (closed) return;
+
+      let buffer;
+
+      if (chunk instanceof Blob) {
+        buffer = await chunk.arrayBuffer();
+      } else if (typeof chunk === 'string') {
+        buffer = new TextEncoder().encode(chunk).buffer;
+      } else if (chunk instanceof ArrayBuffer) {
+        buffer = chunk;
+      } else if (ArrayBuffer.isView(chunk)) {
+        buffer = chunk.buffer;
+      } else {
+        buffer = new Uint8Array(chunk).buffer;
+      }
+
+      // Return a promise that resolves when the message is sent
+      return new Promise((resolve) => {
+        window.top.postMessage(
+          { __VFS__: true, kind: 'saveFile', path, name, buffer },
+          '*'
+        );
+        // Resolve immediately after posting (message queued)
+        resolve();
+      });
+    },
+
+    async close() {
+      closed = true;
+      // Give a small delay to ensure previous writes are processed
+      await new Promise(r => setTimeout(r, 10));
+      window.top.postMessage(
+        { __VFS__: true, kind: 'saveFile', path, name, lastOne: true },
+        '*'
+      );
+    },
+
+    async abort(reason) {
+      closed = true;
+      window.top.postMessage(
+        { __VFS__: true, kind: 'saveFileAbort', path, name, reason },
+        '*'
+      );
+    }
+  });
+
+  // 🔧 Patch native-like methods ONTO the stream
+  stream.write = async function (chunk) {
+    const writer = stream.getWriter();
+    try {
+      await writer.write(chunk);
+    } finally {
+      writer.releaseLock();
+    }
+  };
+
+  stream.close = async function () {
+    const writer = stream.getWriter();
+    try {
+      await writer.close();
+    } finally {
+      writer.releaseLock();
+    }
+  };
+
+  stream.abort = async function (reason) {
+    const writer = stream.getWriter();
+    try {
+      await writer.abort(reason);
+    } finally {
+      writer.releaseLock();
+    }
+  };
+
+  return stream;
+};
+
+
+          FileSystemFileHandle.prototype.queryPermission = async function () { return 'granted'; };
+          FileSystemFileHandle.prototype.requestPermission = async function () { return 'granted'; };
+          FileSystemFileHandle.prototype.isSameEntry = async function (other) {
+            try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
+          };
+
+          FileSystemDirectoryHandle.prototype.isSameEntry = async function (other) {
+            try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
+          };
+
+function makeFileHandle(file) {
+  const h = new FileSystemFileHandle();
+
+  h.kind = 'file';
+  h.name = file.name;
+
+  // Non-standard, VFS-only (informational)
+  h.path = file.fullPath || file.webkitRelativePath || file.name;
+
+  // Internal backing file
+  h._file = file;
+
+  // Required by File System Access consumers
+  h.getFile = async function () {
+    return this._file;
+  };
+
+  return h;
+}
+
+          // Shim FileSystemObserver so sites that call new FileSystemObserver(...).observe(handle)
+          // with our synthetic handles won't throw a TypeError. When a synthetic handle is
+          // observed we forward an observe request to the top frame so the host can watch
+          // the underlying path if desired.
+          (function installFSObserverShim() {
+            const NativeFSObserver = window.FileSystemObserver;
+            function isSyntheticHandle(h) {
+              return !!(h && (h.path || h.name) && typeof h.getFile === 'function');
+            }
+
+            class FileSystemObserverShim {
+              constructor(cb) {
+                this.cb = cb;
+                this._native = NativeFSObserver ? new NativeFSObserver(cb) : null;
+                this._regs = new Map();
+              }
+              observe(handle) {
+                if (isSyntheticHandle(handle)) {
+                  const path = handle.path || handle.name || '/';
+                  this._regs.set(handle, path);
+                  try { window.top.postMessage({ __VFS__: true, kind: 'observePath', path }, '*'); } catch(e){}
+                  return;
+                }
+                if (this._native) return this._native.observe(handle);
+                throw new TypeError('Failed to execute "observe" on "FileSystemObserver": parameter 1 is not of type "FileSystemHandle"');
+              }
+              unobserve(handle) {
+                if (this._regs.has(handle)) {
+                  const path = this._regs.get(handle);
+                  this._regs.delete(handle);
+                  try { window.top.postMessage({ __VFS__: true, kind: 'unobservePath', path }, '*'); } catch(e){}
+                  return;
+                }
+                if (this._native) return this._native.unobserve(handle);
+              }
+            }
+
+            try {
+              window.FileSystemObserver = FileSystemObserverShim;
+            } catch (e) {}
+          })();
+
+  let injectedFiles = [];
+  let activeInput = null;
+  let pickerMode = null; // 'input' | 'picker'
+  let allFilesReceived = false;
+  let pickerCancelled = false;
+  let fileChunks = {}; // store chunks by path: { path: [buffer1, buffer2, ...] }
+
+  function normalizeMimeType(type) {
+    if (!type) return 'application/octet-stream';
+    if (typeof type === 'string') return type;
+    if (type.type) return type.type;
+    return 'application/octet-stream';
+  }
+
+  function injectIntoActiveInput() {
+    if (!activeInput) return;
+
+    const dt = new DataTransfer();
+    for (const file of injectedFiles) {
+      dt.items.add(file);
+    }
+
+    Object.defineProperty(activeInput, 'files', {
+      configurable: true,
+      get: () => dt.files
+    });
+
+    activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // cleanup
+    injectedFiles = [];
+    activeInput = null;
+    pickerMode = null;
+    allFilesReceived = false;
+  }
+
+  function waitUntilFiles() {
+    return new Promise((resolve, reject) => {
+      const i = setInterval(() => {
+        if (pickerCancelled) {
+          clearInterval(i);
+          pickerCancelled = false;
+          reject(new DOMException('The user aborted a request.', 'AbortError'));
+          return;
+        }
+        if (allFilesReceived) {
+          clearInterval(i);
+          resolve();
+        }
+      }, 10);
+    });
+  }
+
+  // 📨 Receive files
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || d.__VFS__ !== true) return;
+
+    if (d.kind === 'pickerCancelled') {
+      pickerCancelled = true;
+      return;
+    }
+
+    if (d.kind === 'file') {
+      // Handle chunked file messages
+        if (d.totalChunks && d.totalChunks > 1) {
+          const pathKey = d.path || d.name;
+          if (!fileChunks[pathKey]) {
+            // use fill(null) to avoid sparse-array holes so .every() checks work
+            fileChunks[pathKey] = {
+              chunks: new Array(d.totalChunks).fill(null),
+              metadata: {
+                name: d.name,
+                type: d.type,
+                path: d.path,
+                webkitRelativePath: d.webkitRelativePath
+              }
+            };
+          }
+
+          // Store chunk at correct index
+          fileChunks[pathKey].chunks[d.chunkIndex] = d.buffer;
+
+          // Check if all chunks received (no null left)
+          const allChunksReceived = fileChunks[pathKey].chunks.every(c => c !== null);
+
+          if (allChunksReceived) {
+            // Combine chunks into single buffer
+            const validChunks = fileChunks[pathKey].chunks; // no nulls remain
+
+            const totalBytes = validChunks.reduce((sum, chunk) => sum + (chunk?.byteLength || 0), 0);
+            const combinedBuffer = new Uint8Array(totalBytes);
+            let offset = 0;
+            for (const chunk of validChunks) {
+              if (chunk && chunk.byteLength > 0) {
+                combinedBuffer.set(new Uint8Array(chunk), offset);
+                offset += chunk.byteLength;
+              }
+            }
+
+            const metadata = fileChunks[pathKey].metadata;
+            const file = new File([combinedBuffer.buffer], metadata.name, {
+              type: normalizeMimeType(metadata.type)
+            });
+
+            if (metadata.webkitRelativePath) {
+              Object.defineProperty(file, 'webkitRelativePath', {
+                value: metadata.webkitRelativePath
+              });
+            }
+
+            const rawPath = (metadata.path || metadata.webkitRelativePath || metadata.name) || metadata.name;
+            const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
+            file.fullPath = normPath;
+
+            const syntheticHandle = {
+              kind: 'file',
+              name: metadata.name,
+              path: normPath
+            };
+
+            try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
+
+            injectedFiles.push(file);
+            delete fileChunks[pathKey];
+
+            // Check if this is the last file
+            if (d.lastOne) {
+              if (pickerMode === 'input') {
+                injectIntoActiveInput();
+              } else if (pickerMode === 'picker') {
+                allFilesReceived = true;
+              }
+            }
+          }
+          return;
+        }
+      
+      // Handle non-chunked files (original path)
+      const file = new File([d.buffer], d.name, {
+        type: normalizeMimeType(d.type)
+      });
+
+      if (d.webkitRelativePath) {
+        Object.defineProperty(file, 'webkitRelativePath', {
+          value: d.webkitRelativePath
+        });
+      }
+
+      const rawPath = (d.path || d.webkitRelativePath || d.name) || d.name;
+      const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
+      file.fullPath = normPath;
+
+      const syntheticHandle = {
+        kind: 'file',
+        name: d.name,
+        path: normPath
+      };
+
+      try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
+
+      injectedFiles.push(file);
+      
+      // Check if this is the last file
+      if (d.lastOne) {
+        if (pickerMode === 'input') {
+          injectIntoActiveInput();
+        } else if (pickerMode === 'picker') {
+          allFilesReceived = true;
+        }
+      }
+    }
+  });
+
+  // 📂 showOpenFilePicker
+  window.showOpenFilePicker = async () => {
+    pickerMode = 'picker';
+    allFilesReceived = false;
+    pickerCancelled = false;
+    injectedFiles = [];
+
+    window.top.postMessage(
+      { __VFS__: true, kind: 'requestPicker' },
+      '*'
+    );
+
+    try {
+      await waitUntilFiles();
+      const files = injectedFiles.slice();
+      return files.map(file => makeFileHandle(file));
+    } finally {
+      injectedFiles = [];
+      allFilesReceived = false;
+      pickerMode = null;
+    }
+  };
+
+
+// 💾 showSaveFilePicker (fixed)
+let pendingSaveResolvers = [];
+
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.__VFS__ !== true) return;
+
+  if (d.kind === 'saveTarget') {
+    const next = pendingSaveResolvers.shift();
+    if (!next) return;
+
+    // user canceled
+    if (!d.path) {
+      next.reject(
+        new DOMException('The user aborted a request.', 'AbortError')
+      );
+      return;
+    }
+
+    next.resolve(d.path);
+  }
+});
+
+window.showSaveFilePicker = async (options = {}) => {
+  return new Promise((resolve, reject) => {
+    pendingSaveResolvers.push({ resolve, reject });
+
+    window.top.postMessage(
+      {
+        __VFS__: true,
+        kind: 'requestSavePicker',
+        suggestedName: options.suggestedName || null,
+        types: options.types || null
+      },
+      '*'
+    );
+  }).then(path => {
+    const h = new FileSystemFileHandle();
+    h.kind = 'file';
+    h.path = path;
+    h.name = path.split('/').pop() || options.suggestedName || 'untitled';
+
+    return h;
+  });
+};
+
+
+  // � showDirectoryPicker
+  let pendingDirectoryResolvers = [];
+  let pendingDirectoryRejectors = [];
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || d.__VFS__ !== true) return;
+    if (d.kind === 'directoryTarget') {
+      if (!d.path) {
+        for (const rej of pendingDirectoryRejectors) {
+          try {
+            rej(new DOMException('The user aborted a request.', 'AbortError'));
+          } catch (e) {}
+        }
+        pendingDirectoryResolvers = [];
+        pendingDirectoryRejectors = [];
+        return;
+      }
+      for (const r of pendingDirectoryResolvers) try { r(d.path, d.treeNode); } catch(e){}
+      pendingDirectoryResolvers = [];
+      pendingDirectoryRejectors = [];
+    }
+  });
+
+  window.showDirectoryPicker = async (options) => {
+    return new Promise((resolve, reject) => {
+      pendingDirectoryRejectors.push(reject);
+      pendingDirectoryResolvers.push((path, treeNode) => {
+        const h = new FileSystemDirectoryHandle();
+        h.name = path.split('/').pop() || 'root';
+        h.kind = 'directory';
+        h.path = path;
+        h._treeNode = treeNode; // store for entries() iteration
+        
+        // entries() method to iterate over directory contents
+        h.entries = async function* () {
+          if (!this._treeNode || !Array.isArray(this._treeNode[1])) return;
+          for (const child of this._treeNode[1]) {
+            const name = child[0];
+            const isFolder = Array.isArray(child[1]);
+            if (isFolder) {
+const dirHandle = new FileSystemDirectoryHandle();
+dirHandle.name = name;
+dirHandle.kind = 'directory';
+dirHandle.path = (this.path ? this.path + '/' : '') + name;
+dirHandle._treeNode = child;
+
+// attach ALL directory methods
+dirHandle.entries = this.entries;
+dirHandle.values = this.values;
+dirHandle.keys = this.keys;
+dirHandle.getDirectoryHandle = this.getDirectoryHandle;
+dirHandle.getFileHandle = this.getFileHandle;
+dirHandle.isSameEntry = this.isSameEntry;
+
+yield [name, dirHandle];
+
+            } else {
+              const fileHandle = new FileSystemFileHandle();
+              fileHandle.name = name;
+              fileHandle.kind = 'file';
+              fileHandle.path = (this.path ? this.path + '/' : '') + name;
+              yield [name, fileHandle];
+            }
+          }
+        };
+
+        // values() method
+        h.values = async function* () {
+          for await (const [, handle] of this.entries()) {
+            yield handle;
+          }
+        };
+
+        // keys() method
+        h.keys = async function* () {
+          for await (const [name] of this.entries()) {
+            yield name;
+          }
+        };
+
+        // getDirectoryHandle(name) method
+        h.getDirectoryHandle = async function(name, options = {}) {
+          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
+            throw new DOMException(\`\${this.name} is not a directory\`, 'NotADirectoryError');
+          }
+          let child = this._treeNode[1].find(c => c[0] === name);
+          if (!child) {
+            if (options && options.create) {
+              // Create a new in-memory directory node so subsequent operations
+              // (entries, getFileHandle, etc.) can operate on it.
+              const newNode = [name, []];
+              if (!Array.isArray(this._treeNode[1])) this._treeNode[1] = [];
+              this._treeNode[1].push(newNode);
+              child = newNode;
+            } else {
+              throw new DOMException(\`A directory with the name "\${name}" was not found.\`, 'NotFoundError');
+            }
+          }
+          if (!Array.isArray(child[1])) {
+            throw new DOMException(\`"\${name}" is not a directory\`, 'TypeMismatchError');
+          }
+          const dirHandle = new FileSystemDirectoryHandle();
+          dirHandle.name = name;
+          dirHandle.kind = 'directory';
+          dirHandle.path = this.path + '/' + name;
+          dirHandle._treeNode = child;
+          dirHandle.entries = this.entries;
+          dirHandle.values = this.values;
+          dirHandle.keys = this.keys;
+          dirHandle.getDirectoryHandle = this.getDirectoryHandle;
+          dirHandle.getFileHandle = this.getFileHandle;
+          dirHandle.isSameEntry = this.isSameEntry;
+          return dirHandle;
+        };
+
+        // getFileHandle(name) method
+        h.getFileHandle = async function(name, options = {}) {
+          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
+            throw new DOMException(\`\${this.name} is not a directory\`, 'NotADirectoryError');
+          }
+          const child = this._treeNode[1].find(c => c[0] === name);
+          if (!child) {
+            // Allow creation of new files when requested. We don't mutate the
+            // host tree here; instead return a handle pointing at the intended
+            // path so \`createWritable()\` will route writes through the VFS.
+            if (options && options.create) {
+              const fileHandle = new FileSystemFileHandle();
+              fileHandle.name = name;
+              fileHandle.kind = 'file';
+              fileHandle.path = this.path + '/' + name;
+              return fileHandle;
+            }
+            throw new DOMException(\`A file with the name "\${name}" was not found.\`, 'NotFoundError');
+          }
+          if (Array.isArray(child[1])) {
+            throw new DOMException(\`"\${name}" is not a file\`, 'TypeMismatchError');
+          }
+          const fileHandle = new FileSystemFileHandle();
+          fileHandle.name = name;
+          fileHandle.kind = 'file';
+          fileHandle.path = this.path + '/' + name;
+          return fileHandle;
+        };
+
+        resolve(h);
+      });
+      window.top.postMessage({ __VFS__: true, kind: 'requestDirectoryPicker' }, '*');
+    });
+  };
+let pendingFileRequests = new Map();
+
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.__VFS__ !== true) return;
+
+  if (d.kind === 'fileData') {
+    const req = pendingFileRequests.get(d.path);
+    if (!req) return;
+
+    pendingFileRequests.delete(d.path);
+
+    const file = new File(
+      [d.buffer],
+      d.name,
+      { type: d.type || 'application/octet-stream' }
+    );
+
+    file.fullPath = d.path;
+    req.resolve(file);
+  }
+});
+
+// ---- now override getFile ----
+FileSystemFileHandle.prototype.getFile = async function () {
+  if (this._file) return this._file;
+
+  if (!this.path) {
+    throw new Error('File not available');
+  }
+
+  const file = await new Promise((resolve, reject) => {
+    pendingFileRequests.set(this.path, { resolve, reject });
+
+    window.top.postMessage(
+      {
+        __VFS__: true,
+        kind: 'requestFile',
+        path: this.path,
+        name: this.name
+      },
+      '*'
+    );
+
+    setTimeout(() => {
+      if (pendingFileRequests.has(this.path)) {
+        pendingFileRequests.delete(this.path);
+        
+        reject(new Error('File request timed out'));
+      }
+    }, 30000);
+  });
+
+  this._file = file;
+  return file;
+};
+
+
+  // �📎 <input type="file">
+  document.addEventListener(
+    'click',
+    e => {
+      const input = e.target;
+      if (!(input instanceof HTMLInputElement)) return;
+      if (input.type !== 'file') return;
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      activeInput = input;
+      pickerMode = 'input';
+
+      window.top.postMessage(
+        {
+          __VFS__: true,
+          kind: 'requestPicker',
+          allowMultiple: input.multiple,
+          allowDirectory: input.hasAttribute('webkitdirectory')
+        },
+        '*'
+      );
+    },
+    true
+  );
+
+
+// override window.open
+window.open = function(url, location) {
+let w = window;
+
+while (w.parent !== w.top) {
+  w = w.parent;
+}
+
+const layer1Window = w;
+const layer1Iframe = w.frameElement;
+let allbrowserindex = 0;
+// console.log(layer1Iframe); // ✅ the first iframe under the main page
+for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
+    if(window.top.browserGlobals.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
+}
+    debugger;
+    if(url == "") url = "about:blank";
+    if(!url.includes(':')) {
+       if(document.getElementsByTagName('base').length > 0) {
+       url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
+       }
+       else {
+       url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
+       }
+    }
+  if(location === '_parent') {
+    console.error('this flag is banned "_parent"');
+    window.top.postMessage({
+       __goldenbodynewWindow__: true,
+       url: url,
+       allbrowserindex: allbrowserindex
+    });
+  }
+  else if(location === '_self') {
+    window.location = url;
+  }
+  else if(location === '_blank') {
+    return window.top.__globalAddTab(url, allbrowserindex);
+  }
+  else if(location === '_top') {
+    console.error('this flag is banned "_top"');
+    window.top.postMessage({
+       __goldenbodynewWindow__: true,
+       url: url,
+       allbrowserindex: allbrowserindex
+    });
+  }
+  else {
+    window.top.postMessage({
+       __goldenbodynewWindow__: true,
+       url: url,
+       allbrowserindex: allbrowserindex
+    });
+    }
+}
+})();
+
+
+`;
+                function injectIntoIframe(frame) {
+                    try {
+                        frame.contentDocument.documentElement.appendChild(script.cloneNode(true));
+                    } catch {}
+                }
+                function uninjectIntoFrame(frame) {
+                    try {
+                        frame.contentDocument.getElementById('VFS').remove();
+                    } catch {}
+                }
+                let mediaInterval;
+                const observedDocs = new WeakSet();
+                const observedRoots = new WeakSet();
+                const trackedFrames = new WeakSet();
+
+                function installDOMIframeHooks(rootNode) {
+                    const win = rootNode?.defaultView || rootNode?.ownerDocument?.defaultView;
+                    if (!win || win.__gbIframeDomHooksInstalled) return;
+                    win.__gbIframeDomHooksInstalled = true;
+
+                    try {
+                        const docProto = win.Document && win.Document.prototype;
+                        if (docProto && !docProto.__gbCreateElementIframeWrapped) {
+                            docProto.__gbCreateElementIframeWrapped = true;
+                            const nativeCreateElement = docProto.createElement;
+                            docProto.createElement = function (tagName, options) {
+                                const created = nativeCreateElement.call(this, tagName, options);
+                                try {
+                                    if (String(tagName || '').toLowerCase() === 'iframe' && created) {
+                                        watchFrame(created, this);
+                                    }
+                                } catch (e) {}
+                                return created;
+                            };
+                        }
+                    } catch (e) {}
+
+                    try {
+                        const nodeProto = win.Node && win.Node.prototype;
+                        if (nodeProto && !nodeProto.__gbIframeNodeOpsWrapped) {
+                            nodeProto.__gbIframeNodeOpsWrapped = true;
+
+                            const nativeAppendChild = nodeProto.appendChild;
+                            nodeProto.appendChild = function (child) {
+                                const ret = nativeAppendChild.call(this, child);
+                                try {
+                                    scanNodeForFrames(child, this.getRootNode?.() || this);
+                                } catch (e) {}
+                                return ret;
+                            };
+
+                            const nativeInsertBefore = nodeProto.insertBefore;
+                            nodeProto.insertBefore = function (newNode, referenceNode) {
+                                const ret = nativeInsertBefore.call(this, newNode, referenceNode);
+                                try {
+                                    scanNodeForFrames(newNode, this.getRootNode?.() || this);
+                                } catch (e) {}
+                                return ret;
+                            };
+
+                            const nativeReplaceChild = nodeProto.replaceChild;
+                            nodeProto.replaceChild = function (newChild, oldChild) {
+                                const ret = nativeReplaceChild.call(this, newChild, oldChild);
+                                try {
+                                    scanNodeForFrames(newChild, this.getRootNode?.() || this);
+                                } catch (e) {}
+                                return ret;
+                            };
+                        }
+                    } catch (e) {}
+
+                    try {
+                        const elemProto = win.Element && win.Element.prototype;
+                        if (elemProto && !elemProto.__gbIframeAppendOpsWrapped) {
+                            elemProto.__gbIframeAppendOpsWrapped = true;
+
+                            const nativeAppend = elemProto.append;
+                            if (nativeAppend) {
+                                elemProto.append = function (...nodes) {
+                                    const ret = nativeAppend.apply(this, nodes);
+                                    for (const node of nodes) {
+                                        try {
+                                            scanNodeForFrames(node, this.getRootNode?.() || this);
+                                        } catch (e) {}
+                                    }
+                                    return ret;
+                                };
+                            }
+
+                            const nativePrepend = elemProto.prepend;
+                            if (nativePrepend) {
+                                elemProto.prepend = function (...nodes) {
+                                    const ret = nativePrepend.apply(this, nodes);
+                                    for (const node of nodes) {
+                                        try {
+                                            scanNodeForFrames(node, this.getRootNode?.() || this);
+                                        } catch (e) {}
+                                    }
+                                    return ret;
+                                };
+                            }
+
+                            const nativeAttachShadow = elemProto.attachShadow;
+                            if (nativeAttachShadow && !elemProto.__gbAttachShadowWrapped) {
+                                elemProto.__gbAttachShadowWrapped = true;
+                                elemProto.attachShadow = function (init) {
+                                    const sr = nativeAttachShadow.call(this, init);
+                                    try {
+                                        observeDocumentFrames(sr);
+                                        recurseFrames(sr);
+                                    } catch (e) {}
+                                    return sr;
+                                };
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                function scanNodeForFrames(node, parentRoot) {
+                    if (!node) return;
+
+                    if (node.nodeType === 1 && node.tagName === 'IFRAME') {
+                        watchFrame(node, parentRoot);
+                    }
+
+                    if (typeof node.querySelectorAll === 'function') {
+                        const nestedFrames = node.querySelectorAll('iframe');
+                        for (const nestedFrame of nestedFrames) {
+                            watchFrame(nestedFrame, parentRoot);
+                        }
+
+                        const possibleHosts = node.querySelectorAll('*');
+                        for (const host of possibleHosts) {
+                            if (host && host.shadowRoot) {
+                                observeDocumentFrames(host.shadowRoot);
+                            }
+                        }
+                    }
+
+                    if (node.shadowRoot) {
+                        observeDocumentFrames(node.shadowRoot);
+                    }
+                }
+
+                function observeDocumentFrames(doc) {
+                    if (!doc || observedRoots.has(doc)) return;
+                    observedRoots.add(doc);
+                    if (doc.nodeType === 9) observedDocs.add(doc);
+                    installDOMIframeHooks(doc);
+
+                    try {
+                        const observer = new MutationObserver((mutations) => {
+                            for (const mutation of mutations) {
+                                for (const node of mutation.addedNodes) {
+                                    scanNodeForFrames(node, doc);
+                                }
+                            }
+                        });
+
+                        observer.observe(doc.documentElement || doc, {
+                            childList: true,
+                            subtree: true
+                        });
+                    } catch (e) {
+                        // ignored (likely cross-origin restrictions)
+                    }
+                }
+
+                function watchFrame(frame, parentDoc = null) {
+                    if (!frame || trackedFrames.has(frame)) return;
+                    trackedFrames.add(frame);
+
+                    frame.addEventListener('load', function onFrameLoad() {
+                        try {
+                            if (parentDoc) recurseFrames(parentDoc);
+                            recurseFrames(frame.contentDocument || frame.contentWindow?.document);
+                        } catch (e) {}
+                    });
+
+                    try {
+                        const readyDoc = frame.contentDocument || frame.contentWindow?.document;
+                        if (readyDoc) {
+                            recurseFrames(readyDoc);
+
+                            if (readyDoc.readyState !== 'complete') {
+                                const onReady = () => {
+                                    try {
+                                        recurseFrames(readyDoc);
+                                    } catch (e) {}
+                                };
+                                readyDoc.addEventListener('readystatechange', onReady, {
+                                    once: true
+                                });
+                                readyDoc.addEventListener('DOMContentLoaded', onReady, {
+                                    once: true
+                                });
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                function recurseFrames(doc, event = null) {
+                    if (!doc) return;
+                    observeDocumentFrames(doc);
+
+                    // do something for this document (attach context menu, log, etc.)
+                    const frames = doc.querySelectorAll('iframe');
+
+                    if (doc.nodeType === 1 && doc.shadowRoot) {
+                        recurseFrames(doc.shadowRoot, event);
+                    }
+                    if (typeof doc.querySelectorAll === 'function') {
+                        const hosts = doc.querySelectorAll('*');
+                        for (const host of hosts) {
+                            if (host && host.shadowRoot) {
+                                recurseFrames(host.shadowRoot, event);
+                            }
+                        }
+                    }
+
+                    for (const frame of frames) {
+                        try {
+                            watchFrame(frame, doc);
+                            if (event) {
+                                if (event.source == iframe.contentWindow) {
+                                    return iframe;
+                                }
+                                if (event.source == frame.contentWindow) {
+                                    return frame;
+                                }
+                            }
+                            // Wait for the iframe to load (so its contentDocument exists)
+                            try {
+                                const win = frame.contentWindow;
+                                const frameDoc = frame.contentDocument || win?.document;
+                                if (!win || !frameDoc) continue;
+                                if (!win.__gbWindowSwitchForwardKeydown) {
+                                    win.__gbWindowSwitchForwardKeydown = function (e) {
+                                        var switcherMode =
+                                            (window.windowSwitchState &&
+                                                window.windowSwitchState.active &&
+                                                window.windowSwitchState.mod) ||
+                                            '';
+                                        var wantsCycle =
+                                            (e.altKey && e.key === 'Tab') ||
+                                            (e.ctrlKey && !e.altKey && e.key === 'Tab') ||
+                                            (e.key === 'Tab' && !!switcherMode);
+                                        if (wantsCycle) {
+                                            e.preventDefault();
+                                            var dispatchAlt = e.altKey || switcherMode === 'Alt';
+                                            var dispatchCtrl = e.ctrlKey || switcherMode === 'Ctrl';
+                                            var handledDirectly = false;
+                                            try {
+                                                if (typeof window.cycleWindowFocus === 'function') {
+                                                    handledDirectly =
+                                                        window.cycleWindowFocus(
+                                                            !!e.shiftKey,
+                                                            dispatchAlt ? 'Alt' : 'Ctrl'
+                                                        ) === true;
+                                                }
+                                            } catch (err) {}
+                                            if (handledDirectly) return;
+                                            try {
+                                                window.dispatchEvent(
+                                                    new KeyboardEvent('keydown', {
+                                                        key: 'Tab',
+                                                        code: 'Tab',
+                                                        altKey: !!dispatchAlt,
+                                                        ctrlKey: !!dispatchCtrl,
+                                                        shiftKey: !!e.shiftKey,
+                                                        bubbles: true,
+                                                        cancelable: true
+                                                    })
+                                                );
+                                            } catch (err) {}
+                                        }
+                                    };
+                                }
+                                if (!win.__gbWindowSwitchForwardKeyup) {
+                                    win.__gbWindowSwitchForwardKeyup = function (e) {
+                                        if (e.key !== 'Alt' && e.key !== 'Control') return;
+                                        try {
+                                            if (
+                                                typeof window.commitWindowSwitchTarget === 'function' &&
+                                                typeof window.resetWindowSwitchState === 'function'
+                                            ) {
+                                                window.commitWindowSwitchTarget();
+                                                window.resetWindowSwitchState();
+                                                return;
+                                            }
+                                        } catch (err) {}
+                                        try {
+                                            window.dispatchEvent(
+                                                new KeyboardEvent('keyup', {
+                                                    key: e.key,
+                                                    code: e.code,
+                                                    altKey: !!e.altKey,
+                                                    ctrlKey: !!e.ctrlKey,
+                                                    shiftKey: !!e.shiftKey,
+                                                    bubbles: true,
+                                                    cancelable: true
+                                                })
+                                            );
+                                        } catch (err) {}
+                                    };
+                                }
+                                if (!frameDoc.getElementById('_gb_a_setter')) {
+                                    var script = frameDoc.createElement('script');
+                                    script.id = '_gb_a_setter';
+                                    script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+  window.parent.postMessage(
+    { type: "FROM_IFRAME", message: url },
+    "*"
+  );
+}
+
+`;
+                                    frameDoc.head?.appendChild(script);
+                                }
+                                if (!frameDoc.getElementById('VFS')) {
+                                    injectIntoIframe(frame);
+                                }
+
+                                if (!frameDoc.__gbEarlyPatchHook) {
+                                    frameDoc.__gbEarlyPatchHook = true;
+                                    const retryPatch = () => {
+                                        try {
+                                            recurseFrames(frameDoc, event);
+                                        } catch (e) {}
+                                        if (frameDoc.readyState === 'complete') {
+                                            try {
+                                                frameDoc.removeEventListener('readystatechange', retryPatch);
+                                            } catch (e) {}
+                                        }
+                                    };
+                                    frameDoc.addEventListener('DOMContentLoaded', retryPatch, {
+                                        once: true
+                                    });
+                                    frameDoc.addEventListener('readystatechange', retryPatch);
+                                }
+
+                                win.removeEventListener('keydown', handleReload);
+                                win.addEventListener('keydown', handleReload);
+                                if (!win.handleArrows) {
+                                    win.handleArrows = function (e) {
+                                        if (document.activeElement !== frame) return;
+                                        if (e.ctrlKey && e.altKey) {
+                                            e.preventDefault();
+                                            if (e.key === 'ArrowRight') {
+                                                for (let i = 0; i < tabs.length; i++) {
+                                                    if (tabs[i].id === activatedTab.id) {
+                                                        activateTab(tabs[i + 1].id);
+                                                        break;
+                                                    }
+                                                }
+                                            } else if (e.key === 'ArrowLeft') {
+                                                let lastindex = 0;
+                                                for (let i = 0; i < tabs.length; i++) {
+                                                    let currentIndex = i;
+                                                    if (tabs[i].id === activatedTab.id) {
+                                                        activateTab(tabs[lastindex].id);
+                                                        break;
+                                                    }
+                                                    lastindex = currentIndex;
+                                                }
+                                            }
+                                        }
+                                    };
+                                }
+                                frameDoc.addEventListener('keydown', function () {
+                                    document.activeElement.focus();
+                                });
+
+                                frameDoc.addEventListener('click', hideMenu);
+                                if (!frame.contentWindow.onpointerup) {
+                                    frame.contentWindow.onpointerup = function (ev) {
+                                        window.top.postMessage(
+                                            {
+                                                type: 'iframe-pointerup',
+                                                x: ev.clientX,
+                                                y: ev.clientY,
+                                                pageX: ev.pageX,
+                                                pageY: ev.pageY,
+                                                button: ev.button,
+                                                buttons: ev.buttons,
+                                                altKey: ev.altKey,
+                                                ctrlKey: ev.ctrlKey,
+                                                shiftKey: ev.shiftKey,
+                                                metaKey: ev.metaKey
+                                            },
+                                            '*'
+                                        );
+                                    };
+                                }
+                                if (!win.contextMenuHandler) {
+                                    win.contextMenuHandler = function (e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        // Attach handler
+                                        const { x, y } = getAbsoluteMousePosition(e, frameDoc);
+                                        const contextData = getContextMenuData(e);
+
+                                        showMenu(x, y, contextData);
+
+                                        if (contextData.linkElement && contextData.linkElement.href) {
+                                            console.log('Right-clicked on a link:', contextData.linkElement.href);
+                                        } else if (contextData.imageElement && contextData.imageElement.src) {
+                                            console.log('Right-clicked on an image:', contextData.imageElement.src);
+                                        } else if (contextData.frameUrl) {
+                                            console.log('Right-clicked inside a frame:', contextData.frameUrl);
+                                        } else {
+                                            console.log('Right-clicked on a non-link element.');
+                                        }
+                                    };
+                                }
+
+                                const mwin = tab.iframe.contentWindow;
+                                win.tabIndex = '0';
+                                if (!win.suberudaKeyHandler) {
+                                    win.erudaKeyHandler = function (e) {
+                                        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+                                            if (!win.eruda) {
+                                                iframe.contentWindow._goldenbodyIns = true;
+
+                                                const script = doc.createElement('script');
+                                                script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                                                script.onload = () => {
+                                                    win.eruda.init();
+                                                    win.eruda.get('entryBtn').hide();
+                                                    win.eruda.show();
+                                                };
+                                                doc.head.appendChild(script);
+                                            } else {
+                                                try {
+                                                    // toggle show/hide
+                                                    if (!win._goldenbodyIns) {
+                                                        win.eruda.show();
+
+                                                        win._goldenbodyIns = true;
+                                                    } else {
+                                                        win.eruda.hide();
+
+                                                        win._goldenbodyIns = false;
+                                                    }
+                                                } catch (e) {
+                                                    console.error(e);
+                                                }
+                                            }
+                                        }
+                                    };
+
+                                    win.suberudaKeyHandler = function (e) {
+                                        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+                                            if (frame.contentWindow.parent !== window) {
+                                                document.activeElement.contentDocument.body.focus();
+                                            }
+                                            return;
+                                        } else if (
+                                            (e.ctrlKey && (e.key === '+' || e.key === '=')) ||
+                                            (e.ctrlKey && e.key === '-')
+                                        ) {
+                                            if (frame.contentWindow.parent !== window) {
+                                                document.activeElement.contentDocument.body.focus();
+                                            }
+
+                                            // handleresize(e, tab);
+                                            return;
+                                        }
+                                    };
+                                }
+                                function attatch() {
+                                    frame.contentWindow.removeEventListener(
+                                        'keydown',
+                                        frame.contentWindow.handleArrows
+                                    );
+                                    frame.contentWindow.addEventListener('keydown', frame.contentWindow.handleArrows);
+                                    frame.contentWindow.removeEventListener(
+                                        'pointerup',
+                                        frame.contentWindow.onpointerup
+                                    );
+                                    frame.contentWindow.addEventListener('pointerup', frame.contentWindow.onpointerup);
+                                    win.removeEventListener('keydown', win.__gbWindowSwitchForwardKeydown);
+                                    win.addEventListener('keydown', win.__gbWindowSwitchForwardKeydown);
+                                    win.removeEventListener('keyup', win.__gbWindowSwitchForwardKeyup);
+                                    win.addEventListener('keyup', win.__gbWindowSwitchForwardKeyup);
+                                    win.removeEventListener('keydown', win.suberudaKeyHandler);
+
+                                    win.addEventListener('keydown', win.suberudaKeyHandler);
+                                    frame.contentWindow.removeEventListener(
+                                        'contextmenu',
+                                        win.contextMenuHandler,
+                                        true
+                                    );
+
+                                    frame.contentWindow.addEventListener('contextmenu', win.contextMenuHandler, true);
+                                }
+                                attatch();
+                                //   // get all iframes in this document
+                            } catch (e) {
+                                // console.warn('Cannot access nested frame:', frame.src);
+                                // console.error(e);
+                            }
+
+                            // If already loaded, go in immediately
+                            if (frame.contentDocument || frame.contentWindow?.document) {
+                                const found = recurseFrames(
+                                    frame.contentDocument || frame.contentWindow?.document,
+                                    event
+                                );
+                                if (found) return found; // propagate match
+                            }
+                        } catch (err) {
+                            console.warn('Blocked or cross-origin iframe:', frame.src);
+                        }
+                    }
+                }
+
+                // Start from the top-level document
+                recurseFrames(iframe.contentDocument);
+                recurseFrames(root);
+
+                // Hide the menu when clicking elsewhere
+                iframeDocument.addEventListener('click', hideMenu);
+                iframe.__gbPatchedDocument = iframeDocument;
+            }
+
+            let patchinterval = null;
+            let patchwindowtimeout = null;
+            const stopIframePatchWatcher = () => {
+                if (patchinterval) {
+                    clearInterval(patchinterval);
+                    patchinterval = null;
+                }
+                if (patchwindowtimeout) {
+                    clearTimeout(patchwindowtimeout);
+                    patchwindowtimeout = null;
+                }
+            };
+            const startIframePatchWatcher = (durationMs = 2500) => {
+                if (!patchinterval) {
+                    patchinterval = setInterval(() => {
+                        if (!iframe || !iframe.isConnected) {
+                            stopIframePatchWatcher();
+                            return;
+                        }
+                        try {
+                            iframePatches();
+                        } catch (e) {}
+                    }, 50);
+                }
+                if (patchwindowtimeout) clearTimeout(patchwindowtimeout);
+                patchwindowtimeout = setTimeout(() => {
+                    stopIframePatchWatcher();
+                }, durationMs);
+            };
+
+            const tryPatchNow = () => {
+                try {
+                    iframePatches();
+                } catch (e) {}
+            };
+
+            const ensurePatchedSoon = (durationMs = 2500) => {
+                tryPatchNow();
+                if (iframe.__gbPatchedDocument) return;
+                startIframePatchWatcher(durationMs);
+            };
+
+            const attachNavigationArm = () => {
+                try {
+                    const win = iframe.contentWindow;
+                    if (!win || win.__gbPatchArmAttached) return;
+                    win.__gbPatchArmAttached = true;
+                    win.addEventListener(
+                        'beforeunload',
+                        () => {
+                            iframe.__gbPatchedDocument = null;
+                            startIframePatchWatcher(5000);
+                        },
+                        { once: true }
+                    );
+                } catch (e) {}
+            };
+
+            ensurePatchedSoon(3000);
+            attachNavigationArm();
+            iframe.addEventListener('load', () => {
+                iframe.__gbPatchedDocument = null;
+                ensurePatchedSoon(3000);
+                attachNavigationArm();
+            });
+            iframe.addEventListener('pointerenter', () => {
+                ensurePatchedSoon(1200);
+            });
+            iframe.addEventListener('focus', () => {
+                ensurePatchedSoon(1200);
+            });
+            iframe.addEventListener(
+                'contextmenu',
+                () => {
+                    ensurePatchedSoon(1200);
+                },
+                true
+            );
+
+            if (browserGlobals.proxyurl != '') {
+                iframe.src = a(url, browserGlobals.proxyurl);
+            } else {
+                iframe.src = url;
+            }
+            iframe.style.display = 'none';
+            root.appendChild(iframe);
+            let loadedurl = url;
+            let donotm = false;
+            const tab = {
+                id,
+                url,
+                title,
+                iframe,
+                resizeP,
+                loadedurl,
+                donotm,
+                history: {
+                    stack: [url],
+                    index: 0,
+                    current: url,
+                    currentCanonical: null,
+                    suppressNextRecord: false
+                }
+            };
+            tab.history.currentCanonical = canonicalHistoryUrl(url);
+            const onIframeKeydown = function (e) {
+                if (e.ctrlKey && e.key === 'w') {
+                    if (tab.iframe.style.display !== 'none') {
+                        closeTab(tab.id);
+                    }
+                }
+            };
+            tab.iframe.contentWindow.addEventListener('keydown', onIframeKeydown);
+            tab.__onIframeKeydown = onIframeKeydown;
+            tab.__stopIframePatchWatcher = stopIframePatchWatcher;
+            tab.__stopPatchIntegrityChecker = stopPatchIntegrityChecker;
+
+            if (preloadsize !== 100) {
+                preloadsize = 100;
+            }
+            function handleReload(e) {
+                if (
+                    e.ctrlKey &&
+                    e.key === 'r' &&
+                    (document.activeElement === root || document.activeElement === tab.iframe) &&
+                    tab.iframe.style.display === 'block'
+                ) {
+                    e.preventDefault();
+                    tab.iframe.contentWindow.location.reload();
+                }
+            }
+            root.addEventListener('keydown', handleReload);
+            tab.__onRootKeydown = handleReload;
+
+            let previousTabTitle = tab.title;
+
+            tab.title = 'Loading...';
+
+            tabs.push(tab);
+            activateTab(id);
+            renderTabs();
+            const onDocumentKeyup = function (e) {
+                try {
+                    if (!root.contains(document.activeElement)) return;
+                } catch (e) {
+                    return;
+                }
+                if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const win = tab.iframe.contentWindow;
+                    const doc = tab.iframe.contentDocument;
+                    if (!win || tab.iframe.style.display === 'none') return;
+                    if (!win.eruda) {
+                        tab.iframe.contentWindow._goldenbodyIns = true;
+
+                        const script = doc.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                        script.onload = () => {
+                            win.eruda.init();
+                            win.eruda.get('entryBtn').hide();
+                            win.eruda.show();
+                        };
+                        doc.head.appendChild(script);
+                    }
+                    win.eruda[win._goldenbodyIns ? 'hide' : 'show']();
+                    win._goldenbodyIns = !win._goldenbodyIns;
+                }
+            };
+            document.addEventListener('browser' + root._goldenbodyId, 'keyup', onDocumentKeyup);
+            tab.__onDocumentKeyup = onDocumentKeyup;
+
+            return id;
+        }
+
+        if (preloadlink) {
+            addTab(preloadlink, 'New Tab');
+        }
+        window.addEventListener('browser' + root._goldenbodyId, 'keydown', function (e) {
+            try {
+                if (document.activeElement !== root && !root.contains(document.activeElement)) return;
+            } catch (e) {
+                return;
+            }
+            if (e.ctrlKey && e.altKey) {
+                e.preventDefault();
+                if (e.key === 'ArrowRight') {
+                    for (let i = 0; i < tabs.length; i++) {
+                        if (tabs[i].id === activatedTab.id) {
+                            activateTab(tabs[i + 1].id);
+                            break;
+                        }
+                    }
+                } else if (e.key === 'ArrowLeft') {
+                    let lastindex = 0;
+                    for (let i = 0; i < tabs.length; i++) {
+                        let currentIndex = i;
+                        if (tabs[i].id === activatedTab.id) {
+                            activateTab(tabs[lastindex].id);
+                            break;
+                        }
+                        lastindex = currentIndex;
+                    }
+                }
+            }
+        });
+
+        function canonicalHistoryUrl(url) {
+            if (!url) return '';
+            try {
+                const parsed = new URL(url);
+                if (parsed.pathname.length > 1 && parsed.pathname.endsWith('/')) {
+                    parsed.pathname = parsed.pathname.slice(0, -1);
+                }
+                return parsed.href;
+            } catch (e) {
+                return String(url).replace(/\/+$/, '');
+            }
+        }
+
+        function historyRecord(tab, url) {
+            if (!tab || !tab.history || !url) return;
+            const canonical = canonicalHistoryUrl(url);
+            if (tab.history.suppressNextRecord) {
+                tab.history.suppressNextRecord = false;
+                if (
+                    Array.isArray(tab.history.stack) &&
+                    tab.history.index >= 0 &&
+                    tab.history.index < tab.history.stack.length
+                ) {
+                    tab.history.stack[tab.history.index] = url;
+                }
+                tab.history.current = url;
+                tab.history.currentCanonical = canonical;
+                return;
+            }
+            if (
+                Array.isArray(tab.history.stack) &&
+                tab.history.index >= 0 &&
+                tab.history.index < tab.history.stack.length
+            ) {
+                const currentStackCanonical = canonicalHistoryUrl(tab.history.stack[tab.history.index]);
+                if (currentStackCanonical === canonical) {
+                    tab.history.current = url;
+                    tab.history.currentCanonical = canonical;
+                    return;
+                }
+            }
+            if (tab.history.currentCanonical === canonical) return;
+
+            if (tab.history.index < tab.history.stack.length - 1) {
+                tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+            }
+            tab.history.stack.push(url);
+            tab.history.index = tab.history.stack.length - 1;
+            tab.history.current = url;
+            tab.history.currentCanonical = canonical;
+        }
+
+        function historyNavigate(tab, direction) {
+            if (!tab || !tab.history) return;
+            const nextIndex = tab.history.index + direction;
+            if (nextIndex < 0 || nextIndex >= tab.history.stack.length) return;
+
+            const targetUrl = tab.history.stack[nextIndex];
+            tab.history.index = nextIndex;
+            tab.history.current = targetUrl;
+            tab.history.currentCanonical = canonicalHistoryUrl(targetUrl);
+            tab.history.suppressNextRecord = true;
+
+            tab.url = targetUrl;
+            tab.loadedurl = targetUrl;
+            tab.title = 'Loading...';
+
+            try {
+                createPermInput(tab.iframe, targetUrl);
+            } catch (e) {}
+            try {
+                tab.iframe.contentWindow.location.href = a(targetUrl, browserGlobals.proxyurl);
+            } catch (e) {
+                tab.history.suppressNextRecord = false;
+            }
+        }
+
+        function activateTab(id) {
+            try {
+                clearInterval(checkInterval);
+            } catch (a) {}
+            const tab = tabs.find((t) => t.id === id);
+            if (!tab) return;
+            tab.iframe.focus();
+            // Hide all iframes, show only active
+            tabs.forEach((t) => (t.iframe.style.display = 'none'));
+            tab.iframe.style.display = 'block';
+            backBtn.onclick = function () {
+                historyNavigate(tab, -1);
+            };
+            forwardBtn.onclick = function () {
+                historyNavigate(tab, 1);
+            };
+            reloadBtn.onclick = function () {
+                if (reloadBtn.dataset.mode === 'stop') {
+                    tab.iframe.contentWindow.stop();
+                } else {
+                    tab.iframe.contentWindow.location.reload();
+                }
+            };
+            sitesettingsbtn.onclick = () => {
+                openPermissionsUI(
+                    browserGlobals.unshuffleURL(tab.iframe.src),
+                    tab.iframe,
+                    sitesettingsbtn.getBoundingClientRect()
+                );
+            };
+            activeTabId = id;
+            urlInput.value = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+            let previousUrl = canonicalHistoryUrl(browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href));
+            let previousTabTitle = tab.title;
+            let previousUrlMain = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+
+            // Inject custom styles
+            checkInterval = setInterval(() => {
+                if (browserGlobals.allBrowsers.length == 0) {
+                    clearInterval(checkInterval);
+                }
+                try {
+                    const currentUrl = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+                    const currentCanonical = canonicalHistoryUrl(currentUrl);
+                    if (currentCanonical !== previousUrl) {
+                        historyRecord(tab, currentUrl);
+                        previousUrl = currentCanonical;
+                        urlInput.value = currentUrl;
+                    }
+                    if (currentUrl !== previousUrlMain) {
+                        if (
+                            browserGlobals.mainWebsite(currentUrl) !== browserGlobals.mainWebsite(previousUrlMain) &&
+                            currentUrl !== 'about:blank' &&
+                            previousUrl !== ''
+                        )
+                            if (browserGlobals.profileState.enableURLSync) openUrlInActiveTab(currentUrl);
+                        previousUrlMain = currentUrl;
+                    }
+                    resizeDiv.innerText = tab.resizeP + '%';
+                    activatedTab = tab;
+                    if (tab.iframe.contentDocument.readyState !== 'complete') {
+                        reloadBtn.textContent = 'x';
+                        reloadBtn.dataset.mode = 'stop';
+
+                        tab.title = 'Loading...';
+                    } else {
+                        setAddressButtonIcon(reloadBtn, 'reload');
+                        reloadBtn.dataset.mode = 'reload';
+                        try {
+                            if (tab.iframe.contentDocument.readyState === 'complete') {
+                                const docTitle = tab.iframe.contentDocument && tab.iframe.contentDocument.title;
+                                tab.title = docTitle;
+                            }
+                        } catch (e) {}
+                    }
+                    if (previousTabTitle !== tab.title) renderTabs();
+                    previousTabTitle = tab.title;
+                } catch (e) {
+                    console.error(e);
+                    clearInterval(checkInterval);
+                }
+            }, 250 * nhjd);
+            renderTabs();
+        }
+
+        function closeTab(id) {
+            const idx = tabs.findIndex((t) => t.id === id);
+            if (idx === -1) return;
+
+            const removingActive = tabs[idx].id === activeTabId;
+            try {
+                tabs[idx].__stopIframePatchWatcher?.();
+            } catch (e) {}
+            try {
+                tabs[idx].__stopPatchIntegrityChecker?.();
+            } catch (e) {}
+            try {
+                if (tabs[idx].__onIframeKeydown) {
+                    tabs[idx].iframe.contentWindow.removeEventListener('keydown', tabs[idx].__onIframeKeydown);
+                }
+            } catch (e) {}
+            try {
+                if (tabs[idx].__onRootKeydown) {
+                    root.removeEventListener('keydown', tabs[idx].__onRootKeydown);
+                }
+            } catch (e) {}
+            try {
+                if (tabs[idx].__onResizeKeydown && tabs[idx].__resizeKeyTarget) {
+                    tabs[idx].__resizeKeyTarget.removeEventListener('keydown', tabs[idx].__onResizeKeydown);
+                }
+            } catch (e) {}
+            try {
+                if (tabs[idx].__onDocumentKeyup) {
+                    document.removeEventListener('keyup', tabs[idx].__onDocumentKeyup);
+                }
+            } catch (e) {}
+            tabs[idx].iframe.src = 'about:blank';
+            tabs[idx].iframe.remove();
+            tabs.splice(idx, 1);
+
+            if (removingActive) {
+                if (tabs.length) activateTab(tabs[Math.max(0, idx - 1)].id);
+                else closeWindow(); //addTab('goldenbody://newtab/', 'New Tab');
+            } else {
+                renderTabs();
+            }
+        }
+        if (!preloadlink) addTab('goldenbody://newtab/', 'New Tab');
+
+        // --- Open button behavior ---
+        function normalizeUrl(input) {
+            if (input[input.length - 1] != '/') input += '/';
+
+            if (
+                input[0] + input[1] + input[2] + input[3] + input[4] + input[5] + input[6] + input[7] != 'https://' &&
+                input[0] + input[1] + input[2] + input[3] + input[4] + input[5] + input[6] != 'http://' &&
+                !input.startsWith('goldenbody://')
+            )
+                return 'https://' + input;
+            else return input;
+        }
+        function isUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (e) {
+                // If scheme is missing, try prepending 'https://'
+                try {
+                    string = `https://${string}`;
+                    new URL(string);
+                    return string;
+                } catch (e) {
+                    return false;
+                }
+            }
+        }
+        function openUrlInActiveTab(rawUrl) {
+            const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
+            if (tabIndex === -1) return;
+            const tab = tabs[tabIndex];
+            const input = String(rawUrl || '').trim();
+            if (!input) {
+                notification('Enter a URL');
+                return;
+            }
+
+            let candidate = input;
+            const urlCheck = isUrl(candidate);
+            if (typeof urlCheck === 'string') {
+                candidate = urlCheck;
+            }
+
+            if (candidate.startsWith('javascript:')) {
+                let scriptcontent = '';
+                for (let i = 11; i < candidate.length; i++) {
+                    scriptcontent += candidate[i];
+                }
+                let script = document.createElement('script');
+                script.textContent = scriptcontent;
+                tab.iframe.contentDocument.body.appendChild(script);
+                urlInput.value = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+                return;
+            }
+
+            let url = '';
+            try {
+                url = new URL(candidate).href;
+            } catch (e) {
+                // Edge case: allow relative entries in the URL bar.
+                try {
+                    const currentBase = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+                    url = new URL(candidate, currentBase).href;
+                } catch (e2) {
+                    notification('Invalid URL');
+                    return;
+                }
+            }
+
+            // Manual URL-bar navigations should become a fresh history point,
+            // including after a prior back/forward operation.
+            const canonical = canonicalHistoryUrl(url);
+            const prevHistorySnapshot = {
+                stack: Array.from(tab.history.stack || []),
+                index: tab.history.index,
+                current: tab.history.current,
+                currentCanonical: tab.history.currentCanonical,
+                suppressNextRecord: tab.history.suppressNextRecord
+            };
+            const didCreateHistoryEntry = tab.history.currentCanonical !== canonical;
+
+            tab.history.suppressNextRecord = false;
+            if (didCreateHistoryEntry) {
+                if (tab.history.index < tab.history.stack.length - 1) {
+                    tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+                }
+                tab.history.stack.push(url);
+                tab.history.index = tab.history.stack.length - 1;
+                tab.history.current = url;
+                tab.history.currentCanonical = canonical;
+            }
+            // Prevent duplicate push when poller observes this same navigation.
+            // Important: only do this when a new history entry was created, otherwise
+            // stale suppression can swallow the next real navigation.
+            tab.history.suppressNextRecord = didCreateHistoryEntry;
+
+            tab.url = url;
+            tab.loadedurl = url;
+            tab.title = 'Loading...';
+            if (tabs[tabIndex].iframe) {
+                createPermInput(tab.iframe, url);
+                try {
+                    tabs[tabIndex].iframe.src = a(url, browserGlobals.proxyurl);
+                } catch (e) {
+                    tab.history.stack = prevHistorySnapshot.stack;
+                    tab.history.index = prevHistorySnapshot.index;
+                    tab.history.current = prevHistorySnapshot.current;
+                    tab.history.currentCanonical = prevHistorySnapshot.currentCanonical;
+                    tab.history.suppressNextRecord = prevHistorySnapshot.suppressNextRecord;
+                    notification('Navigation failed');
+                    return;
+                }
+            }
+
+            urlInput.value = url;
+        }
+
+        openBtn.addEventListener('click', () => openUrlInActiveTab(urlInput.value));
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') openUrlInActiveTab(urlInput.value);
+        });
+
+        // new tab
+        newTabBtn.addEventListener('click', () => {
+            const id = addTab('goldenbody://newtab/', 'New Tab');
+            activateTab(id);
+            // urlInput.focus();
+        });
+
+        // drag to move window
+        var currentX;
+        var currentY;
+
+        (function makeDraggable() {
+            let dragging = false,
+                startX = 0,
+                startY = 0,
+                origLeft = 0,
+                origTop = 0,
+                targetel = null;
+            top.addEventListener('pointerdown', (ev) => {
+                targetel = ev.target;
+            });
+            top.addEventListener('mousedown', (ev) => {
+                if (
+                    ev.target.closest('.sim-tab') ||
+                    ev.target === newTabBtn ||
+                    ev.target === urlInput ||
+                    ev.target === openBtn ||
+                    targetel.closest('.sim-tab')
+                )
+                    return;
+                dragging = true;
+                startX = ev.clientX;
+                startY = ev.clientY;
+                origLeft = root.offsetLeft;
+                origTop = root.offsetTop;
+
+                document.body.style.userSelect = 'none';
+                currentX = ev.clientX;
+                currentY = ev.clientY;
+            });
+            window.addEventListener('browser' + root._goldenbodyId, 'mousemove', (ev) => {
+                if (!dragging) {
+                    startX = 0;
+                    startY = 0;
+                    return;
+                }
+
+                if (
+                    ((ev.clientX - currentX < -1 || ev.clientX - currentX > 1) && dragging) ||
+                    ((ev.clientY - currentY < -1 || ev.clientY - currentY > 1) && dragging)
+                ) {
+                    applyBounds(savedBounds);
+                    if (isMaximized) {
+                        restoreWindow(false);
+                        root.style.left = ev.clientX - root.clientWidth / 2 + 'px';
+                        origLeft = ev.clientX - root.clientWidth / 2;
+                    }
+                }
+
+                if (!dragging) return;
+                const dx = ev.clientX - startX,
+                    dy = ev.clientY - startY;
+                root.style.left = origLeft + dx + 'px';
+                if (origTop + dy > 0) root.style.top = origTop + dy + 'px';
+                else root.style.top = '0px';
+            });
+            window.addEventListener('browser' + root._goldenbodyId, 'mouseup', () => {
+                dragging = false;
+                document.body.style.userSelect = '';
+                targetel = null;
+            });
+        })();
+        let resizing;
+        function resize() {
+            const el = root;
+            const BW = 8; // fatter edge = easier to grab
+            const minW = 450,
+                minH = 350;
+
+            // ensure positioned & has top/left so we can move edges
+            if (!el.style.position) el.style.position = 'fixed';
+            if (!el.style.top) el.style.top = '20px';
+            if (!el.style.left) el.style.left = '20px';
+
+            // state
+            let active = null; // {dir,sx,sy,sw,sh,sl,st}
+            let dir = '';
+
+            // helper: are we on an edge?
+            const hitTest = (e) => {
+                const r = el.getBoundingClientRect();
+                const x = e.clientX,
+                    y = e.clientY;
+                const onL = x >= r.left && x <= r.left + BW;
+                const onR = x <= r.right && x >= r.right - BW;
+                const onT = y >= r.top && y <= r.top + BW;
+                const onB = y <= r.bottom && y >= r.bottom - BW;
+
+                if (onT && onL) return 'nw';
+                if (onT && onR) return 'ne';
+                if (onB && onL) return 'sw';
+                if (onB && onR) return 'se';
+                if (onL) return 'w';
+                if (onR) return 'e';
+                if (onT) return 'n';
+                if (onB) return 's';
+                return '';
+            };
+            // cursor feedback
+            el.addEventListener('pointermove', (e) => {
+                if (active) return; // don't flicker while resizing
+                const d = hitTest(e);
+                el.style.cursor =
+                    d === 'nw' || d === 'se'
+                        ? 'nwse-resize'
+                        : d === 'ne' || d === 'sw'
+                        ? 'nesw-resize'
+                        : d === 'n' || d === 's'
+                        ? 'ns-resize'
+                        : d === 'e' || d === 'w'
+                        ? 'ew-resize'
+                        : 'default';
+            });
+
+            // start resize
+            el.addEventListener(
+                'pointerdown',
+                (e) => {
+                    dir = hitTest(e);
+                    if (!dir) return;
+                    resizing = true;
+                    e.preventDefault();
+                    el.setPointerCapture(e.pointerId); // <- keep events!
+                    const r = el.getBoundingClientRect();
+                    active = {
+                        dir,
+                        sx: e.clientX,
+                        sy: e.clientY,
+                        sw: r.width,
+                        sh: r.height,
+                        sl: r.left,
+                        st: r.top,
+                        startedMaximized: isMaximized,
+                        restoredFromMax: false
+                    };
+
+                    document.body.style.userSelect = 'none';
+                    document.body.style.cursor = getCursorForDir(dir);
+                    el.style.willChange = 'width, height, left, top';
+                },
+                { passive: false }
+            );
+            let draginterval;
+            // drag
+            el.addEventListener('pointermove', (e) => {
+                if (!active) return;
+                if (
+                    active.startedMaximized &&
+                    !active.restoredFromMax &&
+                    (Math.abs(e.clientX - active.sx) > 1 || Math.abs(e.clientY - active.sy) > 1)
+                ) {
+                    applyBounds(getBounds());
+                    restoreWindow(false);
+                    const rr = el.getBoundingClientRect();
+                    active.sx = e.clientX;
+                    active.sy = e.clientY;
+                    active.sw = rr.width;
+                    active.sh = rr.height;
+                    active.sl = rr.left;
+                    active.st = rr.top;
+                    active.restoredFromMax = true;
+                }
+                const dx = e.clientX - active.sx;
+                const dy = e.clientY - active.sy;
+
+                // east / south
+                if (active.dir.includes('e')) el.style.width = Math.max(minW, active.sw + dx) + 'px';
+                if (active.dir.includes('s')) el.style.height = Math.max(minH, active.sh + dy) + 'px';
+
+                // west / north (move edge)
+                if (active.dir.includes('w')) {
+                    const w = Math.max(minW, active.sw - dx);
+                    el.style.width = w + 'px';
+                    el.style.left = active.sl + dx + 'px';
+                }
+                if (active.dir.includes('n')) {
+                    const newTop = active.st + dy;
+                    if (newTop >= 0) {
+                        const h = Math.max(minH, active.sh - dy);
+                        el.style.height = h + 'px';
+                        el.style.top = newTop + 'px';
+                    } else {
+                        el.style.top = '0px';
+                    }
+                }
+            });
+
+            // end
+            function end() {
+                clearInterval(draginterval);
+                if (!active) return;
+                savedBounds = getBounds();
+                active = null;
+                resizing = false;
+                document.body.style.userSelect = '';
+                document.body.style.cursor = '';
+                el.style.cursor = 'default'; // <— add this
+                el.style.willChange = '';
+                el.querySelectorAll('iframe').forEach((f) => {
+                    f.style.pointerEvents = f._oldPE || '';
+                    delete f._oldPE;
+                });
+            }
+            el.addEventListener('pointerup', end);
+            el.addEventListener('pointercancel', end);
+
+            // better touch behavior
+            el.style.touchAction = 'none';
+
+            function getCursorForDir(d) {
+                if (d === 'nw' || d === 'se') return 'nwse-resize';
+                if (d === 'ne' || d === 'sw') return 'nesw-resize';
+                if (d === 'n' || d === 's') return 'ns-resize';
+                if (d === 'e' || d === 'w') return 'ew-resize';
+                return 'default';
+            }
+        }
+        resize();
+
+        return {
+            rootElement: root,
+            iframes,
+            urlInput,
+            openBtn,
+            activatedTab,
+            addTab,
+            activateTab,
+            closeTab,
+            openUrl: openUrlInActiveTab,
+            getBounds,
+            applyBounds,
+            closeWindow,
+            btnMax,
+
+            get isMaximized() {
+                return isMaximized;
+            },
+            set isMaximized(v) {
+                isMaximized = !!v;
+            },
+
+            get isMinimized() {
+                return isMinimized;
+            },
+            set isMinimized(v) {
+                isMinimized = !!v;
+            },
+
+            addAndOpen: function (url) {
+                const id = addTab(url);
+                activateTab(id);
+            },
+
+            get tabs() {
+                return tabs;
+            },
+
+            showWindow: function () {
+                root.style.display = 'block';
+                isMinimized = false;
+                bringToFront(root);
+            },
+
+            hideWindow: function () {
+                if (!isMaximized) this.savedBounds = getBounds();
+                root.style.display = 'none';
+                isMinimized = true;
+            }
+        };
+    })();
+    windowTitleInterval = setInterval(function () {
+        var nextTitle = '';
+        try {
+            nextTitle = String((activatedTab && activatedTab.title) || '').trim();
+        } catch (e) {
+            nextTitle = '';
+        }
+        if (!nextTitle || nextTitle === 'undefined' || nextTitle === 'null') {
+            nextTitle = 'Window';
+        }
+        chromeWindow.title = nextTitle;
+        try {
+            chromeWindow.rootElement.setAttribute('data-title', nextTitle);
+        } catch (e) {}
+    }, 1000 * nhjd);
+    chromeWindow.rootElement.setAttribute('data-title', 'Window');
+    chromeWindow.closeAll = function () {
+        for (const instance of [...browserGlobals.allBrowsers]) {
+            if (instance && typeof instance.closeWindow === 'function') {
+                instance.closeWindow();
+            }
+        }
+        browserGlobals.allBrowsers = [];
+    };
+    chromeWindow.hideAll = function () {
+        for (const instance of browserGlobals.allBrowsers) {
+            if (instance && typeof instance.hideWindow === 'function') {
+                instance.hideWindow();
+            }
+        }
+    };
+    chromeWindow.showAll = function () {
+        browserGlobals.allBrowsers.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+        for (const instance of browserGlobals.allBrowsers) {
+            if (instance && typeof instance.showWindow === 'function') {
+                instance.showWindow();
+            }
+        }
+    };
+    chromeWindow.newWindow = function () {
+        browser();
+    };
+    chromeWindow.showall = chromeWindow.showAll;
+    chromeWindow.hideall = chromeWindow.hideAll;
+    chromeWindow.closeall = chromeWindow.closeAll;
+    chromeWindow.newwindow = chromeWindow.newWindow;
+    browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
+    applyStyles();
+
+    function a(url, proxyurl) {
+        function encodeUV(str) {
+            return encodeURIComponent(
+                str
+                    .split('')
+                    .map((ch, i) => (i % 2 ? String.fromCharCode(ch.charCodeAt(0) ^ 2) : ch))
+                    .join('')
+            );
+        }
+
+        function encodeRammerHead(str, proxylink) {
+            if (str === 'goldenbody://newtab/' || str === 'goldenbody://newtab') {
+                return goldenbodywebsite + 'flowerfeast.html';
+            } else if (str === 'goldenbody://app-store/' || str === 'goldenbody://app-store') {
+                return goldenbodywebsite + 'singlesdaylosesingle.html';
+            }
+            return proxylink + browserGlobals.id + '/' + url;
+        }
+        function encodeScramjet(url, proxylink) {
+            return proxylink + 'scramjet/' + url;
+        }
+
+        return encodeRammerHead(url, proxyurl);
+
+        // => hvtrs8%2F-wuw%2Chgrm-uaps%2Ccmm
+    }
+};
