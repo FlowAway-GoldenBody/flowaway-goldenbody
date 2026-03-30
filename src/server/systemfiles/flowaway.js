@@ -13,8 +13,8 @@ var zTop = 10;
 function removeAllEventListernersInWindow() {
   for (const listener of window.____gbEventListners) {
     try {
-      window.removeEventListener(listener.type, listener.handler, listener.options);
-      document.removeEventListener(listener.type, listener.handler, listener.options);
+      window.removeEventListener(        listener.type,         listener.handler,         listener.options      );
+      document.removeEventListener(        listener.type,         listener.handler,         listener.options      );
     } catch (e) {
       console.error("Error removing event listener", e);
     }
@@ -616,7 +616,7 @@ try {
 } catch (e) {}
 
 function showSessionExpiredDialog() {
-  if (document.getElementById("session-expired-dialog") || window._flowawayIsRebuilding) {
+  if (    document.getElementById("session-expired-dialog") ||     window._flowawayIsRebuilding  ) {
     // already shown
     return;
   }
@@ -733,7 +733,7 @@ function showSessionExpiredDialog() {
     const uname = (function () {
       const u = getCurrentUsernameForRequests();
       if (u && typeof u === 'string' && u.trim()) return u.trim();
-      if (window.data && typeof window.data.username === 'string') return window.data.username.trim();
+      if (window.data && typeof window.data.username === 'string')         return window.data.username.trim();
       return '';
     })();
 
@@ -743,13 +743,13 @@ function showSessionExpiredDialog() {
       return;
     }
 
-    const password = (pwdInput && typeof pwdInput.value === 'string') ? pwdInput.value.trim() : '';
+    const password = (      pwdInput && typeof pwdInput.value === 'string')         ? pwdInput.value.trim() : '';
 
     // If no password provided yet, focus the input and ask the user to enter it.
     if (!password) {
-      status.textContent = "Enter your account password above and click Refill to submit.";
+      status.textContent =         "Enter your account password above and click Refill to submit.";
       status.style.color = "#c66";
-      try { pwdInput.focus(); } catch (e) {}
+      try {         pwdInput.focus();       } catch (e) {}
       return;
     }
 
@@ -762,14 +762,14 @@ function showSessionExpiredDialog() {
       const res = await fetch(zmcdserver, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refillSession: true, username: uname, password }),
+        body: JSON.stringify({           refillSession: true,           username: uname,           password         }),
       });
 
       let body = null;
-      try { body = await res.json(); } catch (e) { body = null; }
+      try {         body = await res.json();       } catch (e) {         body = null;       }
 
       if (!res.ok) {
-        const serverMsg = (body && body.error) || body || res.statusText || 'unknown error';
+        const serverMsg =           (body && body.error) || body || res.statusText || 'unknown error';
         status.textContent = `Session refill failed: ${serverMsg} (HTTP ${res.status})`;
         status.style.color = 'red';
         console.error('Refill failed:', res.status, body);
@@ -792,7 +792,7 @@ function showSessionExpiredDialog() {
       window.data.authToken = body.authToken;
       status.textContent = 'Session refilled. You can continue.';
       status.style.color = 'green';
-      setTimeout(() => { try { dlg.remove(); } catch (e) {} }, 350);
+      setTimeout(() => {         try {           dlg.remove();         } catch (e) {}       }, 350);
     } catch (err) {
       console.error('Refill request error', err);
       status.textContent = 'Session refill failed. Sign in again.';
@@ -1803,7 +1803,7 @@ async function renderAppsGrid() {
               "renderAppsGrid",
               "Failed to load app script (no icon)",
               e,
-              { appId: app && app.id, path: app && app.path },
+              {                 appId: app && app.id,                 path: app && app.path               },
             );
           }
         }
@@ -2241,7 +2241,7 @@ async function pollAppChanges(
             "pollAppChanges",
             "Failed while handling new app folder",
             e,
-            { folder: appFolder && appFolder[0] },
+            {               folder: appFolder && appFolder[0]             },
           );
         }
       }
@@ -2510,7 +2510,7 @@ async function pollAppChanges(
             "pollAppChanges",
             "Failed while refreshing app metadata",
             e,
-            { folder: appFolder && appFolder[0] },
+            {               folder: appFolder && appFolder[0]             },
           );
         }
       }
@@ -2608,7 +2608,7 @@ async function pollAppChanges(
                 "pollAppChanges",
                 "Failed to check script hash",
                 e,
-                { appId: app && app.id, label: app && app.label },
+                {                   appId: app && app.id,                   label: app && app.label                 },
               );
             }
           }
@@ -2617,7 +2617,7 @@ async function pollAppChanges(
             "pollAppChanges",
             "Failed while processing app script check",
             e,
-            { appId: app && app.id, label: app && app.label },
+            {               appId: app && app.id,               label: app && app.label             },
           );
         }
       }
@@ -2939,7 +2939,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
               "pollSpecificAppChanges",
               "Failed to check script hash",
               e,
-              { folder: folderName, appId: existingApp && existingApp.id },
+              {                 folder: folderName,                 appId: existingApp && existingApp.id               },
             );
           }
         }
@@ -2948,7 +2948,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
           "pollSpecificAppChanges",
           "Failed while processing changed app folder",
           e,
-          { folder: folderName },
+          {             folder: folderName           },
         );
       }
     }
@@ -3007,7 +3007,7 @@ loadTree();
 window.onlyloadTree = oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 
-var username = (typeof data !== 'undefined' && data && typeof data.username === 'string') ? data.username : '';
+var username = (  typeof data !== 'undefined' && data && typeof data.username === 'string')     ? data.username : '';
 
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding
@@ -3079,7 +3079,7 @@ window.resolveAppFromEvent = function (evt, appOverride = null) {
     }
 
     if (!appId) return null;
-    return (window.apps || []).find((a) => appMatchesIdentifier(a, appId)) || null;
+    return       (window.apps || []).find((a) => appMatchesIdentifier(a, appId)) || null;
   } catch (e) {
     return null;
   }
@@ -3096,7 +3096,7 @@ window.getAppInstances = function (app) {
   }
 };
 
-window.showUnifiedAppContextMenu = function (e, appOverride = null, needRemove = true) {
+window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemove = true) {
   if (!e) return;
   e.preventDefault();
 
@@ -3189,7 +3189,7 @@ window.showUnifiedAppContextMenu = function (e, appOverride = null, needRemove =
         first.showAll();
         return;
       }
-      instances.sort((a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex);
+      instances.sort(        (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex      );
       for (const instance of instances) {
         if (instance && typeof instance.showWindow === "function") {
           instance.showWindow();
@@ -3226,7 +3226,7 @@ window.showUnifiedAppContextMenu = function (e, appOverride = null, needRemove =
     const contextMenuEvent = e;
     remove.addEventListener("click", () => {
       var btn =
-        contextMenuEvent && contextMenuEvent.target && contextMenuEvent.target.closest
+        contextMenuEvent &&         contextMenuEvent.target &&         contextMenuEvent.target.closest
           ? contextMenuEvent.target.closest("button.taskbutton")
           : null;
       if (btn) {
@@ -4037,7 +4037,7 @@ try {
         });
 
         var top = candidates[candidates.length - 1];
-        if (top) top.remove();
+        if (top) {          top.remove();           removeAllEventListenersForApp(targetAppId + top._goldenbodyId)        }
       } catch (e) {
         console.error("close focused app window error", e);
       }
@@ -5039,7 +5039,7 @@ function switchTab(tabName) {
   tabButtons.forEach(function (btn) {
     btn.classList.remove('active');
   });
-  
+
   // Show selected section
   var section = startMenu.querySelector(`.tabSection[data-tab="${tabName}"]`);
   if (section) {
@@ -5048,11 +5048,11 @@ function switchTab(tabName) {
       ? 'flex'
       : 'grid';
   }
-  
+
   // Activate selected tab
   var btn = startMenu.querySelector(`.startMenuTab[data-tab="${tabName}"]`);
   if (btn) btn.classList.add('active');
-  
+
   // Render appropriate grid
   if (tabName === 'pinned') renderPinnedAppsGrid();
   else if (tabName === 'recents') renderRecentsGrid();
@@ -5067,19 +5067,19 @@ tabButtons.forEach(btn => {
   });
 });
 
-// ============= RENDER FUNCTIONS ============= 
+// ============= RENDER FUNCTIONS =============
 async function renderPinnedAppsGrid() {
   const container = document.getElementById('appsGrid');
   if (!container) return;
   container.innerHTML = '';
-  
+
   if (!window._startMenuConfig || !window.apps) return;
-  
+
   const pinnedApps = window._startMenuConfig.pinnedApps || [];
-  const appsMap = new Map(window.apps.map(app => [
-    getPreferredAppIdentifier(app), app
-  ]));
-  
+  const appsMap = new Map(    window.apps.map(app => [
+getPreferredAppIdentifier(app), app
+  ])  );
+
   for (const appId of pinnedApps) {
     const app = appsMap.get(appId);
     if (!app || !app.icon) continue;
@@ -5091,22 +5091,22 @@ async function renderRecentsGrid() {
   const container = document.getElementById('recentsGrid');
   if (!container) return;
   container.innerHTML = '';
-  
+
   if (!window._startMenuConfig || !window.apps) return;
-  
+
   const recents = window._startMenuConfig.recents || [];
-  const appsMap = new Map(window.apps.map(app => [
-    getPreferredAppIdentifier(app), app
-  ]));
-  
+  const appsMap = new Map(    window.apps.map(app => [
+getPreferredAppIdentifier(app), app
+  ])  );
+
   for (const appId of recents) {
     const app = appsMap.get(appId);
     if (!app || !app.icon) continue;
     createAppTile(app, container, false);
   }
-  
+
   if (container.children.length === 0) {
-    container.innerHTML = '<p style="text-align:center;opacity:0.6;font-size:13px;">No recent apps</p>';
+    container.innerHTML =       '<p style="text-align:center;opacity:0.6;font-size:13px;">No recent apps</p>';
   }
 }
 
@@ -5114,9 +5114,9 @@ async function renderAllAppsGrid() {
   const container = document.getElementById('allAppsGrid');
   if (!container) return;
   container.innerHTML = '';
-  
+
   if (!window.apps) return;
-  
+
   for (const app of window.apps) {
     if (!app.icon) continue;
     createAppTile(app, container, false);
@@ -5136,7 +5136,7 @@ function createAppTile(app, container, draggable) {
     div.draggable = true;
   }
   div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
-  
+
   // Drag events for reordering pinned apps
   if (draggable) {
     div.addEventListener('dragstart', (e) => {
@@ -5144,22 +5144,22 @@ function createAppTile(app, container, draggable) {
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('appId', div.dataset.appId);
     });
-    
+
     div.addEventListener('dragend', () => {
       div.classList.remove('dragging');
-      document.querySelectorAll('.app.drag-over').forEach(el => el.classList.remove('drag-over'));
+      document        .querySelectorAll('.app.drag-over')        .forEach(el => el.classList.remove('drag-over'));
     });
-    
+
     div.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       div.classList.add('drag-over');
     });
-    
+
     div.addEventListener('dragleave', () => {
       div.classList.remove('drag-over');
     });
-    
+
     div.addEventListener('drop', async (e) => {
       e.preventDefault();
       div.classList.remove('drag-over');
@@ -5183,26 +5183,26 @@ function createAppTile(app, container, draggable) {
         window.cmfl1(evt, app);
       }
     } catch (err) {
-      flowawayError('createAppTile', 'Failed to run app package context menu', err, {
-        appId: app && app.id,
-      });
+      flowawayError('createAppTile', 'Failed to run app package context menu',         err,         {
+          appId: app && app.id,
+        }      );
     }
   }
-  
+
   // Context menu
   div.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     runAppPackageContextMenu(e);
     showAppContextMenu(e.clientX, e.clientY, app, draggable);
   });
-  
+
   // Click to launch
   div.addEventListener('click', () => {
     addToRecents(div.dataset.appId);
     launchApp(div.dataset.appId);
     startMenu.style.display = 'none';
   });
-  
+
   container.appendChild(div);
 }
 
@@ -5210,31 +5210,31 @@ function showAppContextMenu(x, y, app, canPin) {
   // Remove existing menu
   const existing = document.querySelector('.app-context-menu');
   if (existing) existing.remove();
-  
+
   const menu = document.createElement('div');
   menu.className = 'app-context-menu';
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
-  
+
   const appId = getPreferredAppIdentifier(app);
   const pinnedApps = window._startMenuConfig.pinnedApps || [];
   const isPinned = pinnedApps.includes(appId);
-  
+
   let html = '';
-  
+
   if (!canPin && !isPinned) {
     html += `<button class="context-menu-item" data-action="pin">📌 Pin to Start Menu</button>`;
   } else if (!canPin && isPinned) {
     html += `<button class="context-menu-item danger" data-action="unpin">📌 Unpin from Start Menu</button>`;
   }
-  
+
   if (canPin) {
     html += `<button class="context-menu-item danger" data-action="remove">❌ Remove from Start Menu</button>`;
   }
-  
+
   menu.innerHTML = html;
   document.body.appendChild(menu);
-  
+
   // Attach handlers
   menu.querySelectorAll('.context-menu-item').forEach(item => {
     item.addEventListener('click', async () => {
@@ -5250,7 +5250,7 @@ function showAppContextMenu(x, y, app, canPin) {
       menu.remove();
     });
   });
-  
+
   // Close on outside click
   setTimeout(() => {
     const closeHandler = (e) => {
@@ -5393,11 +5393,11 @@ try {
       window._flowaway_handlers.onDocumentClick,
     );
   window._flowaway_handlers.onDocumentClick = (e) => {
-    var contextMenuRoot = e.target && e.target.closest
-      ? e.target.closest(
-          '.app-context-menu, .app-menu, #custom-context-menu, [id*="context-menu"], [class*="context-menu"], [class*="contextmenu"], .misc',
-        )
-      : null;
+    var contextMenuRoot =       e.target && e.target.closest
+        ? e.target.closest(
+            '.app-context-menu, .app-menu, #custom-context-menu, [id*="context-menu"], [class*="context-menu"], [class*="contextmenu"], .misc',
+          )
+        : null;
     if (contextMenuRoot) {
       return;
     }
