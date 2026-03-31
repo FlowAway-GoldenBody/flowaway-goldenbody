@@ -975,6 +975,8 @@ window.browser = function (
         '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
       download:
         '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      theme:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="1" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="23"></line><line x1="1" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="23" y2="12"></line><line x1="4.2" y1="4.2" x2="6.3" y2="6.3"></line><line x1="17.7" y1="17.7" x2="19.8" y2="19.8"></line><line x1="4.2" y1="19.8" x2="6.3" y2="17.7"></line><line x1="17.7" y1="6.3" x2="19.8" y2="4.2"></line></svg>',
     };
 
     const setAddressButtonIcon = (button, iconName) => {
@@ -1348,14 +1350,22 @@ window.browser = function (
               rr.classList.toggle('light', !browserGlobals.dark);
             } else {
               try { delete rr.dataset.themeManual; } catch (e) { rr.dataset.themeManual = 'false'; }
+              // Ensure the root reflects the effective (global) theme immediately
+              try { rr.classList.toggle('dark', !!browserGlobals.dark); rr.classList.toggle('light', !browserGlobals.dark); } catch (e) {}
             }
           }
         } catch (e) {}
 
         // Dispatch styleapplied to notify apps
         try {
-          const roots = document.querySelectorAll('.app-root');
-          for(const r of roots) {
+          allRoots = [];
+          browserGlobals.allBrowsers.forEach(b => {
+            try {
+              const r = b.rootElement;
+              if (r) allRoots.push(r);
+            } catch (e) {}
+          });
+          for(const r of allRoots) {
             try { r.dispatchEvent(new CustomEvent('styleapplied', {})); } catch (e) {}
           }
         } catch (e) {}
@@ -1400,7 +1410,29 @@ window.browser = function (
 
       overlay.appendChild(panel);
       document.body.appendChild(overlay);
-      panel.style.left = '50%'; panel.style.top = '50%'; panel.style.transform = 'translate(-50%,-50%)';
+
+      if (
+        anchorPoint &&
+        typeof anchorPoint.x === "number" &&
+        typeof anchorPoint.y === "number"
+      ) {
+        const rect = panel.getBoundingClientRect();
+        const viewportW =
+          window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportH =
+          window.innerHeight || document.documentElement.clientHeight || 0;
+        let left = anchorPoint.x - rect.width;
+        let top = anchorPoint.y;
+        left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
+        top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+        panel.style.transform = "";
+      } else {
+        panel.style.left = "50%";
+        panel.style.top = "50%";
+        panel.style.transform = "translate(-50%,-50%)";
+      }
     }
 
     clear.onclick = async function () {
@@ -1432,9 +1464,9 @@ window.browser = function (
     var themeBtn = document.createElement('button');
     themeBtn.className = 'sim-open-btn';
     themeBtn.title = 'Theme';
-    themeBtn.innerText = 'Theme';
+    setAddressButtonIcon(themeBtn, 'theme');
     applyAddressIconButtonStyle(themeBtn);
-    themeBtn.onclick = function(e){ const r = themeBtn.getBoundingClientRect(); openThemeUI({ x: r.right, y: r.top }); };
+    themeBtn.onclick = function(e){ const r = themeBtn.getBoundingClientRect(); openThemeUI({ x: r.right, y: r.top + r.height }); };
     addressRow.appendChild(themeBtn);
     addressRow.appendChild(clear);
 

@@ -3517,11 +3517,6 @@ function resolveWindowAppId(el) {
       } catch (e) {}
     }
   }
-  if (!appId) {
-    try {
-      if (el.classList && el.classList.contains("browser")) appId = "browser";
-    } catch (e) {}
-  }
   return appId || "";
 }
 
@@ -3556,7 +3551,7 @@ function resolveWindowLabel(el) {
     if (appLabel && appLabel !== "undefined" && appLabel !== "null")
       return appLabel;
   }
-  if (appId && appId !== "browser" && appId !== "undefined" && appId !== "null")
+  if (appId !== "undefined" && appId !== "null")
     return appId;
   return "Window";
 }
@@ -4073,9 +4068,8 @@ function applyStyles() {
     var roots = document.querySelectorAll(".app-root");
     for (const r of roots) {
       try {
-        // If this is the browser app and the window has a manual theme pin,
         // don't let the global applyStyles override its classes.
-        if (!(r.dataset && r.dataset.appId === 'browser' && r.dataset.themeManual === 'true')) {
+        if (!(r.dataset.themeManual === 'true')) {
           r.classList.toggle("dark", data.dark);
           r.classList.toggle("light", !data.dark);
         }
