@@ -383,9 +383,8 @@ terminal = function (posX = 50, posY = 50) {
   }
   
   // --- EVENT LISTENER ---
-  // Listen to clicks on the terminal for any app-specific handlers
-  document.addEventListener("terminal" + root._goldenbodyId, "click", (e) => {
-    // App-specific click handler can be implemented here
+  root.addEventListener("click", () => {
+    try { input.focus(); } catch (e) {}
   });
 
   const terminalSurface = document.createElement("div");
@@ -723,12 +722,15 @@ terminal = function (posX = 50, posY = 50) {
     const args = tokens.slice(1);
 
     if (command === "help") {
-      writeLine("Core: help, clear, echo, date, whoami, pwd, history, exit");
-      writeLine("Filesystem: ls [path], cd [path], cat <path>, mkdir <path>, touch <path>, write <path> <text>, rm <path>");
-      writeLine("Apps: apps, open <app>, run <path|function> [args...]");
-      writeLine("Env: env, set <KEY> <VALUE>, unset <KEY>");
-      writeLine("gbenv: gbenv, gbenv get|set|unset|save|reload");
-      writeLine("Tip: quote arguments with spaces, e.g. echo \"hello world\"");
+      writeLine("Core:       help, clear, echo, date, whoami, pwd, history, exit");
+      writeLine("Filesystem: ls [path], cd [path], cat <path>, head [-n N] <path>, tail [-n N] <path>");
+      writeLine("            mkdir <path>, touch <path>, write <path> <text>, rm <path>");
+      writeLine("            cp <src> <dst>, mv <src> <dst>");
+      writeLine("Apps:       apps, open <app>, run <path|function> [args...]");
+      writeLine("Env:        env, set <KEY> <VALUE>, unset <KEY>");
+      writeLine("gbenv:      gbenv, gbenv get|set|unset|save|reload");
+      writeLine("Keys:       Tab=complete  ↑↓=history  Ctrl+L=clear  Ctrl+C=cancel");
+      writeLine("Tip:        quote arguments with spaces, e.g. echo \"hello world\"");
       return;
     }
 
@@ -933,6 +935,162 @@ terminal = function (posX = 50, posY = 50) {
       return;
     }
 
+    if (command === "cp") {
+      if (!args[0] || !args[1]) {
+        writeLine("usage: cp <src> <dst>");
+        return;
+      }
+      const srcRelPath = resolvePath(args[0]);
+      const dstRelPath = resolvePath(args[1]);
+      if (!srcRelPath) {
+        writeLine("cp: invalid source path", "#ff7a7a");
+        return;
+      }
+      if (!dstRelPath) {
+        writeLine("cp: invalid destination path", "#ff7a7a");
+        return;
+      }
+      const srcNode = getTreeNode(srcRelPath);
+      if (!srcNode) {
+        writeLine(`cp: '${args[0]}': No such file or directory`, "#ff7a7a");
+        return;
+      }
+      if (isDirectoryNode(srcNode)) {
+        writeLine(`cp: '${args[0]}': Is a directory`, "#ff7a7a");
+        return;
+      }
+      let dstFinalPath = dstRelPath;
+      const dstNode = getTreeNode(dstRelPath);
+      if (dstNode && isDirectoryNode(dstNode)) {
+        const fileName = srcRelPath.split("/").pop();
+        dstFinalPath = dstRelPath ? `${dstRelPath}/${fileName}` : fileName;
+      }
+      try {
+        const content = await readFileByPath(srcRelPath);
+        await saveTextFileByPath(dstFinalPath, content);
+      } catch (e) {
+        writeLine(`cp: failed to copy '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "mv") {
+      if (!args[0] || !args[1]) {
+        writeLine("usage: mv <src> <dst>");
+        return;
+      }
+      const srcRelPath = resolvePath(args[0]);
+      const dstRelPath = resolvePath(args[1]);
+      if (!srcRelPath) {
+        writeLine("mv: invalid source path", "#ff7a7a");
+        return;
+      }
+      if (!dstRelPath) {
+        writeLine("mv: invalid destination path", "#ff7a7a");
+        return;
+      }
+      const srcNode = getTreeNode(srcRelPath);
+      if (!srcNode) {
+        writeLine(`mv: '${args[0]}': No such file or directory`, "#ff7a7a");
+        return;
+      }
+      if (isDirectoryNode(srcNode)) {
+        writeLine(`mv: '${args[0]}': Is a directory (directory move not supported)`, "#ff7a7a");
+        return;
+      }
+      let dstFinalPath = dstRelPath;
+      const dstNode = getTreeNode(dstRelPath);
+      if (dstNode && isDirectoryNode(dstNode)) {
+        const fileName = srcRelPath.split("/").pop();
+        dstFinalPath = dstRelPath ? `${dstRelPath}/${fileName}` : fileName;
+      }
+      try {
+        const content = await readFileByPath(srcRelPath);
+        await saveTextFileByPath(dstFinalPath, content);
+        await applySnapshotDirections([{ delete: true, path: `root/${srcRelPath}` }]);
+      } catch (e) {
+        writeLine(`mv: failed to move '${args[0]}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "head") {
+      let n = 10;
+      let pathArg = args[0];
+      if (args[0] === "-n" && args[1] && args[2]) {
+        n = parseInt(args[1], 10);
+        if (!Number.isFinite(n) || n < 1) {
+          writeLine("head: invalid line count", "#ff7a7a");
+          return;
+        }
+        pathArg = args[2];
+      } else if (args[0] === "-n") {
+        writeLine("usage: head [-n N] <path>");
+        return;
+      }
+      if (!pathArg) {
+        writeLine("usage: head [-n N] <path>");
+        return;
+      }
+      const targetRelPath = resolvePath(pathArg);
+      const node = getTreeNode(targetRelPath);
+      if (!node) {
+        writeLine(`head: ${pathArg}: No such file or directory`, "#ff7a7a");
+        return;
+      }
+      if (isDirectoryNode(node)) {
+        writeLine(`head: ${pathArg}: Is a directory`, "#ff7a7a");
+        return;
+      }
+      try {
+        const content = await readFileByPath(targetRelPath);
+        const lines = content.split("\n").slice(0, n);
+        writeLine(lines.join("\n"));
+      } catch (err) {
+        writeLine(`head: failed to read '${pathArg}'`, "#ff7a7a");
+      }
+      return;
+    }
+
+    if (command === "tail") {
+      let n = 10;
+      let pathArg = args[0];
+      if (args[0] === "-n" && args[1] && args[2]) {
+        n = parseInt(args[1], 10);
+        if (!Number.isFinite(n) || n < 1) {
+          writeLine("tail: invalid line count", "#ff7a7a");
+          return;
+        }
+        pathArg = args[2];
+      } else if (args[0] === "-n") {
+        writeLine("usage: tail [-n N] <path>");
+        return;
+      }
+      if (!pathArg) {
+        writeLine("usage: tail [-n N] <path>");
+        return;
+      }
+      const targetRelPath = resolvePath(pathArg);
+      const node = getTreeNode(targetRelPath);
+      if (!node) {
+        writeLine(`tail: ${pathArg}: No such file or directory`, "#ff7a7a");
+        return;
+      }
+      if (isDirectoryNode(node)) {
+        writeLine(`tail: ${pathArg}: Is a directory`, "#ff7a7a");
+        return;
+      }
+      try {
+        const content = await readFileByPath(targetRelPath);
+        const allLines = content.split("\n");
+        const lines = allLines.slice(Math.max(0, allLines.length - n));
+        writeLine(lines.join("\n"));
+      } catch (err) {
+        writeLine(`tail: failed to read '${pathArg}'`, "#ff7a7a");
+      }
+      return;
+    }
+
     if (command === "apps") {
       writeLine("Openable apps: " + (listApps().join(", ") || "none detected"));
       return;
@@ -1091,7 +1249,96 @@ terminal = function (posX = 50, posY = 50) {
     writeLine(`${command}: command not found`, "#ff7a7a");
   }
 
+  const ALL_COMMANDS = [
+    "help", "clear", "echo", "date", "whoami", "pwd", "history", "exit",
+    "ls", "cd", "cat", "head", "tail", "mkdir", "touch", "write", "rm", "cp", "mv",
+    "apps", "open", "run",
+    "env", "set", "unset",
+    "gbenv",
+  ];
+
+  function tabComplete() {
+    const val = input.value;
+    const trailingSpace = val.length > 0 && /\s$/.test(val);
+    const tokens = parseArgs(val);
+
+    if (tokens.length === 0 || (tokens.length === 1 && !trailingSpace)) {
+      const partial = tokens[0] || "";
+      const matches = ALL_COMMANDS.filter((c) => c.startsWith(partial));
+      if (matches.length === 1) {
+        input.value = matches[0] + " ";
+      } else if (matches.length > 1) {
+        writeLine(matches.join("  "));
+        let common = matches[0];
+        for (const m of matches.slice(1)) {
+          let i = 0;
+          while (i < common.length && i < m.length && common[i] === m[i]) i++;
+          common = common.slice(0, i);
+        }
+        if (common.length > partial.length) input.value = common;
+      }
+      return;
+    }
+
+    const partial = trailingSpace ? "" : (tokens[tokens.length - 1] || "");
+    const slashIdx = partial.lastIndexOf("/");
+    const dirPart = slashIdx >= 0 ? partial.slice(0, slashIdx + 1) : "";
+    const filePart = slashIdx >= 0 ? partial.slice(slashIdx + 1) : partial;
+
+    const dirRelPath = dirPart ? resolvePath(dirPart.replace(/\/$/, "")) : cwdRelPath;
+    // When dirRelPath is empty string we are at the filesystem root node
+    const dirNode = dirRelPath ? getTreeNode(dirRelPath) : (window.treeData || null);
+    if (!dirNode) return;
+    const children = (dirNode && Array.isArray(dirNode[1])) ? dirNode[1] : [];
+    const matches = children.filter((entry) =>
+      String(entry[0]).toLowerCase().startsWith(filePart.toLowerCase())
+    );
+
+    if (matches.length === 0) return;
+
+    const prefix = trailingSpace ? val : val.slice(0, val.length - partial.length);
+
+    if (matches.length === 1) {
+      const isDir = isDirectoryNode(matches[0]);
+      input.value = prefix + dirPart + matches[0][0] + (isDir ? "/" : " ");
+    } else {
+      writeLine(matches.map((e) => isDirectoryNode(e) ? e[0] + "/" : e[0]).join("  "));
+      let common = matches[0][0];
+      for (const m of matches.slice(1)) {
+        let i = 0;
+        while (i < common.length && i < m[0].length && common[i].toLowerCase() === m[0][i].toLowerCase()) i++;
+        common = common.slice(0, i);
+      }
+      if (common.length > filePart.length) {
+        input.value = prefix + dirPart + common;
+      }
+    }
+  }
+
   input.addEventListener("keydown", async (event) => {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      tabComplete();
+      return;
+    }
+
+    if (event.key === "l" && event.ctrlKey) {
+      event.preventDefault();
+      output.innerHTML = "";
+      return;
+    }
+
+    if (event.key === "c" && event.ctrlKey) {
+      event.preventDefault();
+      if (input.value) {
+        renderEnteredCommand(input.value);
+        writeLine("^C");
+        input.value = "";
+        historyIndex = commandHistory.length;
+      }
+      return;
+    }
+
     if (event.key === "Enter") {
       const entered = input.value;
       renderEnteredCommand(entered);
