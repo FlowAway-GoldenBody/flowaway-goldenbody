@@ -127,6 +127,10 @@ function defaultBrowserProfile() {
     enableURLSync: true,
     lazyloading: true,
     siteZoom: {},
+    // themeMode: 'auto' | 'manual' ; when 'auto' use global `data.dark`
+    themeMode: "auto",
+    // when themeMode !== 'auto', this boolean indicates dark (true) or light (false)
+    dark: false,
   };
 }
 
@@ -148,6 +152,8 @@ function normalizeBrowserProfile(parsed) {
     lazyloading:
       typeof parsed.lazyloading === "boolean" ? parsed.lazyloading : true,
     siteZoom: normalizedSiteZoom,
+    themeMode: typeof parsed.themeMode === "string" ? parsed.themeMode : "auto",
+    dark: typeof parsed.dark === "boolean" ? parsed.dark : false,
   };
 }
 
@@ -185,6 +191,8 @@ async function writeBrowserProfile(profile, options = {}) {
       profile?.siteZoom && typeof profile.siteZoom === "object"
         ? profile.siteZoom
         : {},
+    themeMode: typeof profile?.themeMode === "string" ? profile.themeMode : "auto",
+    dark: typeof profile?.dark === "boolean" ? profile.dark : false,
   };
 
   if (!options.force) {
@@ -285,6 +293,17 @@ browserGlobals.profileReadyPromise = (async () => {
   const loadedProfile = await readBrowserProfile();
   browserGlobals.profile = loadedProfile;
   browserGlobals.profileState = normalizeBrowserProfile(loadedProfile);
+  // Determine effective browser theme setting
+  try {
+    const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : "auto";
+    if (pm === "auto") {
+      browserGlobals.dark = !!(window.data && window.data.dark);
+    } else {
+      browserGlobals.dark = !!browserGlobals.profile.dark;
+    }
+  } catch (e) {
+    browserGlobals.dark = !!(window.data && window.data.dark);
+  }
 
   const idRead = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
     attempts: 5,
@@ -465,8 +484,8 @@ window.browser = function (
     panel.id = "perm-ui";
     panel.onclick = (e) => e.stopPropagation();
     panel.className = "panel";
-    panel.classList.toggle("dark", data.dark);
-    panel.classList.toggle("light", !data.dark);
+    panel.classList.toggle("dark", browserGlobals.dark);
+    panel.classList.toggle("light", !browserGlobals.dark);
     panel.style.cssText = `
     position:fixed;
     width:320px;
@@ -671,11 +690,38 @@ window.browser = function (
     browserGlobals.goldenbodyId++;
     root._goldenbodyId = browserGlobals.goldenbodyId;
     root.tabIndex = "0";
+    // Respect per-app ignore flag; compute effective browser dark mode
+    // If a window has `data-theme-manual` set to 'true', flowaway.applyStyles
+    // will avoid changing its theme classes. Initialize based on profile.
+    try {
+      const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : 'auto';
+      if (pm === 'manual') {
+        root.dataset.themeManual = 'true';
+        // ensure this root reflects the pinned theme
+        try { root.classList.toggle('dark', !!browserGlobals.dark); root.classList.toggle('light', !browserGlobals.dark); } catch (e) {}
+      } else {
+        root.dataset.themeManual = 'false';
+      }
+    } catch (e) {
+      root.dataset.themeManual = root.dataset.themeManual || 'false';
+    }
     root.addEventListener("styleapplied", () => {
+      // If user preference is 'auto' then mirror global `data.dark`, otherwise use stored profile value
+      try {
+        const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : "auto";
+        if (pm === "auto") {
+          browserGlobals.dark = !!(window.data && window.data.dark);
+        } else {
+          browserGlobals.dark = !!browserGlobals.profile.dark;
+        }
+      } catch (e) {
+        browserGlobals.dark = !!(window.data && window.data.dark);
+      }
+
       for (const tab of tabs) {
         tab.iframe.contentWindow.postMessage({
           __goldenbodyChangeTheme__: true,
-          dark: data.dark,
+          dark: browserGlobals.dark,
         });
       }
     });
@@ -986,8 +1032,8 @@ window.browser = function (
         const dialog = document.createElement("div");
         dialog.id = "confirm-dialog";
         dialog.className = "panel";
-        dialog.classList.toggle("dark", data.dark);
-        dialog.classList.toggle("light", !data.dark);
+          dialog.classList.toggle("dark", browserGlobals.dark);
+          dialog.classList.toggle("light", !browserGlobals.dark);
         dialog.style.cssText =
           "position:relative;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
 
@@ -997,7 +1043,7 @@ window.browser = function (
         dialog.appendChild(titleEl);
 
         const msgEl = document.createElement("div");
-        msgEl.style.cssText =`font-size:14px;color:#${data.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+        msgEl.style.cssText =`font-size:14px;color:#${browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
         msgEl.textContent = message;
         dialog.appendChild(msgEl);
 
@@ -1043,8 +1089,8 @@ window.browser = function (
       const panel = document.createElement("div");
       panel.id = "download-ui";
       panel.className = "panel";
-      panel.classList.toggle("dark", data.dark);
-      panel.classList.toggle("light", !data.dark);
+      panel.classList.toggle("dark", browserGlobals.dark);
+      panel.classList.toggle("light", !browserGlobals.dark);
       panel.style.cssText =
         "position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
       panel.onclick = (e) => e.stopPropagation();
@@ -1216,6 +1262,147 @@ window.browser = function (
       openDownloadUI({ x, y });
     };
 
+    function openThemeUI(anchorPoint = null) {
+      document.getElementById("theme-ui")?.remove();
+      const overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
+      function cleanup() {
+        try { overlay.remove(); } catch (e) {}
+      }
+      overlay.onclick = () => cleanup();
+
+      const panel = document.createElement("div");
+      panel.id = "theme-ui";
+      panel.className = "panel";
+      panel.classList.toggle("dark", browserGlobals.dark);
+      panel.classList.toggle("light", !browserGlobals.dark);
+      panel.style.cssText = "position:fixed;width:320px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+      panel.onclick = (e) => e.stopPropagation();
+
+      const title = document.createElement("div");
+      title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
+      title.textContent = "Change Theme";
+      panel.appendChild(title);
+
+      const desc = document.createElement("div");
+      desc.style.cssText = "font-size:12px;color:#888;margin-bottom:8px";
+      desc.textContent = "Choose theme for this browser app (Default = follow system/global).";
+      panel.appendChild(desc);
+
+      const form = document.createElement("div");
+      form.style.cssText = "display:flex;flex-direction:column;gap:8px;";
+
+      function radioOption(value, label, checked){
+        const row = document.createElement('label');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        const r = document.createElement('input'); r.type='radio'; r.name='gb-theme-mode'; r.value = value; r.checked = !!checked;
+        row.appendChild(r); row.appendChild(document.createTextNode(label));
+        return row;
+      }
+
+      const currentMode = (browserGlobals.profile && browserGlobals.profile.themeMode) ? browserGlobals.profile.themeMode : 'auto';
+      const manualDark = !!(browserGlobals.profile && browserGlobals.profile.dark);
+
+      form.appendChild(radioOption('auto','Default (follow global/system)', currentMode === 'auto'));
+      form.appendChild(radioOption('light','Light', currentMode === 'manual' && !manualDark));
+      form.appendChild(radioOption('dark','Dark', currentMode === 'manual' && manualDark));
+
+      // No per-window ignore checkbox — manual theme selection will pin
+      // theme for all browser windows by setting `data-theme-manual` on roots.
+
+      panel.appendChild(form);
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:12px;';
+      const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnCancel.onclick = () => cleanup();
+      const btnApply = document.createElement('button'); btnApply.textContent = 'Apply'; btnApply.style.background = '#4c8bf5'; btnApply.style.color = '#fff';
+      btnApply.onclick = async () => {
+        const chosen = Array.from(panel.querySelectorAll('input[name="gb-theme-mode"]')).find(i=>i.checked)?.value || 'auto';
+        try {
+          browserGlobals.profile = browserGlobals.profile || {};
+          if(chosen === 'auto') {
+            browserGlobals.profile.themeMode = 'auto';
+          } else {
+            browserGlobals.profile.themeMode = 'manual';
+            browserGlobals.profile.dark = chosen === 'dark';
+          }
+          await writeBrowserProfile(browserGlobals.profile, { force: true });
+        } catch (e) {}
+        // update effective dark
+        try {
+          if((browserGlobals.profile && browserGlobals.profile.themeMode === 'auto')) {
+            browserGlobals.dark = !!(window.data && window.data.dark);
+          } else {
+            browserGlobals.dark = !!(browserGlobals.profile && browserGlobals.profile.dark);
+          }
+        } catch (e) { browserGlobals.dark = !!(window.data && window.data.dark); }
+
+        // If manual, pin theme on all browser roots so `applyStyles` won't
+        // override them. If auto, remove the pin so `applyStyles` manages them.
+        try {
+          const allRoots = document.querySelectorAll('.app-root[data-app-id="browser"]');
+          for (const rr of allRoots) {
+            if (browserGlobals.profile && browserGlobals.profile.themeMode === 'manual') {
+              rr.dataset.themeManual = 'true';
+              rr.classList.toggle('dark', browserGlobals.dark);
+              rr.classList.toggle('light', !browserGlobals.dark);
+            } else {
+              try { delete rr.dataset.themeManual; } catch (e) { rr.dataset.themeManual = 'false'; }
+            }
+          }
+        } catch (e) {}
+
+        // Dispatch styleapplied to notify apps
+        try {
+          const roots = document.querySelectorAll('.app-root');
+          for(const r of roots) {
+            try { r.dispatchEvent(new CustomEvent('styleapplied', {})); } catch (e) {}
+          }
+        } catch (e) {}
+
+        cleanup();
+      };
+      actions.append(btnCancel, btnApply);
+      panel.appendChild(actions);
+
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let origLeft = 0;
+      let origTop = 0;
+      function onPointerMoveTheme(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        panel.style.left = origLeft + dx + "px";
+        panel.style.top = origTop + dy + "px";
+        panel.style.transform = "";
+      }
+      function onPointerUpTheme() {
+        if (!isDragging) return;
+        isDragging = false;
+        title.style.cursor = "grab";
+        try { document.removeEventListener("pointermove", onPointerMoveTheme); } catch (e) {}
+        try { document.removeEventListener("pointerup", onPointerUpTheme); } catch (e) {}
+      }
+      title.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        isDragging = true;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        const r = panel.getBoundingClientRect();
+        origLeft = r.left;
+        origTop = r.top;
+        title.style.cursor = "grabbing";
+        document.addEventListener("pointermove", onPointerMoveTheme);
+        document.addEventListener("pointerup", onPointerUpTheme);
+      });
+
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+      panel.style.left = '50%'; panel.style.top = '50%'; panel.style.transform = 'translate(-50%,-50%)';
+    }
+
     clear.onclick = async function () {
       const confirmClear = await showConfirmDialog(
         "Clear site data",
@@ -1241,6 +1428,14 @@ window.browser = function (
     };
 
     addressRow.appendChild(downloadBtn);
+    // Theme button
+    var themeBtn = document.createElement('button');
+    themeBtn.className = 'sim-open-btn';
+    themeBtn.title = 'Theme';
+    themeBtn.innerText = 'Theme';
+    applyAddressIconButtonStyle(themeBtn);
+    themeBtn.onclick = function(e){ const r = themeBtn.getBoundingClientRect(); openThemeUI({ x: r.right, y: r.top }); };
+    addressRow.appendChild(themeBtn);
     addressRow.appendChild(clear);
 
     const resizeDiv = document.createElement("div");
@@ -1701,11 +1896,14 @@ window.browser = function (
           `;
         iframe.contentDocument.body.appendChild(eggpatch2);
         let themeOverride = document.createElement("script");
-        themeOverride.textContent = `
+              themeOverride.textContent = `
           (function(){
             try{
               window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
               function readTopDark(){
+                try{
+                  if(window.top && window.top.browserGlobals && typeof window.top.browserGlobals.dark !== 'undefined') return !!window.top.browserGlobals.dark;
+                }catch(e){}
                 try{
                   if(window.top && window.top.data && typeof window.top.data.dark !== 'undefined') return !!window.top.data.dark;
                 }catch(e){}
@@ -1762,7 +1960,7 @@ window.browser = function (
             message: "GOLDENBODY_id",
             website: goldenbodywebsite,
             value: browserGlobals.id,
-            dark: data.dark,
+            dark: browserGlobals.dark,
           },
           "*",
         );
@@ -2848,7 +3046,7 @@ window.browser = function (
         let pickerTree = null;
 
         function getPickerTheme() {
-          if (data.dark) {
+          if (browserGlobals.dark) {
             return {
               panelBg: "#1f1f1f",
               panelText: "#e8e8e8",

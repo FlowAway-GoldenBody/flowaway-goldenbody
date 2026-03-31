@@ -713,6 +713,14 @@ textEditor = function (path, posX = 50, posY = 50) {
   const textarea = document.createElement("textarea");
   textarea.className = "texteditor-area";
   textarea.setAttribute("aria-label", titleLabel.textContent);
+  root.addEventListener("styleapplied", () => {
+     textarea.style.border =
+      data && data.dark
+        ? "1px solid rgba(255,255,255,0.06)"
+        : "1px solid rgba(0,0,0,0.08)";
+    textarea.style.background = data && data.dark ? "#0f1724" : "white";
+    textarea.style.color = data && data.dark ? "#e6eef8" : "#0f1724";
+  });
   Object.assign(textarea.style, {
     flex: "1 1 auto",
     width: "100%",
@@ -811,6 +819,8 @@ textEditor = function (path, posX = 50, posY = 50) {
       height: "460px",
       borderRadius: "8px",
       background: data && data.dark ? "#222" : "#fff",
+      color: data && data.dark ? "#eee" : "#111",
+      boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",

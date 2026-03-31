@@ -472,15 +472,6 @@ var rebuildhandler = function () {
     } catch (e) {}
 
     try {
-      delete window.__ouchbad_preinit_done;
-      delete window.__ouchbad_BASE;
-      delete window.__ouchbad_goldenbodywebsite;
-      delete window.__ouchbad_zmcdserver;
-      delete window.__ouchbad_SERVER;
-      delete window.__ouchbad_downloadserver;
-      delete window.__ouchbad_baseOrigin;
-      delete window.__ouchbad_wsProtocol;
-      delete window.__ouchbad_hostname;
       delete window._flowawayLoadTreePromise;
       delete window._flowawayFileFetchInFlight;
       delete window._flowawayFileFetchRecent;
@@ -4081,8 +4072,18 @@ function applyStyles() {
   try {
     var roots = document.querySelectorAll(".app-root");
     for (const r of roots) {
-      r.classList.toggle("dark", data.dark);
-      r.classList.toggle("light", !data.dark);
+      try {
+        // If this is the browser app and the window has a manual theme pin,
+        // don't let the global applyStyles override its classes.
+        if (!(r.dataset && r.dataset.appId === 'browser' && r.dataset.themeManual === 'true')) {
+          r.classList.toggle("dark", data.dark);
+          r.classList.toggle("light", !data.dark);
+        }
+      } catch (e) {
+        // fallback to safe toggle if dataset access fails
+        r.classList.toggle("dark", data.dark);
+        r.classList.toggle("light", !data.dark);
+      }
       try {
         r.dispatchEvent(new CustomEvent("styleapplied", {}));
       } catch (e) {}
