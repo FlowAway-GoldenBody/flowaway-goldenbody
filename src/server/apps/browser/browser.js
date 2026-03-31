@@ -1288,7 +1288,7 @@ window.browser = function (
 
       const desc = document.createElement("div");
       desc.style.cssText = "font-size:12px;color:#888;margin-bottom:8px";
-      desc.textContent = "Choose theme for this browser app (Default = follow system/global).";
+      desc.textContent = "Choose theme for this browser app (light/dark/default).";
       panel.appendChild(desc);
 
       const form = document.createElement("div");
@@ -1305,7 +1305,7 @@ window.browser = function (
       const currentMode = (browserGlobals.profile && browserGlobals.profile.themeMode) ? browserGlobals.profile.themeMode : 'auto';
       const manualDark = !!(browserGlobals.profile && browserGlobals.profile.dark);
 
-      form.appendChild(radioOption('auto','Default (follow global/system)', currentMode === 'auto'));
+      form.appendChild(radioOption('auto','Default (system preference)', currentMode === 'auto'));
       form.appendChild(radioOption('light','Light', currentMode === 'manual' && !manualDark));
       form.appendChild(radioOption('dark','Dark', currentMode === 'manual' && manualDark));
 
