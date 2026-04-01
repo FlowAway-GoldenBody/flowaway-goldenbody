@@ -1564,6 +1564,7 @@ async function extractAppData(appFolder) {
   var globalvarobject = "";
   var appGlobalVarStrings = [];
   var allapparray = [];
+  var openfilecapability = [];
   if (entryObjectfile) {
     try {
       var b64 = await fetchFileContentByPath(
@@ -1576,6 +1577,7 @@ async function extractAppData(appFolder) {
       globalvarobject = entryObj.globalvarobject || "";
       appGlobalVarStrings = entryObj.appGlobalVarStrings || [];
       allapparray = entryObj.allapparray || [];
+      openfilecapability = entryObj.openfilecapability || [];
     } catch (e) {
       console.error("read entry object", e);
     }
@@ -1616,6 +1618,7 @@ async function extractAppData(appFolder) {
     scriptLoaded: false,
     globalvarobject,
     appGlobalVarStrings,
+    openfilecapability,
   };
 }
 async function runbootscript() {
@@ -2405,6 +2408,12 @@ async function pollAppChanges(
           if (existingApp.cmfl1 !== newAppData.cmfl1) {
             appModified = true;
           }
+          if (
+            JSON.stringify(existingApp.openfilecapability || []) !==
+            JSON.stringify(newAppData.openfilecapability || [])
+          ) {
+            appModified = true;
+          }
 
           if (appModified) {
             // preserve old names so we can remove their globals safely after reload
@@ -2423,6 +2432,7 @@ async function pollAppChanges(
             existingApp.cmf = newAppData.cmf;
             existingApp.cmfl1 = newAppData.cmfl1;
             existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
+            existingApp.openfilecapability = newAppData.openfilecapability;
 
             // Update grid icon/label
             var appGridElement =
@@ -2776,6 +2786,11 @@ async function pollSpecificAppChanges(changedFolders = []) {
           appModified = true;
         if (existingApp.cmf !== newAppData.cmf) appModified = true;
         if (existingApp.cmfl1 !== newAppData.cmfl1) appModified = true;
+        if (
+          JSON.stringify(existingApp.openfilecapability || []) !==
+          JSON.stringify(newAppData.openfilecapability || [])
+        )
+          appModified = true;
 
         if (appModified) {
           var _oldEntry = existingApp.entry;
@@ -2794,6 +2809,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
           existingApp.cmf = newAppData.cmf;
           existingApp.cmfl1 = newAppData.cmfl1;
           existingApp.appGlobalVarStrings = newAppData.appGlobalVarStrings;
+          existingApp.openfilecapability = newAppData.openfilecapability;
 
           var appGridElement =
             document.getElementById(

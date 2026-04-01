@@ -4,6 +4,7 @@
   "startbtnid": "terminalapp",
   "globalvarobject": "terminalGlobals",
   "allapparray": "allTerminals",
+  "openfilecapability": [],
   "appGlobalVarStrings": [
     "terminalButtons",
     "terminalMenu",

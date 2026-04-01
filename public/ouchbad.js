@@ -20,7 +20,7 @@ if (!window.__ouchbad_preinit_done) {
     : 'ws://';
   window.__ouchbad_hostname = new URL(window.__ouchbad_baseOrigin).hostname;
 }
-async function filePost(data) {
+window.globals.filePost = async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
   if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
   var res = await fetch(SERVER, {
@@ -30,15 +30,15 @@ async function filePost(data) {
   });
   return res.json();
 }
-var firstlogin = true;
-var BASE = window.__ouchbad_BASE;
-var goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
-var zmcdserver = window.__ouchbad_zmcdserver;
-var SERVER = window.__ouchbad_SERVER;
-var downloadserver = window.__ouchbad_downloadserver;
-var baseOrigin = window.__ouchbad_baseOrigin;
-var wsProtocol = window.__ouchbad_wsProtocol;
-var hostname = window.__ouchbad_hostname;
+window.globals.firstlogin = true;
+window.globals.BASE = window.__ouchbad_BASE;
+window.globals.goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
+window.globals.zmcdserver = window.__ouchbad_zmcdserver;
+window.globals.SERVER = window.__ouchbad_SERVER;
+window.globals.downloadserver = window.__ouchbad_downloadserver;
+window.globals.baseOrigin = window.__ouchbad_baseOrigin;
+window.globals.wsProtocol = window.__ouchbad_wsProtocol;
+window.globals.hostname = window.__ouchbad_hostname;
 
 var zmcdata;
 var data;
@@ -101,7 +101,7 @@ box.innerHTML = `
   </div>
 `;
 // UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
-function base64ToUtf8(b64OrBuffer) {
+window.globals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
   try {
     // If caller passed an ArrayBuffer or Uint8Array, decode directly
     if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {

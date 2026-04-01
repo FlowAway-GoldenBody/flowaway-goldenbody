@@ -4,6 +4,9 @@
   "startbtnid": "editorapp",
   "globalvarobject": "textEditorGlobals",
   "allapparray": "alltextEditor",
+  "openfilecapability": [
+    "*"
+  ],
   "appGlobalVarStrings": [
     "alltextEditor",
     "textEditorId",

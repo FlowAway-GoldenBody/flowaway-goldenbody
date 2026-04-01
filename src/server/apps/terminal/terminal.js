@@ -693,22 +693,44 @@ terminal = function (posX = 50, posY = 50) {
   }
 
   function listApps() {
-    const appNames = [];
-    if (typeof browser === "function") appNames.push("browser");
-    if (typeof fileExplorer === "function") appNames.push("fileexplorer");
-    if (typeof textEditor === "function") appNames.push("texteditor");
-    if (typeof settings === "function") appNames.push("settings");
-    if (typeof terminal === "function") appNames.push("terminal");
-    return appNames;
+    try {
+      if (Array.isArray(window.apps) && window.apps.length) {
+        return window.apps
+          .map((a) => (a.entry || a.id || a.startbtnid || a.label || a.path || ""))
+          .filter(Boolean)
+          .map((s) => String(s).toLowerCase());
+      }
+    } catch (e) {}
+    return [];
   }
 
   function openAppByName(name) {
-    const lower = String(name || "").toLowerCase();
-    if (lower === "browser" && typeof browser === "function") return browser(90, 90);
-    if ((lower === "fileexplorer" || lower === "files") && typeof fileExplorer === "function") return fileExplorer(90, 90);
-    if ((lower === "texteditor" || lower === "editor") && typeof textEditor === "function") return textEditor(90, 90);
-    if (lower === "settings" && typeof settings === "function") return settings(90, 90);
-    if (lower === "terminal" && typeof terminal === "function") return terminal(90, 90);
+    const target = String(name || "").trim().toLowerCase();
+    if (!target) return false;
+    try {
+      const apps = Array.isArray(window.apps) ? window.apps : [];
+      let app = apps.find((a) => {
+        const candidates = [a.entry, a.id, a.startbtnid, a.label, a.path]
+          .filter((v) => typeof v !== "undefined" && v !== null)
+          .map((v) => String(v).toLowerCase());
+        return candidates.includes(target);
+      });
+      if (!app) {
+        app = apps.find((a) => String(a.label || "").toLowerCase() === target);
+      }
+      if (!app) {
+        app = apps.find((a) => String(a.label || "").toLowerCase().startsWith(target));
+      }
+      if (!app) return false;
+      const entryName = app.entry || app.id || app.startbtnid;
+      if (entryName && typeof window[entryName] === "function") {
+        try {
+          return window[entryName](90, 90);
+        } catch (e) {
+          return false;
+        }
+      }
+    } catch (e) {}
     return false;
   }
 

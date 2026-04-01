@@ -4,6 +4,9 @@
   "startbtnid": "explorerapp",
   "globalvarobject": "explorerGlobals",
   "allapparray": "allExplorers",
+  "openfilecapability": [
+    "*"
+  ],
   "appGlobalVarStrings": [
     "explorerButtons",
     "explorermenu",

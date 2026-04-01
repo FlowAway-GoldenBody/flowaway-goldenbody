@@ -4,6 +4,7 @@
   "startbtnid": "settingsapp",
   "globalvarobject": "settingsGlobals",
   "allapparray": "allSettings",
+  "openfilecapability": [],
   "appGlobalVarStrings": [
     "allSettings",
     "settingsId",

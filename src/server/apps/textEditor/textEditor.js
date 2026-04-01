@@ -603,7 +603,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     });
     overlay.appendChild(panel);
 
-    // controls (match settings.js logic)
+    // controls (match shared settings-panel logic)
     const fontLabel = document.createElement("div");
     fontLabel.textContent = "Font size (px)";
     const fontInput = document.createElement("input");
@@ -665,7 +665,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (ev.target === overlay) overlay.remove();
     });
 
-    // Apply handler - keep existing server logic (filePost) as in settings.js
+    // Apply handler - keep existing server logic (filePost) as in shared panels
     btnApply.addEventListener("click", async () => {
       const newSettings = {
         fontSize: Number(fontInput.value),
@@ -690,7 +690,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         textarea.style.fontSize = (normalized.fontSize || 14) + "px";
       } catch (e) {}
 
-      // keep parity with settings.js: update any open editors if available
+      // keep parity with other open editors if available
       try {
         if (Array.isArray(textEditorGlobals.alltextEditor)) {
           for (const inst of textEditorGlobals.alltextEditor) {
@@ -994,7 +994,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     }
   });
 
-  // Recreate the app's custom picker UI (same overlay from browser.js)
+  // Recreate the app's custom picker UI (shared overlay pattern)
   function openEditorPickerUI() {
     if (!window.treeData) {
       try {
@@ -1132,7 +1132,7 @@ textEditor = function (path, posX = 50, posY = 50) {
           const name = sel[0];
           const isFolder = Array.isArray(sel[1]);
           const path = basePath ? basePath + "/" + name : name;
-          // return a node-shaped array compatible with browser picker consumers
+          // return a node-shaped array compatible with shared picker consumers
           return [name, sel[1], { path }];
         });
 
@@ -1180,7 +1180,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       }
       if (!picked) return notification("Please select a file to open");
 
-      // reconstruct path similar to browser.sendFileNodeToIframe
+      // reconstruct path using the picker node path data
       const fullPath =
         picked[2] && picked[2].path
           ? picked[2].path

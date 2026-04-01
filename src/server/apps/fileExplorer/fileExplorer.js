@@ -1401,35 +1401,90 @@ fileExplorer = function (posX = 50, posY = 50) {
         submenu.style.border = "1px solid #ccc";
         submenu.style.background = data && data.dark ? "black" : "white";
         submenu.style.zIndex = 2000;
+        const toOpen = selectedItems.length ? selectedItems.slice() : [selectedItem];
+        const selectedExtensions = toOpen
+          .filter((node) => node && !Array.isArray(node[1]))
+          .map((node) => (node[2] && node[2].path) || getItemPath(node) || "")
+          .map((path) => {
+            const fileName = String(path).split("/").pop() || "";
+            const dotIndex = fileName.lastIndexOf(".");
+            return dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : "";
+          });
 
-        const textEditorItem = document.createElement("div");
-        textEditorItem.textContent = "Text Editor";
-        textEditorItem.style.padding = "6px 10px";
-        textEditorItem.style.cursor = "pointer";
-        textEditorItem.className = "misc";
-        textEditorItem.onclick = async () => {
-          try {
-            hideContextMenu();
-            // support multi-selection: open each selected file, otherwise the single selectedItem
-            const toOpen = selectedItems.length
-              ? selectedItems.slice()
-              : [selectedItem];
-            for (const node of toOpen) {
-              if (!node || Array.isArray(node[1])) continue; // skip folders
-              // Determine path: prefer node[2].path if present
-              let path = (node[2] && node[2].path) || getItemPath(node) || "";
-              try {
-                textEditor(path);
-              } catch (e) {
-                console.error("decode/open error", e);
-              }
-            }
-          } catch (e) {
-            console.error(e);
+        function normalizeOpenFileCapability(value) {
+          if (Array.isArray(value)) {
+            return value
+              .map((v) => String(v || "").trim().toLowerCase())
+              .filter(Boolean);
           }
-        };
+          if (typeof value === "string") {
+            return value
+              .split(",")
+              .map((v) => String(v || "").trim().toLowerCase())
+              .filter(Boolean);
+          }
+          return [];
+        }
 
-        submenu.appendChild(textEditorItem);
+        function appSupportsSelectedExtensions(app) {
+          const caps = normalizeOpenFileCapability(app.openfilecapability);
+          if (!caps.length) return false;
+          if (caps.includes("*")) return true;
+          if (!selectedExtensions.length) return false;
+          return selectedExtensions.every((ext) => caps.includes(ext));
+        }
+
+        const apps = (Array.isArray(window.apps) ? window.apps : [])
+          .map((app) => {
+            const entryName = app && (app.entry || app.id || app.startbtnid);
+            if (!entryName || typeof window[entryName] !== "function") return null;
+            return {
+              label: app.label || entryName,
+              entryName,
+              openfilecapability: app.openfilecapability,
+            };
+          })
+          .filter(Boolean)
+          .filter((app) => {
+            const ownId = String(root.dataset.appId || "").toLowerCase();
+            return String(app.entryName || "").toLowerCase() !== ownId;
+          })
+          .filter((app) => appSupportsSelectedExtensions(app));
+
+        if (!apps.length) {
+          const emptyItem = document.createElement("div");
+          emptyItem.textContent = "No apps available";
+          emptyItem.style.padding = "6px 10px";
+          emptyItem.style.opacity = "0.7";
+          emptyItem.style.cursor = "default";
+          emptyItem.className = "misc";
+          submenu.appendChild(emptyItem);
+        } else {
+          for (const app of apps) {
+            const appItem = document.createElement("div");
+            appItem.textContent = app.label;
+            appItem.style.padding = "6px 10px";
+            appItem.style.cursor = "pointer";
+            appItem.className = "misc";
+            appItem.onclick = async () => {
+              try {
+                hideContextMenu();
+                for (const node of toOpen) {
+                  if (!node || Array.isArray(node[1])) continue;
+                  let path = (node[2] && node[2].path) || getItemPath(node) || "";
+                  try {
+                    window[app.entryName](path);
+                  } catch (e) {
+                    console.error("open with app error", e);
+                  }
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            };
+            submenu.appendChild(appItem);
+          }
+        }
         // append to `root` so positioning is relative to the explorer window
         root.appendChild(submenu);
 
