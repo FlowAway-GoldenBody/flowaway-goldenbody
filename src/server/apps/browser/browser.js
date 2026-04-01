@@ -6348,18 +6348,19 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         "browser" + root._goldenbodyId,
         "mousemove",
         (ev) => {
-          if (!dragging) {
-            startX = 0;
-            startY = 0;
-            return;
+        if (!dragging) return;
+        if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
+          applyBounds(savedBounds);
+          if (isMaximized) {
+            restoreWindow(false);
+            root.style.left = ev.clientX - root.clientWidth / 2 + "px";
+            origLeft = ev.clientX - root.clientWidth / 2;
           }
-
-          if (!dragging) return;
-          const dx = ev.clientX - startX,
-            dy = ev.clientY - startY;
-          root.style.left = origLeft + dx + "px";
-          if (origTop + dy > 0) root.style.top = origTop + dy + "px";
-          else root.style.top = "0px";
+        }
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        root.style.left = origLeft + dx + "px";
+        root.style.top = Math.max(0, origTop + dy) + "px";
         },
       );
       window.addEventListener("browser" + root._goldenbodyId, "mouseup", () => {

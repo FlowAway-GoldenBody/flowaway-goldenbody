@@ -2,6 +2,7 @@
 // absolutely no hardcoded app names allowed! all apps should be installed and theres no way to predict their name and structure in advance, so we must not bake in any assumptions here. we will rely on dynamic detection and labeling based on heuristics instead.
 // i mean by no if(appId === 'browser') or similar checks anywhere in the core (flowaway.js/goldenbody.js). its not allowed!
 if (!window.data) window.data = data;
+window.__processes = [];
 window.____gbEventListners = [];
 window.loaded = false;
 window.APP_VERSION = "v1.13.0";
@@ -3011,6 +3012,10 @@ var oldLoadTree = window.loadTree;
 window.loadTree = async function () {
   await oldLoadTree();
   await loadAppsFromTree();
+  window.__processes = [];
+  for(const app of window.apps) {
+    window.__processes.push(window[app.globalvarobject][app.allapparray]);
+  }
 };
 loadTree();
 window.onlyloadTree = oldLoadTree;
