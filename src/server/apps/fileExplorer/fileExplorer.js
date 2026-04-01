@@ -1404,7 +1404,11 @@ fileExplorer = function (posX = 50, posY = 50) {
         const toOpen = selectedItems.length ? selectedItems.slice() : [selectedItem];
         const selectedExtensions = toOpen
           .filter((node) => node && !Array.isArray(node[1]))
-          .map((node) => (node[2] && node[2].path) || getItemPath(node) || "")
+          .map((node) => {
+            // Prefer explicit cached path, then computed path, then fallback to the item's name
+            const candidatePath = (node && node[2] && node[2].path) || getItemPath(node) || (Array.isArray(node) ? node[0] : "");
+            return String(candidatePath || "");
+          })
           .map((path) => {
             const fileName = String(path).split("/").pop() || "";
             const dotIndex = fileName.lastIndexOf(".");
@@ -1471,7 +1475,7 @@ fileExplorer = function (posX = 50, posY = 50) {
                 hideContextMenu();
                 for (const node of toOpen) {
                   if (!node || Array.isArray(node[1])) continue;
-                  let path = (node[2] && node[2].path) || getItemPath(node) || "";
+                  let path = (node && node[2] && node[2].path) || getItemPath(node) || (Array.isArray(node) ? node[0] : "");
                   try {
                     window[app.entryName](path);
                   } catch (e) {
