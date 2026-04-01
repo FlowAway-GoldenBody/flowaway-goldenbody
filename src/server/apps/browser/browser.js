@@ -1,8 +1,8 @@
 //browser global vars
 window.browserGlobals = {};
-window.__globalAddTab = function (url, index) {
-  let t = browserGlobals.allBrowsers[index].addTab(url, "New Tab");
-  for (const tab of browserGlobals.allBrowsers[index].tabs) {
+window.browserGlobals.__globalAddTab = function (url, index) {
+  let t = window.browserGlobals.allBrowsers[index].addTab(url, "New Tab");
+  for (const tab of window.browserGlobals.allBrowsers[index].tabs) {
     if (tab.id == t) {
       t = tab;
       break;
@@ -10,16 +10,17 @@ window.__globalAddTab = function (url, index) {
   }
   return t.iframe.contentWindow;
 };
-browserGlobals.allBrowsers = [];
-browserGlobals.goldenbodyId = 0;
-browserGlobals.proxyurl = window.origin + "/";
-browserGlobals.dragstartwindow = null;
-browserGlobals.__vfsMessageListenerAdded = false;
-browserGlobals.tabisDragging = false;
-browserGlobals.draggedtab = 0;
-browserGlobals.profileUserIdPath = "/apps/browser/profile/userID.txt";
-browserGlobals.profileSettingsPath = "/apps/browser/profile/settings.json";
-browserGlobals.profileState = {
+window.browserGlobals.allBrowsers = [];
+window.browserGlobals.goldenbodyId = 0;
+window.browserGlobals.proxyurl = window.origin + "/";
+window.browserGlobals.dragstartwindow = null;
+window.browserGlobals.__vfsMessageListenerAdded = false;
+window.browserGlobals.tabisDragging = false;
+window.browserGlobals.draggedtab = 0;
+window.browserGlobals.__localFileUrlMap = window.browserGlobals.__localFileUrlMap || new Map();
+window.browserGlobals.profileUserIdPath = "/apps/browser/profile/userID.txt";
+window.browserGlobals.profileSettingsPath = "/apps/browser/profile/settings.json";
+window.browserGlobals.profileState = {
   siteSettings: [],
   enableURLSync: true,
   lazyloading: true,
@@ -344,11 +345,28 @@ browserGlobals.subWebsite = function (url) {
   return url[0];
 }
 browserGlobals.unshuffleURL = function (url) {
+  if (!url) return "";
   if (url === goldenbodywebsite + "flowerfeast.html") {
     return "goldenbody://newtab/";
   } else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
     return "goldenbody://app-store/";
   }
+
+  try {
+    if (typeof url === "string" && url.startsWith("blob:")) {
+      const mapped = browserGlobals.__localFileUrlMap.get(url);
+      if (mapped) return mapped;
+
+      const withoutHash = url.split("#")[0];
+      const mappedNoHash = browserGlobals.__localFileUrlMap.get(withoutHash);
+      if (mappedNoHash) return mappedNoHash;
+    }
+  } catch (e) {}
+
+  if (typeof url === "string" && url.startsWith("file://")) {
+    return url.replace(/^file:\/\//i, "");
+  }
+
   if(!url.includes(BASE)) {return url};
   url = url.split("/");
   if (url) {
@@ -3890,7 +3908,7 @@ window.browser = function (
               }
               if (e.data?.__VFS__ && e.data.kind === "saveFile") {
                 try {
-                  // Robust save handling that mirrors fileExplorer upload behaviour.
+                  // Robust save handling that mirrors file-manager upload behaviour.
                   const MAX_INLINE_BASE64 = 250 * 1024 * 1024; // 250MB
                   const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -4043,7 +4061,7 @@ window.browser = function (
                           ],
                         });
                       } else {
-                        // Large file: chunk it similarly to fileExplorer
+                        // Large file: chunk it with the same buffered strategy
                         const total = Math.ceil(totalBytes / CHUNK_SIZE);
 
                         // ensure file placeholder
@@ -4904,7 +4922,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     window.location = url;
   }
   else if(location === '_blank') {
-    return window.top.__globalAddTab(url, allbrowserindex);
+    return window.top.browserGlobals.__globalAddTab(url, allbrowserindex);
   }
   else if(location === '_top') {
     console.error('this flag is banned "_top"');
@@ -5690,10 +5708,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
       return id;
     }
-
-    if (preloadlink) {
-      addTab(preloadlink, "New Tab");
-    }
     window.addEventListener(
       "browser" + root._goldenbodyId,
       "keydown",
@@ -5940,6 +5954,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           document.removeEventListener("keyup", tabs[idx].__onDocumentKeyup);
         }
       } catch (e) {}
+      cleanupLocalFileNav(tabs[idx]);
       tabs[idx].iframe.src = "about:blank";
       tabs[idx].iframe.remove();
       tabs.splice(idx, 1);
@@ -5995,15 +6010,201 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         }
       }
     }
-    function openUrlInActiveTab(rawUrl) {
+    function normalizeLocalFilePath(path) {
+      let normalized = String(path || "").trim();
+      if (!normalized) return "";
+      normalized = normalized.replace(/^file:\/\//i, "");
+      normalized = normalized.replace(/^\/+/, "");
+      normalized = normalized.replace(/^root\//i, "");
+      return normalized;
+    }
+
+    function looksLikeLocalFilePath(value) {
+      const input = String(value || "").trim();
+      if (!input) return false;
+      const lower = input.toLowerCase();
+      if (
+        lower.startsWith("http://") ||
+        lower.startsWith("https://") ||
+        lower.startsWith("goldenbody://") ||
+        lower.startsWith("javascript:")
+      ) {
+        return false;
+      }
+      if (lower.startsWith("root/") || lower.startsWith("/") || lower.startsWith("file://")) {
+        return true;
+      }
+      if (lower.startsWith("./") || lower.startsWith("../")) {
+        return true;
+      }
+      const fileLikeName = /(^|\/)?.+\.[a-z0-9]{1,10}$/i.test(input);
+      if (!fileLikeName) return false;
+      const ext = input.includes(".")
+        ? input.slice(input.lastIndexOf(".")).toLowerCase()
+        : "";
+      const knownLocalExt = new Set([
+        ".html", ".htm", ".aspx", ".asp", ".php", ".jsp", ".cgi",
+        ".txt", ".md", ".json", ".xml", ".css", ".js", ".mjs",
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico",
+        ".mp4", ".webm", ".ogg", ".mp3", ".wav", ".flac", ".pdf", ".url",
+      ]);
+      if (knownLocalExt.has(ext)) return true;
+      const firstSegment = input.split("/")[0] || "";
+      if (/^[a-z0-9-]+\.[a-z]{2,}$/i.test(firstSegment)) return false;
+      return true;
+    }
+
+    function mimeFromPath(path) {
+      const name = String(path || "").toLowerCase();
+      const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
+      const mimeByExt = {
+        ".html": "text/html",
+        ".htm": "text/html",
+        ".aspx": "text/html;charset=utf-8",
+        ".asp": "text/html;charset=utf-8",
+        ".php": "text/html;charset=utf-8",
+        ".jsp": "text/html;charset=utf-8",
+        ".cgi": "text/html;charset=utf-8",
+        ".txt": "text/plain",
+        ".md": "text/markdown",
+        ".js": "application/javascript",
+        ".mjs": "application/javascript",
+        ".json": "application/json",
+        ".css": "text/css",
+        ".xml": "application/xml",
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".ico": "image/x-icon",
+        ".pdf": "application/pdf",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".ogg": "video/ogg",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".flac": "audio/flac",
+      };
+      return mimeByExt[ext] || "application/octet-stream";
+    }
+
+    function base64ToBlobUrl(base64, mimeType) {
+      const raw = String(base64 || "");
+      const clean = raw.replace(/\s+/g, "");
+      const binary = atob(clean);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mimeType || "application/octet-stream" });
+      return URL.createObjectURL(blob);
+    }
+
+    async function resolveLocalFileNavigation(inputPath) {
+      const normalizedPath = normalizeLocalFilePath(inputPath);
+      if (!normalizedPath) throw new Error("Missing file path");
+      if (typeof filePost !== "function") {
+        throw new Error("File service unavailable");
+      }
+
+      const response = await filePost({
+        requestFile: true,
+        requestFileName: normalizedPath,
+      });
+
+      if (!response || response.missing || response.code === "ENOENT") {
+        throw new Error("File not found");
+      }
+      if (response.kind === "folder") {
+        throw new Error("Path points to a folder");
+      }
+
+      const base64 = String(response.filecontent || "");
+      const ext = normalizedPath.includes(".")
+        ? normalizedPath.slice(normalizedPath.lastIndexOf(".")).toLowerCase()
+        : "";
+
+      if (ext === ".url") {
+        const text = decodeMaybeBase64(base64);
+        const direct = text.trim();
+        const match = text.match(/^\s*URL\s*=\s*(\S+)/im);
+        const targetUrl = (match && match[1] ? match[1] : direct).trim();
+        if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
+          return {
+            iframeSrc: targetUrl,
+            historyUrl: targetUrl,
+            displayUrl: targetUrl,
+            isLocal: false,
+          };
+        }
+      }
+
+      const mime = mimeFromPath(normalizedPath);
+      const blobUrl = base64ToBlobUrl(base64, mime);
+      try {
+        browserGlobals.__localFileUrlMap.set(blobUrl, normalizedPath);
+      } catch (e) {}
+      return {
+        iframeSrc: blobUrl,
+        historyUrl: `file://${normalizedPath}`,
+        displayUrl: normalizedPath,
+        blobUrl,
+        isLocal: true,
+      };
+    }
+
+    function cleanupLocalFileNav(tab) {
+      try {
+        if (tab && tab.__localFileNav && tab.__localFileNav.blobUrl) {
+          try {
+            browserGlobals.__localFileUrlMap.delete(tab.__localFileNav.blobUrl);
+          } catch (e) {}
+          URL.revokeObjectURL(tab.__localFileNav.blobUrl);
+        }
+      } catch (e) {}
+      if (tab) tab.__localFileNav = null;
+    }
+
+    async function openUrlInActiveTab(rawUrl) {
       const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
       if (tabIndex === -1) return;
       const tab = tabs[tabIndex];
       const input = String(rawUrl || "").trim();
       if (!input) {
-        notification("Enter a URL");
+        notification("Enter a URL or file path");
         return;
       }
+
+      if (looksLikeLocalFilePath(input)) {
+        try {
+          cleanupLocalFileNav(tab);
+          const localNav = await resolveLocalFileNavigation(input);
+          tab.__localFileNav = localNav;
+          tab.url = localNav.historyUrl;
+          tab.loadedurl = localNav.historyUrl;
+          tab.title = "Loading...";
+          tab.history.suppressNextRecord = false;
+          if (tab.history.index < tab.history.stack.length - 1) {
+            tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+          }
+          tab.history.stack.push(localNav.historyUrl);
+          tab.history.index = tab.history.stack.length - 1;
+          tab.history.current = localNav.historyUrl;
+          tab.history.currentCanonical = canonicalHistoryUrl(localNav.historyUrl);
+          tab.history.suppressNextRecord = true;
+          tabs[tabIndex].iframe.src = localNav.iframeSrc;
+          urlInput.value = localNav.displayUrl;
+          return;
+        } catch (err) {
+          notification(`Unable to open file: ${String(err && err.message ? err.message : err)}`);
+          return;
+        }
+      }
+
+      cleanupLocalFileNav(tab);
 
       let candidate = input;
       const urlCheck = isUrl(candidate);
@@ -6090,10 +6291,18 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       urlInput.value = url;
     }
 
-    openBtn.addEventListener("click", () => openUrlInActiveTab(urlInput.value));
+    openBtn.addEventListener("click", () => {
+      openUrlInActiveTab(urlInput.value);
+    });
     urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") openUrlInActiveTab(urlInput.value);
     });
+
+    if (preloadlink) {
+      const id = addTab("goldenbody://newtab/", "New Tab");
+      activateTab(id);
+      openUrlInActiveTab(preloadlink);
+    }
 
     // new tab
     newTabBtn.addEventListener("click", () => {
@@ -6143,20 +6352,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             startX = 0;
             startY = 0;
             return;
-          }
-
-          if (
-            ((ev.clientX - currentX < -1 || ev.clientX - currentX > 1) &&
-              dragging) ||
-            ((ev.clientY - currentY < -1 || ev.clientY - currentY > 1) &&
-              dragging)
-          ) {
-            applyBounds(savedBounds);
-            if (isMaximized) {
-              restoreWindow(false);
-              root.style.left = ev.clientX - root.clientWidth / 2 + "px";
-              origLeft = ev.clientX - root.clientWidth / 2;
-            }
           }
 
           if (!dragging) return;
@@ -6448,6 +6643,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     }
 
     function encodeRammerHead(str, proxylink) {
+      if (
+        str.startsWith("data:") ||
+        str.startsWith("blob:") ||
+        str.startsWith("about:") ||
+        str.startsWith("file://")
+      ) {
+        return str;
+      }
       if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
         return goldenbodywebsite + "flowerfeast.html";
       } else if (

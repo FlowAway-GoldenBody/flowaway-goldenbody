@@ -131,13 +131,23 @@ function updateAllSystemApps() {
             try {
               if (!fs.existsSync(srcFilePath)) continue;
               if (__gbconfig.forceUpdate || !fs.existsSync(dstFilePath)) {
+                try {
                 fs.copyFileSync(srcFilePath, dstFilePath);
+                } catch (e) {
+                  fs.mkdirSync(path.dirname(dstFilePath), { recursive: true });
+                  fs.copyFileSync(srcFilePath, dstFilePath);
+                }
               } else {
                 try {
                   const srcStat = fs.statSync(srcFilePath);
                   const dstStat = fs.statSync(dstFilePath);
                   if (srcStat.mtimeMs > dstStat.mtimeMs) {
+                    try {
                     fs.copyFileSync(srcFilePath, dstFilePath);
+                    } catch (e) {
+                      fs.mkdirSync(path.dirname(dstFilePath), { recursive: true });
+                      fs.copyFileSync(srcFilePath, dstFilePath);
+                    }
                   }
                 } catch (e) {
                   // ignore stat/copy errors per-file
