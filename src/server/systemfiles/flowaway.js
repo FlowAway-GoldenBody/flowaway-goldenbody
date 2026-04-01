@@ -4,7 +4,7 @@
 if (!window.data) window.data = data;
 window.____gbEventListners = [];
 window.loaded = false;
-window.APP_VERSION = "v1.12.7";
+window.APP_VERSION = "v1.13.0";
 
 if (typeof data.autohidetaskbar === "undefined") {
   data.autohidetaskbar = false;
@@ -4025,7 +4025,40 @@ try {
         });
 
         var top = candidates[candidates.length - 1];
-        if (top) {          top.remove();           removeAllEventListenersForApp(targetAppId + top._goldenbodyId)        }
+        if (top) {
+          try {
+            // Remove the DOM root first
+            top.remove();
+          } catch (e) {}
+
+          // Also remove this instance from the app's global tracking array if present
+          try {
+            var appObj = (window.apps || []).find(function (a) {
+              return appMatchesIdentifier(a, targetAppId);
+            });
+            if (appObj && appObj.globalvarobject && appObj.allapparray) {
+              var gv = window[appObj.globalvarobject];
+              var arr = gv && gv[appObj.allapparray];
+              if (Array.isArray(arr)) {
+                for (var i = arr.length - 1; i >= 0; i--) {
+                  var inst = arr[i];
+                  var instRoot = inst && (inst.rootElement || inst.root || inst.rootEl);
+                  if (
+                    inst === top ||
+                    instRoot === top ||
+                    (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
+                  ) {
+                    arr.splice(i, 1);
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+
+          try {
+            removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
+          } catch (e) {}
+        }
       } catch (e) {
         console.error("close focused app window error", e);
       }
@@ -5444,7 +5477,7 @@ async function loadSystemHelperScript() {
             (data && data.username) ||
             "",
           requestFile: true,
-          requestFileName: "goldenbody.js",
+          requestFileName: "systemfiles/goldenbody.js",
         }),
       });
 
@@ -5468,7 +5501,7 @@ async function loadSystemHelperScript() {
 
     if (!loaded) {
       var fallbackScript = document.createElement("script");
-      fallbackScript.src = "goldenbody.js";
+      fallbackScript.src = "systemfiles/goldenbody.js";
       document.body.appendChild(fallbackScript);
       loaded = true;
     }

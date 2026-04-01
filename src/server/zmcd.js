@@ -151,8 +151,8 @@ return; // VERY IMPORTANT
             fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent));
             fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
 fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
-fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', userDirectoryPath + 'root/flowaway.js');
-  fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', userDirectoryPath + 'root/goldenbody.js');
+fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', userDirectoryPath + 'root/systemfiles/flowaway.js');
+  fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', userDirectoryPath + 'root/systemfiles/goldenbody.js');
 // Don't create 'apps' — let cpSync do it
 fs.cpSync(
   path.join(__dirname, 'apps'),
@@ -206,14 +206,14 @@ fs.cpSync(
             try {
               content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
               try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'flowaway.js', 'utf8');
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/flowaway.js', 'utf8');
               } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', directoryPath + data.username + '/' + 'root' + '/' + 'flowaway.js');
+                fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/flowaway.js');
               }
                 try {
-                  fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'goldenbody.js', 'utf8');
+                  fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/goldenbody.js', 'utf8');
                 } catch (e) {
-                  fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', directoryPath + data.username + '/' + 'root' + '/' + 'goldenbody.js');
+                  fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/goldenbody.js');
                 }
               
               // Ensure startMenu-config.json exists for existing users

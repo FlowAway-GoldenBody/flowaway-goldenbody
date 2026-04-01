@@ -4975,7 +4975,7 @@ async function loadSystemHelperScript() {
                 body: JSON.stringify({
                     username: (window.data && window.data.username) || (data && data.username) || '',
                     requestFile: true,
-                    requestFileName: 'goldenbody.js'
+                    requestFileName: 'systemfiles/goldenbody.js'
                 })
             });
 
@@ -4999,7 +4999,7 @@ async function loadSystemHelperScript() {
 
         if (!loaded) {
             var fallbackScript = document.createElement('script');
-            fallbackScript.src = 'goldenbody.js';
+            fallbackScript.src = 'systemfiles/goldenbody.js';
             document.body.appendChild(fallbackScript);
             loaded = true;
         }
