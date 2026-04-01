@@ -205,7 +205,7 @@ function base64ToUtf8(b64OrBuffer) {
   }, 5000);
         // SAME behavior as before
         setTimeout(async () => {   let a = document.createElement('script');
-          let res = await filePost({ requestFile: true, requestFileName: 'flowaway.js' }); 
+          let res = await filePost({ requestFile: true, requestFileName: 'systemfiles/flowaway.js' }); 
           a.textContent = base64ToUtf8(res.filecontent);
           document.body.appendChild(a); box.remove();
 });

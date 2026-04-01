@@ -127,7 +127,7 @@ function updateAllSystemApps() {
           // Keep key root-level system scripts in sync.
           for (const fileName of systemRootFiles) {
             const srcFilePath = path.join(projectRoot, 'src', 'server', 'systemfiles', fileName);
-            const dstFilePath = path.join(userRootPath, fileName);
+            const dstFilePath = path.join(userRootPath, 'systemfiles', fileName);
             try {
               if (!fs.existsSync(srcFilePath)) continue;
               if (__gbconfig.forceUpdate || !fs.existsSync(dstFilePath)) {
