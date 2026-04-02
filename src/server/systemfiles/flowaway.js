@@ -3938,7 +3938,7 @@ try {
       (e.ctrlKey && !e.altKey && e.key === "Tab")
     ) {
       e.preventDefault();
-      cycleWindowFocus(!!e.shiftKey, e.altKey ? "Alt" : "Ctrl");
+      cycleFocusedWindow(!!e.shiftKey, e.altKey ? "Alt" : "Ctrl");
       return;
     }
 
@@ -3958,18 +3958,7 @@ try {
       (e.key === "ArrowUp" || e.key === "ArrowDown")
     ) {
       e.preventDefault();
-      var delta = e.key === "ArrowUp" ? 5 : -5;
-      data.brightness = Math.min(
-        100,
-        Math.max(0, (parseInt(data.brightness) || 0) + delta),
-      );
-      document.documentElement.style.filter = `brightness(${data.brightness}%)`;
-      try {
-        zmcdpost({ changeBrightness: true, brightness: data.brightness });
-      } catch (err) {}
-      try {
-        notification(`Brightness: ${data.brightness}%`);
-      } catch (e) {}
+      applyBrightnessDelta(e.key === "ArrowUp" ? 5 : -5);
       return;
     }
 
@@ -3980,109 +3969,20 @@ try {
       (e.key === "ArrowUp" || e.key === "ArrowDown")
     ) {
       e.preventDefault();
-      var delta = e.key === "ArrowUp" ? 5 : -5;
-      data.volume = Math.min(
-        100,
-        Math.max(0, (parseInt(data.volume) || 0) + delta),
-      );
-      setAllMediaVolume(data.volume / 100);
-      // inform other parts of UI
-      window.dispatchEvent(
-        new CustomEvent("system-volume", { detail: data.volume }),
-      );
-      try {
-        zmcdpost({ changeVolume: true, volume: data.volume });
-      } catch (err) {}
-      try {
-        notification(`Volume: ${data.volume}%`);
-      } catch (e) {}
+      applyVolumeDelta(e.key === "ArrowUp" ? 5 : -5);
       return;
     }
 
     // Default: Ctrl+N -> open new instance of focused app or a sensible default
     if (e.ctrlKey && keyPart === "N") {
       e.preventDefault();
-      var focusedApp = atTop || "";
-      if (focusedApp && typeof launchApp === "function") {
-        // attempt to open another instance of focused app
-        launchApp(focusedApp);
-        return;
-      }
-      // fallback: first taskbutton or first discovered app
-      var fallback =
-        (data.taskbuttons && data.taskbuttons[0]) ||
-        (window.apps &&
-          window.apps[0] &&
-          getPreferredAppIdentifier(window.apps[0]));
-      if (fallback) launchApp(fallback);
+      launchFocusedAppWindow();
       return;
     } else if (e.ctrlKey && e.shiftKey && keyPart === "W") {
       // Close only the topmost app window for the focused app (atTop)
       e.preventDefault();
       e.stopPropagation();
-      if (!atTop) return;
-      try {
-        var targetAppId = String(atTop || "").trim();
-        if (!targetAppId) return;
-
-        var roots = Array.from(document.querySelectorAll(".app-root"));
-        var candidates = roots.filter(
-          (root) => root.dataset && root.dataset.appId === targetAppId,
-        );
-
-        // Fallback for older windows not tagged with dataset app id
-        if (!candidates.length) {
-          candidates = roots.filter(
-            (root) => root.classList && root.classList.contains(targetAppId),
-          );
-        }
-
-        if (!candidates.length) return;
-
-        candidates.sort((a, b) => {
-          var za = parseInt(a.style.zIndex) || 0;
-          var zb = parseInt(b.style.zIndex) || 0;
-          return za - zb;
-        });
-
-        var top = candidates[candidates.length - 1];
-        if (top) {
-          try {
-            // Remove the DOM root first
-            top.remove();
-          } catch (e) {}
-
-          // Also remove this instance from the app's global tracking array if present
-          try {
-            var appObj = (window.apps || []).find(function (a) {
-              return appMatchesIdentifier(a, targetAppId);
-            });
-            if (appObj && appObj.globalvarobject && appObj.allapparray) {
-              var gv = window[appObj.globalvarobject];
-              var arr = gv && gv[appObj.allapparray];
-              if (Array.isArray(arr)) {
-                for (var i = arr.length - 1; i >= 0; i--) {
-                  var inst = arr[i];
-                  var instRoot = inst && (inst.rootElement || inst.root || inst.rootEl);
-                  if (
-                    inst === top ||
-                    instRoot === top ||
-                    (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
-                  ) {
-                    arr.splice(i, 1);
-                  }
-                }
-              }
-            }
-          } catch (e) {}
-
-          try {
-            removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
-          } catch (e) {}
-        }
-      } catch (e) {
-        console.error("close focused app window error", e);
-      }
+      closeFocusedAppWindow();
       return;
     }
   };
@@ -5037,12 +4937,14 @@ startMenu.innerHTML = `
   <button class="startMenuTab active" data-tab="pinned">Pinned</button>
   <button class="startMenuTab" data-tab="recents">Recent</button>
   <button class="startMenuTab" data-tab="all">All Apps</button>
+  <button class="startMenuTab" data-tab="shortcuts">Shortcuts</button>
 </div>
 
 <div class="startMenuBody">
     <div id="appsGrid" class="tabSection active grid-view" data-tab="pinned"></div>
     <div id="recentsGrid" class="tabSection grid-view" data-tab="recents"></div>
     <div id="allAppsGrid" class="tabSection grid-view" data-tab="all"></div>
+    <div id="shortcutsGrid" class="tabSection grid-view" data-tab="shortcuts"></div>
 </div>
 
     <div class="statusBar">
@@ -5108,6 +5010,7 @@ function switchTab(tabName) {
   if (tabName === 'pinned') renderPinnedAppsGrid();
   else if (tabName === 'recents') renderRecentsGrid();
   else if (tabName === 'all') renderAllAppsGrid();
+  else if (tabName === 'shortcuts') renderQuickActionsGrid();
 }
 
 tabButtons.forEach(btn => {
@@ -5117,6 +5020,165 @@ tabButtons.forEach(btn => {
     switchTab(this.dataset && this.dataset.tab);
   });
 });
+
+function applyBrightnessDelta(delta) {
+  data.brightness = Math.min(
+    100,
+    Math.max(0, (parseInt(data.brightness) || 0) + delta),
+  );
+  document.documentElement.style.filter = `brightness(${data.brightness}%)`;
+  try {
+    zmcdpost({ changeBrightness: true, brightness: data.brightness });
+  } catch (err) {}
+  try {
+    notification(`Brightness: ${data.brightness}%`);
+  } catch (e) {}
+}
+
+function applyVolumeDelta(delta) {
+  data.volume = Math.min(
+    100,
+    Math.max(0, (parseInt(data.volume) || 0) + delta),
+  );
+  setAllMediaVolume(data.volume / 100);
+  window.dispatchEvent(new CustomEvent("system-volume", { detail: data.volume }));
+  try {
+    zmcdpost({ changeVolume: true, volume: data.volume });
+  } catch (err) {}
+  try {
+    notification(`Volume: ${data.volume}%`);
+  } catch (e) {}
+}
+
+function cycleFocusedWindow(reverse, modKey = "Alt") {
+  if (typeof cycleWindowFocus === "function") {
+    cycleWindowFocus(!!reverse, modKey);
+  }
+}
+
+function launchFocusedAppWindow() {
+  var focusedApp = atTop || "";
+  if (focusedApp && typeof launchApp === "function") {
+    launchApp(focusedApp);
+    return;
+  }
+  var fallback =
+    (data.taskbuttons && data.taskbuttons[0]) ||
+    (window.apps && window.apps[0] && getPreferredAppIdentifier(window.apps[0]));
+  if (fallback) launchApp(fallback);
+}
+
+function closeFocusedAppWindow() {
+  if (!atTop) return;
+  try {
+    var targetAppId = String(atTop || "").trim();
+    if (!targetAppId) return;
+
+    var roots = Array.from(document.querySelectorAll(".app-root"));
+    var candidates = roots.filter(
+      (root) => root.dataset && root.dataset.appId === targetAppId,
+    );
+
+    if (!candidates.length) {
+      candidates = roots.filter(
+        (root) => root.classList && root.classList.contains(targetAppId),
+      );
+    }
+
+    if (!candidates.length) return;
+
+    candidates.sort((a, b) => {
+      var za = parseInt(a.style.zIndex) || 0;
+      var zb = parseInt(b.style.zIndex) || 0;
+      return za - zb;
+    });
+
+    var top = candidates[candidates.length - 1];
+    if (top) {
+      try {
+        top.remove();
+      } catch (e) {}
+
+      try {
+        var appObj = (window.apps || []).find(function (a) {
+          return appMatchesIdentifier(a, targetAppId);
+        });
+        if (appObj && appObj.globalvarobject && appObj.allapparray) {
+          var gv = window[appObj.globalvarobject];
+          var arr = gv && gv[appObj.allapparray];
+          if (Array.isArray(arr)) {
+            for (var i = arr.length - 1; i >= 0; i--) {
+              var inst = arr[i];
+              var instRoot = inst && (inst.rootElement || inst.root || inst.rootEl);
+              if (
+                inst === top ||
+                instRoot === top ||
+                (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
+              ) {
+                arr.splice(i, 1);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
+      try {
+        removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
+      } catch (e) {}
+    }
+  } catch (e) {
+    console.error("close focused app window error", e);
+  }
+}
+
+function createShortcutButton(label, description, handler) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.style.padding = "12px";
+  btn.style.borderRadius = "8px";
+  btn.style.border = data.dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.12)";
+  btn.style.background = data.dark ? "#2a2a2a" : "#fff";
+  btn.style.color = data.dark ? "#f5f5f5" : "#222";
+  btn.style.cursor = "pointer";
+  btn.style.textAlign = "left";
+  btn.style.font = "inherit";
+  btn.style.lineHeight = "1.35";
+  btn.style.display = "flex";
+  btn.style.flexDirection = "column";
+  btn.style.gap = "4px";
+  btn.style.width = "100%";
+  btn.style.boxSizing = "border-box";
+  btn.innerHTML = `<strong>${label}</strong><span style="font-size:12px;opacity:0.75;">${description}</span>`;
+  btn.addEventListener("mouseenter", () => {
+    btn.style.background = data.dark ? "#343434" : "#eef4ff";
+  });
+  btn.addEventListener("mouseleave", () => {
+    btn.style.background = data.dark ? "#2a2a2a" : "#fff";
+  });
+  btn.addEventListener("click", handler);
+  return btn;
+}
+
+async function renderQuickActionsGrid() {
+  const container = document.getElementById('shortcutsGrid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const actions = [
+    ['Open new window', 'Equivalent to Ctrl/Cmd+N', () => launchFocusedAppWindow()],
+    ['Cycle windows forward', 'Equivalent to Alt+Tab / Ctrl+Tab', () => cycleFocusedWindow(false, 'Alt')],
+    ['Cycle windows backward', 'Equivalent to Shift+Alt+Tab / Shift+Ctrl+Tab', () => cycleFocusedWindow(true, 'Alt')],
+    ['Close focused window', 'Equivalent to Ctrl+Shift+W', () => closeFocusedAppWindow()],
+    ['Brightness down', 'Equivalent to Ctrl+Alt+ArrowDown', () => applyBrightnessDelta(-5)],
+    ['Brightness up', 'Equivalent to Ctrl+Alt+ArrowUp', () => applyBrightnessDelta(5)],
+    ['Volume down', 'Equivalent to Ctrl+Shift+ArrowDown', () => applyVolumeDelta(-5)],
+    ['Volume up', 'Equivalent to Ctrl+Shift+ArrowUp', () => applyVolumeDelta(5)],
+  ];
+
+  actions.forEach(([label, description, handler]) => {
+    container.appendChild(createShortcutButton(label, description, handler));
+  });
+}
 
 // ============= RENDER FUNCTIONS =============
 async function renderPinnedAppsGrid() {

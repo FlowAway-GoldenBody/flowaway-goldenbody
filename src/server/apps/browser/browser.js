@@ -488,19 +488,9 @@ window.browser = function (
     // --- Cleanup old UI
     document.getElementById("perm-ui")?.remove();
 
-    // --- Overlay (click outside to close)
-    const overlay = document.createElement("div");
-    overlay.style.cssText = `
-    position:fixed;
-    inset:0;
-    z-index:999999;
-  `;
-    overlay.onclick = () => overlay.remove();
-
     // --- Floating panel
     const panel = document.createElement("div");
     panel.id = "perm-ui";
-    panel.onclick = (e) => e.stopPropagation();
     panel.className = "panel";
     panel.classList.toggle("dark", browserGlobals.dark);
     panel.classList.toggle("light", !browserGlobals.dark);
@@ -525,8 +515,29 @@ window.browser = function (
       panel.style.transform = "translate(-50%,-50%)";
     }
 
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+
+    let closed = false;
+    function closePermissionsPanel() {
+      if (closed) return;
+      closed = true;
+      try {
+        document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+      } catch (e) {}
+      panel.remove();
+    }
+
+    function onOutsidePointerDown(event) {
+      if (!panel.contains(event.target)) {
+        closePermissionsPanel();
+      }
+    }
+
+    setTimeout(() => {
+      if (!closed) {
+        document.addEventListener("pointerdown", onOutsidePointerDown, true);
+      }
+    }, 0);
 
     // --- Helpers
     const sandboxSet = new Set(
@@ -647,7 +658,7 @@ window.browser = function (
 
     const cancel = document.createElement("button");
     cancel.textContent = "Cancel";
-    cancel.onclick = () => overlay.remove();
+    cancel.onclick = () => closePermissionsPanel();
 
     const apply = document.createElement("button");
     apply.textContent = "Apply";
@@ -670,7 +681,7 @@ window.browser = function (
         lazyloading: lazyloading.checked,
       });
 
-      overlay.remove();
+      closePermissionsPanel();
     };
 
     actions.append(cancel, apply);
@@ -773,12 +784,203 @@ window.browser = function (
       return true;
     }
 
-    root.addEventListener("keydown", (e) => {
-      const key = String(e.key || "").toLowerCase();
+    function cycleBrowserTabs(reverse = false) {
+      if (!Array.isArray(tabs) || tabs.length < 2) return false;
+      const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+      if (currentIndex < 0) return false;
+      const delta = reverse ? -1 : 1;
+      const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
+      const nextTab = tabs[nextIndex];
+      if (!nextTab) return false;
+      activateTab(nextTab.id);
+      return true;
+    }
+
+    function closeActiveBrowserTab() {
+      if (!Array.isArray(tabs) || !tabs.length) return false;
+      const active = tabs.find((tab) => tab.id === activeTabId) || activatedTab;
+      if (!active || !active.id) return false;
+      closeTab(active.id);
+      return true;
+    }
+
+    function runBrowserCtrlShortcut(e) {
+      if (!e) return false;
+      if (e.__gbBrowserCtrlHandled) return true;
+
+      const keyRaw = String(e.key || "");
+      const key = keyRaw.toLowerCase();
       const isCtrlLike = !!(e.ctrlKey || e.metaKey);
-      if (!isCtrlLike) return;
-      runBrowserShortcut(key, e);
+      if (!isCtrlLike) return false;
+
+      if (e.altKey && (key === "arrowright" || key === "arrowleft")) {
+        e.preventDefault();
+        if (typeof e.stopPropagation === "function") e.stopPropagation();
+        e.__gbBrowserCtrlHandled = true;
+        cycleBrowserTabs(key === "arrowleft");
+        return true;
+      }
+
+      if (e.altKey) return false;
+
+      if (key === "w") {
+        e.preventDefault();
+        if (typeof e.stopPropagation === "function") e.stopPropagation();
+        e.__gbBrowserCtrlHandled = true;
+        closeActiveBrowserTab();
+        return true;
+      }
+
+      if (key === "t" || key === "n") {
+        const handled = runBrowserShortcut(key, e);
+        if (handled) e.__gbBrowserCtrlHandled = true;
+        return handled;
+      }
+
+      return false;
+    }
+
+    root.addEventListener("keydown", (e) => {
+      runBrowserCtrlShortcut(e);
     });
+
+    function getActiveBrowserTab() {
+      return (
+        tabs.find((tab) => tab.id === activeTabId) || activatedTab || null
+      );
+    }
+
+    function dispatchShortcutToActiveBrowserTab(eventInit) {
+      const tab = getActiveBrowserTab();
+      const target = tab && tab.iframe && tab.iframe.contentWindow;
+      if (!target) return false;
+      try {
+        target.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            ...eventInit,
+          }),
+        );
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function showBrowserActionsMenu(anchorEl) {
+      if (!anchorEl) return;
+
+      document.getElementById("browser-actions-menu")?.remove();
+
+      const menu = document.createElement("div");
+      menu.id = "browser-actions-menu";
+      menu.style.position = "fixed";
+      menu.style.zIndex = "2147483647";
+      menu.style.minWidth = "220px";
+      menu.style.padding = "6px 0";
+      menu.style.borderRadius = "8px";
+      menu.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
+      menu.style.background = browserGlobals.dark ? "#1f1f1f" : "#ffffff";
+      menu.style.color = browserGlobals.dark ? "#f5f5f5" : "#222";
+      menu.style.border = browserGlobals.dark ? "1px solid #444" : "1px solid #d0d0d0";
+
+      const closeMenu = () => {
+        menu.remove();
+        window.removeEventListener("click", closeMenu);
+        window.removeEventListener("keydown", onEsc);
+      };
+
+      const addItem = (label, handler, disabled = false) => {
+        const item = document.createElement("div");
+        item.textContent = label;
+        item.style.padding = "7px 12px";
+        item.style.cursor = disabled ? "not-allowed" : "pointer";
+        item.style.userSelect = "none";
+        item.style.opacity = disabled ? "0.45" : "1";
+        item.addEventListener("mouseenter", () => {
+          if (!disabled) item.style.background = browserGlobals.dark ? "#333" : "#eef4ff";
+        });
+        item.addEventListener("mouseleave", () => {
+          item.style.background = "transparent";
+        });
+        item.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (disabled) return;
+          closeMenu();
+          handler();
+        });
+        menu.appendChild(item);
+      };
+
+      const activeTab = getActiveBrowserTab();
+      const hasActiveTab = !!(activeTab && activeTab.iframe);
+      addItem("New tab", () => runBrowserShortcut("t"));
+      addItem("New window", () => runBrowserShortcut("n"));
+      addItem(
+        "Close tab",
+        () => {
+          if (activeTab) closeTab(activeTab.id);
+        },
+        !hasActiveTab,
+      );
+      addItem(
+        "Reload tab",
+        () => {
+          if (typeof reloadBtn.onclick === "function") reloadBtn.onclick();
+          else if (activeTab && activeTab.iframe && activeTab.iframe.contentWindow) {
+            activeTab.iframe.contentWindow.location.reload();
+          }
+        },
+        !hasActiveTab,
+      );
+      addItem(
+        "Zoom in",
+        () => {
+          dispatchShortcutToActiveBrowserTab({ key: "+", ctrlKey: true });
+        },
+        !hasActiveTab,
+      );
+      addItem(
+        "Zoom out",
+        () => {
+          dispatchShortcutToActiveBrowserTab({ key: "-", ctrlKey: true });
+        },
+        !hasActiveTab,
+      );
+      addItem(
+        "Open DevTools",
+        () => {
+          dispatchShortcutToActiveBrowserTab({
+            key: "i",
+            ctrlKey: true,
+            shiftKey: true,
+          });
+        },
+        !hasActiveTab,
+      );
+      addItem("Delete browsing data", () => {
+        clearBrowsingData();
+      });
+
+      menu.appendChild(document.createElement("hr"));
+
+      const rect = anchorEl.getBoundingClientRect();
+      menu.style.left = `${Math.min(window.innerWidth - 240, rect.right - 220)}px`;
+      menu.style.top = `${Math.min(window.innerHeight - 260, rect.bottom + 6)}px`;
+      document.body.appendChild(menu);
+
+      const onEsc = (e) => {
+        if (e.key === "Escape") closeMenu();
+      };
+      requestAnimationFrame(() => {
+        window.addEventListener("click", closeMenu, { once: true });
+        window.addEventListener("keydown", onEsc, { once: true });
+      });
+    }
+
     root.addEventListener("click", (e) => {
       // App-specific click handler can be implemented here
       bringToFront(root);
@@ -1046,16 +1248,40 @@ window.browser = function (
       return new Promise((resolve) => {
         document.getElementById("confirm-dialog")?.remove();
 
-        const overlay = document.createElement("div");
-        overlay.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;";
-
         const dialog = document.createElement("div");
         dialog.id = "confirm-dialog";
         dialog.className = "panel";
           dialog.classList.toggle("dark", browserGlobals.dark);
           dialog.classList.toggle("light", !browserGlobals.dark);
         dialog.style.cssText =
-          "position:relative;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
+          "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
+
+        let resolved = false;
+        function closeConfirmDialog(result) {
+          if (resolved) return;
+          resolved = true;
+          try {
+            document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+          } catch (e) {}
+          try {
+            document.removeEventListener("keydown", onEscKeyDown, true);
+          } catch (e) {}
+          dialog.remove();
+          resolve(result);
+        }
+
+        function onOutsidePointerDown(event) {
+          if (!dialog.contains(event.target)) {
+            closeConfirmDialog(false);
+          }
+        }
+
+        function onEscKeyDown(event) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            closeConfirmDialog(false);
+          }
+        }
 
         const titleEl = document.createElement("div");
         titleEl.style.cssText = "font-weight:600;margin-bottom:12px;font-size:16px;";
@@ -1075,27 +1301,27 @@ window.browser = function (
         btnCancel.style.cssText = "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
         btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
         btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
-        btnCancel.onclick = () => {
-          overlay.remove();
-          resolve(false);
-        };
+        btnCancel.onclick = () => closeConfirmDialog(false);
 
         const btnConfirm = document.createElement("button");
         btnConfirm.textContent = "Continue";
         btnConfirm.style.cssText = "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
         btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
         btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
-        btnConfirm.onclick = () => {
-          overlay.remove();
-          resolve(true);
-        };
+        btnConfirm.onclick = () => closeConfirmDialog(true);
 
         btnRow.appendChild(btnCancel);
         btnRow.appendChild(btnConfirm);
         dialog.appendChild(btnRow);
 
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
+        document.body.appendChild(dialog);
+
+        setTimeout(() => {
+          if (!resolved) {
+            document.addEventListener("pointerdown", onOutsidePointerDown, true);
+            document.addEventListener("keydown", onEscKeyDown, true);
+          }
+        }, 0);
 
         btnConfirm.focus();
       });
@@ -1103,21 +1329,21 @@ window.browser = function (
     function openDownloadUI(anchorPoint = null) {
       document.getElementById("download-ui")?.remove();
 
-      const overlay = document.createElement("div");
-      overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
-
       const panel = document.createElement("div");
       panel.id = "download-ui";
       panel.className = "panel";
       panel.classList.toggle("dark", browserGlobals.dark);
       panel.classList.toggle("light", !browserGlobals.dark);
       panel.style.cssText =
-        "position:fixed;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
-      panel.onclick = (e) => e.stopPropagation();
+        "position:fixed;z-index:999999;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+      let closed = false;
 
       function cleanup() {
+        if (closed) return;
+        closed = true;
         try {
-          overlay.remove();
+          panel.remove();
         } catch (e) {}
         try {
           document.removeEventListener("pointermove", onPointerMove);
@@ -1125,8 +1351,16 @@ window.browser = function (
         try {
           document.removeEventListener("pointerup", onPointerUp);
         } catch (e) {}
+        try {
+          document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+        } catch (e) {}
       }
-      overlay.onclick = () => cleanup();
+
+      function onOutsidePointerDown(event) {
+        if (!panel.contains(event.target)) {
+          cleanup();
+        }
+      }
 
       const title = document.createElement("div");
       title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
@@ -1243,8 +1477,13 @@ window.browser = function (
         document.addEventListener("pointerup", onPointerUp);
       });
 
-      overlay.appendChild(panel);
-      document.body.appendChild(overlay);
+      document.body.appendChild(panel);
+
+      setTimeout(() => {
+        if (!closed) {
+          document.addEventListener("pointerdown", onOutsidePointerDown, true);
+        }
+      }, 0);
 
       if (
         anchorPoint &&
@@ -1284,20 +1523,29 @@ window.browser = function (
 
     function openThemeUI(anchorPoint = null) {
       document.getElementById("theme-ui")?.remove();
-      const overlay = document.createElement("div");
-      overlay.style.cssText = "position:fixed;inset:0;z-index:999999;";
+
+      let closed = false;
       function cleanup() {
-        try { overlay.remove(); } catch (e) {}
+        if (closed) return;
+        closed = true;
+        try { panel.remove(); } catch (e) {}
+        try { document.removeEventListener("pointerdown", onOutsidePointerDown, true); } catch (e) {}
+        try { document.removeEventListener("pointermove", onPointerMoveTheme); } catch (e) {}
+        try { document.removeEventListener("pointerup", onPointerUpTheme); } catch (e) {}
       }
-      overlay.onclick = () => cleanup();
 
       const panel = document.createElement("div");
       panel.id = "theme-ui";
       panel.className = "panel";
       panel.classList.toggle("dark", browserGlobals.dark);
       panel.classList.toggle("light", !browserGlobals.dark);
-      panel.style.cssText = "position:fixed;width:320px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
-      panel.onclick = (e) => e.stopPropagation();
+      panel.style.cssText = "position:fixed;z-index:999999;width:320px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+      function onOutsidePointerDown(event) {
+        if (!panel.contains(event.target)) {
+          cleanup();
+        }
+      }
 
       const title = document.createElement("div");
       title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
@@ -1426,8 +1674,13 @@ window.browser = function (
         document.addEventListener("pointerup", onPointerUpTheme);
       });
 
-      overlay.appendChild(panel);
-      document.body.appendChild(overlay);
+      document.body.appendChild(panel);
+
+      setTimeout(() => {
+        if (!closed) {
+          document.addEventListener("pointerdown", onOutsidePointerDown, true);
+        }
+      }, 0);
 
       if (
         anchorPoint &&
@@ -1453,7 +1706,7 @@ window.browser = function (
       }
     }
 
-    clear.onclick = async function () {
+    async function clearBrowsingData() {
       const confirmClear = await showConfirmDialog(
         "Clear site data",
         "This will reset site settings and clear your browsing data. Continue?",
@@ -1475,7 +1728,8 @@ window.browser = function (
       browserGlobals.profileState.lazyloading = true;
       browserGlobals.profileState.siteZoom = {};
       notification("site data cleared! please close all browser windows!");
-    };
+    }
+    clear.onclick = clearBrowsingData;
 
     addressRow.appendChild(downloadBtn);
     // Theme button
@@ -1486,7 +1740,19 @@ window.browser = function (
     applyAddressIconButtonStyle(themeBtn);
     themeBtn.onclick = function(e){ const r = themeBtn.getBoundingClientRect(); openThemeUI({ x: r.right, y: r.top + r.height }); };
     addressRow.appendChild(themeBtn);
-    addressRow.appendChild(clear);
+  const browserActionsBtn = document.createElement("button");
+    browserActionsBtn.className = "sim-open-btn";
+    browserActionsBtn.title = "More browser actions";
+    browserActionsBtn.textContent = "⋯";
+    applyAddressIconButtonStyle(browserActionsBtn);
+    browserActionsBtn.style.fontSize = "18px";
+    browserActionsBtn.style.fontWeight = "700";
+    browserActionsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showBrowserActionsMenu(browserActionsBtn);
+    });
+    addressRow.appendChild(browserActionsBtn);
 
     const resizeDiv = document.createElement("div");
     resizeDiv.style.backgroundColor = "gray"; // visible
@@ -2279,13 +2545,17 @@ window.browser = function (
           );
         }
         iframeWindow.__gbBrowserShortcutHandler = function (e) {
+          if (runBrowserCtrlShortcut(e)) {
+            root.focus();
+            return;
+          }
+
           var switcherMode =
             (window.windowSwitchState && window.windowSwitchState.active &&
               window.windowSwitchState.mod) ||
             "";
           var wantsCycle =
             (e.altKey && e.key === "Tab") ||
-            (e.ctrlKey && !e.altKey && e.key === "Tab") ||
             (e.key === "Tab" && !!switcherMode);
           if (
             wantsCycle
@@ -2295,14 +2565,7 @@ window.browser = function (
             return;
           }
 
-          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
-            e.preventDefault();
-            e.stopPropagation();
-            root.focus();
-            if (!runBrowserShortcut("n", e) && (atTop == "browser" || atTop == "")) {
-              browser();
-            }
-          } else if (
+          if (
             e.ctrlKey &&
             e.shiftKey &&
             e.key === "W" &&
@@ -2324,13 +2587,6 @@ window.browser = function (
                 browserGlobals.allBrowsers[i].rootElement = null;
                 browserGlobals.allBrowsers.splice(i, 1);
               }
-            }
-          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "t") {
-            e.preventDefault();
-            e.stopPropagation();
-            root.focus();
-            if (!runBrowserShortcut("t", e)) {
-              addTab("goldenbody://newtab/", "New Tab");
             }
           }
         };
@@ -3865,13 +4121,8 @@ window.browser = function (
         if (!root.__vfsMessageListenerAdded) {
           root.__vfsMessageListenerAdded = true;
           root.addEventListener("keydown", function (e) {
-            if (e.ctrlKey && e.key === "w") {
-              for (const tab of tabs) {
-                if (tab.iframe.style.display !== "none") {
-                  closeTab(tab.id);
-                }
-              }
-            }
+            if (e.defaultPrevented || e.__gbBrowserCtrlHandled) return;
+            runBrowserCtrlShortcut(e);
           });
           root.focus();
           window.addEventListener(
@@ -5191,6 +5442,37 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                 if (!win || !frameDoc) continue;
                 if (!win.__gbWindowSwitchForwardKeydown) {
                   win.__gbWindowSwitchForwardKeydown = function (e) {
+                    var keyRaw = String(e.key || "");
+                    var key = keyRaw.toLowerCase();
+                    var isCtrlLike = !!(e.ctrlKey || e.metaKey);
+                    var isBrowserShortcutKey =
+                      key === "w" ||
+                      key === "t" ||
+                      key === "n" ||
+                      ((key === "arrowleft" || key === "arrowright") &&
+                        !!e.altKey);
+                    if (isCtrlLike && isBrowserShortcutKey) {
+                      e.preventDefault();
+                      if (typeof e.stopPropagation === "function") {
+                        e.stopPropagation();
+                      }
+                      try {
+                        root.dispatchEvent(
+                          new KeyboardEvent("keydown", {
+                            key: keyRaw || e.key,
+                            code: e.code,
+                            ctrlKey: !!e.ctrlKey,
+                            metaKey: !!e.metaKey,
+                            altKey: !!e.altKey,
+                            shiftKey: !!e.shiftKey,
+                            bubbles: true,
+                            cancelable: true,
+                          }),
+                        );
+                      } catch (err) {}
+                      return;
+                    }
+
                     var switcherMode =
                       (window.windowSwitchState &&
                         window.windowSwitchState.active &&
@@ -5198,7 +5480,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                       "";
                     var wantsCycle =
                       (e.altKey && e.key === "Tab") ||
-                      (e.ctrlKey && !e.altKey && e.key === "Tab") ||
                       (e.key === "Tab" && !!switcherMode);
                     if (
                       wantsCycle
@@ -5634,10 +5915,8 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       };
       tab.history.currentCanonical = canonicalHistoryUrl(url);
       const onIframeKeydown = function (e) {
-        if (e.ctrlKey && e.key === "w") {
-          if (tab.iframe.style.display !== "none") {
-            closeTab(tab.id);
-          }
+        if (runBrowserCtrlShortcut(e)) {
+          root.focus();
         }
       };
       tab.iframe.contentWindow.addEventListener("keydown", onIframeKeydown);

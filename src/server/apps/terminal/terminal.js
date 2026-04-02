@@ -85,13 +85,23 @@ terminal = function (posX = 50, posY = 50) {
   btnMax.title = "Maximize/Restore";
   topBar.appendChild(btnMax);
 
+  var btnClear = document.createElement("button");
+  btnClear.textContent = "Clear";
+  btnClear.title = "Clear output (Ctrl+L)";
+  topBar.appendChild(btnClear);
+
+  var btnInterrupt = document.createElement("button");
+  btnInterrupt.textContent = "Interrupt";
+  btnInterrupt.title = "Interrupt command (Ctrl+C)";
+  topBar.appendChild(btnInterrupt);
+
   var btnClose = document.createElement("button");
   btnClose.title = "Close";
   btnClose.style.color = "white";
   btnClose.style.backgroundColor = "red";
   topBar.appendChild(btnClose);
 
-  [topBar, btnMin, btnMax, btnClose].forEach((el) => {
+  [topBar, btnMin, btnMax, btnClear, btnInterrupt, btnClose].forEach((el) => {
     el.style.margin = "0 2px";
     el.style.border = "none";
     el.style.padding = "4px 6px";
@@ -205,6 +215,21 @@ terminal = function (posX = 50, posY = 50) {
     } else {
       restoreWindow(true);
     }
+  });
+
+  btnClear.addEventListener("click", () => {
+    output.innerHTML = "";
+    input.focus();
+  });
+
+  btnInterrupt.addEventListener("click", () => {
+    if (input.value) {
+      renderEnteredCommand(input.value);
+      writeLine("^C");
+      input.value = "";
+      historyIndex = commandHistory.length;
+    }
+    input.focus();
   });
 
   // Close
