@@ -85,16 +85,6 @@ terminal = function (posX = 50, posY = 50) {
   btnMax.title = "Maximize/Restore";
   topBar.appendChild(btnMax);
 
-  var btnClear = document.createElement("button");
-  btnClear.textContent = "Clear";
-  btnClear.title = "Clear output (Ctrl+L)";
-  topBar.appendChild(btnClear);
-
-  var btnInterrupt = document.createElement("button");
-  btnInterrupt.textContent = "Interrupt";
-  btnInterrupt.title = "Interrupt command (Ctrl+C)";
-  topBar.appendChild(btnInterrupt);
-
   var btnClose = document.createElement("button");
   btnClose.title = "Close";
   btnClose.style.color = "white";

@@ -5148,7 +5148,8 @@ function createShortcutButton(label, description, handler) {
   btn.style.gap = "4px";
   btn.style.width = "100%";
   btn.style.boxSizing = "border-box";
-  btn.innerHTML = `<strong>${label}</strong><span style="font-size:12px;opacity:0.75;">${description}</span>`;
+  btn.style.maxHeight = '180px';
+  btn.innerHTML = `<p>${label}</p><span style="font-size:12px;opacity:0.75;">${description}</span>`;
   btn.addEventListener("mouseenter", () => {
     btn.style.background = data.dark ? "#343434" : "#eef4ff";
   });
@@ -5165,14 +5166,12 @@ async function renderQuickActionsGrid() {
   container.innerHTML = '';
 
   const actions = [
-    ['Open new window', 'Equivalent to Ctrl/Cmd+N', () => launchFocusedAppWindow()],
-    ['Cycle windows forward', 'Equivalent to Alt+Tab / Ctrl+Tab', () => cycleFocusedWindow(false, 'Alt')],
-    ['Cycle windows backward', 'Equivalent to Shift+Alt+Tab / Shift+Ctrl+Tab', () => cycleFocusedWindow(true, 'Alt')],
-    ['Close focused window', 'Equivalent to Ctrl+Shift+W', () => closeFocusedAppWindow()],
-    ['Brightness down', 'Equivalent to Ctrl+Alt+ArrowDown', () => applyBrightnessDelta(-5)],
-    ['Brightness up', 'Equivalent to Ctrl+Alt+ArrowUp', () => applyBrightnessDelta(5)],
-    ['Volume down', 'Equivalent to Ctrl+Shift+ArrowDown', () => applyVolumeDelta(-5)],
-    ['Volume up', 'Equivalent to Ctrl+Shift+ArrowUp', () => applyVolumeDelta(5)],
+    ['Open new window', '', () => launchFocusedAppWindow()],
+    ['Close focused window', '', () => closeFocusedAppWindow()],
+    ['Brightness down', '', () => applyBrightnessDelta(-5)],
+    ['Brightness up', '', () => applyBrightnessDelta(5)],
+    ['Volume down', '', () => applyVolumeDelta(-5)],
+    ['Volume up', '', () => applyVolumeDelta(5)],
   ];
 
   actions.forEach(([label, description, handler]) => {
