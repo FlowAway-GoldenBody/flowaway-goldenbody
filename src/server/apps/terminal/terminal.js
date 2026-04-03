@@ -6,6 +6,178 @@ window.terminalGlobals = {};
 terminalGlobals.allTerminals = [];
 terminalGlobals.goldenbodyId = 0;
 
+window.__terminalCustomCommands =
+  window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
+    ? window.__terminalCustomCommands
+    : {};
+
+window.__terminalBuiltInCommandNames = Array.isArray(window.__terminalBuiltInCommandNames)
+  ? window.__terminalBuiltInCommandNames
+  : [
+      "help", "clear", "echo", "date", "whoami", "pwd", "history", "exit",
+      "ls", "cd", "cat", "head", "tail", "mkdir", "touch", "write", "rm", "cp", "mv",
+      "apps", "open", "run",
+      "env", "set", "unset",
+      "gbenv",
+    ];
+
+function normalizeTerminalCommandName(raw) {
+  var value = String(raw || "").trim().toLowerCase();
+  if (!value) return "";
+  if (!/^[a-z][a-z0-9._-]*$/i.test(value)) return "";
+  return value;
+}
+
+function getTerminalBuiltInCommandNames() {
+  var names = Array.isArray(window.__terminalBuiltInCommandNames)
+    ? window.__terminalBuiltInCommandNames
+    : [];
+  var normalizedNames = [];
+  var seen = {};
+  for (var i = 0; i < names.length; i++) {
+    var normalized = normalizeTerminalCommandName(names[i]);
+    if (normalized && !seen[normalized]) {
+      normalizedNames.push(normalized);
+      seen[normalized] = true;
+    }
+  }
+  return normalizedNames;
+}
+
+function getTerminalBuiltInCommandMap() {
+  var names = getTerminalBuiltInCommandNames();
+  var map = {};
+  for (var i = 0; i < names.length; i++) {
+    map[names[i]] = true;
+  }
+  return map;
+}
+
+window.registerTerminalAppCommand = function (definition, options) {
+  var opts = options && typeof options === "object" ? options : {};
+  var force = !!opts.force;
+  var def = definition && typeof definition === "object" ? definition : {};
+  var name = normalizeTerminalCommandName(def.name);
+  if (!name) {
+    return { ok: false, error: "invalid command name" };
+  }
+  if (typeof def.handler !== "function") {
+    return { ok: false, error: "handler must be a function" };
+  }
+
+  var aliases = Array.isArray(def.aliases) ? def.aliases : [];
+  var normalizedAliases = [];
+  for (var i = 0; i < aliases.length; i++) {
+    var aliasName = normalizeTerminalCommandName(aliases[i]);
+    if (aliasName && aliasName !== name && normalizedAliases.indexOf(aliasName) === -1) {
+      normalizedAliases.push(aliasName);
+    }
+  }
+
+  var builtInMap = getTerminalBuiltInCommandMap();
+  if (!force) {
+    if (builtInMap[name]) {
+      return { ok: false, error: "cannot override built-in command without force" };
+    }
+    for (var j = 0; j < normalizedAliases.length; j++) {
+      if (builtInMap[normalizedAliases[j]]) {
+        return { ok: false, error: "cannot use built-in alias without force" };
+      }
+    }
+  }
+
+  var registry =
+    window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
+      ? window.__terminalCustomCommands
+      : {};
+
+  for (var existingName in registry) {
+    if (!Object.prototype.hasOwnProperty.call(registry, existingName)) continue;
+    if (existingName === name) continue;
+    var existing = registry[existingName] || {};
+    var existingAliases = Array.isArray(existing.aliases) ? existing.aliases : [];
+    if (!force) {
+      if (existingName === name || existingAliases.indexOf(name) !== -1) {
+        return { ok: false, error: "command name already registered" };
+      }
+      var overlap = normalizedAliases.find(function (a) {
+        return a === existingName || existingAliases.indexOf(a) !== -1;
+      });
+      if (overlap) {
+        return { ok: false, error: "command alias already registered" };
+      }
+    } else {
+      existing.aliases = existingAliases.filter(function (alias) {
+        return normalizedAliases.indexOf(alias) === -1 && alias !== name;
+      });
+      registry[existingName] = existing;
+    }
+  }
+
+  registry[name] = {
+    name: name,
+    description: String(def.description || ""),
+    usage: String(def.usage || name),
+    handler: def.handler,
+    aliases: normalizedAliases,
+    sourceApp: def.sourceApp ? String(def.sourceApp) : "",
+    forceOverride: force,
+    updatedAt: Date.now(),
+  };
+  window.__terminalCustomCommands = registry;
+  return { ok: true, command: registry[name] };
+};
+
+window.unregisterTerminalAppCommand = function (nameOrAlias) {
+  var target = normalizeTerminalCommandName(nameOrAlias);
+  if (!target) return false;
+  var registry =
+    window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
+      ? window.__terminalCustomCommands
+      : {};
+  if (registry[target]) {
+    delete registry[target];
+    window.__terminalCustomCommands = registry;
+    return true;
+  }
+  for (var name in registry) {
+    if (!Object.prototype.hasOwnProperty.call(registry, name)) continue;
+    var aliases = Array.isArray(registry[name].aliases) ? registry[name].aliases : [];
+    if (aliases.indexOf(target) !== -1) {
+      delete registry[name];
+      window.__terminalCustomCommands = registry;
+      return true;
+    }
+  }
+  return false;
+};
+
+if (!window.__terminalTaskmanDemoRegistered && typeof window.registerTerminalAppCommand === "function") {
+  window.registerTerminalAppCommand({
+    name: "taskman",
+    description: "Show Flowaway task-manager snapshot summary.",
+    usage: "taskman [json]",
+    sourceApp: "terminal",
+    handler: function (context, args) {
+      if (typeof window.getTaskManagerSnapshot !== "function") {
+        return "taskman: task manager data unavailable";
+      }
+      var snapshot = window.getTaskManagerSnapshot();
+      var summary = snapshot && snapshot.summary ? snapshot.summary : {};
+      if (String(args && args[0] || "").toLowerCase() === "json") {
+        return snapshot || {};
+      }
+      context.writeLine("Tasks: " + Number(summary.totalEntries || 0));
+      context.writeLine("Running: " + Number(summary.running || 0));
+      context.writeLine("Idle: " + Number(summary.idle || 0));
+      context.writeLine("Unknown: " + Number(summary.unknown || 0));
+      context.writeLine("Instances: " + Number(summary.totalInstances || 0));
+      return;
+    },
+  });
+  window.__terminalTaskmanDemoRegistered = true;
+}
+
 terminal = function (posX = 50, posY = 50) {
   notification("Terminal is in beta. Type 'help' for available commands.");
   startMenu.style.display = "none";
@@ -734,6 +906,92 @@ terminal = function (posX = 50, posY = 50) {
     return false;
   }
 
+  function getCustomCommandEntries() {
+    var registry =
+      window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
+        ? window.__terminalCustomCommands
+        : {};
+    return Object.keys(registry)
+      .map((name) => registry[name])
+      .filter((entry) => entry && typeof entry.handler === "function")
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  function resolveCustomCommand(name) {
+    var target = normalizeTerminalCommandName(name);
+    if (!target) return null;
+    var entries = getCustomCommandEntries();
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].name === target) return entries[i];
+      var aliases = Array.isArray(entries[i].aliases) ? entries[i].aliases : [];
+      if (aliases.indexOf(target) !== -1) return entries[i];
+    }
+    return null;
+  }
+
+  async function executeCustomCommand(customCommand, args) {
+    var context = {
+      writeLine: function (value, color) {
+        if (typeof value === "undefined") return;
+        if (typeof value === "object" && value !== null) {
+          writeLine(JSON.stringify(value, null, 2), color || "");
+          return;
+        }
+        writeLine(String(value), color || "");
+      },
+      openAppByName: openAppByName,
+      listApps: listApps,
+      getEnvSnapshot: function () {
+        return { ...terminalEnv };
+      },
+      getCwd: function () {
+        return cwdDisplayPath();
+      },
+    };
+
+    try {
+      var result = await customCommand.handler(context, args || []);
+      if (typeof result === "undefined") return;
+      if (typeof result === "string") {
+        writeLine(result);
+        return;
+      }
+      if (typeof result === "object" && result !== null) {
+        writeLine(JSON.stringify(result, null, 2));
+        return;
+      }
+      writeLine(String(result));
+    } catch (err) {
+      var message =
+        err && typeof err.message === "string" && err.message
+          ? err.message
+          : "custom command failed";
+      writeLine(`${customCommand.name}: ${message}`, "#ff7a7a");
+    }
+  }
+
+  function getAllCommandNames() {
+    var merged = getTerminalBuiltInCommandNames();
+    var seen = {};
+    for (var i = 0; i < merged.length; i++) seen[merged[i]] = true;
+    var custom = getCustomCommandEntries();
+    for (var j = 0; j < custom.length; j++) {
+      var entry = custom[j];
+      if (entry && entry.name && !seen[entry.name]) {
+        merged.push(entry.name);
+        seen[entry.name] = true;
+      }
+      var aliases = Array.isArray(entry && entry.aliases) ? entry.aliases : [];
+      for (var k = 0; k < aliases.length; k++) {
+        if (aliases[k] && !seen[aliases[k]]) {
+          merged.push(aliases[k]);
+          seen[aliases[k]] = true;
+        }
+      }
+    }
+    return merged;
+  }
+
   async function runCommand(rawText) {
     const trimmed = String(rawText || "").trim();
     if (!trimmed) return;
@@ -742,15 +1000,34 @@ terminal = function (posX = 50, posY = 50) {
     if (!tokens.length) return;
     const command = tokens[0].toLowerCase();
     const args = tokens.slice(1);
+    const matchedCustomCommand = resolveCustomCommand(command);
+
+    if (matchedCustomCommand && matchedCustomCommand.forceOverride) {
+      await executeCustomCommand(matchedCustomCommand, args);
+      return;
+    }
 
     if (command === "help") {
-      writeLine("Core:       help, clear, echo, date, whoami, pwd, history, exit");
+      writeLine("Built-ins:  " + getTerminalBuiltInCommandNames().join(", "));
       writeLine("Filesystem: ls [path], cd [path], cat <path>, head [-n N] <path>, tail [-n N] <path>");
       writeLine("            mkdir <path>, touch <path>, write <path> <text>, rm <path>");
       writeLine("            cp <src> <dst>, mv <src> <dst>");
       writeLine("Apps:       apps, open <app>, run <path|function> [args...]");
       writeLine("Env:        env, set <KEY> <VALUE>, unset <KEY>");
       writeLine("gbenv:      gbenv, gbenv get|set|unset|save|reload");
+      const customCommands = getCustomCommandEntries();
+      if (customCommands.length) {
+        writeLine(
+          "Custom:     " +
+            customCommands
+              .map((entry) => {
+                var aliases = Array.isArray(entry.aliases) ? entry.aliases : [];
+                if (!aliases.length) return entry.name;
+                return entry.name + " (aliases: " + aliases.join(", ") + ")";
+              })
+              .join(", "),
+        );
+      }
       writeLine("Keys:       Tab=complete  ↑↓=history  Ctrl+L=clear  Ctrl+C=cancel");
       writeLine("Tip:        quote arguments with spaces, e.g. echo \"hello world\"");
       return;
@@ -1268,16 +1545,13 @@ terminal = function (posX = 50, posY = 50) {
       return;
     }
 
+    if (matchedCustomCommand) {
+      await executeCustomCommand(matchedCustomCommand, args);
+      return;
+    }
+
     writeLine(`${command}: command not found`, "#ff7a7a");
   }
-
-  const ALL_COMMANDS = [
-    "help", "clear", "echo", "date", "whoami", "pwd", "history", "exit",
-    "ls", "cd", "cat", "head", "tail", "mkdir", "touch", "write", "rm", "cp", "mv",
-    "apps", "open", "run",
-    "env", "set", "unset",
-    "gbenv",
-  ];
 
   function tabComplete() {
     const val = input.value;
@@ -1286,7 +1560,7 @@ terminal = function (posX = 50, posY = 50) {
 
     if (tokens.length === 0 || (tokens.length === 1 && !trailingSpace)) {
       const partial = tokens[0] || "";
-      const matches = ALL_COMMANDS.filter((c) => c.startsWith(partial));
+      const matches = getAllCommandNames().filter((c) => c.startsWith(partial));
       if (matches.length === 1) {
         input.value = matches[0] + " ";
       } else if (matches.length > 1) {
