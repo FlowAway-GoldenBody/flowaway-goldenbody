@@ -3,6 +3,8 @@
 // i mean by no if(appId === 'browser') or similar checks anywhere in the core (flowaway.js/goldenbody.js). its not allowed!
 if (!window.data) window.data = data;
 window.__processes = [];
+window.__processRegistry = {};
+window.__dynamicProcesses = {};
 window.____gbEventListners = [];
 window.loaded = false;
 window.APP_VERSION = "v1.13.0";
@@ -1689,8 +1691,58 @@ async function loadAppsFromTree() {
 
     // render
     await renderAppsGrid();
-    // reapply task buttons now that apps may be present
-    applyTaskButtons();
+   
+     // Load GUI-less apps (plain .js function files in /apps)
+     var rootChildren = (window.treeData && window.treeData[1]) || [];
+     var appsNode = rootChildren.find(
+       (c) => c[0] === "apps" && Array.isArray(c[1]),
+     );
+     if (appsNode && Array.isArray(appsNode[1])) {
+       for (var folderIdx = 0; folderIdx < appsNode[1].length; folderIdx++) {
+         var folder = appsNode[1][folderIdx];
+         if (
+           folder &&
+           typeof folder[0] === "string" &&
+           Array.isArray(folder[1])
+         ) {
+           for (var fileIdx = 0; fileIdx < folder[1].length; fileIdx++) {
+             var file = folder[1][fileIdx];
+             if (
+               file &&
+               typeof file[0] === "string" &&
+               file[0].endsWith(".js") &&
+               !Array.isArray(file[1])
+             ) {
+               var jsFileName = file[0].replace(/\.js$/, "");
+               var folderName = folder[0];
+               if (jsFileName === folderName) {
+                 try {
+                   var b64GuiLess = await fetchFileContentByPath(
+                     `apps/${folderName}/${jsFileName}.js`,
+                   );
+                   var scriptTextGuiLess = base64ToUtf8(b64GuiLess);
+                   var sGuiLess = document.createElement("script");
+                   sGuiLess.type = "text/javascript";
+                   sGuiLess.textContent = scriptTextGuiLess;
+                   sGuiLess.id = `app-${folderName}`;
+                   document.body.appendChild(sGuiLess);
+                 } catch (e) {
+                   flowawayError(
+                     "loadAppsFromTree",
+                     "Failed to load GUI-less app",
+                     e,
+                     { folder: folderName },
+                   );
+                 }
+               }
+             }
+           }
+         }
+       }
+     }
+   
+     // reapply task buttons now that apps may be present
+     applyTaskButtons();
     purgeButtons();
     setTimeout(() => {
       var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
@@ -2058,6 +2110,15 @@ function refreshAppsUiAfterChanges() {
     purgeButtons();
   } catch (e) {
     flowawayError("refreshAppsUiAfterChanges", "purgeButtons failed", e);
+  }
+  try {
+    buildTaskManagerState();
+  } catch (e) {
+    flowawayError(
+      "refreshAppsUiAfterChanges",
+      "buildTaskManagerState failed",
+      e,
+    );
   }
   setTimeout(() => {
     var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
@@ -2991,6 +3052,7 @@ try {
     );
   window._flowaway_handlers.onAppUpdated = (e) => {
     purgeButtons();
+    buildTaskManagerState();
   };
   window.addEventListener("appUpdated", window._flowaway_handlers.onAppUpdated);
 } catch (e) {}
@@ -3009,21 +3071,334 @@ function startAppPolling() {
 
 // Ensure loadAppsFromTree runs after initial tree load
 var oldLoadTree = window.loadTree;
+function safeTaskManagerClone(value) {
+  try {
+    if (typeof structuredClone === "function") return structuredClone(value);
+  } catch (e) {}
+
+  function sanitizeInstances(instances) {
+    if (!Array.isArray(instances)) return [];
+    var sanitized = [];
+    for (var i = 0; i < instances.length; i++) {
+      var item = instances[i];
+      if (
+        item === null ||
+        typeof item === "undefined" ||
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean"
+      ) {
+        sanitized.push(item);
+        continue;
+      }
+      if (typeof item === "bigint") {
+        sanitized.push(Number(item));
+        continue;
+      }
+      try {
+        sanitized.push(JSON.parse(JSON.stringify(item)));
+      } catch (e) {
+        try {
+          sanitized.push(String(item));
+        } catch (err) {
+          sanitized.push("[uncloneable]");
+        }
+      }
+    }
+    return sanitized;
+  }
+
+  function sanitizeTaskEntry(entry) {
+    var item = entry && typeof entry === "object" ? entry : {};
+    var sanitizedInstances = sanitizeInstances(item.instances);
+    return {
+      appId: String(item.appId || "unknown-app"),
+      label: String(item.label || item.appId || "Unknown App"),
+      entry: String(item.entry || ""),
+      globalVar: String(item.globalVar || ""),
+      sourceType: String(item.sourceType || "unknown"),
+      instanceCount: Number(
+        typeof item.instanceCount === "number"
+          ? item.instanceCount
+          : sanitizedInstances.length,
+      ),
+      instances: sanitizedInstances,
+      status: String(item.status || "unknown"),
+      updatedAt: Number(item.updatedAt || Date.now()),
+    };
+  }
+
+  function sanitizeSnapshot(value) {
+    var source = value && typeof value === "object" ? value : {};
+    var flatSource = Array.isArray(source.flat) ? source.flat : [];
+    var registrySource =
+      source.registry && typeof source.registry === "object" ? source.registry : {};
+    var sanitizedFlat = [];
+
+    for (var i = 0; i < flatSource.length; i++) {
+      sanitizedFlat.push(sanitizeTaskEntry(flatSource[i]));
+    }
+
+    var sanitizedRegistry = {};
+    for (var key in registrySource) {
+      if (!Object.prototype.hasOwnProperty.call(registrySource, key)) continue;
+      var group = registrySource[key] && typeof registrySource[key] === "object"
+        ? registrySource[key]
+        : {};
+      var groupEntries = Array.isArray(group.entries) ? group.entries : [];
+      var sanitizedEntries = [];
+      for (var j = 0; j < groupEntries.length; j++) {
+        sanitizedEntries.push(sanitizeTaskEntry(groupEntries[j]));
+      }
+      sanitizedRegistry[key] = {
+        appId: String(group.appId || key),
+        label: String(group.label || key),
+        updatedAt: Number(group.updatedAt || Date.now()),
+        entries: sanitizedEntries,
+      };
+    }
+
+    var summarySource =
+      source.summary && typeof source.summary === "object" ? source.summary : {};
+    var sanitizedSummary = {
+      totalEntries: Number(summarySource.totalEntries || sanitizedFlat.length),
+      totalInstances: Number(summarySource.totalInstances || 0),
+      running: Number(summarySource.running || 0),
+      idle: Number(summarySource.idle || 0),
+      unknown: Number(summarySource.unknown || 0),
+    };
+
+    if (!summarySource.totalInstances) {
+      for (var k = 0; k < sanitizedFlat.length; k++) {
+        sanitizedSummary.totalInstances += Number(
+          sanitizedFlat[k].instanceCount || 0,
+        );
+      }
+    }
+
+    if (
+      !summarySource.running &&
+      !summarySource.idle &&
+      !summarySource.unknown &&
+      sanitizedFlat.length
+    ) {
+      sanitizedSummary.running = 0;
+      sanitizedSummary.idle = 0;
+      sanitizedSummary.unknown = 0;
+      for (var n = 0; n < sanitizedFlat.length; n++) {
+        var status = sanitizedFlat[n].status;
+        if (status === "running") sanitizedSummary.running += 1;
+        else if (status === "idle") sanitizedSummary.idle += 1;
+        else sanitizedSummary.unknown += 1;
+      }
+    }
+
+    return {
+      flat: sanitizedFlat,
+      registry: sanitizedRegistry,
+      summary: sanitizedSummary,
+      updatedAt: Number(source.updatedAt || Date.now()),
+    };
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (e) {
+    return sanitizeSnapshot(value);
+  }
+}
+
+function normalizeProcessEntryFromApp(appMeta) {
+  var app = appMeta && typeof appMeta === "object" ? appMeta : {};
+  var appIdRaw =
+    app.id || app.entry || app.startbtnid || app.label || app.name || app.path;
+  var appId = String(appIdRaw || "unknown-app");
+  var label = String(app.label || app.name || app.entry || appId);
+  var entry = app.entry || app.path || app.id || app.startbtnid || "";
+  var globalVar =
+    typeof app.globalvarobject === "string" ? app.globalvarobject : "";
+  var updatedAt = Date.now();
+  var sourceType = "missing";
+  var instances = [];
+  var status = "unknown";
+
+  try {
+    if (
+      globalVar &&
+      window[globalVar] &&
+      app.allapparray &&
+      Array.isArray(window[globalVar][app.allapparray])
+    ) {
+      sourceType = "array";
+      instances = window[globalVar][app.allapparray].slice();
+      status = instances.length > 0 ? "running" : "idle";
+    } else if (globalVar && typeof window[globalVar] === "function") {
+      sourceType = "function";
+      status = "unknown";
+    } else if (globalVar && window[globalVar] && typeof window[globalVar] === "object") {
+      sourceType = "object";
+      instances = Object.keys(window[globalVar]);
+      status = instances.length > 0 ? "running" : "idle";
+    } else if (typeof app.name === "string" && typeof window[app.name] === "function") {
+      sourceType = "function";
+      status = "unknown";
+      globalVar = app.name;
+    }
+  } catch (e) {
+    sourceType = "missing";
+    instances = [];
+    status = "unknown";
+  }
+
+  return {
+    appId: appId,
+    label: label,
+    entry: entry,
+    globalVar: globalVar,
+    sourceType: sourceType,
+    instanceCount: Array.isArray(instances) ? instances.length : 0,
+    instances: Array.isArray(instances) ? instances : [],
+    status: status,
+    updatedAt: updatedAt,
+  };
+}
+
+window.registerDynamicProcess = function (appId, processName, metadata) {
+  var registry =
+    window.__dynamicProcesses && typeof window.__dynamicProcesses === "object"
+      ? window.__dynamicProcesses
+      : {};
+  if (!registry[appId]) {
+    registry[appId] = {};
+  }
+  registry[appId][processName] = metadata || { registered: Date.now() };
+  window.__dynamicProcesses = registry;
+  window.rebuildTaskManagerSnapshot();
+};
+
+window.unregisterDynamicProcess = function (appId, processName) {
+  var registry =
+    window.__dynamicProcesses && typeof window.__dynamicProcesses === "object"
+      ? window.__dynamicProcesses
+      : {};
+  if (registry[appId] && registry[appId][processName]) {
+    delete registry[appId][processName];
+    window.__dynamicProcesses = registry;
+    window.rebuildTaskManagerSnapshot();
+  }
+};
+
+function buildTaskManagerState() {
+  var flat = [];
+  var grouped = {};
+  var apps = Array.isArray(window.apps) ? window.apps : [];
+  var dynamicProcs =
+    window.__dynamicProcesses && typeof window.__dynamicProcesses === "object"
+      ? window.__dynamicProcesses
+      : {};
+
+  for (var i = 0; i < apps.length; i++) {
+    var entry;
+    try {
+      entry = normalizeProcessEntryFromApp(apps[i]);
+    } catch (e) {
+      entry = normalizeProcessEntryFromApp({
+        id: "unknown-app-" + i,
+        label: "Unknown App",
+      });
+    }
+
+    flat.push(entry);
+    var key = String(entry.appId || entry.label || "unknown-app");
+    if (!grouped[key]) {
+      grouped[key] = {
+        appId: entry.appId,
+        label: entry.label,
+        updatedAt: entry.updatedAt,
+        entries: [],
+      };
+    }
+    grouped[key].entries.push(entry);
+    grouped[key].updatedAt = entry.updatedAt;
+  }
+
+  for (var appId in dynamicProcs) {
+    if (!Object.prototype.hasOwnProperty.call(dynamicProcs, appId)) continue;
+    var procMap = dynamicProcs[appId];
+    var procList = [];
+    for (var procName in procMap) {
+      if (Object.prototype.hasOwnProperty.call(procMap, procName)) {
+        procList.push(procName);
+      }
+    }
+    if (procList.length > 0) {
+      var dynamicEntry = {
+        appId: appId,
+        label: appId + " (dynamic)",
+        entry: "",
+        globalVar: "",
+        sourceType: "dynamic",
+        instanceCount: procList.length,
+        instances: procList,
+        status: procList.length > 0 ? "running" : "idle",
+        updatedAt: Date.now(),
+      };
+      flat.push(dynamicEntry);
+      if (!grouped[appId]) {
+        grouped[appId] = {
+          appId: appId,
+          label: appId,
+          updatedAt: Date.now(),
+          entries: [],
+        };
+      }
+      grouped[appId].entries.push(dynamicEntry);
+    }
+  }
+
+  window.__processes = flat;
+  window.__processRegistry = grouped;
+}
+
+window.rebuildTaskManagerSnapshot = function () {
+  buildTaskManagerState();
+};
+
+window.getTaskManagerSnapshot = function () {
+  buildTaskManagerState();
+  var flat = Array.isArray(window.__processes) ? window.__processes : [];
+  var registry =
+    window.__processRegistry && typeof window.__processRegistry === "object"
+      ? window.__processRegistry
+      : {};
+  var summary = {
+    totalEntries: flat.length,
+    totalInstances: 0,
+    running: 0,
+    idle: 0,
+    unknown: 0,
+  };
+
+  for (var i = 0; i < flat.length; i++) {
+    var item = flat[i] || {};
+    summary.totalInstances += Number(item.instanceCount || 0);
+    if (item.status === "running") summary.running += 1;
+    else if (item.status === "idle") summary.idle += 1;
+    else summary.unknown += 1;
+  }
+
+  return safeTaskManagerClone({
+    flat: flat,
+    registry: registry,
+    summary: summary,
+    updatedAt: Date.now(),
+  });
+};
+
 window.loadTree = async function () {
   await oldLoadTree();
   await loadAppsFromTree();
-  window.__processes = [];
-  for(const app of window.apps) {
-    try {
-    window.__processes.push(window[app.globalvarobject][app.allapparray]);
-    } catch(e) {
-      try {
-        window.__processes.push({name: window[app.name], type: 'function', instances: 'unknown'});
-      } catch(ee) {
-        console.error('failed to adress app processes for an app (app corrupted), consider reinstalling it.');
-      }
-    }
-  }
+  buildTaskManagerState();
 };
 loadTree();
 window.onlyloadTree = oldLoadTree;

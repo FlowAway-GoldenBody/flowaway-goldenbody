@@ -496,6 +496,7 @@ window.browser = function (
     panel.classList.toggle("light", !browserGlobals.dark);
     panel.style.cssText = `
     position:fixed;
+    z-index:999999;
     width:320px;
     border-radius:10px;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
