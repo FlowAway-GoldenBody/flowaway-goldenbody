@@ -91,7 +91,7 @@ terminal = function (posX = 50, posY = 50) {
   btnClose.style.backgroundColor = "red";
   topBar.appendChild(btnClose);
 
-  [topBar, btnMin, btnMax, btnClear, btnInterrupt, btnClose].forEach((el) => {
+  [topBar, btnMin, btnMax, btnClose].forEach((el) => {
     el.style.margin = "0 2px";
     el.style.border = "none";
     el.style.padding = "4px 6px";
@@ -205,21 +205,6 @@ terminal = function (posX = 50, posY = 50) {
     } else {
       restoreWindow(true);
     }
-  });
-
-  btnClear.addEventListener("click", () => {
-    output.innerHTML = "";
-    input.focus();
-  });
-
-  btnInterrupt.addEventListener("click", () => {
-    if (input.value) {
-      renderEnteredCommand(input.value);
-      writeLine("^C");
-      input.value = "";
-      historyIndex = commandHistory.length;
-    }
-    input.focus();
   });
 
   // Close
@@ -1418,8 +1403,6 @@ terminal = function (posX = 50, posY = 50) {
 
   updatePrompt();
   loadGbenvFromDisk();
-  writeLine("Flowaway terminal (beta)");
-  writeLine("Filesystem + env + gbenv support enabled. Run 'help' to list commands.");
   setTimeout(() => {
     try { input.focus(); } catch (e) {}
   }, 0);

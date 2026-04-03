@@ -240,6 +240,10 @@
   var iconid = 0;
   var draggedTaskButton = null;
 
+  function isFixedTaskButton(btn) {
+    return !!(btn && btn.dataset && btn.dataset.fixedTaskbar === 'true');
+  }
+
   function syncTaskButtons() {
     taskbuttons = [...taskbar.querySelectorAll("button")];
     if (!window._suppressTaskbarPersist) {
@@ -248,6 +252,10 @@
   }
 
   function setupTaskButtonDrag(btn) {
+    if (isFixedTaskButton(btn)) {
+      btn.draggable = false;
+      return;
+    }
     btn.draggable = true;
 
     btn.addEventListener("dragstart", (e) => {
@@ -270,8 +278,11 @@
     if (!draggedTaskButton) return;
     e.preventDefault();
 
+    if (isFixedTaskButton(draggedTaskButton)) return;
+
     const target = e.target && e.target.closest ? e.target.closest("button.taskbutton") : null;
     if (!target || target === draggedTaskButton) return;
+    if (isFixedTaskButton(target)) return;
 
     const rect = target.getBoundingClientRect();
     const insertBefore = e.clientX < rect.left + rect.width / 2;
@@ -284,7 +295,7 @@
     syncTaskButtons();
   });
 
-  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '') {
+  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false) {
     var btn = document.createElement("button");
     btn.innerText = name;
     btn.value = name;
@@ -324,6 +335,9 @@
     if (appId) {
       btn.dataset.appId = appId;
     }
+    if (fixedTaskbar) {
+      btn.dataset.fixedTaskbar = 'true';
+    }
     if (appcontextmenuhandler) {
       var contextHandler = null;
       if (typeof appcontextmenuhandler === "function") {
@@ -356,8 +370,8 @@
     saveTaskButtons();
   }
   window._suppressTaskbarPersist = true;
-  addTaskButton("⤢", _fullscreen);
-  addTaskButton("▶", starthandler);
+  addTaskButton("⤢", _fullscreen, false, '', '', true);
+  addTaskButton("▶", starthandler, false, '', '', true);
   window._suppressTaskbarPersist = false;
   purgeButtons();
 

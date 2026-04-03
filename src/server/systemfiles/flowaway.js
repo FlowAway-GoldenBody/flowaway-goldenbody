@@ -3014,7 +3014,15 @@ window.loadTree = async function () {
   await loadAppsFromTree();
   window.__processes = [];
   for(const app of window.apps) {
+    try {
     window.__processes.push(window[app.globalvarobject][app.allapparray]);
+    } catch(e) {
+      try {
+        window.__processes.push({name: window[app.name], type: 'function', instances: 'unknown'});
+      } catch(ee) {
+        console.error('failed to adress app processes for an app (app corrupted), consider reinstalling it.');
+      }
+    }
   }
 };
 loadTree();
