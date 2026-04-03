@@ -4482,6 +4482,9 @@ window.browser = function (
           // Polyfill common methods on prototypes so returned handles behave like
           // native FileSystemHandle objects.
 
+FileSystemFileHandle.prototype.getFile = async function () {
+  return this._file;
+};
 
 FileSystemFileHandle.prototype.createWritable = async function () {
   const path = this.path;
@@ -4601,15 +4604,10 @@ function makeFileHandle(file) {
   h.name = file.name;
 
   // Non-standard, VFS-only (informational)
-  h.path = file.fullPath || file.webkitRelativePath || file.name;
+  h.path = normalizeVfsPath(file.fullPath || file.webkitRelativePath || file.name);
 
   // Internal backing file
   h._file = file;
-
-  // Required by File System Access consumers
-  h.getFile = async function () {
-    return this._file;
-  };
 
   return h;
 }
@@ -4662,6 +4660,11 @@ function makeFileHandle(file) {
   let allFilesReceived = false;
   let pickerCancelled = false;
   let fileChunks = {}; // store chunks by path: { path: [buffer1, buffer2, ...] }
+
+  function normalizeVfsPath(path) {
+    if (typeof path !== 'string') return path;
+    return path.startsWith('/') ? path.slice(1) : path;
+  }
 
   function normalizeMimeType(type) {
     if (!type) return 'application/octet-stream';
@@ -4768,7 +4771,7 @@ function makeFileHandle(file) {
             }
 
             const rawPath = (metadata.path || metadata.webkitRelativePath || metadata.name) || metadata.name;
-            const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
+            const normPath = normalizeVfsPath(rawPath);
             file.fullPath = normPath;
 
             const syntheticHandle = {
@@ -4806,7 +4809,7 @@ function makeFileHandle(file) {
       }
 
       const rawPath = (d.path || d.webkitRelativePath || d.name) || d.name;
-      const normPath = (typeof rawPath === 'string' && rawPath.startsWith('/')) ? rawPath.slice(1) : rawPath;
+      const normPath = normalizeVfsPath(rawPath);
       file.fullPath = normPath;
 
       const syntheticHandle = {
@@ -4873,7 +4876,7 @@ window.addEventListener('message', e => {
       return;
     }
 
-    next.resolve(d.path);
+    next.resolve(normalizeVfsPath(d.path));
   }
 });
 
@@ -4918,7 +4921,8 @@ window.showSaveFilePicker = async (options = {}) => {
         pendingDirectoryRejectors = [];
         return;
       }
-      for (const r of pendingDirectoryResolvers) try { r(d.path, d.treeNode); } catch(e){}
+      const normalizedPath = normalizeVfsPath(d.path);
+      for (const r of pendingDirectoryResolvers) try { r(normalizedPath, d.treeNode); } catch(e){}
       pendingDirectoryResolvers = [];
       pendingDirectoryRejectors = [];
     }
@@ -5068,7 +5072,7 @@ window.addEventListener('message', e => {
       { type: d.type || 'application/octet-stream' }
     );
 
-    file.fullPath = d.path;
+    file.fullPath = normalizeVfsPath(d.path);
     req.resolve(file);
   }
 });
