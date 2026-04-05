@@ -11,6 +11,8 @@ process:
   - apply the fix
   - re-check for regressions in related areas
   - if the fix is not successful, iterate with a new proposal
+  - this is REQUIRED: if i say change smt, its gone and i dont want legacy support.
+  - this is even more important: remember system apps are also apps so they are packaged not hardcoded into the accounts, users can delete/modify them. When i say work on apps, they are real apps in the os sense.
 rules:
   - do not refactor unless required to fix the bug
   - do not rename variables or restructure code unnecessarily

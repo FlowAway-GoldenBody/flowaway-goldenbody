@@ -1,14 +1,7 @@
 {
-  "name": "yourApp",
+  "functionname": "yourApp",
   "label": "Your App",
-  "startbtnid": "your_app_nameapp",
-  "globalvarobject": "your_app_nameGlobals",
-  "allapparray": "allyour_app_name",
-  "openfilecapability": [],
-  "appGlobalVarStrings": [
-    "your_app_nameButtons",
-    "your_app_namemenu",
-    "allyour_app_name",
-    "your_app_nameId"
-  ]
+  "globalvarobjectstring": "yourAppGlobals",
+  "allapparraystring": "allYourAppInstances",
+  "openfilecapability": []
 }

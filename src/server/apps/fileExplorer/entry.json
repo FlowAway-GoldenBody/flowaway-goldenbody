@@ -1,17 +1,9 @@
 {
-  "name": "fileExplorer",
+  "functionname": "fileExplorer",
   "label": "File Explorer",
-  "startbtnid": "explorerapp",
-  "globalvarobject": "explorerGlobals",
-  "allapparray": "allExplorers",
+  "globalvarobjectstring": "explorerGlobals",
+  "allapparraystring": "allExplorers",
   "openfilecapability": [
     "*"
-  ],
-  "appGlobalVarStrings": [
-    "explorerButtons",
-    "explorermenu",
-    "allExplorers",
-    "explorerId",
-    "clipboard"
   ]
 }

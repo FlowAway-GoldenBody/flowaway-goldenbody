@@ -150,9 +150,17 @@ return; // VERY IMPORTANT
             let userDirectoryPath = directoryPath + data.username + '/';
             fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent));
             fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
+            fs.mkdirSync(userDirectoryPath + 'root/systemfiles', { recursive: true });
 fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
 fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', userDirectoryPath + 'root/systemfiles/flowaway.js');
+            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeCore.js', userDirectoryPath + 'root/systemfiles/runtimeCore.js');
+            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeAppRuntime.js', userDirectoryPath + 'root/systemfiles/runtimeAppRuntime.js');
+            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeWindowSystem.js', userDirectoryPath + 'root/systemfiles/runtimeWindowSystem.js');
+            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeShell.js', userDirectoryPath + 'root/systemfiles/runtimeShell.js');
   fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', userDirectoryPath + 'root/systemfiles/goldenbody.js');
+  fs.cpSync(projectroot + '/src/server/systemfiles/processes.js', userDirectoryPath + 'root/systemfiles/processes.js');
+  fs.cpSync(projectroot + '/src/server/systemfiles/appLoader.js', userDirectoryPath + 'root/systemfiles/appLoader.js');
+  fs.cpSync(projectroot + '/src/server/systemfiles/appPolling.js', userDirectoryPath + 'root/systemfiles/appPolling.js');
 // Don't create 'apps' — let cpSync do it
 fs.cpSync(
   path.join(__dirname, 'apps'),
@@ -206,9 +214,45 @@ fs.cpSync(
             try {
               content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
               try {
+                fs.mkdirSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles', { recursive: true });
                 fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/flowaway.js', 'utf8');
               } catch (e) {
                 fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/flowaway.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeCore.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeCore.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeCore.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeAppRuntime.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeWindowSystem.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeWindowSystem.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeWindowSystem.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeShell.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeShell.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeShell.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/processes.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/processes.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/processes.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appLoader.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/appLoader.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appLoader.js');
+              }
+              try {
+                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appPolling.js', 'utf8');
+              } catch (e) {
+                fs.cpSync(projectroot + '/src/server/systemfiles/appPolling.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appPolling.js');
               }
                 try {
                   fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/goldenbody.js', 'utf8');

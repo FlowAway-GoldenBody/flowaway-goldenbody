@@ -15,6 +15,8 @@ directions:
   - validate each step before moving to the next
   - adjust the plan if new constraints or insights emerge
   - avoid unnecessary complexity—favor practical, implementable solutions
+  - this is REQUIRED: if i say change smt, its gone and i dont want legacy support.
+  - this is even more important: remember system apps are also apps so they are packaged not hardcoded into the accounts, users can delete/modify them. When i say work on apps, they are real apps in the os sense.
 rules:
   - always propose a plan before implementing significant changes
   - do not begin large implementations without a clear breakdown of steps

@@ -1,14 +1,7 @@
 {
-  "name": "terminal",
+  "functionname": "terminal",
   "label": "Terminal",
-  "startbtnid": "terminalapp",
-  "globalvarobject": "terminalGlobals",
-  "allapparray": "allTerminals",
-  "openfilecapability": [],
-  "appGlobalVarStrings": [
-    "terminalButtons",
-    "terminalMenu",
-    "allTerminals",
-    "terminalId"
-  ]
+  "globalvarobjectstring": "terminalGlobals",
+  "allapparraystring": "allTerminals",
+  "openfilecapability": []
 }

@@ -2,7 +2,7 @@ window.taskManagerGlobals = window.taskManagerGlobals || {};
 taskManagerGlobals.allTaskManagers = Array.isArray(taskManagerGlobals.allTaskManagers)
   ? taskManagerGlobals.allTaskManagers
   : [];
-taskManagerGlobals.goldenbodyId = Number(taskManagerGlobals.goldenbodyId || 0);
+taskManagerGlobals.goldenbodyId = Number(taskManagerGlobals.goldenbodyId ?? 0);
 
 taskManager = function (posX = 50, posY = 50) {
   if (typeof startMenu !== "undefined" && startMenu) {
@@ -469,7 +469,7 @@ taskManager = function (posX = 50, posY = 50) {
   const runningValue = createSummaryCard("Running");
   const idleValue = createSummaryCard("Idle");
   const unknownValue = createSummaryCard("Unknown");
-  const totalInstancesValue = createSummaryCard("Total Instances");
+  const totalInstancesValue = createSummaryCard("Instance Tasks");
 
   const controls = document.createElement("div");
   Object.assign(controls.style, {
@@ -541,7 +541,7 @@ taskManager = function (posX = 50, posY = 50) {
   table.appendChild(thead);
 
   const headerRow = document.createElement("tr");
-  ["App", "Source", "Status", "Instances", "Entry/Global"].forEach((name) => {
+  ["Task", "Source", "Status", "PID", "Function/Global"].forEach((name) => {
     const th = document.createElement("th");
     th.textContent = name;
     th.style.textAlign = "left";
@@ -571,43 +571,138 @@ taskManager = function (posX = 50, posY = 50) {
 
   function sanitizeTaskEntry(input, index) {
     const item = input && typeof input === "object" ? input : {};
-    const appId = String(item.appId || item.id || item.label || "unknown-app");
-    const label = String(item.label || appId);
-    const entry = String(item.entry || "");
-    const globalVar = String(item.globalVar || item.globalvarobject || "");
-    const sourceType = String(item.sourceType || "unknown");
-    const status = String(item.status || "unknown");
-    const instanceCount = Number(item.instanceCount || 0);
+    const appId = String(item.appId || item.id || item.appLabel || item.label || "unknown-app");
+    const label = String(item.label || item.title || item.appLabel || appId + " task");
+    const functionname = String(item.functionname || item.entry || "");
+    const globalVar = String(item.globalVar || "");
+    const sourceType = String(item.sourceType || item.appSourceType || "unknown");
+    const status = String(item.status || item.appStatus || "unknown");
+    const processId = Number(firstDefinedValue(item.processId, item.pid, 0));
+    const appInstanceId = firstDefinedValue(item.appInstanceId, item.instanceId, item.id, null);
+    const goldenbodyId = firstDefinedValue(
+      item.goldenbodyId,
+      item._goldenbodyId,
+      item.goldenbodyid,
+      item._goldenbodyid,
+      null,
+    );
 
     return {
       appId,
       label,
-      entry,
+      title: String(item.title || label),
+      functionname,
       globalVar,
       sourceType,
       status,
-      instanceCount: Number.isFinite(instanceCount) ? instanceCount : 0,
-      rowKey: [appId, entry, globalVar, String(index)].join("::"),
+      processId: Number.isFinite(processId) ? processId : 0,
+      pid: Number.isFinite(processId) ? processId : 0,
+      processKind: String(item.processKind || "app"),
+      appInstanceId:
+        appInstanceId !== null && typeof appInstanceId !== "undefined"
+          ? appInstanceId
+          : null,
+      goldenbodyId,
+      rowType: "task",
+      rowKey: String(
+        item.rowKey || [appId, String(processId || 0), String(index)].join("::"),
+      ),
     };
+  }
+
+  function firstDefinedValue(...values) {
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] !== null && typeof values[i] !== "undefined") {
+        return values[i];
+      }
+    }
+    return null;
+  }
+
+  function sanitizeInstanceRecord(raw, fallbackLabel, index) {
+    const item = raw && typeof raw === "object" ? raw : {};
+    const processId = Number(item.processId ?? 0);
+    const appInstanceId = firstDefinedValue(
+      item.appInstanceId,
+      item.instanceId,
+      item.id,
+      Number(index + 1),
+    );
+    const goldenbodyId = firstDefinedValue(
+      item.goldenbodyId,
+      item._goldenbodyId,
+      item.goldenbodyid,
+      item._goldenbodyid,
+    );
+    const label = String(item.title || item.label || fallbackLabel || "Instance");
+    return {
+      processId: Number.isFinite(processId) ? processId : 0,
+      appInstanceId,
+      goldenbodyId:
+        goldenbodyId !== null && typeof goldenbodyId !== "undefined"
+          ? goldenbodyId
+          : null,
+      label,
+      title: label,
+      sourceIndex: Number.isFinite(Number(item.sourceIndex))
+        ? Number(item.sourceIndex)
+        : Number(index),
+      identityKey: String(item.identityKey || ""),
+    };
+  }
+
+  function extractInstanceRecordsFromEntry(entry) {
+    const records = Array.isArray(entry.instanceRecords) ? entry.instanceRecords : [];
+    if (records.length > 0) {
+      return records.map((item, index) =>
+        sanitizeInstanceRecord(item, entry.label + " #" + String(index + 1), index),
+      );
+    }
+
+    const rawInstances = Array.isArray(entry.instances) ? entry.instances : [];
+    return rawInstances.map((item, index) =>
+      sanitizeInstanceRecord(item, entry.label + " #" + String(index + 1), index),
+    );
   }
 
   function flattenSnapshot(snapshot) {
     const source = snapshot && typeof snapshot === "object" ? snapshot : {};
-    let rows = [];
+    const rows = [];
 
     if (Array.isArray(source.flat) && source.flat.length > 0) {
-      rows = source.flat.map((item, index) => sanitizeTaskEntry(item, index));
+      for (let i = 0; i < source.flat.length; i++) {
+        rows.push(sanitizeTaskEntry(source.flat[i], i));
+      }
     } else if (source.registry && typeof source.registry === "object") {
-      const flattened = [];
       const keys = Object.keys(source.registry);
       for (let i = 0; i < keys.length; i++) {
         const group = source.registry[keys[i]];
         const entries = Array.isArray(group && group.entries) ? group.entries : [];
         for (let j = 0; j < entries.length; j++) {
-          flattened.push(entries[j]);
+          const instanceRecords = extractInstanceRecordsFromEntry(entries[j]);
+          for (let r = 0; r < instanceRecords.length; r++) {
+            const instance = instanceRecords[r];
+            rows.push(
+              sanitizeTaskEntry(
+                {
+                  appId: entries[j] && entries[j].appId,
+                  label: instance.label,
+                  title: instance.title,
+                  sourceType: entries[j] && entries[j].sourceType,
+                  status: entries[j] && entries[j].status,
+                  functionname: entries[j] && entries[j].entry,
+                  globalVar: entries[j] && entries[j].globalVar,
+                  processId: instance.processId,
+                  pid: instance.pid,
+                  appInstanceId: instance.appInstanceId,
+                  goldenbodyId: instance.goldenbodyId,
+                },
+                rows.length,
+              ),
+            );
+          }
         }
       }
-      rows = flattened.map((item, index) => sanitizeTaskEntry(item, index));
     }
 
     return rows;
@@ -635,7 +730,7 @@ taskManager = function (posX = 50, posY = 50) {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      totalInstances += Number(row.instanceCount || 0);
+      totalInstances += 1;
       if (row.status === "running") running++;
       else if (row.status === "idle") idle++;
       else unknown++;
@@ -689,24 +784,36 @@ taskManager = function (posX = 50, posY = 50) {
         tr.style.background = "rgba(127,127,127,0.18)";
       }
 
+      const firstCellText = row.title || row.label || row.appId;
+      const lastColBase = row.functionname && row.globalVar
+        ? row.functionname + " / " + row.globalVar
+        : row.functionname || row.globalVar || "-";
+      const pidText =
+        row.processId === null || typeof row.processId === "undefined"
+          ? "-"
+          : String(row.processId);
+      const appInstanceText =
+        row.appInstanceId === null || typeof row.appInstanceId === "undefined"
+          ? "-"
+          : String(row.appInstanceId);
+      const lastCol = lastColBase + "  •  appid:" + appInstanceText;
+
       const cells = [
-        row.label || row.appId,
+        firstCellText,
         row.sourceType,
         row.status,
-        String(Number(row.instanceCount || 0)),
-        row.entry && row.globalVar
-          ? row.entry + " / " + row.globalVar
-          : row.entry || row.globalVar || "-",
+        pidText,
+        lastCol,
       ];
 
       cells.forEach((cellText, index) => {
         const td = document.createElement("td");
-        td.textContent = cellText;
         td.style.padding = "8px 10px";
         td.style.overflow = "hidden";
         td.style.textOverflow = "ellipsis";
         td.style.whiteSpace = "nowrap";
         if (index === 3) td.style.textAlign = "right";
+        td.textContent = cellText;
         tr.appendChild(td);
       });
 
@@ -755,7 +862,7 @@ taskManager = function (posX = 50, posY = 50) {
 
   function resolveAppMetaForRow(row) {
     const apps = Array.isArray(window.apps) ? window.apps : [];
-    const wanted = [row.appId, row.entry, row.globalVar, row.label]
+    const wanted = [row.appId, row.functionname, row.globalVar, row.label]
       .filter(Boolean)
       .map((v) => String(v));
 
@@ -763,11 +870,9 @@ taskManager = function (posX = 50, posY = 50) {
       const app = apps[i] || {};
       const candidates = [
         app.id,
-        app.entry,
-        app.startbtnid,
-        app.globalvarobject,
+        app.functionname,
+        app.globalvarobjectstring,
         app.label,
-        app.name,
       ]
         .filter(Boolean)
         .map((v) => String(v));
@@ -810,7 +915,7 @@ taskManager = function (posX = 50, posY = 50) {
     if (!appMeta && row && row.globalVar && window[row.globalVar]) {
       const globalObj = window[row.globalVar];
       return readArrayFromObjectOfArrays(globalObj, [
-        row.entry,
+        row.functionname,
         row.appId,
         row.label,
       ]);
@@ -823,20 +928,20 @@ taskManager = function (posX = 50, posY = 50) {
       if (Array.isArray(list)) return list.slice();
     }
 
-    if (appMeta.globalvarobject && appMeta.allapparray) {
+    if (appMeta.globalvarobjectstring && appMeta.allapparraystring) {
       try {
-        const globalObj = window[appMeta.globalvarobject];
-        const list = globalObj && globalObj[appMeta.allapparray];
+        const globalObj = window[appMeta.globalvarobjectstring];
+        const list = globalObj && globalObj[appMeta.allapparraystring];
         if (Array.isArray(list)) return list.slice();
       } catch (e) {}
     }
 
-    if (appMeta.globalvarobject) {
+    if (appMeta.globalvarobjectstring) {
       try {
-        const globalObj = window[appMeta.globalvarobject];
+        const globalObj = window[appMeta.globalvarobjectstring];
         return readArrayFromObjectOfArrays(globalObj, [
-          appMeta.allapparray,
-          row && row.entry,
+          appMeta.allapparraystring,
+          row && row.functionname,
           row && row.appId,
           row && row.label,
         ]);
@@ -849,11 +954,10 @@ taskManager = function (posX = 50, posY = 50) {
   function removeRootsByAppHint(row, appMeta, knownInstances) {
     const hints = [
       row && row.appId,
-      row && row.entry,
+      row && row.functionname,
       appMeta && appMeta.id,
-      appMeta && appMeta.entry,
-      appMeta && appMeta.startbtnid,
-      appMeta && appMeta.allapparray,
+      appMeta && appMeta.functionname,
+      appMeta && appMeta.allapparraystring,
     ]
       .filter(Boolean)
       .map((v) => String(v));
@@ -877,10 +981,12 @@ taskManager = function (posX = 50, posY = 50) {
       for (let r = 0; r < removedRoots.length; r++) {
         const gid =
           removedRoots[r] &&
-          (removedRoots[r]._goldenbodyId ||
-            removedRoots[r].goldenbodyId ||
-            (removedRoots[r].dataset && removedRoots[r].dataset.goldenbodyId));
-        if (!gid) continue;
+          firstDefinedValue(
+            removedRoots[r]._goldenbodyId,
+            removedRoots[r].goldenbodyId,
+            removedRoots[r].dataset && removedRoots[r].dataset.goldenbodyId,
+          );
+        if (gid === null || typeof gid === "undefined") continue;
 
         for (let h = 0; h < hints.length; h++) {
           try {
@@ -893,16 +999,16 @@ taskManager = function (posX = 50, posY = 50) {
     if (
       removedRoots.length &&
       appMeta &&
-      appMeta.globalvarobject &&
-      appMeta.allapparray &&
-      window[appMeta.globalvarobject] &&
-      Array.isArray(window[appMeta.globalvarobject][appMeta.allapparray])
+      appMeta.globalvarobjectstring &&
+      appMeta.allapparraystring &&
+      window[appMeta.globalvarobjectstring] &&
+      Array.isArray(window[appMeta.globalvarobjectstring][appMeta.allapparraystring])
     ) {
       try {
-        const arr = window[appMeta.globalvarobject][appMeta.allapparray];
+        const arr = window[appMeta.globalvarobjectstring][appMeta.allapparraystring];
         const removedSet = new Set(removedRoots);
         const known = Array.isArray(knownInstances) ? knownInstances : [];
-        window[appMeta.globalvarobject][appMeta.allapparray] = arr.filter((item) => {
+        window[appMeta.globalvarobjectstring][appMeta.allapparraystring] = arr.filter((item) => {
           if (!item || typeof item !== "object") return true;
           const itemRoot = item.rootElement;
           if (itemRoot && removedSet.has(itemRoot)) return false;
@@ -941,13 +1047,13 @@ taskManager = function (posX = 50, posY = 50) {
       } catch (e) {}
 
       const base =
-        (appMeta && (appMeta.entry || appMeta.id || appMeta.startbtnid)) ||
-        (row && (row.entry || row.appId)) ||
+        (appMeta && (appMeta.functionname || appMeta.id)) ||
+        (row && (row.functionname || row.appId)) ||
         "";
-      const gid = instance._goldenbodyId || instance.goldenbodyId;
+      const gid = firstDefinedValue(instance._goldenbodyId, instance.goldenbodyId);
       if (
         base &&
-        gid &&
+        (gid || gid === 0) &&
         typeof window.removeAllEventListenersForApp === "function"
       ) {
         try {
@@ -958,6 +1064,57 @@ taskManager = function (posX = 50, posY = 50) {
     }
 
     return false;
+  }
+
+  function getInstanceGoldenbodyId(instance) {
+    if (!instance || typeof instance !== "object") return null;
+    const root = instance.rootElement;
+    const value = firstDefinedValue(
+      instance._goldenbodyId,
+      instance.goldenbodyId,
+      instance._goldenbodyid,
+      instance.goldenbodyid,
+      root && root._goldenbodyId,
+      root && root.goldenbodyId,
+      root && root.dataset && root.dataset.goldenbodyId,
+      root && root.dataset && root.dataset.goldenbodyid,
+    );
+    return value !== null && typeof value !== "undefined" ? value : null;
+  }
+
+  function findMatchingInstance(instances, row) {
+    const list = Array.isArray(instances) ? instances : [];
+    if (!list.length || !row) return null;
+
+    if (row.goldenbodyId || row.goldenbodyId === 0) {
+      for (let i = 0; i < list.length; i++) {
+        if (String(getInstanceGoldenbodyId(list[i])) === String(row.goldenbodyId)) {
+          return list[i];
+        }
+      }
+    }
+
+    if (row.appInstanceId || row.appInstanceId === 0) {
+      for (let i = 0; i < list.length; i++) {
+        const instance = list[i] || {};
+        const candidates = [
+          instance.appInstanceId,
+          instance.instanceId,
+          instance.id,
+          getInstanceGoldenbodyId(instance),
+        ];
+        for (let j = 0; j < candidates.length; j++) {
+          const value = candidates[j];
+          if (value || value === 0) {
+            if (String(value) === String(row.appInstanceId)) {
+              return instance;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   function killSelectedRow() {
@@ -975,48 +1132,59 @@ taskManager = function (posX = 50, posY = 50) {
     }
 
     const appMeta = resolveAppMetaForRow(row);
+    const targetPid = row.pid || row.processId;
+
+    try {
+      if (
+        window.FlowawayProcess &&
+        typeof window.FlowawayProcess.terminate === "function" &&
+        targetPid
+      ) {
+        window.FlowawayProcess.terminate(targetPid, "task-manager-kill");
+      }
+    } catch (e) {}
+
     const instances = getLiveInstancesFromMeta(appMeta, row);
     const startingCount = instances.length;
 
     let attempted = 0;
     let closed = 0;
-    let usedCloseAll = false;
 
     if (instances.length > 0) {
-      const first = instances[0];
-      if (first && typeof first.closeAll === "function") {
-        usedCloseAll = true;
-        attempted = instances.length;
-        try {
-          first.closeAll();
-        } catch (e) {}
-      } else {
+      const target = findMatchingInstance(instances, row);
+      if (target) {
+        attempted = 1;
+        if (closeOneInstance(target, appMeta, row)) {
+          closed = 1;
+        }
+      } else if (targetPid) {
         for (let i = 0; i < instances.length; i++) {
-          attempted++;
-          if (closeOneInstance(instances[i], appMeta, row)) {
-            closed++;
+          const current = instances[i] || {};
+          const currentPid = firstDefinedValue(current.pid, current.processId, null);
+          if (currentPid === null || typeof currentPid === "undefined") continue;
+          if (String(currentPid) !== String(targetPid)) continue;
+          attempted = 1;
+          if (closeOneInstance(current, appMeta, row)) {
+            closed = 1;
           }
+          break;
         }
       }
     }
 
     let removedRoots = 0;
-    if (closed === 0) {
-      removedRoots = removeRootsByAppHint(row, appMeta, instances);
-      closed += removedRoots;
-    }
 
     if (
       appMeta &&
-      appMeta.globalvarobject &&
-      appMeta.allapparray &&
-      window[appMeta.globalvarobject] &&
-      Array.isArray(window[appMeta.globalvarobject][appMeta.allapparray])
+      appMeta.globalvarobjectstring &&
+      appMeta.allapparraystring &&
+      window[appMeta.globalvarobjectstring] &&
+      Array.isArray(window[appMeta.globalvarobjectstring][appMeta.allapparraystring])
     ) {
       try {
-        const arr = window[appMeta.globalvarobject][appMeta.allapparray];
+        const arr = window[appMeta.globalvarobjectstring][appMeta.allapparraystring];
         if (arr.length && closed >= arr.length) {
-          window[appMeta.globalvarobject][appMeta.allapparray] = [];
+          window[appMeta.globalvarobjectstring][appMeta.allapparraystring] = [];
         }
       } catch (e) {}
     }
@@ -1024,17 +1192,21 @@ taskManager = function (posX = 50, posY = 50) {
     if (typeof window.removeAllEventListenersForApp === "function") {
       const prefixes = [
         row.appId,
-        row.entry,
-        appMeta && appMeta.entry,
+        row.functionname,
+        appMeta && appMeta.functionname,
         appMeta && appMeta.id,
-        appMeta && appMeta.startbtnid,
       ].filter(Boolean);
+
+      const listenerTargets = (function () {
+        const match = findMatchingInstance(instances, row);
+        return match ? [match] : [];
+      })();
 
       for (let p = 0; p < prefixes.length; p++) {
         const base = String(prefixes[p]);
-        for (let i = 0; i < instances.length; i++) {
-          const gid = instances[i] && (instances[i]._goldenbodyId || instances[i].goldenbodyId);
-          if (!gid) continue;
+        for (let i = 0; i < listenerTargets.length; i++) {
+          const gid = getInstanceGoldenbodyId(listenerTargets[i]);
+          if (!gid && gid !== 0) continue;
           try {
             window.removeAllEventListenersForApp(base + String(gid));
           } catch (e) {}
@@ -1045,11 +1217,8 @@ taskManager = function (posX = 50, posY = 50) {
     refreshSnapshot(false);
     const remainingInstances = getLiveInstancesFromMeta(appMeta, row);
     const remainingCount = remainingInstances.length;
-    if (startingCount > 0) {
-      attempted = Math.max(attempted, startingCount);
-      closed = Math.max(closed, startingCount - remainingCount);
-    } else if (usedCloseAll) {
-      closed = Math.max(0, attempted - remainingCount);
+    if (startingCount > 0 && attempted > 0) {
+      closed = Math.max(closed, Math.min(1, startingCount - remainingCount));
     }
 
     if (closed > 0) {
