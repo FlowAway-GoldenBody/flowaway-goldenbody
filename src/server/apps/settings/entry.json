@@ -1,14 +1,7 @@
 {
-  "name": "settings",
+  "functionname": "settings",
   "label": "Settings",
-  "startbtnid": "settingsapp",
-  "globalvarobject": "settingsGlobals",
-  "allapparray": "allSettings",
-  "openfilecapability": [],
-  "appGlobalVarStrings": [
-    "allSettings",
-    "settingsId",
-    "settingsButtons",
-    "settingsmenu"
-  ]
+  "globalvarobjectstring": "settingsGlobals",
+  "allapparraystring": "allSettings",
+  "openfilecapability": []
 }

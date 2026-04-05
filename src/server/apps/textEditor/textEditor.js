@@ -1,6 +1,6 @@
 //textEditor global vars
 window.textEditorGlobals = {};
-textEditorGlobals.alltextEditor = [];
+textEditorGlobals.allTextEditors = [];
 textEditorGlobals.goldenbodyId = 0;
 textEditorGlobals.settingsPath = "/apps/textEditor/data/settings.json";
 textEditorGlobals.editorSettings = {
@@ -248,10 +248,10 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   function closeWindow() {
     root.remove();
-    const index = textEditorGlobals.alltextEditor.findIndex(
+    const index = textEditorGlobals.allTextEditors.findIndex(
       (instance) => instance.rootElement == root,
     );
-    if (index !== -1) textEditorGlobals.alltextEditor.splice(index, 1);
+    if (index !== -1) textEditorGlobals.allTextEditors.splice(index, 1);
     window.removeAllEventListenersForApp("textEditor" + root._goldenbodyId);
   }
 
@@ -268,16 +268,16 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...textEditorGlobals.alltextEditor]) {
+    for (const instance of [...textEditorGlobals.allTextEditors]) {
       if (instance && typeof instance.closeWindow === "function") {
         instance.closeWindow();
       }
     }
-    textEditorGlobals.alltextEditor = [];
+    textEditorGlobals.allTextEditors = [];
   }
 
   function hideAll() {
-    for (const instance of textEditorGlobals.alltextEditor) {
+    for (const instance of textEditorGlobals.allTextEditors) {
       if (instance && typeof instance.hideWindow === "function") {
         instance.hideWindow();
       }
@@ -285,10 +285,10 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
 
   function showAll() {
-    textEditorGlobals.alltextEditor.sort(
+    textEditorGlobals.allTextEditors.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of textEditorGlobals.alltextEditor) {
+    for (const instance of textEditorGlobals.allTextEditors) {
       if (instance && typeof instance.showWindow === "function") {
         instance.showWindow();
       }
@@ -692,8 +692,8 @@ textEditor = function (path, posX = 50, posY = 50) {
 
       // keep parity with other open editors if available
       try {
-        if (Array.isArray(textEditorGlobals.alltextEditor)) {
-          for (const inst of textEditorGlobals.alltextEditor) {
+        if (Array.isArray(textEditorGlobals.allTextEditors)) {
+          for (const inst of textEditorGlobals.allTextEditors) {
             try {
               if (inst && inst.rootElement) {
                 const ta =
@@ -1419,7 +1419,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     title: titleLabel.textContent,
     textarea,
   };
-  textEditorGlobals.alltextEditor.push(returnObject);
+  textEditorGlobals.allTextEditors.push(returnObject);
 
   applyStyles();
 

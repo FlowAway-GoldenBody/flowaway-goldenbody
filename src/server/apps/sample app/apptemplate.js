@@ -1,13 +1,13 @@
-//your_app_name global vars
-window.your_app_nameGlobals = {};
-your_app_nameGlobals.allyour_app_name = [];
-your_app_nameGlobals.goldenbodyId = 0;
+//yourApp global vars
+window.yourAppGlobals = {};
+yourAppGlobals.allYourAppInstances = [];
+yourAppGlobals.goldenbodyId = 0;
 
 yourApp = function (posX = 50, posY = 50) {
   startMenu.style.display = "none";
   let isMaximized = false;
   let _isMinimized = false;
-  atTop = "your_app_name";
+  atTop = "yourApp";
   const root = document.createElement("div");
 
   root.className = "app-root";
@@ -25,11 +25,11 @@ yourApp = function (posX = 50, posY = 50) {
     fontFamily: "sans-serif",
     zIndex: 1000,
   });
-  root.classList.add("your_app_name");
+  root.classList.add("yourApp");
   bringToFront(root);
   document.body.appendChild(root);
-  your_app_nameGlobals.goldenbodyId++;
-  root._goldenbodyId = your_app_nameGlobals.goldenbodyId;
+  yourAppGlobals.goldenbodyId++;
+  root._goldenbodyId = yourAppGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -134,11 +134,11 @@ yourApp = function (posX = 50, posY = 50) {
 
   function closeWindow() {
     root.remove();
-    const index = your_app_nameGlobals.allyour_app_name.findIndex(
+    const index = yourAppGlobals.allYourAppInstances.findIndex(
       (instance) => instance.rootElement == root,
     );
-    if (index !== -1) your_app_nameGlobals.allyour_app_name.splice(index, 1);
-    window.removeAllEventListenersForApp("your_app_name" + root._goldenbodyId);
+    if (index !== -1) yourAppGlobals.allYourAppInstances.splice(index, 1);
+    window.removeAllEventListenersForApp("yourApp" + root._goldenbodyId);
   }
 
   function hideWindow() {
@@ -154,16 +154,16 @@ yourApp = function (posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...your_app_nameGlobals.allyour_app_name]) {
+    for (const instance of [...yourAppGlobals.allYourAppInstances]) {
       if (instance && typeof instance.closeWindow === "function") {
         instance.closeWindow();
       }
     }
-    your_app_nameGlobals.allyour_app_name = [];
+    yourAppGlobals.allYourAppInstances = [];
   }
 
   function hideAll() {
-    for (const instance of your_app_nameGlobals.allyour_app_name) {
+    for (const instance of yourAppGlobals.allYourAppInstances) {
       if (instance && typeof instance.hideWindow === "function") {
         instance.hideWindow();
       }
@@ -171,10 +171,10 @@ yourApp = function (posX = 50, posY = 50) {
   }
 
   function showAll() {
-    your_app_nameGlobals.allyour_app_name.sort(
+    yourAppGlobals.allYourAppInstances.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of your_app_nameGlobals.allyour_app_name) {
+    for (const instance of yourAppGlobals.allYourAppInstances) {
       if (instance && typeof instance.showWindow === "function") {
         instance.showWindow();
       }
@@ -241,7 +241,7 @@ yourApp = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("your_app_name" + root._goldenbodyId, "mousemove", (ev) => {
+      window.addEventListener("yourApp" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
         if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
           applyBounds(savedBounds);
@@ -257,7 +257,7 @@ yourApp = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("your_app_name" + root._goldenbodyId, "mouseup", () => {
+      window.addEventListener("yourApp" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
         document.body.style.userSelect = "";
       });
@@ -376,7 +376,7 @@ yourApp = function (posX = 50, posY = 50) {
   a.style.textAlign = "center";
   a.style.marginTop = "20px";
   root.appendChild(a);
-  your_app_nameGlobals.allyour_app_name.push({
+  yourAppGlobals.allYourAppInstances.push({
     rootElement: root,
     btnMax,
     _isMinimized,

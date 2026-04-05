@@ -171,11 +171,65 @@ if (!window.__terminalTaskmanDemoRegistered && typeof window.registerTerminalApp
       context.writeLine("Running: " + Number(summary.running || 0));
       context.writeLine("Idle: " + Number(summary.idle || 0));
       context.writeLine("Unknown: " + Number(summary.unknown || 0));
-      context.writeLine("Instances: " + Number(summary.totalInstances || 0));
+      context.writeLine("Instance Tasks: " + Number(summary.totalInstances || 0));
       return;
     },
   });
   window.__terminalTaskmanDemoRegistered = true;
+}
+
+if (!window.__terminalProcessCommandsRegistered && typeof window.registerTerminalAppCommand === "function") {
+  window.registerTerminalAppCommand({
+    name: "procs",
+    description: "List the current Flowaway process snapshot.",
+    usage: "procs [json]",
+    sourceApp: "terminal",
+    handler: function (context, args) {
+      if (typeof window.FlowawayProcess !== "object" || !window.FlowawayProcess) {
+        return "procs: process runtime unavailable";
+      }
+      var snapshot = typeof window.FlowawayProcess.snapshot === "function"
+        ? window.FlowawayProcess.snapshot()
+        : typeof window.getTaskManagerSnapshot === "function"
+          ? window.getTaskManagerSnapshot()
+          : null;
+      if (String(args && args[0] || "").toLowerCase() === "json") {
+        return snapshot || {};
+      }
+      var summary = snapshot && snapshot.summary ? snapshot.summary : {};
+      context.writeLine("Processes: " + Number(summary.totalEntries || 0));
+      context.writeLine("Running: " + Number(summary.running || 0));
+      context.writeLine("Idle: " + Number(summary.idle || 0));
+      context.writeLine("Unknown: " + Number(summary.unknown || 0));
+      context.writeLine("Instance Tasks: " + Number(summary.totalInstances || 0));
+      return;
+    },
+  });
+
+  window.registerTerminalAppCommand({
+    name: "killproc",
+    description: "Terminate a process by pid.",
+    usage: "killproc <pid>",
+    sourceApp: "terminal",
+    handler: function (context, args) {
+      var target = String(args && args[0] || "").trim();
+      if (!target) return "killproc: missing pid";
+      if (typeof window.FlowawayProcess !== "object" || !window.FlowawayProcess) {
+        return "killproc: process runtime unavailable";
+      }
+      var pid = Number(target);
+      if (!Number.isFinite(pid)) {
+        return "killproc: pid must be numeric";
+      }
+      var ok = false;
+      if (typeof window.FlowawayProcess.terminate === "function") {
+        ok = !!window.FlowawayProcess.terminate(pid, "terminal-kill");
+      }
+      return ok ? "killproc: terminated " + String(pid) : "killproc: no matching process for pid " + String(pid);
+    },
+  });
+
+  window.__terminalProcessCommandsRegistered = true;
 }
 
 terminal = function (posX = 50, posY = 50) {
@@ -868,7 +922,7 @@ terminal = function (posX = 50, posY = 50) {
     try {
       if (Array.isArray(window.apps) && window.apps.length) {
         return window.apps
-          .map((a) => (a.entry || a.id || a.startbtnid || a.label || a.path || ""))
+          .map((a) => (a.functionname || a.id || a.label || a.path || ""))
           .filter(Boolean)
           .map((s) => String(s).toLowerCase());
       }
@@ -882,7 +936,7 @@ terminal = function (posX = 50, posY = 50) {
     try {
       const apps = Array.isArray(window.apps) ? window.apps : [];
       let app = apps.find((a) => {
-        const candidates = [a.entry, a.id, a.startbtnid, a.label, a.path]
+        const candidates = [a.functionname, a.id, a.label, a.path]
           .filter((v) => typeof v !== "undefined" && v !== null)
           .map((v) => String(v).toLowerCase());
         return candidates.includes(target);
@@ -894,10 +948,10 @@ terminal = function (posX = 50, posY = 50) {
         app = apps.find((a) => String(a.label || "").toLowerCase().startsWith(target));
       }
       if (!app) return false;
-      const entryName = app.entry || app.id || app.startbtnid;
-      if (entryName && typeof window[entryName] === "function") {
+      const functionName = app.functionname || app.id;
+      if (functionName && typeof window[functionName] === "function") {
         try {
-          return window[entryName](90, 90);
+          return window[functionName](90, 90);
         } catch (e) {
           return false;
         }

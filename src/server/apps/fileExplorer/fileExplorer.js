@@ -1440,18 +1440,18 @@ fileExplorer = function (posX = 50, posY = 50) {
 
         const apps = (Array.isArray(window.apps) ? window.apps : [])
           .map((app) => {
-            const entryName = app && (app.entry || app.id || app.startbtnid);
-            if (!entryName || typeof window[entryName] !== "function") return null;
+            const functionName = app && (app.functionname || app.id);
+            if (!functionName || typeof window[functionName] !== "function") return null;
             return {
-              label: app.label || entryName,
-              entryName,
+              label: app.label || functionName,
+              functionName,
               openfilecapability: app.openfilecapability,
             };
           })
           .filter(Boolean)
           .filter((app) => {
             const ownId = String(root.dataset.appId || "").toLowerCase();
-            return String(app.entryName || "").toLowerCase() !== ownId;
+            return String(app.functionName || "").toLowerCase() !== ownId;
           })
           .filter((app) => appSupportsSelectedExtensions(app));
 
@@ -1477,7 +1477,7 @@ fileExplorer = function (posX = 50, posY = 50) {
                   if (!node || Array.isArray(node[1])) continue;
                   let path = (node && node[2] && node[2].path) || getItemPath(node) || (Array.isArray(node) ? node[0] : "");
                   try {
-                    window[app.entryName](path);
+                    window[app.functionName](path);
                   } catch (e) {
                     console.error("open with app error", e);
                   }

@@ -1,14 +1,7 @@
 {
-  "name": "taskManager",
+  "functionname": "taskManager",
   "label": "Task Manager",
-  "startbtnid": "taskmanagerapp",
-  "globalvarobject": "taskManagerGlobals",
-  "allapparray": "allTaskManagers",
-  "openfilecapability": [],
-  "appGlobalVarStrings": [
-    "allTaskManagers",
-    "taskManagerButtons",
-    "taskManagermenu",
-    "taskManagerId"
-  ]
+  "globalvarobjectstring": "taskManagerGlobals",
+  "allapparraystring": "allTaskManagers",
+  "openfilecapability": []
 }

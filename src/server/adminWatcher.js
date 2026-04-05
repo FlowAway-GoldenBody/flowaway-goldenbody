@@ -43,7 +43,17 @@ function updateAllSystemApps() {
     const projectRoot = path.resolve(__dirname, '../../');
     const directoryPath = path.resolve(__dirname, './zmcdfiles');
     const systemAppsPath = path.join(__dirname, 'apps');
-    const systemRootFiles = ['flowaway.js', 'goldenbody.js'];
+    const systemRootFiles = [
+      'flowaway.js',
+      'runtimeCore.js',
+      'runtimeAppRuntime.js',
+      'runtimeWindowSystem.js',
+      'runtimeShell.js',
+      'goldenbody.js',
+      'processes.js',
+      'appLoader.js',
+      'appPolling.js',
+    ];
     const systemAppstoreappsFiles = ['startMenu-config.json'];
     if (!fs.existsSync(systemAppsPath)) {
       console.log('System apps directory not found:', systemAppsPath);

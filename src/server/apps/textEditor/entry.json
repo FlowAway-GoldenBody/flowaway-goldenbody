@@ -1,19 +1,9 @@
 {
-  "name": "textEditor",
+  "functionname": "textEditor",
   "label": "Text Editor",
-  "startbtnid": "editorapp",
-  "globalvarobject": "textEditorGlobals",
-  "allapparray": "alltextEditor",
+  "globalvarobjectstring": "textEditorGlobals",
+  "allapparraystring": "allTextEditors",
   "openfilecapability": [
     "*"
-  ],
-  "appGlobalVarStrings": [
-    "alltextEditor",
-    "textEditorId",
-    "__textEditorStyle",
-    "textEditorButtons",
-    "AbortController",
-    "attachTextEditorContext",
-    "textEditormenu"
   ]
 }

@@ -17,6 +17,8 @@ directions:
   - maintain a clear sequence of planning → analysis → fixing
   - avoid skipping steps or mixing responsibilities
   - consolidate final outputs into a coherent result for the user
+  - this is REQUIRED: if i say change smt, its gone and i dont want legacy support.
+  - this is even more important: remember system apps are also apps so they are packaged not hardcoded into the accounts, users can delete/modify them. When i say work on apps, they are real apps in the os sense.
 
 routing_rules:
   - use flowaway for planning, feature design, and implementation

@@ -1,9 +1,8 @@
 {
-  "name": "browser",
+  "functionname": "browser",
   "label": "Browser",
-  "startbtnid": "browserapp",
-  "globalvarobject": "browserGlobals",
-  "allapparray": "allBrowsers",
+  "globalvarobjectstring": "browserGlobals",
+  "allapparraystring": "allBrowsers",
   "openfilecapability": [
     ".html",
     ".htm",
@@ -77,18 +76,5 @@
     ".env",
     ".yml",
     ".yaml"
-  ],
-  "appGlobalVarStrings": [
-    "browsermenu",
-    "browserButtons",
-    "allBrowsers",
-    "browserId",
-    "id",
-    "proxyurl",
-    "dragstartwindow",
-    "__vfsMessageListenerAdded",
-    "tabisDragging",
-    "draggedtab",
-    "mainWebsite"
   ]
 }
