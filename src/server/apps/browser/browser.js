@@ -1198,6 +1198,8 @@ window.browser = function (
         '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
       theme:
         '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="1" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="23"></line><line x1="1" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="23" y2="12"></line><line x1="4.2" y1="4.2" x2="6.3" y2="6.3"></line><line x1="17.7" y1="17.7" x2="19.8" y2="19.8"></line><line x1="4.2" y1="19.8" x2="6.3" y2="17.7"></line><line x1="17.7" y1="6.3" x2="19.8" y2="4.2"></line></svg>',
+      stop_loading:
+        '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
     };
 
     const setAddressButtonIcon = (button, iconName) => {
@@ -6175,7 +6177,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           resizeDiv.innerText = tab.resizeP + "%";
           activatedTab = tab;
           if (tab.iframe.contentDocument.readyState !== "complete") {
-            reloadBtn.textContent = "x";
+            setAddressButtonIcon(reloadBtn, "stop_loading");
             reloadBtn.dataset.mode = "stop";
 
             tab.title = "Loading...";
