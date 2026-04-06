@@ -307,6 +307,9 @@
     btn.style.marginRight = "5px";
     btn.style.border = "none";
     btn.className = 'taskbutton';
+    var isDarkTaskbarTheme = !!(window.data && window.data.dark);
+    btn.classList.toggle('dark', isDarkTaskbarTheme);
+    btn.classList.toggle('light', !isDarkTaskbarTheme);
     btn.style.borderRadius = "3px";
     btn.style.cursor = "pointer";
     btn.style.height = "67%"; // slightly smaller than 60px taskbar

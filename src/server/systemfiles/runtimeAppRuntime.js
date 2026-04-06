@@ -934,6 +934,25 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
   if (!app) return;
 
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
+  try {
+    window._flowaway_handlers = window._flowaway_handlers || {};
+    if (window._flowaway_handlers.onAppMenuOutsidePointerDown) {
+      document.removeEventListener(
+        "pointerdown",
+        window._flowaway_handlers.onAppMenuOutsidePointerDown,
+        true,
+      );
+      delete window._flowaway_handlers.onAppMenuOutsidePointerDown;
+    }
+    if (window._flowaway_handlers.onAppMenuEscapeKey) {
+      document.removeEventListener(
+        "keydown",
+        window._flowaway_handlers.onAppMenuEscapeKey,
+        true,
+      );
+      delete window._flowaway_handlers.onAppMenuEscapeKey;
+    }
+  } catch (err) {}
 
   const menu = document.createElement("div");
   try {
@@ -1151,6 +1170,62 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
 
   document.body.appendChild(menu);
 
+  var nativeMenuRemove = menu.remove.bind(menu);
+  var menuClosed = false;
+  function closeMenu() {
+    if (menuClosed) return;
+    menuClosed = true;
+    try {
+      nativeMenuRemove();
+    } catch (err) {}
+    try {
+      if (window._flowaway_handlers && window._flowaway_handlers.onAppMenuOutsidePointerDown) {
+        document.removeEventListener(
+          "pointerdown",
+          window._flowaway_handlers.onAppMenuOutsidePointerDown,
+          true,
+        );
+        delete window._flowaway_handlers.onAppMenuOutsidePointerDown;
+      }
+      if (window._flowaway_handlers && window._flowaway_handlers.onAppMenuEscapeKey) {
+        document.removeEventListener(
+          "keydown",
+          window._flowaway_handlers.onAppMenuEscapeKey,
+          true,
+        );
+        delete window._flowaway_handlers.onAppMenuEscapeKey;
+      }
+    } catch (err) {}
+  }
+
+  try {
+    window._flowaway_handlers = window._flowaway_handlers || {};
+    window._flowaway_handlers.onAppMenuOutsidePointerDown = function (evt) {
+      if (!menu || !menu.isConnected) {
+        closeMenu();
+        return;
+      }
+      if (evt && evt.target && menu.contains(evt.target)) return;
+      closeMenu();
+    };
+    window._flowaway_handlers.onAppMenuEscapeKey = function (evt) {
+      if (!evt) return;
+      if (evt.key === "Escape") closeMenu();
+    };
+    document.addEventListener(
+      "pointerdown",
+      window._flowaway_handlers.onAppMenuOutsidePointerDown,
+      true,
+    );
+    document.addEventListener(
+      "keydown",
+      window._flowaway_handlers.onAppMenuEscapeKey,
+      true,
+    );
+  } catch (err) {}
+
+  menu.remove = closeMenu;
+
   requestAnimationFrame(() => {
     const menuHeight = menu.offsetHeight;
     let top = e.clientY - menuHeight;
@@ -1159,7 +1234,6 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
     menu.style.visibility = "visible";
   });
 
-  window.addEventListener("click", () => menu.remove(), { once: true });
 };
 
 window.cmf = function (e, appOverride = null) {

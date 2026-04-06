@@ -693,6 +693,7 @@ window.browser = function (
   var activatedTab = 0;
   let isMaximized = false;
   let _isMinimized = false;
+  const activeFrameObservers = [];
   if (posX < 0) {
     posX = 0;
   }
@@ -1122,6 +1123,16 @@ window.browser = function (
         if (windowTitleInterval) {
           clearInterval(windowTitleInterval);
           windowTitleInterval = null;
+        }
+      } catch (e) {}
+      try {
+        if (Array.isArray(activeFrameObservers)) {
+          for (let i = 0; i < activeFrameObservers.length; i++) {
+            const observer = activeFrameObservers[i];
+            if (!observer || typeof observer.disconnect !== "function") continue;
+            observer.disconnect();
+          }
+          activeFrameObservers.length = 0;
         }
       } catch (e) {}
 
@@ -5372,6 +5383,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
               childList: true,
               subtree: true,
             });
+            activeFrameObservers.push(observer);
           } catch (e) {
             // ignored (likely cross-origin restrictions)
           }
@@ -6886,7 +6898,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       },
     };
   })();
-  windowTitleInterval = setInterval(function () {
+  browserGlobals.windowTitleInterval = setInterval(function () {
     var nextTitle = "";
     try {
       nextTitle = String((activatedTab && activatedTab.title) || "").trim();

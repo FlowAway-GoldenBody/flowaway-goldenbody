@@ -1,4 +1,31 @@
-//yourApp global vars
+//yourApp global vars, required for all apps to function correctly, and to allow multiple instances of the app to work together without conflicts. You can add your own global vars here as well, but do not remove or rename these.
+//if you want to rename the 3 global vars and the app function please change its config in entry.json
+/*
+this is the bare minimum you have to return/handle
+  return {
+    rootElement: root,
+    btnMax,
+    _isMinimized,
+    isMaximized,
+    getBounds,
+    applyBounds,
+    showWindow,
+    hideWindow,
+    closeWindow,
+    showAll,
+    hideAll,
+    closeAll,
+    newWindow,
+    showall: showAll,
+    hideall: hideAll,
+    closeall: closeAll,
+    newwindow: newWindow,
+    goldenbodyId: root._goldenbodyId,
+  };
+  the all lowercase function names are legacy ones,
+  still make sure u support both closewindow and closeWindow,
+  for example, to avoid issues with users calling the wrong one. 
+*/
 window.yourAppGlobals = {};
 yourAppGlobals.allYourAppInstances = [];
 yourAppGlobals.goldenbodyId = 0;

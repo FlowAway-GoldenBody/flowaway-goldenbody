@@ -1174,6 +1174,7 @@ taskManager = function (posX = 50, posY = 50) {
 
     const appMeta = resolveAppMetaForRow(row);
     const targetPid = row.pid || row.processId;
+    let terminatedByProcessApi = false;
 
     try {
       if (
@@ -1181,7 +1182,12 @@ taskManager = function (posX = 50, posY = 50) {
         typeof window.FlowawayProcess.terminate === "function" &&
         targetPid
       ) {
-        window.FlowawayProcess.terminate(targetPid, "task-manager-kill");
+        terminatedByProcessApi = !!window.FlowawayProcess.terminate(targetPid, "task-manager-kill");
+      } else if (
+        typeof window.killProcess === "function" &&
+        targetPid
+      ) {
+        terminatedByProcessApi = !!window.killProcess(targetPid, "task-manager-kill");
       }
     } catch (e) {}
 
@@ -1260,6 +1266,11 @@ taskManager = function (posX = 50, posY = 50) {
     const remainingCount = remainingInstances.length;
     if (startingCount > 0 && attempted > 0) {
       closed = Math.max(closed, Math.min(1, startingCount - remainingCount));
+    }
+
+    if (terminatedByProcessApi) {
+      attempted = Math.max(attempted, 1);
+      closed = Math.max(closed, 1);
     }
 
     if (closed > 0) {

@@ -4,7 +4,7 @@
 if (!window.data) window.data = data;
 window.____gbEventListners = [];
 window.loaded = false;
-window.APP_VERSION = "v1.13.0";
+window.APP_VERSION = "v1.14.1";
 
 if (typeof data.autohidetaskbar === "undefined") {
   data.autohidetaskbar = false;
@@ -663,7 +663,57 @@ var rebuildhandler = function () {
       delete window.__flowawayProcessLoadTreeWrapped;
       delete window.__flowawayProcessLaunchAppWrapped;
       delete window.__flowawayProcessAppUpdatedBound;
+      delete window.__flowawayProcessTimerApisWrapped;
+      delete window.__flowawayProcessRafApisWrapped;
+      delete window.__flowawayProcessMutationObserverWrapped;
+      delete window.__flowawayProcessEventListenerApisWrapped;
       delete window.__flowawayLaunchContext;
+    } catch (e) {}
+    try {
+      if (typeof window.__flowawayProcessNativeSetTimeout === "function") {
+        window.setTimeout = window.__flowawayProcessNativeSetTimeout;
+      }
+      if (typeof window.__flowawayProcessNativeSetInterval === "function") {
+        window.setInterval = window.__flowawayProcessNativeSetInterval;
+      }
+      if (typeof window.__flowawayProcessNativeClearTimeout === "function") {
+        window.clearTimeout = window.__flowawayProcessNativeClearTimeout;
+      }
+      if (typeof window.__flowawayProcessNativeClearInterval === "function") {
+        window.clearInterval = window.__flowawayProcessNativeClearInterval;
+      }
+      if (typeof window.__flowawayProcessNativeRequestAnimationFrame === "function") {
+        window.requestAnimationFrame = window.__flowawayProcessNativeRequestAnimationFrame;
+      }
+      if (typeof window.__flowawayProcessNativeCancelAnimationFrame === "function") {
+        window.cancelAnimationFrame = window.__flowawayProcessNativeCancelAnimationFrame;
+      }
+      if (typeof window.__flowawayProcessNativeMutationObserver === "function") {
+        window.MutationObserver = window.__flowawayProcessNativeMutationObserver;
+      }
+      if (typeof window.__flowawayProcessNativeWindowAddEventListener === "function") {
+        window.addEventListener = window.__flowawayProcessNativeWindowAddEventListener;
+      }
+      if (typeof window.__flowawayProcessNativeWindowRemoveEventListener === "function") {
+        window.removeEventListener = window.__flowawayProcessNativeWindowRemoveEventListener;
+      }
+      if (document && typeof window.__flowawayProcessNativeDocumentAddEventListener === "function") {
+        document.addEventListener = window.__flowawayProcessNativeDocumentAddEventListener;
+      }
+      if (document && typeof window.__flowawayProcessNativeDocumentRemoveEventListener === "function") {
+        document.removeEventListener = window.__flowawayProcessNativeDocumentRemoveEventListener;
+      }
+      delete window.__flowawayProcessNativeSetTimeout;
+      delete window.__flowawayProcessNativeSetInterval;
+      delete window.__flowawayProcessNativeClearTimeout;
+      delete window.__flowawayProcessNativeClearInterval;
+      delete window.__flowawayProcessNativeRequestAnimationFrame;
+      delete window.__flowawayProcessNativeCancelAnimationFrame;
+      delete window.__flowawayProcessNativeMutationObserver;
+      delete window.__flowawayProcessNativeWindowAddEventListener;
+      delete window.__flowawayProcessNativeWindowRemoveEventListener;
+      delete window.__flowawayProcessNativeDocumentAddEventListener;
+      delete window.__flowawayProcessNativeDocumentRemoveEventListener;
     } catch (e) {}
     // remove all event listeners to refresh the environment.
     removeAllEventListernersInWindow();
