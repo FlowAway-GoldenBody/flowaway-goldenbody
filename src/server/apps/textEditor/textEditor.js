@@ -256,7 +256,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
 
   function hideWindow() {
-    savedBounds = getBounds();
+    if (!isMaximized) savedBounds = getBounds();
     root.style.display = "none";
     _isMinimized = true;
   }
@@ -342,29 +342,32 @@ textEditor = function (path, posX = 50, posY = 50) {
         startY = 0,
         origLeft = 0,
         origTop = 0;
-      let currentX, currentY;
+      let thresholdCrossed = false;
+      const DRAG_THRESHOLD = 15;
 
       topBar.addEventListener("mousedown", (ev) => {
         dragging = true;
+        thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
         origLeft = root.offsetLeft;
         origTop = root.offsetTop;
-        currentX = ev.clientX;
-        currentY = ev.clientY;
         document.body.style.userSelect = "none";
       });
 
       window.addEventListener("textEditor" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
-        if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
-          applyBounds(savedBounds);
+        const dragDistance = Math.sqrt(Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2));
+        if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+          thresholdCrossed = true;
           if (isMaximized) {
+            applyBounds(savedBounds);
             restoreWindow(false);
             root.style.left = ev.clientX - root.clientWidth / 2 + "px";
             origLeft = ev.clientX - root.clientWidth / 2;
           }
         }
+        if (!thresholdCrossed) return;
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
         root.style.left = origLeft + dx + "px";
@@ -373,6 +376,7 @@ textEditor = function (path, posX = 50, posY = 50) {
 
       window.addEventListener("textEditor" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
+        thresholdCrossed = false;
         document.body.style.userSelect = "";
       });
     })();
@@ -1419,6 +1423,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     title: titleLabel.textContent,
     textarea,
   };
+
   textEditorGlobals.allTextEditors.push(returnObject);
 
   applyStyles();

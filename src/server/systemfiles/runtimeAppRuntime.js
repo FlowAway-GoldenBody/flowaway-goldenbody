@@ -80,6 +80,57 @@ function appMatchesIdentifier(app, identifier) {
   return candidates.includes(id);
 }
 
+function resolveLaunchContextRoot() {
+  try {
+    var launchContext = window.__flowawayLaunchContext;
+    var launchAppId =
+      launchContext && launchContext.appId
+        ? String(launchContext.appId)
+        : "";
+    var roots = Array.from(document.querySelectorAll(".app-root"));
+    if (launchAppId) {
+      for (var i = roots.length - 1; i >= 0; i--) {
+        var root = roots[i];
+        if (!root || !root.dataset) continue;
+        if (String(root.dataset.appId || "") === launchAppId) {
+          return root;
+        }
+      }
+    }
+    return roots.length ? roots[roots.length - 1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+window.setAppDataTitle = function (targetOrTitle, maybeTitle) {
+  var target = null;
+  var title = "";
+
+  if (
+    targetOrTitle &&
+    typeof targetOrTitle === "object" &&
+    typeof targetOrTitle.setAttribute === "function"
+  ) {
+    target = targetOrTitle;
+    title = String(maybeTitle || "").trim();
+  } else {
+    title = String(targetOrTitle || "").trim();
+    target = resolveLaunchContextRoot();
+  }
+
+  if (!target || !title) return false;
+  try {
+    target.setAttribute("data-title", title);
+    if (target.dataset) target.dataset.title = title;
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+window.setDataTitle = window.setAppDataTitle;
+
 async function toIconImageMarkup(iconPathOrUrl, folderPath) {
   return getFlowawayAppLoaderRuntime().toIconImageMarkup(iconPathOrUrl, folderPath);
 }
@@ -88,51 +139,12 @@ async function toIconImageMarkup(iconPathOrUrl, folderPath) {
 async function extractAppData(appFolder) {
   return getFlowawayAppLoaderRuntime().extractAppData(appFolder);
 }
-async function runbootscript() {
-  var b64 = await fetchFileContentByPath(`.boot/gbenv.js`);
-  var scriptText = decodeFileTextStrict(b64, ".boot/gbenv.js", { allowEmpty: false });
-  var s = document.createElement("script");
-  s.type = "text/javascript";
-  s.textContent = scriptText;
-  document.body.appendChild(s);
-}
-async function runscriptapps() {
-  var rootChildren = (window.treeData && window.treeData[1]) || [];
-  var appsNode = rootChildren.find(
-    (c) => c[0] === ".noguiapps" && Array.isArray(c[1]),
-  );
-  if (!appsNode || !Array.isArray(appsNode[1])) return;
-  for (const file of appsNode[1]) {
-    try {
-      var b64 = await fetchFileContentByPath(`.noguiapps/${file[0]}`);
-      var scriptText = base64ToUtf8(b64);
-      var s = document.createElement("script");
-      s.type = "text/javascript";
-      s.textContent = scriptText;
-      document.body.appendChild(s);
-    } catch (e) {
-      flowawayError("runscriptapps", "Failed to load non-GUI app script", e, {
-        file: file && file[0],
-      });
-    }
-  }
-}
 async function loadAppsFromTree() {
   if (loaded) return;
   loaded = true;
   window.apps = [];
   if (!window.treeData) await window.loadTree();
   try {
-    try {
-      await runbootscript();
-    } catch (e) {
-      console.error("runbootscript error", e);
-    }
-    try {
-      await runscriptapps();
-    } catch (e) {
-      console.error("runscriptapps error", e);
-    }
     var rootChildren = (window.treeData && window.treeData[1]) || [];
     var appsNode = rootChildren.find(
       (c) => c[0] === "apps" && Array.isArray(c[1]),
@@ -155,56 +167,7 @@ async function loadAppsFromTree() {
 
     // render
     await renderAppsGrid();
-   
-     // Load GUI-less apps (plain .js function files in /apps)
-     var rootChildren = (window.treeData && window.treeData[1]) || [];
-     var appsNode = rootChildren.find(
-       (c) => c[0] === "apps" && Array.isArray(c[1]),
-     );
-     if (appsNode && Array.isArray(appsNode[1])) {
-       for (var folderIdx = 0; folderIdx < appsNode[1].length; folderIdx++) {
-         var folder = appsNode[1][folderIdx];
-         if (
-           folder &&
-           typeof folder[0] === "string" &&
-           Array.isArray(folder[1])
-         ) {
-           for (var fileIdx = 0; fileIdx < folder[1].length; fileIdx++) {
-             var file = folder[1][fileIdx];
-             if (
-               file &&
-               typeof file[0] === "string" &&
-               file[0].endsWith(".js") &&
-               !Array.isArray(file[1])
-             ) {
-               var jsFileName = file[0].replace(/\.js$/, "");
-               var folderName = folder[0];
-               if (jsFileName === folderName) {
-                 try {
-                   var b64GuiLess = await fetchFileContentByPath(
-                     `apps/${folderName}/${jsFileName}.js`,
-                   );
-                   var scriptTextGuiLess = base64ToUtf8(b64GuiLess);
-                   var sGuiLess = document.createElement("script");
-                   sGuiLess.type = "text/javascript";
-                   sGuiLess.textContent = scriptTextGuiLess;
-                   sGuiLess.id = `app-${folderName}`;
-                   document.body.appendChild(sGuiLess);
-                 } catch (e) {
-                   flowawayError(
-                     "loadAppsFromTree",
-                     "Failed to load GUI-less app",
-                     e,
-                     { folder: folderName },
-                   );
-                 }
-               }
-             }
-           }
-         }
-       }
-     }
-   
+
      // reapply task buttons now that apps may be present
      applyTaskButtons();
     purgeButtons();
@@ -506,13 +469,26 @@ async function launchApp(appId) {
     // After the app varructs its UI, try to tag the new top-level window(s) with appId
     setTimeout(() => {
       try {
+        var appIdentifier = getPreferredAppIdentifier(app);
+        var appLabel = String(app.label || app.functionname || app.id || appIdentifier || "");
         var roots = Array.from(document.querySelectorAll(".app-root"));
         // find ones without app id yet
         var untagged = roots.filter((r) => !r.dataset || !r.dataset.appId);
         if (untagged.length) {
           // tag the most recently added
           var candidate = untagged[untagged.length - 1];
-          candidate.dataset.appId = getPreferredAppIdentifier(app);
+          candidate.dataset.appId = appIdentifier;
+        }
+
+        for (var i = 0; i < roots.length; i++) {
+          var root = roots[i];
+          if (!root || !root.dataset) continue;
+          if (String(root.dataset.appId || "") !== String(appIdentifier || "")) continue;
+          var currentTitle = String(root.getAttribute("data-title") || "").trim();
+          if (!currentTitle && appLabel) {
+            root.setAttribute("data-title", appLabel);
+            root.dataset.title = appLabel;
+          }
         }
       } catch (e) {}
     }, 40);

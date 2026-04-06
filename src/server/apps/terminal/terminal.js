@@ -464,10 +464,13 @@ terminal = function (posX = 50, posY = 50) {
         startY = 0,
         origLeft = 0,
         origTop = 0;
+      let thresholdCrossed = false;
+      const DRAG_THRESHOLD = 15;
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
         dragging = true;
+        thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
         origLeft = root.offsetLeft;
@@ -479,7 +482,9 @@ terminal = function (posX = 50, posY = 50) {
 
       window.addEventListener("terminal" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
-        if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
+        const dragDistance = Math.sqrt(Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2));
+        if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+          thresholdCrossed = true;
           applyBounds(savedBounds);
           if (isMaximized) {
             restoreWindow(false);
@@ -487,6 +492,7 @@ terminal = function (posX = 50, posY = 50) {
             origLeft = ev.clientX - root.clientWidth / 2;
           }
         }
+        if (!thresholdCrossed) return;
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
         root.style.left = origLeft + dx + "px";
@@ -495,6 +501,7 @@ terminal = function (posX = 50, posY = 50) {
 
       window.addEventListener("terminal" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
+        thresholdCrossed = false;
         document.body.style.userSelect = "";
       });
     })();
@@ -1734,7 +1741,7 @@ terminal = function (posX = 50, posY = 50) {
   setTimeout(() => {
     try { input.focus(); } catch (e) {}
   }, 0);
-  
+
   terminalGlobals.allTerminals.push({
     rootElement: root,
     btnMax,
