@@ -41,6 +41,39 @@
   runtime.processTrackerState = runtime.processTrackerState && typeof runtime.processTrackerState === "object"
     ? runtime.processTrackerState
     : {};
+  runtime.timerProcessBindings = runtime.timerProcessBindings && typeof runtime.timerProcessBindings === "object"
+    ? runtime.timerProcessBindings
+    : {};
+  runtime.rafProcessBindings = runtime.rafProcessBindings && typeof runtime.rafProcessBindings === "object"
+    ? runtime.rafProcessBindings
+    : {};
+  runtime.observerProcessBindings = runtime.observerProcessBindings && typeof runtime.observerProcessBindings === "object"
+    ? runtime.observerProcessBindings
+    : {};
+  runtime.listenerProcessBindings = runtime.listenerProcessBindings && typeof runtime.listenerProcessBindings === "object"
+    ? runtime.listenerProcessBindings
+    : {};
+  runtime.timerHandleIdentity = runtime.timerHandleIdentity instanceof WeakMap
+    ? runtime.timerHandleIdentity
+    : new WeakMap();
+  runtime.rafHandleIdentity = runtime.rafHandleIdentity instanceof WeakMap
+    ? runtime.rafHandleIdentity
+    : new WeakMap();
+  runtime.observerHandleIdentity = runtime.observerHandleIdentity instanceof WeakMap
+    ? runtime.observerHandleIdentity
+    : new WeakMap();
+  runtime.listenerHandleIdentity = runtime.listenerHandleIdentity instanceof WeakMap
+    ? runtime.listenerHandleIdentity
+    : new WeakMap();
+  runtime.listenerSignalIdentity = runtime.listenerSignalIdentity instanceof WeakMap
+    ? runtime.listenerSignalIdentity
+    : new WeakMap();
+  runtime.timerHandleCounter = Number(runtime.timerHandleCounter || 0);
+  runtime.rafHandleCounter = Number(runtime.rafHandleCounter || 0);
+  runtime.observerHandleCounter = Number(runtime.observerHandleCounter || 0);
+  runtime.listenerHandleCounter = Number(runtime.listenerHandleCounter || 0);
+  runtime.listenerSignalCounter = Number(runtime.listenerSignalCounter || 0);
+  runtime.executionStack = Array.isArray(runtime.executionStack) ? runtime.executionStack : [];
 
   function getFirstDefinedValue() {
     for (var i = 0; i < arguments.length; i++) {
@@ -67,6 +100,106 @@
     if (!Number.isNaN(numeric)) return numeric;
     return null;
   }
+
+  function collectKnownProcessPids() {
+    var known = {};
+
+    function markPid(pidValue) {
+      var pid = normalizeProcessPid(pidValue);
+      if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return;
+      known[String(pid)] = true;
+    }
+
+    var identityMap = runtime.taskProcessIdByIdentity && typeof runtime.taskProcessIdByIdentity === "object"
+      ? runtime.taskProcessIdByIdentity
+      : {};
+    var identityKeys = Object.keys(identityMap);
+    for (var i = 0; i < identityKeys.length; i++) {
+      markPid(identityMap[identityKeys[i]]);
+    }
+
+    var processes = Array.isArray(runtime.processes) ? runtime.processes : [];
+    for (var p = 0; p < processes.length; p++) {
+      var record = processes[p] && typeof processes[p] === "object" ? processes[p] : null;
+      if (!record) continue;
+      markPid(getFirstDefinedValue(record.pid, record.processId, record.id));
+    }
+
+    var store = runtime.processObjectsByPid && typeof runtime.processObjectsByPid === "object"
+      ? runtime.processObjectsByPid
+      : {};
+    var storeKeys = Object.keys(store);
+    for (var s = 0; s < storeKeys.length; s++) {
+      markPid(storeKeys[s]);
+      var stored = store[storeKeys[s]];
+      if (stored && typeof stored === "object") {
+        markPid(getFirstDefinedValue(stored.pid, stored.processId, stored.id));
+      }
+    }
+
+    var launches = runtime.launchRegistry && typeof runtime.launchRegistry === "object"
+      ? runtime.launchRegistry
+      : {};
+    var launchKeys = Object.keys(launches);
+    for (var l = 0; l < launchKeys.length; l++) {
+      var launch = launches[launchKeys[l]];
+      if (launch && typeof launch === "object") {
+        markPid(getFirstDefinedValue(launch.pid, launch.processId));
+      }
+    }
+
+    var manuals = runtime.manualProcesses && typeof runtime.manualProcesses === "object"
+      ? runtime.manualProcesses
+      : {};
+    var manualKeys = Object.keys(manuals);
+    for (var m = 0; m < manualKeys.length; m++) {
+      var manual = manuals[manualKeys[m]];
+      if (manual && typeof manual === "object") {
+        markPid(getFirstDefinedValue(manual.pid, manual.processId));
+      }
+    }
+
+    var dynamicRoots = runtime.dynamicProcesses && typeof runtime.dynamicProcesses === "object"
+      ? runtime.dynamicProcesses
+      : {};
+    var rootKeys = Object.keys(dynamicRoots);
+    for (var r = 0; r < rootKeys.length; r++) {
+      var procMap = dynamicRoots[rootKeys[r]];
+      if (!procMap || typeof procMap !== "object") continue;
+      var procKeys = Object.keys(procMap);
+      for (var d = 0; d < procKeys.length; d++) {
+        var dynamicMeta = procMap[procKeys[d]];
+        if (dynamicMeta && typeof dynamicMeta === "object") {
+          markPid(getFirstDefinedValue(dynamicMeta.pid, dynamicMeta.processId));
+        }
+      }
+    }
+
+    return known;
+  }
+
+  function getMaxKnownProcessPid() {
+    var known = collectKnownProcessPids();
+    var keys = Object.keys(known);
+    var maxPid = 0;
+    for (var i = 0; i < keys.length; i++) {
+      var pid = normalizeProcessPid(keys[i]);
+      if (typeof pid === "number" && !Number.isNaN(pid) && pid > maxPid) {
+        maxPid = pid;
+      }
+    }
+    return maxPid;
+  }
+
+  function seedProcessCounterFromKnownPids() {
+    var current = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
+    if (!Number.isFinite(current) || current < 0) current = 0;
+    var maxKnown = getMaxKnownProcessPid();
+    runtime.taskProcessCounter = Math.max(current, maxKnown);
+    window.__taskProcessCounter = runtime.taskProcessCounter;
+  }
+
+  seedProcessCounterFromKnownPids();
 
   function getGoldenbodyIdFromInstance(instance) {
     if (!instance || typeof instance !== "object") return null;
@@ -146,36 +279,32 @@
   }
 
   function allocateProcessId(identityKey, seenIdentities) {
-    if (!Object.prototype.hasOwnProperty.call(runtime.taskProcessIdByIdentity, identityKey)) {
-      var reusablePid = null;
-      if (Array.isArray(runtime.reusablePidPool) && runtime.reusablePidPool.length > 0) {
-        runtime.reusablePidPool = runtime.reusablePidPool
-          .map(function (value) {
-            return Number(value);
-          })
-          .filter(function (value) {
-            return Number.isFinite(value) && value > 0;
-          })
-          .sort(function (a, b) {
-            return a - b;
-          });
-        reusablePid = runtime.reusablePidPool.shift();
+    var currentPid = normalizeProcessPid(runtime.taskProcessIdByIdentity[identityKey]);
+    if (typeof currentPid === "number" && !Number.isNaN(currentPid) && currentPid > 0) {
+      if (seenIdentities && typeof seenIdentities === "object") {
+        seenIdentities[identityKey] = true;
       }
-
-      if (typeof reusablePid === "number" && Number.isFinite(reusablePid) && reusablePid > 0) {
-        runtime.taskProcessIdByIdentity[identityKey] = reusablePid;
-      } else {
-        runtime.taskProcessCounter = Number(runtime.taskProcessCounter || 0) + 1;
-        runtime.taskProcessIdByIdentity[identityKey] = runtime.taskProcessCounter;
-      }
-      window.__reusablePidPool = runtime.reusablePidPool;
+      return currentPid;
     }
+
+    var known = collectKnownProcessPids();
+    var next = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
+    if (!Number.isFinite(next) || next < 0) next = 0;
+
+    do {
+      next += 1;
+    } while (known[String(next)]);
+
+    runtime.taskProcessCounter = next;
+    runtime.taskProcessIdByIdentity[identityKey] = next;
+    window.__taskProcessCounter = runtime.taskProcessCounter;
+    window.__reusablePidPool = [];
 
     if (seenIdentities && typeof seenIdentities === "object") {
       seenIdentities[identityKey] = true;
     }
 
-    return Number(runtime.taskProcessIdByIdentity[identityKey] || 0);
+    return Number(next || 0);
   }
 
   function releaseProcessId(pidValue) {
@@ -190,18 +319,10 @@
       }
     }
 
-    runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool)
-      ? runtime.reusablePidPool
-      : [];
-    if (runtime.reusablePidPool.indexOf(pid) === -1) {
-      runtime.reusablePidPool.push(pid);
-      runtime.reusablePidPool.sort(function (a, b) {
-        return Number(a) - Number(b);
-      });
-    }
+    runtime.reusablePidPool = [];
 
     window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
-    window.__reusablePidPool = runtime.reusablePidPool;
+    window.__reusablePidPool = [];
   }
 
   function uniqueStringList(values) {
@@ -217,6 +338,514 @@
       out.push(value);
     }
     return out;
+  }
+
+  function uniqueNumberList(values) {
+    var list = Array.isArray(values) ? values : [];
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var numeric = normalizeProcessPid(list[i]);
+      if (typeof numeric !== "number" || Number.isNaN(numeric)) continue;
+      var key = String(numeric);
+      if (seen[key]) continue;
+      seen[key] = true;
+      out.push(numeric);
+    }
+    return out;
+  }
+
+  function normalizeWindowIds(value) {
+    if (!Array.isArray(value)) return [];
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < value.length; i++) {
+      var id = String(value[i] || "").trim();
+      if (!id) continue;
+      if (seen[id]) continue;
+      seen[id] = true;
+      out.push(id);
+    }
+    return out;
+  }
+
+  function noopProcessFn() {}
+
+  function getInternalSetTimeout() {
+    return typeof window.__flowawayProcessNativeSetTimeout === "function"
+      ? window.__flowawayProcessNativeSetTimeout
+      : window.setTimeout;
+  }
+
+  function getInternalClearTimeout() {
+    return typeof window.__flowawayProcessNativeClearTimeout === "function"
+      ? window.__flowawayProcessNativeClearTimeout
+      : window.clearTimeout;
+  }
+
+  function getInternalSetInterval() {
+    return typeof window.__flowawayProcessNativeSetInterval === "function"
+      ? window.__flowawayProcessNativeSetInterval
+      : window.setInterval;
+  }
+
+  function getInternalClearInterval() {
+    return typeof window.__flowawayProcessNativeClearInterval === "function"
+      ? window.__flowawayProcessNativeClearInterval
+      : window.clearInterval;
+  }
+
+  function getCurrentExecutingProcessPid() {
+    var stack = Array.isArray(runtime.executionStack) ? runtime.executionStack : [];
+    if (!stack.length) return null;
+    var pid = normalizeProcessPid(stack[stack.length - 1]);
+    return typeof pid === "number" && !Number.isNaN(pid) && pid > 0 ? pid : null;
+  }
+
+  function withExecutingProcess(pidValue, fn, thisArg, argsArray) {
+    if (typeof fn !== "function") return;
+    var pid = normalizeProcessPid(pidValue);
+    var shouldPush = typeof pid === "number" && !Number.isNaN(pid) && pid > 0;
+    if (!Array.isArray(runtime.executionStack)) runtime.executionStack = [];
+    if (shouldPush) runtime.executionStack.push(pid);
+    try {
+      return fn.apply(thisArg, argsArray || []);
+    } finally {
+      if (shouldPush) runtime.executionStack.pop();
+    }
+  }
+
+  function getClosestAppRootFromNode(node) {
+    if (!node || typeof node !== "object") return null;
+    if (typeof node.closest === "function") {
+      try {
+        var closest = node.closest(".app-root");
+        if (closest) return closest;
+      } catch (e) {}
+    }
+    var cur = node;
+    while (cur && typeof cur === "object") {
+      if (cur.classList && typeof cur.classList.contains === "function" && cur.classList.contains("app-root")) {
+        return cur;
+      }
+      cur = cur.parentElement || cur.parentNode || null;
+    }
+    return null;
+  }
+
+  function getListenerHandleKey(handler) {
+    if (!handler || (typeof handler !== "function" && typeof handler !== "object")) return "";
+    if (!(runtime.listenerHandleIdentity instanceof WeakMap)) {
+      runtime.listenerHandleIdentity = new WeakMap();
+    }
+    if (!runtime.listenerHandleIdentity.has(handler)) {
+      runtime.listenerHandleCounter = Number(runtime.listenerHandleCounter || 0) + 1;
+      runtime.listenerHandleIdentity.set(handler, "listener::" + String(runtime.listenerHandleCounter));
+    }
+    return String(runtime.listenerHandleIdentity.get(handler) || "");
+  }
+
+  function getAbortSignalKey(signal) {
+    if (!signal || typeof signal !== "object") return "";
+    if (!(runtime.listenerSignalIdentity instanceof WeakMap)) {
+      runtime.listenerSignalIdentity = new WeakMap();
+    }
+    if (!runtime.listenerSignalIdentity.has(signal)) {
+      runtime.listenerSignalCounter = Number(runtime.listenerSignalCounter || 0) + 1;
+      runtime.listenerSignalIdentity.set(signal, "signal::" + String(runtime.listenerSignalCounter));
+    }
+    return String(runtime.listenerSignalIdentity.get(signal) || "");
+  }
+
+  function isValidEventListener(handler) {
+    return typeof handler === "function" || !!(handler && typeof handler.handleEvent === "function");
+  }
+
+  function normalizeEventCapture(options) {
+    if (typeof options === "boolean") return options;
+    if (options && typeof options === "object" && typeof options.capture === "boolean") {
+      return options.capture;
+    }
+    return false;
+  }
+
+  function normalizeEventListenerOptions(options) {
+    var capture = normalizeEventCapture(options);
+    var once = !!(options && typeof options === "object" && options.once === true);
+    var passive = !!(options && typeof options === "object" && options.passive === true);
+    var signal = options && typeof options === "object" ? options.signal : null;
+    return {
+      capture: capture,
+      once: once,
+      passive: passive,
+      signal: signal && typeof signal === "object" ? signal : null,
+      raw: options,
+    };
+  }
+
+  function normalizeAddEventArgs(a, b, c, d) {
+    if (typeof b === "string" && isValidEventListener(c)) {
+      return { appname: String(a || ""), type: b, handler: c, options: d };
+    }
+    return { appname: "", type: a, handler: b, options: c };
+  }
+
+  function normalizeRemoveEventArgs(a, b, c, d) {
+    return normalizeAddEventArgs(a, b, c, d);
+  }
+
+  function getKnownAppIds() {
+    var seen = {};
+    var out = [];
+
+    var apps = Array.isArray(window.apps) ? window.apps : [];
+    for (var i = 0; i < apps.length; i++) {
+      var app = apps[i] && typeof apps[i] === "object" ? apps[i] : {};
+      var ids = [app.id, app.functionname, app.label, app.path];
+      for (var j = 0; j < ids.length; j++) {
+        var id = String(ids[j] || "").trim();
+        if (!id || seen[id]) continue;
+        seen[id] = true;
+        out.push(id);
+      }
+    }
+
+    var store = ensureProcessObjectsStore();
+    var pids = Object.keys(store);
+    for (var p = 0; p < pids.length; p++) {
+      var proc = store[pids[p]];
+      if (!proc || typeof proc !== "object") continue;
+      var appId = String(proc.appId || "").trim();
+      if (!appId || seen[appId]) continue;
+      seen[appId] = true;
+      out.push(appId);
+    }
+
+    return out;
+  }
+
+  function normalizeAppIdCandidate(rawAppId) {
+    var appId = String(rawAppId || "").trim();
+    if (!appId) return appId;
+
+    var knownAppIds = getKnownAppIds();
+    if (knownAppIds.indexOf(appId) !== -1) return appId;
+
+    var best = "";
+    for (var i = 0; i < knownAppIds.length; i++) {
+      var candidate = String(knownAppIds[i] || "").trim();
+      if (!candidate) continue;
+      if (appId.indexOf(candidate) === 0 || candidate.indexOf(appId) === 0) {
+        if (candidate.length > best.length) {
+          best = candidate;
+        }
+      }
+    }
+
+    return best || appId;
+  }
+
+  function resolveMainProcessPidByOrigin(appId, appInstanceId, appRoot) {
+    var normalizedAppId = normalizeAppIdCandidate(appId);
+    var normalizedInstance = getFirstDefinedValue(
+      appInstanceId,
+      appRoot && appRoot.dataset && appRoot.dataset.appInstanceId,
+      appRoot && appRoot.dataset && appRoot.dataset.goldenbodyId,
+      appRoot && typeof appRoot.getAttribute === "function" ? appRoot.getAttribute("data-app-instance-id") : null,
+      appRoot && typeof appRoot.getAttribute === "function" ? appRoot.getAttribute("data-goldenbody-id") : null,
+      null,
+    );
+    var instanceKey = normalizedInstance === null || typeof normalizedInstance === "undefined"
+      ? ""
+      : String(normalizedInstance);
+    var store = ensureProcessObjectsStore();
+    var pids = Object.keys(store);
+    var fallbackPid = null;
+
+    for (var i = 0; i < pids.length; i++) {
+      var candidate = getCanonicalProcessByPid(pids[i]);
+      if (!candidate) continue;
+      if (candidate.status === "terminated") continue;
+
+      var candidateAppId = String(candidate.appId || "");
+      var appMatches = false;
+      if (normalizedAppId) {
+        appMatches =
+          candidateAppId === normalizedAppId ||
+          String(normalizedAppId).indexOf(candidateAppId) === 0 ||
+          String(candidateAppId).indexOf(normalizedAppId) === 0;
+      } else {
+        appMatches = !!candidate.hasWindow || candidate.type === "app" || candidate.type === "launch";
+      }
+      if (!appMatches) continue;
+
+      var candidateInstance = getFirstDefinedValue(
+        candidate.options && candidate.options.appInstanceId,
+        candidate.options && candidate.options.goldenbodyId,
+        candidate.execution && candidate.execution.origin && candidate.execution.origin.appInstanceId,
+        Array.isArray(candidate.windowIds) && candidate.windowIds.length ? candidate.windowIds[0] : null,
+        null,
+      );
+      var candidateInstanceKey = candidateInstance === null || typeof candidateInstance === "undefined"
+        ? ""
+        : String(candidateInstance);
+
+      var isMainLike = !!candidate.hasWindow || candidate.type === "app" || candidate.type === "launch";
+      if (!isMainLike) continue;
+
+      if (instanceKey && candidateInstanceKey && instanceKey === candidateInstanceKey) {
+        return candidate.pid;
+      }
+
+      if (!instanceKey && candidate.status === "running") {
+        return candidate.pid;
+      }
+
+      if (fallbackPid === null) {
+        fallbackPid = candidate.pid;
+      }
+    }
+
+    return fallbackPid;
+  }
+
+  function detectProcessOrigin(context) {
+    var ctx = context && typeof context === "object" ? context : {};
+    var launchContext = window.__flowawayLaunchContext && typeof window.__flowawayLaunchContext === "object"
+      ? window.__flowawayLaunchContext
+      : {};
+    var parentPid = getCurrentExecutingProcessPid();
+    var parentProc = parentPid ? getCanonicalProcessByPid(parentPid) : null;
+
+    var appId = getFirstDefinedValue(
+      ctx.appId,
+      launchContext.appId,
+      parentProc && parentProc.appId,
+      window.atTop,
+      window._flowawayTopAppId,
+      "system",
+    );
+    var appInstanceId = getFirstDefinedValue(
+      ctx.appInstanceId,
+      launchContext.appInstanceId,
+      parentProc && parentProc.options && parentProc.options.appInstanceId,
+      null,
+    );
+
+    var candidateNode =
+      ctx.node ||
+      ctx.target ||
+      (typeof document !== "undefined" ? document.activeElement : null);
+    var appRoot = getClosestAppRootFromNode(candidateNode);
+    if (appRoot && typeof appRoot === "object") {
+      var rootAppId = getFirstDefinedValue(
+        appRoot.dataset && appRoot.dataset.appId,
+        typeof appRoot.getAttribute === "function" ? appRoot.getAttribute("data-app-id") : null,
+        null,
+      );
+      if (rootAppId) appId = rootAppId;
+
+      var rootInstanceId = getFirstDefinedValue(
+        appRoot.dataset && appRoot.dataset.appInstanceId,
+        appRoot.dataset && appRoot.dataset.goldenbodyId,
+        typeof appRoot.getAttribute === "function" ? appRoot.getAttribute("data-app-instance-id") : null,
+        typeof appRoot.getAttribute === "function" ? appRoot.getAttribute("data-goldenbody-id") : null,
+        null,
+      );
+      if (rootInstanceId || rootInstanceId === 0) appInstanceId = rootInstanceId;
+    }
+
+    if ((typeof parentPid !== "number" || Number.isNaN(parentPid) || parentPid <= 0) && (appId || appInstanceId || appRoot)) {
+      var resolvedParentPid = resolveMainProcessPidByOrigin(appId, appInstanceId, appRoot);
+      if (typeof resolvedParentPid === "number" && !Number.isNaN(resolvedParentPid) && resolvedParentPid > 0) {
+        parentPid = resolvedParentPid;
+        parentProc = getCanonicalProcessByPid(parentPid);
+      }
+    }
+
+    appId = normalizeAppIdCandidate(appId);
+
+    var listenerType = String(
+      getFirstDefinedValue(
+        ctx.listenerType,
+        parentProc && parentProc.execution && parentProc.execution.origin && parentProc.execution.origin.listenerType,
+        "api",
+      ),
+    );
+
+    var stackTrace = "";
+    try {
+      var err = new Error();
+      stackTrace = String(err && err.stack || "");
+    } catch (e) {}
+
+    return {
+      parentPid: parentPid,
+      origin: {
+        appId: String(appId || "system"),
+        appInstanceId: appInstanceId,
+        listenerType: listenerType,
+        stackTrace: stackTrace,
+      },
+    };
+  }
+
+  function buildExecutionShape(inputExecution, existingExecution) {
+    var input = inputExecution && typeof inputExecution === "object" ? inputExecution : {};
+    var existing = existingExecution && typeof existingExecution === "object" ? existingExecution : {};
+    var originInput = input.origin && typeof input.origin === "object" ? input.origin : {};
+    var originExisting = existing.origin && typeof existing.origin === "object" ? existing.origin : {};
+
+    return {
+      fn: typeof input.fn === "function" ? input.fn : (typeof existing.fn === "function" ? existing.fn : noopProcessFn),
+      args: Array.isArray(input.args) ? input.args.slice() : (Array.isArray(existing.args) ? existing.args.slice() : []),
+      intervalId: getFirstDefinedValue(input.intervalId, existing.intervalId, null),
+      rafId: getFirstDefinedValue(input.rafId, existing.rafId, null),
+      ms: Number(getFirstDefinedValue(input.ms, existing.ms, 0)) || 0,
+      origin: {
+        appId: String(getFirstDefinedValue(originInput.appId, originExisting.appId, "system")),
+        appInstanceId: getFirstDefinedValue(originInput.appInstanceId, originExisting.appInstanceId, null),
+        listenerType: String(getFirstDefinedValue(originInput.listenerType, originExisting.listenerType, "api")),
+        stackTrace: String(getFirstDefinedValue(originInput.stackTrace, originExisting.stackTrace, "")),
+      },
+    };
+  }
+
+  function ensureCanonicalProcessShape(config, options) {
+    var input = config && typeof config === "object" ? config : {};
+    var opts = options && typeof options === "object" ? options : {};
+    var existing = opts.existing && typeof opts.existing === "object" ? opts.existing : {};
+
+    var pidValue = normalizeProcessPid(
+      getFirstDefinedValue(input.pid, input.processId, existing.pid, existing.processId, opts.pid),
+    );
+    if (typeof pidValue !== "number" || Number.isNaN(pidValue) || pidValue <= 0) {
+      var identityKey = String(
+        opts.identityKey ||
+          input.identityKey ||
+          ["process", input.appId || existing.appId || "global", input.title || existing.title || Date.now()].join("::"),
+      );
+      pidValue = allocateProcessId(identityKey, null);
+    }
+
+    var typeValue = String(
+      getFirstDefinedValue(input.type, input.processKind, input.sourceType, existing.type, existing.processKind, "process"),
+    );
+    var appIdValue = String(getFirstDefinedValue(input.appId, existing.appId, "global"));
+    var titleValue = String(
+      getFirstDefinedValue(input.title, input.label, input.name, existing.title, existing.label, appIdValue + " process"),
+    );
+
+    var createdValue = Number(getFirstDefinedValue(input.created, input.createdAt, existing.created, existing.createdAt, Date.now()));
+    if (!Number.isFinite(createdValue) || createdValue <= 0) createdValue = Date.now();
+
+    var statusValue = String(getFirstDefinedValue(input.status, existing.status, "running"));
+    var persistentValue = !!getFirstDefinedValue(input.persistent, existing.persistent, false);
+    var windowIdsValue = normalizeWindowIds(
+      getFirstDefinedValue(input.windowIds, existing.windowIds, []),
+    );
+    var hasWindowValue = !!getFirstDefinedValue(
+      input.hasWindow,
+      existing.hasWindow,
+      windowIdsValue.length > 0,
+      typeValue === "app" || typeValue === "launch",
+    );
+
+    var cleanupFn = typeof input.cleanup === "function"
+      ? input.cleanup
+      : typeof input.stop === "function"
+        ? input.stop
+        : typeof existing.cleanup === "function"
+          ? existing.cleanup
+          : typeof existing.stop === "function"
+            ? existing.stop
+            : noopProcessFn;
+
+    var runFn = typeof input.run === "function"
+      ? input.run
+      : typeof existing.run === "function"
+        ? existing.run
+        : noopProcessFn;
+
+    var handlerFn = typeof input.handler === "function"
+      ? input.handler
+      : typeof existing.handler === "function"
+        ? existing.handler
+        : runFn;
+
+    var parentPidValue = normalizeProcessPid(
+      getFirstDefinedValue(input.parentPid, existing.parentPid, null),
+    );
+    var childrenValue = uniqueNumberList(
+      getFirstDefinedValue(input.children, existing.children, []),
+    );
+
+    return {
+      pid: pidValue,
+      processId: pidValue,
+      id: pidValue,
+      type: typeValue,
+      processKind: typeValue,
+      sourceType: String(getFirstDefinedValue(input.sourceType, existing.sourceType, typeValue)),
+      title: titleValue,
+      name: titleValue,
+      label: String(getFirstDefinedValue(input.label, existing.label, titleValue)),
+      appId: appIdValue,
+      status: statusValue,
+      persistent: persistentValue,
+      hasWindow: hasWindowValue,
+      windowIds: windowIdsValue,
+      created: createdValue,
+      createdAt: createdValue,
+      cleanup: cleanupFn,
+      run: runFn,
+      handler: handlerFn,
+      stop: cleanupFn,
+      parentPid: parentPidValue,
+      children: childrenValue,
+      options: Object.assign(
+        {},
+        existing.options && typeof existing.options === "object" ? existing.options : {},
+        input.options && typeof input.options === "object" ? input.options : {},
+      ),
+      execution: buildExecutionShape(
+        getFirstDefinedValue(input.execution, existing.execution, {}),
+        existing.execution,
+      ),
+    };
+  }
+
+  function getCanonicalProcessByPid(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return null;
+    var store = ensureProcessObjectsStore();
+    var existing = store[String(pid)];
+    if (!existing || typeof existing !== "object") return null;
+    var canonical = ensureCanonicalProcessShape(existing, {
+      existing: existing,
+      pid: pid,
+      identityKey: "canonical::" + String(pid),
+    });
+    store[String(pid)] = canonical;
+    return canonical;
+  }
+
+  function removeChildPidFromParent(parentPidValue, childPidValue) {
+    var parent = getCanonicalProcessByPid(parentPidValue);
+    var childPid = normalizeProcessPid(childPidValue);
+    if (!parent || typeof childPid !== "number" || Number.isNaN(childPid)) return;
+    var nextChildren = uniqueNumberList(parent.children).filter(function (pid) {
+      return pid !== childPid;
+    });
+    parent.children = nextChildren;
+  }
+
+  function attachChildPidToParent(parentPidValue, childPidValue) {
+    var parent = getCanonicalProcessByPid(parentPidValue);
+    var childPid = normalizeProcessPid(childPidValue);
+    if (!parent || typeof childPid !== "number" || Number.isNaN(childPid)) return;
+    var nextChildren = uniqueNumberList([].concat(parent.children || [], [childPid]));
+    parent.children = nextChildren;
   }
 
   function buildAppEntryOptions(appMeta) {
@@ -443,27 +1072,46 @@
       active[pidKey] = true;
 
       var processObject = store[pidKey] && typeof store[pidKey] === "object" ? store[pidKey] : {};
-      store[pidKey] = processObject;
-
-      processObject.id = pidValue;
-      processObject.pid = pidValue;
-      processObject.name = String(
-        record.title || record.label || processObject.name || record.appId || "Process",
+      var canonical = ensureCanonicalProcessShape(
+        {
+          pid: pidValue,
+          type: getFirstDefinedValue(record.type, record.processKind, record.sourceType, "process"),
+          sourceType: record.sourceType,
+          title: getFirstDefinedValue(record.title, record.label, record.appId, "Process"),
+          label: getFirstDefinedValue(record.label, record.title, record.appId, "Process"),
+          appId: record.appId,
+          status: record.status,
+          persistent: getFirstDefinedValue(record.persistent, false),
+          hasWindow: getFirstDefinedValue(record.hasWindow, !!record.goldenbodyId),
+          windowIds: getFirstDefinedValue(record.windowIds, record.goldenbodyId || record.goldenbodyId === 0 ? [String(record.goldenbodyId)] : []),
+          created: getFirstDefinedValue(record.created, record.updatedAt, Date.now()),
+          parentPid: getFirstDefinedValue(record.parentPid, processObject.parentPid, null),
+          children: getFirstDefinedValue(record.children, processObject.children, []),
+        },
+        {
+          existing: processObject,
+          pid: pidValue,
+          identityKey: "record::" + String(pidValue) + "::" + String(record.appId || "global"),
+        },
       );
-      processObject.kind = String(record.processKind || record.sourceType || "process");
-      processObject.options =
-        processObject.options && typeof processObject.options === "object"
-          ? processObject.options
+
+      canonical.options =
+        canonical.options && typeof canonical.options === "object"
+          ? canonical.options
           : {};
-      processObject.options.appId = record.appId;
-      processObject.options.appInstanceId = record.appInstanceId;
-      processObject.options.goldenbodyId = record.goldenbodyId;
-      processObject.options.sourceType = record.sourceType;
-      processObject.options.status = record.status;
-      processObject.options.updatedAt = record.updatedAt;
-      processObject.options.label = record.label;
-      processObject.options.appLabel = record.appLabel;
-      processObject.options.appEntry = record.appEntry;
+      canonical.options.appId = record.appId;
+      canonical.options.appInstanceId = record.appInstanceId;
+      canonical.options.goldenbodyId = record.goldenbodyId;
+      canonical.options.sourceType = record.sourceType;
+      canonical.options.status = record.status;
+      canonical.options.updatedAt = record.updatedAt;
+      canonical.options.label = record.label;
+      canonical.options.appLabel = record.appLabel;
+      canonical.options.appEntry = record.appEntry;
+      canonical.options.persistent = canonical.persistent;
+      canonical.options.type = canonical.type;
+      canonical.kind = canonical.type;
+      store[pidKey] = canonical;
     }
 
     var existingPids = Object.keys(store);
@@ -482,6 +1130,9 @@
     var instance = instanceRecord && typeof instanceRecord === "object" ? instanceRecord : {};
     var pidValue = normalizeProcessPid(getFirstDefinedValue(instance.processId, instance.pid));
     var updatedAt = Number(e.updatedAt || Date.now());
+    var existingProcessObject = runtime.processObjectsByPid && runtime.processObjectsByPid[String(pidValue)]
+      ? runtime.processObjectsByPid[String(pidValue)]
+      : null;
     var title = String(
       instance.title ||
         instance.label ||
@@ -507,6 +1158,43 @@
       status: String(e.status || "unknown"),
       updatedAt: updatedAt,
       processKind: String(e.processKind || "app"),
+      type: String(
+        getFirstDefinedValue(
+          existingProcessObject && existingProcessObject.type,
+          e.processKind,
+          e.sourceType,
+          "app",
+        ),
+      ),
+      persistent: !!getFirstDefinedValue(
+        instance.persistent,
+        existingProcessObject && existingProcessObject.persistent,
+        false,
+      ),
+      hasWindow: !!getFirstDefinedValue(
+        instance.hasWindow,
+        existingProcessObject && existingProcessObject.hasWindow,
+        true,
+      ),
+      windowIds: normalizeWindowIds(
+        getFirstDefinedValue(
+          instance.windowIds,
+          existingProcessObject && existingProcessObject.windowIds,
+          instance.goldenbodyId || instance.goldenbodyId === 0 ? [String(instance.goldenbodyId)] : [],
+        ),
+      ),
+      parentPid: getFirstDefinedValue(
+        instance.parentPid,
+        existingProcessObject && existingProcessObject.parentPid,
+        null,
+      ),
+      children: uniqueNumberList(
+        getFirstDefinedValue(
+          instance.children,
+          existingProcessObject && existingProcessObject.children,
+          [],
+        ),
+      ),
       entryOptions: uniqueStringList(
         [].concat(
           Array.isArray(e.entryOptions) ? e.entryOptions : [],
@@ -597,10 +1285,10 @@
       status: "running",
       meta: record.meta,
       terminate: function (reason) {
-        return terminateProcess(pid, reason || "manual-terminate");
+        return killProcess(pid, reason || "manual-terminate");
       },
       stop: function (reason) {
-        return terminateProcess(pid, reason || "manual-stop");
+        return killProcess(pid, reason || "manual-stop");
       },
       update: function (patch) {
         if (!patch || typeof patch !== "object") return handle;
@@ -611,6 +1299,32 @@
     };
 
     record.handle = handle;
+    var canonical = ensureCanonicalProcessShape(
+      {
+        pid: pid,
+        type: "manual",
+        title: String(record.title || name),
+        appId: appId,
+        status: String(record.status || "running"),
+        persistent: !!getFirstDefinedValue(input.persistent, false),
+        hasWindow: !!getFirstDefinedValue(input.hasWindow, false),
+        windowIds: getFirstDefinedValue(input.windowIds, []),
+        created: Number(record.createdAt || Date.now()),
+        cleanup: typeof record.stop === "function" ? record.stop : noopProcessFn,
+        run: typeof input.run === "function" ? input.run : noopProcessFn,
+        parentPid: getFirstDefinedValue(input.parentPid, null),
+        children: getFirstDefinedValue(input.children, []),
+      },
+      {
+        existing: runtime.processObjectsByPid[String(pid)] || {},
+        pid: pid,
+        identityKey: "manual::" + String(key),
+      },
+    );
+    runtime.processObjectsByPid[String(pid)] = canonical;
+    if (canonical.parentPid || canonical.parentPid === 0) {
+      attachChildPidToParent(canonical.parentPid, canonical.pid);
+    }
     runtime.manualProcesses[key] = record;
     runtime.processRegistry[key] = record;
     scheduleProcessTrackerRebuild("manual-start");
@@ -829,6 +1543,246 @@
     return terminated;
   }
 
+  function removePidFromGlobalProcessLists(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid)) return;
+    runtime.processes = (Array.isArray(runtime.processes) ? runtime.processes : []).filter(function (record) {
+      if (!record || typeof record !== "object") return false;
+      var recordPid = normalizeProcessPid(getFirstDefinedValue(record.pid, record.processId));
+      return recordPid !== pid;
+    });
+    window.__processes = runtime.processes;
+
+    var snapshot = window.__taskManagerSnapshot && typeof window.__taskManagerSnapshot === "object"
+      ? window.__taskManagerSnapshot
+      : null;
+    if (snapshot && Array.isArray(snapshot.flat)) {
+      snapshot.flat = snapshot.flat.filter(function (row) {
+        if (!row || typeof row !== "object") return false;
+        var rowPid = normalizeProcessPid(getFirstDefinedValue(row.pid, row.processId));
+        return rowPid !== pid;
+      });
+      window.__taskManagerSnapshot = snapshot;
+    }
+  }
+
+  function runProcessCleanup(processObject, reason) {
+    if (!processObject || typeof processObject !== "object") return;
+    if (processObject.__cleanupCalled) return;
+    processObject.__cleanupCalled = true;
+    try {
+      if (typeof processObject.cleanup === "function") {
+        processObject.cleanup(reason || "kill");
+      }
+    } catch (e) {}
+  }
+
+  function killProcess(target, reason, visitedSet) {
+    var pidValue = normalizeProcessPid(target);
+    if (typeof pidValue !== "number" || Number.isNaN(pidValue) || pidValue <= 0) {
+      return false;
+    }
+
+    var visited = visitedSet instanceof Set ? visitedSet : new Set();
+    if (visited.has(pidValue)) return false;
+    visited.add(pidValue);
+
+    var proc = getCanonicalProcessByPid(pidValue);
+    if (proc && Array.isArray(proc.children) && proc.children.length) {
+      var childPids = uniqueNumberList(proc.children);
+      for (var i = 0; i < childPids.length; i++) {
+        var childPid = childPids[i];
+        var childProcess = getCanonicalProcessByPid(childPid);
+        if (!childProcess) continue;
+        if (childProcess.persistent === true) continue;
+        killProcess(childPid, reason || "parent-kill", visited);
+      }
+    }
+
+    if (proc) {
+      runProcessCleanup(proc, reason || "kill");
+    }
+
+    var terminated = terminateProcess(pidValue, reason || "kill");
+    if (proc && (proc.parentPid || proc.parentPid === 0)) {
+      removeChildPidFromParent(proc.parentPid, pidValue);
+    }
+    removeTrackedBindingsForPid(pidValue);
+    delete runtime.processObjectsByPid[String(pidValue)];
+    removePidFromGlobalProcessLists(pidValue);
+
+    if (terminated) {
+      scheduleProcessTrackerRebuild("kill");
+    }
+    return terminated;
+  }
+
+  function setProcessStatus(pidValue, statusValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
+    var status = String(statusValue || "unknown");
+    var updated = false;
+
+    var canonical = getCanonicalProcessByPid(pid);
+    if (canonical) {
+      canonical.status = status;
+      updated = true;
+    }
+
+    var manualKeys = Object.keys(runtime.manualProcesses);
+    for (var i = 0; i < manualKeys.length; i++) {
+      var manual = runtime.manualProcesses[manualKeys[i]];
+      if (!manual) continue;
+      if (normalizeProcessPid(manual.pid) !== pid) continue;
+      manual.status = status;
+      manual.updatedAt = Date.now();
+      updated = true;
+    }
+
+    var launchKeys = Object.keys(runtime.launchRegistry);
+    for (var j = 0; j < launchKeys.length; j++) {
+      var launch = runtime.launchRegistry[launchKeys[j]];
+      if (!launch) continue;
+      if (normalizeProcessPid(launch.pid) !== pid) continue;
+      launch.status = status;
+      launch.updatedAt = Date.now();
+      updated = true;
+    }
+
+    var dynamicApps = Object.keys(runtime.dynamicProcesses);
+    for (var a = 0; a < dynamicApps.length; a++) {
+      var appId = dynamicApps[a];
+      var procMap = runtime.dynamicProcesses[appId];
+      for (var procName in procMap) {
+        if (!Object.prototype.hasOwnProperty.call(procMap, procName)) continue;
+        var dynamicMeta = procMap[procName] && typeof procMap[procName] === "object" ? procMap[procName] : {};
+        var dynamicPid = normalizeProcessPid(getFirstDefinedValue(dynamicMeta.pid, dynamicMeta.processId));
+        if (dynamicPid !== pid) continue;
+        dynamicMeta.status = status;
+        dynamicMeta.updatedAt = Date.now();
+        procMap[procName] = dynamicMeta;
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      scheduleProcessTrackerRebuild("status:" + status);
+    }
+
+    return updated;
+  }
+
+  function suspendProcess(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
+    var hasStatus = setProcessStatus(pid, "suspended");
+    var hasBinding = suspendProcessBindings(pid);
+    return hasStatus || hasBinding;
+  }
+
+  function resumeProcess(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
+    var hasBinding = resumeProcessBindings(pid);
+    var hasStatus = setProcessStatus(pid, "running");
+    return hasStatus || hasBinding;
+  }
+
+  function getProcess(pidValue) {
+    var processObject = getCanonicalProcessByPid(pidValue);
+    return processObject || null;
+  }
+
+  function getProcessesByApp(appIdValue) {
+    var appId = String(appIdValue || "").trim();
+    if (!appId) return [];
+    var store = ensureProcessObjectsStore();
+    var pids = Object.keys(store);
+    var out = [];
+    for (var i = 0; i < pids.length; i++) {
+      var processObject = getCanonicalProcessByPid(pids[i]);
+      if (!processObject) continue;
+      if (String(processObject.appId || "") !== appId) continue;
+      out.push(processObject);
+    }
+    return out;
+  }
+
+  function createProcess(config) {
+    var input = config && typeof config === "object" ? config : {};
+    var appId = String(getFirstDefinedValue(input.appId, "global"));
+    var title = String(getFirstDefinedValue(input.title, input.label, input.name, appId + " process"));
+    var identity = String(
+      getFirstDefinedValue(
+        input.identityKey,
+        input.key,
+        ["contract", appId, title, Date.now(), Math.random().toString(36).slice(2, 8)].join("::"),
+      ),
+    );
+
+    var canonical = ensureCanonicalProcessShape(input, {
+      existing: runtime.processObjectsByPid && runtime.processObjectsByPid[String(input.pid)]
+        ? runtime.processObjectsByPid[String(input.pid)]
+        : null,
+      identityKey: "contract::" + identity,
+    });
+
+    ensureProcessObjectsStore();
+    runtime.processObjectsByPid[String(canonical.pid)] = canonical;
+
+    var manualKey = String(getFirstDefinedValue(input.key, "contract::" + String(canonical.pid)));
+    var manualRecord = {
+      key: manualKey,
+      pid: canonical.pid,
+      processId: canonical.pid,
+      appId: canonical.appId,
+      label: canonical.label,
+      title: canonical.title,
+      status: canonical.status,
+      sourceType: "manual",
+      processKind: canonical.type,
+      appInstanceId: getFirstDefinedValue(input.appInstanceId, null),
+      goldenbodyId: getFirstDefinedValue(input.goldenbodyId, null),
+      createdAt: Number(canonical.created || Date.now()),
+      updatedAt: Date.now(),
+      stop: canonical.cleanup,
+      meta: Object.assign({}, input),
+    };
+
+    var handle = {
+      id: canonical.pid,
+      pid: canonical.pid,
+      appId: canonical.appId,
+      key: manualKey,
+      name: canonical.title,
+      status: canonical.status,
+      meta: manualRecord.meta,
+      terminate: function (killReason) {
+        return killProcess(canonical.pid, killReason || "manual-terminate");
+      },
+      stop: function (killReason) {
+        return killProcess(canonical.pid, killReason || "manual-stop");
+      },
+      update: function (patch) {
+        if (!patch || typeof patch !== "object") return handle;
+        manualRecord.meta = Object.assign({}, manualRecord.meta || {}, patch);
+        manualRecord.updatedAt = Date.now();
+        return handle;
+      },
+    };
+
+    manualRecord.handle = handle;
+    runtime.manualProcesses[manualKey] = manualRecord;
+    runtime.processRegistry[manualKey] = manualRecord;
+
+    if (canonical.parentPid || canonical.parentPid === 0) {
+      attachChildPidToParent(canonical.parentPid, canonical.pid);
+    }
+
+    scheduleProcessTrackerRebuild("create-process");
+    return canonical;
+  }
+
   function disposeAll(reason) {
     var manualKeys = Object.keys(runtime.manualProcesses);
     for (var i = 0; i < manualKeys.length; i++) {
@@ -842,6 +1796,11 @@
     runtime.taskProcessIdByIdentity = {};
     runtime.reusablePidPool = [];
     runtime.taskProcessCounter = 0;
+    runtime.timerProcessBindings = {};
+    runtime.rafProcessBindings = {};
+    runtime.observerProcessBindings = {};
+    runtime.listenerProcessBindings = {};
+    runtime.executionStack = [];
     window.__processObjectsByPid = {};
     window.__taskProcessIdByIdentity = {};
     window.__reusablePidPool = [];
@@ -910,10 +1869,12 @@
 
   function scheduleProcessTrackerRebuild(reason) {
     var state = ensureProcessTrackerState();
+    var internalClearTimeout = getInternalClearTimeout();
+    var internalSetTimeout = getInternalSetTimeout();
     if (state.syncTimer) {
-      clearTimeout(state.syncTimer);
+      internalClearTimeout(state.syncTimer);
     }
-    state.syncTimer = setTimeout(function () {
+    state.syncTimer = internalSetTimeout(function () {
       try {
         buildTaskManagerState();
       } catch (e) {
@@ -1035,13 +1996,14 @@
 
   function ensureProcessTrackerRunning() {
     var state = ensureProcessTrackerState();
+    var internalSetInterval = getInternalSetInterval();
     var changed = ensureTrackedAppInstanceArrays();
     if (changed) {
       scheduleProcessTrackerRebuild("tracker-start-or-refresh");
     }
 
     if (!state.fallbackTimer) {
-      state.fallbackTimer = setInterval(function () {
+      state.fallbackTimer = internalSetInterval(function () {
         try {
           if (ensureTrackedAppInstanceArrays()) {
             scheduleProcessTrackerRebuild("fallback-array-sync");
@@ -1114,6 +2076,12 @@
         status: String(launch.status || "running"),
         updatedAt: Number(launch.updatedAt || Date.now()),
         processKind: "launch",
+        type: "launch",
+        persistent: false,
+        hasWindow: true,
+        windowIds: [],
+        parentPid: null,
+        children: [],
         entryOptions: uniqueStringList([
           launch.functionname,
           launch.globalVar,
@@ -1171,6 +2139,11 @@
             goldenbodyId: null,
             title: String(dynamicMeta.title || dynamicMeta.label || dynamicName),
             label: String(dynamicMeta.label || dynamicMeta.title || dynamicName),
+            persistent: !!getFirstDefinedValue(dynamicMeta.persistent, false),
+            hasWindow: !!getFirstDefinedValue(dynamicMeta.hasWindow, false),
+            windowIds: normalizeWindowIds(getFirstDefinedValue(dynamicMeta.windowIds, [])),
+            parentPid: getFirstDefinedValue(dynamicMeta.parentPid, null),
+            children: uniqueNumberList(getFirstDefinedValue(dynamicMeta.children, [])),
             sourceIndex: d,
             identityKey: "dynamic::" + String(appKey) + "::" + String(dynamicName),
           });
@@ -1188,6 +2161,7 @@
       if (!Object.prototype.hasOwnProperty.call(runtime.manualProcesses, manualKey)) continue;
       var manual = runtime.manualProcesses[manualKey];
       if (!manual) continue;
+      var manualCanonical = getCanonicalProcessByPid(manual.pid);
       processRecords.push({
         pid: manual.pid,
         processId: manual.pid,
@@ -1205,6 +2179,16 @@
         status: String(manual.status || "running"),
         updatedAt: Number(manual.updatedAt || Date.now()),
         processKind: "manual",
+        type: String(getFirstDefinedValue(manual.processKind, manualCanonical && manualCanonical.type, "manual")),
+        persistent: !!getFirstDefinedValue(manual.meta && manual.meta.persistent, manualCanonical && manualCanonical.persistent, false),
+        hasWindow: !!getFirstDefinedValue(manual.meta && manual.meta.hasWindow, manualCanonical && manualCanonical.hasWindow, false),
+        windowIds: normalizeWindowIds(getFirstDefinedValue(manual.meta && manual.meta.windowIds, manualCanonical && manualCanonical.windowIds, [])),
+        parentPid: getFirstDefinedValue(manual.meta && manual.meta.parentPid, manualCanonical && manualCanonical.parentPid, null),
+        children: uniqueNumberList(getFirstDefinedValue(manual.meta && manual.meta.children, manualCanonical && manualCanonical.children, [])),
+        execution: buildExecutionShape(
+          getFirstDefinedValue(manual.meta && manual.meta.execution, manualCanonical && manualCanonical.execution, {}),
+          manualCanonical && manualCanonical.execution,
+        ),
         entryOptions: uniqueStringList([
           manual.meta && manual.meta.entry,
           manual.meta && manual.meta.globalVar,
@@ -1289,6 +2273,12 @@
         functionname: appEntry,
         globalVar: appGlobalVar,
         processKind: String(record.processKind || "app"),
+        type: String(getFirstDefinedValue(record.type, record.processKind, record.sourceType, "app")),
+        persistent: !!getFirstDefinedValue(record.persistent, false),
+        hasWindow: !!getFirstDefinedValue(record.hasWindow, false),
+        windowIds: normalizeWindowIds(getFirstDefinedValue(record.windowIds, [])),
+        parentPid: getFirstDefinedValue(record.parentPid, null),
+        children: uniqueNumberList(getFirstDefinedValue(record.children, [])),
         entryOptions: entryOptions,
         updatedAt: updatedAt,
         rowKey: [appId, String(pidValue), String(i)].join("::"),
@@ -1413,6 +2403,1216 @@
     return registerManualProcess(meta);
   }
 
+  function getTimerHandleKey(handle) {
+    if (handle === null || typeof handle === "undefined") return "";
+    var type = typeof handle;
+    if (type === "number" || type === "string" || type === "bigint") {
+      return "primitive::" + String(handle);
+    }
+    if (type === "object" || type === "function") {
+      if (!(runtime.timerHandleIdentity instanceof WeakMap)) {
+        runtime.timerHandleIdentity = new WeakMap();
+      }
+      if (!runtime.timerHandleIdentity.has(handle)) {
+        runtime.timerHandleCounter = Number(runtime.timerHandleCounter || 0) + 1;
+        runtime.timerHandleIdentity.set(handle, "object::" + String(runtime.timerHandleCounter));
+      }
+      return String(runtime.timerHandleIdentity.get(handle) || "");
+    }
+    return "";
+  }
+
+  function getRafHandleKey(handle) {
+    if (handle === null || typeof handle === "undefined") return "";
+    var type = typeof handle;
+    if (type === "number" || type === "string" || type === "bigint") {
+      return "primitive::" + String(handle);
+    }
+    if (type === "object" || type === "function") {
+      if (!(runtime.rafHandleIdentity instanceof WeakMap)) {
+        runtime.rafHandleIdentity = new WeakMap();
+      }
+      if (!runtime.rafHandleIdentity.has(handle)) {
+        runtime.rafHandleCounter = Number(runtime.rafHandleCounter || 0) + 1;
+        runtime.rafHandleIdentity.set(handle, "object::" + String(runtime.rafHandleCounter));
+      }
+      return String(runtime.rafHandleIdentity.get(handle) || "");
+    }
+    return "";
+  }
+
+  function getObserverHandleKey(observer) {
+    if (!observer || (typeof observer !== "object" && typeof observer !== "function")) return "";
+    if (!(runtime.observerHandleIdentity instanceof WeakMap)) {
+      runtime.observerHandleIdentity = new WeakMap();
+    }
+    if (!runtime.observerHandleIdentity.has(observer)) {
+      runtime.observerHandleCounter = Number(runtime.observerHandleCounter || 0) + 1;
+      runtime.observerHandleIdentity.set(observer, "observer::" + String(runtime.observerHandleCounter));
+    }
+    return String(runtime.observerHandleIdentity.get(observer) || "");
+  }
+
+  function unregisterTimerProcessByHandle(handle, reason) {
+    var key = getTimerHandleKey(handle);
+    if (!key) return false;
+    var binding = runtime.timerProcessBindings && runtime.timerProcessBindings[key]
+      ? runtime.timerProcessBindings[key]
+      : null;
+    if (!binding) return false;
+    delete runtime.timerProcessBindings[key];
+    var pidValue = normalizeProcessPid(binding.pid);
+    if (typeof pidValue === "number" && !Number.isNaN(pidValue)) {
+      killProcess(pidValue, reason || "timer-clear");
+    }
+    return true;
+  }
+
+  function unregisterRafProcessByHandle(handle, reason) {
+    var key = getRafHandleKey(handle);
+    if (!key) return false;
+    var binding = runtime.rafProcessBindings && runtime.rafProcessBindings[key]
+      ? runtime.rafProcessBindings[key]
+      : null;
+    if (!binding) return false;
+    delete runtime.rafProcessBindings[key];
+    var pidValue = normalizeProcessPid(binding.pid);
+    if (typeof pidValue === "number" && !Number.isNaN(pidValue)) {
+      killProcess(pidValue, reason || "raf-cancel");
+    }
+    return true;
+  }
+
+  function unregisterObserverProcessByHandle(observer, reason) {
+    var key = getObserverHandleKey(observer);
+    if (!key) return false;
+    var binding = runtime.observerProcessBindings && runtime.observerProcessBindings[key]
+      ? runtime.observerProcessBindings[key]
+      : null;
+    if (!binding) return false;
+    delete runtime.observerProcessBindings[key];
+    var pidValue = normalizeProcessPid(binding.pid);
+    if (typeof pidValue === "number" && !Number.isNaN(pidValue)) {
+      killProcess(pidValue, reason || "observer-disconnect");
+    }
+    return true;
+  }
+
+  function removeTrackedBindingsForPid(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return;
+
+    var timerKeys = Object.keys(runtime.timerProcessBindings || {});
+    for (var i = 0; i < timerKeys.length; i++) {
+      var timerBinding = runtime.timerProcessBindings[timerKeys[i]];
+      if (!timerBinding || normalizeProcessPid(timerBinding.pid) !== pid) continue;
+      delete runtime.timerProcessBindings[timerKeys[i]];
+    }
+
+    var rafKeys = Object.keys(runtime.rafProcessBindings || {});
+    for (var r = 0; r < rafKeys.length; r++) {
+      var rafBinding = runtime.rafProcessBindings[rafKeys[r]];
+      if (!rafBinding || normalizeProcessPid(rafBinding.pid) !== pid) continue;
+      delete runtime.rafProcessBindings[rafKeys[r]];
+    }
+
+    var observerKeys = Object.keys(runtime.observerProcessBindings || {});
+    for (var o = 0; o < observerKeys.length; o++) {
+      var observerBinding = runtime.observerProcessBindings[observerKeys[o]];
+      if (!observerBinding || normalizeProcessPid(observerBinding.pid) !== pid) continue;
+      delete runtime.observerProcessBindings[observerKeys[o]];
+    }
+
+    var listenerKeys = Object.keys(runtime.listenerProcessBindings || {});
+    for (var l = 0; l < listenerKeys.length; l++) {
+      var listenerBinding = runtime.listenerProcessBindings[listenerKeys[l]];
+      if (!listenerBinding || normalizeProcessPid(listenerBinding.pid) !== pid) continue;
+      if (typeof listenerBinding.cleanupListener === "function") {
+        listenerBinding.cleanupListener("pid-remove");
+      } else {
+        delete runtime.listenerProcessBindings[listenerKeys[l]];
+      }
+    }
+  }
+
+  function unregisterListenerProcessByKey(bindingKey, reason) {
+    var key = String(bindingKey || "");
+    if (!key) return false;
+    var binding = runtime.listenerProcessBindings && runtime.listenerProcessBindings[key]
+      ? runtime.listenerProcessBindings[key]
+      : null;
+    if (!binding) return false;
+    if (binding.removed) {
+      delete runtime.listenerProcessBindings[key];
+      return false;
+    }
+    binding.removed = true;
+    delete runtime.listenerProcessBindings[key];
+
+    if (binding.signal && typeof binding.abortCleanup === "function") {
+      try {
+        binding.abortCleanup();
+      } catch (e) {}
+    }
+
+    var pidValue = normalizeProcessPid(binding.pid);
+    if (typeof pidValue === "number" && !Number.isNaN(pidValue)) {
+      killProcess(pidValue, reason || "listener-remove");
+    }
+
+    return true;
+  }
+
+  function removeNativeListenerWithFallback(nativeRemove, type, handler, options) {
+    if (typeof nativeRemove !== "function") return;
+    try {
+      nativeRemove(type, handler, options);
+    } catch (e) {}
+    try {
+      nativeRemove(type, handler, normalizeEventCapture(options));
+    } catch (e) {}
+  }
+
+  function registerListenerProcess(targetName, targetObject, nativeAdd, nativeRemove, parsed) {
+    var input = parsed && typeof parsed === "object" ? parsed : {};
+    var type = String(input.type || "");
+    var originalHandler = input.handler;
+    if (!type || !isValidEventListener(originalHandler) || typeof nativeAdd !== "function") {
+      return {
+        didRegister: false,
+        nativeHandler: originalHandler,
+      };
+    }
+
+    var optionsState = normalizeEventListenerOptions(input.options);
+    var handlerKey = getListenerHandleKey(originalHandler);
+    if (!handlerKey) {
+      return {
+        didRegister: false,
+        nativeHandler: originalHandler,
+      };
+    }
+
+    var targetLabel = String(targetName || "target");
+    var appScopeKey = String(input.appname || "").trim();
+    var signalKey = getAbortSignalKey(optionsState.signal);
+    var bindingKey = [
+      "listener",
+      targetLabel,
+      type,
+      handlerKey,
+      optionsState.capture ? "capture" : "bubble",
+      optionsState.once ? "once" : "repeat",
+      appScopeKey || "global",
+      signalKey || "nosignal",
+    ].join("::");
+
+    if (runtime.listenerProcessBindings && runtime.listenerProcessBindings[bindingKey]) {
+      var existingBinding = runtime.listenerProcessBindings[bindingKey];
+      return {
+        didRegister: false,
+        nativeHandler: existingBinding.wrappedHandler || originalHandler,
+        bindingKey: bindingKey,
+        pid: existingBinding.pid,
+      };
+    }
+
+    var originState = detectProcessOrigin({
+      target: targetObject,
+      appId: appScopeKey || null,
+      listenerType: "event:" + type,
+    });
+
+    var created = null;
+    var wrappedHandler = null;
+    var isFunctionHandler = typeof originalHandler === "function";
+    var isObjectHandler = !!(originalHandler && typeof originalHandler.handleEvent === "function");
+    var handlerToStore = isFunctionHandler ? originalHandler : (isObjectHandler ? originalHandler : null);
+
+    if (isFunctionHandler) {
+      wrappedHandler = function () {
+        var binding = runtime.listenerProcessBindings && runtime.listenerProcessBindings[bindingKey]
+          ? runtime.listenerProcessBindings[bindingKey]
+          : null;
+        var pid = binding ? normalizeProcessPid(binding.pid) : null;
+        try {
+          return withExecutingProcess(pid, originalHandler, this, arguments);
+        } finally {
+          if (binding && binding.once) {
+            unregisterListenerProcessByKey(bindingKey, "listener-once-complete");
+          }
+        }
+      };
+    } else if (isObjectHandler) {
+      wrappedHandler = {
+        handleEvent: function () {
+          var binding = runtime.listenerProcessBindings && runtime.listenerProcessBindings[bindingKey]
+            ? runtime.listenerProcessBindings[bindingKey]
+            : null;
+          var pid = binding ? normalizeProcessPid(binding.pid) : null;
+          try {
+            return withExecutingProcess(pid, originalHandler.handleEvent, originalHandler, arguments);
+          } finally {
+            if (binding && binding.once) {
+              unregisterListenerProcessByKey(bindingKey, "listener-once-complete");
+            }
+          }
+        },
+      };
+    } else {
+      wrappedHandler = originalHandler;
+    }
+
+    var processType = originState.parentPid ? "script" : "manual";
+    created = createProcess({
+      type: processType,
+      title: "Listener " + type + " (" + targetLabel + ")",
+      appId: String(originState.origin.appId || "system"),
+      status: "running",
+      persistent: true,
+      hasWindow: targetLabel === "window" || targetLabel === "document",
+      windowIds: [],
+      parentPid: originState.parentPid,
+      cleanup: function () {
+        var activeBinding = runtime.listenerProcessBindings && runtime.listenerProcessBindings[bindingKey]
+          ? runtime.listenerProcessBindings[bindingKey]
+          : null;
+        if (activeBinding && activeBinding.removed) return;
+        removeNativeListenerWithFallback(nativeRemove, type, wrappedHandler, optionsState.raw);
+      },
+      run: isFunctionHandler ? originalHandler : noopProcessFn,
+      handler: handlerToStore,
+      execution: {
+        fn: isFunctionHandler ? originalHandler : noopProcessFn,
+        args: [],
+        origin: originState.origin,
+      },
+      options: {
+        eventType: type,
+        eventTarget: targetLabel,
+        capture: optionsState.capture,
+        once: optionsState.once,
+        passive: optionsState.passive,
+        scopedAppName: appScopeKey || null,
+      },
+      key: bindingKey,
+    });
+
+    var binding = {
+      key: bindingKey,
+      pid: created && created.pid,
+      targetName: targetLabel,
+      target: targetObject,
+      type: type,
+      appname: appScopeKey,
+      originalHandler: originalHandler,
+      wrappedHandler: wrappedHandler,
+      options: optionsState,
+      once: optionsState.once,
+      signal: optionsState.signal,
+      removed: false,
+      cleanupListener: null,
+      abortCleanup: null,
+      createdAt: Date.now(),
+    };
+
+    binding.cleanupListener = function (cleanupReason) {
+      if (binding.removed) return;
+      binding.removed = true;
+      delete runtime.listenerProcessBindings[bindingKey];
+      removeNativeListenerWithFallback(nativeRemove, type, wrappedHandler, optionsState.raw);
+      if (binding.signal && typeof binding.abortCleanup === "function") {
+        try {
+          binding.abortCleanup();
+        } catch (e) {}
+      }
+    };
+
+    runtime.listenerProcessBindings[bindingKey] = binding;
+
+    if (binding.signal && typeof binding.signal.addEventListener === "function") {
+      var abortFn = function () {
+        unregisterListenerProcessByKey(bindingKey, "listener-abort");
+      };
+      try {
+        binding.signal.addEventListener("abort", abortFn, { once: true });
+        binding.abortCleanup = function () {
+          try {
+            binding.signal.removeEventListener("abort", abortFn);
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
+
+    return {
+      didRegister: true,
+      nativeHandler: wrappedHandler,
+      bindingKey: bindingKey,
+      pid: created && created.pid,
+    };
+  }
+
+  function unregisterListenerProcessByNormalizedArgs(targetName, parsed) {
+    var input = parsed && typeof parsed === "object" ? parsed : {};
+    var type = String(input.type || "");
+    var originalHandler = input.handler;
+    if (!type || !isValidEventListener(originalHandler)) return false;
+    var optionsState = normalizeEventListenerOptions(input.options);
+    var handlerKey = getListenerHandleKey(originalHandler);
+    if (!handlerKey) return false;
+    var appScopeKey = String(input.appname || "").trim();
+    var signalKey = getAbortSignalKey(optionsState.signal);
+    var key = [
+      "listener",
+      String(targetName || "target"),
+      type,
+      handlerKey,
+      optionsState.capture ? "capture" : "bubble",
+      optionsState.once ? "once" : "repeat",
+      appScopeKey || "global",
+      signalKey || "nosignal",
+    ].join("::");
+    if (unregisterListenerProcessByKey(key, "listener-remove-event")) {
+      return true;
+    }
+
+    var bindings = runtime.listenerProcessBindings && typeof runtime.listenerProcessBindings === "object"
+      ? runtime.listenerProcessBindings
+      : {};
+    var keys = Object.keys(bindings);
+    for (var i = 0; i < keys.length; i++) {
+      var fallbackKey = keys[i];
+      var binding = bindings[fallbackKey];
+      if (!binding) continue;
+      if (String(binding.targetName || "") !== String(targetName || "")) continue;
+      if (String(binding.type || "") !== type) continue;
+      if (binding.originalHandler !== originalHandler) continue;
+      if (normalizeEventCapture(binding.options && binding.options.raw) !== optionsState.capture) continue;
+      if (appScopeKey && String(binding.appname || "") !== appScopeKey) continue;
+      if (unregisterListenerProcessByKey(fallbackKey, "listener-remove-event")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function unregisterListenerProcessesByAppName(appname, reason) {
+    var scopedAppName = String(appname || "").trim();
+    if (!scopedAppName) return 0;
+    var bindings = runtime.listenerProcessBindings && typeof runtime.listenerProcessBindings === "object"
+      ? runtime.listenerProcessBindings
+      : {};
+    var keys = Object.keys(bindings);
+    var removed = 0;
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      var binding = bindings[key];
+      if (!binding) continue;
+      if (String(binding.appname || "") !== scopedAppName) continue;
+      if (unregisterListenerProcessByKey(key, reason || "listener-remove-app-scope")) {
+        removed += 1;
+      }
+    }
+    return removed;
+  }
+
+  function registerTimerProcess(kind, handle, delayMs, runFn, timerLabel) {
+    var key = getTimerHandleKey(handle);
+    if (!key) return null;
+    if (!runtime.timerProcessBindings || typeof runtime.timerProcessBindings !== "object") {
+      runtime.timerProcessBindings = {};
+    }
+
+    var delayValue = Number(delayMs || 0);
+    if (!Number.isFinite(delayValue) || delayValue < 0) delayValue = 0;
+    var callbackArgs = Array.isArray(arguments[5]) ? arguments[5] : [];
+    var originState = detectProcessOrigin({ listenerType: "timer:" + String(kind || "unknown") });
+    var appId = String(originState.origin.appId || "system");
+
+    var created = createProcess({
+      type: "timer",
+      title: String(timerLabel || (kind === "interval" ? "Interval" : "Timeout") + " " + String(delayValue) + "ms"),
+      appId: appId,
+      status: "running",
+      persistent: false,
+      hasWindow: false,
+      windowIds: [],
+      parentPid: originState.parentPid,
+      cleanup: function () {
+        if (kind === "interval") {
+          if (window.__flowawayProcessNativeClearInterval) {
+            window.__flowawayProcessNativeClearInterval(handle);
+          }
+        } else if (window.__flowawayProcessNativeClearTimeout) {
+          window.__flowawayProcessNativeClearTimeout(handle);
+        }
+      },
+      run: typeof runFn === "function" ? runFn : noopProcessFn,
+      handler: typeof runFn === "function" ? runFn : noopProcessFn,
+      execution: {
+        fn: typeof runFn === "function" ? runFn : noopProcessFn,
+        args: callbackArgs,
+        intervalId: kind === "interval" ? handle : null,
+        ms: delayValue,
+        origin: originState.origin,
+      },
+      options: {
+        timerKind: kind,
+        delayMs: delayValue,
+      },
+      key: "timer::" + kind + "::" + key,
+    });
+
+    runtime.timerProcessBindings[key] = {
+      pid: created && created.pid,
+      kind: kind,
+      delayMs: delayValue,
+      handleKey: key,
+      handle: handle,
+      callback: typeof runFn === "function" ? runFn : noopProcessFn,
+      callbackArgs: callbackArgs,
+      startedAt: Date.now(),
+      remainingMs: delayValue,
+      suspended: false,
+      createdAt: Date.now(),
+    };
+
+    return created;
+  }
+
+  function registerRafProcess(handle, callback, callbackArgs) {
+    var key = getRafHandleKey(handle);
+    if (!key) return null;
+    if (!runtime.rafProcessBindings || typeof runtime.rafProcessBindings !== "object") {
+      runtime.rafProcessBindings = {};
+    }
+
+    var originState = detectProcessOrigin({ listenerType: "raf" });
+    var created = createProcess({
+      type: "animation",
+      title: "requestAnimationFrame",
+      appId: String(originState.origin.appId || "system"),
+      status: "running",
+      persistent: false,
+      hasWindow: false,
+      windowIds: [],
+      parentPid: originState.parentPid,
+      cleanup: function () {
+        if (window.__flowawayProcessNativeCancelAnimationFrame) {
+          window.__flowawayProcessNativeCancelAnimationFrame(handle);
+        }
+      },
+      run: typeof callback === "function" ? callback : noopProcessFn,
+      handler: typeof callback === "function" ? callback : noopProcessFn,
+      execution: {
+        fn: typeof callback === "function" ? callback : noopProcessFn,
+        args: Array.isArray(callbackArgs) ? callbackArgs.slice() : [],
+        rafId: handle,
+        origin: originState.origin,
+      },
+      options: {
+        timerKind: "raf",
+      },
+      key: "raf::" + key,
+    });
+
+    runtime.rafProcessBindings[key] = {
+      pid: created && created.pid,
+      kind: "raf",
+      handleKey: key,
+      handle: handle,
+      callback: typeof callback === "function" ? callback : noopProcessFn,
+      callbackArgs: Array.isArray(callbackArgs) ? callbackArgs.slice() : [],
+      suspended: false,
+      createdAt: Date.now(),
+    };
+
+    return created;
+  }
+
+  function ensureObserverProcessBinding(observer, callback) {
+    var key = getObserverHandleKey(observer);
+    if (!key) return null;
+    if (!runtime.observerProcessBindings || typeof runtime.observerProcessBindings !== "object") {
+      runtime.observerProcessBindings = {};
+    }
+
+    var existing = runtime.observerProcessBindings[key];
+    if (existing) return existing;
+
+    var originState = detectProcessOrigin({ listenerType: "mutation-observer" });
+    var created = createProcess({
+      type: "observer",
+      title: "MutationObserver",
+      appId: String(originState.origin.appId || "system"),
+      status: "running",
+      persistent: true,
+      hasWindow: false,
+      windowIds: [],
+      parentPid: originState.parentPid,
+      cleanup: function () {
+        try {
+          var nativeDisconnect = observer && observer.__flowawayObserverNativeDisconnect;
+          if (typeof nativeDisconnect === "function") nativeDisconnect();
+          else if (observer && typeof observer.disconnect === "function") observer.disconnect();
+        } catch (e) {}
+      },
+      run: typeof callback === "function" ? callback : noopProcessFn,
+      handler: typeof callback === "function" ? callback : noopProcessFn,
+      execution: {
+        fn: typeof callback === "function" ? callback : noopProcessFn,
+        args: [],
+        origin: originState.origin,
+      },
+      options: {
+        timerKind: "observer",
+      },
+      key: "observer::" + key,
+    });
+
+    var binding = {
+      pid: created && created.pid,
+      kind: "observer",
+      handleKey: key,
+      observer: observer,
+      callback: typeof callback === "function" ? callback : noopProcessFn,
+      observedTargets: [],
+      suspended: false,
+      createdAt: Date.now(),
+      _internalDisconnecting: false,
+    };
+
+    runtime.observerProcessBindings[key] = binding;
+    return binding;
+  }
+
+  function suspendProcessBindings(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
+    var changed = false;
+
+    var timerKeys = Object.keys(runtime.timerProcessBindings || {});
+    for (var i = 0; i < timerKeys.length; i++) {
+      var timerBinding = runtime.timerProcessBindings[timerKeys[i]];
+      if (!timerBinding || normalizeProcessPid(timerBinding.pid) !== pid || timerBinding.suspended) continue;
+
+      if (timerBinding.kind === "interval") {
+        if (window.__flowawayProcessNativeClearInterval) {
+          window.__flowawayProcessNativeClearInterval(timerBinding.handle);
+        }
+      } else {
+        var elapsed = Date.now() - Number(timerBinding.startedAt || Date.now());
+        var remaining = Number(timerBinding.delayMs || 0) - elapsed;
+        timerBinding.remainingMs = remaining > 0 ? remaining : 0;
+        if (window.__flowawayProcessNativeClearTimeout) {
+          window.__flowawayProcessNativeClearTimeout(timerBinding.handle);
+        }
+      }
+      timerBinding.suspended = true;
+      changed = true;
+    }
+
+    var rafKeys = Object.keys(runtime.rafProcessBindings || {});
+    for (var r = 0; r < rafKeys.length; r++) {
+      var rafBinding = runtime.rafProcessBindings[rafKeys[r]];
+      if (!rafBinding || normalizeProcessPid(rafBinding.pid) !== pid || rafBinding.suspended) continue;
+      if (window.__flowawayProcessNativeCancelAnimationFrame) {
+        window.__flowawayProcessNativeCancelAnimationFrame(rafBinding.handle);
+      }
+      rafBinding.suspended = true;
+      changed = true;
+    }
+
+    var observerKeys = Object.keys(runtime.observerProcessBindings || {});
+    for (var o = 0; o < observerKeys.length; o++) {
+      var observerBinding = runtime.observerProcessBindings[observerKeys[o]];
+      if (!observerBinding || normalizeProcessPid(observerBinding.pid) !== pid || observerBinding.suspended) continue;
+      observerBinding._internalDisconnecting = true;
+      try {
+        if (observerBinding.observer && typeof observerBinding.observer.disconnect === "function") {
+          observerBinding.observer.disconnect();
+        }
+      } catch (e) {}
+      observerBinding._internalDisconnecting = false;
+      observerBinding.suspended = true;
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  function resumeProcessBindings(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
+    var changed = false;
+
+    var timerKeys = Object.keys(runtime.timerProcessBindings || {});
+    for (var i = 0; i < timerKeys.length; i++) {
+      var timerKey = timerKeys[i];
+      var timerBinding = runtime.timerProcessBindings[timerKey];
+      if (!timerBinding || normalizeProcessPid(timerBinding.pid) !== pid || !timerBinding.suspended) continue;
+
+      var callback = timerBinding.callback;
+      var callbackArgs = Array.isArray(timerBinding.callbackArgs) ? timerBinding.callbackArgs : [];
+      var wrappedCallback = function () {
+        var binding = runtime.timerProcessBindings[timerKey];
+        if (!binding) return;
+        var cbPid = normalizeProcessPid(binding.pid);
+        withExecutingProcess(cbPid, callback, this, arguments);
+        if (binding.kind === "timeout") {
+          unregisterTimerProcessByHandle(binding.handle, "timer-timeout-complete");
+        }
+      };
+
+      if (timerBinding.kind === "interval") {
+        if (window.__flowawayProcessNativeSetInterval) {
+          var nextIntervalHandle = window.__flowawayProcessNativeSetInterval.apply(window, [wrappedCallback, timerBinding.delayMs].concat(callbackArgs));
+          var nextIntervalKey = getTimerHandleKey(nextIntervalHandle);
+          delete runtime.timerProcessBindings[timerKey];
+          timerBinding.handle = nextIntervalHandle;
+          timerBinding.handleKey = nextIntervalKey;
+          runtime.timerProcessBindings[nextIntervalKey] = timerBinding;
+          timerBinding.startedAt = Date.now();
+          timerBinding.suspended = false;
+          changed = true;
+        }
+      } else if (window.__flowawayProcessNativeSetTimeout) {
+        var nextMs = Number(timerBinding.remainingMs);
+        if (!Number.isFinite(nextMs) || nextMs < 0) nextMs = 0;
+        var nextTimeoutHandle = window.__flowawayProcessNativeSetTimeout.apply(window, [wrappedCallback, nextMs].concat(callbackArgs));
+        var nextTimeoutKey = getTimerHandleKey(nextTimeoutHandle);
+        delete runtime.timerProcessBindings[timerKey];
+        timerBinding.handle = nextTimeoutHandle;
+        timerBinding.handleKey = nextTimeoutKey;
+        runtime.timerProcessBindings[nextTimeoutKey] = timerBinding;
+        timerBinding.startedAt = Date.now();
+        timerBinding.suspended = false;
+        changed = true;
+      }
+    }
+
+    var rafKeys = Object.keys(runtime.rafProcessBindings || {});
+    for (var r = 0; r < rafKeys.length; r++) {
+      var rafKey = rafKeys[r];
+      var rafBinding = runtime.rafProcessBindings[rafKey];
+      if (!rafBinding || normalizeProcessPid(rafBinding.pid) !== pid || !rafBinding.suspended) continue;
+      if (!window.__flowawayProcessNativeRequestAnimationFrame) continue;
+
+      var rafCallback = rafBinding.callback;
+      var nextRafHandle = window.__flowawayProcessNativeRequestAnimationFrame(function () {
+        var binding = runtime.rafProcessBindings[rafKey];
+        if (!binding) return;
+        var cbPid = normalizeProcessPid(binding.pid);
+        withExecutingProcess(cbPid, rafCallback, this, arguments);
+        unregisterRafProcessByHandle(binding.handle, "raf-complete");
+      });
+      var nextRafKey = getRafHandleKey(nextRafHandle);
+      delete runtime.rafProcessBindings[rafKey];
+      rafBinding.handle = nextRafHandle;
+      rafBinding.handleKey = nextRafKey;
+      runtime.rafProcessBindings[nextRafKey] = rafBinding;
+      rafBinding.suspended = false;
+      changed = true;
+    }
+
+    var observerKeys = Object.keys(runtime.observerProcessBindings || {});
+    for (var o = 0; o < observerKeys.length; o++) {
+      var observerBinding = runtime.observerProcessBindings[observerKeys[o]];
+      if (!observerBinding || normalizeProcessPid(observerBinding.pid) !== pid || !observerBinding.suspended) continue;
+      var observed = Array.isArray(observerBinding.observedTargets) ? observerBinding.observedTargets : [];
+      for (var x = 0; x < observed.length; x++) {
+        var rec = observed[x] && typeof observed[x] === "object" ? observed[x] : null;
+        if (!rec || !rec.target) continue;
+        try {
+          observerBinding.observer.observe(rec.target, rec.options || {});
+        } catch (e) {}
+      }
+      observerBinding.suspended = false;
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  function wrapTimerProcessApis() {
+    if (window.__flowawayProcessTimerApisWrapped) return;
+
+    var nativeSetTimeout = typeof window.__flowawayProcessNativeSetTimeout === "function"
+      ? window.__flowawayProcessNativeSetTimeout
+      : window.setTimeout;
+    var nativeSetInterval = typeof window.__flowawayProcessNativeSetInterval === "function"
+      ? window.__flowawayProcessNativeSetInterval
+      : window.setInterval;
+    var nativeClearTimeout = typeof window.__flowawayProcessNativeClearTimeout === "function"
+      ? window.__flowawayProcessNativeClearTimeout
+      : window.clearTimeout;
+    var nativeClearInterval = typeof window.__flowawayProcessNativeClearInterval === "function"
+      ? window.__flowawayProcessNativeClearInterval
+      : window.clearInterval;
+
+    if (
+      typeof nativeSetTimeout !== "function" ||
+      typeof nativeSetInterval !== "function" ||
+      typeof nativeClearTimeout !== "function" ||
+      typeof nativeClearInterval !== "function"
+    ) {
+      return;
+    }
+
+    window.__flowawayProcessNativeSetTimeout = nativeSetTimeout;
+    window.__flowawayProcessNativeSetInterval = nativeSetInterval;
+    window.__flowawayProcessNativeClearTimeout = nativeClearTimeout;
+    window.__flowawayProcessNativeClearInterval = nativeClearInterval;
+
+    window.setTimeout = function (callback, delay) {
+      var args = Array.prototype.slice.call(arguments, 2);
+      var delayMs = Number(delay || 0);
+      if (!Number.isFinite(delayMs) || delayMs < 0) delayMs = 0;
+
+      var handle;
+      var wrappedCallback = callback;
+      if (typeof callback === "function") {
+        wrappedCallback = function () {
+          var binding = runtime.timerProcessBindings[getTimerHandleKey(handle)];
+          var pid = binding ? normalizeProcessPid(binding.pid) : null;
+          try {
+            return withExecutingProcess(pid, callback, this, arguments);
+          } finally {
+            unregisterTimerProcessByHandle(handle, "timer-timeout-complete");
+          }
+        };
+      }
+
+      handle = nativeSetTimeout.apply(window, [wrappedCallback, delay].concat(args));
+      registerTimerProcess(
+        "timeout",
+        handle,
+        delayMs,
+        typeof callback === "function" ? callback : noopProcessFn,
+        "Timeout " + String(delayMs) + "ms",
+        args,
+      );
+      return handle;
+    };
+
+    window.setInterval = function (callback, delay) {
+      var args = Array.prototype.slice.call(arguments, 2);
+      var handle;
+      var wrappedCallback = callback;
+      if (typeof callback === "function") {
+        wrappedCallback = function () {
+          var binding = runtime.timerProcessBindings[getTimerHandleKey(handle)];
+          var pid = binding ? normalizeProcessPid(binding.pid) : null;
+          return withExecutingProcess(pid, callback, this, arguments);
+        };
+      }
+      handle = nativeSetInterval.apply(window, [wrappedCallback, delay].concat(args));
+      var delayMs = Number(delay || 0);
+      if (!Number.isFinite(delayMs) || delayMs < 0) delayMs = 0;
+      registerTimerProcess(
+        "interval",
+        handle,
+        delayMs,
+        typeof callback === "function" ? callback : noopProcessFn,
+        "Interval " + String(delayMs) + "ms",
+        args,
+      );
+      return handle;
+    };
+
+    window.clearTimeout = function (handle) {
+      nativeClearTimeout(handle);
+      unregisterTimerProcessByHandle(handle, "timer-clear-timeout");
+    };
+
+    window.clearInterval = function (handle) {
+      nativeClearInterval(handle);
+      unregisterTimerProcessByHandle(handle, "timer-clear-interval");
+    };
+
+    window.__flowawayProcessTimerApisWrapped = true;
+  }
+
+  function wrapAnimationFrameProcessApis() {
+    if (window.__flowawayProcessRafApisWrapped) return;
+
+    var nativeRequestAnimationFrame = typeof window.__flowawayProcessNativeRequestAnimationFrame === "function"
+      ? window.__flowawayProcessNativeRequestAnimationFrame
+      : window.requestAnimationFrame;
+    var nativeCancelAnimationFrame = typeof window.__flowawayProcessNativeCancelAnimationFrame === "function"
+      ? window.__flowawayProcessNativeCancelAnimationFrame
+      : window.cancelAnimationFrame;
+
+    if (typeof nativeRequestAnimationFrame !== "function" || typeof nativeCancelAnimationFrame !== "function") {
+      return;
+    }
+
+    window.__flowawayProcessNativeRequestAnimationFrame = nativeRequestAnimationFrame;
+    window.__flowawayProcessNativeCancelAnimationFrame = nativeCancelAnimationFrame;
+
+    window.requestAnimationFrame = function (callback) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      var handle;
+      var wrapped = callback;
+      if (typeof callback === "function") {
+        wrapped = function () {
+          var binding = runtime.rafProcessBindings[getRafHandleKey(handle)];
+          var pid = binding ? normalizeProcessPid(binding.pid) : null;
+          try {
+            return withExecutingProcess(pid, callback, this, arguments);
+          } finally {
+            unregisterRafProcessByHandle(handle, "raf-complete");
+          }
+        };
+      }
+      handle = nativeRequestAnimationFrame.call(window, wrapped);
+      registerRafProcess(handle, typeof callback === "function" ? callback : noopProcessFn, args);
+      return handle;
+    };
+
+    window.cancelAnimationFrame = function (handle) {
+      nativeCancelAnimationFrame.call(window, handle);
+      unregisterRafProcessByHandle(handle, "raf-cancel");
+    };
+
+    window.__flowawayProcessRafApisWrapped = true;
+  }
+
+  function wrapMutationObserverProcessApi() {
+    if (window.__flowawayProcessMutationObserverWrapped) return;
+
+    var NativeMutationObserver = typeof window.__flowawayProcessNativeMutationObserver === "function"
+      ? window.__flowawayProcessNativeMutationObserver
+      : window.MutationObserver;
+
+    if (typeof NativeMutationObserver !== "function") {
+      return;
+    }
+
+    window.__flowawayProcessNativeMutationObserver = NativeMutationObserver;
+
+    function WrappedMutationObserver(callback) {
+      var observer;
+      var binding;
+      var wrappedCallback = function () {
+        var pid = binding ? normalizeProcessPid(binding.pid) : null;
+        return withExecutingProcess(pid, callback, this, arguments);
+      };
+
+      observer = new NativeMutationObserver(wrappedCallback);
+      binding = ensureObserverProcessBinding(observer, typeof callback === "function" ? callback : noopProcessFn);
+
+      var nativeObserve = typeof observer.observe === "function" ? observer.observe.bind(observer) : null;
+      var nativeDisconnect = typeof observer.disconnect === "function" ? observer.disconnect.bind(observer) : null;
+      if (nativeDisconnect) {
+        try {
+          observer.__flowawayObserverNativeDisconnect = nativeDisconnect;
+        } catch (e) {}
+      }
+
+      if (nativeObserve) {
+        observer.observe = function (target, options) {
+          var activeBinding = ensureObserverProcessBinding(observer, typeof callback === "function" ? callback : noopProcessFn);
+          activeBinding.observedTargets = Array.isArray(activeBinding.observedTargets)
+            ? activeBinding.observedTargets
+            : [];
+
+          var existingIndex = -1;
+          for (var i = 0; i < activeBinding.observedTargets.length; i++) {
+            if (activeBinding.observedTargets[i] && activeBinding.observedTargets[i].target === target) {
+              existingIndex = i;
+              break;
+            }
+          }
+
+          var rec = {
+            target: target,
+            options: options && typeof options === "object" ? Object.assign({}, options) : {},
+          };
+          if (existingIndex >= 0) activeBinding.observedTargets[existingIndex] = rec;
+          else activeBinding.observedTargets.push(rec);
+
+          var proc = getCanonicalProcessByPid(activeBinding.pid);
+          if (proc) proc.status = "running";
+
+          return nativeObserve(target, options);
+        };
+      }
+
+      if (nativeDisconnect) {
+        observer.disconnect = function () {
+          var activeBinding = runtime.observerProcessBindings[getObserverHandleKey(observer)];
+          var shouldTerminate = !(activeBinding && activeBinding._internalDisconnecting);
+          var result = nativeDisconnect();
+          if (shouldTerminate) {
+            unregisterObserverProcessByHandle(observer, "observer-disconnect");
+          }
+          return result;
+        };
+      }
+
+      return observer;
+    }
+
+    WrappedMutationObserver.prototype = NativeMutationObserver.prototype;
+    try {
+      Object.setPrototypeOf(WrappedMutationObserver, NativeMutationObserver);
+    } catch (e) {}
+
+    window.MutationObserver = WrappedMutationObserver;
+    window.__flowawayProcessMutationObserverWrapped = true;
+  }
+
+  function wrapEventListenerProcessApis() {
+    if (window.__flowawayProcessEventListenerApisWrapped) return;
+
+    var nativeWindowAdd = typeof window.__flowawayProcessNativeWindowAddEventListener === "function"
+      ? window.__flowawayProcessNativeWindowAddEventListener
+      : (typeof window.addEventListener === "function" ? window.addEventListener.bind(window) : null);
+    var nativeWindowRemove = typeof window.__flowawayProcessNativeWindowRemoveEventListener === "function"
+      ? window.__flowawayProcessNativeWindowRemoveEventListener
+      : (typeof window.removeEventListener === "function" ? window.removeEventListener.bind(window) : null);
+    var nativeDocumentAdd = typeof window.__flowawayProcessNativeDocumentAddEventListener === "function"
+      ? window.__flowawayProcessNativeDocumentAddEventListener
+      : (typeof document !== "undefined" && typeof document.addEventListener === "function" ? document.addEventListener.bind(document) : null);
+    var nativeDocumentRemove = typeof window.__flowawayProcessNativeDocumentRemoveEventListener === "function"
+      ? window.__flowawayProcessNativeDocumentRemoveEventListener
+      : (typeof document !== "undefined" && typeof document.removeEventListener === "function" ? document.removeEventListener.bind(document) : null);
+
+    if (
+      typeof nativeWindowAdd !== "function" ||
+      typeof nativeWindowRemove !== "function" ||
+      typeof nativeDocumentAdd !== "function" ||
+      typeof nativeDocumentRemove !== "function"
+    ) {
+      return;
+    }
+
+    window.__flowawayProcessNativeWindowAddEventListener = nativeWindowAdd;
+    window.__flowawayProcessNativeWindowRemoveEventListener = nativeWindowRemove;
+    window.__flowawayProcessNativeDocumentAddEventListener = nativeDocumentAdd;
+    window.__flowawayProcessNativeDocumentRemoveEventListener = nativeDocumentRemove;
+
+    window.addEventListener = function (a, b, c, d) {
+      var parsed = normalizeAddEventArgs(a, b, c, d);
+      var registered = registerListenerProcess(
+        "window",
+        window,
+        nativeWindowAdd,
+        nativeWindowRemove,
+        parsed,
+      );
+      var listener = registered && registered.nativeHandler ? registered.nativeHandler : parsed.handler;
+      if (parsed.appname) {
+        try {
+          return nativeWindowAdd(parsed.appname, parsed.type, listener, parsed.options);
+        } catch (e) {
+          return nativeWindowAdd(parsed.type, listener, parsed.options);
+        }
+      }
+      return nativeWindowAdd(parsed.type, listener, parsed.options);
+    };
+
+    window.removeEventListener = function (a, b, c, d) {
+      var parsed = normalizeRemoveEventArgs(a, b, c, d);
+      var optionsState = normalizeEventListenerOptions(parsed.options);
+      var handlerKey = getListenerHandleKey(parsed.handler);
+      var appScopeKey = String(parsed.appname || "").trim();
+      var signalKey = getAbortSignalKey(optionsState.signal);
+      var bindingKey = [
+        "listener",
+        "window",
+        String(parsed.type || ""),
+        handlerKey,
+        optionsState.capture ? "capture" : "bubble",
+        optionsState.once ? "once" : "repeat",
+        appScopeKey || "global",
+        signalKey || "nosignal",
+      ].join("::");
+      var binding = runtime.listenerProcessBindings && runtime.listenerProcessBindings[bindingKey]
+        ? runtime.listenerProcessBindings[bindingKey]
+        : null;
+      var nativeHandler = binding && binding.wrappedHandler ? binding.wrappedHandler : parsed.handler;
+      var result = nativeWindowRemove(parsed.type, nativeHandler, parsed.options);
+      unregisterListenerProcessByNormalizedArgs("window", parsed);
+      return result;
+    };
+
+    document.addEventListener = function (a, b, c, d) {
+      var parsed = normalizeAddEventArgs(a, b, c, d);
+      var registered = registerListenerProcess(
+        "document",
+        document,
+        nativeDocumentAdd,
+        nativeDocumentRemove,
+        parsed,
+      );
+      var listener = registered && registered.nativeHandler ? registered.nativeHandler : parsed.handler;
+      if (parsed.appname) {
+        try {
+          return nativeDocumentAdd(parsed.appname, parsed.type, listener, parsed.options);
+        } catch (e) {
+          return nativeDocumentAdd(parsed.type, listener, parsed.options);
+        }
+      }
+      return nativeDocumentAdd(parsed.type, listener, parsed.options);
+    };
+
+    document.removeEventListener = function (a, b, c, d) {
+      var parsed = normalizeRemoveEventArgs(a, b, c, d);
+      var optionsState = normalizeEventListenerOptions(parsed.options);
+      var handlerKey = getListenerHandleKey(parsed.handler);
+      var appScopeKey = String(parsed.appname || "").trim();
+      var signalKey = getAbortSignalKey(optionsState.signal);
+      var bindingKey = [
+        "listener",
+        "document",
+        String(parsed.type || ""),
+        handlerKey,
+        optionsState.capture ? "capture" : "bubble",
+        optionsState.once ? "once" : "repeat",
+        appScopeKey || "global",
+        signalKey || "nosignal",
+      ].join("::");
+      var binding = runtime.listenerProcessBindings && runtime.listenerProcessBindings[bindingKey]
+        ? runtime.listenerProcessBindings[bindingKey]
+        : null;
+      var nativeHandler = binding && binding.wrappedHandler ? binding.wrappedHandler : parsed.handler;
+      var result = nativeDocumentRemove(parsed.type, nativeHandler, parsed.options);
+      unregisterListenerProcessByNormalizedArgs("document", parsed);
+      return result;
+    };
+
+    if (
+      typeof window.removeAllEventListenersForApp === "function" &&
+      !window.__flowawayProcessRemoveAllEventListenersWrapped
+    ) {
+      var nativeRemoveAllEventListenersForApp = window.removeAllEventListenersForApp;
+      window.removeAllEventListenersForApp = function (appname) {
+        var result;
+        try {
+          result = nativeRemoveAllEventListenersForApp.apply(window, arguments);
+        } finally {
+          try {
+            unregisterListenerProcessesByAppName(appname, "listener-remove-all-for-app");
+          } catch (e) {}
+        }
+        return result;
+      };
+      window.__flowawayProcessRemoveAllEventListenersWrapped = true;
+    }
+
+    window.__flowawayProcessEventListenerApisWrapped = true;
+  }
+
+  function registerTerminalProcessCommands() {
+    if (window.__flowawayRuntimeTerminalProcessCommandsRegistered) return true;
+    if (typeof window.registerTerminalAppCommand !== "function") return false;
+
+    var processPs = window.registerTerminalAppCommand({
+      name: "ps",
+      description: "List current processes.",
+      usage: "ps [json]",
+      sourceApp: "processes",
+      handler: function (context, args) {
+        var listOut = typeof list === "function" ? list() : [];
+        if (String(args && args[0] || "").toLowerCase() === "json") {
+          return listOut;
+        }
+        if (!listOut.length) {
+          return "ps: no processes";
+        }
+        for (var i = 0; i < listOut.length; i++) {
+          var row = listOut[i] && typeof listOut[i] === "object" ? listOut[i] : {};
+          var line = [
+            String(getFirstDefinedValue(row.pid, row.processId, "?")),
+            String(getFirstDefinedValue(row.status, "unknown")),
+            String(getFirstDefinedValue(row.type, row.processKind, row.sourceType, "process")),
+            String(getFirstDefinedValue(row.appId, "global")),
+            String(getFirstDefinedValue(row.persistent, false) ? "persistent" : "volatile"),
+            String(getFirstDefinedValue(row.title, row.label, "Process")),
+          ].join("\t");
+          if (context && typeof context.writeLine === "function") {
+            context.writeLine(line);
+          }
+        }
+        return;
+      },
+    }, { force: true });
+
+    var processKill = window.registerTerminalAppCommand({
+      name: "kill",
+      description: "Kill a process by pid.",
+      usage: "kill <pid>",
+      sourceApp: "processes",
+      handler: function (context, args) {
+        var target = String(args && args[0] || "").trim();
+        if (!target) return "kill: missing pid";
+        var pid = Number(target);
+        if (!Number.isFinite(pid)) return "kill: pid must be numeric";
+        var ok = killProcess(pid, "terminal-kill");
+        return ok ? "kill: terminated " + String(pid) : "kill: no matching process for pid " + String(pid);
+      },
+    }, { force: true });
+
+    var processSuspend = window.registerTerminalAppCommand({
+      name: "suspend",
+      description: "Suspend a process by pid.",
+      usage: "suspend <pid>",
+      sourceApp: "processes",
+      handler: function (context, args) {
+        var target = String(args && args[0] || "").trim();
+        if (!target) return "suspend: missing pid";
+        var pid = Number(target);
+        if (!Number.isFinite(pid)) return "suspend: pid must be numeric";
+        var ok = suspendProcess(pid);
+        return ok ? "suspend: suspended " + String(pid) : "suspend: no matching process for pid " + String(pid);
+      },
+    }, { force: true });
+
+    var processResume = window.registerTerminalAppCommand({
+      name: "resume",
+      description: "Resume a process by pid.",
+      usage: "resume <pid>",
+      sourceApp: "processes",
+      handler: function (context, args) {
+        var target = String(args && args[0] || "").trim();
+        if (!target) return "resume: missing pid";
+        var pid = Number(target);
+        if (!Number.isFinite(pid)) return "resume: pid must be numeric";
+        var ok = resumeProcess(pid);
+        return ok ? "resume: resumed " + String(pid) : "resume: no matching process for pid " + String(pid);
+      },
+    }, { force: true });
+
+    var ok =
+      processPs && processPs.ok !== false &&
+      processKill && processKill.ok !== false &&
+      processSuspend && processSuspend.ok !== false &&
+      processResume && processResume.ok !== false;
+
+    if (ok) {
+      window.__flowawayRuntimeTerminalProcessCommandsRegistered = true;
+      if (window._flowaway_handlers && window._flowaway_handlers.processTerminalCommandRegisterTimer) {
+        getInternalClearInterval()(window._flowaway_handlers.processTerminalCommandRegisterTimer);
+        delete window._flowaway_handlers.processTerminalCommandRegisterTimer;
+      }
+    }
+
+    return ok;
+  }
+
+  function ensureTerminalProcessCommandsRegistration() {
+    if (registerTerminalProcessCommands()) return;
+    if (window._flowaway_handlers && window._flowaway_handlers.processTerminalCommandRegisterTimer) {
+      return;
+    }
+    window._flowaway_handlers = window._flowaway_handlers || {};
+    window._flowaway_handlers.processTerminalCommandRegisterTimer = getInternalSetInterval()(function () {
+      registerTerminalProcessCommands();
+    }, 1200);
+  }
+
   function list() {
     var snapshot = getTaskManagerSnapshot();
     return Array.isArray(snapshot.flat) ? snapshot.flat.slice() : [];
@@ -1491,20 +3691,71 @@
 
   function cleanupLegacyProcessTimers() {
     try {
+      var internalClearInterval = getInternalClearInterval();
+      var internalClearTimeout = getInternalClearTimeout();
       if (window._flowaway_handlers && window._flowaway_handlers.processTrackerFallbackTimer) {
-        clearInterval(window._flowaway_handlers.processTrackerFallbackTimer);
+        internalClearInterval(window._flowaway_handlers.processTrackerFallbackTimer);
         delete window._flowaway_handlers.processTrackerFallbackTimer;
       }
       if (window._flowaway_handlers && window._flowaway_handlers.processTrackerSyncTimer) {
-        clearTimeout(window._flowaway_handlers.processTrackerSyncTimer);
+        internalClearTimeout(window._flowaway_handlers.processTrackerSyncTimer);
         delete window._flowaway_handlers.processTrackerSyncTimer;
+      }
+      if (window._flowaway_handlers && window._flowaway_handlers.processTerminalCommandRegisterTimer) {
+        internalClearInterval(window._flowaway_handlers.processTerminalCommandRegisterTimer);
+        delete window._flowaway_handlers.processTerminalCommandRegisterTimer;
       }
       if (window._flowawayProcessTrackerState) {
         var legacy = window._flowawayProcessTrackerState;
-        if (legacy.syncTimer) clearTimeout(legacy.syncTimer);
-        if (legacy.fallbackTimer) clearInterval(legacy.fallbackTimer);
+        if (legacy.syncTimer) internalClearTimeout(legacy.syncTimer);
+        if (legacy.fallbackTimer) internalClearInterval(legacy.fallbackTimer);
       }
     } catch (e) {}
+  }
+
+  function demoGuiAppIntervalTracking() {
+    var root = typeof document !== "undefined" ? document.querySelector(".app-root") : null;
+    var tick = 0;
+    var handle = setInterval(function () {
+      tick += 1;
+      return tick;
+    }, 1000);
+    return {
+      api: "setInterval",
+      scope: "gui",
+      rootFound: !!root,
+      handle: handle,
+      stop: function () {
+        clearInterval(handle);
+      },
+    };
+  }
+
+  function demoBackgroundIntervalTracking() {
+    var count = 0;
+    var handle = setInterval(function () {
+      count += 1;
+      return count;
+    }, 1500);
+    return {
+      api: "setInterval",
+      scope: "background",
+      handle: handle,
+      stop: function () {
+        clearInterval(handle);
+      },
+    };
+  }
+
+  function demoRafTracking() {
+    var handle = requestAnimationFrame(function () {});
+    return {
+      api: "requestAnimationFrame",
+      handle: handle,
+      cancel: function () {
+        cancelAnimationFrame(handle);
+      },
+    };
   }
 
   runtime.start = start;
@@ -1512,15 +3763,24 @@
   runtime.list = list;
   runtime.snapshot = getTaskManagerSnapshot;
   runtime.watch = watch;
+  runtime.createProcess = createProcess;
+  runtime.getProcess = getProcess;
+  runtime.getProcessesByApp = getProcessesByApp;
+  runtime.killProcess = killProcess;
+  runtime.suspendProcess = suspendProcess;
+  runtime.resumeProcess = resumeProcess;
   runtime.registerAppLaunch = registerAppLaunch;
   runtime.registerDynamicProcess = registerDynamicProcess;
   runtime.unregisterDynamicProcess = unregisterDynamicProcess;
-  runtime.terminate = terminateProcess;
+  runtime.terminate = killProcess;
   runtime.disposeAll = disposeAll;
   runtime.buildTaskManagerState = buildTaskManagerState;
   runtime.getTaskManagerSnapshot = getTaskManagerSnapshot;
   runtime.ensureProcessTrackerRunning = ensureProcessTrackerRunning;
   runtime.cleanupLegacyProcessTimers = cleanupLegacyProcessTimers;
+  runtime.demoGuiAppIntervalTracking = demoGuiAppIntervalTracking;
+  runtime.demoBackgroundIntervalTracking = demoBackgroundIntervalTracking;
+  runtime.demoRafTracking = demoRafTracking;
   runtime.__loaded = true;
 
   window.__processRuntime = runtime;
@@ -1531,13 +3791,27 @@
 
   window.registerDynamicProcess = registerDynamicProcess;
   window.unregisterDynamicProcess = unregisterDynamicProcess;
+  window.createProcess = createProcess;
+  window.getProcess = getProcess;
+  window.getProcessesByApp = getProcessesByApp;
+  window.killProcess = killProcess;
+  window.suspendProcess = suspendProcess;
+  window.resumeProcess = resumeProcess;
   window.rebuildTaskManagerSnapshot = buildTaskManagerState;
   window.getTaskManagerSnapshot = getTaskManagerSnapshot;
   window.buildTaskManagerState = buildTaskManagerState;
+  window.demoGuiAppIntervalTracking = demoGuiAppIntervalTracking;
+  window.demoBackgroundIntervalTracking = demoBackgroundIntervalTracking;
+  window.demoRafTracking = demoRafTracking;
 
   cleanupLegacyProcessTimers();
+  wrapTimerProcessApis();
+  wrapAnimationFrameProcessApis();
+  wrapMutationObserverProcessApi();
+  wrapEventListenerProcessApis();
   loadTreeWrapper();
   wrapLaunchApp();
   bindAppUpdatedRefresh();
+  ensureTerminalProcessCommandsRegistration();
   buildTaskManagerState();
 })();
