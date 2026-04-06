@@ -12,6 +12,8 @@ window.browserGlobals.__globalAddTab = function (url, index) {
 };
 window.browserGlobals.allBrowsers = [];
 window.browserGlobals.goldenbodyId = 0;
+window.browserGlobals.goldenbodyOrderId = 0;
+window.browserGlobals.reusableGoldenbodyIds = [];
 window.browserGlobals.proxyurl = window.origin + "/";
 window.browserGlobals.dragstartwindow = null;
 window.browserGlobals.__vfsMessageListenerAdded = false;
@@ -68,6 +70,24 @@ function decodeMaybeBase64(raw) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function allocateBrowserGoldenbodyId() {
+  if (browserGlobals.reusableGoldenbodyIds.length > 0) {
+    return browserGlobals.reusableGoldenbodyIds.pop();
+  }
+  browserGlobals.goldenbodyId++;
+  return browserGlobals.goldenbodyId;
+}
+
+function releaseBrowserGoldenbodyId(root) {
+  if (!root || root._goldenbodyIdReleased) return;
+  const id = Number(root._goldenbodyId);
+  if (!Number.isFinite(id)) return;
+  root._goldenbodyIdReleased = true;
+  if (browserGlobals.reusableGoldenbodyIds.indexOf(id) === -1) {
+    browserGlobals.reusableGoldenbodyIds.push(id);
+  }
 }
 
 
@@ -693,7 +713,6 @@ window.browser = function (
   var activatedTab = 0;
   let isMaximized = false;
   let _isMinimized = false;
-  const activeFrameObservers = [];
   if (posX < 0) {
     posX = 0;
   }
@@ -701,6 +720,7 @@ window.browser = function (
     posY = 0;
   }
   atTop = "browser";
+  let windowTitleInterval;
   const chromeWindow = (function createChromeLikeUI() {
     // --- Create root container ---
     var root = document.createElement("div");
@@ -718,8 +738,9 @@ window.browser = function (
       overflow: "hidden",
     });
     bringToFront(root);
-    browserGlobals.goldenbodyId++;
-    root._goldenbodyId = browserGlobals.goldenbodyId;
+    root._goldenbodyId = allocateBrowserGoldenbodyId();
+    browserGlobals.goldenbodyOrderId++;
+    root._goldenbodyOrderId = browserGlobals.goldenbodyOrderId;
     root.tabIndex = "0";
     // Respect per-app ignore flag; compute effective browser dark mode
     // If a window has `data-theme-manual` set to 'true', flowaway.applyStyles
@@ -1055,7 +1076,6 @@ window.browser = function (
     var savedBounds = getBounds();
     let resizePulseInterval = null;
     let renderInterval = null;
-    let windowTitleInterval = null;
 
     function applyBounds(b) {
       root.style.position = "absolute";
@@ -1125,16 +1145,6 @@ window.browser = function (
           windowTitleInterval = null;
         }
       } catch (e) {}
-      try {
-        if (Array.isArray(activeFrameObservers)) {
-          for (let i = 0; i < activeFrameObservers.length; i++) {
-            const observer = activeFrameObservers[i];
-            if (!observer || typeof observer.disconnect !== "function") continue;
-            observer.disconnect();
-          }
-          activeFrameObservers.length = 0;
-        }
-      } catch (e) {}
 
       root.remove();
 
@@ -1147,6 +1157,7 @@ window.browser = function (
       window.removeEventListener("pointerup", onpointerupAnywhere);
       // Clean up all event listeners added by this app
       window.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
+      releaseBrowserGoldenbodyId(root);
       root = null;
       _browserCalled = false;
     }
@@ -2588,16 +2599,21 @@ window.browser = function (
             let allIds = [];
             for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
               allIds.push(
-                browserGlobals.allBrowsers[i].rootElement._goldenbodyId,
+                browserGlobals.allBrowsers[i].rootElement._goldenbodyOrderId,
               );
             }
             let maxId = Math.max(...allIds);
             for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
               if (
-                browserGlobals.allBrowsers[i].rootElement._goldenbodyId == maxId
+                browserGlobals.allBrowsers[i].rootElement._goldenbodyOrderId ==
+                maxId
               ) {
-                browserGlobals.allBrowsers[i].rootElement.remove();
-                removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
+                const closingRoot = browserGlobals.allBrowsers[i].rootElement;
+                closingRoot.remove();
+                removeAllEventListenersForApp(
+                  closingRoot.dataset.appId + closingRoot._goldenbodyId,
+                );
+                releaseBrowserGoldenbodyId(closingRoot);
                 browserGlobals.allBrowsers[i].rootElement = null;
                 browserGlobals.allBrowsers.splice(i, 1);
               }
@@ -5369,24 +5385,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           observedRoots.add(doc);
           if (doc.nodeType === 9) observedDocs.add(doc);
           installDOMIframeHooks(doc);
-
-          try {
-            const observer = new MutationObserver((mutations) => {
-              for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                  scanNodeForFrames(node, doc);
-                }
-              }
-            });
-
-            observer.observe(doc.documentElement || doc, {
-              childList: true,
-              subtree: true,
-            });
-            activeFrameObservers.push(observer);
-          } catch (e) {
-            // ignored (likely cross-origin restrictions)
-          }
         }
 
         function watchFrame(frame, parentDoc = null) {
@@ -6898,7 +6896,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       },
     };
   })();
-  browserGlobals.windowTitleInterval = setInterval(function () {
+  windowTitleInterval = setInterval(function () {
     var nextTitle = "";
     try {
       nextTitle = String((activatedTab && activatedTab.title) || "").trim();

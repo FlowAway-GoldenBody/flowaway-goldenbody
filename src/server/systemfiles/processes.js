@@ -288,6 +288,31 @@
     }
 
     var known = collectKnownProcessPids();
+    var reusablePool = Array.isArray(runtime.reusablePidPool) ? runtime.reusablePidPool : [];
+    if (reusablePool.length) {
+      reusablePool.sort(function (a, b) {
+        return Number(a) - Number(b);
+      });
+      while (reusablePool.length) {
+        var reusedPid = normalizeProcessPid(reusablePool.shift());
+        if (typeof reusedPid !== "number" || Number.isNaN(reusedPid) || reusedPid <= 0) {
+          continue;
+        }
+        if (known[String(reusedPid)]) {
+          continue;
+        }
+        runtime.taskProcessIdByIdentity[identityKey] = reusedPid;
+        runtime.taskProcessCounter = Math.max(Number(runtime.taskProcessCounter || 0), reusedPid);
+        window.__taskProcessCounter = runtime.taskProcessCounter;
+        window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
+        window.__reusablePidPool = reusablePool;
+        if (seenIdentities && typeof seenIdentities === "object") {
+          seenIdentities[identityKey] = true;
+        }
+        return reusedPid;
+      }
+    }
+
     var next = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
     if (!Number.isFinite(next) || next < 0) next = 0;
 
@@ -298,7 +323,8 @@
     runtime.taskProcessCounter = next;
     runtime.taskProcessIdByIdentity[identityKey] = next;
     window.__taskProcessCounter = runtime.taskProcessCounter;
-    window.__reusablePidPool = [];
+    window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
+    window.__reusablePidPool = reusablePool;
 
     if (seenIdentities && typeof seenIdentities === "object") {
       seenIdentities[identityKey] = true;
@@ -319,10 +345,16 @@
       }
     }
 
-    runtime.reusablePidPool = [];
+    runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool) ? runtime.reusablePidPool : [];
+    if (runtime.reusablePidPool.indexOf(pid) === -1) {
+      runtime.reusablePidPool.push(pid);
+      runtime.reusablePidPool.sort(function (a, b) {
+        return Number(a) - Number(b);
+      });
+    }
 
     window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
-    window.__reusablePidPool = [];
+    window.__reusablePidPool = runtime.reusablePidPool;
   }
 
   function uniqueStringList(values) {
@@ -1784,6 +1816,18 @@
   }
 
   function disposeAll(reason) {
+    var listenerKeys = Object.keys(runtime.listenerProcessBindings || {});
+    for (var l = 0; l < listenerKeys.length; l++) {
+      var listenerBinding = runtime.listenerProcessBindings[listenerKeys[l]];
+      if (!listenerBinding) continue;
+      try {
+        if (typeof listenerBinding.cleanupListener === "function") {
+          listenerBinding.cleanupListener(reason || "dispose-all");
+        }
+      } catch (e) {}
+      delete runtime.listenerProcessBindings[listenerKeys[l]];
+    }
+
     var manualKeys = Object.keys(runtime.manualProcesses);
     for (var i = 0; i < manualKeys.length; i++) {
       terminateRecord(runtime.manualProcesses[manualKeys[i]], reason || "dispose-all");
@@ -1795,6 +1839,7 @@
     runtime.processObjectsByPid = {};
     runtime.taskProcessIdByIdentity = {};
     runtime.reusablePidPool = [];
+    runtime.processes = [];
     runtime.taskProcessCounter = 0;
     runtime.timerProcessBindings = {};
     runtime.rafProcessBindings = {};
@@ -1803,7 +1848,10 @@
     runtime.executionStack = [];
     window.__processObjectsByPid = {};
     window.__taskProcessIdByIdentity = {};
+    runtime.listeners = new Set();
     window.__reusablePidPool = [];
+    window.__processes = [];
+    window.__processRegistry = {};
     window.__taskProcessCounter = 0;
     scheduleProcessTrackerRebuild("dispose-all");
   }
@@ -2669,7 +2717,7 @@
       title: "Listener " + type + " (" + targetLabel + ")",
       appId: String(originState.origin.appId || "system"),
       status: "running",
-      persistent: true,
+      persistent: false,
       hasWindow: targetLabel === "window" || targetLabel === "document",
       windowIds: [],
       parentPid: originState.parentPid,
@@ -2799,6 +2847,7 @@
   function unregisterListenerProcessesByAppName(appname, reason) {
     var scopedAppName = String(appname || "").trim();
     if (!scopedAppName) return 0;
+    var scopedAppBase = String(scopedAppName).replace(/\d+$/, "");
     var bindings = runtime.listenerProcessBindings && typeof runtime.listenerProcessBindings === "object"
       ? runtime.listenerProcessBindings
       : {};
@@ -2808,8 +2857,72 @@
       var key = keys[i];
       var binding = bindings[key];
       if (!binding) continue;
-      if (String(binding.appname || "") !== scopedAppName) continue;
+      var bindingAppName = String(binding.appname || "").trim();
+      var bindingAppBase = String(bindingAppName || "").replace(/\d+$/, "");
+      var matchesScope =
+        bindingAppName === scopedAppName ||
+        (bindingAppBase && scopedAppBase && bindingAppBase === scopedAppBase);
+
+      if (!matchesScope && binding.pid) {
+        var proc = getCanonicalProcessByPid(binding.pid);
+        if (proc && typeof proc === "object") {
+          var procAppId = String(proc.appId || "").trim();
+          var procAppBase = String(procAppId || "").replace(/\d+$/, "");
+          var procInstanceId = getFirstDefinedValue(
+            proc.appInstanceId,
+            proc.options && proc.options.appInstanceId,
+            proc.execution && proc.execution.origin && proc.execution.origin.appInstanceId,
+            proc.goldenbodyId,
+            proc.options && proc.options.goldenbodyId,
+            proc.execution && proc.execution.origin && proc.execution.origin.goldenbodyId,
+            null,
+          );
+          var scopedInstanceId = scopedAppName.match(/(\d+)$/);
+          scopedInstanceId = scopedInstanceId ? scopedInstanceId[1] : "";
+
+          matchesScope =
+            procAppId === scopedAppName ||
+            procAppBase === scopedAppBase ||
+            (scopedInstanceId && String(procInstanceId) === scopedInstanceId);
+        }
+      }
+
+      if (!matchesScope) continue;
       if (unregisterListenerProcessByKey(key, reason || "listener-remove-app-scope")) {
+        removed += 1;
+      }
+    }
+
+    var store = ensureProcessObjectsStore();
+    var pids = Object.keys(store);
+    for (var p = 0; p < pids.length; p++) {
+      var pidKey = pids[p];
+      var proc = store[pidKey];
+      if (!proc || typeof proc !== "object") continue;
+
+      var procType = String(proc.type || proc.processKind || proc.sourceType || "").toLowerCase();
+      var procTitle = String(proc.title || proc.label || "").toLowerCase();
+      if (procType !== "listener" && procTitle.indexOf("listener ") !== 0) continue;
+
+      var procScope = String(
+        getFirstDefinedValue(
+          proc.options && proc.options.scopedAppName,
+          proc.options && proc.options.appname,
+          proc.appId,
+          "",
+        ),
+      ).trim();
+      var procScopeBase = String(procScope || "").replace(/\d+$/, "");
+      var procAppBase = String(proc.appId || "").replace(/\d+$/, "");
+
+      var matchesScope =
+        procScope === scopedAppName ||
+        (procScopeBase && procScopeBase === scopedAppBase) ||
+        String(proc.appId || "") === scopedAppName ||
+        (procAppBase && procAppBase === scopedAppBase);
+
+      if (!matchesScope) continue;
+      if (killProcess(pidKey, reason || "listener-remove-app-scope")) {
         removed += 1;
       }
     }
@@ -2946,7 +3059,7 @@
       title: "MutationObserver",
       appId: String(originState.origin.appId || "system"),
       status: "running",
-      persistent: true,
+      persistent: false,
       hasWindow: false,
       windowIds: [],
       parentPid: originState.parentPid,
