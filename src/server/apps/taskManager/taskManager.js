@@ -574,9 +574,58 @@ taskManager = function (posX = 50, posY = 50) {
   statusLine.textContent = "Ready.";
   main.appendChild(statusLine);
 
+  let defaultStatusColor = "";
+
+  function applyTaskManagerTheme() {
+    const dark = !!(data && data.dark);
+    const textColor = dark ? "#e5e7eb" : "#0f172a";
+    const mutedTextColor = dark ? "#cbd5e1" : "#334155";
+    const panelBg = dark ? "#111827" : "#f8fafc";
+    const surfaceBg = dark ? "#0f1724" : "#ffffff";
+    const borderColor = dark ? "1px solid rgba(255,255,255,0.16)" : "1px solid rgba(15,23,42,0.16)";
+
+    main.style.color = textColor;
+    title.style.color = textColor;
+    autoRefreshLabel.style.color = mutedTextColor;
+
+    for (const card of summaryGrid.children) {
+      card.style.background = panelBg;
+      card.style.border = borderColor;
+      if (card.children[0]) card.children[0].style.color = mutedTextColor;
+      if (card.children[1]) card.children[1].style.color = textColor;
+    }
+
+    [refreshBtn, killBtn].forEach((btn) => {
+      btn.style.background = dark ? "#1f2937" : "#ffffff";
+      btn.style.color = textColor;
+      btn.style.border = borderColor;
+    });
+
+    autoRefreshSelect.style.background = dark ? "#111827" : "#ffffff";
+    autoRefreshSelect.style.color = textColor;
+    autoRefreshSelect.style.border = borderColor;
+
+    tableWrap.style.background = surfaceBg;
+    tableWrap.style.border = borderColor;
+    table.style.color = textColor;
+
+    Array.from(thead.querySelectorAll("th")).forEach((th) => {
+      th.style.background = dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+      th.style.borderBottom = borderColor;
+      th.style.color = textColor;
+    });
+
+    defaultStatusColor = mutedTextColor;
+    if (statusLine.style.color !== "rgb(217, 83, 79)") {
+      statusLine.style.color = defaultStatusColor;
+    }
+  }
+
+  root.addEventListener("styleapplied", applyTaskManagerTheme);
+
   function setStatus(message, isError = false) {
     statusLine.textContent = message;
-    statusLine.style.color = isError ? "#d9534f" : "";
+    statusLine.style.color = isError ? "#d9534f" : defaultStatusColor;
   }
 
   function resolveAppLabelById(appId) {
@@ -1328,6 +1377,7 @@ taskManager = function (posX = 50, posY = 50) {
 
   refreshSnapshot(false);
   setStatus("Ready.");
+  applyTaskManagerTheme();
 
   applyStyles();
 

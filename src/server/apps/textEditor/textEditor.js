@@ -774,6 +774,32 @@ textEditor = function (path, posX = 50, posY = 50) {
   statusBar.appendChild(statLines);
   statusBar.appendChild(statPos);
 
+  function applyTextEditorTheme() {
+    const dark = !!(data && data.dark);
+    const textColor = dark ? "#e6eef8" : "#0f1724";
+    const mutedTextColor = dark ? "#9fb0c8" : "#475569";
+
+    contentWrap.style.background = dark ? "#111827" : "#f8fafc";
+    toolbar.style.background = dark ? "#111827" : "#f8fafc";
+    toolbar.style.borderBottom = dark
+      ? "1px solid rgba(255,255,255,0.10)"
+      : "1px solid rgba(0,0,0,0.08)";
+    titleLabel.style.color = textColor;
+
+    [newBtn, openBtn, revertBtn, saveBtn, editorSettingsBtn].forEach((btn) => {
+      btn.style.background = dark ? "#1f2937" : "#ffffff";
+      btn.style.color = textColor;
+      btn.style.border = dark
+        ? "1px solid rgba(255,255,255,0.14)"
+        : "1px solid rgba(15,23,42,0.14)";
+      btn.style.borderRadius = "6px";
+    });
+
+    statusBar.style.color = mutedTextColor;
+  }
+
+  root.addEventListener("styleapplied", applyTextEditorTheme);
+
   loadTextEditorSettings()
     .then((settings) => {
       try {
@@ -789,6 +815,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   contentWrap.appendChild(textarea);
   contentWrap.appendChild(statusBar);
   root.appendChild(contentWrap);
+  applyTextEditorTheme();
 
   // Save-as dialog (defined here so New/Save can reuse it)
   function openEditorSaveUI() {
@@ -866,6 +893,35 @@ textEditor = function (path, posX = 50, posY = 50) {
     btnSave.textContent = "Save";
     btnBar.appendChild(btnSave);
 
+    function getPickerSelectionColor() {
+      return data && data.dark ? "rgba(96,165,250,0.28)" : "#d0e6ff";
+    }
+
+    function applySavePickerTheme() {
+      const dark = !!(data && data.dark);
+      pickerBox.style.background = dark ? "#222" : "#fff";
+      pickerBox.style.color = dark ? "#e6eef8" : "#0f1724";
+      breadcrumbDiv.style.color = dark ? "#cbd5e1" : "#334155";
+      fileArea.style.borderTop = dark
+        ? "1px solid rgba(255,255,255,0.14)"
+        : "1px solid rgba(15,23,42,0.16)";
+      filenameInput.style.background = dark ? "#0f1724" : "#ffffff";
+      filenameInput.style.color = dark ? "#e6eef8" : "#0f1724";
+      filenameInput.style.border = dark
+        ? "1px solid rgba(255,255,255,0.16)"
+        : "1px solid rgba(15,23,42,0.16)";
+
+      [btnCancel, btnSave].forEach((btn) => {
+        btn.style.background = dark ? "#1f2937" : "#ffffff";
+        btn.style.color = dark ? "#e6eef8" : "#0f1724";
+        btn.style.border = dark
+          ? "1px solid rgba(255,255,255,0.16)"
+          : "1px solid rgba(15,23,42,0.16)";
+        btn.style.borderRadius = "6px";
+        btn.style.padding = "6px 10px";
+      });
+    }
+
     function renderPicker() {
       breadcrumbDiv.innerHTML = "";
       pickerCurrentPath.forEach((p, i) => {
@@ -892,6 +948,10 @@ textEditor = function (path, posX = 50, posY = 50) {
         div.textContent = (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
         div.style.padding = "6px";
         div.style.cursor = "pointer";
+        div.style.color = data && data.dark ? "#e6eef8" : "#0f1724";
+        if (pickerSelection.indexOf(item) !== -1) {
+          div.style.background = getPickerSelectionColor();
+        }
         div.onclick = (e) => {
           const isToggle = e.ctrlKey || e.metaKey;
           if (!isToggle) {
@@ -899,7 +959,7 @@ textEditor = function (path, posX = 50, posY = 50) {
             fileArea
               .querySelectorAll("div")
               .forEach((d) => (d.style.background = ""));
-            div.style.background = "#d0e6ff";
+            div.style.background = getPickerSelectionColor();
           } else {
             const idx = pickerSelection.indexOf(item);
             if (idx >= 0) {
@@ -907,7 +967,7 @@ textEditor = function (path, posX = 50, posY = 50) {
               div.style.background = "";
             } else {
               pickerSelection.push(item);
-              div.style.background = "#d0e6ff";
+              div.style.background = getPickerSelectionColor();
             }
           }
         };
@@ -922,7 +982,14 @@ textEditor = function (path, posX = 50, posY = 50) {
       });
     }
 
+    const onSavePickerStyleApplied = () => {
+      applySavePickerTheme();
+      renderPicker();
+    };
+    root.addEventListener("styleapplied", onSavePickerStyleApplied);
+
     renderPicker();
+    applySavePickerTheme();
 
     const getUIMessage = (msg) => {
       if (typeof notification === "function") notification(msg);
@@ -931,6 +998,7 @@ textEditor = function (path, posX = 50, posY = 50) {
 
     return new Promise((resolve) => {
       btnCancel.onclick = () => {
+        root.removeEventListener("styleapplied", onSavePickerStyleApplied);
         resolve(null);
         pickerOverlay.remove();
       };
@@ -960,6 +1028,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         }
 
         if (!chosen) return getUIMessage("Could not determine save path");
+        root.removeEventListener("styleapplied", onSavePickerStyleApplied);
         resolve(chosen);
         pickerOverlay.remove();
         editorName = fname;
@@ -1062,6 +1131,29 @@ textEditor = function (path, posX = 50, posY = 50) {
     btnOpen.textContent = "Open";
     btnBar.appendChild(btnOpen);
 
+    function getPickerSelectionColor() {
+      return data && data.dark ? "rgba(96,165,250,0.28)" : "#d0e6ff";
+    }
+
+    function applyOpenPickerTheme() {
+      const dark = !!(data && data.dark);
+      pickerBox.style.background = dark ? "#222" : "#fff";
+      pickerBox.style.color = dark ? "#e6eef8" : "#0f1724";
+      breadcrumbDiv.style.color = dark ? "#cbd5e1" : "#334155";
+      fileArea.style.borderTop = dark
+        ? "1px solid rgba(255,255,255,0.14)"
+        : "1px solid rgba(15,23,42,0.16)";
+      [btnCancel, btnOpen].forEach((btn) => {
+        btn.style.background = dark ? "#1f2937" : "#ffffff";
+        btn.style.color = dark ? "#e6eef8" : "#0f1724";
+        btn.style.border = dark
+          ? "1px solid rgba(255,255,255,0.16)"
+          : "1px solid rgba(15,23,42,0.16)";
+        btn.style.borderRadius = "6px";
+        btn.style.padding = "6px 10px";
+      });
+    }
+
     function renderPicker() {
       breadcrumbDiv.innerHTML = "";
       pickerCurrentPath.forEach((p, i) => {
@@ -1088,6 +1180,10 @@ textEditor = function (path, posX = 50, posY = 50) {
         div.textContent = (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
         div.style.padding = "6px";
         div.style.cursor = "pointer";
+        div.style.color = data && data.dark ? "#e6eef8" : "#0f1724";
+        if (pickerSelection.indexOf(item) !== -1) {
+          div.style.background = getPickerSelectionColor();
+        }
         div.onclick = (e) => {
           const isToggle = e.ctrlKey || e.metaKey;
           if (!isToggle) {
@@ -1095,7 +1191,7 @@ textEditor = function (path, posX = 50, posY = 50) {
             fileArea
               .querySelectorAll("div")
               .forEach((d) => (d.style.background = ""));
-            div.style.background = "#d0e6ff";
+            div.style.background = getPickerSelectionColor();
           } else {
             const idx = pickerSelection.indexOf(item);
             if (idx >= 0) {
@@ -1103,7 +1199,7 @@ textEditor = function (path, posX = 50, posY = 50) {
               div.style.background = "";
             } else {
               pickerSelection.push(item);
-              div.style.background = "#d0e6ff";
+              div.style.background = getPickerSelectionColor();
             }
           }
         };
@@ -1118,10 +1214,18 @@ textEditor = function (path, posX = 50, posY = 50) {
       });
     }
 
+    const onOpenPickerStyleApplied = () => {
+      applyOpenPickerTheme();
+      renderPicker();
+    };
+    root.addEventListener("styleapplied", onOpenPickerStyleApplied);
+
     renderPicker();
+    applyOpenPickerTheme();
 
     return new Promise((resolve) => {
       btnCancel.onclick = () => {
+        root.removeEventListener("styleapplied", onOpenPickerStyleApplied);
         resolve([]);
         pickerOverlay.remove();
       };
@@ -1140,6 +1244,7 @@ textEditor = function (path, posX = 50, posY = 50) {
           return [name, sel[1], { path }];
         });
 
+        root.removeEventListener("styleapplied", onOpenPickerStyleApplied);
         resolve(mapped);
         pickerOverlay.remove();
       };

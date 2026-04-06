@@ -679,6 +679,32 @@ terminal = function (posX = 50, posY = 50) {
   terminalSurface.appendChild(inputWrap);
   root.appendChild(terminalSurface);
 
+  function applyTerminalTheme() {
+    const dark = !!(data && data.dark);
+    const textColor = dark ? "#d8d8d8" : "#111827";
+
+    terminalSurface.style.border = dark
+      ? "1px solid #2f2f2f"
+      : "1px solid #d1d5db";
+    terminalSurface.style.background = dark ? "#0f0f10" : "#f8fafc";
+    terminalSurface.style.color = textColor;
+
+    output.style.background = dark ? "#0f0f10" : "#ffffff";
+    output.style.color = textColor;
+
+    inputWrap.style.borderTop = dark
+      ? "1px solid #2a2a2a"
+      : "1px solid #d1d5db";
+    inputWrap.style.background = dark ? "#0f0f10" : "#ffffff";
+
+    promptLabel.style.color = dark ? "#cbd5e1" : "#334155";
+    input.style.color = textColor;
+    input.style.caretColor = dark ? "#e2e8f0" : "#111827";
+  }
+
+  root.addEventListener("styleapplied", applyTerminalTheme);
+  applyTerminalTheme();
+
   const username = (typeof data !== "undefined" && data && data.username) ? data.username : "guest";
   let cwdRelPath = "";
   let commandHistory = [];
