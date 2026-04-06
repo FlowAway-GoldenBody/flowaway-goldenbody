@@ -26,6 +26,9 @@
     ? runtime.processRegistry
     : {};
   runtime.taskProcessCounter = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
+  runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool)
+    ? runtime.reusablePidPool
+    : (Array.isArray(window.__reusablePidPool) ? window.__reusablePidPool : []);
   runtime.taskProcessIdByIdentity = runtime.taskProcessIdByIdentity && typeof runtime.taskProcessIdByIdentity === "object"
     ? runtime.taskProcessIdByIdentity
     : (window.__taskProcessIdByIdentity && typeof window.__taskProcessIdByIdentity === "object" ? window.__taskProcessIdByIdentity : {});
@@ -144,8 +147,28 @@
 
   function allocateProcessId(identityKey, seenIdentities) {
     if (!Object.prototype.hasOwnProperty.call(runtime.taskProcessIdByIdentity, identityKey)) {
-      runtime.taskProcessCounter = Number(runtime.taskProcessCounter || 0) + 1;
-      runtime.taskProcessIdByIdentity[identityKey] = runtime.taskProcessCounter;
+      var reusablePid = null;
+      if (Array.isArray(runtime.reusablePidPool) && runtime.reusablePidPool.length > 0) {
+        runtime.reusablePidPool = runtime.reusablePidPool
+          .map(function (value) {
+            return Number(value);
+          })
+          .filter(function (value) {
+            return Number.isFinite(value) && value > 0;
+          })
+          .sort(function (a, b) {
+            return a - b;
+          });
+        reusablePid = runtime.reusablePidPool.shift();
+      }
+
+      if (typeof reusablePid === "number" && Number.isFinite(reusablePid) && reusablePid > 0) {
+        runtime.taskProcessIdByIdentity[identityKey] = reusablePid;
+      } else {
+        runtime.taskProcessCounter = Number(runtime.taskProcessCounter || 0) + 1;
+        runtime.taskProcessIdByIdentity[identityKey] = runtime.taskProcessCounter;
+      }
+      window.__reusablePidPool = runtime.reusablePidPool;
     }
 
     if (seenIdentities && typeof seenIdentities === "object") {
@@ -153,6 +176,96 @@
     }
 
     return Number(runtime.taskProcessIdByIdentity[identityKey] || 0);
+  }
+
+  function releaseProcessId(pidValue) {
+    var pid = normalizeProcessPid(pidValue);
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return;
+
+    var identityKeys = Object.keys(runtime.taskProcessIdByIdentity);
+    for (var i = 0; i < identityKeys.length; i++) {
+      var key = identityKeys[i];
+      if (Number(runtime.taskProcessIdByIdentity[key]) === pid) {
+        delete runtime.taskProcessIdByIdentity[key];
+      }
+    }
+
+    runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool)
+      ? runtime.reusablePidPool
+      : [];
+    if (runtime.reusablePidPool.indexOf(pid) === -1) {
+      runtime.reusablePidPool.push(pid);
+      runtime.reusablePidPool.sort(function (a, b) {
+        return Number(a) - Number(b);
+      });
+    }
+
+    window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
+    window.__reusablePidPool = runtime.reusablePidPool;
+  }
+
+  function uniqueStringList(values) {
+    var list = Array.isArray(values) ? values : [];
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var value = String(list[i] || "").trim();
+      if (!value) continue;
+      var key = value.toLowerCase();
+      if (seen[key]) continue;
+      seen[key] = true;
+      out.push(value);
+    }
+    return out;
+  }
+
+  function buildAppEntryOptions(appMeta) {
+    var app = appMeta && typeof appMeta === "object" ? appMeta : {};
+    return uniqueStringList([
+      app.functionname,
+      app.globalvarobjectstring,
+      app.id,
+      app.path,
+      app.label,
+      app.icon,
+      app.cmf,
+    ]);
+  }
+
+  function matchesIdentifierFromOptions(options, identifier) {
+    var id = String(identifier || "").trim().toLowerCase();
+    if (!id) return false;
+    var candidates = uniqueStringList(options).map(function (v) {
+      return String(v || "").trim().toLowerCase();
+    });
+    return candidates.indexOf(id) !== -1;
+  }
+
+  function hasOpenWindowForAppIdentity(appIdentity) {
+    var identity = String(appIdentity || "").trim();
+    if (!identity) return false;
+    try {
+      var roots = Array.from(document.querySelectorAll(".app-root"));
+      for (var i = 0; i < roots.length; i++) {
+        var root = roots[i];
+        if (!root || root.isConnected === false) continue;
+        var dataAppId =
+          (root.dataset && root.dataset.appId) ||
+          (typeof root.getAttribute === "function" ? root.getAttribute("data-app-id") : "") ||
+          "";
+        if (matchesIdentifierFromOptions([dataAppId], identity)) return true;
+        if (root.classList && root.classList.contains(identity)) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function isLikelyConnectedAppInstance(instance) {
+    if (!instance || typeof instance !== "object") return true;
+    var root = instance.rootElement;
+    if (!root || typeof root !== "object") return true;
+    if (typeof root.isConnected === "boolean") return !!root.isConnected;
+    return true;
   }
 
   function normalizeProcessEntryFromApp(appMeta) {
@@ -167,6 +280,7 @@
     var instances = [];
     var status = "unknown";
     var allAppArrayKeys = [];
+    var entryOptions = buildAppEntryOptions(app);
 
     if (typeof app.allapparraystring === "string") {
       var singleKey = String(app.allapparraystring || "").trim();
@@ -196,7 +310,14 @@
         }
         if (matchedArrayKey) {
           sourceType = "array";
-          instances = hostObject[matchedArrayKey].slice();
+          instances = hostObject[matchedArrayKey]
+            .slice()
+            .filter(function (instance) {
+              return isLikelyConnectedAppInstance(instance);
+            });
+          try {
+            hostObject[matchedArrayKey] = instances;
+          } catch (e) {}
           status = instances.length > 0 ? "running" : "idle";
         }
       } else if (globalVar && typeof window[globalVar] === "function") {
@@ -227,6 +348,7 @@
       instances: Array.isArray(instances) ? instances : [],
       status: status,
       updatedAt: updatedAt,
+      entryOptions: entryOptions,
     };
   }
 
@@ -292,6 +414,8 @@
       var key = keys[i];
       if (seenIdentities && seenIdentities[key]) {
         next[key] = runtime.taskProcessIdByIdentity[key];
+      } else {
+        releaseProcessId(runtime.taskProcessIdByIdentity[key]);
       }
     }
     runtime.taskProcessIdByIdentity = next;
@@ -383,6 +507,12 @@
       status: String(e.status || "unknown"),
       updatedAt: updatedAt,
       processKind: String(e.processKind || "app"),
+      entryOptions: uniqueStringList(
+        [].concat(
+          Array.isArray(e.entryOptions) ? e.entryOptions : [],
+          [e.entry, e.globalVar, e.appId, e.label],
+        ),
+      ),
     };
   }
 
@@ -692,6 +822,7 @@
     }
 
     if (terminated) {
+      releaseProcessId(pidValue);
       scheduleProcessTrackerRebuild("terminate");
     }
 
@@ -708,7 +839,13 @@
     runtime.dynamicProcesses = {};
     runtime.processRegistry = {};
     runtime.processObjectsByPid = {};
+    runtime.taskProcessIdByIdentity = {};
+    runtime.reusablePidPool = [];
+    runtime.taskProcessCounter = 0;
     window.__processObjectsByPid = {};
+    window.__taskProcessIdByIdentity = {};
+    window.__reusablePidPool = [];
+    window.__taskProcessCounter = 0;
     scheduleProcessTrackerRebuild("dispose-all");
   }
 
@@ -739,9 +876,18 @@
       ? runtime.dynamicProcesses
       : {};
     if (registry[appId] && registry[appId][processName]) {
+      var existingMeta = registry[appId][processName] && typeof registry[appId][processName] === "object"
+        ? registry[appId][processName]
+        : {};
+      var existingPid = normalizeProcessPid(
+        getFirstDefinedValue(existingMeta.pid, existingMeta.processId),
+      );
       delete registry[appId][processName];
       if (!Object.keys(registry[appId]).length) {
         delete registry[appId];
+      }
+      if (typeof existingPid === "number" && !Number.isNaN(existingPid)) {
+        releaseProcessId(existingPid);
       }
       runtime.dynamicProcesses = registry;
       window.__dynamicProcesses = registry;
@@ -968,6 +1114,12 @@
         status: String(launch.status || "running"),
         updatedAt: Number(launch.updatedAt || Date.now()),
         processKind: "launch",
+        entryOptions: uniqueStringList([
+          launch.functionname,
+          launch.globalVar,
+          launch.appId,
+          launch.label,
+        ]),
       });
     }
 
@@ -986,6 +1138,7 @@
           label: appKey + " (dynamic)",
           entry: "",
           globalVar: "",
+          entryOptions: uniqueStringList([appKey]),
           sourceType: "dynamic",
           instanceCount: procList.length,
           instances: procList,
@@ -1052,6 +1205,12 @@
         status: String(manual.status || "running"),
         updatedAt: Number(manual.updatedAt || Date.now()),
         processKind: "manual",
+        entryOptions: uniqueStringList([
+          manual.meta && manual.meta.entry,
+          manual.meta && manual.meta.globalVar,
+          manual.appId,
+          manual.label,
+        ]),
       });
     }
 
@@ -1082,6 +1241,7 @@
       var record = runtime.launchRegistry[key];
       if (!record) continue;
       if (active[record.appId]) continue;
+      releaseProcessId(record.pid);
       delete runtime.launchRegistry[key];
       delete runtime.processRegistry[key];
       changed = true;
@@ -1107,6 +1267,12 @@
       var sourceType = String(record.sourceType || record.appSourceType || "unknown");
       var appEntry = String(record.appEntry || "");
       var appGlobalVar = String(record.appGlobalVar || "");
+      var entryOptions = uniqueStringList(
+        [].concat(
+          Array.isArray(record.entryOptions) ? record.entryOptions : [],
+          [appEntry, appGlobalVar, appId],
+        ),
+      );
       var updatedAt = Number(record.updatedAt || Date.now());
 
       var taskEntry = {
@@ -1123,6 +1289,7 @@
         functionname: appEntry,
         globalVar: appGlobalVar,
         processKind: String(record.processKind || "app"),
+        entryOptions: entryOptions,
         updatedAt: updatedAt,
         rowKey: [appId, String(pidValue), String(i)].join("::"),
       };
@@ -1149,6 +1316,7 @@
         instanceRecords: [],
         status: status,
         updatedAt: updatedAt,
+        entryOptions: entryOptions,
       };
       groupEntry.instanceRecords.push({
         processId: pidValue,

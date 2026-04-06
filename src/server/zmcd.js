@@ -225,7 +225,7 @@ fs.cpSync(
                 fs.cpSync(projectroot + '/src/server/systemfiles/runtimeCore.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeCore.js');
               }
               try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js', 'utf8');
+                const runtimeAppRuntimePath = directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js';
               } catch (e) {
                 fs.cpSync(projectroot + '/src/server/systemfiles/runtimeAppRuntime.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js');
               }

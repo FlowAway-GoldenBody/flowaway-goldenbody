@@ -167,7 +167,7 @@ taskManager = function (posX = 50, posY = 50) {
   }
 
   function hideWindow() {
-    savedBounds = getBounds();
+    if (!isMaximized) savedBounds = getBounds();
     root.style.display = "none";
     _isMinimized = true;
   }
@@ -256,9 +256,12 @@ taskManager = function (posX = 50, posY = 50) {
       let origTop = 0;
       let currentX;
       let currentY;
+      let thresholdCrossed = false;
+      const DRAG_THRESHOLD = 15;
 
       dragTarget.addEventListener("mousedown", (ev) => {
         dragging = true;
+        thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
         origLeft = root.offsetLeft;
@@ -270,14 +273,20 @@ taskManager = function (posX = 50, posY = 50) {
 
       window.addEventListener(scopedListenerName, "mousemove", (ev) => {
         if (!dragging || disposed) return;
-        if (ev.clientX - currentX !== 0 || ev.clientY - currentY !== 0) {
-          applyBounds(savedBounds);
+        const dragDistance = Math.sqrt(
+          Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
+        );
+        if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+          thresholdCrossed = true;
           if (isMaximized) {
+            applyBounds(savedBounds);
             restoreWindow(false);
             root.style.left = ev.clientX - root.clientWidth / 2 + "px";
             origLeft = ev.clientX - root.clientWidth / 2;
           }
         }
+
+        if (!thresholdCrossed) return;
 
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
@@ -287,6 +296,7 @@ taskManager = function (posX = 50, posY = 50) {
 
       window.addEventListener(scopedListenerName, "mouseup", () => {
         dragging = false;
+        thresholdCrossed = false;
         document.body.style.userSelect = "";
       });
     })();
@@ -569,6 +579,22 @@ taskManager = function (posX = 50, posY = 50) {
     statusLine.style.color = isError ? "#d9534f" : "";
   }
 
+  function resolveAppLabelById(appId) {
+    const id = String(appId || "").trim();
+    if (!id) return "";
+    const apps = Array.isArray(window.apps) ? window.apps : [];
+    for (let i = 0; i < apps.length; i++) {
+      const app = apps[i] || {};
+      const candidates = [app.id, app.functionname, app.icon, app.path]
+        .filter(Boolean)
+        .map((v) => String(v));
+      if (candidates.includes(id)) {
+        return String(app.label || app.functionname || app.id || id);
+      }
+    }
+    return "";
+  }
+
   function sanitizeTaskEntry(input, index) {
     const item = input && typeof input === "object" ? input : {};
     const appId = String(item.appId || item.id || item.appLabel || item.label || "unknown-app");
@@ -577,6 +603,12 @@ taskManager = function (posX = 50, posY = 50) {
     const globalVar = String(item.globalVar || "");
     const sourceType = String(item.sourceType || item.appSourceType || "unknown");
     const status = String(item.status || item.appStatus || "unknown");
+    const appLabel = String(item.appLabel || resolveAppLabelById(appId) || appId);
+    const entryOptions = Array.isArray(item.entryOptions)
+      ? item.entryOptions
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      : [];
     const processId = Number(firstDefinedValue(item.processId, item.pid, 0));
     const appInstanceId = firstDefinedValue(item.appInstanceId, item.instanceId, item.id, null);
     const goldenbodyId = firstDefinedValue(
@@ -594,6 +626,8 @@ taskManager = function (posX = 50, posY = 50) {
       functionname,
       globalVar,
       sourceType,
+      appLabel,
+      entryOptions,
       status,
       processId: Number.isFinite(processId) ? processId : 0,
       pid: Number.isFinite(processId) ? processId : 0,
@@ -692,6 +726,7 @@ taskManager = function (posX = 50, posY = 50) {
                   status: entries[j] && entries[j].status,
                   functionname: entries[j] && entries[j].entry,
                   globalVar: entries[j] && entries[j].globalVar,
+                  entryOptions: entries[j] && entries[j].entryOptions,
                   processId: instance.processId,
                   pid: instance.pid,
                   appInstanceId: instance.appInstanceId,
@@ -785,9 +820,15 @@ taskManager = function (posX = 50, posY = 50) {
       }
 
       const firstCellText = row.title || row.label || row.appId;
+      const sourceCellText = row.appLabel
+        ? row.appLabel + " • " + row.sourceType
+        : row.sourceType;
+      const fallbackEntryText = row.entryOptions && row.entryOptions.length
+        ? row.entryOptions.slice(0, 3).join(" / ")
+        : "-";
       const lastColBase = row.functionname && row.globalVar
         ? row.functionname + " / " + row.globalVar
-        : row.functionname || row.globalVar || "-";
+        : row.functionname || row.globalVar || fallbackEntryText;
       const pidText =
         row.processId === null || typeof row.processId === "undefined"
           ? "-"
@@ -800,7 +841,7 @@ taskManager = function (posX = 50, posY = 50) {
 
       const cells = [
         firstCellText,
-        row.sourceType,
+        sourceCellText,
         row.status,
         pidText,
         lastCol,

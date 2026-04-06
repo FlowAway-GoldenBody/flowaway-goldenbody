@@ -146,7 +146,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   }
 
   function hideWindow() {
-    savedBounds = getBounds();
+    if (!isMaximized) savedBounds = getBounds();
     root.style.display = "none";
     _isMinimized = true;
   }
@@ -232,12 +232,19 @@ fileExplorer = function (posX = 50, posY = 50) {
         startY = 0,
         origLeft = 0,
         origTop = 0;
+      let thresholdCrossed = false;
+      const DRAG_THRESHOLD = 15;
+      let mouseDownX = 0,
+        mouseDownY = 0;
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
         dragging = true;
+        thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
+        mouseDownX = ev.clientX;
+        mouseDownY = ev.clientY;
         origLeft = root.offsetLeft;
         origTop = root.offsetTop;
         currentX = ev.clientX;
@@ -247,14 +254,19 @@ fileExplorer = function (posX = 50, posY = 50) {
 
       window.addEventListener("fileExplorer" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
-        if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
-          applyBounds(savedBounds);
+        const dragDistance = Math.sqrt(
+          Math.pow(ev.clientX - mouseDownX, 2) + Math.pow(ev.clientY - mouseDownY, 2),
+        );
+        if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+          thresholdCrossed = true;
           if (isMaximized) {
+            applyBounds(savedBounds);
             restoreWindow(false);
             root.style.left = ev.clientX - root.clientWidth / 2 + "px";
             origLeft = ev.clientX - root.clientWidth / 2;
           }
         }
+        if (!thresholdCrossed) return;
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
         root.style.left = origLeft + dx + "px";
@@ -263,6 +275,7 @@ fileExplorer = function (posX = 50, posY = 50) {
 
       window.addEventListener("fileExplorer" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
+        thresholdCrossed = false;
         document.body.style.userSelect = "";
       });
     })();

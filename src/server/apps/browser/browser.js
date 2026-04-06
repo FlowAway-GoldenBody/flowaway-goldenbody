@@ -3394,20 +3394,20 @@ window.browser = function (
           });
         }
 
-        function stylePickerDialogBox(box, theme, width, height) {
+        function stylePickerDialogBox(box, theme, width = "60%", height = "60%") {
           Object.assign(box.style, {
             position: "fixed",
             zIndex: "1000000",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%,-50%)",
+            left: "20%",
+            top: "10%",
             width: width,
             height: height,
             minWidth: "420px",
             minHeight: "320px",
-            maxWidth: "calc(100vw - 24px)",
-            maxHeight: "calc(100vh - 24px)",
+            maxWidth: "100vw",
+            maxHeight: "100vh",
             borderRadius: "8px",
+            resize: "both",
             background: theme.panelBg,
             color: theme.panelText,
             border: `1px solid ${theme.border}`,
@@ -3490,7 +3490,8 @@ window.browser = function (
 
             const pickerBox = document.createElement("div");
             pickerBox.className = "pickerBox";
-            stylePickerDialogBox(pickerBox, theme, "600px", "400px");
+            pickerBox.style.resize = "both";
+            stylePickerDialogBox(pickerBox, theme);
             pickerOverlay.appendChild(pickerBox);
             root.tabIndex = "0";
 
@@ -3707,7 +3708,7 @@ window.browser = function (
           document.body.appendChild(overlay);
 
           const box = document.createElement("div");
-          stylePickerDialogBox(box, theme, "600px", "460px");
+          stylePickerDialogBox(box, theme);
           overlay.appendChild(box);
 
           const titleBar = document.createElement("div");
@@ -3895,7 +3896,7 @@ window.browser = function (
           document.body.appendChild(overlay);
 
           const box = document.createElement("div");
-          stylePickerDialogBox(box, theme, "600px", "420px");
+          stylePickerDialogBox(box, theme);
           overlay.appendChild(box);
 
           const titleBar = document.createElement("div");
@@ -6608,9 +6609,13 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         origLeft = 0,
         origTop = 0,
         targetel = null;
+      let thresholdCrossed = false;
+      const DRAG_THRESHOLD = 15; // pixels required to trigger drag behavior
+
       top.addEventListener("pointerdown", (ev) => {
         targetel = ev.target;
       });
+
       top.addEventListener("mousedown", (ev) => {
         if (
           ev.target.closest(".sim-tab") ||
@@ -6621,36 +6626,51 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         )
           return;
         dragging = true;
+        thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
         origLeft = root.offsetLeft;
         origTop = root.offsetTop;
-
         document.body.style.userSelect = "none";
         currentX = ev.clientX;
         currentY = ev.clientY;
       });
+
       window.addEventListener(
         "browser" + root._goldenbodyId,
         "mousemove",
         (ev) => {
-        if (!dragging) return;
-        if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
-          applyBounds(savedBounds);
-          if (isMaximized) {
-            restoreWindow(false);
-            root.style.left = ev.clientX - root.clientWidth / 2 + "px";
-            origLeft = ev.clientX - root.clientWidth / 2;
+          if (!dragging) return;
+
+          // Calculate distance dragged from initial mousedown
+          const dragDistance = Math.sqrt(
+            Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2)
+          );
+
+          // Only trigger the restore and drag behavior after crossing threshold
+          if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+            thresholdCrossed = true;
+            // Restore window if it was maximized
+            applyBounds(savedBounds);
+            if (isMaximized) {
+              restoreWindow(false);
+              root.style.left = ev.clientX - root.clientWidth / 2 + "px";
+              origLeft = ev.clientX - root.clientWidth / 2;
+            }
           }
-        }
-        const dx = ev.clientX - startX;
-        const dy = ev.clientY - startY;
-        root.style.left = origLeft + dx + "px";
-        root.style.top = Math.max(0, origTop + dy) + "px";
+
+          if (!thresholdCrossed) return; // Don't move window until threshold crossed
+
+          const dx = ev.clientX - startX;
+          const dy = ev.clientY - startY;
+          root.style.left = origLeft + dx + "px";
+          root.style.top = Math.max(0, origTop + dy) + "px";
         },
       );
+
       window.addEventListener("browser" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
+        thresholdCrossed = false;
         document.body.style.userSelect = "";
         targetel = null;
       });
@@ -6874,14 +6894,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       nextTitle = "";
     }
     if (!nextTitle || nextTitle === "undefined" || nextTitle === "null") {
-      nextTitle = "Window";
+      nextTitle = "Untitled";
     }
     chromeWindow.title = nextTitle;
     try {
       chromeWindow.rootElement.setAttribute("data-title", nextTitle);
     } catch (e) {}
   }, 1000 * nhjd);
-  chromeWindow.rootElement.setAttribute("data-title", "Window");
+  chromeWindow.rootElement.setAttribute("data-title", "Untitled");
   chromeWindow.closeAll = function () {
     for (const instance of [...browserGlobals.allBrowsers]) {
       if (instance && typeof instance.closeWindow === "function") {

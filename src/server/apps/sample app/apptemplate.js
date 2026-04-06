@@ -142,7 +142,7 @@ yourApp = function (posX = 50, posY = 50) {
   }
 
   function hideWindow() {
-    savedBounds = getBounds();
+    if (!isMaximized) savedBounds = getBounds();
     root.style.display = "none";
     _isMinimized = true;
   }
@@ -229,9 +229,12 @@ yourApp = function (posX = 50, posY = 50) {
         origLeft = 0,
         origTop = 0;
       let currentX, currentY;
+      let thresholdCrossed = false;
+      const DRAG_THRESHOLD = 15; // pixels required to trigger drag behavior
 
       topBar.addEventListener("mousedown", (ev) => {
         dragging = true;
+        thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
         origLeft = root.offsetLeft;
@@ -243,14 +246,27 @@ yourApp = function (posX = 50, posY = 50) {
 
       window.addEventListener("yourApp" + root._goldenbodyId, "mousemove", (ev) => {
         if (!dragging) return;
-        if (ev.clientX - currentX != 0 || ev.clientY - currentY != 0) {
-          applyBounds(savedBounds);
+        
+        // Calculate distance dragged from initial mousedown
+        const dragDistance = Math.sqrt(
+          Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2)
+        );
+        
+        // Only trigger the restore and drag behavior after crossing threshold
+        if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+          thresholdCrossed = true;
+          // Restore window if it was maximized
           if (isMaximized) {
+            applyBounds(savedBounds);
             restoreWindow(false);
+            // Recenter the window under the cursor
             root.style.left = ev.clientX - root.clientWidth / 2 + "px";
             origLeft = ev.clientX - root.clientWidth / 2;
           }
         }
+        
+        if (!thresholdCrossed) return; // Don't move window until threshold crossed
+        
         const dx = ev.clientX - startX;
         const dy = ev.clientY - startY;
         root.style.left = origLeft + dx + "px";
@@ -259,6 +275,7 @@ yourApp = function (posX = 50, posY = 50) {
 
       window.addEventListener("yourApp" + root._goldenbodyId, "mouseup", () => {
         dragging = false;
+        thresholdCrossed = false;
         document.body.style.userSelect = "";
       });
     })();
@@ -376,6 +393,7 @@ yourApp = function (posX = 50, posY = 50) {
   a.style.textAlign = "center";
   a.style.marginTop = "20px";
   root.appendChild(a);
+  
   yourAppGlobals.allYourAppInstances.push({
     rootElement: root,
     btnMax,
