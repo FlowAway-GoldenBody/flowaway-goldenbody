@@ -598,11 +598,7 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         input.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
         try {
           input.value = (activatedTab && activatedTab.iframe && activatedTab.iframe.src)
-<<<<<<< HEAD:src/server/Untitled-1
-            ? unshuffleURL(activatedTab.iframe.src)
-=======
             ? browserGlobals.unshuffleURL(activatedTab.iframe.src)
->>>>>>> 00384f64acea61caef649305396d3f03500b5587:src/server/apps/browser/browser.js
             : "";
         } catch (e) {}
         panel.appendChild(input);
@@ -1140,32 +1136,8 @@ function openPermissionsUI(url, iframe, anchorRect = null) {
         };
         iframe.addEventListener("load", function () {
           let eggpatch = document.createElement("script");
-          eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized", "color: magenta; font-weight: bold", "color: white"),
-( () => {
-    class e extends WebSocket {
-        constructor(e, o) {
-            let c = window.top.origin.split("/")[2]
-              , t = String(e);
-            t.includes(c) && (t = t.replace(c, window.location.host)),
-            t.includes("egs") && (t = t.replace('github.dev', "shellshock.io")),
-            t.includes("ser") && (t = "wss://shellshock.io/services/"),
-            t.includes("matchmaker") && (t = "wss://shellshock.io/matchmaker/"),
-            console.log(\`%c[WS Connect] %cConnecting to: \${t}\`, "color: cyan; font-weight: bold", "color: white"),
-            super(t, o),
-            this.addEventListener("open", ( () => {
-                console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`, "color: green; font-weight: bold", "color: white")
-            }
-            )),
-            this.addEventListener("error", (e => {
-                console.error(\`[WS Error] Connection failed to \${this.url}\`, e)
-            }
-            ))
-        }
-    }
-    window.WebSocket = e
-}
-)();
-`;          iframe.contentDocument.body.appendChild(eggpatch);
+          eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
+          iframe.contentDocument.body.appendChild(eggpatch);
           let eggpatch2 = document.createElement("script");
           eggpatch2.textContent = `
               const nativeURL = window.URL;
@@ -4644,4 +4616,4 @@ try {
   mo.observe(observerTarget, { childList: true, subtree: true });
 } catch (e) {
   console.error('failed to attach browser context handlers', e);
-} 
+}

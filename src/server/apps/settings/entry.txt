@@ -1,8 +1,4 @@
 settings
 Settings
 settingsapp
-settingsContextMenu
-allSettings
-settingsId
-settingsButtons
-settingsmenu
+settingsGlobals

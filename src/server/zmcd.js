@@ -135,6 +135,9 @@ return; // VERY IMPORTANT
               brightness: 100,
               volume: 40,
               dark: false,
+              enableURLSync: true,
+              lazyloading: true,
+              autoupdate: true,
               siteSettings: [],
               maxSpace: 5, // in GB
             };
@@ -292,6 +295,7 @@ fs.cpSync(
             userData.siteSettings.push(a);
           }
           userData.enableURLSync = data.enableURLSync;
+          userData.lazyloading = data.lazyloading;
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
         }
       else if (data.requestSiteSettings) {
@@ -316,6 +320,18 @@ fs.cpSync(
           }
           userData.editorSettings = data.editorSettings;
           fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+        } else if (data.setAutoupdate) {
+          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
+          let userData;
+          try {
+            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
+          } catch {
+            res.writeHead(404);
+            return res.end(JSON.stringify({ error: "User file not found" }));
+          }
+          userData.autoupdate = !!data.autoupdate;
+          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
+          responseContent = { success: true };
         }    
       } catch (err) {
         console.error(err);

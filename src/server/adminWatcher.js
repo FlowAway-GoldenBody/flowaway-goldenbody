@@ -1,7 +1,7 @@
 const AdmZip = require("adm-zip");
 const fs = require("fs");
 const path = require("path");
-
+let __gbconfig = {autoupdate: true}; //override config in users for testing, will be removed in production
 // Create zip archives for each app folder in the project `apps` directory
 async function createZipsForApps() {
   try {
@@ -36,4 +36,43 @@ async function createZipsForApps() {
   }
 }
 
+function updateAllSystemApps() {
+  try {
+    const directoryPath = path.resolve(__dirname, './zmcdfiles');
+    const systemAppsPath = path.join(__dirname, 'apps');
+    
+    // Get list of user directories
+    const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+    const userDirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(d => d.name);
+    
+    for (const username of userDirs) {
+      try {
+        // Read user data
+        const userFile = path.join(directoryPath, username, `${username}.txt`);
+        if (!fs.existsSync(userFile)) {
+          console.log(`User file not found: ${userFile}`);
+          continue;
+        }
+        
+        const userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
+        // Check if user has autoupdate systemapps enabled
+        userData.autoupdate = __gbconfig.autoupdate; //override for testing, will be removed in production
+        if (userData.autoupdate) {
+          const userAppsPath = path.join(directoryPath, username, 'root', 'apps');
+          
+          // Remove old apps and copy system apps to user directory
+          fs.rmSync(userAppsPath, { recursive: true, force: true });
+          fs.cpSync(systemAppsPath, userAppsPath, { recursive: true });
+          
+          console.log(`Updated system apps for user: ${username}`);
+        }
+      } catch (err) {
+        console.error(`Error updating apps for user ${username}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error('Error in updateAllSystemApps:', err);
+  }
+}
+updateAllSystemApps();
 createZipsForApps();
