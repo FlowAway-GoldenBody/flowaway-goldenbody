@@ -4,6 +4,50 @@ const path = require("path");
 // Production defaults: do not force overwrite user files. Set `forceUpdate` to true
 // only when intentionally performing a global forced sync (e.g., maintenance/testing).
 let __gbconfig = {autoupdate: true, forceUpdate: false};
+
+function defaultStartMenuConfig() {
+  return {
+    version: '1.0',
+    pinnedApps: [],
+    hiddenApps: [],
+    appOrder: [],
+    recents: [],
+    maxRecents: 5,
+    displayMode: 'grid',
+    gridColumns: 4
+  };
+}
+
+function defaultProfile() {
+  return {
+    schemaVersion: 1,
+    taskbuttons: ['🌐', '🗂', '⚙', '📝', '🖥️'],
+    brightness: 100,
+    volume: 40,
+    dark: false,
+    autohidetaskbar: false,
+    enableURLSync: true,
+    lazyloading: true,
+    autoupdate: true,
+    siteSettings: [],
+    maxSpace: 5,
+    DRAG_THRESHOLD: 15,
+  };
+}
+
+function readJsonSafe(filePath, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonPretty(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
 // Create zip archives for each app folder in the project `apps` directory
 async function createZipsForApps() {
   try {
@@ -54,7 +98,6 @@ function updateAllSystemApps() {
       'appLoader.js',
       'appPolling.js',
     ];
-    const systemAppstoreappsFiles = ['startMenu-config.json'];
     if (!fs.existsSync(systemAppsPath)) {
       console.log('System apps directory not found:', systemAppsPath);
       return;
@@ -72,52 +115,38 @@ function updateAllSystemApps() {
 
     for (const username of userDirs) {
       try {
-        // Read user data
-        const userFile = path.join(directoryPath, username, `${username}.txt`);
-        if (!fs.existsSync(userFile)) {
-          console.log(`User file not found: ${userFile}`);
-          continue;
-        }
-
-        const userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
         const userRootPath = path.join(directoryPath, username, 'root');
         const userBootPath = path.join(userRootPath, '.boot');
         const userGbenvPath = path.join(userBootPath, 'gbenv.js');
         const userAppsPath = path.join(userRootPath, 'apps');
-        const userStartMenuPath = path.join(userRootPath, 'startmenuAppConfig');
+        const userSystemfilesPath = path.join(userRootPath, 'systemfiles');
+        const userProfilePath = path.join(userSystemfilesPath, 'userprofile');
+        const userProfileJsonPath = path.join(userProfilePath, 'profile.json');
+        const userStartMenuConfigPath = path.join(userProfilePath, 'startMenu-config.json');
+        const legacyStartMenuConfigPath = path.join(userRootPath, 'startmenuAppConfig', 'startMenu-config.json');
 
         fs.mkdirSync(userRootPath, { recursive: true });
         fs.mkdirSync(userBootPath, { recursive: true });
+        fs.mkdirSync(userSystemfilesPath, { recursive: true });
+        fs.mkdirSync(userProfilePath, { recursive: true });
         if (!fs.existsSync(userGbenvPath)) {
           fs.writeFileSync(userGbenvPath, 'window.__gbenv_shortcut = {};\n');
         }
 
         fs.mkdirSync(userAppsPath, { recursive: true });
-        fs.mkdirSync(userStartMenuPath, { recursive: true });
+        if (!fs.existsSync(userProfileJsonPath)) {
+          writeJsonPretty(userProfileJsonPath, defaultProfile());
+        }
         
         // Ensure user has startMenu-config.json from server app-config
         const sourceStartMenuConfigPath = path.join(__dirname, 'app-config', 'startMenu-config.json');
-        const userStartMenuConfigPath = path.join(userStartMenuPath, 'startMenu-config.json');
         try {
           if (fs.existsSync(sourceStartMenuConfigPath)) {
             if (!fs.existsSync(userStartMenuConfigPath)) {
               fs.copyFileSync(sourceStartMenuConfigPath, userStartMenuConfigPath);
             }
-          } else {
-            // Fallback: create default if source doesn't exist
-            if (!fs.existsSync(userStartMenuConfigPath)) {
-              const defaultConfig = {
-                version: '1.0',
-                pinnedApps: [],
-                hiddenApps: [],
-                appOrder: [],
-                recents: [],
-                maxRecents: 5,
-                displayMode: 'grid',
-                gridColumns: 4
-              };
-              fs.writeFileSync(userStartMenuConfigPath, JSON.stringify(defaultConfig, null, 2));
-            }
+          } else if (!fs.existsSync(userStartMenuConfigPath)) {
+            writeJsonPretty(userStartMenuConfigPath, defaultStartMenuConfig());
           }
         } catch (e) {
           console.error(`Failed to ensure startMenu-config.json for user ${username}:`, e);
@@ -132,8 +161,11 @@ function updateAllSystemApps() {
         }
 
         // Check if user has autoupdate systemapps enabled
-        // userData.autoupdate = __gbconfig.autoupdate; //override for testing, will be removed in production
-        if (userData.autoupdate) {
+        const profileData = readJsonSafe(userProfileJsonPath, {});
+        const autoupdateEnabled = typeof profileData.autoupdate === 'boolean'
+          ? profileData.autoupdate
+          : defaultProfile().autoupdate;
+        if (autoupdateEnabled) {
           // Keep key root-level system scripts in sync.
           for (const fileName of systemRootFiles) {
             const srcFilePath = path.join(projectRoot, 'src', 'server', 'systemfiles', fileName);
@@ -171,26 +203,12 @@ function updateAllSystemApps() {
           // Sync startMenu-config.json from server app-config when autoupdate is enabled
           try {
             const sourceStartMenuConfigPath = path.join(__dirname, 'app-config', 'startMenu-config.json');
-            const userStartMenuConfigPath = path.join(userStartMenuPath, 'startMenu-config.json');
             if (fs.existsSync(sourceStartMenuConfigPath)) {
               if (__gbconfig.forceUpdate || !fs.existsSync(userStartMenuConfigPath)) {
                 fs.copyFileSync(sourceStartMenuConfigPath, userStartMenuConfigPath);
               }
-            } else {
-              // If source doesn't exist, ensure user has default version
-              if (!fs.existsSync(userStartMenuConfigPath)) {
-                const defaultConfig = {
-                  version: '1.0',
-                  pinnedApps: [],
-                  hiddenApps: [],
-                  appOrder: [],
-                  recents: [],
-                  maxRecents: 5,
-                  displayMode: 'grid',
-                  gridColumns: 4
-                };
-                fs.writeFileSync(userStartMenuConfigPath, JSON.stringify(defaultConfig, null, 2));
-              }
+            } else if (!fs.existsSync(userStartMenuConfigPath)) {
+              writeJsonPretty(userStartMenuConfigPath, defaultStartMenuConfig());
             }
           } catch (e) {
             console.error(`Failed to sync startMenu-config.json for user ${username}:`, e);

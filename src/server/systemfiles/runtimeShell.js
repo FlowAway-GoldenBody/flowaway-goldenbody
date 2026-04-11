@@ -259,7 +259,7 @@ window._startMenuConfig = null;
 
 async function loadStartMenuConfig() {
   try {
-    const configPath = 'startmenuAppConfig/startMenu-config.json';
+    const configPath = 'systemfiles/userprofile/startMenu-config.json';
     const configData = await fetchFileContentByPath(configPath);
     const configText = base64ToUtf8(configData);
     window._startMenuConfig = JSON.parse(configText);
@@ -426,7 +426,9 @@ function applyBrightnessDelta(delta) {
   );
   document.documentElement.style.filter = `brightness(${data.brightness}%)`;
   try {
-    zmcdpost({ changeBrightness: true, brightness: data.brightness });
+    if (typeof window.persistUserProfilePatch === "function") {
+      window.persistUserProfilePatch({ brightness: Number(data.brightness) });
+    }
   } catch (err) {}
   try {
     notification(`Brightness: ${data.brightness}%`);
@@ -441,7 +443,9 @@ function applyVolumeDelta(delta) {
   setAllMediaVolume(data.volume / 100);
   window.dispatchEvent(new CustomEvent("system-volume", { detail: data.volume }));
   try {
-    zmcdpost({ changeVolume: true, volume: data.volume });
+    if (typeof window.persistUserProfilePatch === "function") {
+      window.persistUserProfilePatch({ volume: Number(data.volume) });
+    }
   } catch (err) {}
   try {
     notification(`Volume: ${data.volume}%`);

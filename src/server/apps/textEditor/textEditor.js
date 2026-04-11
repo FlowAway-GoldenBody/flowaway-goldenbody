@@ -343,9 +343,10 @@ textEditor = function (path, posX = 50, posY = 50) {
         origLeft = 0,
         origTop = 0;
       let thresholdCrossed = false;
-      const DRAG_THRESHOLD = 15;
+      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
 
       topBar.addEventListener("mousedown", (ev) => {
+        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;

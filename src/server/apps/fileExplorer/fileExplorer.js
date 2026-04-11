@@ -233,12 +233,13 @@ fileExplorer = function (posX = 50, posY = 50) {
         origLeft = 0,
         origTop = 0;
       let thresholdCrossed = false;
-      const DRAG_THRESHOLD = 15;
+      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
       let mouseDownX = 0,
         mouseDownY = 0;
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
+        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -1045,10 +1046,11 @@ fileExplorer = function (posX = 50, posY = 50) {
   storageDiv.textContent = "Storage used: —";
   sidebar.appendChild(storageDiv);
   // Client-side quota (bytes). Prefer server-provided `data.maxSpace` (GB) if available.
+  const maxSpaceGb = Number(data?.maxSpace);
   const STORAGE_QUOTA_BYTES =
-    typeof data?.maxSpace === "number" && data.maxSpace > 0
-      ? data.maxSpace * 1024 * 1024 * 1024
-      : 1 * 1024 * 1024 * 1024; // fallback 1 GB
+    Number.isFinite(maxSpaceGb) && maxSpaceGb > 0
+      ? maxSpaceGb * 1024 * 1024 * 1024
+      : 5 * 1024 * 1024 * 1024; // fallback 5 GB
   // Deselect when clicking outside file items
   root.addEventListener("click", (e) => {
     // Ignore clicks inside the context menu

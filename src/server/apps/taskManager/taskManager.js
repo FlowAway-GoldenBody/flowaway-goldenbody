@@ -257,9 +257,10 @@ taskManager = function (posX = 50, posY = 50) {
       let currentX;
       let currentY;
       let thresholdCrossed = false;
-      const DRAG_THRESHOLD = 15;
+      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15;
 
       dragTarget.addEventListener("mousedown", (ev) => {
+        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
