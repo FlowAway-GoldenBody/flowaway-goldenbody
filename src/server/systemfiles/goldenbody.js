@@ -44,6 +44,10 @@
     try { window._flowaway_handlers.autohideCleanup(); } catch (e) {}
     delete window._flowaway_handlers.autohideCleanup;
   }
+  if (window._flowaway_handlers.taskButtonContextMenuCleanup) {
+    try { window._flowaway_handlers.taskButtonContextMenuCleanup(); } catch (e) {}
+    delete window._flowaway_handlers.taskButtonContextMenuCleanup;
+  }
   // Also remove any previously-registered autohide refs (older versions)
   if (window._flowaway_handlers.autohideRefs) {
     try {
@@ -91,6 +95,8 @@
   var _revealHoldTimer = null;
   var _hideTimer = null;
   var autohideActive = false; // whether listeners are currently attached
+  var _taskButtonContextMenuOpen = false;
+  var _taskbarContextMenuOpen = false;
   var _lastMouseX = null;
   var _lastMouseY = null;
   function _isMouseWithinTaskbarRect() {
@@ -118,7 +124,11 @@
   function _scheduleHide() {
     _cancelHideTimer();
     _hideTimer = setTimeout(function () {
-      if (taskbar.matches(':hover') || _isMouseWithinTaskbarRect() || taskbar.contains(document.activeElement)) {
+      if (_taskButtonContextMenuOpen || _taskbarContextMenuOpen) {
+        _hideTimer = null;
+        return;
+      }
+      if (taskbar.matches(':hover') || _isMouseWithinTaskbarRect()) {
         _hideTimer = null;
         return;
       }
@@ -150,7 +160,52 @@
     _cancelHideTimer();
     showTaskbar();
   }
-  function _onTaskbarLeave() { _scheduleHide(); }
+  function _onTaskbarLeave() {
+    if (_taskButtonContextMenuOpen || _taskbarContextMenuOpen) return;
+    _cancelRevealTimer();
+    _cancelHideTimer();
+    hideTaskbar();
+  }
+  function _setTaskButtonContextMenuOpen(isOpen) {
+    _taskButtonContextMenuOpen = !!isOpen;
+    if (_taskButtonContextMenuOpen) {
+      showTaskbar();
+      return;
+    }
+    _scheduleHide();
+  }
+  function _onContextMenuCapture(e) {
+    var isTaskButton = !!(e && e.target && e.target.closest && e.target.closest('.taskbutton'));
+    _setTaskButtonContextMenuOpen(isTaskButton);
+  }
+  function _onPointerDownCloseTaskButtonContextMenu() {
+    if (_taskButtonContextMenuOpen) _setTaskButtonContextMenuOpen(false);
+  }
+  function _onEscapeCloseTaskButtonContextMenu(e) {
+    if (e && e.key === 'Escape' && _taskButtonContextMenuOpen) {
+      _setTaskButtonContextMenuOpen(false);
+    }
+  }
+  function _setTaskbarContextMenuOpen(isOpen) {
+    _taskbarContextMenuOpen = !!isOpen;
+    if (_taskbarContextMenuOpen) {
+      showTaskbar();
+      return;
+    }
+    _scheduleHide();
+  }
+  taskbar.addEventListener('contextmenu', _onContextMenuCapture, true);
+  document.addEventListener('contextmenu', _onContextMenuCapture, true);
+  document.addEventListener('pointerdown', _onPointerDownCloseTaskButtonContextMenu, true);
+  document.addEventListener('keydown', _onEscapeCloseTaskButtonContextMenu, true);
+  window._flowaway_handlers.taskButtonContextMenuCleanup = function () {
+    try {
+      taskbar.removeEventListener('contextmenu', _onContextMenuCapture, true);
+      document.removeEventListener('contextmenu', _onContextMenuCapture, true);
+      document.removeEventListener('pointerdown', _onPointerDownCloseTaskButtonContextMenu, true);
+      document.removeEventListener('keydown', _onEscapeCloseTaskButtonContextMenu, true);
+    } catch (e) {}
+  };
   function _onTouchStart(e) {
     var t = e.touches && e.touches[0];
     if (!t) return;
@@ -320,6 +375,7 @@
 
     function closeMenu() {
       cm.style.display = 'none';
+      _setTaskbarContextMenuOpen(false);
       document.removeEventListener('pointerdown', onDocPointerDown);
       taskbar.removeEventListener('pointerdown', onDocPointerDown);
       document.removeEventListener('keydown', onEsc);
@@ -333,6 +389,7 @@
     taskbar.addEventListener('contextmenu', function (ev) {
       if(ev.target && ev.target.closest && ev.target.closest('.taskbutton')) return; // ignore right-clicks on task buttons
       ev.preventDefault();
+      _setTaskbarContextMenuOpen(true);
       var x = ev.clientX;
       var y = ev.clientY;
       chk.checked = !!(window.data && window.data.autohidetaskbar);
