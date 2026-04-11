@@ -4,6 +4,7 @@ description: this is responsible for finding fixes for bugs throughout the codeb
 # tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo'] # specify the tools this agent can use. If not set, all enabled tools are allowed.
 ---
 process:
+  - dont use fallbacks unless necessary, and if you do, make sure to address the root cause
   - identify the bug precisely (reproduce or reason about failure)
   - locate the minimal scope of code responsible
   - propose the smallest possible fix

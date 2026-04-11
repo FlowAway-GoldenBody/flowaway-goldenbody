@@ -80,6 +80,914 @@ function appMatchesIdentifier(app, identifier) {
   return candidates.includes(id);
 }
 
+function getAppInstanceArrayKeys(app) {
+  var keys = [];
+  if (!app) return keys;
+  if (typeof app.allapparraystring === "string") {
+    var oneKey = app.allapparraystring.trim();
+    if (oneKey) keys.push(oneKey);
+  } else if (Array.isArray(app.allapparraystring)) {
+    for (var i = 0; i < app.allapparraystring.length; i++) {
+      var key =
+        typeof app.allapparraystring[i] === "string"
+          ? app.allapparraystring[i].trim()
+          : "";
+      if (key && keys.indexOf(key) === -1) keys.push(key);
+    }
+  }
+  return keys;
+}
+
+function ensureAppRuntimeState(app) {
+  if (!app || !app.globalvarobjectstring) return null;
+  try {
+    var globalName = String(app.globalvarobjectstring || "").trim();
+    if (!globalName) return null;
+
+    var appGlobalObj = window[globalName];
+    if (!appGlobalObj || typeof appGlobalObj !== "object") {
+      appGlobalObj = {};
+      window[globalName] = appGlobalObj;
+    }
+
+    var keys = getAppInstanceArrayKeys(app);
+    for (var i = 0; i < keys.length; i++) {
+      if (!Array.isArray(appGlobalObj[keys[i]])) {
+        appGlobalObj[keys[i]] = [];
+      }
+    }
+
+    if (!Number.isFinite(Number(appGlobalObj.goldenbodyId))) {
+      appGlobalObj.goldenbodyId = 0;
+    } else {
+      appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId);
+    }
+
+    return appGlobalObj;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getPrimaryAppInstanceArray(app) {
+  if (!app) return [];
+  try {
+    var appGlobalObj = ensureAppRuntimeState(app);
+    if (!appGlobalObj || typeof appGlobalObj !== "object") return [];
+    var keys = getAppInstanceArrayKeys(app);
+    for (var i = 0; i < keys.length; i++) {
+      if (Array.isArray(appGlobalObj[keys[i]])) return appGlobalObj[keys[i]];
+    }
+    return [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function getAllAppInstanceArrays(app) {
+  var lists = [];
+  if (!app) return lists;
+  try {
+    var appGlobalObj = ensureAppRuntimeState(app);
+    if (!appGlobalObj || typeof appGlobalObj !== "object") return lists;
+    var keys = getAppInstanceArrayKeys(app);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      if (!Array.isArray(appGlobalObj[key])) appGlobalObj[key] = [];
+      if (lists.indexOf(appGlobalObj[key]) === -1) lists.push(appGlobalObj[key]);
+    }
+    return lists;
+  } catch (e) {
+    return [];
+  }
+}
+
+function allocateAppGoldenbodyId(app) {
+  var appGlobalObj = ensureAppRuntimeState(app);
+  if (!appGlobalObj || typeof appGlobalObj !== "object") return null;
+  appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId || 0) + 1;
+  return appGlobalObj.goldenbodyId;
+}
+
+function registerAppInstance(app, instance) {
+  if (!app || !instance) return;
+  var list = getPrimaryAppInstanceArray(app);
+  if (!Array.isArray(list)) return;
+  if (list.indexOf(instance) === -1) list.push(instance);
+}
+
+function deregisterAppInstance(app, instance) {
+  if (!app || !instance) return;
+  var lists = getAllAppInstanceArrays(app);
+  if (!Array.isArray(lists) || !lists.length) return;
+  for (var li = 0; li < lists.length; li++) {
+    var list = lists[li];
+    if (!Array.isArray(list)) continue;
+    var index = list.indexOf(instance);
+    if (index !== -1) list.splice(index, 1);
+  }
+}
+
+function allocateFallbackRuntimeGoldenbodyId() {
+  var now = Date.now();
+  var state = Number(window.__flowawayFallbackRuntimeGoldenbodyState || 0);
+  if (!Number.isFinite(state) || state <= 0) state = 0;
+  if (state < now) state = now;
+  else state = state + 1;
+  window.__flowawayFallbackRuntimeGoldenbodyState = state;
+  return state;
+}
+
+function applyAppWindowTagging(app, rootElement) {
+  if (!app || !rootElement || !rootElement.dataset) return;
+  try {
+    var appIdentifier = getPreferredAppIdentifier(app);
+    var appLabel = String(
+      app.label || app.functionname || app.id || appIdentifier || "",
+    );
+    if (appIdentifier) rootElement.dataset.appId = String(appIdentifier);
+    var currentTitle = String(rootElement.getAttribute("data-title") || "").trim();
+    if (!currentTitle && appLabel) {
+      rootElement.setAttribute("data-title", appLabel);
+      rootElement.dataset.title = appLabel;
+    }
+  } catch (e) {}
+}
+
+window.ensureAppRuntimeState = ensureAppRuntimeState;
+
+function resolveApptoolsContext(explicitAppId) {
+  var launchContext = window.__flowawayLaunchContext || null;
+  var resolvedAppId = String(explicitAppId || "").trim();
+  if (!resolvedAppId && launchContext && launchContext.appId) {
+    resolvedAppId = String(launchContext.appId || "").trim();
+  }
+  var app = (window.apps || []).find(function (a) {
+    return appMatchesIdentifier(a, resolvedAppId);
+  }) || (launchContext && launchContext.app) || null;
+  if (!resolvedAppId && app) {
+    resolvedAppId = getPreferredAppIdentifier(app);
+  }
+  return {
+    appId: resolvedAppId || "",
+    app: app || null,
+    launchContext: launchContext || null,
+  };
+}
+
+function initAppTools() {
+  var existing = window.apptools && typeof window.apptools === "object"
+    ? window.apptools
+    : {};
+  existing.api = existing.api && typeof existing.api === "object"
+    ? existing.api
+    : {};
+
+  existing.createRoot = function (appId, posX, posY) {
+    var ctx = resolveApptoolsContext(appId);
+    var root = document.createElement("div");
+    root.className = "app-root app-window-root";
+    var isDark = !!(window.data && window.data.dark);
+    root.classList.toggle("dark", isDark);
+    root.classList.toggle("light", !isDark);
+    if (ctx.appId) {
+      root.classList.add(ctx.appId);
+      root.dataset.appId = ctx.appId;
+      root.setAttribute("data-app-id", ctx.appId);
+    }
+    root.style.position = "fixed";
+    root.style.left = Number.isFinite(Number(posX)) ? String(Number(posX)) + "px" : "70px";
+    root.style.top = Number.isFinite(Number(posY)) ? String(Number(posY)) + "px" : "70px";
+    root.style.width = "1000px";
+    root.style.height = "640px";
+    if (document && document.body) {
+      document.body.appendChild(root);
+    }
+    if (typeof bringToFront === "function") bringToFront(root);
+    if (ctx.appId) atTop = ctx.appId;
+    return root;
+  };
+
+  existing.api.makeDraggableResizable = function (root, dragTarget, btnMax) {
+    if (!root || !dragTarget || root._apptoolsDragResizeBound) return;
+    root._apptoolsDragResizeBound = true;
+
+    function getInstance() {
+      return root._appInstance && typeof root._appInstance === "object"
+        ? root._appInstance
+        : null;
+    }
+
+    function getBounds() {
+      return {
+        left: root.style.left || root.offsetLeft + "px",
+        top: root.style.top || root.offsetTop + "px",
+        width: root.style.width || root.offsetWidth + "px",
+        height: root.style.height || root.offsetHeight + "px",
+      };
+    }
+
+    function applyBounds(bounds) {
+      if (!bounds) return;
+      root.style.left = bounds.left;
+      root.style.top = bounds.top;
+      root.style.width = bounds.width;
+      root.style.height = bounds.height;
+    }
+
+    function setMaximizedIcon(maximized) {
+      if (btnMax && typeof window.setWindowMaximizeIcon === "function") {
+        window.setWindowMaximizeIcon(btnMax, !!maximized);
+      }
+    }
+
+    (function makeDraggable() {
+      var dragging = false;
+      var startX = 0;
+      var startY = 0;
+      var origLeft = 0;
+      var origTop = 0;
+      var thresholdCrossed = false;
+
+      function getDragThreshold() {
+        var v = Number(data && data.DRAG_THRESHOLD);
+        if (!Number.isFinite(v)) return 15;
+        return Math.max(2, Math.min(128, Math.round(v)));
+      }
+
+      var currentX;
+      var currentY;
+
+      dragTarget.addEventListener("mousedown", function (ev) {
+        var configuredThreshold = Number(data && data.DRAG_THRESHOLD);
+        if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
+          window.DRAG_THRESHOLD = configuredThreshold;
+        }
+        dragging = true;
+        thresholdCrossed = false;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        origLeft = root.offsetLeft;
+        origTop = root.offsetTop;
+        currentX = ev.clientX;
+        currentY = ev.clientY;
+        document.body.style.userSelect = "none";
+      });
+
+      window.addEventListener("mousemove", function (ev) {
+        if (!dragging) return;
+        var dragDistance = Math.sqrt(
+          Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
+        );
+        if (!thresholdCrossed && dragDistance >= getDragThreshold()) {
+          thresholdCrossed = true;
+          var instance = getInstance();
+          var isMaximized = !!((instance && instance._isMaximized) || root._apptoolsMaximized);
+          if (isMaximized) {
+            applyBounds(
+              (instance && instance._flowawaySavedBounds) ||
+                root._apptoolsSavedBounds ||
+                getBounds(),
+            );
+            if (instance && typeof instance.restoreWindow === "function") {
+              instance.restoreWindow(false);
+            } else {
+              root.style.borderRadius = "10px";
+              if (instance) instance._isMaximized = false;
+              root._apptoolsMaximized = false;
+              setMaximizedIcon(false);
+            }
+            root.style.left = ev.clientX - root.clientWidth / 2 + "px";
+            origLeft = ev.clientX - root.clientWidth / 2;
+          }
+        }
+        if (!thresholdCrossed) return;
+        var dx = ev.clientX - startX;
+        var dy = ev.clientY - startY;
+        root.style.left = origLeft + dx + "px";
+        root.style.top = Math.max(0, origTop + dy) + "px";
+      });
+
+      window.addEventListener("mouseup", function () {
+        if (!dragging) return;
+        dragging = false;
+        thresholdCrossed = false;
+        document.body.style.userSelect = "";
+      });
+    })();
+
+    function resize() {
+      var el = root;
+      var BW = 8;
+      var minW = 450;
+      var minH = 350;
+      var active = null;
+
+      function hitTest(e) {
+        var r = el.getBoundingClientRect();
+        var x = e.clientX;
+        var y = e.clientY;
+        var onL = x >= r.left && x <= r.left + BW;
+        var onR = x <= r.right && x >= r.right - BW;
+        var onT = y >= r.top && y <= r.top + BW;
+        var onB = y <= r.bottom && y >= r.bottom - BW;
+        if (onT && onL) return "nw";
+        if (onT && onR) return "ne";
+        if (onB && onL) return "sw";
+        if (onB && onR) return "se";
+        if (onL) return "w";
+        if (onR) return "e";
+        if (onT) return "n";
+        if (onB) return "s";
+        return "";
+      }
+
+      el.addEventListener("pointermove", function (e) {
+        if (active) return;
+        var d = hitTest(e);
+        el.style.cursor = d
+          ? d === "nw" || d === "se"
+            ? "nwse-resize"
+            : d === "ne" || d === "sw"
+              ? "nesw-resize"
+              : d === "n" || d === "s"
+                ? "ns-resize"
+                : "ew-resize"
+          : "default";
+      });
+
+      el.addEventListener("pointerdown", function (e) {
+        var dir = hitTest(e);
+        if (!dir) return;
+        var instance = getInstance();
+        active = {
+          dir: dir,
+          sx: e.clientX,
+          sy: e.clientY,
+          sw: el.offsetWidth,
+          sh: el.offsetHeight,
+          sl: el.offsetLeft,
+          st: el.offsetTop,
+          startedMaximized: !!((instance && instance._isMaximized) || root._apptoolsMaximized),
+          restoredFromMax: false,
+        };
+        document.body.style.userSelect = "none";
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch (captureErr) {}
+      });
+
+      el.addEventListener("pointermove", function (e) {
+        if (!active) return;
+        if (
+          active.startedMaximized &&
+          !active.restoredFromMax &&
+          (Math.abs(e.clientX - active.sx) > 1 ||
+            Math.abs(e.clientY - active.sy) > 1)
+        ) {
+          var instance = getInstance();
+          if (instance && typeof instance.restoreWindow === "function") {
+            instance.restoreWindow(false);
+          } else {
+            root.style.borderRadius = "10px";
+            if (instance) instance._isMaximized = false;
+            root._apptoolsMaximized = false;
+            setMaximizedIcon(false);
+          }
+          active.sx = e.clientX;
+          active.sy = e.clientY;
+          active.sw = el.offsetWidth;
+          active.sh = el.offsetHeight;
+          active.sl = el.offsetLeft;
+          active.st = el.offsetTop;
+          active.restoredFromMax = true;
+        }
+        var dx = e.clientX - active.sx;
+        var dy = e.clientY - active.sy;
+        if (active.dir.includes("e")) {
+          el.style.width = Math.max(minW, active.sw + dx) + "px";
+        }
+        if (active.dir.includes("s")) {
+          el.style.height = Math.max(minH, active.sh + dy) + "px";
+        }
+        if (active.dir.includes("w")) {
+          el.style.width = Math.max(minW, active.sw - dx) + "px";
+          el.style.left = active.sl + dx + "px";
+        }
+        if (active.dir.includes("n")) {
+          el.style.height = Math.max(minH, active.sh - dy) + "px";
+          el.style.top = Math.max(0, active.st + dy) + "px";
+        }
+      });
+
+      el.addEventListener("pointerup", function () {
+        active = null;
+        document.body.style.userSelect = "";
+        var bounds = getBounds();
+        if (bounds.width == "100%" || bounds.height == "100%") {
+        } else {
+          var instance = getInstance();
+          if (instance) instance._flowawaySavedBounds = bounds;
+          root._apptoolsSavedBounds = bounds;
+        }
+      });
+
+      el.addEventListener("pointercancel", function () {
+        active = null;
+        document.body.style.userSelect = "";
+        var bounds = getBounds();
+        var instance = getInstance();
+        if (instance) instance._flowawaySavedBounds = bounds;
+        root._apptoolsSavedBounds = bounds;
+      });
+
+      el.style.touchAction = "none";
+    }
+
+    resize();
+    root.tabIndex = "0";
+  };
+
+  existing.createtitlebar = function (root) {
+    if (!root || typeof root.querySelector !== "function") return null;
+    var existingTop = root.querySelector(".appTopBar");
+    if (existingTop) return existingTop;
+
+    var dragStrip = root.querySelector(".appTopDragStrip");
+    if (!dragStrip) {
+      dragStrip = document.createElement("div");
+      dragStrip.className = "appTopDragStrip";
+      dragStrip.style.height = "14px";
+      dragStrip.style.flexShrink = "0";
+      dragStrip.style.display = "flex";
+      dragStrip.style.cursor = "move";
+      dragStrip.style.width = "100%";
+      dragStrip.addEventListener("click", function () {
+        if (typeof bringToFront === "function") bringToFront(root);
+      });
+      root.prepend(dragStrip);
+    }
+
+    var barrier = root.querySelector(".appTopBarrier");
+    if (!barrier) {
+      barrier = document.createElement("div");
+      barrier.className = "appTopBarrier";
+      barrier.style.flexShrink = "0";
+      barrier.style.display = "flex";
+      barrier.style.height = "14px";
+      barrier.style.width = "100%";
+      barrier.addEventListener("click", function () {
+        if (typeof bringToFront === "function") bringToFront(root);
+      });
+      root.prepend(barrier);
+    }
+
+    var topBar = document.createElement("div");
+    topBar.className = "appTopBar";
+    topBar.style.display = "flex";
+    topBar.style.justifyContent = "flex-end";
+    topBar.style.alignItems = "center";
+    topBar.style.padding = "2px";
+    topBar.style.marginTop = "3px";
+    topBar.style.cursor = "move";
+    topBar.style.flexShrink = "0";
+    topBar.style.position = "absolute";
+    topBar.style.top = "6px";
+    topBar.style.right = "6px";
+    topBar.style.width = "auto";
+    topBar.style.paddingTop = "14px"; // drag area height
+    topBar.style.paddingBottom = "2px";
+    
+    var btnMin = document.createElement("button");
+    btnMin.className = "btnMinColor";
+    btnMin.title = "Minimize";
+
+    var btnMax = document.createElement("button");
+    btnMax.className = "btnMaxColor";
+    btnMax.title = "Maximize/Restore";
+
+    var btnClose = document.createElement("button");
+    btnClose.title = "Close";
+    btnClose.style.color = "white";
+    btnClose.style.backgroundColor = "red";
+
+    function applyWindowControlStyles() {
+      var applyIcon =
+        typeof window.applyWindowControlIcon === "function"
+          ? window.applyWindowControlIcon
+          : function () {};
+      var setMaxIcon =
+        typeof window.setWindowMaximizeIcon === "function"
+          ? window.setWindowMaximizeIcon
+          : function () {};
+
+      applyIcon(btnMin, "minimize");
+      var currentInstance = getInstance();
+      setMaxIcon(btnMax, !!(currentInstance && currentInstance._isMaximized));
+      applyIcon(btnClose, "close");
+    }
+
+    [btnMin, btnMax, btnClose].forEach(function (el) {
+      el.style.margin = "0 2px";
+      el.style.border = "none";
+      el.style.padding = "4px 6px";
+      el.style.fontSize = "14px";
+      el.style.cursor = "pointer";
+      topBar.appendChild(el);
+    });
+
+    [topBar, btnMin, btnMax, btnClose].forEach(function (el) {
+      el.style.margin = "0 2px";
+      el.style.border = "none";
+      el.style.padding = "4px 6px";
+      el.style.fontSize = "14px";
+      el.style.cursor = "pointer";
+    });
+
+    function applyTitlebarTheme() {
+      var dark = !!(window.data && window.data.dark);
+      root.classList.toggle("dark", dark);
+      root.classList.toggle("light", !dark);
+      topBar.style.background = dark ? "#444" : "#ccc";
+      btnMin.style.background = dark ? "black" : "white";
+      btnMin.style.color = dark ? "white" : "black";
+      btnMax.style.background = dark ? "black" : "white";
+      btnMax.style.color = dark ? "white" : "black";
+      btnClose.style.backgroundColor = "red";
+      btnClose.style.color = "white";
+      applyWindowControlStyles();
+    }
+
+    applyTitlebarTheme();
+    root.addEventListener("styleapplied", applyTitlebarTheme);
+
+    function getInstance() {
+      return root._appInstance && typeof root._appInstance === "object"
+        ? root._appInstance
+        : null;
+    }
+
+    function setMaximizedIcon(maximized) {
+      if (typeof window.setWindowMaximizeIcon === "function") {
+        window.setWindowMaximizeIcon(btnMax, !!maximized);
+      }
+    }
+
+    function maximizeOrRestore() {
+      var instance = getInstance();
+      var isMax = (instance && !!instance._isMaximized) || !!root._apptoolsMaximized;
+      if (!isMax) {
+        if (instance && typeof instance.maximizeWindow === "function") {
+          instance.maximizeWindow();
+          return;
+        }
+        var savedBounds = {
+          left: root.style.left || root.offsetLeft + "px",
+          top: root.style.top || root.offsetTop + "px",
+          width: root.style.width || root.offsetWidth + "px",
+          height: root.style.height || root.offsetHeight + "px",
+        };
+        root._apptoolsSavedBounds = savedBounds;
+        root.style.left = "0";
+        root.style.top = "0";
+        root.style.width = "100%";
+        root.style.height = !data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
+        root.style.borderRadius = "0";
+        root._apptoolsMaximized = true;
+        setMaximizedIcon(true);
+        return;
+      }
+      if (instance && typeof instance.restoreWindow === "function") {
+        instance.restoreWindow(true);
+        return;
+      }
+      var restoreBounds = root._apptoolsSavedBounds || null;
+      if (restoreBounds) {
+        root.style.left = restoreBounds.left;
+        root.style.top = restoreBounds.top;
+        root.style.width = restoreBounds.width;
+        root.style.height = restoreBounds.height;
+      }
+      root.style.borderRadius = "10px";
+      root._apptoolsMaximized = false;
+      setMaximizedIcon(false);
+    }
+
+    btnMin.addEventListener("click", function () {
+      var instance = getInstance();
+      if (instance && typeof instance.hideWindow === "function") {
+        instance.hideWindow();
+        return;
+      }
+      root.style.display = "none";
+    });
+
+    btnMax.addEventListener("click", function () {
+      maximizeOrRestore();
+    });
+
+    btnClose.addEventListener("click", function () {
+      var instance = getInstance();
+      if (instance && typeof instance.closeWindow === "function") {
+        instance.closeWindow();
+        return;
+      }
+      if (typeof root.remove === "function") root.remove();
+    });
+
+    topBar.addEventListener("click", function () {
+      if (typeof bringToFront === "function") bringToFront(root);
+    });
+
+    root.appendChild(topBar);
+    existing.api.makeDraggableResizable(root, dragStrip, btnMax);
+    return topBar;
+  };
+
+  existing.api.trackInstance = function (instance, appOrId) {
+    if (!instance || typeof instance !== "object") return null;
+    var app = null;
+    if (appOrId && typeof appOrId === "object") {
+      app = appOrId;
+    } else {
+      var hintedAppId = String(appOrId || "").trim();
+      if (!hintedAppId && instance.rootElement && instance.rootElement.dataset) {
+        hintedAppId = String(instance.rootElement.dataset.appId || "").trim();
+      }
+      if (!hintedAppId && instance.appId) {
+        hintedAppId = String(instance.appId || "").trim();
+      }
+      if (hintedAppId) {
+        app = (window.apps || []).find(function (candidate) {
+          return appMatchesIdentifier(candidate, hintedAppId);
+        }) || null;
+      }
+    }
+
+    if (!app) return instance;
+
+    var appState = ensureAppRuntimeState(app);
+    var keys = getAppInstanceArrayKeys(app);
+    if (!appState || !keys.length) return instance;
+
+    if (!Number(instance.goldenbodyId)) {
+      var allocated = allocateAppGoldenbodyId(app);
+      if (Number.isFinite(Number(allocated)) && Number(allocated) > 0) {
+        instance.goldenbodyId = Number(allocated);
+        instance._goldenbodyId = Number(allocated);
+      }
+    }
+
+    if (instance.rootElement) {
+      instance.rootElement._goldenbodyId = instance.goldenbodyId;
+      if (instance.rootElement.dataset) {
+        instance.rootElement.dataset.goldenbodyId = String(instance.goldenbodyId || "");
+        instance.rootElement.dataset.appId = String(getPreferredAppIdentifier(app) || "");
+      }
+    }
+
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      if (!Array.isArray(appState[key])) appState[key] = [];
+      if (appState[key].indexOf(instance) === -1) appState[key].push(instance);
+    }
+    return instance;
+  };
+
+  existing.api.untrackInstance = function (instance, appOrId) {
+    if (!instance || typeof instance !== "object") return null;
+    var app = null;
+    if (appOrId && typeof appOrId === "object") {
+      app = appOrId;
+    } else {
+      var hintedAppId = String(appOrId || "").trim();
+      if (!hintedAppId && instance.rootElement && instance.rootElement.dataset) {
+        hintedAppId = String(instance.rootElement.dataset.appId || "").trim();
+      }
+      if (hintedAppId) {
+        app = (window.apps || []).find(function (candidate) {
+          return appMatchesIdentifier(candidate, hintedAppId);
+        }) || null;
+      }
+    }
+    if (app) {
+      deregisterAppInstance(app, instance);
+    }
+    return instance;
+  };
+
+  existing.api.createAppInstance = function (ops) {
+    var options = ops && typeof ops === "object" ? ops : {};
+    var ctx = resolveApptoolsContext(options.appId || options.appid || "");
+    var app = ctx.app;
+    var appId = ctx.appId;
+    var root = options.rootElement || options.root || null;
+    var title = String(options.title || options.apptitle || "").trim();
+
+    if (!root || typeof root !== "object") {
+      root = existing.createRoot(appId, options.posX, options.posY);
+    }
+
+    if (title && typeof window.setAppDataTitle === "function") {
+      window.setAppDataTitle(root, title);
+    }
+
+    var instance = {
+      rootElement: root,
+      btnMax: options.btnMax || (root && root.querySelector ? root.querySelector(".btnMaxColor") : null),
+      _isMinimized: !!options._isMinimized,
+      _isMaximized: !!options._isMaximized,
+      goldenbodyId: Number(options.goldenbodyId) || 0,
+    };
+
+    Object.defineProperty(instance, "isMaximized", {
+      configurable: true,
+      enumerable: true,
+      get: function () {
+        return !!instance._isMaximized;
+      },
+      set: function (value) {
+        instance._isMaximized = !!value;
+      },
+    });
+
+    instance.getBounds = function () {
+      if (!instance.rootElement || !instance.rootElement.style) {
+        return {
+          left: "70px",
+          top: "70px",
+          width: "700px",
+          height: "auto",
+        };
+      }
+      return {
+        left: instance.rootElement.style.left,
+        top: instance.rootElement.style.top,
+        width: instance.rootElement.style.width,
+        height: instance.rootElement.style.height,
+      };
+    };
+
+    instance.applyBounds = function (bounds) {
+      if (!bounds || !instance.rootElement || !instance.rootElement.style) return;
+      instance.rootElement.style.left = bounds.left;
+      instance.rootElement.style.top = bounds.top;
+      instance.rootElement.style.width = bounds.width;
+      instance.rootElement.style.height = bounds.height;
+    };
+
+    instance.maximizeWindow = function () {
+      if (!instance.rootElement || !instance.rootElement.style) return;
+      var savedBounds = instance.getBounds();
+      instance._flowawaySavedBounds = savedBounds;
+      instance.rootElement._apptoolsSavedBounds = savedBounds;
+      instance.rootElement.style.left = "0";
+      instance.rootElement.style.top = "0";
+      instance.rootElement.style.width = "100%";
+      instance.rootElement.style.height = !data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
+      instance.rootElement.style.borderRadius = "0px";
+      instance._isMaximized = true;
+      instance._isMinimized = false;
+      instance.rootElement._apptoolsMaximized = true;
+      if (instance.btnMax && typeof window.setWindowMaximizeIcon === "function") {
+        window.setWindowMaximizeIcon(instance.btnMax, true);
+      }
+    };
+
+    instance.restoreWindow = function (useOriginalBounds) {
+      if (!instance.rootElement || !instance.rootElement.style) return;
+      var shouldUseOriginal = typeof useOriginalBounds === "undefined" ? true : !!useOriginalBounds;
+      if (shouldUseOriginal) {
+        var restoreBounds =
+          instance._flowawaySavedBounds ||
+          instance.rootElement._apptoolsSavedBounds ||
+          null;
+        if (restoreBounds) {
+          instance.applyBounds(restoreBounds);
+        }
+      }
+      instance.rootElement.style.borderRadius = "10px";
+      instance._isMaximized = false;
+      instance.rootElement._apptoolsMaximized = false;
+      if (instance.btnMax && typeof window.setWindowMaximizeIcon === "function") {
+        window.setWindowMaximizeIcon(instance.btnMax, false);
+      }
+    };
+
+    instance.showWindow = function () {
+      if (!instance.rootElement || !instance.rootElement.style) return;
+      var previousDisplay =
+        typeof instance._flowawayPreviousDisplay === "string"
+          ? instance._flowawayPreviousDisplay
+          : "";
+      instance.rootElement.style.display =
+        previousDisplay && previousDisplay !== "none" ? previousDisplay : "";
+      instance._isMinimized = false;
+      if (typeof bringToFront === "function") bringToFront(instance.rootElement);
+    };
+
+    instance.hideWindow = function () {
+      if (!instance.rootElement || !instance.rootElement.style) return;
+      var currentDisplay =
+        typeof instance.rootElement.style.display === "string"
+          ? instance.rootElement.style.display
+          : "";
+      if (currentDisplay && currentDisplay !== "none") {
+        instance._flowawayPreviousDisplay = currentDisplay;
+      }
+      instance.rootElement.style.display = "none";
+      instance._isMinimized = true;
+    };
+
+    instance.closeWindow = function () {
+      try {
+        if (instance.rootElement && typeof instance.rootElement.remove === "function") {
+          instance.rootElement.remove();
+        }
+      } catch (e) {}
+      try {
+        if (app) deregisterAppInstance(app, instance);
+      } catch (e) {}
+    };
+
+    instance.showAll = function () {
+      if (!app) {
+        instance.showWindow();
+        return;
+      }
+      var allInstances = window.getAppInstances(app);
+      allInstances.sort(function (a, b) {
+        var az = Number(a && a.rootElement && a.rootElement.style && a.rootElement.style.zIndex) || 0;
+        var bz = Number(b && b.rootElement && b.rootElement.style && b.rootElement.style.zIndex) || 0;
+        return az - bz;
+      });
+      for (var i = 0; i < allInstances.length; i++) {
+        if (allInstances[i] && typeof allInstances[i].showWindow === "function") {
+          allInstances[i].showWindow();
+        }
+      }
+    };
+
+    instance.hideAll = function () {
+      if (!app) {
+        instance.hideWindow();
+        return;
+      }
+      var allInstances = window.getAppInstances(app);
+      for (var i = 0; i < allInstances.length; i++) {
+        if (allInstances[i] && typeof allInstances[i].hideWindow === "function") {
+          allInstances[i].hideWindow();
+        }
+      }
+    };
+
+    instance.closeAll = function () {
+      if (!app) {
+        instance.closeWindow();
+        return;
+      }
+      var allInstances = [...window.getAppInstances(app)];
+      for (var i = 0; i < allInstances.length; i++) {
+        if (allInstances[i] && typeof allInstances[i].closeWindow === "function") {
+          allInstances[i].closeWindow();
+        }
+      }
+    };
+
+    instance.newWindow = function () {
+      if (!appId) return null;
+      return launchApp(appId);
+    };
+
+    if (app && !instance.goldenbodyId) {
+      var allocated = allocateAppGoldenbodyId(app);
+      if (Number.isFinite(Number(allocated)) && Number(allocated) > 0) {
+        instance.goldenbodyId = Number(allocated);
+      }
+    } else if (!instance.goldenbodyId) {
+      var fallbackAllocated = allocateFallbackRuntimeGoldenbodyId();
+      if (Number.isFinite(Number(fallbackAllocated)) && Number(fallbackAllocated) > 0) {
+        instance.goldenbodyId = Number(fallbackAllocated);
+      }
+    }
+
+    if (instance.rootElement) {
+      instance.rootElement._appInstance = instance;
+      instance.rootElement._goldenbodyId = instance.goldenbodyId;
+      if (instance.rootElement.dataset) {
+        instance.rootElement.dataset.goldenbodyId = String(instance.goldenbodyId);
+        if (appId) instance.rootElement.dataset.appId = String(appId);
+      }
+    }
+
+    return instance;
+  };
+
+  window.apptools = existing;
+}
+
+initAppTools();
+
 function resolveLaunchContextRoot() {
   try {
     var launchContext = window.__flowawayLaunchContext;
@@ -154,7 +1062,10 @@ async function loadAppsFromTree() {
     for (const appFolder of appFolders) {
       try {
         const appData = await extractAppData(appFolder);
-        if (appData) window.apps.push(appData);
+        if (appData) {
+          ensureAppRuntimeState(appData);
+          window.apps.push(appData);
+        }
       } catch (e) {
         flowawayError("loadAppsFromTree", "Failed to parse app folder", e, {
           folder: appFolder && appFolder[0],
@@ -204,6 +1115,7 @@ async function renderAppsGrid() {
   if (!window.apps) return;
   for (const app of window.apps) {
     try {
+      ensureAppRuntimeState(app);
       if (!app.icon) {
         if (!app.scriptLoaded && app.jsFile) {
           try {
@@ -365,14 +1277,11 @@ async function renderAppsGrid() {
 async function launchApp(appId) {
   var app = (window.apps || []).find((a) => appMatchesIdentifier(a, appId));
   if (!app) {
-    // fallback: try to call a global function named like the appId (or the id listed in entry)
-    try {
-      var globalFn = window[appId] || null;
-      if (typeof globalFn === "function") return globalFn();
-    } catch (e) {}
     flowawayError("launchApp", "App not found", null, { appId: appId });
     return;
   }
+
+  ensureAppRuntimeState(app);
 
   if (!app.scriptLoaded && app.jsFile) {
     try {
@@ -455,10 +1364,11 @@ async function launchApp(appId) {
       app: app,
       launchedAt: Date.now(),
     };
+    var launchResult;
     if (app.functionname && typeof window[app.functionname] === "function") {
-      window[app.functionname]();
+      launchResult = window[app.functionname](window.__flowawayLaunchContext);
     } else if (typeof window[app.id] === "function") {
-      window[app.id]();
+      launchResult = window[app.id](window.__flowawayLaunchContext);
     } else {
       flowawayError("launchApp", "No callable entry function for app", null, {
         appId: app && app.id,
@@ -466,33 +1376,8 @@ async function launchApp(appId) {
       });
       return;
     }
-    // After the app varructs its UI, try to tag the new top-level window(s) with appId
-    setTimeout(() => {
-      try {
-        var appIdentifier = getPreferredAppIdentifier(app);
-        var appLabel = String(app.label || app.functionname || app.id || appIdentifier || "");
-        var roots = Array.from(document.querySelectorAll(".app-window-root"));
-        // find ones without app id yet
-        var untagged = roots.filter((r) => !r.dataset || !r.dataset.appId);
-        if (untagged.length) {
-          // tag the most recently added
-          var candidate = untagged[untagged.length - 1];
-          candidate.dataset.appId = appIdentifier;
-        }
 
-        for (var i = 0; i < roots.length; i++) {
-          var root = roots[i];
-          if (!root || !root.dataset) continue;
-          if (String(root.dataset.appId || "") !== String(appIdentifier || "")) continue;
-          var currentTitle = String(root.getAttribute("data-title") || "").trim();
-          if (!currentTitle && appLabel) {
-            root.setAttribute("data-title", appLabel);
-            root.dataset.title = appLabel;
-          }
-        }
-      } catch (e) {}
-    }, 40);
-    return;
+    return launchResult;
   } catch (e) {
     flowawayError("launchApp", "launchApp execution failed", e, {
       appId: app && app.id,
@@ -899,28 +1784,9 @@ window.resolveAppFromEvent = function (evt, appOverride = null) {
 };
 
 window.getAppInstances = function (app) {
-  if (!app || !app.globalvarobjectstring || !app.allapparraystring) return [];
+  if (!app) return [];
   try {
-    var appGlobalObj = window[app.globalvarobjectstring];
-    if (!appGlobalObj || typeof appGlobalObj !== "object") return [];
-
-    var keys = [];
-    if (typeof app.allapparraystring === "string") {
-      var oneKey = app.allapparraystring.trim();
-      if (oneKey) keys.push(oneKey);
-    } else if (Array.isArray(app.allapparraystring)) {
-      for (var i = 0; i < app.allapparraystring.length; i++) {
-        var key = typeof app.allapparraystring[i] === "string" ? app.allapparraystring[i].trim() : "";
-        if (key && keys.indexOf(key) === -1) keys.push(key);
-      }
-    }
-
-    for (var keyIndex = 0; keyIndex < keys.length; keyIndex++) {
-      var list = appGlobalObj[keys[keyIndex]];
-      if (Array.isArray(list)) return list;
-    }
-
-    return [];
+    return getPrimaryAppInstanceArray(app);
   } catch (e) {
     return [];
   }
@@ -1038,7 +1904,11 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
         first.showAll();
         return;
       }
-      instances.sort(        (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex      );
+      instances.sort((a, b) => {
+        var az = Number(a && a.rootElement && a.rootElement.style && a.rootElement.style.zIndex) || 0;
+        var bz = Number(b && b.rootElement && b.rootElement.style && b.rootElement.style.zIndex) || 0;
+        return az - bz;
+      });
       for (const instance of instances) {
         if (instance && typeof instance.showWindow === "function") {
           instance.showWindow();
