@@ -62,6 +62,10 @@
   taskbar.style.transform = 'translateY(0)';
   var taskbarVisible = true;
   function showTaskbar() {
+    if (_hideTimer) {
+      clearTimeout(_hideTimer);
+      _hideTimer = null;
+    }
     if (taskbarVisible) return;
     taskbar.style.transform = 'translateY(0)';
     taskbar.style.opacity = 0.8;
@@ -87,6 +91,24 @@
   var _revealHoldTimer = null;
   var _hideTimer = null;
   var autohideActive = false; // whether listeners are currently attached
+  var _lastMouseX = null;
+  var _lastMouseY = null;
+  function _isMouseWithinTaskbarRect() {
+    if (!Number.isFinite(_lastMouseX) || !Number.isFinite(_lastMouseY)) return false;
+    var rect = taskbar.getBoundingClientRect();
+    return (
+      _lastMouseX >= rect.left &&
+      _lastMouseX <= rect.right &&
+      _lastMouseY >= rect.top &&
+      _lastMouseY <= rect.bottom
+    );
+  }
+  function _cancelHideTimer() {
+    if (_hideTimer) {
+      clearTimeout(_hideTimer);
+      _hideTimer = null;
+    }
+  }
   function _cancelRevealTimer() {
     if (_revealHoldTimer) {
       clearTimeout(_revealHoldTimer);
@@ -94,12 +116,19 @@
     }
   }
   function _scheduleHide() {
-    if (_hideTimer) clearTimeout(_hideTimer);
+    _cancelHideTimer();
     _hideTimer = setTimeout(function () {
-      if (!taskbar.matches(':hover')) hideTaskbar();
+      if (taskbar.matches(':hover') || _isMouseWithinTaskbarRect() || taskbar.contains(document.activeElement)) {
+        _hideTimer = null;
+        return;
+      }
+      hideTaskbar();
+      _hideTimer = null;
     }, 120);
   }
   function _onMouseMove(e) {
+    _lastMouseX = e.clientX;
+    _lastMouseY = e.clientY;
     var revealEdgePx = getTaskbarRevealEdgePx();
     var inRevealZone = e.clientY >= window.innerHeight - revealEdgePx;
     if (inRevealZone) {
@@ -118,7 +147,8 @@
     }
   }
   function _onTaskbarEnter() {
-    if (taskbarVisible) showTaskbar();
+    _cancelHideTimer();
+    showTaskbar();
   }
   function _onTaskbarLeave() { _scheduleHide(); }
   function _onTouchStart(e) {
