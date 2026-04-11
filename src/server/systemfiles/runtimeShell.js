@@ -476,7 +476,7 @@ function closeFocusedAppWindow() {
     var targetAppId = String(atTop || "").trim();
     if (!targetAppId) return;
 
-    var roots = Array.from(document.querySelectorAll(".app-root"));
+    var roots = Array.from(document.querySelectorAll(".app-window-root"));
     var candidates = roots.filter(
       (root) => root.dataset && root.dataset.appId === targetAppId,
     );

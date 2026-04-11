@@ -725,7 +725,7 @@ window.browser = function (
     // --- Create root container ---
     var root = document.createElement("div");
     root.__vfsMessageListenerAdded = false;
-    root.className = "app-root";
+    root.className = "app-root app-window-root";
     root.dataset.appId = "browser";
     Object.assign(root.style, {
       position: "fixed",
@@ -856,7 +856,10 @@ window.browser = function (
 
       if (key === "t" || key === "n") {
         const handled = runBrowserShortcut(key, e);
-        if (handled) e.__gbBrowserCtrlHandled = true;
+        if (handled) {
+          if (typeof e.stopPropagation === "function") e.stopPropagation();
+          e.__gbBrowserCtrlHandled = true;
+        }
         return handled;
       }
 
@@ -1633,7 +1636,7 @@ window.browser = function (
         // If manual, pin theme on all browser roots so `applyStyles` won't
         // override them. If auto, remove the pin so `applyStyles` manages them.
         try {
-          const allRoots = document.querySelectorAll('.app-root[data-app-id="browser"]');
+          const allRoots = document.querySelectorAll('.app-window-root[data-app-id="browser"]');
           for (const rr of allRoots) {
             if (browserGlobals.profile && browserGlobals.profile.themeMode === 'manual') {
               rr.dataset.themeManual = 'true';
