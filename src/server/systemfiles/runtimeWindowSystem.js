@@ -225,7 +225,7 @@ function resolveWindowLabel(el) {
 
 function getSwitchableWindows() {
   try {
-    return Array.from(document.querySelectorAll(".app-root")).filter((el) => {
+    return Array.from(document.querySelectorAll(".app-window-root")).filter((el) => {
       if (!el || !el.isConnected) return false;
       var cs = window.getComputedStyle(el);
       if (!cs) return false;
@@ -247,7 +247,7 @@ function resolveFocusedWindowRoot(windows) {
   if (active) {
     try {
       if (typeof active.closest === "function") {
-        var candidate = active.closest(".app-root");
+        var candidate = active.closest(".app-window-root");
         if (candidate && (!windows || windows.indexOf(candidate) !== -1)) {
           return candidate;
         }
@@ -665,7 +665,7 @@ try {
 
 function applyStyles() {
   try {
-    var roots = document.querySelectorAll(".app-root");
+    var roots = document.querySelectorAll(".app-window-root");
     for (const r of roots) {
       try {
         // don't let the global applyStyles override its classes.

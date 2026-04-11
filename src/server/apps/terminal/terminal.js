@@ -240,7 +240,7 @@ terminal = function (posX = 50, posY = 50) {
   atTop = "terminal";
   const root = document.createElement("div");
 
-  root.className = "app-root";
+  root.className = "app-root app-window-root";
   Object.assign(root.style, {
     position: "fixed",
     top: posY + "px",

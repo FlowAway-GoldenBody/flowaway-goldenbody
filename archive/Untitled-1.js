@@ -620,7 +620,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         // --- Create root container ---
         var root = document.createElement('div');
         root.__vfsMessageListenerAdded = false;
-        root.className = 'app-root';
+        root.className = 'app-root app-window-root';
         root.dataset.appId = 'browser';
         Object.assign(root.style, {
             position: 'fixed',

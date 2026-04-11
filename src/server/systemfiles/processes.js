@@ -440,13 +440,13 @@
     if (!node || typeof node !== "object") return null;
     if (typeof node.closest === "function") {
       try {
-        var closest = node.closest(".app-root");
+        var closest = node.closest(".app-window-root");
         if (closest) return closest;
       } catch (e) {}
     }
     var cur = node;
     while (cur && typeof cur === "object") {
-      if (cur.classList && typeof cur.classList.contains === "function" && cur.classList.contains("app-root")) {
+      if (cur.classList && typeof cur.classList.contains === "function" && cur.classList.contains("app-window-root")) {
         return cur;
       }
       cur = cur.parentElement || cur.parentNode || null;
@@ -834,7 +834,7 @@
     var identity = String(appIdentity || "").trim();
     if (!identity) return false;
     try {
-      var roots = Array.from(document.querySelectorAll(".app-root"));
+      var roots = Array.from(document.querySelectorAll(".app-window-root"));
       for (var i = 0; i < roots.length; i++) {
         var root = roots[i];
         if (!root || root.isConnected === false) continue;
@@ -3230,7 +3230,7 @@
   }
 
   function demoGuiAppIntervalTracking() {
-    var root = typeof document !== "undefined" ? document.querySelector(".app-root") : null;
+    var root = typeof document !== "undefined" ? document.querySelector(".app-window-root") : null;
     var tick = 0;
     var handle = setInterval(function () {
       tick += 1;

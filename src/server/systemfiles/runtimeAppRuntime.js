@@ -87,7 +87,7 @@ function resolveLaunchContextRoot() {
       launchContext && launchContext.appId
         ? String(launchContext.appId)
         : "";
-    var roots = Array.from(document.querySelectorAll(".app-root"));
+    var roots = Array.from(document.querySelectorAll(".app-window-root"));
     if (launchAppId) {
       for (var i = roots.length - 1; i >= 0; i--) {
         var root = roots[i];
@@ -471,7 +471,7 @@ async function launchApp(appId) {
       try {
         var appIdentifier = getPreferredAppIdentifier(app);
         var appLabel = String(app.label || app.functionname || app.id || appIdentifier || "");
-        var roots = Array.from(document.querySelectorAll(".app-root"));
+        var roots = Array.from(document.querySelectorAll(".app-window-root"));
         // find ones without app id yet
         var untagged = roots.filter((r) => !r.dataset || !r.dataset.appId);
         if (untagged.length) {

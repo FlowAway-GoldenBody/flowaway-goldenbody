@@ -1811,7 +1811,7 @@ async function launchApp(appId) {
         // After the app varructs its UI, try to tag the new top-level window(s) with appId
         setTimeout(() => {
             try {
-                var roots = Array.from(document.querySelectorAll('.app-root'));
+                var roots = Array.from(document.querySelectorAll('.app-window-root'));
                 // find ones without app id yet
                 var untagged = roots.filter((r) => !r.dataset || !r.dataset.appId);
                 if (untagged.length) {
@@ -2124,7 +2124,7 @@ async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) 
 
                     // 5. Close all windows with matching appId
                     var appIdToMatch = getPreferredAppIdentifier(app);
-                    var windowsToClose = Array.from(document.querySelectorAll('.app-root')).filter(
+                    var windowsToClose = Array.from(document.querySelectorAll('.app-window-root')).filter(
                         (root) => root.dataset && root.dataset.appId === appIdToMatch
                     );
                     for (const windowEl of windowsToClose) {
@@ -2471,7 +2471,7 @@ async function pollSpecificAppChanges(changedFolders = []) {
 
                         try {
                             var appIdToClose = getPreferredAppIdentifier(existingApp);
-                            var windowsToClose = Array.from(document.querySelectorAll('.app-root')).filter(
+                            var windowsToClose = Array.from(document.querySelectorAll('.app-window-root')).filter(
                                 (root) => root.dataset && root.dataset.appId === appIdToClose
                             );
                             for (const windowEl of windowsToClose) {
@@ -3187,7 +3187,7 @@ function resolveWindowLabel(el) {
 
 function getSwitchableWindows() {
     try {
-        return Array.from(document.querySelectorAll('.app-root')).filter((el) => {
+        return Array.from(document.querySelectorAll('.app-window-root')).filter((el) => {
             if (!el || !el.isConnected) return false;
             var cs = window.getComputedStyle(el);
             if (!cs) return false;
@@ -3209,7 +3209,7 @@ function resolveFocusedWindowRoot(windows) {
     if (active) {
         try {
             if (typeof active.closest === 'function') {
-                var candidate = active.closest('.app-root');
+                var candidate = active.closest('.app-window-root');
                 if (candidate && (!windows || windows.indexOf(candidate) !== -1)) {
                     return candidate;
                 }
@@ -3592,7 +3592,7 @@ try {
                 var targetAppId = String(atTop || '').trim();
                 if (!targetAppId) return;
 
-                var roots = Array.from(document.querySelectorAll('.app-root'));
+                var roots = Array.from(document.querySelectorAll('.app-window-root'));
                 var candidates = roots.filter((root) => root.dataset && root.dataset.appId === targetAppId);
 
                 // Fallback for older windows not tagged with dataset app id
@@ -3646,7 +3646,7 @@ try {
 
 function applyStyles() {
     try {
-        var roots = document.querySelectorAll('.app-root');
+        var roots = document.querySelectorAll('.app-window-root');
         for (const r of roots) {
             r.classList.toggle('dark', data.dark);
             r.classList.toggle('light', !data.dark);

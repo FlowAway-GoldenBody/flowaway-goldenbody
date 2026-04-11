@@ -21,7 +21,7 @@ taskManager = function (posX = 50, posY = 50) {
   } catch (e) {}
 
   const root = document.createElement("div");
-  root.className = "app-root";
+  root.className = "app-root app-window-root";
   Object.assign(root.style, {
     position: "fixed",
     top: posY + "px",
@@ -1055,7 +1055,7 @@ taskManager = function (posX = 50, posY = 50) {
 
     const removedRoots = [];
     let removed = 0;
-    const roots = Array.from(document.querySelectorAll(".app-root"));
+    const roots = Array.from(document.querySelectorAll(".app-window-root"));
     for (let i = 0; i < roots.length; i++) {
       const el = roots[i];
       const appId = String((el.dataset && el.dataset.appId) || "");

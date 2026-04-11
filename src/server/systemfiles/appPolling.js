@@ -279,7 +279,7 @@
             } catch (e) {}
 
             var appIdToMatch = typeof getPreferredAppIdentifier === "function" ? getPreferredAppIdentifier(deletedApp) : "";
-            var windowsToClose = Array.from(document.querySelectorAll(".app-root")).filter(function (root) {
+            var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
               return root.dataset && root.dataset.appId === appIdToMatch;
             });
             for (var wi = 0; wi < windowsToClose.length; wi++) {
@@ -513,7 +513,7 @@
 
             try {
               var appIdToClose = typeof getPreferredAppIdentifier === "function" ? getPreferredAppIdentifier(existingApp) : "";
-              var windowsToClose = Array.from(document.querySelectorAll(".app-root")).filter(function (root) {
+              var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
                 return root.dataset && root.dataset.appId === appIdToClose;
               });
               for (var wi = 0; wi < windowsToClose.length; wi++) {
