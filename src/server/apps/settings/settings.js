@@ -3,6 +3,13 @@ window.settingsGlobals = {};
 settingsGlobals.allSettings = [];
 settingsGlobals.goldenbodyId = 0;
 
+function persistSettingsProfilePatch(patch) {
+  if (typeof window.persistUserProfilePatch === "function") {
+    return window.persistUserProfilePatch(patch || {});
+  }
+  return Promise.resolve({ success: false, error: "profile persistence unavailable" });
+}
+
 settings = function (posX = 50, posY = 50) {
   startMenu.style.display = "none";
 
@@ -230,10 +237,15 @@ settings = function (posX = 50, posY = 50) {
         origLeft = 0,
         origTop = 0;
       let thresholdCrossed = false;
-      const DRAG_THRESHOLD = 15;
+      function getDragThreshold() {
+        const v = Number(data && data.DRAG_THRESHOLD);
+        if (!Number.isFinite(v)) return 15;
+        return Math.max(2, Math.min(128, Math.round(v)));
+      }
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
+        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -250,7 +262,7 @@ settings = function (posX = 50, posY = 50) {
         const dragDistance = Math.sqrt(
           Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
         );
-        if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
+        if (!thresholdCrossed && dragDistance >= getDragThreshold()) {
           thresholdCrossed = true;
           if (isMaximized) {
             applyBounds(savedBounds);
@@ -466,19 +478,15 @@ settings = function (posX = 50, posY = 50) {
         newPassword: input.value,
       });
 
-      if (res.success) {
-        status.textContent = "Password updated successfully.";
+      if (res && res.error) {
+        status.textContent = String(res.error);
+        status.style.color = "red";
+      } else {
+        status.textContent = "Password updated.";
         status.style.color = "green";
-        // If server returned a short-lived auth token, prefer storing that instead
-        if (res.authToken || res.token) {
-          data.authToken = res.authToken || res.token;
-        }
-        // Clear all password inputs
         oldinput.value = "";
         input.value = "";
         confirm.value = "";
-      } else {
-        throw new Error(res.error || "Failed");
       }
     } catch (e) {
       status.textContent = "Failed to update password.";
@@ -534,8 +542,8 @@ settings = function (posX = 50, posY = 50) {
   volume.style.width = "calc(100% - 10px)";
 
   volume.oninput = async () => {
-    await zmcdpost({ changeVolume: true, volume: volume.value });
     data.volume = volume.value;
+    await persistSettingsProfilePatch({ volume: Number(volume.value) });
     // Optional global hook
     window.dispatchEvent(
       new CustomEvent("system-volume", {
@@ -566,10 +574,7 @@ settings = function (posX = 50, posY = 50) {
     // Simple global brightness effect
     document.documentElement.style.filter = `brightness(${brightness.value}%)`;
     data.brightness = brightness.value;
-    await zmcdpost({
-      changeBrightness: true,
-      brightness: brightness.value,
-    });
+    await persistSettingsProfilePatch({ brightness: Number(brightness.value) });
   };
 
   mainContainer.append(brightLabel, brightness);
@@ -599,14 +604,118 @@ settings = function (posX = 50, posY = 50) {
     applyStyles();
 
     // Persist to backend (optional but recommended)
-    await zmcdpost({
-      setTheme: true,
-      dark: data.dark,
-    });
+    await persistSettingsProfilePatch({ dark: !!data.dark });
   };
 
   themeRow.append(themeLabel, themeToggle);
   mainContainer.appendChild(themeRow);
+
+  data.taskbarRevealEdgePx = Number.isFinite(Number(data.taskbarRevealEdgePx))
+    ? Math.max(1, Math.min(64, Math.round(Number(data.taskbarRevealEdgePx))))
+    : 6;
+  data.taskbarRevealHoldDelayMs = Number.isFinite(Number(data.taskbarRevealHoldDelayMs))
+    ? Math.max(0, Math.min(5000, Math.round(Number(data.taskbarRevealHoldDelayMs))))
+    : 450;
+
+  const autohideRow = document.createElement("div");
+  autohideRow.style.alignItems = "center";
+  autohideRow.style.marginTop = "8px";
+
+  const autohideLabel = document.createElement("div");
+  autohideLabel.textContent = "Autohide Taskbar";
+  autohideLabel.style.fontSize = "13px";
+
+  const autohideToggle = document.createElement("input");
+  autohideToggle.type = "checkbox";
+  autohideToggle.checked = !!data.autohidetaskbar;
+
+  autohideToggle.onchange = async () => {
+    data.autohidetaskbar = autohideToggle.checked;
+    await persistSettingsProfilePatch({
+      autohidetaskbar: !!data.autohidetaskbar,
+      taskbarRevealEdgePx: Number(data.taskbarRevealEdgePx),
+      taskbarRevealHoldDelayMs: Number(data.taskbarRevealHoldDelayMs),
+    });
+    if (window.applyTaskbarAutohideSettings) {
+      window.applyTaskbarAutohideSettings({
+        autohidetaskbar: data.autohidetaskbar,
+        taskbarRevealEdgePx: data.taskbarRevealEdgePx,
+        taskbarRevealHoldDelayMs: data.taskbarRevealHoldDelayMs,
+      });
+    }
+  };
+
+  autohideRow.append(autohideLabel, autohideToggle);
+  mainContainer.appendChild(autohideRow);
+
+  const taskbarRevealEdgeLabel = document.createElement("div");
+  taskbarRevealEdgeLabel.textContent = "Taskbar Reveal Edge (px)";
+
+  const taskbarRevealEdge = document.createElement("input");
+  taskbarRevealEdge.type = "number";
+  taskbarRevealEdge.min = "1";
+  taskbarRevealEdge.max = "64";
+  taskbarRevealEdge.step = "1";
+  taskbarRevealEdge.value = Number.isFinite(Number(data.taskbarRevealEdgePx))
+    ? String(Number(data.taskbarRevealEdgePx))
+    : "6";
+  taskbarRevealEdge.style.width = "calc(100% - 10px)";
+
+  taskbarRevealEdge.onchange = async () => {
+    const normalized = Math.max(1, Math.min(64, Math.round(Number(taskbarRevealEdge.value) || 6)));
+    taskbarRevealEdge.value = String(normalized);
+    data.taskbarRevealEdgePx = normalized;
+    await persistSettingsProfilePatch({
+      autohidetaskbar: !!data.autohidetaskbar,
+      taskbarRevealEdgePx: normalized,
+      taskbarRevealHoldDelayMs: Number(data.taskbarRevealHoldDelayMs),
+    });
+    if (window.applyTaskbarAutohideSettings) {
+      window.applyTaskbarAutohideSettings({
+        autohidetaskbar: data.autohidetaskbar,
+        taskbarRevealEdgePx: data.taskbarRevealEdgePx,
+        taskbarRevealHoldDelayMs: data.taskbarRevealHoldDelayMs,
+      });
+    }
+  };
+
+  const taskbarRevealHoldLabel = document.createElement("div");
+  taskbarRevealHoldLabel.textContent = "Taskbar Reveal Hold Delay (ms)";
+
+  const taskbarRevealHold = document.createElement("input");
+  taskbarRevealHold.type = "number";
+  taskbarRevealHold.min = "0";
+  taskbarRevealHold.max = "5000";
+  taskbarRevealHold.step = "50";
+  taskbarRevealHold.value = Number.isFinite(Number(data.taskbarRevealHoldDelayMs))
+    ? String(Number(data.taskbarRevealHoldDelayMs))
+    : "450";
+  taskbarRevealHold.style.width = "calc(100% - 10px)";
+
+  taskbarRevealHold.onchange = async () => {
+    const normalized = Math.max(0, Math.min(5000, Math.round(Number(taskbarRevealHold.value) || 450)));
+    taskbarRevealHold.value = String(normalized);
+    data.taskbarRevealHoldDelayMs = normalized;
+    await persistSettingsProfilePatch({
+      autohidetaskbar: !!data.autohidetaskbar,
+      taskbarRevealEdgePx: Number(data.taskbarRevealEdgePx),
+      taskbarRevealHoldDelayMs: normalized,
+    });
+    if (window.applyTaskbarAutohideSettings) {
+      window.applyTaskbarAutohideSettings({
+        autohidetaskbar: data.autohidetaskbar,
+        taskbarRevealEdgePx: data.taskbarRevealEdgePx,
+        taskbarRevealHoldDelayMs: data.taskbarRevealHoldDelayMs,
+      });
+    }
+  };
+
+  mainContainer.append(
+    taskbarRevealEdgeLabel,
+    taskbarRevealEdge,
+    taskbarRevealHoldLabel,
+    taskbarRevealHold,
+  );
 
   /* =========================================================
    ⚙️ AUTO-UPDATE SYSTEM APPS
@@ -627,16 +736,35 @@ settings = function (posX = 50, posY = 50) {
   /* Toggle handler */
   autoupdateToggle.onchange = async () => {
     data.autoupdate = autoupdateToggle.checked;
-
-    // Persist to backend
-    await zmcdpost({
-      setAutoupdate: true,
-      autoupdate: data.autoupdate,
-    });
+    await persistSettingsProfilePatch({ autoupdate: !!data.autoupdate });
   };
 
   autoupdateRow.append(autoupdateLabel, autoupdateToggle);
   mainContainer.appendChild(autoupdateRow);
+
+  mainContainer.appendChild(sectionTitle("Windowing"));
+
+  const dragThresholdLabel = document.createElement("div");
+  dragThresholdLabel.textContent = "Window Drag Threshold (px)";
+
+  const dragThresholdInput = document.createElement("input");
+  dragThresholdInput.type = "number";
+  dragThresholdInput.min = "2";
+  dragThresholdInput.max = "128";
+  dragThresholdInput.step = "1";
+  dragThresholdInput.value = Number.isFinite(Number(data.DRAG_THRESHOLD))
+    ? String(Number(data.DRAG_THRESHOLD))
+    : "15";
+  dragThresholdInput.style.width = "calc(100% - 10px)";
+
+  dragThresholdInput.onchange = async () => {
+    const normalized = Math.max(2, Math.min(128, Math.round(Number(dragThresholdInput.value) || 15)));
+    dragThresholdInput.value = String(normalized);
+    data.DRAG_THRESHOLD = normalized;
+    await persistSettingsProfilePatch({ DRAG_THRESHOLD: normalized });
+  };
+
+  mainContainer.append(dragThresholdLabel, dragThresholdInput);
 
   /* =========================================================
      🗑️ DANGER ZONE — DELETE ACCOUNT
@@ -655,23 +783,11 @@ settings = function (posX = 50, posY = 50) {
     deleteBtn.disabled = true;
 
     try {
-      const res = await zmcdpost({
-        deleteAcc: true,
-        username: username,
-        password: oldinput.value,
-      });
-
-      if (!res.success) {
-        throw new Error();
-      }
-
-      deleteStatus.textContent = "Account deleted.";
-      deleteStatus.style.color = "green";
-
-      // Optional: force logout / reload
-      setTimeout(() => rebuildhandler(), 1000);
+      deleteStatus.textContent = "Account deletion moved to login service.";
+      deleteStatus.style.color = "orange";
+      deleteBtn.disabled = false;
     } catch {
-      deleteStatus.textContent = "Wrong password in old password input.";
+      deleteStatus.textContent = "Failed to request account deletion.";
       deleteStatus.style.color = "red";
       deleteBtn.disabled = false;
     }

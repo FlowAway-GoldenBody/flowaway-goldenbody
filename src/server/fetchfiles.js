@@ -80,7 +80,7 @@ function normalizeUserRelativePath(inputPath) {
 }
 
 // Storage quota (bytes). Can be overridden by env var STORAGE_QUOTA_BYTES.
-const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 1 * 1024 * 1024 * 1024; // 1 GB default
+const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 5 * 1024 * 1024 * 1024; // 5 GB default
 // How old can upload part files be before we consider them stale and remove them (hours)
 const UPLOAD_PART_TTL_HOURS = Number(process.env.UPLOAD_PART_TTL_HOURS) || 24; // default 24 hours
 
@@ -408,16 +408,17 @@ async function applyDirections(rootPath, directions, username) {
     return total;
   }
 
-  // Helper: read a user's maxSpace (GB) from their user file and return bytes
+  // Helper: read a user's maxSpace (GB) from zmcd auth file and return bytes
   async function getUserQuotaBytes(rootPath) {
     try {
       const userDir = path.dirname(rootPath); // .../username
-      const username = path.basename(userDir);
-      const userFile = path.join(userDir, `${username}.txt`);
-      const txt = await fsp.readFile(userFile, 'utf8');
-      const obj = JSON.parse(txt);
-      if (obj && typeof obj.maxSpace === 'number' && obj.maxSpace > 0) {
-        return obj.maxSpace * 1024 * 1024 * 1024;
+      const uname = path.basename(userDir);
+      const authPath = path.join(userDir, `${uname}.txt`);
+      const authTxt = await fsp.readFile(authPath, 'utf8');
+      const authObj = JSON.parse(authTxt);
+      const maxSpaceGb = Number(authObj && authObj.maxSpace);
+      if (Number.isFinite(maxSpaceGb) && maxSpaceGb > 0) {
+        return maxSpaceGb * 1024 * 1024 * 1024;
       }
     } catch (e) {
       // ignore and fall through to default
@@ -939,7 +940,7 @@ if (data.saveSnapshot) {
 // Save start menu config
 if (data.action === 'saveStartMenuConfig' && data.configJson) {
   try {
-    const configPath = path.join(userRoot, 'startmenuAppConfig', 'startMenu-config.json');
+    const configPath = path.join(userRoot, 'systemfiles', 'userprofile', 'startMenu-config.json');
     await fsp.mkdir(path.dirname(configPath), { recursive: true });
     await fsp.writeFile(configPath, data.configJson, 'utf8');
     return res.end(JSON.stringify({ success: true }));

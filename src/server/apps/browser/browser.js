@@ -6620,9 +6620,10 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         origTop = 0,
         targetel = null;
       let thresholdCrossed = false;
-      const DRAG_THRESHOLD = 15; // pixels required to trigger drag behavior
+      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
 
       top.addEventListener("pointerdown", (ev) => {
+        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         targetel = ev.target;
       });
 

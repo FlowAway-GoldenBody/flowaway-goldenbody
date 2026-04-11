@@ -8,6 +8,17 @@ const crypto = require('crypto');
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
 
+function sanitizeAuthRecord(raw, usernameHint) {
+  const base = raw && typeof raw === 'object' ? raw : {};
+  return {
+    username: String(base.username || usernameHint || '').trim(),
+    password: typeof base.password === 'string' ? base.password : '',
+    authTokens: Array.isArray(base.authTokens)
+      ? base.authTokens.filter((tokenRow) => tokenRow && tokenRow.token && tokenRow.expires)
+      : [],
+  };
+}
+
 // Authenticate user against <directoryPath>/<username>/<username>.txt
 async function authenticateUser(username, providedPassword, authHeader) {
   try {
@@ -119,7 +130,7 @@ async function handleDownload(req, res) {
     try {
       const userFile = path.join(directoryPath, username, `${username}.txt`);
       const txt = await fsp.readFile(userFile, 'utf8');
-      const obj = JSON.parse(txt);
+      const obj = sanitizeAuthRecord(JSON.parse(txt), username);
       obj.authTokens = Array.isArray(obj.authTokens) ? obj.authTokens : [];
       const now = Date.now();
       obj.authTokens = obj.authTokens.filter(t => t && t.expires && t.expires > now);
@@ -137,7 +148,7 @@ async function handleDownload(req, res) {
         const newToken = crypto.randomBytes(24).toString('hex');
         const expires = Date.now() + 1000 * 60 * 60; // 1 hour
         obj.authTokens.push({ token: newToken, expires });
-        try { await fsp.writeFile(userFile, JSON.stringify(obj, null, 2)); } catch (e) { /* non-fatal */ }
+        try { await fsp.writeFile(userFile, JSON.stringify(sanitizeAuthRecord(obj, username), null, 2)); } catch (e) { /* non-fatal */ }
         tokenToReturn = newToken;
       }
     } catch (e) {

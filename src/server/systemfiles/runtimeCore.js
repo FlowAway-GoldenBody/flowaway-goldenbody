@@ -1,14 +1,35 @@
 // Preserve window.data if already set (e.g., from ouchbad.js account creation), otherwise initialize
 // absolutely no hardcoded app names allowed! all apps should be installed and theres no way to predict their name and structure in advance, so we must not bake in any assumptions here. we will rely on dynamic detection and labeling based on heuristics instead.
 // i mean by no if(appId === 'browser') or similar checks anywhere in the core (flowaway.js/goldenbody.js). its not allowed!
-if (!window.data) window.data = data;
+var __incomingData = (typeof data !== "undefined" && data && typeof data === "object") ? data : {};
+if (!window.data || typeof window.data !== "object") window.data = __incomingData;
+
+function normalizeBootDataShape(target) {
+  var normalized = target && typeof target === "object" ? target : {};
+  if (!Array.isArray(normalized.taskbuttons) || normalized.taskbuttons.length === 0) {
+    normalized.taskbuttons = ["🌐", "🗂", "⚙", "📝", "🖥️"];
+  }
+  if (typeof normalized.autohidetaskbar === "undefined") normalized.autohidetaskbar = false;
+  if (!Number.isFinite(Number(normalized.brightness))) normalized.brightness = 100;
+  if (!Number.isFinite(Number(normalized.volume))) normalized.volume = 40;
+  if (typeof normalized.dark !== "boolean") normalized.dark = !!normalized.dark;
+  if (typeof normalized.autoupdate !== "boolean") normalized.autoupdate = true;
+  if (!Array.isArray(normalized.siteSettings)) normalized.siteSettings = [];
+  if (!Number.isFinite(Number(normalized.maxSpace)) || Number(normalized.maxSpace) <= 0) {
+    normalized.maxSpace = 5;
+  }
+  if (!Number.isFinite(Number(normalized.DRAG_THRESHOLD))) normalized.DRAG_THRESHOLD = 15;
+  normalized.brightness = Math.max(0, Math.min(100, Number(normalized.brightness)));
+  normalized.volume = Math.max(0, Math.min(100, Number(normalized.volume)));
+  normalized.DRAG_THRESHOLD = Math.max(2, Math.min(128, Math.round(Number(normalized.DRAG_THRESHOLD))));
+  return normalized;
+}
+
+window.data = normalizeBootDataShape(Object.assign({}, window.data || {}, __incomingData));
+try { data = window.data; } catch (e) {}
 window.____gbEventListners = [];
 window.loaded = false;
 window.APP_VERSION = "v1.14.1";
-
-if (typeof data.autohidetaskbar === "undefined") {
-  data.autohidetaskbar = false;
-}
 var hasChanges;
 var atTop = "";
 var zTop = 10;
@@ -666,7 +687,6 @@ var rebuildhandler = function () {
       delete window.__flowawayProcessTimerApisWrapped;
       delete window.__flowawayProcessRafApisWrapped;
       delete window.__flowawayProcessMutationObserverWrapped;
-      delete window.__flowawayProcessEventListenerApisWrapped;
       delete window.__flowawayLaunchContext;
     } catch (e) {}
     try {
@@ -691,18 +711,6 @@ var rebuildhandler = function () {
       if (typeof window.__flowawayProcessNativeMutationObserver === "function") {
         window.MutationObserver = window.__flowawayProcessNativeMutationObserver;
       }
-      if (typeof window.__flowawayProcessNativeWindowAddEventListener === "function") {
-        window.addEventListener = window.__flowawayProcessNativeWindowAddEventListener;
-      }
-      if (typeof window.__flowawayProcessNativeWindowRemoveEventListener === "function") {
-        window.removeEventListener = window.__flowawayProcessNativeWindowRemoveEventListener;
-      }
-      if (document && typeof window.__flowawayProcessNativeDocumentAddEventListener === "function") {
-        document.addEventListener = window.__flowawayProcessNativeDocumentAddEventListener;
-      }
-      if (document && typeof window.__flowawayProcessNativeDocumentRemoveEventListener === "function") {
-        document.removeEventListener = window.__flowawayProcessNativeDocumentRemoveEventListener;
-      }
       delete window.__flowawayProcessNativeSetTimeout;
       delete window.__flowawayProcessNativeSetInterval;
       delete window.__flowawayProcessNativeClearTimeout;
@@ -710,10 +718,6 @@ var rebuildhandler = function () {
       delete window.__flowawayProcessNativeRequestAnimationFrame;
       delete window.__flowawayProcessNativeCancelAnimationFrame;
       delete window.__flowawayProcessNativeMutationObserver;
-      delete window.__flowawayProcessNativeWindowAddEventListener;
-      delete window.__flowawayProcessNativeWindowRemoveEventListener;
-      delete window.__flowawayProcessNativeDocumentAddEventListener;
-      delete window.__flowawayProcessNativeDocumentRemoveEventListener;
     } catch (e) {}
     // remove all event listeners to refresh the environment.
     removeAllEventListernersInWindow();
@@ -1185,70 +1189,102 @@ async function filePost(data) {
   firstlogin = false;
   return body;
 }
-async function zmcdpost(data) {
-  const headers = { "Content-Type": "application/json" };
-  if (window.data && window.data.authToken)
-    headers["Authorization"] = "Bearer " + window.data.authToken;
-  var res = await fetch(zmcdserver, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      username: getCurrentUsernameForRequests(),
-      ...data,
-    }),
-  });
-  let body = null;
-  try {
-    body = await res.json();
-  } catch (e) {
-    body = null;
-  }
-  if (body && (body.authToken || body.token)) {
-    try {
-      window.data = window.data || {};
-      window.data.authToken = body.authToken || body.token;
-    } catch (e) {}
-  }
-  if (res.status === 401) {
-    try {
-      showSessionExpiredDialog();
-    } catch (e) {}
-    return body || { error: "unauthorized" };
-  }
-  return body;
+window.USER_PROFILE_PATH = "systemfiles/userprofile/profile.json";
+
+function buildPersistableUserProfile(overrides = {}) {
+  var runtime = window.data && typeof window.data === "object" ? window.data : {};
+  return {
+    schemaVersion: 1,
+    taskbuttons:
+      Array.isArray(overrides.taskbuttons)
+        ? overrides.taskbuttons
+        : Array.isArray(runtime.taskbuttons)
+          ? runtime.taskbuttons
+          : ["🌐", "🗂", "⚙", "📝", "🖥️"],
+    brightness: Number.isFinite(Number(overrides.brightness))
+      ? Number(overrides.brightness)
+      : Number.isFinite(Number(runtime.brightness))
+        ? Number(runtime.brightness)
+        : 100,
+    volume: Number.isFinite(Number(overrides.volume))
+      ? Number(overrides.volume)
+      : Number.isFinite(Number(runtime.volume))
+        ? Number(runtime.volume)
+        : 40,
+    dark: typeof overrides.dark === "boolean" ? overrides.dark : !!runtime.dark,
+    autohidetaskbar:
+      typeof overrides.autohidetaskbar === "boolean"
+        ? overrides.autohidetaskbar
+        : !!runtime.autohidetaskbar,
+    taskbarRevealEdgePx: Number.isFinite(Number(overrides.taskbarRevealEdgePx))
+      ? Math.max(1, Math.min(64, Math.round(Number(overrides.taskbarRevealEdgePx))))
+      : Number.isFinite(Number(runtime.taskbarRevealEdgePx))
+        ? Math.max(1, Math.min(64, Math.round(Number(runtime.taskbarRevealEdgePx))))
+        : 6,
+    taskbarRevealHoldDelayMs: Number.isFinite(Number(overrides.taskbarRevealHoldDelayMs))
+      ? Math.max(0, Math.min(5000, Math.round(Number(overrides.taskbarRevealHoldDelayMs))))
+      : Number.isFinite(Number(runtime.taskbarRevealHoldDelayMs))
+        ? Math.max(0, Math.min(5000, Math.round(Number(runtime.taskbarRevealHoldDelayMs))))
+        : 450,
+    enableURLSync:
+      typeof overrides.enableURLSync === "boolean"
+        ? overrides.enableURLSync
+        : typeof runtime.enableURLSync === "boolean"
+          ? runtime.enableURLSync
+          : true,
+    lazyloading:
+      typeof overrides.lazyloading === "boolean"
+        ? overrides.lazyloading
+        : typeof runtime.lazyloading === "boolean"
+          ? runtime.lazyloading
+          : true,
+    autoupdate:
+      typeof overrides.autoupdate === "boolean"
+        ? overrides.autoupdate
+        : typeof runtime.autoupdate === "boolean"
+          ? runtime.autoupdate
+          : true,
+    siteSettings:
+      Array.isArray(overrides.siteSettings)
+        ? overrides.siteSettings
+        : Array.isArray(runtime.siteSettings)
+          ? runtime.siteSettings
+          : [],
+    maxSpace: Number.isFinite(Number(overrides.maxSpace)) && Number(overrides.maxSpace) > 0
+      ? Number(overrides.maxSpace)
+      : Number.isFinite(Number(runtime.maxSpace)) && Number(runtime.maxSpace) > 0
+        ? Number(runtime.maxSpace)
+        : 5,
+    DRAG_THRESHOLD: Number.isFinite(Number(overrides.DRAG_THRESHOLD))
+      ? Math.max(2, Math.min(128, Math.round(Number(overrides.DRAG_THRESHOLD))))
+      : Number.isFinite(Number(runtime.DRAG_THRESHOLD))
+        ? Math.max(2, Math.min(128, Math.round(Number(runtime.DRAG_THRESHOLD))))
+        : 15,
+  };
 }
-async function posttaskbuttons(data) {
-  const headers = { "Content-Type": "application/json" };
-  if (window.data && window.data.authToken)
-    headers["Authorization"] = "Bearer " + window.data.authToken;
-  var res = await fetch(zmcdserver, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      username: getCurrentUsernameForRequests(),
-      data: data,
-      edittaskbuttons: true,
-    }),
+
+window.persistUserProfilePatch = async function (patch = {}) {
+  var profile = buildPersistableUserProfile(patch);
+  window.data = window.data || {};
+  Object.assign(window.data, profile);
+  try { data = window.data; } catch (e) {}
+  var encoded = btoa(JSON.stringify(profile, null, 2));
+  return await filePost({
+    saveSnapshot: true,
+    directions: [
+      {
+        edit: true,
+        path: window.USER_PROFILE_PATH,
+        contents: encoded,
+        replace: true,
+      },
+      { end: true },
+    ],
   });
-  let body = null;
-  try {
-    body = await res.json();
-  } catch (e) {
-    body = null;
-  }
-  if (body && (body.authToken || body.token)) {
-    try {
-      window.data = window.data || {};
-      window.data.authToken = body.authToken || body.token;
-    } catch (e) {}
-  }
-  if (res.status === 401) {
-    try {
-      showSessionExpiredDialog();
-    } catch (e) {}
-    return body || { error: "unauthorized" };
-  }
-  return body;
+};
+
+async function posttaskbuttons(data) {
+  return await window.persistUserProfilePatch({ taskbuttons: data });
 }
 async function downloadPost(data) {
   var res = await fetch(downloadserver, {

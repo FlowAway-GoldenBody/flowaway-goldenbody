@@ -12,31 +12,255 @@ const logger = new RammerheadLogging({ logLevel: 'debug' });
 const store = new RammerheadSessionFileCache({ logger });
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 directoryPath += '/';
-console.log(directoryPath)
+console.log(directoryPath);
 let sessionPath = path.resolve(__dirname, '../../sessions');
-sessionPath += '/'
-console.log(sessionPath)
+sessionPath += '/';
+console.log(sessionPath);
 const projectroot = path.resolve(__dirname, '../../');
 const fsp = require('fs/promises');
 
-function getFolderNamesSync(dirPath) {
+const PROFILE_SCHEMA_VERSION = 1;
+const START_MENU_SOURCE_PATH = path.join(__dirname, 'app-config', 'startMenu-config.json');
+
+function normalizeMaxSpaceGb(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 5;
+  return Math.max(1, Math.min(1024, n));
+}
+
+function readJsonSafe(filePath, fallback) {
   try {
-    // Read directory entries as fs.Dirent objects synchronously
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-    // Filter for directories and map to their names
-    const folderNames = entries
-      .filter(entry => entry.isDirectory())
-      .map(entry => entry.name);
-
-    return folderNames;
-  } catch (err) {
-    console.error(`Error reading directory: ${err}`);
-    return [];
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return fallback;
   }
 }
 
-// Usage example:
+function writeJsonPretty(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
+function getUserPaths(username) {
+  const safeUsername = String(username || '').trim();
+  const userDir = path.join(directoryPath, safeUsername);
+  const userRoot = path.join(userDir, 'root');
+  const authFile = path.join(userDir, `${safeUsername}.txt`);
+  const systemfilesDir = path.join(userRoot, 'systemfiles');
+  const userProfileDir = path.join(systemfilesDir, 'userprofile');
+  return {
+    username: safeUsername,
+    userDir,
+    userRoot,
+    authFile,
+    systemfilesDir,
+    userProfileDir,
+    profilePath: path.join(userProfileDir, 'profile.json'),
+    startMenuPath: path.join(userProfileDir, 'startMenu-config.json'),
+  };
+}
+
+function sanitizeAuthRecord(raw, username, passwordHint = '') {
+  const base = raw && typeof raw === 'object' ? raw : {};
+  const authTokens = Array.isArray(base.authTokens)
+    ? base.authTokens.filter((tokenRow) => tokenRow && tokenRow.token && tokenRow.expires)
+    : [];
+  const password = typeof base.password === 'string' ? base.password : String(passwordHint || '');
+  return {
+    username: String(base.username || username || '').trim(),
+    password,
+    authTokens,
+    maxSpace: normalizeMaxSpaceGb(base.maxSpace),
+  };
+}
+
+function normalizeDragThreshold(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 15;
+  return Math.max(2, Math.min(128, Math.round(n)));
+}
+
+function normalizeTaskbarRevealEdgePx(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 6;
+  return Math.max(1, Math.min(64, Math.round(n)));
+}
+
+function normalizeTaskbarRevealHoldDelayMs(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 450;
+  return Math.max(0, Math.min(5000, Math.round(n)));
+}
+
+function defaultProfile() {
+  return {
+    schemaVersion: PROFILE_SCHEMA_VERSION,
+    taskbuttons: ['🌐', '🗂', '⚙', '📝', '🖥️'],
+    brightness: 100,
+    volume: 40,
+    dark: false,
+    autohidetaskbar: false,
+    taskbarRevealEdgePx: 6,
+    taskbarRevealHoldDelayMs: 450,
+    enableURLSync: true,
+    lazyloading: true,
+    autoupdate: true,
+    siteSettings: [],
+    DRAG_THRESHOLD: 15,
+  };
+}
+
+function normalizeProfile(raw) {
+  const defaults = defaultProfile();
+  const profile = raw && typeof raw === 'object' ? raw : {};
+  const taskbuttons = Array.isArray(profile.taskbuttons) && profile.taskbuttons.length
+    ? profile.taskbuttons
+    : defaults.taskbuttons;
+
+  return {
+    schemaVersion: PROFILE_SCHEMA_VERSION,
+    taskbuttons,
+    brightness: Number.isFinite(Number(profile.brightness)) ? Number(profile.brightness) : defaults.brightness,
+    volume: Number.isFinite(Number(profile.volume)) ? Number(profile.volume) : defaults.volume,
+    dark: !!profile.dark,
+    autohidetaskbar: !!profile.autohidetaskbar,
+    taskbarRevealEdgePx: normalizeTaskbarRevealEdgePx(profile.taskbarRevealEdgePx),
+    taskbarRevealHoldDelayMs: normalizeTaskbarRevealHoldDelayMs(profile.taskbarRevealHoldDelayMs),
+    enableURLSync: typeof profile.enableURLSync === 'boolean' ? profile.enableURLSync : defaults.enableURLSync,
+    lazyloading: typeof profile.lazyloading === 'boolean' ? profile.lazyloading : defaults.lazyloading,
+    autoupdate: typeof profile.autoupdate === 'boolean' ? profile.autoupdate : defaults.autoupdate,
+    siteSettings: Array.isArray(profile.siteSettings) ? profile.siteSettings : defaults.siteSettings,
+    DRAG_THRESHOLD: normalizeDragThreshold(profile.DRAG_THRESHOLD),
+  };
+}
+
+function defaultStartMenuConfig() {
+  return {
+    version: '1.0',
+    pinnedApps: [],
+    hiddenApps: [],
+    appOrder: [],
+    recents: [],
+    maxRecents: 5,
+    displayMode: 'grid',
+    gridColumns: 4,
+  };
+}
+
+function ensureStartMenuConfig(userPaths) {
+  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
+  if (fs.existsSync(userPaths.startMenuPath)) return;
+
+  if (fs.existsSync(START_MENU_SOURCE_PATH)) {
+    fs.copyFileSync(START_MENU_SOURCE_PATH, userPaths.startMenuPath);
+    return;
+  }
+
+  writeJsonPretty(userPaths.startMenuPath, defaultStartMenuConfig());
+}
+
+function ensureRuntimeFiles(userPaths) {
+  fs.mkdirSync(userPaths.userRoot, { recursive: true });
+  fs.mkdirSync(userPaths.systemfilesDir, { recursive: true });
+
+  const runtimeFiles = [
+    'flowaway.js',
+    'runtimeCore.js',
+    'runtimeAppRuntime.js',
+    'runtimeWindowSystem.js',
+    'runtimeShell.js',
+    'goldenbody.js',
+    'processes.js',
+    'appLoader.js',
+    'appPolling.js',
+  ];
+
+  for (const fileName of runtimeFiles) {
+    const src = path.join(projectroot, 'src', 'server', 'systemfiles', fileName);
+    const dest = path.join(userPaths.systemfilesDir, fileName);
+    if (!fs.existsSync(dest) && fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+    }
+  }
+
+  const appsPath = path.join(userPaths.userRoot, 'apps');
+  if (!fs.existsSync(appsPath)) {
+    fs.cpSync(path.join(__dirname, 'apps'), appsPath, { recursive: true });
+  }
+
+  const bootDir = path.join(userPaths.userRoot, '.boot');
+  fs.mkdirSync(bootDir, { recursive: true });
+  const gbenvPath = path.join(bootDir, 'gbenv.js');
+  if (!fs.existsSync(gbenvPath)) {
+    fs.writeFileSync(gbenvPath, 'window.__gbenv_shortcut = {};\n');
+  }
+
+  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
+  ensureStartMenuConfig(userPaths);
+}
+
+function ensureUserProfile(userPaths, rawUserRecord = null) {
+  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
+
+  let profile;
+  if (fs.existsSync(userPaths.profilePath)) {
+    profile = normalizeProfile(readJsonSafe(userPaths.profilePath, {}));
+  } else {
+    profile = defaultProfile();
+  }
+
+  writeJsonPretty(userPaths.profilePath, profile);
+  ensureStartMenuConfig(userPaths);
+  return profile;
+}
+
+function readAuthRecord(userPaths) {
+  const raw = readJsonSafe(userPaths.authFile, null);
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    raw,
+    auth: sanitizeAuthRecord(raw, userPaths.username),
+  };
+}
+
+function writeAuthRecord(userPaths, authRecord) {
+  const sanitized = sanitizeAuthRecord(authRecord, userPaths.username);
+  writeJsonPretty(userPaths.authFile, sanitized);
+  return sanitized;
+}
+
+function pruneExpiredTokens(authRecord) {
+  authRecord.authTokens = Array.isArray(authRecord.authTokens) ? authRecord.authTokens : [];
+  const now = Date.now();
+  authRecord.authTokens = authRecord.authTokens.filter((tokenRow) => tokenRow && tokenRow.expires && tokenRow.expires > now);
+}
+
+function tokenFromHeader(authHeader) {
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  return '';
+}
+
+function isAuthorized(authRecord, data, authHeader) {
+  pruneExpiredTokens(authRecord);
+  const now = Date.now();
+  const headerToken = tokenFromHeader(authHeader);
+  const bodyToken = typeof data.sessionToken === 'string' ? data.sessionToken.trim() : '';
+  const tokenValid = (headerToken && authRecord.authTokens.some((row) => row.token === headerToken && row.expires > now))
+    || (bodyToken && authRecord.authTokens.some((row) => row.token === bodyToken && row.expires > now));
+  const passwordValid = typeof data.password === 'string' && data.password === authRecord.password;
+  const oldPasswordValid = typeof data.oldPassword === 'string' && data.oldPassword === authRecord.password;
+  return tokenValid || passwordValid || oldPasswordValid;
+}
+
+function issueToken(authRecord) {
+  pruneExpiredTokens(authRecord);
+  const token = crypto.randomBytes(24).toString('hex');
+  const expires = Date.now() + 1000 * 60 * 60;
+  authRecord.authTokens.push({ token, expires });
+  return token;
+}
 
 async function deleteFile(filePath) {
   try {
@@ -51,553 +275,170 @@ async function deleteFile(filePath) {
   }
 }
 
+function buildLoginResponse(authRecord, profile, token) {
+  return {
+    username: authRecord.username,
+    authTokens: authRecord.authTokens,
+    authToken: token,
+    ...profile,
+    maxSpace: normalizeMaxSpaceGb(authRecord.maxSpace),
+  };
+}
+
 function handleZMCd(req, res) {
-  // Allow CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    // Preflight request
     res.writeHead(204);
     res.end();
     return;
   }
 
-  if (req.method === 'POST') {
-    let body = '';
-
-    req.on('data', chunk => {
-      body += chunk;
-    });
-
-    req.on('end', () => {
-      let responseContent = null; // will store final response to send
-      try {
-        const data = JSON.parse(body);
-        const authHeader = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
-        // console.log('Data from client:', data);
-        let filecontents;
-        let originalId;
-        if(data.needID) {
-          const foldernames = getFolderNamesSync(directoryPath + data.username);
-            const content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
-            // console.log(content.username);
-            // console.log(data.username);
-
-              // responseContent = content; // return existing user
-              filecontents = content;
-              originalId = filecontents.id;
-              const sessionId = generateId();
-              const session = new RammerheadSession({ sessionId, store });
-              store.add(sessionId, session);
-              filecontents.id = sessionId;
-              responseContent = {id: sessionId};
-              filecontents.siteSettings = [];
-            // console.log(newContent);
-            const sfiles = fs.readdirSync(sessionPath).filter(f => !f.startsWith('.'));
-            for(const sfileName of sfiles) {
-              if(sfileName == originalId + '.rhfsession') {
-                // console.log(sfileName)
-                deleteFile(sessionPath + originalId + '.rhfsession');
-              }
-            }
-            fs.writeFileSync(directoryPath + filecontents.username + '/' + filecontents.username + '.txt', JSON.stringify(filecontents));
-
-res.end(JSON.stringify(responseContent));
-return; // VERY IMPORTANT
-        }
-        if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
-
-        if (data.needNewAcc) {
-          // Check if username already exists
-          let folders = getFolderNamesSync(directoryPath);
-          let usernameExists = false;
-
-          for (const foldername of folders) {
-            if (foldername === data.username) {
-              usernameExists = true;
-              // responseContent = content; // return existing user
-              responseContent = 'error: user already exists';
-              break;
-            }
-          }
-
-          if (!usernameExists) {
-            // Create new session
-            const sessionId = generateId();
-            const session = new RammerheadSession({ sessionId, store });
-            store.add(sessionId, session);
-
-            const newContent = {
-              username: data.username,
-              password: data.password,
-              id: sessionId,
-              // authTokens holds short-lived bearer tokens: { token, expires }
-              authTokens: [],
-              needNewAcc: false,
-              taskbuttons: ["🌐", "🗂", "⚙", "📝", "🖥️"],
-              brightness: 100,
-              volume: 40,
-              dark: false,
-              enableURLSync: true,
-              lazyloading: true,
-              autoupdate: true,
-              siteSettings: [],
-              maxSpace: 5, // in GB
-            };
-            fs.mkdirSync(directoryPath + data.username, { recursive: true });
-            let userDirectoryPath = directoryPath + data.username + '/';
-            fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent));
-            fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
-            fs.mkdirSync(userDirectoryPath + 'root/systemfiles', { recursive: true });
-fs.mkdirSync(userDirectoryPath + 'root', { recursive: true });
-fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', userDirectoryPath + 'root/systemfiles/flowaway.js');
-            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeCore.js', userDirectoryPath + 'root/systemfiles/runtimeCore.js');
-            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeAppRuntime.js', userDirectoryPath + 'root/systemfiles/runtimeAppRuntime.js');
-            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeWindowSystem.js', userDirectoryPath + 'root/systemfiles/runtimeWindowSystem.js');
-            fs.cpSync(projectroot + '/src/server/systemfiles/runtimeShell.js', userDirectoryPath + 'root/systemfiles/runtimeShell.js');
-  fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', userDirectoryPath + 'root/systemfiles/goldenbody.js');
-  fs.cpSync(projectroot + '/src/server/systemfiles/processes.js', userDirectoryPath + 'root/systemfiles/processes.js');
-  fs.cpSync(projectroot + '/src/server/systemfiles/appLoader.js', userDirectoryPath + 'root/systemfiles/appLoader.js');
-  fs.cpSync(projectroot + '/src/server/systemfiles/appPolling.js', userDirectoryPath + 'root/systemfiles/appPolling.js');
-// Don't create 'apps' — let cpSync do it
-fs.cpSync(
-  path.join(__dirname, 'apps'),
-  path.join(userDirectoryPath, 'root', 'apps'),
-  { recursive: true }
-);
-                        const bootDir = path.join(userDirectoryPath, 'root', '.boot');
-                        fs.mkdirSync(bootDir, { recursive: true });
-                        const gbenvPath = path.join(bootDir, 'gbenv.js');
-                        if (!fs.existsSync(gbenvPath)) {
-                          fs.writeFileSync(gbenvPath, 'window.__gbenv_shortcut = {};\n');
-                        }
-                        
-                        // Create startmenuAppConfig directory and startMenu-config.json for new user
-                        const userStartMenuPath = path.join(userDirectoryPath, 'root', 'startmenuAppConfig');
-                        fs.mkdirSync(userStartMenuPath, { recursive: true });
-                        const userStartMenuConfigPath = path.join(userStartMenuPath, 'startMenu-config.json');
-                        const sourceStartMenuConfigPath = path.join(__dirname, 'app-config', 'startMenu-config.json');
-                        if (!fs.existsSync(userStartMenuConfigPath)) {
-                          if (fs.existsSync(sourceStartMenuConfigPath)) {
-                            fs.copyFileSync(sourceStartMenuConfigPath, userStartMenuConfigPath);
-                          } else {
-                            const defaultStartMenuConfig = {
-                              version: '1.0',
-                              pinnedApps: [],
-                              hiddenApps: [],
-                              appOrder: [],
-                              recents: [],
-                              maxRecents: 5,
-                              displayMode: 'grid',
-                              gridColumns: 4
-                            };
-                            fs.writeFileSync(userStartMenuConfigPath, JSON.stringify(defaultStartMenuConfig, null, 2));
-                          }
-                        }
-            // Issue a token for the newly created account and do not return plaintext password
-            const token = crypto.randomBytes(24).toString('hex');
-            const expires = Date.now() + 1000 * 60 * 60; // 1 hour
-            newContent.authTokens = [{ token, expires }];
-            // persist the authTokens to disk immediately so the token is valid for subsequent requests
-            fs.writeFileSync(userDirectoryPath + data.username + '.txt', JSON.stringify(newContent, null, 2));
-            const safeNew = Object.assign({}, newContent);
-            delete safeNew.password;
-            responseContent = Object.assign({}, safeNew, { authToken: token });
-          }
-        } else {
-          // Check credentials
-          const foldernames = getFolderNamesSync(directoryPath);
-          for (const foldername of foldernames) {
-            let content;
-            try {
-              content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt', 'utf8'));
-              try {
-                fs.mkdirSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles', { recursive: true });
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/flowaway.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/flowaway.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/flowaway.js');
-              }
-              try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeCore.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeCore.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeCore.js');
-              }
-              try {
-                const runtimeAppRuntimePath = directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js';
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeAppRuntime.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeAppRuntime.js');
-              }
-              try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeWindowSystem.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeWindowSystem.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeWindowSystem.js');
-              }
-              try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeShell.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/runtimeShell.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/runtimeShell.js');
-              }
-              try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/processes.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/processes.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/processes.js');
-              }
-              try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appLoader.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/appLoader.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appLoader.js');
-              }
-              try {
-                fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appPolling.js', 'utf8');
-              } catch (e) {
-                fs.cpSync(projectroot + '/src/server/systemfiles/appPolling.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/appPolling.js');
-              }
-                try {
-                  fs.readFileSync(directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/goldenbody.js', 'utf8');
-                } catch (e) {
-                  fs.cpSync(projectroot + '/src/server/systemfiles/goldenbody.js', directoryPath + data.username + '/' + 'root' + '/' + 'systemfiles/goldenbody.js');
-                }
-              
-              // Ensure startMenu-config.json exists for existing users
-              try {
-                const userAppsPath = path.join(directoryPath, data.username, 'root', 'startmenuAppConfig');
-                fs.mkdirSync(userAppsPath, { recursive: true });
-                const startMenuConfigPath = path.join(userAppsPath, 'startMenu-config.json');
-                const sourceStartMenuConfigPath = path.join(__dirname, 'app-config', 'startMenu-config.json');
-                if (!fs.existsSync(startMenuConfigPath)) {
-                  if (fs.existsSync(sourceStartMenuConfigPath)) {
-                    fs.copyFileSync(sourceStartMenuConfigPath, startMenuConfigPath);
-                  } else {
-                    const defaultStartMenuConfig = {
-                      version: '1.0',
-                      pinnedApps: [],
-                      hiddenApps: [],
-                      appOrder: [],
-                      recents: [],
-                      maxRecents: 5,
-                      displayMode: 'grid',
-                      gridColumns: 4
-                    };
-                    fs.writeFileSync(startMenuConfigPath, JSON.stringify(defaultStartMenuConfig, null, 2));
-                  }
-                }
-              } catch (e) {
-                console.warn('Failed to ensure startMenu-config.json for user', data.username, e);
-              }
-              
-              console.log(content);
-            } catch (e) {
-              console.error('Error reading user file:', e.message);
-              responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
-              break;
-            }
-            // Helper: clean expired tokens
-            if (!Array.isArray(content.authTokens)) content.authTokens = [];
-            const now = Date.now();
-            content.authTokens = content.authTokens.filter(t => t && t.expires && t.expires > now);
-            // Verify by either password or Bearer token
-            let tokenFromHeader = null;
-            if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
-            const tokenValid = tokenFromHeader && content.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
-            if (content.username === data.username && (content.password === data.password || tokenValid)) {
-              if(!content.taskbuttons) {
-                  content.taskbuttons = ["🌐", "🗂", "⚙", "📝", "🖥️"];
-                  fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
-              }
-              // Issue a short-lived token for the session
-              const token = crypto.randomBytes(24).toString('hex');
-              const expires = Date.now() + 1000 * 60 * 60; // 1 hour
-              content.authTokens = content.authTokens || [];
-              content.authTokens.push({ token, expires });
-              fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content, null, 2));
-              // Do not include password in response
-              const safeContent = Object.assign({}, content);
-              delete safeContent.password;
-              responseContent = Object.assign({}, safeContent, { authToken: token });
-              if(content.online) {responseContent = 'error: it looks like another tab is online, if you believe thats a mistake, ask alawgeo in hydrosphere!'; break;}
-              break;
-            }
-            else {
-              responseContent = 'error: invalid username or password'; // + ', original error: ' + e;
-              break;
-            }
-          }
-
-        }
-        if (data.refillSession) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, 'utf8'));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: 'User file not found' }));
-          }
-
-          if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
-          const now = Date.now();
-          userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
-
-          let tokenFromHeader = null;
-          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
-          const tokenFromBody = typeof data.sessionToken === 'string' ? data.sessionToken.trim() : '';
-          const tokenValid =
-            (tokenFromHeader && userData.authTokens.some(t => t.token === tokenFromHeader && t.expires > now)) ||
-            (tokenFromBody && userData.authTokens.some(t => t.token === tokenFromBody && t.expires > now));
-          const passwordValid = typeof data.password === 'string' && data.password === userData.password;
-
-          if (!(passwordValid || tokenValid)) {
-            res.writeHead(401);
-            return res.end(JSON.stringify({ error: 'unauthorized' }));
-          }
-
-          const newToken = crypto.randomBytes(24).toString('hex');
-          const expires = Date.now() + 1000 * 60 * 60; // 1 hour
-          userData.authTokens.push({ token: newToken, expires });
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-
-          return res.end(JSON.stringify({ success: true, authToken: newToken }));
-        }
-        if(data.edittaskbuttons) {
-          // Require auth: either password in body or valid bearer token
-          let content = JSON.parse(fs.readFileSync(directoryPath + data.username + '/' + data.username + '.txt'));
-          if (!Array.isArray(content.authTokens)) content.authTokens = [];
-          const now = Date.now();
-          content.authTokens = content.authTokens.filter(t => t && t.expires && t.expires > now);
-          let tokenFromHeader = null;
-          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
-          const tokenValid = tokenFromHeader && content.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
-          if (!(data.password === content.password || tokenValid)) {
-            return res.end(JSON.stringify({ error: 'unauthorized' }));
-          }
-          content.taskbuttons = data.data;
-          fs.writeFileSync(directoryPath + data.username + '/' + data.username + '.txt', JSON.stringify(content));
-        }
-        else if (data.updatePassword) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt'
-
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          // Allow password change if oldPassword matches OR a valid bearer token present
-          if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
-          const now = Date.now();
-          userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
-          let tokenFromHeader = null;
-          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeader = authHeader.slice(7).trim();
-          const tokenValid = tokenFromHeader && userData.authTokens.some(t => t.token === tokenFromHeader && t.expires > now);
-          if (!(data.oldPassword === userData.password || tokenValid)) {
-            return res.end(JSON.stringify({ error: "old password is wrong" }));
-          }
-
-          userData.password = data.newPassword;
-          // invalidate existing tokens
-          userData.authTokens = [];
-          // issue new token
-          const newToken = crypto.randomBytes(24).toString('hex');
-          const expires = Date.now() + 1000 * 60 * 60; // 1 hour
-          userData.authTokens.push({ token: newToken, expires });
-
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-          return res.end(JSON.stringify({ success: true, authToken: newToken }));
-        }
-        else if(data.deleteAcc) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          // Check auth: password or bearer token
-          if (!Array.isArray(userData.authTokens)) userData.authTokens = [];
-          const now = Date.now();
-          userData.authTokens = userData.authTokens.filter(t => t && t.expires && t.expires > now);
-          let tokenFromHeaderDelete = null;
-          if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) tokenFromHeaderDelete = authHeader.slice(7).trim();
-          const tokenValidDelete = tokenFromHeaderDelete && userData.authTokens.some(t => t.token === tokenFromHeaderDelete && t.expires > now);
-          if(!(data.password === userData.password || tokenValidDelete)) {
-            return res.end(JSON.stringify({ error: "wrong password" }));
-          }
-          try {
-            fs.unlinkSync(sessionPath + userData.id + '.rhfsession');
-          } catch (e) {
-            console.log('Session file delete error:', e.message);
-          }
-          // Clean up any file watchers and WebSocket connections before deletion
-          try {
-            cleanupUserWatcher(data.username, true);
-            console.log(`[DELETE] Cleaned up watchers for user: ${data.username}`);
-          } catch (e) {
-            console.error('[DELETE] Error cleaning up watchers:', e.message);
-          }
-          const targetDir = directoryPath + data.username;
-          try {
-            if (fs.existsSync(targetDir)) {
-              console.log(`[DELETE] Target directory exists: ${targetDir}`);
-              console.log(`[DELETE] Directory contents before deletion:`, fs.readdirSync(targetDir));
-              fs.rmSync(targetDir, { recursive: true, force: true });
-              console.log(`[DELETE] rmSync completed for: ${targetDir}`);
-            } else {
-              console.log(`[DELETE] Directory not found: ${targetDir}`);
-            }
-            // verify removal with slight delay
-            setTimeout(() => {
-              if (fs.existsSync(targetDir)) {
-                console.error(`[DELETE] VERIFICATION FAILED - Directory still exists: ${targetDir}`);
-              } else {
-                console.log(`[DELETE] VERIFICATION SUCCESS - Directory removed: ${targetDir}`);
-              }
-            }, 100);
-            
-            // Double check immediately
-            if (fs.existsSync(targetDir)) {
-              console.error('Failed to remove user directory:', targetDir);
-              console.log('Directory still contains:', fs.readdirSync(targetDir));
-              return res.end(JSON.stringify({ error: 'failed to remove account directory' }));
-            }
-            console.log(`Directory deleted: ${targetDir}`);
-            return res.end(JSON.stringify({ success: true }));
-          } catch (e) {
-            console.error('Error deleting user directory:', e.message);
-            console.error('Error code:', e.code);
-            console.error('Error path:', e.path);
-            return res.end(JSON.stringify({ error: 'failed to remove account directory', details: String(e) }));
-          }
-        } else if(data.changeBrightness) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          userData.brightness = data.brightness;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-        }
-        else if(data.changeVolume) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          userData.volume = data.volume;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-        }
-        else if(data.setTheme) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          userData.dark = data.dark;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-        } else if (data.setAutohideTaskbar) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          userData.autohidetaskbar = !!data.autohidetaskbar;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-        }
-        else if(data.updateSiteSettings) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          console.log(data)
-          for(let i = 0; i < userData.siteSettings.length; i++) {
-            if(userData.siteSettings[i][0] === data.url) {
-              userData.siteSettings[i][1] = data.newSandbox;
-            }
-          }
-          if(data.addTheSite) {
-            let a = [];
-            a.push(data.url);
-            a.push(data.newSandbox);
-            userData.siteSettings.push(a);
-          }
-          userData.enableURLSync = data.enableURLSync;
-          userData.lazyloading = data.lazyloading;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-        }
-      else if (data.requestSiteSettings) {
-        console.log('req site settings');
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          responseContent = {siteSettings: userData.siteSettings};
-      } else if (data.setEditorSettings) {
-          // Editor settings are now stored in app-local VFS file
-          // (/apps/textEditor/data/settings.json), not in the general
-          // auth/system user file.
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          // Cleanup legacy field if it exists so the user file remains
-          // system-only data (taskbuttons, brightness, etc.).
-          if (Object.prototype.hasOwnProperty.call(userData, 'editorSettings')) {
-            delete userData.editorSettings;
-            fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-          }
-          responseContent = { success: true };
-        } else if (data.setAutoupdate) {
-          const userFile = directoryPath + data.username + '/' + data.username + '.txt';
-          let userData;
-          try {
-            userData = JSON.parse(fs.readFileSync(userFile, "utf8"));
-          } catch {
-            res.writeHead(404);
-            return res.end(JSON.stringify({ error: "User file not found" }));
-          }
-          userData.autoupdate = !!data.autoupdate;
-          fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
-          responseContent = { success: true };
-        }    
-      } catch (err) {
-        console.error(err);
-        responseContent = { error: 'Invalid JSON or server error' };
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(responseContent)); // send exactly once
-    });
-  } else {
+  if (req.method !== 'POST') {
     res.writeHead(405);
     res.end(JSON.stringify({ error: 'Send a POST request with JSON' }));
+    return;
   }
+
+  let body = '';
+  req.on('data', (chunk) => {
+    body += chunk;
+  });
+
+  req.on('end', () => {
+    let responseContent = null;
+    try {
+      const data = JSON.parse(body);
+      const authHeader = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
+
+      if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
+      const userPaths = getUserPaths(data.username);
+
+      if (data.needID) {
+        const authResult = readAuthRecord(userPaths);
+        if (!authResult) {
+          responseContent = { error: 'invalid user' };
+        } else {
+          const sessionId = generateId();
+          const session = new RammerheadSession({ sessionId, store });
+          store.add(sessionId, session);
+          const sfiles = fs.readdirSync(sessionPath).filter((f) => !f.startsWith('.'));
+          for (const sfileName of sfiles) {
+            if (sfileName === `${sessionId}.rhfsession`) {
+              deleteFile(path.join(sessionPath, `${sessionId}.rhfsession`));
+            }
+          }
+          responseContent = { id: sessionId };
+        }
+
+        res.end(JSON.stringify(responseContent));
+        return;
+      }
+
+      if (data.needNewAcc) {
+        if (fs.existsSync(userPaths.userDir)) {
+          responseContent = 'error: user already exists';
+        } else {
+          fs.mkdirSync(userPaths.userDir, { recursive: true });
+          ensureRuntimeFiles(userPaths);
+          const authRecord = sanitizeAuthRecord(null, userPaths.username, data.password);
+          const token = issueToken(authRecord);
+          writeAuthRecord(userPaths, authRecord);
+          const profile = ensureUserProfile(userPaths, null);
+          responseContent = buildLoginResponse(authRecord, profile, token);
+        }
+      } else {
+        const authResult = readAuthRecord(userPaths);
+        if (!authResult) {
+          responseContent = 'error: invalid username or password';
+        } else {
+          ensureRuntimeFiles(userPaths);
+          const authRecord = authResult.auth;
+          if (authRecord.username !== data.username || !isAuthorized(authRecord, data, authHeader)) {
+            responseContent = 'error: invalid username or password';
+          } else {
+            const token = issueToken(authRecord);
+            writeAuthRecord(userPaths, authRecord);
+            const profile = ensureUserProfile(userPaths, authResult.raw);
+            responseContent = buildLoginResponse(authRecord, profile, token);
+          }
+        }
+      }
+
+      if (data.refillSession) {
+        const authResult = readAuthRecord(userPaths);
+        if (!authResult) {
+          res.writeHead(404);
+          return res.end(JSON.stringify({ error: 'User file not found' }));
+        }
+
+        const authRecord = authResult.auth;
+        if (!isAuthorized(authRecord, data, authHeader)) {
+          res.writeHead(401);
+          return res.end(JSON.stringify({ error: 'unauthorized' }));
+        }
+
+        const newToken = issueToken(authRecord);
+        writeAuthRecord(userPaths, authRecord);
+        return res.end(JSON.stringify({ success: true, authToken: newToken }));
+      }
+
+      if (data.updatePassword) {
+        const authResult = readAuthRecord(userPaths);
+        if (!authResult) {
+          res.writeHead(404);
+          return res.end(JSON.stringify({ error: 'User file not found' }));
+        }
+
+        const authRecord = authResult.auth;
+        if (!isAuthorized(authRecord, data, authHeader)) {
+          return res.end(JSON.stringify({ error: 'old password is wrong' }));
+        }
+
+        authRecord.password = String(data.newPassword || '');
+        authRecord.authTokens = [];
+        const newToken = issueToken(authRecord);
+        writeAuthRecord(userPaths, authRecord);
+        return res.end(JSON.stringify({ success: true, authToken: newToken }));
+      } else if (data.deleteAcc) {
+        const authResult = readAuthRecord(userPaths);
+        if (!authResult) {
+          res.writeHead(404);
+          return res.end(JSON.stringify({ error: 'User file not found' }));
+        }
+
+        const authRecord = authResult.auth;
+        if (!isAuthorized(authRecord, data, authHeader)) {
+          return res.end(JSON.stringify({ error: 'wrong password' }));
+        }
+
+        try {
+          cleanupUserWatcher(data.username, true);
+          console.log(`[DELETE] Cleaned up watchers for user: ${data.username}`);
+        } catch (e) {
+          console.error('[DELETE] Error cleaning up watchers:', e.message);
+        }
+
+        const targetDir = userPaths.userDir;
+        try {
+          if (fs.existsSync(targetDir)) {
+            fs.rmSync(targetDir, { recursive: true, force: true });
+          }
+          return res.end(JSON.stringify({ success: true }));
+        } catch (e) {
+          return res.end(JSON.stringify({ error: 'failed to remove account directory', details: String(e) }));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      responseContent = { error: 'Invalid JSON or server error' };
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(responseContent));
+  });
 }
 
 function startServer(port = 8082, host = '0.0.0.0') {
