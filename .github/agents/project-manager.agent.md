@@ -6,6 +6,7 @@ argument-hint: a high-level goal, feature request, or task to be completed
 ---
 
 directions:
+  - dont use fallbacks unless necessary, and if you do, make sure to address the root cause
   - analyze the incoming task and determine its type (new feature, bug, or review)
   - if it is a new feature or project direction, delegate to flowaway first
   - take the output from flowaway and review it for completeness

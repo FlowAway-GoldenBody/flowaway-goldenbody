@@ -4,5 +4,19 @@
   "cmf": "yourAppContextMenu",
   "cmfl1": "yourAppContextMenuHandlerL1",
   "globalvarobjectstring": "yourAppGlobals",
-  "allapparraystring": "allYourAppInstances"
+  "allapparraystring": "allYourAppInstances",
+  "useDefaultConfig": {
+    "apptitle": true,
+    "titlebar": true,
+    "dragstrip": true,
+    "minimizebutton": true,
+    "maximizebutton": true,
+    "closebutton": true,
+    "closewindow": true,
+    "newwindow": true,
+    "showall": true,
+    "hideall": true,
+    "closeall": true,
+    "allapparray": true
+  }
 }

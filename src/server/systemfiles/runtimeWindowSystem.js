@@ -973,9 +973,25 @@ style.textContent = `
 /* =========================================================
    🌞 LIGHT THEME (default)
 ========================================================= */
+.app-root {
+  position: fixed;
+  top: 70px;
+  left: 70px;
+  width: 700px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
 .app-root * {
   /* box-sizing: border-box; */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+.appContent {
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
 }
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
 .sim-chrome-top {
@@ -1068,7 +1084,62 @@ style.textContent = `
 }
 
 .appTopBar {
-  background: #ccc
+  background: #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 1px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: move;
+  user-select: none;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: auto;
+  z-index: 3;
+}
+
+.appTopBarTitle {
+  display: none;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appTopDragStrip {
+  height: 12px;
+  flex-shrink: 0;
+  display: flex;
+  cursor: move;
+  width: 100%;
+}
+
+.appWindowControls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.appWindowControl {
+  border: none;
+  border-radius: 3px;
+  min-width: 23px;
+  height: 18px;
+  font-size: 11px;
+  padding: 0 3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.appWindowCloseColor {
+  background: #d90429;
+  color: #fff;
 }
 
 .panel {}
@@ -1164,6 +1235,11 @@ style.textContent = `
   color: #000;
 }
 
+.app-root.light .appWindowCloseColor {
+  background: #d90429;
+  color: #fff;
+}
+
 .app-root.light .misc {
   background: white;
   color: black;
@@ -1255,6 +1331,11 @@ style.textContent = `
 .app-root.dark .btnMinColor {
   color: white;
   background: black;
+}
+
+.app-root.dark .appWindowCloseColor {
+  background: #d90429;
+  color: #fff;
 }
 
 .app-root.dark .appTopBar {

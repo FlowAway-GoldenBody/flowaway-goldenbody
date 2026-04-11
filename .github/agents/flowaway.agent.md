@@ -21,6 +21,7 @@ rules:
   - always propose a plan before implementing significant changes
   - do not begin large implementations without a clear breakdown of steps
   - consider edge cases, failure modes, and user behavior scenarios in every plan
+  - dont use fallbacks unless necessary, and if you do, make sure to address the root cause
 output:
   - goal summary
   - proposed plan

@@ -219,6 +219,9 @@
 
             var newAppData = await extractAppData(appFolder);
             if (!newAppData) continue;
+            if (typeof window.ensureAppRuntimeState === "function") {
+              window.ensureAppRuntimeState(newAppData);
+            }
             window.apps.push(newAppData);
             window.apps.sort(function (a, b) { return a.label.localeCompare(b.label); });
             if (typeof flowawayDebug === "function") {
@@ -309,18 +312,25 @@
             var expectedPath2 = folder[2] && folder[2].path ? folder[2].path : "apps/" + folderName2;
             var existingApp2 = (window.apps || []).find(function (a) { return a.path === expectedPath2; });
             if (!existingApp2) continue;
+            if (typeof window.ensureAppRuntimeState === "function") {
+              window.ensureAppRuntimeState(existingApp2);
+            }
 
             var newAppData2 = await extractAppData(folder);
             if (!newAppData2) continue;
 
             var jsFileChanged = existingApp2.jsFile !== newAppData2.jsFile;
+            var functionChanged = existingApp2.functionname !== newAppData2.functionname;
+            var cmfChanged = existingApp2.cmf !== newAppData2.cmf;
             var appModified =
               jsFileChanged ||
-              existingApp2.functionname !== newAppData2.functionname ||
+              functionChanged ||
+              existingApp2.id !== newAppData2.id ||
               existingApp2.icon !== newAppData2.icon ||
               existingApp2.label !== newAppData2.label ||
+              JSON.stringify(existingApp2.allapparraystring || []) !== JSON.stringify(newAppData2.allapparraystring || []) ||
               existingApp2.globalvarobjectstring !== newAppData2.globalvarobjectstring ||
-              existingApp2.cmf !== newAppData2.cmf ||
+              cmfChanged ||
               existingApp2.cmfl1 !== newAppData2.cmfl1 ||
               JSON.stringify(existingApp2.openfilecapability || []) !== JSON.stringify(newAppData2.openfilecapability || []);
 
@@ -341,6 +351,9 @@
             existingApp2.cmf = newAppData2.cmf;
             existingApp2.cmfl1 = newAppData2.cmfl1;
             existingApp2.openfilecapability = newAppData2.openfilecapability;
+            if (typeof window.ensureAppRuntimeState === "function") {
+              window.ensureAppRuntimeState(existingApp2);
+            }
 
             var appGridElement =
               document.getElementById((newAppData2.functionname || newAppData2.id) + "app") ||
@@ -350,7 +363,8 @@
               appGridElement.innerHTML = existingApp2.icon + '<br><span style="font-size:14px;">' + existingApp2.label + "</span>";
             }
 
-            if (jsFileChanged && existingApp2.jsFile) {
+            var scriptReloadRequired = jsFileChanged || functionChanged || cmfChanged;
+            if (scriptReloadRequired && existingApp2.jsFile) {
               try {
                 if (await reloadAppScript(existingApp2, oldFunctionName, oldCmf)) {
                   scriptReloadedPaths.add(existingApp2.path);
@@ -446,6 +460,9 @@
           var existingApp = (window.apps || []).find(function (a) {
             return a.path === expectedPath || String(a.path || "").split("/").pop() === folderName;
           });
+          if (existingApp && typeof window.ensureAppRuntimeState === "function") {
+            window.ensureAppRuntimeState(existingApp);
+          }
 
           if (!existingApp) {
             var folderStillExists = null;
@@ -528,13 +545,17 @@
           if (!newAppData) continue;
 
           var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
+          var functionChanged = existingApp.functionname !== newAppData.functionname;
+          var cmfChanged = existingApp.cmf !== newAppData.cmf;
           var appModified =
             jsFileChanged ||
-            existingApp.functionname !== newAppData.functionname ||
+            functionChanged ||
+            existingApp.id !== newAppData.id ||
             existingApp.icon !== newAppData.icon ||
             existingApp.label !== newAppData.label ||
+            JSON.stringify(existingApp.allapparraystring || []) !== JSON.stringify(newAppData.allapparraystring || []) ||
             existingApp.globalvarobjectstring !== newAppData.globalvarobjectstring ||
-            existingApp.cmf !== newAppData.cmf ||
+            cmfChanged ||
             existingApp.cmfl1 !== newAppData.cmfl1 ||
             JSON.stringify(existingApp.openfilecapability || []) !== JSON.stringify(newAppData.openfilecapability || []);
 
@@ -554,6 +575,9 @@
             existingApp.cmf = newAppData.cmf;
             existingApp.cmfl1 = newAppData.cmfl1;
             existingApp.openfilecapability = newAppData.openfilecapability;
+            if (typeof window.ensureAppRuntimeState === "function") {
+              window.ensureAppRuntimeState(existingApp);
+            }
 
             var appGridElement =
               document.getElementById((newAppData.functionname || newAppData.id) + "app") ||
@@ -563,7 +587,8 @@
               appGridElement.innerHTML = existingApp.icon + '<br><span style="font-size:14px;">' + existingApp.label + "</span>";
             }
 
-            if (jsFileChanged && existingApp.jsFile) {
+            var scriptReloadRequired = jsFileChanged || functionChanged || cmfChanged;
+            if (scriptReloadRequired && existingApp.jsFile) {
               try {
                 if (await reloadAppScript(existingApp, oldFunctionName, oldCmf)) {
                   scriptReloadedPaths.add(existingApp.path);

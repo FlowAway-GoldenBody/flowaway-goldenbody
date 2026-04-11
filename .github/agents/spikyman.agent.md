@@ -5,6 +5,7 @@ argument-hint: The inputs this agent expects, e.g., "a task to implement" or "a 
 # tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo'] # specify the tools this agent can use. If not set, all enabled tools are allowed.
 ---
 directions:
+  - dont use fallbacks unless necessary, and if you do, make sure to address the root cause
   - scan relevant opened files and understand the current implementation
   - identify potential edge cases, overlooked scenarios, and failure modes
   - think from the perspective of unusual inputs, incorrect usage, and boundary conditions
