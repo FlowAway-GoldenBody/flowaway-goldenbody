@@ -7,7 +7,7 @@ explorerGlobals.clipboard = {
   path: null, // full path string
 };
 
-fileExplorer = function (posX = 50, posY = 50) {
+fileExplorer = function (posX = 50, posY = 50, path = '/') {
   let isMaximized = false;
   let _isMinimized = false;
   atTop = "fileExplorer";
@@ -506,6 +506,41 @@ fileExplorer = function (posX = 50, posY = 50) {
     if (data.clipboard && Array.isArray(data.clipboard)) {
       explorerGlobals.clipboard = data.clipboard;
     }
+    // If a startup `path` was provided to fileExplorer(posX,posY,path),
+    // try to resolve it to an existing folder in `treeData` and set
+    // `currentPath` accordingly. If the path points to a file, use its
+    // parent folder. If nothing is found, fall back to root.
+    try {
+      if (path !== "/") {
+        // normalize and split, strip leading/trailing slashes
+        let parts = path.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+        // if someone passed a path starting with 'root', remove it
+        if (parts.length && parts[0] === "root") parts = parts.slice(1);
+
+        // build candidate search array starting with 'root'
+        let candidate = ["root", ...parts];
+
+        // walk backwards until we find an existing node in treeData
+        while (candidate.length > 1) {
+          const nodeFound = findNode(treeData, candidate);
+          if (nodeFound) {
+            // if it's a folder, use it; if it's a file, use its parent
+            if (Array.isArray(nodeFound[1])) {
+              currentPath = candidate.slice();
+              break;
+            } else {
+              candidate.pop();
+              currentPath = candidate.slice();
+              break;
+            }
+          }
+          candidate.pop();
+        }
+      }
+    } catch (e) {
+      console.warn("fileExplorer: failed to set startup path", e);
+    }
+
     render();
   };
 

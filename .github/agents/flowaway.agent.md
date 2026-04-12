@@ -22,6 +22,9 @@ rules:
   - do not begin large implementations without a clear breakdown of steps
   - consider edge cases, failure modes, and user behavior scenarios in every plan
   - dont use fallbacks unless necessary, and if you do, make sure to address the root cause
+  - dont use typeof smt === anything. if that happens, let it throw when somewhere expect a type so i could pinpoint the issue and fix it. this is important for code quality and maintainability.
+  - when modifying existing code, remove legacy support and old code that is no longer needed.
+  - when working on apps, treat them as real apps that users can interact with, modify, and delete. do not hardcode assumptions about system apps.
 output:
   - goal summary
   - proposed plan
