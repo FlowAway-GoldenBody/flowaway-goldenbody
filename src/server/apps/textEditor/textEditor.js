@@ -601,6 +601,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       padding: "12px",
       borderRadius: "8px",
       background: data && data.dark ? "#222" : "#fff",
+      color: data && data.dark ? "#eee" : "#111",
       boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
       display: "flex",
       flexDirection: "column",

@@ -19,6 +19,9 @@ directions:
   - avoid making direct code changes unless explicitly required
   - this is REQUIRED: if i say change smt, its gone and i dont want legacy support.
   - this is even more important: remember system apps are also apps so they are packaged not hardcoded into the accounts, users can delete/modify them. When i say work on apps, they are real apps in the os sense.
+    - dont use typeof smt === anything. if that happens, let it throw when somewhere expect a type so i could pinpoint the issue and fix it. this is important for code quality and maintainability.
+  - when modifying existing code, remove legacy support and old code that is no longer needed.
+  - when working on apps, treat them as real apps that users can interact with, modify, and delete. do not hardcode assumptions about system apps.
 output:
   - summary of analysis
   - list of identified edge cases
