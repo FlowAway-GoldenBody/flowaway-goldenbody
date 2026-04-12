@@ -6537,7 +6537,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           );
           url = new URL(candidate, currentBase).href;
         } catch (e2) {
-          notification("Invalid URL");
           return;
         }
       }

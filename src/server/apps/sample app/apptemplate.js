@@ -1,5 +1,5 @@
-window.yourApp = function () {
-  var root = window.apptools.createRoot();
+window.yourApp = function (posX, posY) {
+  var root = window.apptools.createRoot('yourApp', posX, posY);
   var topbar = window.apptools.createtitlebar(root);
 
   var content = document.createElement("div");
