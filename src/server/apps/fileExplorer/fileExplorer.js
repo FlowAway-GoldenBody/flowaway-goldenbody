@@ -501,6 +501,7 @@ fileExplorer = function (posX = 50, posY = 50) {
   let onlyloadTree = async function () {
     const data = await filePost({ initFE: true });
     treeData = data.tree;
+    annotateTreeWithPaths(treeData);
     // Restore clipboard from server
     if (data.clipboard && Array.isArray(data.clipboard)) {
       explorerGlobals.clipboard = data.clipboard;
@@ -683,6 +684,7 @@ fileExplorer = function (posX = 50, posY = 50) {
       div.style.borderBottom = "1px solid #eee";
       div.style.cursor = "pointer";
       div.draggable = true;
+      if (item[0].endsWith(".smh")) {div.addEventListener('dblclick', () => evalJsApp(item[2].path));}
       // Highlight selected
       if (selectedItems.includes(item)) div.style.background = "#d0e6ff";
 

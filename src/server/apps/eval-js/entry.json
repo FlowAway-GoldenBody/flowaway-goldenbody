@@ -1,0 +1,7 @@
+{
+  "functionname": "evalJsApp",
+  "label": "Eval JS",
+  "globalvarobjectstring": "evalJsAppGlobals",
+  "allapparraystring": "allEvalJsAppInstances",
+  "openfilecapability": [".smh"]
+}

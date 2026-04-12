@@ -1450,6 +1450,7 @@ var oldLoadTree = window.loadTree;
 window.loadTree = async function () {
   await oldLoadTree();
   await loadAppsFromTree();
+  annotateTreeWithPaths(window.treeData);
 };
 async function ensureFlowawayAppLoaderLoaded() {
   try {

@@ -3155,6 +3155,7 @@
       try {
         buildTaskManagerState();
         ensureProcessTrackerRunning();
+        annotateTreeWithPaths(window.treeData);
       } catch (e) {}
     };
 
