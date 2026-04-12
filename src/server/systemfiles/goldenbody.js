@@ -167,6 +167,10 @@
     hideTaskbar();
   }
   function _setTaskButtonContextMenuOpen(isOpen) {
+    if (!autohideEnabled) {
+      _taskButtonContextMenuOpen = false;
+      return;
+    }
     _taskButtonContextMenuOpen = !!isOpen;
     if (_taskButtonContextMenuOpen) {
       showTaskbar();
@@ -175,6 +179,7 @@
     _scheduleHide();
   }
   function _onContextMenuCapture(e) {
+    if (!autohideEnabled) return;
     var isTaskButton = !!(e && e.target && e.target.closest && e.target.closest('.taskbutton'));
     _setTaskButtonContextMenuOpen(isTaskButton);
   }
@@ -187,6 +192,10 @@
     }
   }
   function _setTaskbarContextMenuOpen(isOpen) {
+    if (!autohideEnabled) {
+      _taskbarContextMenuOpen = false;
+      return;
+    }
     _taskbarContextMenuOpen = !!isOpen;
     if (_taskbarContextMenuOpen) {
       showTaskbar();
@@ -389,7 +398,7 @@
     taskbar.addEventListener('contextmenu', function (ev) {
       if(ev.target && ev.target.closest && ev.target.closest('.taskbutton')) return; // ignore right-clicks on task buttons
       ev.preventDefault();
-      _setTaskbarContextMenuOpen(true);
+      if (autohideEnabled) _setTaskbarContextMenuOpen(true);
       var x = ev.clientX;
       var y = ev.clientY;
       chk.checked = !!(window.data && window.data.autohidetaskbar);
