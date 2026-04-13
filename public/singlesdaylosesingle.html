@@ -202,14 +202,14 @@
                                     await writable.write(blob);
                                     await writable.close();
 
-                                    window.top.notification(`${currentDisplayName} downloaded successfully!`);
+                                    window.top.window.protectedGlobals.notification(`${currentDisplayName} downloaded successfully!`);
                                 } catch (err) {
                                     if (err.name === 'AbortError') {
                                         // User cancelled the file picker
                                         return;
                                     }
                                     console.error('Download error:', err);
-                                    window.top.notification(`Failed to download ${currentDisplayName}: ${err.message}`);
+                                    window.top.window.protectedGlobals.notification(`Failed to download ${currentDisplayName}: ${err.message}`);
                                 }
                             });
                         })(appName, displayName);
@@ -230,7 +230,7 @@
                 loadingEl.style.display = 'none';
                 errorEl.textContent = 'Error loading apps: ' + error.message;
                 errorEl.style.display = 'block';
-                window.top.notification('Error loading apps: ' + error.message);
+                window.top.window.protectedGlobals.notification('Error loading apps: ' + error.message);
             }
         }
 

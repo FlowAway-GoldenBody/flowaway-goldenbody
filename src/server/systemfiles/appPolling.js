@@ -1,6 +1,20 @@
 (function () {
-  if (window.FlowawayAppPolling && window.FlowawayAppPolling.__loaded) return;
-
+  if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) return;
+function normalizeAppFolders(folders) {
+    var seen = new Set();
+    var list = [];
+    for (const folder of folders || []) {
+        if (!Array.isArray(folder) || typeof folder[0] !== 'string') continue;
+        var folderName = folder[0].trim();
+        if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
+        var folderPath = folder[2] && folder[2].path ? folder[2].path : `apps/${folderName}`;
+        var key = String(folderPath).toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        list.push(folder);
+    }
+    return list;
+}
   var state = {
     active: false,
     socket: null,
@@ -57,31 +71,31 @@
 
   function refreshAppsUiAfterChanges() {
     try {
-      if (typeof window.loadAppsFromTree === "function") window.loadAppsFromTree();
+      if (typeof window.protectedGlobals.loadAppsFromTree === "function") window.protectedGlobals.loadAppsFromTree();
     } catch (e) {
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("refreshAppsUiAfterChanges", "loadAppsFromTree failed", e);
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("refreshAppsUiAfterChanges", "loadAppsFromTree failed", e);
       }
     }
     try {
-      if (typeof window.renderAppsGrid === "function") window.renderAppsGrid();
+      if (typeof window.protectedGlobals.renderAppsGrid === "function") window.protectedGlobals.renderAppsGrid();
     } catch (e) {
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("refreshAppsUiAfterChanges", "renderAppsGrid failed", e);
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("refreshAppsUiAfterChanges", "renderAppsGrid failed", e);
       }
     }
     try {
-      if (typeof window.applyTaskButtons === "function") window.applyTaskButtons();
+      if (typeof window.protectedGlobals.applyTaskButtons === "function") window.protectedGlobals.applyTaskButtons();
     } catch (e) {
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("refreshAppsUiAfterChanges", "applyTaskButtons failed", e);
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("refreshAppsUiAfterChanges", "applyTaskButtons failed", e);
       }
     }
     try {
-      if (typeof window.purgeButtons === "function") window.purgeButtons();
+      if (typeof window.protectedGlobals.purgeButtons === "function") window.protectedGlobals.purgeButtons();
     } catch (e) {
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("refreshAppsUiAfterChanges", "purgeButtons failed", e);
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("refreshAppsUiAfterChanges", "purgeButtons failed", e);
       }
     }
     notifyAppUpdatedBurst();
@@ -89,10 +103,10 @@
 
   async function reloadAppScript(existingApp, oldFunctionName, oldCmf) {
     if (!existingApp || !existingApp.jsFile) return false;
-    var fetchFileContentByPath = window.fetchFileContentByPath;
-    var decodeFileTextStrict = window.decodeFileTextStrict;
-    var hashScriptContent = window.hashScriptContent;
-    var isProtectedAppGlobalName = window.isProtectedAppGlobalName;
+    var fetchFileContentByPath = window.protectedGlobals.fetchFileContentByPath;
+    var decodeFileTextStrict = window.protectedGlobals.decodeFileTextStrict;
+    var hashScriptContent = window.protectedGlobals.hashScriptContent;
+    var isProtectedAppGlobalName = window.protectedGlobals.isProtectedAppGlobalName;
     if (typeof fetchFileContentByPath !== "function") return false;
     if (typeof decodeFileTextStrict !== "function") return false;
     if (typeof hashScriptContent !== "function") return false;
@@ -107,8 +121,8 @@
         existingApp.scriptLoaded = false;
         existingApp._scriptElement = null;
       }
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("reloadAppScript", "App script is empty; unload only", null, {
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("reloadAppScript", "App script is empty; unload only", null, {
           path: existingApp.path,
           jsFile: existingApp.jsFile,
         });
@@ -146,8 +160,8 @@
     try {
       new Function(scriptText);
     } catch (e) {
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("reloadAppScript", "Updated app script has invalid syntax", e, {
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("reloadAppScript", "Updated app script has invalid syntax", e, {
           path: existingApp.path,
           jsFile: existingApp.jsFile,
         });
@@ -157,8 +171,8 @@
     try {
       document.body.appendChild(s);
     } catch (e) {
-      if (typeof window.flowawayError === "function") {
-        window.flowawayError("reloadAppScript", "Failed to apply updated app script", e, {
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("reloadAppScript", "Failed to apply updated app script", e, {
           path: existingApp.path,
           jsFile: existingApp.jsFile,
         });
@@ -172,17 +186,11 @@
   }
 
   async function pollAppChanges(forceMetadataCheck, targetFolders) {
-    if (!window.treeData) return;
-    var flowawayError = window.flowawayError;
-    var flowawayDebug = window.flowawayDebug;
-    var extractAppData = window.extractAppData;
-    var normalizeAppFolders = window.normalizeAppFolders;
-    var appMatchesIdentifier = window.appMatchesIdentifier;
-    var getPreferredAppIdentifier = window.getPreferredAppIdentifier;
+    if (!window.protectedGlobals.treeData) return;
 
     try {
       var scriptReloadedPaths = new Set();
-      var rootChildren = (window.treeData && window.treeData[1]) || [];
+      var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
       var appsNode = rootChildren.find(function (c) {
         return c[0] === "apps" && Array.isArray(c[1]);
       });
@@ -193,11 +201,11 @@
         Array.isArray(targetFolders) && targetFolders.length
           ? new Set(targetFolders.map(function (v) { return String(v || "").trim(); }).filter(Boolean))
           : null;
-      window.hasChanges = false;
+      window.protectedGlobals.hasChanges = false;
 
       var currentFolderNames = new Set(currentAppFolders.map(function (f) { return f[0]; }));
       var knownFolderNames = new Set(
-        (window.apps || []).map(function (a) {
+        (window.protectedGlobals.apps || []).map(function (a) {
           return String(a.path || "").split("/").pop();
         }),
       );
@@ -214,26 +222,26 @@
           try {
             var folderName = appFolder[0];
             var expectedPath = appFolder[2] && appFolder[2].path ? appFolder[2].path : "apps/" + folderName;
-            var existingApp = (window.apps || []).find(function (a) { return a.path === expectedPath; });
+            var existingApp = (window.protectedGlobals.apps || []).find(function (a) { return a.path === expectedPath; });
             if (existingApp) continue;
 
-            var newAppData = await extractAppData(appFolder);
+            var newAppData = await window.protectedGlobals.extractAppData(appFolder);
             if (!newAppData) continue;
-            if (typeof window.ensureAppRuntimeState === "function") {
-              window.ensureAppRuntimeState(newAppData);
+            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+              window.protectedGlobals.ensureAppRuntimeState(newAppData);
             }
-            window.apps.push(newAppData);
-            window.apps.sort(function (a, b) { return a.label.localeCompare(b.label); });
-            if (typeof flowawayDebug === "function") {
-              flowawayDebug("pollAppChanges", "New app detected", {
+            window.protectedGlobals.apps.push(newAppData);
+            window.protectedGlobals.apps.sort(function (a, b) { return a.label.localeCompare(b.label); });
+            if (typeof window.protectedGlobals.flowawayDebug === "function") {
+              window.protectedGlobals.flowawayDebug("pollAppChanges", "New app detected", {
                 label: newAppData.label,
                 path: newAppData.path,
               });
             }
-            window.hasChanges = true;
+            window.protectedGlobals.hasChanges = true;
           } catch (e) {
-            if (typeof flowawayError === "function") {
-              flowawayError("pollAppChanges", "Failed while handling new app folder", e, {
+            if (typeof window.protectedGlobals.flowawayError === "function") {
+              window.protectedGlobals.flowawayError("pollAppChanges", "Failed while handling new app folder", e, {
                 folder: appFolder && appFolder[0],
               });
             }
@@ -241,8 +249,8 @@
         }
 
         var appsToDelete = [];
-        for (var i = 0; i < window.apps.length; i++) {
-          var app = window.apps[i];
+        for (var i = 0; i < window.protectedGlobals.apps.length; i++) {
+          var app = window.protectedGlobals.apps[i];
           var stillExists = currentAppFolders.some(function (f) {
             var expectedPath = f[2] && f[2].path ? f[2].path : "apps/" + f[0];
             return expectedPath === app.path;
@@ -253,7 +261,7 @@
         for (var di = appsToDelete.length - 1; di >= 0; di--) {
           try {
             var appIndex = appsToDelete[di];
-            var deletedApp = window.apps[appIndex];
+            var deletedApp = window.protectedGlobals.apps[appIndex];
             try {
               if (deletedApp.functionname && window[deletedApp.functionname]) {
                 try {
@@ -264,7 +272,7 @@
             } catch (e) {}
 
             if (deletedApp._scriptElement) deletedApp._scriptElement.remove();
-            window.apps.splice(appIndex, 1);
+            window.protectedGlobals.apps.splice(appIndex, 1);
 
             var appElement =
               document.getElementById((deletedApp.functionname || deletedApp.id) + "app") ||
@@ -272,16 +280,16 @@
             if (appElement) appElement.remove();
 
             try {
-              var taskbarBtn = Array.from(taskbar.querySelectorAll("button")).find(function (btn) {
+              var taskbarBtn = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
                 return (
-                  (btn.dataset && typeof appMatchesIdentifier === "function" && appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
+                  (btn.dataset && typeof window.protectedGlobals.appMatchesIdentifier === "function" && window.protectedGlobals.appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
                   btn.textContent.includes(deletedApp.label)
                 );
               });
               if (taskbarBtn) taskbarBtn.remove();
             } catch (e) {}
 
-            var appIdToMatch = typeof getPreferredAppIdentifier === "function" ? getPreferredAppIdentifier(deletedApp) : "";
+            var appIdToMatch = deletedApp.functionname;
             var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
               return root.dataset && root.dataset.appId === appIdToMatch;
             });
@@ -289,10 +297,10 @@
               windowsToClose[wi].remove();
             }
 
-            window.hasChanges = true;
+            window.protectedGlobals.hasChanges = true;
           } catch (e) {
-            if (typeof flowawayError === "function") {
-              flowawayError("pollAppChanges", "Failed while deleting app", e, { index: di });
+            if (typeof window.protectedGlobals.flowawayError === "function") {
+              window.protectedGlobals.flowawayError("pollAppChanges", "Failed while deleting app", e, { index: di });
             }
           }
         }
@@ -310,13 +318,13 @@
           try {
             var folderName2 = folder[0];
             var expectedPath2 = folder[2] && folder[2].path ? folder[2].path : "apps/" + folderName2;
-            var existingApp2 = (window.apps || []).find(function (a) { return a.path === expectedPath2; });
+            var existingApp2 = (window.protectedGlobals.apps || []).find(function (a) { return a.path === expectedPath2; });
             if (!existingApp2) continue;
-            if (typeof window.ensureAppRuntimeState === "function") {
-              window.ensureAppRuntimeState(existingApp2);
+            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+              window.protectedGlobals.ensureAppRuntimeState(existingApp2);
             }
 
-            var newAppData2 = await extractAppData(folder);
+            var newAppData2 = await window.protectedGlobals.extractAppData(folder);
             if (!newAppData2) continue;
 
             var jsFileChanged = existingApp2.jsFile !== newAppData2.jsFile;
@@ -351,8 +359,8 @@
             existingApp2.cmf = newAppData2.cmf;
             existingApp2.cmfl1 = newAppData2.cmfl1;
             existingApp2.openfilecapability = newAppData2.openfilecapability;
-            if (typeof window.ensureAppRuntimeState === "function") {
-              window.ensureAppRuntimeState(existingApp2);
+            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+              window.protectedGlobals.ensureAppRuntimeState(existingApp2);
             }
 
             var appGridElement =
@@ -374,10 +382,10 @@
               }
             }
 
-            window.hasChanges = true;
+            window.protectedGlobals.hasChanges = true;
           } catch (e) {
-            if (typeof flowawayError === "function") {
-              flowawayError("pollAppChanges", "Failed while refreshing app metadata", e, {
+            if (typeof window.protectedGlobals.flowawayError === "function") {
+              window.protectedGlobals.flowawayError("pollAppChanges", "Failed while refreshing app metadata", e, {
                 folder: folder && folder[0],
               });
             }
@@ -387,10 +395,10 @@
 
       if (forceMetadataCheck) {
         var appsForScriptCheck = targetFolderSet
-          ? (window.apps || []).filter(function (a) {
+          ? (window.protectedGlobals.apps || []).filter(function (a) {
               return targetFolderSet.has(String((a.path || "").split("/").pop() || "").trim());
             })
-          : (window.apps || []);
+          : (window.protectedGlobals.apps || []);
 
         for (var si = 0; si < appsForScriptCheck.length; si++) {
           var appToCheck = appsForScriptCheck[si];
@@ -398,13 +406,13 @@
             if (scriptReloadedPaths.has(appToCheck.path)) continue;
             if (!appToCheck.jsFile || !appToCheck._lastScriptHash) continue;
 
-            var b64Current = await window.fetchFileContentByPath(appToCheck.path + "/" + appToCheck.jsFile);
-            var scriptTextCurrent = window.decodeFileTextStrict(
+            var b64Current = await window.protectedGlobals.fetchFileContentByPath(appToCheck.path + "/" + appToCheck.jsFile);
+            var scriptTextCurrent = window.protectedGlobals.decodeFileTextStrict(
               b64Current,
               appToCheck.path + "/" + appToCheck.jsFile,
               { allowEmpty: false },
             );
-            var currentHashNow = window.hashScriptContent(scriptTextCurrent);
+            var currentHashNow = window.protectedGlobals.hashScriptContent(scriptTextCurrent);
             if (currentHashNow === appToCheck._lastScriptHash) continue;
 
             if (appToCheck.scriptLoaded && appToCheck._scriptElement) {
@@ -414,11 +422,11 @@
 
             if (await reloadAppScript(appToCheck, appToCheck.functionname, appToCheck.cmf)) {
               appToCheck._lastScriptHash = currentHashNow;
-              window.hasChanges = true;
+              window.protectedGlobals.hasChanges = true;
             }
           } catch (e) {
-            if (typeof flowawayError === "function") {
-              flowawayError("pollAppChanges", "Failed to check script hash", e, {
+            if (typeof window.protectedGlobals.flowawayError === "function") {
+              window.protectedGlobals.flowawayError("pollAppChanges", "Failed to check script hash", e, {
                 appId: appToCheck && appToCheck.id,
                 label: appToCheck && appToCheck.label,
               });
@@ -427,24 +435,19 @@
         }
       }
 
-      if (window.hasChanges && window.data) {
+      if (window.protectedGlobals.hasChanges && window.protectedGlobals.data) {
         refreshAppsUiAfterChanges();
       }
     } catch (e) {
-      if (typeof flowawayError === "function") {
-        flowawayError("pollAppChanges", "Error during polling", e);
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("pollAppChanges", "Error during polling", e);
       }
     }
   }
 
   async function pollSpecificAppChanges(changedFolders) {
     if (!Array.isArray(changedFolders) || !changedFolders.length) return;
-    var flowawayError = window.flowawayError;
-    var extractAppData = window.extractAppData;
-    var getFolderListing = window.getFolderListing;
-    var appMatchesIdentifier = window.appMatchesIdentifier;
-    var getPreferredAppIdentifier = window.getPreferredAppIdentifier;
-
+    
     try {
       var folderNames = Array.from(
         new Set(changedFolders.map(function (v) { return String(v || "").trim(); }).filter(Boolean)),
@@ -457,17 +460,17 @@
         var folderName = folderNames[fi];
         try {
           var expectedPath = "apps/" + folderName;
-          var existingApp = (window.apps || []).find(function (a) {
+          var existingApp = (window.protectedGlobals.apps || []).find(function (a) {
             return a.path === expectedPath || String(a.path || "").split("/").pop() === folderName;
           });
-          if (existingApp && typeof window.ensureAppRuntimeState === "function") {
-            window.ensureAppRuntimeState(existingApp);
+          if (existingApp && typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+            window.protectedGlobals.ensureAppRuntimeState(existingApp);
           }
 
           if (!existingApp) {
             var folderStillExists = null;
             try {
-              folderStillExists = await getFolderListing(expectedPath);
+              folderStillExists = await window.protectedGlobals.getFilesFromFolder(expectedPath);
             } catch (e) {
               folderStillExists = null;
             }
@@ -480,7 +483,7 @@
           var appFolder = [folderName, [], { path: existingApp.path || expectedPath }];
           var newAppData = null;
           try {
-            newAppData = await extractAppData(appFolder);
+            newAppData = await window.protectedGlobals.extractAppData(appFolder);
           } catch (e) {
             var isEnoent = !!(e && (e.code === "ENOENT" || String(e.message || "").includes("ENOENT")));
             if (!isEnoent) throw e;
@@ -496,8 +499,8 @@
               }
               if (
                 existingApp.cmf &&
-                typeof window.isProtectedAppGlobalName === "function" &&
-                !window.isProtectedAppGlobalName(existingApp.cmf) &&
+                typeof window.protectedGlobals.isProtectedAppGlobalName === "function" &&
+                !window.protectedGlobals.isProtectedAppGlobalName(existingApp.cmf) &&
                 typeof window[existingApp.cmf] !== "undefined"
               ) {
                 try {
@@ -506,10 +509,10 @@
               }
             } catch (ee) {}
 
-            var appIndexToDelete = (window.apps || []).findIndex(function (a) {
+            var appIndexToDelete = (window.protectedGlobals.apps || []).findIndex(function (a) {
               return a === existingApp || String(a.path || "").split("/").pop() === folderName;
             });
-            if (appIndexToDelete >= 0) window.apps.splice(appIndexToDelete, 1);
+            if (appIndexToDelete >= 0) window.protectedGlobals.apps.splice(appIndexToDelete, 1);
 
             try {
               var appElementToDelete =
@@ -519,9 +522,9 @@
             } catch (ee) {}
 
             try {
-              var taskbarBtnToDelete = Array.from(taskbar.querySelectorAll("button")).find(function (btn) {
+              var taskbarBtnToDelete = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
                 return (
-                  (btn.dataset && typeof appMatchesIdentifier === "function" && appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
+                  (btn.dataset && typeof window.protectedGlobals.appMatchesIdentifier === "function" && window.protectedGlobals.appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
                   btn.textContent.includes(existingApp.label)
                 );
               });
@@ -529,7 +532,7 @@
             } catch (ee) {}
 
             try {
-              var appIdToClose = typeof getPreferredAppIdentifier === "function" ? getPreferredAppIdentifier(existingApp) : "";
+              var appIdToClose = existingApp.functionname;
               var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
                 return root.dataset && root.dataset.appId === appIdToClose;
               });
@@ -575,8 +578,8 @@
             existingApp.cmf = newAppData.cmf;
             existingApp.cmfl1 = newAppData.cmfl1;
             existingApp.openfilecapability = newAppData.openfilecapability;
-            if (typeof window.ensureAppRuntimeState === "function") {
-              window.ensureAppRuntimeState(existingApp);
+            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+              window.protectedGlobals.ensureAppRuntimeState(existingApp);
             }
 
             var appGridElement =
@@ -604,13 +607,13 @@
 
           if (!scriptReloadedPaths.has(existingApp.path) && existingApp.jsFile && existingApp._lastScriptHash) {
             try {
-              var b64Current = await window.fetchFileContentByPath(existingApp.path + "/" + existingApp.jsFile);
-              var scriptTextCurrent = window.decodeFileTextStrict(
+              var b64Current = await window.protectedGlobals.fetchFileContentByPath(existingApp.path + "/" + existingApp.jsFile);
+              var scriptTextCurrent = window.protectedGlobals.decodeFileTextStrict(
                 b64Current,
                 existingApp.path + "/" + existingApp.jsFile,
                 { allowEmpty: false },
               );
-              var currentHashNow = window.hashScriptContent(scriptTextCurrent);
+              var currentHashNow = window.protectedGlobals.hashScriptContent(scriptTextCurrent);
               if (currentHashNow !== existingApp._lastScriptHash) {
                 if (await reloadAppScript(existingApp, existingApp.functionname, existingApp.cmf)) {
                   existingApp._lastScriptHash = currentHashNow;
@@ -618,8 +621,8 @@
                 }
               }
             } catch (e) {
-              if (typeof flowawayError === "function") {
-                flowawayError("pollSpecificAppChanges", "Failed to check script hash", e, {
+              if (typeof window.protectedGlobals.flowawayError === "function") {
+                window.protectedGlobals.flowawayError("pollSpecificAppChanges", "Failed to check script hash", e, {
                   folder: folderName,
                   appId: existingApp && existingApp.id,
                 });
@@ -627,8 +630,8 @@
             }
           }
         } catch (e) {
-          if (typeof flowawayError === "function") {
-            flowawayError("pollSpecificAppChanges", "Failed while processing changed app folder", e, {
+          if (typeof window.protectedGlobals.flowawayError === "function") {
+            window.protectedGlobals.flowawayError("pollSpecificAppChanges", "Failed while processing changed app folder", e, {
               folder: folderName,
             });
           }
@@ -636,19 +639,19 @@
       }
 
       if (shouldFallback) {
-        await window.loadTree();
+        await window.protectedGlobals.loadTree();
         await pollAppChanges(true, folderNames);
         return;
       }
 
-      if (localHasChanges && window.data) {
+      if (localHasChanges && window.protectedGlobals.data) {
         refreshAppsUiAfterChanges();
       }
     } catch (e) {
-      if (typeof flowawayError === "function") {
-        flowawayError("pollSpecificAppChanges", "Targeted poll failed, falling back to full poll", e);
+      if (typeof window.protectedGlobals.flowawayError === "function") {
+        window.protectedGlobals.flowawayError("pollSpecificAppChanges", "Targeted poll failed, falling back to full poll", e);
       }
-      await window.loadTree();
+      await window.protectedGlobals.loadTree();
       await pollAppChanges(true, changedFolders);
     }
   }
@@ -686,8 +689,8 @@
       return true;
     }
 
-    var base = String(window.BASE || "");
-    var username = (window.data && window.data.username) || "";
+    var base = String(window.protectedGlobals.BASE || "");
+    var username = (window.protectedGlobals.data && window.protectedGlobals.data.username) || "";
     var appPollingURL = base + "/server/appSocket";
     state.socket = new WebSocket(appPollingURL);
 
@@ -770,7 +773,7 @@
     } catch (e) {}
   }
 
-  window.FlowawayAppPolling = {
+  window.protectedGlobals.FlowawayAppPolling = {
     __loaded: true,
     state: state,
     queueHint: queueHint,

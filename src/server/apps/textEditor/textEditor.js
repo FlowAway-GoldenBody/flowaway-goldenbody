@@ -64,8 +64,8 @@ async function loadTextEditorSettings(forceRefresh = false) {
   textEditorGlobals.settingsLoadPromise = (async () => {
     try {
       let raw = "";
-      if (typeof ReadFile === "function") {
-        const res = await ReadFile(textEditorGlobals.settingsPath);
+      if (typeof window.protectedGlobals.ReadFile === "function") {
+        const res = await window.protectedGlobals.ReadFile(textEditorGlobals.settingsPath);
         if (res && !res.missing) {
           if (typeof res.filecontent === "string") raw = decodeMaybeBase64Text(res.filecontent);
           else if (typeof res === "string") raw = decodeMaybeBase64Text(res);
@@ -93,11 +93,11 @@ async function saveTextEditorSettings(settings) {
   const content = btoa(JSON.stringify(normalized, null, 2));
 
   if (typeof WriteFile === "function") {
-    await WriteFile(textEditorGlobals.settingsPath, content, { replace: true });
+    await window.protectedGlobals.WriteFile(textEditorGlobals.settingsPath, content, { replace: true });
     return;
   }
-  if (typeof filePost === "function") {
-    await filePost({
+  if (typeof window.protectedGlobals.filePost === "function") {
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
         { edit: true, path: textEditorGlobals.settingsPath, contents: content, replace: true },
@@ -115,13 +115,13 @@ textEditor = function (path, posX = 50, posY = 50) {
   let hasFileOpen = false;
   let editorName;
 
-  if (!window.treeData) {
-    window.onlyloadTree();
+  if (!window.protectedGlobals.treeData) {
+    window.protectedGlobals.onlyloadTree();
   }
-  startMenu.style.display = "none";
+  window.protectedGlobals.startMenu.style.display = "none";
   let isMaximized = false;
   let _isMinimized = false;
-  atTop = "textEditor";
+  window.protectedGlobals.atTop = "textEditor";
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
@@ -140,7 +140,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   });
   root.classList.add("textEditor");
   root.dataset.appId = "textEditor";
-  bringToFront(root);
+  window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   textEditorGlobals.goldenbodyId++;
   root._goldenbodyId = textEditorGlobals.goldenbodyId;
@@ -171,7 +171,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   dragStrip.style.cursor = "move";
   dragStrip.style.width = "100%";
   dragStrip.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(dragStrip);
   const barrier = document.createElement("div");
@@ -180,7 +180,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   barrier.style.height = "14px";
   barrier.style.width = "100%";
   barrier.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(barrier);
 
@@ -208,13 +208,13 @@ textEditor = function (path, posX = 50, posY = 50) {
     el.style.cursor = "pointer";
   });
   const applyWindowControlIcon =
-    window.applyWindowControlIcon || function () {};
-  const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+    window.protectedGlobals.applyWindowControlIcon || function () {};
+  const setWindowMaximizeIcon = window.protectedGlobals.setWindowMaximizeIcon || function () {};
   applyWindowControlIcon(btnMin, "minimize");
   setWindowMaximizeIcon(btnMax, false);
   applyWindowControlIcon(btnClose, "close");
   topBar.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.appendChild(topBar);
   // --- Saved bounds shared correctly ---
@@ -230,7 +230,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     root.style.left = "0";
     root.style.top = "0";
     root.style.width = "100%";
-    root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
     root.style.borderRadius = "0px";
     isMaximized = true;
     _isMinimized = false;
@@ -252,7 +252,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       (instance) => instance.rootElement == root,
     );
     if (index !== -1) textEditorGlobals.allTextEditors.splice(index, 1);
-    window.removeAllEventListenersForApp("textEditor" + root._goldenbodyId);
+    window.protectedGlobals.removeAllEventListenersForApp("textEditor" + root._goldenbodyId);
   }
 
   function hideWindow() {
@@ -264,7 +264,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   function showWindow() {
     root.style.display = "flex";
     _isMinimized = false;
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   }
 
   function closeAll() {
@@ -343,10 +343,10 @@ textEditor = function (path, posX = 50, posY = 50) {
         origLeft = 0,
         origTop = 0;
       let thresholdCrossed = false;
-      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
+      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
 
       topBar.addEventListener("mousedown", (ev) => {
-        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -519,8 +519,8 @@ textEditor = function (path, posX = 50, posY = 50) {
   });
   toolbar.className = "texteditor-topbar";
   root.addEventListener("styleapplied", () => {
-    toolbar.classList.toggle("dark", data.dark);
-    toolbar.classList.toggle("light", !data.dark);
+    toolbar.classList.toggle("dark", window.protectedGlobals.data.dark);
+    toolbar.classList.toggle("light", !window.protectedGlobals.data.dark);
   });
   // Title: prefer editorName (if set) then path then fallback
   const titleLabel = document.createElement("div");
@@ -600,8 +600,8 @@ textEditor = function (path, posX = 50, posY = 50) {
       width: "360px",
       padding: "12px",
       borderRadius: "8px",
-      background: data && data.dark ? "#222" : "#fff",
-      color: data && data.dark ? "#eee" : "#111",
+      background: window.protectedGlobals.data.dark ? "#222" : "#fff",
+      color: window.protectedGlobals.data.dark ? "#eee" : "#111",
       boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
       display: "flex",
       flexDirection: "column",
@@ -671,7 +671,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (ev.target === overlay) overlay.remove();
     });
 
-    // Apply handler - keep existing server logic (filePost) as in shared panels
+    // Apply handler - keep existing server logic (window.protectedGlobals.filePost) as in shared panels
     btnApply.addEventListener("click", async () => {
       const newSettings = {
         fontSize: Number(fontInput.value),
@@ -721,11 +721,11 @@ textEditor = function (path, posX = 50, posY = 50) {
   textarea.setAttribute("aria-label", titleLabel.textContent);
   root.addEventListener("styleapplied", () => {
      textarea.style.border =
-      data && data.dark
+      window.protectedGlobals.data.dark
         ? "1px solid rgba(255,255,255,0.06)"
         : "1px solid rgba(0,0,0,0.08)";
-    textarea.style.background = data && data.dark ? "#0f1724" : "white";
-    textarea.style.color = data && data.dark ? "#e6eef8" : "#0f1724";
+    textarea.style.background = window.protectedGlobals.data.dark ? "#0f1724" : "white";
+    textarea.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
   });
   Object.assign(textarea.style, {
     flex: "1 1 auto",
@@ -734,7 +734,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     display: "none",
     outline: "none",
     border:
-      data && data.dark
+      window.protectedGlobals.data.dark
         ? "1px solid rgba(255,255,255,0.06)"
         : "1px solid rgba(0,0,0,0.08)",
     borderRadius: "6px",
@@ -744,8 +744,8 @@ textEditor = function (path, posX = 50, posY = 50) {
       'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace',
     fontSize: getTextEditorSettings().fontSize + "px",
     lineHeight: "1.5",
-    background: data && data.dark ? "#0f1724" : "white",
-    color: data && data.dark ? "#e6eef8" : "#0f1724",
+    background: window.protectedGlobals.data.dark ? "#0f1724" : "white",
+    color: window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724",
     caretColor: "#06f",
   });
 
@@ -758,7 +758,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     gap: "12px",
     alignItems: "center",
     fontSize: "12px",
-    color: data && data.dark ? "#9fb0c8" : "#556",
+    color: window.protectedGlobals.data.dark ? "#9fb0c8" : "#556",
     paddingTop: "6px",
   });
 
@@ -777,7 +777,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   statusBar.appendChild(statPos);
 
   function applyTextEditorTheme() {
-    const dark = !!(data && data.dark);
+    const dark = !!window.protectedGlobals.data.dark;
     const textColor = dark ? "#e6eef8" : "#0f1724";
     const mutedTextColor = dark ? "#9fb0c8" : "#475569";
 
@@ -821,13 +821,13 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   // Save-as dialog (defined here so New/Save can reuse it)
   function openEditorSaveUI() {
-    if (!window.treeData) {
+    if (!window.protectedGlobals.treeData) {
       try {
-        window.onlyloadTree();
+        window.protectedGlobals.onlyloadTree();
       } catch (e) {}
     }
 
-    let pickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
+    let pickerTree = JSON.parse(JSON.stringify(window.protectedGlobals.treeData || {}));
     let pickerCurrentPath = ["root"];
     let pickerSelection = [];
     let pickerOverlay = document.createElement("div");
@@ -851,8 +851,8 @@ textEditor = function (path, posX = 50, posY = 50) {
       width: "680px",
       height: "460px",
       borderRadius: "8px",
-      background: data && data.dark ? "#222" : "#fff",
-      color: data && data.dark ? "#eee" : "#111",
+      background: window.protectedGlobals.data.dark ? "#222" : "#fff",
+      color: window.protectedGlobals.data.dark ? "#eee" : "#111",
       boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
       display: "flex",
       flexDirection: "column",
@@ -896,11 +896,11 @@ textEditor = function (path, posX = 50, posY = 50) {
     btnBar.appendChild(btnSave);
 
     function getPickerSelectionColor() {
-      return data && data.dark ? "rgba(96,165,250,0.28)" : "#d0e6ff";
+      return window.protectedGlobals.data.dark ? "rgba(96,165,250,0.28)" : "#d0e6ff";
     }
 
     function applySavePickerTheme() {
-      const dark = !!(data && data.dark);
+      const dark = !!window.protectedGlobals.data.dark;
       pickerBox.style.background = dark ? "#222" : "#fff";
       pickerBox.style.color = dark ? "#e6eef8" : "#0f1724";
       breadcrumbDiv.style.color = dark ? "#cbd5e1" : "#334155";
@@ -950,7 +950,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         div.textContent = (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
         div.style.padding = "6px";
         div.style.cursor = "pointer";
-        div.style.color = data && data.dark ? "#e6eef8" : "#0f1724";
+        div.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
         if (pickerSelection.indexOf(item) !== -1) {
           div.style.background = getPickerSelectionColor();
         }
@@ -994,8 +994,8 @@ textEditor = function (path, posX = 50, posY = 50) {
     applySavePickerTheme();
 
     const getUIMessage = (msg) => {
-      if (typeof notification === "function") notification(msg);
-      else notification(msg);
+      if (typeof window.protectedGlobals.notification === "function") window.protectedGlobals.notification(msg);
+      else window.protectedGlobals.notification(msg);
     };
 
     return new Promise((resolve) => {
@@ -1023,7 +1023,7 @@ textEditor = function (path, posX = 50, posY = 50) {
             if (pickerCurrentPath.length === 1 && !selections.length)
               chosen = fname;
             else {
-              notification("Cannot select a file for save destination");
+              window.protectedGlobals.notification("Cannot select a file for save destination");
               throw new Error("Cannot select a file for save destination");
             }
           }
@@ -1071,13 +1071,13 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   // Recreate the app's custom picker UI (shared overlay pattern)
   function openEditorPickerUI() {
-    if (!window.treeData) {
+    if (!window.protectedGlobals.treeData) {
       try {
-        window.onlyloadTree();
+        window.protectedGlobals.onlyloadTree();
       } catch (e) {}
     }
 
-    let pickerTree = JSON.parse(JSON.stringify(window.treeData || {}));
+    let pickerTree = JSON.parse(JSON.stringify(window.protectedGlobals.treeData || {}));
     let pickerCurrentPath = ["root"];
     let pickerSelection = [];
     let pickerOverlay = document.createElement("div");
@@ -1101,8 +1101,8 @@ textEditor = function (path, posX = 50, posY = 50) {
       width: "680px",
       height: "420px",
       borderRadius: "8px",
-      background: data && data.dark ? "#222" : "#fff",
-      color: data && data.dark ? "#e6eef8" : "#0f1724",
+      background: window.protectedGlobals.data.dark ? "#222" : "#fff",
+      color: window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724",
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
@@ -1134,11 +1134,11 @@ textEditor = function (path, posX = 50, posY = 50) {
     btnBar.appendChild(btnOpen);
 
     function getPickerSelectionColor() {
-      return data && data.dark ? "rgba(96,165,250,0.28)" : "#d0e6ff";
+      return window.protectedGlobals.data.dark ? "rgba(96,165,250,0.28)" : "#d0e6ff";
     }
 
     function applyOpenPickerTheme() {
-      const dark = !!(data && data.dark);
+      const dark = !!window.protectedGlobals.data.dark;
       pickerBox.style.background = dark ? "#222" : "#fff";
       pickerBox.style.color = dark ? "#e6eef8" : "#0f1724";
       breadcrumbDiv.style.color = dark ? "#cbd5e1" : "#334155";
@@ -1182,7 +1182,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         div.textContent = (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
         div.style.padding = "6px";
         div.style.cursor = "pointer";
-        div.style.color = data && data.dark ? "#e6eef8" : "#0f1724";
+        div.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
         if (pickerSelection.indexOf(item) !== -1) {
           div.style.background = getPickerSelectionColor();
         }
@@ -1234,7 +1234,7 @@ textEditor = function (path, posX = 50, posY = 50) {
 
       btnOpen.onclick = () => {
         const selections = [...pickerSelection];
-        if (!selections.length) return notification("Select a file or folder");
+        if (!selections.length) return window.protectedGlobals.notification("Select a file or folder");
 
         // Compute a full path for each selected item using the current picker path
         const basePath = pickerCurrentPath.slice(1).join("/");
@@ -1254,7 +1254,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
   // Assign the editor's path from the picked file (do not reuse old path)
   async function preloadFile() {
-    const res = await filePost({ requestFile: true, requestFileName: path });
+    const res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: path });
     if (res) {
       hasFileOpen = true;
       if (textarea.style.display === "none") {
@@ -1289,7 +1289,7 @@ textEditor = function (path, posX = 50, posY = 50) {
           break;
         }
       }
-      if (!picked) return notification("Please select a file to open");
+      if (!picked) return window.protectedGlobals.notification("Please select a file to open");
 
       // reconstruct path using the picker node path data
       const fullPath =
@@ -1303,7 +1303,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (!reqName) return;
 
       try {
-        const res = await filePost({ requestFile: true, requestFileName: reqName });
+        const res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: reqName });
         textarea.value = b64DecodeUnicode(res.filecontent);
         // Assign the editor's path from the picked file (do not reuse old path)
         path = fullPath || picked[0];
@@ -1407,7 +1407,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         if (dirPath) {
           try {
             const base64 = b64EncodeUnicode(textarea.value || "");
-            await filePost({
+            await window.protectedGlobals.filePost({
               saveSnapshot: true,
               directions: [
                 { edit: true, path: dirPath, contents: base64, replace: true },
@@ -1422,7 +1422,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         }
       } else if (auto) {
         const base64 = b64EncodeUnicode(textarea.value || "");
-        await filePost({
+        await window.protectedGlobals.filePost({
           saveSnapshot: true,
           directions: [
             { edit: true, path: dirPath, contents: base64, replace: true },
@@ -1483,7 +1483,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         const reqName = toRequestFileName(path);
         if (reqName) {
           try {
-            const res = await filePost({
+            const res = await window.protectedGlobals.filePost({
               requestFile: true,
               requestFileName: reqName,
             });
@@ -1533,7 +1533,7 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   textEditorGlobals.allTextEditors.push(returnObject);
 
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 
   return returnObject;
 };

@@ -10,7 +10,7 @@ explorerGlobals.clipboard = {
 fileExplorer = function (posX = 50, posY = 50, path = '/') {
   let isMaximized = false;
   let _isMinimized = false;
-  atTop = "fileExplorer";
+  window.protectedGlobals.atTop = "fileExplorer";
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
@@ -29,7 +29,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   });
   root.classList.add("fileExplorer");
   root.dataset.appId = "fileExplorer";
-  bringToFront(root);
+  window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   explorerGlobals.goldenbodyId++;
   root._goldenbodyId = explorerGlobals.goldenbodyId;
@@ -60,7 +60,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   dragStrip.style.cursor = "move";
   dragStrip.style.width = "100%";
   dragStrip.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(dragStrip);
   const barrier = document.createElement("div");
@@ -69,7 +69,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   barrier.style.height = "14px";
   barrier.style.width = "100%";
   barrier.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(barrier);
 
@@ -98,13 +98,13 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
     el.style.cursor = "pointer";
   });
   const applyWindowControlIcon =
-    window.applyWindowControlIcon || function () {};
-  const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+    window.protectedGlobals.applyWindowControlIcon || function () {};
+  const setWindowMaximizeIcon = window.protectedGlobals.setWindowMaximizeIcon || function () {};
   applyWindowControlIcon(btnMin, "minimize");
   setWindowMaximizeIcon(btnMax, false);
   applyWindowControlIcon(btnClose, "close");
   topBar.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.appendChild(topBar);
   // --- Saved bounds shared correctly ---
@@ -120,7 +120,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
     root.style.left = "0";
     root.style.top = "0";
     root.style.width = "100%";
-    root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
     root.style.borderRadius = "0";
     isMaximized = true;
     _isMinimized = false;
@@ -142,7 +142,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
       (instance) => instance.rootElement == root,
     );
     if (index !== -1) explorerGlobals.allExplorers.splice(index, 1);
-    window.removeAllEventListenersForApp("fileExplorer" + root._goldenbodyId);
+    window.protectedGlobals.removeAllEventListenersForApp("fileExplorer" + root._goldenbodyId);
   }
 
   function hideWindow() {
@@ -154,7 +154,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   function showWindow() {
     root.style.display = "flex";
     _isMinimized = false;
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   }
 
   function closeAll() {
@@ -233,13 +233,13 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         origLeft = 0,
         origTop = 0;
       let thresholdCrossed = false;
-      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
+      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
       let mouseDownX = 0,
         mouseDownY = 0;
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
-        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -395,8 +395,9 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   let directions = [];
 
   // --- CONFIG ---
-  const username = data.username;
+  const username = window.protectedGlobals.data.username;
   let currentPath = ["root"];
+  let treeData = window.protectedGlobals.treeData;
 
   function getCurrentFolderPath() {
     return currentPath.slice(1).join("/") + (currentPath.length > 1 ? "/" : "");
@@ -419,7 +420,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   sidebar.style.gap = "6px";
   container.appendChild(sidebar);
   let text = document.createElement("h3");
-  text.textContent = data.username;
+  text.textContent = window.protectedGlobals.data.username;
   sidebar.appendChild(text);
   sidebar.appendChild(document.createElement("br"));
   const refreshBtn = document.createElement("button");
@@ -489,7 +490,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
     e.preventDefault();
 
     // If right-clicked on a file/folder row, let that handler run
-    const row = e.target.closest("[data-fs-item]");
+    const row = e.target?.closest?.("[data-fs-item]");
     if (row) return;
 
     // Blank area
@@ -499,9 +500,10 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
 
   // --- RENDER ---
   let onlyloadTree = async function () {
-    const data = await filePost({ initFE: true });
-    treeData = data.tree;
-    annotateTreeWithPaths(treeData);
+    const data = await window.protectedGlobals.filePost({ initFE: true });
+    window.protectedGlobals.treeData = data.tree;
+    treeData = window.protectedGlobals.treeData;
+    window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
     // Restore clipboard from server
     if (data.clipboard && Array.isArray(data.clipboard)) {
       explorerGlobals.clipboard = data.clipboard;
@@ -591,7 +593,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         return;
       }
       const total = getNodeSize(treeData);
-      storageDiv.textContent = `Storage used: ${formatSize(total)}/${data.maxSpace} GB`;
+      storageDiv.textContent = `Storage used: ${formatSize(total)}/${window.protectedGlobals.data.maxSpace} GB`;
     } catch (e) {
       console.error("updateStorageDisplay error:", e);
     }
@@ -1082,8 +1084,8 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   storageDiv.style.color = "#cbd5e1";
   storageDiv.textContent = "Storage used: —";
   sidebar.appendChild(storageDiv);
-  // Client-side quota (bytes). Prefer server-provided `data.maxSpace` (GB) if available.
-  const maxSpaceGb = Number(data?.maxSpace);
+  // Client-side quota (bytes). Prefer server-provided `window.protectedGlobals.data.maxSpace` (GB) if available.
+  const maxSpaceGb = Number(window.protectedGlobals.data.maxSpace);
   const STORAGE_QUOTA_BYTES =
     Number.isFinite(maxSpaceGb) && maxSpaceGb > 0
       ? maxSpaceGb * 1024 * 1024 * 1024
@@ -1094,7 +1096,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
     if (contextMenu.contains(e.target)) return;
 
     // Check if the click is inside any file/folder div
-    const isClickInsideFile = e.target.closest('[data-fs-item="true"]');
+    const isClickInsideFile = e.target?.closest?.('[data-fs-item="true"]');
     if (!isClickInsideFile) {
       selectedItems = [];
       selectedItem = null;
@@ -1134,7 +1136,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         clipboardTotal += getNodeSize(item.node);
       }
       if (currentUsed + clipboardTotal > STORAGE_QUOTA_BYTES) {
-        notification("Cannot paste — storage quota would be exceeded.");
+        window.protectedGlobals.notification("Cannot paste — storage quota would be exceeded.");
         return;
       }
 
@@ -1144,7 +1146,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
 
         // ❌ Prevent circular paste
         if (item.isFolder && targetFullPath.startsWith(sourceFullPath + "/")) {
-          notification(
+          window.protectedGlobals.notification(
             `Cannot paste folder "${item.name}" into itself or a subfolder.`,
           );
           continue;
@@ -1451,7 +1453,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         submenu = document.createElement("div");
         submenu.style.position = "absolute";
         submenu.style.border = "1px solid #ccc";
-        submenu.style.background = data && data.dark ? "black" : "white";
+        submenu.style.background = window.protectedGlobals.data.dark ? "black" : "white";
         submenu.style.zIndex = 2000;
         const toOpen = selectedItems.length ? selectedItems.slice() : [selectedItem];
         const selectedExtensions = toOpen
@@ -1490,7 +1492,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
           return selectedExtensions.every((ext) => caps.includes(ext));
         }
 
-        const apps = (Array.isArray(window.apps) ? window.apps : [])
+        const apps = (Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [])
           .map((app) => {
             const functionName = app && (app.functionname || app.id);
             if (!functionName || typeof window[functionName] !== "function") return null;
@@ -1605,7 +1607,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
 
   // --- BUTTONS ---
   refreshBtn.onclick = async () => {
-    window.treeData = onlyloadTree();
+    await onlyloadTree();
     render();
   };
   uploadBtn.onclick = () => fileInput.click();
@@ -1643,7 +1645,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   let handlesave = async (e) => {
     // console.log(directions);
     directions.push({ end: true });
-    const response = await filePost({
+    const response = await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: directions,
     });
@@ -1722,7 +1724,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         const chunkBase64 = await readChunkAsBase64(blob);
         // Only send replace:true on the first chunk (index 0)
         const shouldReplace = index === 0;
-        await filePost({
+        await window.protectedGlobals.filePost({
           saveSnapshot: true,
           directions: [
             {
@@ -1763,7 +1765,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
     const allowed = [];
     for (const f of files) {
       if (currentUsed + f.size > STORAGE_QUOTA_BYTES) {
-        notification(
+        window.protectedGlobals.notification(
           `Cannot upload "${f.name}" — storage quota would be exceeded.`,
         );
         continue; // skip this file
@@ -1794,7 +1796,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         const total = Math.ceil(f.size / CHUNK_SIZE);
 
         // ensure server has a file placeholder
-        await filePost({
+        await window.protectedGlobals.filePost({
           saveSnapshot: true,
           directions: [
             { addFile: true, path: cp + "/" + newName, replace: true },
@@ -1805,7 +1807,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         // Ask server which parts already exist (resume)
         let presentParts = [];
         try {
-          const chk = await filePost({
+          const chk = await window.protectedGlobals.filePost({
             saveSnapshot: true,
             directions: [
               { checkParts: true, path: cp + "/" + newName },
@@ -1835,8 +1837,8 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
               await uploadChunkWithRetries(cp + "/" + newName, f, i, total);
               uploadedCount++;
               // simple progress log — UI progress can hook into this later
-              notificationCounter++;
-              notification(
+              window.protectedGlobals.notificationCounter++;
+              window.protectedGlobals.notification(
                 `Uploading "${newName}": ${uploadedCount}/${total} chunks uploaded.`,
               );
               console.log(
@@ -1844,7 +1846,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
               );
             } catch (err) {
               console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
-              notification(`Upload failed for "${newName}" (chunk ${i}).`);
+              window.protectedGlobals.notification(`Upload failed for "${newName}" (chunk ${i}).`);
               break; // abort this file
             }
 
@@ -1855,7 +1857,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
 
         // finalize assembly on server (safe even if all parts were already present)
         try {
-          await filePost({
+          await window.protectedGlobals.filePost({
             saveSnapshot: true,
             directions: [
               { edit: true, path: cp + "/" + newName, finalize: true },
@@ -1864,7 +1866,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
           });
         } catch (e) {
           console.error("finalize failed for", newName, e);
-          notification(`Failed to finalize upload for "${newName}".`);
+          window.protectedGlobals.notification(`Failed to finalize upload for "${newName}".`);
         }
       }
     }
@@ -1897,7 +1899,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
     newwindow: newWindow,
     goldenbodyId: explorerGlobals.goldenbodyId,
   });
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 
   return {
     rootElement: root,

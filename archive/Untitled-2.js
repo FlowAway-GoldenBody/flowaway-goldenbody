@@ -542,7 +542,7 @@ try {
     window.addEventListener('beforeunload', window._flowaway_handlers.onBeforeUnload);
 } catch (e) {}
 
-function showSessionExpiredDialog() {
+window.protectedGlobals.showSessionExpiredDialog = function() {
     if (document.getElementById('session-expired-dialog') || window._flowawayIsRebuilding) {
         // already shown
         return;
@@ -557,8 +557,8 @@ function showSessionExpiredDialog() {
         transform: 'translate(-50%, -50%)',
         width: '420px',
         maxWidth: '90vw',
-        background: window.data && window.data.dark ? '#222' : '#fff',
-        color: window.data && window.data.dark ? '#fff' : '#000',
+        background: window.protectedGlobals.data && window.protectedGlobals.data.dark ? '#222' : '#fff',
+        color: window.protectedGlobals.data && window.protectedGlobals.data.dark ? '#fff' : '#000',
         borderRadius: '8px',
         boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
         zIndex: 99999,
@@ -863,11 +863,11 @@ async function posttaskbuttons(data) {
     return body;
 }
 async function downloadPost(data) {
-    var res = await fetch(downloadserver, {
+    var res = await fetch(window.protectedGlobals.downloadserver, {
         method: 'POST',
         headers: (function () {
             const h = { 'Content-Type': 'application/json' };
-            if (window.data && window.data.authToken) h['Authorization'] = 'Bearer ' + window.data.authToken;
+            if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) h['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
             return h;
         })(),
         body: JSON.stringify({
@@ -884,7 +884,7 @@ async function downloadPost(data) {
     }
     if (body && (body.authToken || body.token)) {
         try {
-            window.data = window.data || {};
+            window.protectedGlobals.data = window.protectedGlobals.data || {};
             window.data.authToken = body.authToken || body.token;
         } catch (e) {}
     }
@@ -1322,21 +1322,7 @@ async function getFolderListing(relPath) {
     return null;
 }
 
-function normalizeAppFolders(folders) {
-    var seen = new Set();
-    var list = [];
-    for (const folder of folders || []) {
-        if (!Array.isArray(folder) || typeof folder[0] !== 'string') continue;
-        var folderName = folder[0].trim();
-        if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
-        var folderPath = folder[2] && folder[2].path ? folder[2].path : `apps/${folderName}`;
-        var key = String(folderPath).toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        list.push(folder);
-    }
-    return list;
-}
+
 
 function isImageIconValue(value) {
     if (!value || typeof value !== 'string') return false;
@@ -2688,7 +2674,7 @@ loadTree();
 window.onlyloadTree = oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 
-var username = typeof data !== 'undefined' && data && typeof data.username === 'string' ? data.username : '';
+var username = window.protectedGlobals.getCurrentUsernameForRequests();
 
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding

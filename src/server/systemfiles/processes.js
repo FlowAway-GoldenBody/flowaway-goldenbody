@@ -1,10 +1,11 @@
 (function () {
-  if (window.FlowawayProcess && window.FlowawayProcess.__loaded) {
+  window.protectedGlobals = window.protectedGlobals || {};
+  if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
     return;
   }
 
-  var runtime = window.__processRuntime && typeof window.__processRuntime === "object"
-    ? window.__processRuntime
+  var runtime = window.protectedGlobals.__processRuntime && typeof window.protectedGlobals.__processRuntime === "object"
+    ? window.protectedGlobals.__processRuntime
     : {};
 
   runtime.__loaded = false;
@@ -20,23 +21,23 @@
     : {};
   runtime.processObjectsByPid = runtime.processObjectsByPid && typeof runtime.processObjectsByPid === "object"
     ? runtime.processObjectsByPid
-    : (window.__processObjectsByPid && typeof window.__processObjectsByPid === "object" ? window.__processObjectsByPid : {});
+    : (window.protectedGlobals.__processObjectsByPid && typeof window.protectedGlobals.__processObjectsByPid === "object" ? window.protectedGlobals.__processObjectsByPid : {});
   runtime.processes = Array.isArray(runtime.processes) ? runtime.processes : [];
   runtime.processRegistry = runtime.processRegistry && typeof runtime.processRegistry === "object"
     ? runtime.processRegistry
     : {};
-  runtime.taskProcessCounter = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
+  runtime.taskProcessCounter = Number(runtime.taskProcessCounter || window.protectedGlobals.__taskProcessCounter || 0);
   runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool)
     ? runtime.reusablePidPool
-    : (Array.isArray(window.__reusablePidPool) ? window.__reusablePidPool : []);
+    : (Array.isArray(window.protectedGlobals.__reusablePidPool) ? window.protectedGlobals.__reusablePidPool : []);
   runtime.taskProcessIdByIdentity = runtime.taskProcessIdByIdentity && typeof runtime.taskProcessIdByIdentity === "object"
     ? runtime.taskProcessIdByIdentity
-    : (window.__taskProcessIdByIdentity && typeof window.__taskProcessIdByIdentity === "object" ? window.__taskProcessIdByIdentity : {});
+    : (window.protectedGlobals.__taskProcessIdByIdentity && typeof window.protectedGlobals.__taskProcessIdByIdentity === "object" ? window.protectedGlobals.__taskProcessIdByIdentity : {});
   runtime.taskProcessObjectIdentity = runtime.taskProcessObjectIdentity instanceof WeakMap
     ? runtime.taskProcessObjectIdentity
-    : (window.__taskProcessObjectIdentity instanceof WeakMap ? window.__taskProcessObjectIdentity : new WeakMap());
+    : (window.protectedGlobals.__taskProcessObjectIdentity instanceof WeakMap ? window.protectedGlobals.__taskProcessObjectIdentity : new WeakMap());
   runtime.taskProcessObjectIdentityCounter = Number(
-    runtime.taskProcessObjectIdentityCounter || window.__taskProcessObjectIdentityCounter || 0,
+    runtime.taskProcessObjectIdentityCounter || window.protectedGlobals.__taskProcessObjectIdentityCounter || 0,
   );
   runtime.processTrackerState = runtime.processTrackerState && typeof runtime.processTrackerState === "object"
     ? runtime.processTrackerState
@@ -181,11 +182,11 @@
   }
 
   function seedProcessCounterFromKnownPids() {
-    var current = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
+    var current = Number(runtime.taskProcessCounter || window.protectedGlobals.__taskProcessCounter || 0);
     if (!Number.isFinite(current) || current < 0) current = 0;
     var maxKnown = getMaxKnownProcessPid();
     runtime.taskProcessCounter = Math.max(current, maxKnown);
-    window.__taskProcessCounter = runtime.taskProcessCounter;
+    window.protectedGlobals.__taskProcessCounter = runtime.taskProcessCounter;
   }
 
   seedProcessCounterFromKnownPids();
@@ -292,9 +293,9 @@
         }
         runtime.taskProcessIdByIdentity[identityKey] = reusedPid;
         runtime.taskProcessCounter = Math.max(Number(runtime.taskProcessCounter || 0), reusedPid);
-        window.__taskProcessCounter = runtime.taskProcessCounter;
-        window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
-        window.__reusablePidPool = reusablePool;
+        window.protectedGlobals.__taskProcessCounter = runtime.taskProcessCounter;
+        window.protectedGlobals.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
+        window.protectedGlobals.__reusablePidPool = reusablePool;
         if (seenIdentities && typeof seenIdentities === "object") {
           seenIdentities[identityKey] = true;
         }
@@ -302,7 +303,7 @@
       }
     }
 
-    var next = Number(runtime.taskProcessCounter || window.__taskProcessCounter || 0);
+    var next = Number(runtime.taskProcessCounter || window.protectedGlobals.__taskProcessCounter || 0);
     if (!Number.isFinite(next) || next < 0) next = 0;
 
     do {
@@ -311,9 +312,9 @@
 
     runtime.taskProcessCounter = next;
     runtime.taskProcessIdByIdentity[identityKey] = next;
-    window.__taskProcessCounter = runtime.taskProcessCounter;
-    window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
-    window.__reusablePidPool = reusablePool;
+    window.protectedGlobals.__taskProcessCounter = runtime.taskProcessCounter;
+    window.protectedGlobals.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
+    window.protectedGlobals.__reusablePidPool = reusablePool;
 
     if (seenIdentities && typeof seenIdentities === "object") {
       seenIdentities[identityKey] = true;
@@ -342,8 +343,8 @@
       });
     }
 
-    window.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
-    window.__reusablePidPool = runtime.reusablePidPool;
+    window.protectedGlobals.__taskProcessIdByIdentity = runtime.taskProcessIdByIdentity;
+    window.protectedGlobals.__reusablePidPool = runtime.reusablePidPool;
   }
 
   function uniqueStringList(values) {
@@ -393,26 +394,26 @@
   function noopProcessFn() {}
 
   function getInternalSetTimeout() {
-    return typeof window.__flowawayProcessNativeSetTimeout === "function"
-      ? window.__flowawayProcessNativeSetTimeout
+    return typeof window.protectedGlobals.__flowawayProcessNativeSetTimeout === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeSetTimeout
       : window.setTimeout;
   }
 
   function getInternalClearTimeout() {
-    return typeof window.__flowawayProcessNativeClearTimeout === "function"
-      ? window.__flowawayProcessNativeClearTimeout
+    return typeof window.protectedGlobals.__flowawayProcessNativeClearTimeout === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeClearTimeout
       : window.clearTimeout;
   }
 
   function getInternalSetInterval() {
-    return typeof window.__flowawayProcessNativeSetInterval === "function"
-      ? window.__flowawayProcessNativeSetInterval
+    return typeof window.protectedGlobals.__flowawayProcessNativeSetInterval === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeSetInterval
       : window.setInterval;
   }
 
   function getInternalClearInterval() {
-    return typeof window.__flowawayProcessNativeClearInterval === "function"
-      ? window.__flowawayProcessNativeClearInterval
+    return typeof window.protectedGlobals.__flowawayProcessNativeClearInterval === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeClearInterval
       : window.clearInterval;
   }
 
@@ -458,7 +459,7 @@
     var seen = {};
     var out = [];
 
-    var apps = Array.isArray(window.apps) ? window.apps : [];
+    var apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     for (var i = 0; i < apps.length; i++) {
       var app = apps[i] && typeof apps[i] === "object" ? apps[i] : {};
       var ids = [app.id, app.functionname, app.label, app.path];
@@ -571,8 +572,8 @@
 
   function detectProcessOrigin(context) {
     var ctx = context && typeof context === "object" ? context : {};
-    var launchContext = window.__flowawayLaunchContext && typeof window.__flowawayLaunchContext === "object"
-      ? window.__flowawayLaunchContext
+    var launchContext = window.protectedGlobals.__flowawayLaunchContext && typeof window.protectedGlobals.__flowawayLaunchContext === "object"
+      ? window.protectedGlobals.__flowawayLaunchContext
       : {};
     var parentPid = getCurrentExecutingProcessPid();
     var parentProc = parentPid ? getCanonicalProcessByPid(parentPid) : null;
@@ -581,8 +582,8 @@
       ctx.appId,
       launchContext.appId,
       parentProc && parentProc.appId,
-      window.atTop,
-      window._flowawayTopAppId,
+      window.protectedGlobals.atTop,
+      window.protectedGlobals._flowawayTopAppId,
       "system",
     );
     var appInstanceId = getFirstDefinedValue(
@@ -1008,14 +1009,14 @@
       }
     }
     runtime.taskProcessIdByIdentity = next;
-    window.__taskProcessIdByIdentity = next;
+    window.protectedGlobals.__taskProcessIdByIdentity = next;
   }
 
   function ensureProcessObjectsStore() {
     if (!runtime.processObjectsByPid || typeof runtime.processObjectsByPid !== "object") {
       runtime.processObjectsByPid = {};
     }
-    window.__processObjectsByPid = runtime.processObjectsByPid;
+    window.protectedGlobals.__processObjectsByPid = runtime.processObjectsByPid;
     return runtime.processObjectsByPid;
   }
 
@@ -1082,7 +1083,7 @@
     }
 
     runtime.processObjectsByPid = store;
-    window.__processObjectsByPid = store;
+    window.protectedGlobals.__processObjectsByPid = store;
   }
 
   function buildIndividualProcessRecord(entry, instanceRecord) {
@@ -1207,7 +1208,7 @@
 
   function registerManualProcess(meta) {
     var input = meta && typeof meta === "object" ? meta : {};
-    var appId = String(input.appId || (window.__flowawayLaunchContext && window.__flowawayLaunchContext.appId) || "global");
+    var appId = String(input.appId || (window.protectedGlobals.__flowawayLaunchContext && window.protectedGlobals.__flowawayLaunchContext.appId) || "global");
     var name = String(input.name || input.processName || input.label || input.title || appId + " process");
     var key = String(input.key || [appId, name, input.group || "manual"].join("::"));
     var existing = runtime.manualProcesses[key];
@@ -1340,7 +1341,7 @@
   }
 
   function terminateLiveAppInstance(pidValue) {
-    var apps = Array.isArray(window.apps) ? window.apps : [];
+    var apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     var pidKey = String(pidValue);
 
     for (var i = 0; i < apps.length; i++) {
@@ -1498,10 +1499,10 @@
       var recordPid = normalizeProcessPid(getFirstDefinedValue(record.pid, record.processId));
       return recordPid !== pid;
     });
-    window.__processes = runtime.processes;
+    window.protectedGlobals.__processes = runtime.processes;
 
-    var snapshot = window.__taskManagerSnapshot && typeof window.__taskManagerSnapshot === "object"
-      ? window.__taskManagerSnapshot
+    var snapshot = window.protectedGlobals.__taskManagerSnapshot && typeof window.protectedGlobals.__taskManagerSnapshot === "object"
+      ? window.protectedGlobals.__taskManagerSnapshot
       : null;
     if (snapshot && Array.isArray(snapshot.flat)) {
       snapshot.flat = snapshot.flat.filter(function (row) {
@@ -1509,7 +1510,7 @@
         var rowPid = normalizeProcessPid(getFirstDefinedValue(row.pid, row.processId));
         return rowPid !== pid;
       });
-      window.__taskManagerSnapshot = snapshot;
+      window.protectedGlobals.__taskManagerSnapshot = snapshot;
     }
   }
 
@@ -1748,13 +1749,13 @@
     runtime.rafProcessBindings = {};
     runtime.observerProcessBindings = {};
     runtime.executionStack = [];
-    window.__processObjectsByPid = {};
-    window.__taskProcessIdByIdentity = {};
+    window.protectedGlobals.__processObjectsByPid = {};
+    window.protectedGlobals.__taskProcessIdByIdentity = {};
     runtime.listeners = new Set();
-    window.__reusablePidPool = [];
-    window.__processes = [];
-    window.__processRegistry = {};
-    window.__taskProcessCounter = 0;
+    window.protectedGlobals.__reusablePidPool = [];
+    window.protectedGlobals.__processes = [];
+    window.protectedGlobals.__processRegistry = {};
+    window.protectedGlobals.__taskProcessCounter = 0;
     scheduleProcessTrackerRebuild("dispose-all");
   }
 
@@ -1775,7 +1776,7 @@
     meta.registered = Number(meta.registered || Date.now());
     registry[appId][processName] = meta;
     runtime.dynamicProcesses = registry;
-    window.__dynamicProcesses = registry;
+    window.protectedGlobals.__dynamicProcesses = registry;
     scheduleProcessTrackerRebuild("register-dynamic");
     return registry[appId][processName];
   }
@@ -1799,7 +1800,7 @@
         releaseProcessId(existingPid);
       }
       runtime.dynamicProcesses = registry;
-      window.__dynamicProcesses = registry;
+      window.protectedGlobals.__dynamicProcesses = registry;
       scheduleProcessTrackerRebuild("unregister-dynamic");
       return true;
     }
@@ -1833,8 +1834,8 @@
         }
       }
     }, 35);
-    window._flowaway_handlers = window._flowaway_handlers || {};
-    window._flowaway_handlers.processTrackerSyncTimer = state.syncTimer;
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    window.protectedGlobals.systemAPIs.processTrackerSyncTimer = state.syncTimer;
   }
 
   function createTrackedAppInstancesProxy(targetArray, appIdentity) {
@@ -1879,7 +1880,7 @@
 
   function ensureTrackedAppInstanceArrays() {
     var state = ensureProcessTrackerState();
-    var apps = Array.isArray(window.apps) ? window.apps : [];
+    var apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     var seenKeys = {};
     var changed = false;
 
@@ -1960,8 +1961,8 @@
           }
         } catch (e) {}
       }, 1200);
-      window._flowaway_handlers = window._flowaway_handlers || {};
-      window._flowaway_handlers.processTrackerFallbackTimer = state.fallbackTimer;
+      window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+      window.protectedGlobals.systemAPIs.processTrackerFallbackTimer = state.fallbackTimer;
     }
   }
 
@@ -1969,7 +1970,7 @@
     var entries = [];
     var processRecords = [];
     var seenIdentities = {};
-    var apps = Array.isArray(window.apps) ? window.apps : [];
+    var apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     var dynamicProcs = runtime.dynamicProcesses && typeof runtime.dynamicProcesses === "object" ? runtime.dynamicProcesses : {};
     var launchProcs = runtime.launchRegistry && typeof runtime.launchRegistry === "object" ? runtime.launchRegistry : {};
     var appIdsWithInstanceRecords = {};
@@ -2156,7 +2157,7 @@
   }
 
   function getActiveAppIds() {
-    var apps = Array.isArray(window.apps) ? window.apps : [];
+    var apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     var active = {};
     for (var i = 0; i < apps.length; i++) {
       var app = apps[i] && typeof apps[i] === "object" ? apps[i] : {};
@@ -2305,13 +2306,13 @@
 
     cleanupDeadProcessIds(built.seenIdentities);
     runtime.processes = processRecords;
-    window.__processes = processRecords;
+    window.protectedGlobals.__processes = processRecords;
     syncProcessObjectsWithRecords(processRecords);
 
     var snapshot = buildTaskManagerSnapshotFromProcessRecords(processRecords, built.entries);
     runtime.processRegistry = snapshot.registry;
-    window.__processRegistry = snapshot.registry;
-    window.__taskManagerSnapshot = snapshot;
+    window.protectedGlobals.__processRegistry = snapshot.registry;
+    window.protectedGlobals.__taskManagerSnapshot = snapshot;
 
     var listeners = runtime.listeners;
     if (listeners && listeners.size) {
@@ -2326,12 +2327,12 @@
 
   function getTaskManagerSnapshot() {
     buildTaskManagerState();
-    var snapshot = window.__taskManagerSnapshot && typeof window.__taskManagerSnapshot === "object"
-      ? window.__taskManagerSnapshot
+    var snapshot = window.protectedGlobals.__taskManagerSnapshot && typeof window.protectedGlobals.__taskManagerSnapshot === "object"
+      ? window.protectedGlobals.__taskManagerSnapshot
       : buildTaskManagerSnapshotFromProcessRecords(
-          Array.isArray(window.__processes) ? window.__processes : [],
-          Array.isArray(window.apps)
-            ? window.apps.map(function (appMeta) {
+          Array.isArray(window.protectedGlobals.__processes) ? window.protectedGlobals.__processes : [],
+          Array.isArray(window.protectedGlobals.apps)
+            ? window.protectedGlobals.apps.map(function (appMeta) {
                 return normalizeProcessEntryFromApp(appMeta);
               })
             : [],
@@ -2498,11 +2499,11 @@
       parentPid: originState.parentPid,
       cleanup: function () {
         if (kind === "interval") {
-          if (window.__flowawayProcessNativeClearInterval) {
-            window.__flowawayProcessNativeClearInterval(handle);
+          if (window.protectedGlobals.__flowawayProcessNativeClearInterval) {
+            window.protectedGlobals.__flowawayProcessNativeClearInterval(handle);
           }
-        } else if (window.__flowawayProcessNativeClearTimeout) {
-          window.__flowawayProcessNativeClearTimeout(handle);
+        } else if (window.protectedGlobals.__flowawayProcessNativeClearTimeout) {
+          window.protectedGlobals.__flowawayProcessNativeClearTimeout(handle);
         }
       },
       run: typeof runFn === "function" ? runFn : noopProcessFn,
@@ -2556,8 +2557,8 @@
       windowIds: [],
       parentPid: originState.parentPid,
       cleanup: function () {
-        if (window.__flowawayProcessNativeCancelAnimationFrame) {
-          window.__flowawayProcessNativeCancelAnimationFrame(handle);
+        if (window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame) {
+          window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame(handle);
         }
       },
       run: typeof callback === "function" ? callback : noopProcessFn,
@@ -2655,15 +2656,15 @@
       if (!timerBinding || normalizeProcessPid(timerBinding.pid) !== pid || timerBinding.suspended) continue;
 
       if (timerBinding.kind === "interval") {
-        if (window.__flowawayProcessNativeClearInterval) {
-          window.__flowawayProcessNativeClearInterval(timerBinding.handle);
+        if (window.protectedGlobals.__flowawayProcessNativeClearInterval) {
+          window.protectedGlobals.__flowawayProcessNativeClearInterval(timerBinding.handle);
         }
       } else {
         var elapsed = Date.now() - Number(timerBinding.startedAt || Date.now());
         var remaining = Number(timerBinding.delayMs || 0) - elapsed;
         timerBinding.remainingMs = remaining > 0 ? remaining : 0;
-        if (window.__flowawayProcessNativeClearTimeout) {
-          window.__flowawayProcessNativeClearTimeout(timerBinding.handle);
+        if (window.protectedGlobals.__flowawayProcessNativeClearTimeout) {
+          window.protectedGlobals.__flowawayProcessNativeClearTimeout(timerBinding.handle);
         }
       }
       timerBinding.suspended = true;
@@ -2674,8 +2675,8 @@
     for (var r = 0; r < rafKeys.length; r++) {
       var rafBinding = runtime.rafProcessBindings[rafKeys[r]];
       if (!rafBinding || normalizeProcessPid(rafBinding.pid) !== pid || rafBinding.suspended) continue;
-      if (window.__flowawayProcessNativeCancelAnimationFrame) {
-        window.__flowawayProcessNativeCancelAnimationFrame(rafBinding.handle);
+      if (window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame) {
+        window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame(rafBinding.handle);
       }
       rafBinding.suspended = true;
       changed = true;
@@ -2723,8 +2724,8 @@
       };
 
       if (timerBinding.kind === "interval") {
-        if (window.__flowawayProcessNativeSetInterval) {
-          var nextIntervalHandle = window.__flowawayProcessNativeSetInterval.apply(window, [wrappedCallback, timerBinding.delayMs].concat(callbackArgs));
+        if (window.protectedGlobals.__flowawayProcessNativeSetInterval) {
+          var nextIntervalHandle = window.protectedGlobals.__flowawayProcessNativeSetInterval.apply(window, [wrappedCallback, timerBinding.delayMs].concat(callbackArgs));
           var nextIntervalKey = getTimerHandleKey(nextIntervalHandle);
           delete runtime.timerProcessBindings[timerKey];
           timerBinding.handle = nextIntervalHandle;
@@ -2734,10 +2735,10 @@
           timerBinding.suspended = false;
           changed = true;
         }
-      } else if (window.__flowawayProcessNativeSetTimeout) {
+      } else if (window.protectedGlobals.__flowawayProcessNativeSetTimeout) {
         var nextMs = Number(timerBinding.remainingMs);
         if (!Number.isFinite(nextMs) || nextMs < 0) nextMs = 0;
-        var nextTimeoutHandle = window.__flowawayProcessNativeSetTimeout.apply(window, [wrappedCallback, nextMs].concat(callbackArgs));
+        var nextTimeoutHandle = window.protectedGlobals.__flowawayProcessNativeSetTimeout.apply(window, [wrappedCallback, nextMs].concat(callbackArgs));
         var nextTimeoutKey = getTimerHandleKey(nextTimeoutHandle);
         delete runtime.timerProcessBindings[timerKey];
         timerBinding.handle = nextTimeoutHandle;
@@ -2754,10 +2755,10 @@
       var rafKey = rafKeys[r];
       var rafBinding = runtime.rafProcessBindings[rafKey];
       if (!rafBinding || normalizeProcessPid(rafBinding.pid) !== pid || !rafBinding.suspended) continue;
-      if (!window.__flowawayProcessNativeRequestAnimationFrame) continue;
+      if (!window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame) continue;
 
       var rafCallback = rafBinding.callback;
-      var nextRafHandle = window.__flowawayProcessNativeRequestAnimationFrame(function () {
+      var nextRafHandle = window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame(function () {
         var binding = runtime.rafProcessBindings[rafKey];
         if (!binding) return;
         var cbPid = normalizeProcessPid(binding.pid);
@@ -2793,19 +2794,19 @@
   }
 
   function wrapTimerProcessApis() {
-    if (window.__flowawayProcessTimerApisWrapped) return;
+    if (window.protectedGlobals.__flowawayProcessTimerApisWrapped) return;
 
-    var nativeSetTimeout = typeof window.__flowawayProcessNativeSetTimeout === "function"
-      ? window.__flowawayProcessNativeSetTimeout
+    var nativeSetTimeout = typeof window.protectedGlobals.__flowawayProcessNativeSetTimeout === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeSetTimeout
       : window.setTimeout;
-    var nativeSetInterval = typeof window.__flowawayProcessNativeSetInterval === "function"
-      ? window.__flowawayProcessNativeSetInterval
+    var nativeSetInterval = typeof window.protectedGlobals.__flowawayProcessNativeSetInterval === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeSetInterval
       : window.setInterval;
-    var nativeClearTimeout = typeof window.__flowawayProcessNativeClearTimeout === "function"
-      ? window.__flowawayProcessNativeClearTimeout
+    var nativeClearTimeout = typeof window.protectedGlobals.__flowawayProcessNativeClearTimeout === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeClearTimeout
       : window.clearTimeout;
-    var nativeClearInterval = typeof window.__flowawayProcessNativeClearInterval === "function"
-      ? window.__flowawayProcessNativeClearInterval
+    var nativeClearInterval = typeof window.protectedGlobals.__flowawayProcessNativeClearInterval === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeClearInterval
       : window.clearInterval;
 
     if (
@@ -2817,10 +2818,10 @@
       return;
     }
 
-    window.__flowawayProcessNativeSetTimeout = nativeSetTimeout;
-    window.__flowawayProcessNativeSetInterval = nativeSetInterval;
-    window.__flowawayProcessNativeClearTimeout = nativeClearTimeout;
-    window.__flowawayProcessNativeClearInterval = nativeClearInterval;
+    window.protectedGlobals.__flowawayProcessNativeSetTimeout = nativeSetTimeout;
+    window.protectedGlobals.__flowawayProcessNativeSetInterval = nativeSetInterval;
+    window.protectedGlobals.__flowawayProcessNativeClearTimeout = nativeClearTimeout;
+    window.protectedGlobals.__flowawayProcessNativeClearInterval = nativeClearInterval;
 
     window.setTimeout = function (callback, delay) {
       var args = Array.prototype.slice.call(arguments, 2);
@@ -2888,25 +2889,25 @@
       unregisterTimerProcessByHandle(handle, "timer-clear-interval");
     };
 
-    window.__flowawayProcessTimerApisWrapped = true;
+    window.protectedGlobals.__flowawayProcessTimerApisWrapped = true;
   }
 
   function wrapAnimationFrameProcessApis() {
-    if (window.__flowawayProcessRafApisWrapped) return;
+    if (window.protectedGlobals.__flowawayProcessRafApisWrapped) return;
 
-    var nativeRequestAnimationFrame = typeof window.__flowawayProcessNativeRequestAnimationFrame === "function"
-      ? window.__flowawayProcessNativeRequestAnimationFrame
+    var nativeRequestAnimationFrame = typeof window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame
       : window.requestAnimationFrame;
-    var nativeCancelAnimationFrame = typeof window.__flowawayProcessNativeCancelAnimationFrame === "function"
-      ? window.__flowawayProcessNativeCancelAnimationFrame
+    var nativeCancelAnimationFrame = typeof window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame
       : window.cancelAnimationFrame;
 
     if (typeof nativeRequestAnimationFrame !== "function" || typeof nativeCancelAnimationFrame !== "function") {
       return;
     }
 
-    window.__flowawayProcessNativeRequestAnimationFrame = nativeRequestAnimationFrame;
-    window.__flowawayProcessNativeCancelAnimationFrame = nativeCancelAnimationFrame;
+    window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame = nativeRequestAnimationFrame;
+    window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame = nativeCancelAnimationFrame;
 
     window.requestAnimationFrame = function (callback) {
       var args = Array.prototype.slice.call(arguments, 1);
@@ -2933,21 +2934,21 @@
       unregisterRafProcessByHandle(handle, "raf-cancel");
     };
 
-    window.__flowawayProcessRafApisWrapped = true;
+    window.protectedGlobals.__flowawayProcessRafApisWrapped = true;
   }
 
   function wrapMutationObserverProcessApi() {
-    if (window.__flowawayProcessMutationObserverWrapped) return;
+    if (window.protectedGlobals.__flowawayProcessMutationObserverWrapped) return;
 
-    var NativeMutationObserver = typeof window.__flowawayProcessNativeMutationObserver === "function"
-      ? window.__flowawayProcessNativeMutationObserver
+    var NativeMutationObserver = typeof window.protectedGlobals.__flowawayProcessNativeMutationObserver === "function"
+      ? window.protectedGlobals.__flowawayProcessNativeMutationObserver
       : window.MutationObserver;
 
     if (typeof NativeMutationObserver !== "function") {
       return;
     }
 
-    window.__flowawayProcessNativeMutationObserver = NativeMutationObserver;
+    window.protectedGlobals.__flowawayProcessNativeMutationObserver = NativeMutationObserver;
 
     function WrappedMutationObserver(callback) {
       var observer;
@@ -3018,14 +3019,14 @@
     } catch (e) {}
 
     window.MutationObserver = WrappedMutationObserver;
-    window.__flowawayProcessMutationObserverWrapped = true;
+    window.protectedGlobals.__flowawayProcessMutationObserverWrapped = true;
   }
 
   function registerTerminalProcessCommands() {
-    if (window.__flowawayRuntimeTerminalProcessCommandsRegistered) return true;
-    if (typeof window.registerTerminalAppCommand !== "function") return false;
+    if (window.protectedGlobals.__flowawayRuntimeTerminalProcessCommandsRegistered) return true;
+    if (typeof window.protectedGlobals.registerTerminalAppCommand !== "function") return false;
 
-    var processPs = window.registerTerminalAppCommand({
+    var processPs = window.protectedGlobals.registerTerminalAppCommand({
       name: "ps",
       description: "List current processes.",
       usage: "ps [json]",
@@ -3056,7 +3057,7 @@
       },
     }, { force: true });
 
-    var processKill = window.registerTerminalAppCommand({
+    var processKill = window.protectedGlobals.registerTerminalAppCommand({
       name: "kill",
       description: "Kill a process by pid.",
       usage: "kill <pid>",
@@ -3071,7 +3072,7 @@
       },
     }, { force: true });
 
-    var processSuspend = window.registerTerminalAppCommand({
+    var processSuspend = window.protectedGlobals.registerTerminalAppCommand({
       name: "suspend",
       description: "Suspend a process by pid.",
       usage: "suspend <pid>",
@@ -3086,7 +3087,7 @@
       },
     }, { force: true });
 
-    var processResume = window.registerTerminalAppCommand({
+    var processResume = window.protectedGlobals.registerTerminalAppCommand({
       name: "resume",
       description: "Resume a process by pid.",
       usage: "resume <pid>",
@@ -3108,10 +3109,10 @@
       processResume && processResume.ok !== false;
 
     if (ok) {
-      window.__flowawayRuntimeTerminalProcessCommandsRegistered = true;
-      if (window._flowaway_handlers && window._flowaway_handlers.processTerminalCommandRegisterTimer) {
-        getInternalClearInterval()(window._flowaway_handlers.processTerminalCommandRegisterTimer);
-        delete window._flowaway_handlers.processTerminalCommandRegisterTimer;
+      window.protectedGlobals.__flowawayRuntimeTerminalProcessCommandsRegistered = true;
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer) {
+        getInternalClearInterval()(window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer);
+        delete window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer;
       }
     }
 
@@ -3120,11 +3121,11 @@
 
   function ensureTerminalProcessCommandsRegistration() {
     if (registerTerminalProcessCommands()) return;
-    if (window._flowaway_handlers && window._flowaway_handlers.processTerminalCommandRegisterTimer) {
+    if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer) {
       return;
     }
-    window._flowaway_handlers = window._flowaway_handlers || {};
-    window._flowaway_handlers.processTerminalCommandRegisterTimer = getInternalSetInterval()(function () {
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer = getInternalSetInterval()(function () {
       registerTerminalProcessCommands();
     }, 1200);
   }
@@ -3143,8 +3144,8 @@
   }
 
   function loadTreeWrapper() {
-    var oldLoadTree = window.loadTree;
-    if (window.__flowawayProcessLoadTreeWrapped && oldLoadTree === window.__flowawayProcessLoadTreeWrapped) {
+    var oldLoadTree = window.protectedGlobals.loadTree;
+    if (window.protectedGlobals.__flowawayProcessLoadTreeWrapped && oldLoadTree === window.protectedGlobals.__flowawayProcessLoadTreeWrapped) {
       return;
     }
 
@@ -3155,24 +3156,24 @@
       try {
         buildTaskManagerState();
         ensureProcessTrackerRunning();
-        annotateTreeWithPaths(window.treeData);
+        window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
       } catch (e) {}
     };
 
-    window.__flowawayProcessLoadTreeWrapped = wrapped;
-    window.loadTree = wrapped;
-    window.onlyloadTree = oldLoadTree;
+    window.protectedGlobals.__flowawayProcessLoadTreeWrapped = wrapped;
+    window.protectedGlobals.loadTree = wrapped;
+    window.protectedGlobals.onlyloadTree = oldLoadTree;
   }
 
   function wrapLaunchApp() {
-    var originalLaunchApp = window.launchApp;
+    var originalLaunchApp = window.protectedGlobals.launchApp;
     if (typeof originalLaunchApp !== "function") return;
-    if (window.__flowawayProcessLaunchAppWrapped === originalLaunchApp) return;
+    if (window.protectedGlobals.__flowawayProcessLaunchAppWrapped === originalLaunchApp) return;
 
     var wrappedLaunchApp = async function (appId) {
       var result = await originalLaunchApp.apply(this, arguments);
       try {
-        var app = (Array.isArray(window.apps) ? window.apps : []).find(function (item) {
+        var app = (Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : []).find(function (item) {
           if (!item) return false;
           var candidates = [item.id, item.functionname, item.label, item.path]
             .filter(Boolean)
@@ -3190,13 +3191,13 @@
       return result;
     };
 
-    window.__flowawayProcessLaunchAppWrapped = originalLaunchApp;
-    window.launchApp = wrappedLaunchApp;
+    window.protectedGlobals.__flowawayProcessLaunchAppWrapped = originalLaunchApp;
+    window.protectedGlobals.launchApp = wrappedLaunchApp;
   }
 
   function bindAppUpdatedRefresh() {
-    if (window.__flowawayProcessAppUpdatedBound) return;
-    window.__flowawayProcessAppUpdatedBound = true;
+    if (window.protectedGlobals.__flowawayProcessAppUpdatedBound) return;
+    window.protectedGlobals.__flowawayProcessAppUpdatedBound = true;
     try {
       window.addEventListener("appUpdated", function () {
         try {
@@ -3210,20 +3211,20 @@
     try {
       var internalClearInterval = getInternalClearInterval();
       var internalClearTimeout = getInternalClearTimeout();
-      if (window._flowaway_handlers && window._flowaway_handlers.processTrackerFallbackTimer) {
-        internalClearInterval(window._flowaway_handlers.processTrackerFallbackTimer);
-        delete window._flowaway_handlers.processTrackerFallbackTimer;
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.processTrackerFallbackTimer) {
+        internalClearInterval(window.protectedGlobals.systemAPIs.processTrackerFallbackTimer);
+        delete window.protectedGlobals.systemAPIs.processTrackerFallbackTimer;
       }
-      if (window._flowaway_handlers && window._flowaway_handlers.processTrackerSyncTimer) {
-        internalClearTimeout(window._flowaway_handlers.processTrackerSyncTimer);
-        delete window._flowaway_handlers.processTrackerSyncTimer;
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.processTrackerSyncTimer) {
+        internalClearTimeout(window.protectedGlobals.systemAPIs.processTrackerSyncTimer);
+        delete window.protectedGlobals.systemAPIs.processTrackerSyncTimer;
       }
-      if (window._flowaway_handlers && window._flowaway_handlers.processTerminalCommandRegisterTimer) {
-        internalClearInterval(window._flowaway_handlers.processTerminalCommandRegisterTimer);
-        delete window._flowaway_handlers.processTerminalCommandRegisterTimer;
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer) {
+        internalClearInterval(window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer);
+        delete window.protectedGlobals.systemAPIs.processTerminalCommandRegisterTimer;
       }
-      if (window._flowawayProcessTrackerState) {
-        var legacy = window._flowawayProcessTrackerState;
+      if (window.protectedGlobals._flowawayProcessTrackerState) {
+        var legacy = window.protectedGlobals._flowawayProcessTrackerState;
         if (legacy.syncTimer) internalClearTimeout(legacy.syncTimer);
         if (legacy.fallbackTimer) internalClearInterval(legacy.fallbackTimer);
       }
@@ -3300,26 +3301,26 @@
   runtime.demoRafTracking = demoRafTracking;
   runtime.__loaded = true;
 
-  window.__processRuntime = runtime;
-  window.FlowawayProcess = runtime;
+  window.protectedGlobals.__processRuntime = runtime;
+  window.protectedGlobals.FlowawayProcess = runtime;
   if (!window.process || typeof window.process !== "object") {
     window.process = runtime;
   }
 
-  window.registerDynamicProcess = registerDynamicProcess;
-  window.unregisterDynamicProcess = unregisterDynamicProcess;
-  window.createProcess = createProcess;
-  window.getProcess = getProcess;
-  window.getProcessesByApp = getProcessesByApp;
-  window.killProcess = killProcess;
-  window.suspendProcess = suspendProcess;
-  window.resumeProcess = resumeProcess;
-  window.rebuildTaskManagerSnapshot = buildTaskManagerState;
-  window.getTaskManagerSnapshot = getTaskManagerSnapshot;
-  window.buildTaskManagerState = buildTaskManagerState;
-  window.demoGuiAppIntervalTracking = demoGuiAppIntervalTracking;
-  window.demoBackgroundIntervalTracking = demoBackgroundIntervalTracking;
-  window.demoRafTracking = demoRafTracking;
+  window.protectedGlobals.registerDynamicProcess = registerDynamicProcess;
+  window.protectedGlobals.unregisterDynamicProcess = unregisterDynamicProcess;
+  window.protectedGlobals.createProcess = createProcess;
+  window.protectedGlobals.getProcess = getProcess;
+  window.protectedGlobals.getProcessesByApp = getProcessesByApp;
+  window.protectedGlobals.killProcess = killProcess;
+  window.protectedGlobals.suspendProcess = suspendProcess;
+  window.protectedGlobals.resumeProcess = resumeProcess;
+  window.protectedGlobals.rebuildTaskManagerSnapshot = buildTaskManagerState;
+  window.protectedGlobals.getTaskManagerSnapshot = getTaskManagerSnapshot;
+  window.protectedGlobals.buildTaskManagerState = buildTaskManagerState;
+  window.protectedGlobals.demoGuiAppIntervalTracking = demoGuiAppIntervalTracking;
+  window.protectedGlobals.demoBackgroundIntervalTracking = demoBackgroundIntervalTracking;
+  window.protectedGlobals.demoRafTracking = demoRafTracking;
 
   cleanupLegacyProcessTimers();
   wrapTimerProcessApis();

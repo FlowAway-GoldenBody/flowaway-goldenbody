@@ -4,18 +4,18 @@ settingsGlobals.allSettings = [];
 settingsGlobals.goldenbodyId = 0;
 
 function persistSettingsProfilePatch(patch) {
-  if (typeof window.persistUserProfilePatch === "function") {
-    return window.persistUserProfilePatch(patch || {});
+  if (typeof window.protectedGlobals.persistUserProfilePatch === "function") {
+     return window.protectedGlobals.persistUserProfilePatch(patch || {});
   }
   return Promise.resolve({ success: false, error: "profile persistence unavailable" });
 }
 
 settings = function (posX = 50, posY = 50) {
-  startMenu.style.display = "none";
+  window.protectedGlobals.startMenu.style.display = "none";
 
   let isMaximized = false;
   let _isMinimized = false;
-  atTop = "settings";
+  window.protectedGlobals.atTop = "settings";
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
@@ -34,7 +34,7 @@ settings = function (posX = 50, posY = 50) {
   });
   root.classList.add("settings");
   root.dataset.appId = "settings";
-  bringToFront(root);
+  window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   settingsGlobals.goldenbodyId++;
   root.goldenbodyId = settingsGlobals.goldenbodyId;
@@ -65,7 +65,7 @@ settings = function (posX = 50, posY = 50) {
   dragStrip.style.cursor = "move";
   dragStrip.style.width = "100%";
   dragStrip.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(dragStrip);
   const barrier = document.createElement("div");
@@ -74,7 +74,7 @@ settings = function (posX = 50, posY = 50) {
   barrier.style.height = "14px";
   barrier.style.width = "100%";
   barrier.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(barrier);
 
@@ -102,13 +102,13 @@ settings = function (posX = 50, posY = 50) {
     el.style.cursor = "pointer";
   });
   const applyWindowControlIcon =
-    window.applyWindowControlIcon || function () {};
-  const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+    window.protectedGlobals.applyWindowControlIcon || function () {};
+  const setWindowMaximizeIcon = window.protectedGlobals.setWindowMaximizeIcon || function () {};
   applyWindowControlIcon(btnMin, "minimize");
   setWindowMaximizeIcon(btnMax, false);
   applyWindowControlIcon(btnClose, "close");
   topBar.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.appendChild(topBar);
   // --- Saved bounds shared correctly ---
@@ -124,11 +124,11 @@ settings = function (posX = 50, posY = 50) {
     root.style.left = "0";
     root.style.top = "0";
     root.style.width = "100%";
-    root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
     root.style.borderRadius = "0px";
     isMaximized = true;
     _isMinimized = false;
-    setWindowMaximizeIcon(btnMax, true);
+    window.protectedGlobals.setWindowMaximizeIcon(btnMax, true);
   }
 
   function restoreWindow(useOriginalBounds = true) {
@@ -137,7 +137,7 @@ settings = function (posX = 50, posY = 50) {
     }
     root.style.borderRadius = "10px";
     isMaximized = false;
-    setWindowMaximizeIcon(btnMax, false);
+    window.protectedGlobals.setWindowMaximizeIcon(btnMax, false);
   }
 
   function closeWindow() {
@@ -146,7 +146,7 @@ settings = function (posX = 50, posY = 50) {
       (instance) => instance.rootElement == root,
     );
     if (index !== -1) settingsGlobals.allSettings.splice(index, 1);
-    window.removeAllEventListenersForApp("settings" + root.goldenbodyId);
+    window.protectedGlobals.removeAllEventListenersForApp("settings" + root.goldenbodyId);
   }
 
   function hideWindow() {
@@ -158,7 +158,7 @@ settings = function (posX = 50, posY = 50) {
   function showWindow() {
     root.style.display = "flex";
     _isMinimized = false;
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   }
 
   function closeAll() {
@@ -238,14 +238,14 @@ settings = function (posX = 50, posY = 50) {
         origTop = 0;
       let thresholdCrossed = false;
       function getDragThreshold() {
-        const v = Number(data && data.DRAG_THRESHOLD);
+        const v = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
         if (!Number.isFinite(v)) return 15;
         return Math.max(2, Math.min(128, Math.round(v)));
       }
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
-        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -472,7 +472,7 @@ settings = function (posX = 50, posY = 50) {
     button.textContent = "Saving...";
 
     try {
-      const res = await zmcdpost({
+      const res = await window.protectedGlobals.zmcdpost({
         updatePassword: true,
         oldPassword: oldinput.value,
         newPassword: input.value,
@@ -538,11 +538,11 @@ settings = function (posX = 50, posY = 50) {
   volume.type = "range";
   volume.min = 0;
   volume.max = 100;
-  volume.value = data.volume;
+  volume.value = window.protectedGlobals.data.volume;
   volume.style.width = "calc(100% - 10px)";
 
   volume.oninput = async () => {
-    data.volume = volume.value;
+    window.protectedGlobals.data.volume = volume.value;
     await persistSettingsProfilePatch({ volume: Number(volume.value) });
     // Optional global hook
     window.dispatchEvent(
@@ -567,13 +567,13 @@ settings = function (posX = 50, posY = 50) {
   brightness.type = "range";
   brightness.min = 0;
   brightness.max = 100;
-  brightness.value = data.brightness;
+  brightness.value = window.protectedGlobals.data.brightness;
   brightness.style.width = "calc(100% - 10px)";
 
   brightness.oninput = async () => {
     // Simple global brightness effect
     document.documentElement.style.filter = `brightness(${brightness.value}%)`;
-    data.brightness = brightness.value;
+    window.protectedGlobals.data.brightness = brightness.value;
     await persistSettingsProfilePatch({ brightness: Number(brightness.value) });
   };
 
@@ -594,27 +594,27 @@ settings = function (posX = 50, posY = 50) {
 
   const themeToggle = document.createElement("input");
   themeToggle.type = "checkbox";
-  themeToggle.checked = !!data.dark;
+  themeToggle.checked = !!window.protectedGlobals.data.dark;
 
   /* Toggle handler */
   themeToggle.onchange = async () => {
-    data.dark = themeToggle.checked;
+    window.protectedGlobals.data.dark = themeToggle.checked;
 
     // Apply theme immediately
-    applyStyles();
+    window.protectedGlobals.applyStyles();
 
     // Persist to backend (optional but recommended)
-    await persistSettingsProfilePatch({ dark: !!data.dark });
+    await persistSettingsProfilePatch({ dark: !!window.protectedGlobals.data.dark });
   };
 
   themeRow.append(themeLabel, themeToggle);
   mainContainer.appendChild(themeRow);
 
-  data.taskbarRevealEdgePx = Number.isFinite(Number(data.taskbarRevealEdgePx))
-    ? Math.max(1, Math.min(64, Math.round(Number(data.taskbarRevealEdgePx))))
+  window.protectedGlobals.data.taskbarRevealEdgePx = Number.isFinite(Number(window.protectedGlobals.data.taskbarRevealEdgePx))
+    ? Math.max(1, Math.min(64, Math.round(Number(window.protectedGlobals.data.taskbarRevealEdgePx))))
     : 6;
-  data.taskbarRevealHoldDelayMs = Number.isFinite(Number(data.taskbarRevealHoldDelayMs))
-    ? Math.max(0, Math.min(5000, Math.round(Number(data.taskbarRevealHoldDelayMs))))
+  window.protectedGlobals.data.taskbarRevealHoldDelayMs = Number.isFinite(Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs))
+    ? Math.max(0, Math.min(5000, Math.round(Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs))))
     : 450;
 
   const autohideRow = document.createElement("div");
@@ -627,20 +627,20 @@ settings = function (posX = 50, posY = 50) {
 
   const autohideToggle = document.createElement("input");
   autohideToggle.type = "checkbox";
-  autohideToggle.checked = !!data.autohidetaskbar;
+  autohideToggle.checked = !!window.protectedGlobals.data.autohidetaskbar;
 
   autohideToggle.onchange = async () => {
-    data.autohidetaskbar = autohideToggle.checked;
+    window.protectedGlobals.data.autohidetaskbar = autohideToggle.checked;
     await persistSettingsProfilePatch({
-      autohidetaskbar: !!data.autohidetaskbar,
-      taskbarRevealEdgePx: Number(data.taskbarRevealEdgePx),
-      taskbarRevealHoldDelayMs: Number(data.taskbarRevealHoldDelayMs),
+      autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
+      taskbarRevealEdgePx: Number(window.protectedGlobals.data.taskbarRevealEdgePx),
+      taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs),
     });
-    if (window.applyTaskbarAutohideSettings) {
-      window.applyTaskbarAutohideSettings({
-        autohidetaskbar: data.autohidetaskbar,
-        taskbarRevealEdgePx: data.taskbarRevealEdgePx,
-        taskbarRevealHoldDelayMs: data.taskbarRevealHoldDelayMs,
+    if (window.protectedGlobals.applyTaskbarAutohideSettings) {
+      window.protectedGlobals.applyTaskbarAutohideSettings({
+        autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
+        taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
+        taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
       });
     }
   };
@@ -656,25 +656,25 @@ settings = function (posX = 50, posY = 50) {
   taskbarRevealEdge.min = "1";
   taskbarRevealEdge.max = "64";
   taskbarRevealEdge.step = "1";
-  taskbarRevealEdge.value = Number.isFinite(Number(data.taskbarRevealEdgePx))
-    ? String(Number(data.taskbarRevealEdgePx))
+  taskbarRevealEdge.value = Number.isFinite(Number(window.protectedGlobals.data.taskbarRevealEdgePx))
+    ? String(Number(window.protectedGlobals.data.taskbarRevealEdgePx))
     : "6";
   taskbarRevealEdge.style.width = "calc(100% - 10px)";
 
   taskbarRevealEdge.onchange = async () => {
     const normalized = Math.max(1, Math.min(64, Math.round(Number(taskbarRevealEdge.value) || 6)));
     taskbarRevealEdge.value = String(normalized);
-    data.taskbarRevealEdgePx = normalized;
+    window.protectedGlobals.data.taskbarRevealEdgePx = normalized;
     await persistSettingsProfilePatch({
-      autohidetaskbar: !!data.autohidetaskbar,
+      autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
       taskbarRevealEdgePx: normalized,
-      taskbarRevealHoldDelayMs: Number(data.taskbarRevealHoldDelayMs),
+      taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs),
     });
-    if (window.applyTaskbarAutohideSettings) {
-      window.applyTaskbarAutohideSettings({
-        autohidetaskbar: data.autohidetaskbar,
-        taskbarRevealEdgePx: data.taskbarRevealEdgePx,
-        taskbarRevealHoldDelayMs: data.taskbarRevealHoldDelayMs,
+    if (window.protectedGlobals.applyTaskbarAutohideSettings) {
+      window.protectedGlobals.applyTaskbarAutohideSettings({
+        autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
+        taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
+        taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
       });
     }
   };
@@ -687,25 +687,25 @@ settings = function (posX = 50, posY = 50) {
   taskbarRevealHold.min = "0";
   taskbarRevealHold.max = "5000";
   taskbarRevealHold.step = "50";
-  taskbarRevealHold.value = Number.isFinite(Number(data.taskbarRevealHoldDelayMs))
-    ? String(Number(data.taskbarRevealHoldDelayMs))
+  taskbarRevealHold.value = Number.isFinite(Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs))
+    ? String(Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs))
     : "450";
   taskbarRevealHold.style.width = "calc(100% - 10px)";
 
   taskbarRevealHold.onchange = async () => {
     const normalized = Math.max(0, Math.min(5000, Math.round(Number(taskbarRevealHold.value) || 450)));
     taskbarRevealHold.value = String(normalized);
-    data.taskbarRevealHoldDelayMs = normalized;
+    window.protectedGlobals.data.taskbarRevealHoldDelayMs = normalized;
     await persistSettingsProfilePatch({
-      autohidetaskbar: !!data.autohidetaskbar,
-      taskbarRevealEdgePx: Number(data.taskbarRevealEdgePx),
+      autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
+      taskbarRevealEdgePx: Number(window.protectedGlobals.data.taskbarRevealEdgePx),
       taskbarRevealHoldDelayMs: normalized,
     });
-    if (window.applyTaskbarAutohideSettings) {
-      window.applyTaskbarAutohideSettings({
-        autohidetaskbar: data.autohidetaskbar,
-        taskbarRevealEdgePx: data.taskbarRevealEdgePx,
-        taskbarRevealHoldDelayMs: data.taskbarRevealHoldDelayMs,
+    if (window.protectedGlobals.applyTaskbarAutohideSettings) {
+      window.protectedGlobals.applyTaskbarAutohideSettings({
+        autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
+        taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
+        taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
       });
     }
   };
@@ -731,12 +731,12 @@ settings = function (posX = 50, posY = 50) {
 
   const autoupdateToggle = document.createElement("input");
   autoupdateToggle.type = "checkbox";
-  autoupdateToggle.checked = !!data.autoupdate;
+  autoupdateToggle.checked = !!window.protectedGlobals.data.autoupdate;
 
   /* Toggle handler */
   autoupdateToggle.onchange = async () => {
-    data.autoupdate = autoupdateToggle.checked;
-    await persistSettingsProfilePatch({ autoupdate: !!data.autoupdate });
+    window.protectedGlobals.data.autoupdate = autoupdateToggle.checked;
+    await persistSettingsProfilePatch({ autoupdate: !!window.protectedGlobals.data.autoupdate });
   };
 
   autoupdateRow.append(autoupdateLabel, autoupdateToggle);
@@ -752,15 +752,15 @@ settings = function (posX = 50, posY = 50) {
   dragThresholdInput.min = "2";
   dragThresholdInput.max = "128";
   dragThresholdInput.step = "1";
-  dragThresholdInput.value = Number.isFinite(Number(data.DRAG_THRESHOLD))
-    ? String(Number(data.DRAG_THRESHOLD))
+  dragThresholdInput.value = Number.isFinite(Number(window.protectedGlobals.data.DRAG_THRESHOLD))
+    ? String(Number(window.protectedGlobals.data.DRAG_THRESHOLD))
     : "15";
   dragThresholdInput.style.width = "calc(100% - 10px)";
 
   dragThresholdInput.onchange = async () => {
     const normalized = Math.max(2, Math.min(128, Math.round(Number(dragThresholdInput.value) || 15)));
     dragThresholdInput.value = String(normalized);
-    data.DRAG_THRESHOLD = normalized;
+    window.protectedGlobals.data.DRAG_THRESHOLD = normalized;
     await persistSettingsProfilePatch({ DRAG_THRESHOLD: normalized });
   };
 
@@ -832,8 +832,8 @@ settings = function (posX = 50, posY = 50) {
       height: "50vh",
       minHeight: "180px",
       minWidth: "420px",
-      background: data && data.dark ? "#222" : "#fff",
-      color: data && data.dark ? "#fff" : "#000",
+      background: window.protectedGlobals.data.dark ? "#222" : "#fff",
+      color: window.protectedGlobals.data.dark ? "#fff" : "#000",
       borderRadius: "8px",
       boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
       display: "flex",
@@ -841,17 +841,17 @@ settings = function (posX = 50, posY = 50) {
       overflow: "hidden",
       resize: "both",
     });
-    bringToFront(dlg);
+    window.protectedGlobals.bringToFront(dlg);
     const header = document.createElement("div");
     header.style.display = "flex";
     header.style.alignItems = "center";
     header.style.justifyContent = "flex-start";
     header.style.padding = "8px 10px";
     header.style.cursor = "move";
-    header.style.background = data && data.dark ? "#111" : "#f1f1f1";
+    header.style.background = window.protectedGlobals.data.dark ? "#111" : "#f1f1f1";
     header.style.flexShrink = "0";
     header.style.position = "relative";
-    header.onclick = () => bringToFront(dlg);
+    header.onclick = () => window.protectedGlobals.bringToFront(dlg);
     const htitle = document.createElement("div");
     htitle.textContent = "About";
     htitle.style.fontWeight = "600";
@@ -895,7 +895,7 @@ settings = function (posX = 50, posY = 50) {
     content.innerHTML = `
       <div style="font-weight:600;margin-bottom:6px">About Flowaway Goldenbody</div>
       <div style="margin-bottom:6px">An utopia that has EVERYTHING unblocked (anything internet filters block, code your own apps, works on chromebooks), free, open-source, forever.</div>
-      <div style="font-size:12px;color:gray">Version: ${typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'unknown'}</div>
+      <div style="font-size:12px;color:gray">Version: ${window.protectedGlobals.APP_VERSION || 'unknown'}</div>
     `;
     dlg.appendChild(content);
 
@@ -963,7 +963,7 @@ settings = function (posX = 50, posY = 50) {
     newwindow: newWindow,
     goldenbodyId: settingsGlobals.goldenbodyId,
   });
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 
   return {
     rootElement: root,

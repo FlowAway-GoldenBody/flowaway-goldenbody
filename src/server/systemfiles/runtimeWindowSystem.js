@@ -1,38 +1,34 @@
-function applyTaskButtons() {
-  if (window.appsButtonsApplied) return;
-  if (!window.apps || window.apps.length === 0) return;
+(function () {
+window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
+  if (window.protectedGlobals.appsButtonsApplied) return;
+  if (!window.protectedGlobals.apps || window.protectedGlobals.apps.length === 0) return;
 
   var taskbarReady = false;
   try {
-    taskbarReady =
-      typeof taskbar !== "undefined" &&
-      !!taskbar &&
-      taskbar.isConnected &&
-      typeof addTaskButton === "function";
+    taskbarReady = !!(window.protectedGlobals.taskbar && window.protectedGlobals.taskbar.isConnected);
   } catch (e) {
     taskbarReady = false;
   }
 
   if (!taskbarReady) {
     try {
-      if (typeof loadSystemHelperScript === "function")
-        loadSystemHelperScript();
+        window.protectedGlobals.injectGoldenbodyScript();
     } catch (e) {}
 
     try {
-      window._flowaway_handlers = window._flowaway_handlers || {};
-      if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
-        window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(
+      window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+      if (!window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer) {
+        window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer = setTimeout(
           () => {
             try {
               if (
-                window._flowaway_handlers &&
-                window._flowaway_handlers.applyTaskButtonsRetryTimer
+                window.protectedGlobals.systemAPIs &&
+                window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer
               ) {
                 clearTimeout(
-                  window._flowaway_handlers.applyTaskButtonsRetryTimer,
+                  window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer,
                 );
-                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+                delete window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer;
               }
             } catch (e) {}
             try {
@@ -46,33 +42,32 @@ function applyTaskButtons() {
     return;
   }
 
-  window.appsButtonsApplied = true;
-  window._suppressTaskbarPersist = true;
+  window.protectedGlobals.appsButtonsApplied = true;
 
   try {
     // Clear existing dynamic task buttons (keep system buttons in the first two slots)
     var existingTaskButtons = [
-      ...taskbar.querySelectorAll("button.taskbutton"),
+      ...window.protectedGlobals.taskbar.querySelectorAll("button.taskbutton"),
     ];
     existingTaskButtons.splice(0, 2);
     existingTaskButtons.forEach((btn) => btn.remove());
 
     // Prefer dynamic apps discovered in /apps
-    var savedTaskButtons = Array.isArray(data && data.taskbuttons)
-      ? data.taskbuttons
+    var savedTaskButtons = Array.isArray(window.protectedGlobals.data && window.protectedGlobals.data.taskbuttons)
+      ? window.protectedGlobals.data.taskbuttons
       : [];
     var seenAppIds = new Set();
     for (const taskbutton of savedTaskButtons) {
-      const app = (window.apps || []).find((a) =>
-        appMatchesIdentifier(a, taskbutton),
+      const app = (window.protectedGlobals.apps || []).find((a) =>
+        window.protectedGlobals.appMatchesIdentifier(a, taskbutton),
       );
       if (app) {
-        const appId = getPreferredAppIdentifier(app);
+        const appId = app.functionname;
         if (seenAppIds.has(appId)) continue;
         seenAppIds.add(appId);
-        const btn = addTaskButton(
+        const btn = window.protectedGlobals.addTaskButton(
           app.icon,
-          () => launchApp(appId),
+          () => window.protectedGlobals.launchApp(appId),
           "cmf",
           "",
           appId,
@@ -80,23 +75,23 @@ function applyTaskButtons() {
         if (btn) btn.dataset.appId = appId;
       }
     }
-    taskbuttons = [...taskbar.querySelectorAll("button")];
+    window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
   } catch (e) {
-    window.appsButtonsApplied = false;
+    window.protectedGlobals.appsButtonsApplied = false;
     try {
-      window._flowaway_handlers = window._flowaway_handlers || {};
-      if (!window._flowaway_handlers.applyTaskButtonsRetryTimer) {
-        window._flowaway_handlers.applyTaskButtonsRetryTimer = setTimeout(
+      window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+      if (!window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer) {
+        window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer = setTimeout(
           () => {
             try {
               if (
-                window._flowaway_handlers &&
-                window._flowaway_handlers.applyTaskButtonsRetryTimer
+                window.protectedGlobals.systemAPIs &&
+                window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer
               ) {
                 clearTimeout(
-                  window._flowaway_handlers.applyTaskButtonsRetryTimer,
+                  window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer,
                 );
-                delete window._flowaway_handlers.applyTaskButtonsRetryTimer;
+                delete window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer;
               }
             } catch (e) {}
             try {
@@ -107,13 +102,11 @@ function applyTaskButtons() {
         );
       }
     } catch (retryErr) {}
-  } finally {
-    window._suppressTaskbarPersist = false;
   }
 }
 
-function purgeButtons() {
-  buttons = [...taskbar.querySelectorAll("button")];
+const purgeButtons = window.protectedGlobals.purgeButtons = function purgeButtons() {
+  var buttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
   buttons.splice(0, 3);
   buttons.forEach((b) => {
     if (!b.dataset.appId) {
@@ -121,22 +114,22 @@ function purgeButtons() {
     }
   });
   // Build a generic map from appId -> [buttons]
-  window.appButtons = window.appButtons || {};
-  window.appButtons = {};
-  for (let i = 0; i < taskbuttons.length; i++) {
-    let tb = taskbuttons[i];
+  window.protectedGlobals.appButtons = window.protectedGlobals.appButtons || {};
+  window.protectedGlobals.appButtons = {};
+  for (let i = 0; i < (window.protectedGlobals.taskbuttons || []).length; i++) {
+    let tb = window.protectedGlobals.taskbuttons[i];
     var id;
     try {
       id = tb.dataset.appId;
     } catch (e) {}
     if (!id) continue;
-    window.appButtons[id] = window.appButtons[id] || [];
-    window.appButtons[id].push(tb);
+    window.protectedGlobals.appButtons[id] = window.protectedGlobals.appButtons[id] || [];
+    window.protectedGlobals.appButtons[id].push(tb);
   }
 }
 
-function saveTaskButtons(silence = true) {
-  var buttons = [...taskbar.querySelectorAll("button")];
+const saveTaskButtons = window.protectedGlobals.saveTaskButtons = function saveTaskButtons(silence = true) {
+  var buttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
   buttons.splice(0, 2);
   var postdata = [];
   for (const b of buttons) {
@@ -150,22 +143,22 @@ function saveTaskButtons(silence = true) {
       if (inferred) postdata.push(inferred);
     }
   }
-  if (!silence) notification("taskbuttons saved!");
-  posttaskbuttons(postdata);
+  if (!silence) window.protectedGlobals.notification("taskbuttons saved!");
+  window.protectedGlobals.posttaskbuttons(postdata);
 }
-function bringToFront(el) {
+const bringToFront = window.protectedGlobals.bringToFront = function bringToFront(el) {
   if (!el) return;
   var appId = resolveWindowAppId(el);
-  atTop = appId || "";
-  el.style.zIndex = String(++zTop);
+  window.protectedGlobals.atTop = appId || "";
+  el.style.zIndex = String(++window.protectedGlobals.zTop);
 }
 
-function resolveWindowAppId(el) {
+const resolveWindowAppId = window.protectedGlobals.resolveWindowAppId = function resolveWindowAppId(el) {
   if (!el) return "";
   var appId = el.dataset && el.dataset.appId;
   if (!appId) appId = el.getAttribute && el.getAttribute("data-app-id");
-  if (!appId && window.apps && Array.isArray(window.apps)) {
-    for (const a of window.apps) {
+  if (!appId && window.protectedGlobals.apps && Array.isArray(window.protectedGlobals.apps)) {
+    for (const a of window.protectedGlobals.apps) {
       try {
         // Only use real identifier strings (functionname) for class/id matching.
         // a.id and a.icon are icon content (emoji or HTML markup), not valid identifiers.
@@ -187,9 +180,9 @@ function resolveWindowAppId(el) {
   return appId || "";
 }
 
-function findAppByIdentifier(identifier) {
-  if (!identifier || !window.apps || !Array.isArray(window.apps)) return null;
-  for (const a of window.apps) {
+const findAppByIdentifier = window.protectedGlobals.findAppByIdentifier = function findAppByIdentifier(identifier) {
+  if (!identifier || !window.protectedGlobals.apps || !Array.isArray(window.protectedGlobals.apps)) return null;
+  for (const a of window.protectedGlobals.apps) {
     if (!a) continue;
     // Only match against true identifiers (functionname).
     // Do NOT match a.id or a.icon — those contain icon HTML/emoji content, not identifiers.
@@ -200,7 +193,7 @@ function findAppByIdentifier(identifier) {
   return null;
 }
 
-function resolveWindowLabel(el) {
+const resolveWindowLabel = window.protectedGlobals.resolveWindowLabel = function resolveWindowLabel(el) {
   var appId = resolveWindowAppId(el);
   var windowTitle = "";
   try {
@@ -223,7 +216,7 @@ function resolveWindowLabel(el) {
   return "Window";
 }
 
-function getSwitchableWindows() {
+const getSwitchableWindows = window.protectedGlobals.getSwitchableWindows = function getSwitchableWindows() {
   try {
     return Array.from(document.querySelectorAll(".app-window-root")).filter((el) => {
       if (!el || !el.isConnected) return false;
@@ -236,7 +229,7 @@ function getSwitchableWindows() {
   }
 }
 
-function resolveFocusedWindowRoot(windows) {
+const resolveFocusedWindowRoot = window.protectedGlobals.resolveFocusedWindowRoot = function resolveFocusedWindowRoot(windows) {
   var active = null;
   try {
     active = document.activeElement;
@@ -255,16 +248,16 @@ function resolveFocusedWindowRoot(windows) {
     } catch (e) {}
   }
 
-  if (atTop && windows && windows.length) {
+  if (window.protectedGlobals.atTop && windows && windows.length) {
     for (var i = 0; i < windows.length; i++) {
-      if (resolveWindowAppId(windows[i]) === atTop) return windows[i];
+      if (resolveWindowAppId(windows[i]) === window.protectedGlobals.atTop) return windows[i];
     }
   }
 
   return null;
 }
 
-var windowSwitchState = {
+window.protectedGlobals.windowSwitchState = {
   active: false,
   mod: "",
   order: [],
@@ -274,8 +267,9 @@ var windowSwitchState = {
   previewRoot: null,
   previewList: null,
 };
+var windowSwitchState = window.protectedGlobals.windowSwitchState;
 
-function ensureWindowSwitchPreview() {
+var ensureWindowSwitchPreview = window.protectedGlobals.ensureWindowSwitchPreview = function ensureWindowSwitchPreview() {
   if (
     windowSwitchState.previewRoot &&
     windowSwitchState.previewRoot.isConnected
@@ -297,7 +291,7 @@ function ensureWindowSwitchPreview() {
   });
 
   var panel = document.createElement("div");
-  var systemDark = data.dark;
+  var systemDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
   Object.assign(panel.style, {
     minWidth: "520px",
     maxWidth: "88vw",
@@ -344,18 +338,18 @@ function ensureWindowSwitchPreview() {
   windowSwitchState.previewList = list;
 }
 
-function hideWindowSwitchPreview() {
+var hideWindowSwitchPreview = window.protectedGlobals.hideWindowSwitchPreview = function hideWindowSwitchPreview() {
   if (!windowSwitchState.previewRoot) return;
   windowSwitchState.previewRoot.style.display = "none";
 }
 
-function renderWindowSwitchPreview(modLabel) {
+var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPreview = function renderWindowSwitchPreview(modLabel) {
   ensureWindowSwitchPreview();
   if (!windowSwitchState.previewRoot || !windowSwitchState.previewList) return;
 
   var list = windowSwitchState.previewList;
   var panel = list.parentElement;
-  var systemDark = data.dark;
+  var systemDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
   if (panel) {
     panel.style.background = systemDark
       ? "rgba(26,26,26,0.96)"
@@ -449,7 +443,7 @@ function renderWindowSwitchPreview(modLabel) {
   windowSwitchState.previewRoot.setAttribute("data-mod", modLabel || "");
 }
 
-function commitWindowSwitchTarget() {
+var commitWindowSwitchTarget = window.protectedGlobals.commitWindowSwitchTarget = function commitWindowSwitchTarget() {
   var target = windowSwitchState.pendingTarget;
   if (!target || !target.isConnected) return;
   bringToFront(target);
@@ -462,7 +456,7 @@ function commitWindowSwitchTarget() {
   }
 }
 
-function resetWindowSwitchState() {
+var resetWindowSwitchState = window.protectedGlobals.resetWindowSwitchState = function resetWindowSwitchState() {
   hideWindowSwitchPreview();
   windowSwitchState.active = false;
   windowSwitchState.mod = "";
@@ -472,7 +466,7 @@ function resetWindowSwitchState() {
   windowSwitchState.pendingTarget = null;
 }
 
-function cycleWindowFocus(reverse, modKey, options) {
+var cycleWindowFocus = window.protectedGlobals.cycleWindowFocus = function cycleWindowFocus(reverse, modKey, options) {
   var windows = getSwitchableWindows();
   if (!windows || windows.length <= 1) return false;
 
@@ -536,7 +530,7 @@ function cycleWindowFocus(reverse, modKey, options) {
   return true;
 }
 
-function syncWindowSwitchPreview(target, modKey) {
+var syncWindowSwitchPreview = window.protectedGlobals.syncWindowSwitchPreview = function syncWindowSwitchPreview(target, modKey) {
   if (!target || !target.isConnected) return false;
 
   var windows = getSwitchableWindows();
@@ -564,9 +558,9 @@ function syncWindowSwitchPreview(target, modKey) {
 
 // keydown - single binding
 try {
-  if (window._flowaway_handlers.onKeydown)
-    window.removeEventListener("keydown", window._flowaway_handlers.onKeydown);
-  window._flowaway_handlers.onKeydown = function (e) {
+  if (window.protectedGlobals.systemAPIs.onKeydown)
+    window.removeEventListener("keydown", window.protectedGlobals.systemAPIs.onKeydown);
+  window.protectedGlobals.systemAPIs.onKeydown = function (e) {
     // Build normalized combo e.g. 'Ctrl+Shift+N'
     var parts = [];
     if (e.ctrlKey) parts.push("Ctrl");
@@ -582,14 +576,14 @@ try {
       (e.ctrlKey && !e.altKey && e.key === "Tab")
     ) {
       e.preventDefault();
-      cycleFocusedWindow(!!e.shiftKey, e.altKey ? "Alt" : "Ctrl");
+      window.protectedGlobals.cycleFocusedWindow(!!e.shiftKey, e.altKey ? "Alt" : "Ctrl");
       return;
     }
 
     // Check user-defined shortcuts first
-    if (data && data.shortcuts && data.shortcuts[combo]) {
+    if (window.protectedGlobals.data && window.protectedGlobals.data.shortcuts && window.protectedGlobals.data.shortcuts[combo]) {
       e.preventDefault();
-      launchApp(data.shortcuts[combo]);
+      window.protectedGlobals.launchApp(window.protectedGlobals.data.shortcuts[combo]);
       return;
     }
 
@@ -602,7 +596,7 @@ try {
       (e.key === "ArrowUp" || e.key === "ArrowDown")
     ) {
       e.preventDefault();
-      applyBrightnessDelta(e.key === "ArrowUp" ? 5 : -5);
+      window.protectedGlobals.applyBrightnessDelta(e.key === "ArrowUp" ? 5 : -5);
       return;
     }
 
@@ -613,70 +607,70 @@ try {
       (e.key === "ArrowUp" || e.key === "ArrowDown")
     ) {
       e.preventDefault();
-      applyVolumeDelta(e.key === "ArrowUp" ? 5 : -5);
+      window.protectedGlobals.applyVolumeDelta(e.key === "ArrowUp" ? 5 : -5);
       return;
     }
 
     // Default: Ctrl+N -> open new instance of focused app or a sensible default
     if (e.ctrlKey && keyPart === "N") {
       e.preventDefault();
-      launchFocusedAppWindow();
+      window.protectedGlobals.launchFocusedAppWindow();
       return;
     } else if (e.ctrlKey && e.shiftKey && keyPart === "W") {
       // Close only the topmost app window for the focused app (atTop)
       e.preventDefault();
       e.stopPropagation();
-      closeFocusedAppWindow();
+      window.protectedGlobals.closeFocusedAppWindow();
       return;
     }
   };
-  window.addEventListener("keydown", window._flowaway_handlers.onKeydown);
+  window.addEventListener("keydown", window.protectedGlobals.systemAPIs.onKeydown);
 
-  if (window._flowaway_handlers.onKeyup)
-    window.removeEventListener("keyup", window._flowaway_handlers.onKeyup);
-  window._flowaway_handlers.onKeyup = function (e) {
+  if (window.protectedGlobals.systemAPIs.onKeyup)
+    window.removeEventListener("keyup", window.protectedGlobals.systemAPIs.onKeyup);
+  window.protectedGlobals.systemAPIs.onKeyup = function (e) {
     if (e.key === "Alt" || e.key === "Control") {
       commitWindowSwitchTarget();
       resetWindowSwitchState();
     }
   };
-  window.addEventListener("keyup", window._flowaway_handlers.onKeyup);
+  window.addEventListener("keyup", window.protectedGlobals.systemAPIs.onKeyup);
 
-  if (window._flowaway_handlers.onBlur)
-    window.removeEventListener("blur", window._flowaway_handlers.onBlur);
-  window._flowaway_handlers.onBlur = function () {
+  if (window.protectedGlobals.systemAPIs.onBlur)
+    window.removeEventListener("blur", window.protectedGlobals.systemAPIs.onBlur);
+  window.protectedGlobals.systemAPIs.onBlur = function () {
     resetWindowSwitchState();
   };
-  window.addEventListener("blur", window._flowaway_handlers.onBlur);
+  window.addEventListener("blur", window.protectedGlobals.systemAPIs.onBlur);
 
-  if (window._flowaway_handlers.onVisibilityChange)
+  if (window.protectedGlobals.systemAPIs.onVisibilityChange)
     document.removeEventListener(
       "visibilitychange",
-      window._flowaway_handlers.onVisibilityChange,
+      window.protectedGlobals.systemAPIs.onVisibilityChange,
     );
-  window._flowaway_handlers.onVisibilityChange = function () {
+  window.protectedGlobals.systemAPIs.onVisibilityChange = function () {
     if (document.hidden) resetWindowSwitchState();
   };
   document.addEventListener(
     "visibilitychange",
-    window._flowaway_handlers.onVisibilityChange,
+    window.protectedGlobals.systemAPIs.onVisibilityChange,
   );
 } catch (e) {}
 
-function applyStyles() {
+window.protectedGlobals.applyStyles = function applyStyles() {
   try {
     var roots = document.querySelectorAll(".app-window-root");
     for (const r of roots) {
       try {
         // don't let the global applyStyles override its classes.
         if (!(r.dataset.themeManual === 'true')) {
-          r.classList.toggle("dark", data.dark);
-          r.classList.toggle("light", !data.dark);
+          r.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+          r.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
         }
       } catch (e) {
         // fallback to safe toggle if dataset access fails
-        r.classList.toggle("dark", data.dark);
-        r.classList.toggle("light", !data.dark);
+        r.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+        r.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
       }
       try {
         r.dispatchEvent(new CustomEvent("styleapplied", {}));
@@ -684,42 +678,42 @@ function applyStyles() {
     }
   } catch (e) {}
 
-  // if(data.dark) {
+  // if(window.protectedGlobals.data.dark) {
   //   document.body.style.background = "#444";
   //   document.body.style.color = "white";
   // } else {
   //   document.body.style.background = "white";
   //   document.body.style.color = "black";
   // }
-  var startMenuEl = window.startMenu || document.getElementById("startMenu");
-  var taskbarEl = window.taskbar || document.getElementById("taskbar");
+  var startMenuEl = window.protectedGlobals.startMenu || document.getElementById("startMenu");
+  var taskbarEl = window.protectedGlobals.taskbar || document.getElementById("taskbar");
   if (startMenuEl) {
-    startMenuEl.classList.toggle("dark", data.dark);
-    startMenuEl.classList.toggle("light", !data.dark);
+    startMenuEl.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    startMenuEl.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
   }
   if (taskbarEl) {
-    taskbarEl.classList.toggle("dark", data.dark);
-    taskbarEl.classList.toggle("light", !data.dark);
+    taskbarEl.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    taskbarEl.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
   }
-  var taskButtonsList = Array.isArray(window.taskbuttons)
-    ? window.taskbuttons
+  var taskButtonsList = Array.isArray(window.protectedGlobals.taskbuttons)
+    ? window.protectedGlobals.taskbuttons
     : [];
   for (var button of taskButtonsList) {
-    button.classList.toggle("dark", data.dark);
-    button.classList.toggle("light", !data.dark);
+    button.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    button.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
   }
 }
 setTimeout(() => {
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 }, 100);
 
 // Ensure apps are loaded shortly after startup (safe-guard if tree already present)
 setTimeout(() => {
   try {
-    loadAppsFromTree();
+    window.protectedGlobals.loadAppsFromTree();
   } catch (e) {}
 }, 200);
-function mainRecurseFrames(doc) {
+var mainRecurseFrames = window.protectedGlobals.mainRecurseFrames = function mainRecurseFrames(doc) {
   if (!doc) return null;
 
   var frames = doc.querySelectorAll("iframe");
@@ -740,7 +734,7 @@ function mainRecurseFrames(doc) {
         element.volume = newVolume;
       });
     }
-    setAllMediaVolume(data.volume / 100);
+    setAllMediaVolume((window.protectedGlobals.data && window.protectedGlobals.data.volume) / 100);
     // Recurse into child document if accessible
     if (childDoc) {
       mainRecurseFrames(childDoc);
@@ -750,8 +744,8 @@ function mainRecurseFrames(doc) {
   return null;
 }
 
-document.documentElement.style.filter = `brightness(${data.brightness}%)`;
-function setAllMediaVolume(newVolume) {
+document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
+var setAllMediaVolume = window.protectedGlobals.setAllMediaVolume = function setAllMediaVolume(newVolume) {
   // Ensure the volume is between 0.0 and 1.0
   newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
@@ -763,33 +757,35 @@ function setAllMediaVolume(newVolume) {
   });
 }
 try {
-  if (window._flowaway_handlers.onSystemVolume)
+  if (window.protectedGlobals.systemAPIs.onSystemVolume)
     window.removeEventListener(
       "system-volume",
-      window._flowaway_handlers.onSystemVolume,
+      window.protectedGlobals.systemAPIs.onSystemVolume,
     );
-  window._flowaway_handlers.onSystemVolume = (e) => {
+  window.protectedGlobals.systemAPIs.onSystemVolume = (e) => {
     setAllMediaVolume(e.detail / 100);
   };
   window.addEventListener(
     "system-volume",
-    window._flowaway_handlers.onSystemVolume,
+    window.protectedGlobals.systemAPIs.onSystemVolume,
   );
 } catch (e) {}
 // 1. Create a new MutationObserver instance with a callback function
-var observer = new MutationObserver((mutationsList, observer) => {
+window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
   if (mutationsList) {
-    setAllMediaVolume(data.volume / 100);
+    setAllMediaVolume((window.protectedGlobals.data && window.protectedGlobals.data.volume) / 100);
     mainRecurseFrames(document);
-    document.documentElement.style.filter = `brightness(${data.brightness}%)`;
+    document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
   }
 });
+var observer = window.protectedGlobals.observer;
 
 // 2. Select the target node you want to observe (e.g., the entire document body)
-var targetNode = document.body;
+window.protectedGlobals.targetNode = document.body;
+var targetNode = window.protectedGlobals.targetNode;
 
 // 3. Configure the observer with an options object
-var config = {
+window.protectedGlobals.config = {
   childList: true, // Observe direct children addition/removal
   attributes: true, // Observe attribute changes
   characterData: true, // Observe changes to text content
@@ -797,16 +793,17 @@ var config = {
   attributeOldValue: true, // Record the old value of the attribute
   characterDataOldValue: true, // Record the old value of the character data
 };
+var config = window.protectedGlobals.config;
 
 // 4. Start observing the target node with the specified configuration
 try {
-  if (window._flowaway_handlers.observer) {
+  if (window.protectedGlobals.systemAPIs.observer) {
     try {
-      window._flowaway_handlers.observer.disconnect();
+      window.protectedGlobals.systemAPIs.observer.disconnect();
     } catch (e) {}
   }
-  window._flowaway_handlers.observer = observer;
-  observer.observe(targetNode, config);
+  window.protectedGlobals.systemAPIs.observer = observer;
+  window.protectedGlobals.observer.observe(window.protectedGlobals.targetNode, window.protectedGlobals.config);
 } catch (e) {
   try {
     observer.observe(targetNode, config);
@@ -816,9 +813,9 @@ try {
 // To stop observing later:
 // observer.disconnect();
 
-setAllMediaVolume(parseInt(data.volume) / 100);
+setAllMediaVolume(parseInt(window.protectedGlobals.data && window.protectedGlobals.data.volume) / 100);
 // helpers global
-function getStringAfterChar(str, char) {
+var getStringAfterChar = window.protectedGlobals.getStringAfterChar = function getStringAfterChar(str, char) {
   var index = str.indexOf(char);
   if (index !== -1) {
     // Add 1 to the index to start after the character itself
@@ -829,18 +826,18 @@ function getStringAfterChar(str, char) {
   }
 }
 
-// Global notification helper: call notification("message") to show a temporary toast for 3s
-function notification(message, options) {
+// Global window.protectedGlobals.notification helper: call window.protectedGlobals.notification("message") to show a temporary toast for 3s
+var notification = window.protectedGlobals.notification = function(message, options) {
   try {
     if (!message && message !== 0) return;
     options = options || {};
 
-    // theme detection: explicit option > data-theme attributes > global var > data.dark > data-dark flag > default
+    // theme detection: explicit option > data-theme attributes > protected theme state > data-dark flag > default
     var dataDark = null;
     try {
-      if (window.data && typeof window.data.dark !== 'undefined') dataDark = window.data.dark;
+      if (window.protectedGlobals.data && typeof window.protectedGlobals.data.dark !== 'undefined') dataDark = window.protectedGlobals.data.dark;
     } catch (e) {}
-    var themeCandidate = options.theme || (document.documentElement && document.documentElement.getAttribute('data-theme')) || (document.body && (document.body.getAttribute('data-theme') || document.body.dataset.theme)) || window.flowawayTheme || dataDark || null;
+    var themeCandidate = options.theme || (document.documentElement && document.documentElement.getAttribute('data-theme')) || (document.body && (document.body.getAttribute('data-theme') || document.body.dataset.theme)) || window.protectedGlobals.flowawayTheme || dataDark || null;
     var theme = themeCandidate;
 
     // normalize bool-like values
@@ -867,18 +864,18 @@ function notification(message, options) {
     }
 
     // Prefer the unified in-UI message system if available
-    if (typeof window.showFlowawayMessage === "function") {
+    if (typeof window.protectedGlobals.showFlowawayMessage === "function") {
       try {
-        showFlowawayMessage("Notification", String(message), options.level || "info");
+        window.protectedGlobals.showFlowawayMessage("Notification", String(message), options.level || "info");
         return null;
       } catch (e) {}
     }
 
     // Fallback inline toast with theme-aware styling
-    var container = document.getElementById("global-notifications");
+    var container = document.getElementById("global-window.protectedGlobals.notifications");
     if (!container) {
       container = document.createElement("div");
-      container.id = "global-notifications";
+      container.id = "global-window.protectedGlobals.notifications";
       Object.assign(container.style, {
         position: "fixed",
         right: "20px",
@@ -907,8 +904,8 @@ function notification(message, options) {
     } else {
       try {
         var cs = getComputedStyle(document.documentElement || document.body);
-        var varBg = cs.getPropertyValue('--notification-bg') || cs.getPropertyValue('--bg');
-        var varColor = cs.getPropertyValue('--notification-color') || cs.getPropertyValue('--fg');
+        var varBg = cs.getPropertyValue('--window.protectedGlobals.notification-bg') || cs.getPropertyValue('--bg');
+        var varColor = cs.getPropertyValue('--window.protectedGlobals.notification-color') || cs.getPropertyValue('--fg');
         if (varBg) bg = varBg.trim();
         if (varColor) color = varColor.trim();
       } catch (e) {}
@@ -967,7 +964,7 @@ function notification(message, options) {
     console.error("notify error", e);
   }
 }
-var style = document.createElement("style");
+var style = window.protectedGlobals.style = document.createElement("style");
 style.textContent = `
 
 /* =========================================================
@@ -992,95 +989,6 @@ style.textContent = `
   flex: 1;
   padding: 24px;
   overflow: auto;
-}
- .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
-.sim-chrome-top {
-  background: linear-gradient(#f6f7f8,#ededf0);
-  height: 44px;
-  display:flex;
-  align-items:center;
-  padding:0 8px;
-  gap:8px;
-}
-
-.sim-chrome-tabs {
-  display:flex;
-  gap:2px;
-  align-items:center;
-  height:32px;
-  scrollbar-width:none;
-}
-.sim-chrome-tabs::-webkit-scrollbar { display:none; }
-
-.sim-tab {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:6px 10px;
-  border-radius:6px;
-  cursor:pointer;
-  user-select:none;
-  font-size:13px;
-  color:#333;
-  max-width:200px;
-  min-width:185px;
-  overflow:hidden;
-  white-space:nowrap;
-  text-overflow:ellipsis;
-}
-
-.sim-tab.active {
-  background: rgba(0,0,0,0.06);
-  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
-}
-
-.sim-tab .close {
-  font-weight:700;
-  color:#777;
-  cursor:pointer;
-  margin-left:auto;
-}
-
-.sim-address-row {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex:1;
-  margin: 0 8px;
-}
-
-.sim-open-btn,
-.sim-fullscreen-btn,
-.sim-netab-btn {
-  height:28px;
-  padding:0 12px;
-  border-radius:12px;
-  border:1px solid rgba(0,0,0,0.12);
-  background:#fff;
-  cursor:pointer;
-  font-size:13px;
-}
-
-.sim-toolbar {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:8px;
-  background:#fff;
-  border-top:1px solid rgba(0,0,0,0.06);
-}
-
-.sim-iframe {
-  width:100%;
-  height:calc(100% - 84px);
-  border:0;
-  background:#fff;
-}
-
-.sim-status {
-  font-size:12px;
-  color:#666;
-  margin-left:8px;
 }
 
 .appTopBar {
@@ -1163,66 +1071,6 @@ style.textContent = `
   color: #222;
 }
 
-.app-root.light .sim-chrome-top {
-  background: linear-gradient(#f6f7f8, #ededf0);
-}
-
-.app-root.light .sim-chrome-tabs {
-  background: transparent;
-}
-
-.app-root.light .sim-tab {
-  color: #333;
-}
-
-.app-root.light .sim-tab.active {
-  background: rgba(0,0,0,0.06);
-  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
-}
-
-.app-root.light .sim-tab .close {
-  color: #777;
-}
-
-/* Address row */
-.app-root.light .sim-address-row {
-  background: transparent;
-  margin: 0 8px;
-}
-
-/* URL / proxy inputs */
-.app-root.light .sim-url-input,
-.app-root.light .sim-proxy-input {
-  background: #fff;
-  color: #222;
-  border: 1px solid rgba(0,0,0,0.12);
-}
-
-/* Buttons */
-.app-root.light .sim-open-btn,
-.app-root.light .sim-fullscreen-btn,
-.app-root.light .sim-netab-btn {
-  background: #fff;
-  color: #222;
-  border: 1px solid rgba(0,0,0,0.12);
-}
-
-/* Toolbar */
-.app-root.light .sim-toolbar {
-  background: #fff;
-  border-top: 1px solid rgba(0,0,0,0.06);
-}
-
-/* Iframe area */
-.app-root.light .sim-iframe {
-  background: #fff;
-}
-
-/* Status text */
-.app-root.light .sim-status {
-  color: #666;
-}
-
 /* Top draggable bar */
 .app-root.light .appTopBar {
   background: #ccc;
@@ -1261,62 +1109,6 @@ style.textContent = `
 .panel.dark {
   background: #444;
   color: #fff;
-}
-.app-root.dark .sim-address-row {
-  background: #222; margin: 0 8px;
-}
-
-/* Iframe background */
-.app-root.dark .sim-iframe {
-  background: #111; /* deep dark, matches content area */
-}
-.app-root.dark {
-  background:#1e1e1e;
-  color:#ddd;
-}
-
-.app-root.dark .sim-chrome-top {
-  background: linear-gradient(#2a2a2a,#1f1f1f);
-}
-
-.app-root.dark .sim-tab {
-  color:#ddd;
-}
-
-.app-root.dark .sim-tab.active {
-  background: rgba(255,255,255,0.08);
-}
-
-.app-root.dark .sim-tab .close {
-  color:rgba(251, 248, 248, 1);
-}
-  .app-root.dark .sim-url-input { flex:1; height:32px; background-color: "black"; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
-.app-root.dark .sim-url-input,
-.app-root.dark .sim-proxy-input {
-  background:#2a2a2a;
-  color:#eee;
-  border:1px solid rgba(255,255,255,0.15);
-}
-
-.app-root.dark .sim-open-btn,
-.app-root.dark .sim-fullscreen-btn,
-.app-root.dark .sim-netab-btn {
-  background:#2a2a2a;
-  color:#eee;
-  border:1px solid rgba(255,255,255,0.15);
-}
-
-.app-root.dark .sim-toolbar {
-  background:#1e1e1e;
-  border-top:1px solid rgba(255,255,255,0.08);
-}
-
-.app-root.dark .sim-iframe {
-  background:#111;
-}
-
-.app-root.dark .sim-status {
-  color:#aaa;
 }
 
 .app-root.dark .app-menu {
@@ -1403,3 +1195,5 @@ style.textContent = `
 `;
 
 document.head.appendChild(style);
+
+})();
