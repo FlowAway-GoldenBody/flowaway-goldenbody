@@ -1,4 +1,6 @@
-var css = `
+// global const/let is banned in non (()=>{})() wrappers
+(function () {
+const css = window.protectedGlobals.css = `
 
     .startMenu {
         position: fixed;
@@ -248,25 +250,25 @@ var css = `
 }
 
 `;
-var styleTag = document.createElement("style");
-styleTag.textContent = css;
+const styleTag = window.protectedGlobals.styleTag = document.createElement("style");
+styleTag.textContent = window.protectedGlobals.css;
 document.head.appendChild(styleTag);
 
 // ----------------- CREATE START BUTTON -----------------
 
 // ============= START MENU CONFIG SYSTEM =============
-window._startMenuConfig = null;
+window.protectedGlobals._startMenuConfig = null;
 
-async function loadStartMenuConfig() {
+const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async function loadStartMenuConfig() {
   try {
     const configPath = 'systemfiles/userprofile/startMenu-config.json';
-    const configData = await fetchFileContentByPath(configPath);
-    const configText = base64ToUtf8(configData);
-    window._startMenuConfig = JSON.parse(configText);
-    return window._startMenuConfig;
+    const configData = await window.protectedGlobals.fetchFileContentByPath(configPath);
+    const configText = window.protectedGlobals.base64ToUtf8(configData);
+    window.protectedGlobals._startMenuConfig = JSON.parse(configText);
+    return window.protectedGlobals._startMenuConfig;
   } catch (e) {
-    flowawayError('startMenu', 'Failed to load config, using defaults', e);
-    window._startMenuConfig = {
+    window.protectedGlobals.flowawayError('startMenu', 'Failed to load config, using defaults', e);
+    window.protectedGlobals._startMenuConfig = {
       version: '1.0',
       pinnedApps: [],
       hiddenApps: [],
@@ -276,43 +278,43 @@ async function loadStartMenuConfig() {
       displayMode: 'grid',
       gridColumns: 4
     };
-    return window._startMenuConfig;
+    return window.protectedGlobals._startMenuConfig;
   }
 }
 
-async function saveStartMenuConfig() {
+const saveStartMenuConfig = window.protectedGlobals.saveStartMenuConfig = async function saveStartMenuConfig() {
   try {
-    if (!window._startMenuConfig) return;
-    const configJson = JSON.stringify(window._startMenuConfig, null, 2);
-    await filePost({
+    if (!window.protectedGlobals._startMenuConfig) return;
+    const configJson = JSON.stringify(window.protectedGlobals._startMenuConfig, null, 2);
+    await window.protectedGlobals.filePost({
       action: 'saveStartMenuConfig',
       configJson: configJson
     });
   } catch (e) {
-    flowawayError('startMenu', 'Failed to save config', e);
+    window.protectedGlobals.flowawayError('startMenu', 'Failed to save config', e);
   }
 }
 
-function addToRecents(appId) {
-  if (!window._startMenuConfig) return;
-  const recents = window._startMenuConfig.recents || [];
+const addToRecents = window.protectedGlobals.addToRecents = function addToRecents(appId) {
+  if (!window.protectedGlobals._startMenuConfig) return;
+  const recents = window.protectedGlobals._startMenuConfig.recents || [];
   const index = recents.indexOf(appId);
   if (index > -1) recents.splice(index, 1);
   recents.unshift(appId);
-  if (recents.length > (window._startMenuConfig.maxRecents || 5)) {
+  if (recents.length > (window.protectedGlobals._startMenuConfig.maxRecents || 5)) {
     recents.pop();
   }
-  window._startMenuConfig.recents = recents;
+  window.protectedGlobals._startMenuConfig.recents = recents;
   saveStartMenuConfig();
 }
 
-function removeFromStartMenu(appId) {
-  if (!window._startMenuConfig) return;
-  const pinnedApps = window._startMenuConfig.pinnedApps || [];
+const removeFromStartMenu = window.protectedGlobals.removeFromStartMenu = function removeFromStartMenu(appId) {
+  if (!window.protectedGlobals._startMenuConfig) return;
+  const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const index = pinnedApps.indexOf(appId);
   if (index > -1) {
     pinnedApps.splice(index, 1);
-    window._startMenuConfig.pinnedApps = pinnedApps;
+    window.protectedGlobals._startMenuConfig.pinnedApps = pinnedApps;
     saveStartMenuConfig();
     renderPinnedAppsGrid();
   }
@@ -323,7 +325,7 @@ try {
   var existingStartMenu = document.getElementById("startMenu");
   if (existingStartMenu) existingStartMenu.remove();
 } catch (e) {}
-var startMenu = document.createElement("div");
+const startMenu = window.protectedGlobals.startMenu = document.createElement("div");
 startMenu.id = "startMenu";
 startMenu.className = "startMenu";
 startMenu.style.zIndex = 999;
@@ -363,14 +365,14 @@ document.body.appendChild(startMenu);
 // Load config on startup
 (async () => {
   await loadStartMenuConfig();
-  await loadAppsFromTree();
+  await window.protectedGlobals.loadAppsFromTree();
 })();
 
 // ============= TAB SWITCHING =============
-window.tabButtons = startMenu.querySelectorAll('.startMenuTab');
-window.tabSections = startMenu.querySelectorAll('.tabSection');
+window.protectedGlobals.tabButtons = startMenu.querySelectorAll('.startMenuTab');
+window.protectedGlobals.tabSections = startMenu.querySelectorAll('.tabSection');
 
-function switchTab(tabName) {
+const switchTab = window.protectedGlobals.switchTab = function switchTab(tabName) {
   if (!tabName) return;
   try {
     document
@@ -382,12 +384,12 @@ function switchTab(tabName) {
       });
   } catch (e) {}
   // Hide all sections
-  tabSections.forEach(function (section) {
+  window.protectedGlobals.tabSections.forEach(function (section) {
     section.classList.remove('active');
     section.style.display = 'none';
   });
   // Deactivate all tabs
-  tabButtons.forEach(function (btn) {
+  window.protectedGlobals.tabButtons.forEach(function (btn) {
     btn.classList.remove('active');
   });
 
@@ -411,7 +413,7 @@ function switchTab(tabName) {
   else if (tabName === 'shortcuts') renderQuickActionsGrid();
 }
 
-tabButtons.forEach(btn => {
+window.protectedGlobals.tabButtons.forEach(btn => {
   btn.addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -419,61 +421,61 @@ tabButtons.forEach(btn => {
   });
 });
 
-function applyBrightnessDelta(delta) {
-  data.brightness = Math.min(
+const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = function applyBrightnessDelta(delta) {
+  window.protectedGlobals.data = window.protectedGlobals.data || {};
+  window.protectedGlobals.data.brightness = Math.min(
     100,
-    Math.max(0, (parseInt(data.brightness) || 0) + delta),
+    Math.max(0, (parseInt(window.protectedGlobals.data.brightness) || 0) + delta),
   );
-  document.documentElement.style.filter = `brightness(${data.brightness}%)`;
+  document.documentElement.style.filter = `brightness(${window.protectedGlobals.data.brightness}%)`;
   try {
-    if (typeof window.persistUserProfilePatch === "function") {
-      window.persistUserProfilePatch({ brightness: Number(data.brightness) });
+    if (typeof window.protectedGlobals.persistUserProfilePatch === "function") {
+      window.protectedGlobals.persistUserProfilePatch({ brightness: Number(window.protectedGlobals.data.brightness) });
     }
   } catch (err) {}
   try {
-    notification(`Brightness: ${data.brightness}%`);
+    window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.data.brightness}%`);
   } catch (e) {}
 }
 
-function applyVolumeDelta(delta) {
-  data.volume = Math.min(
+const applyVolumeDelta = window.protectedGlobals.applyVolumeDelta = function applyVolumeDelta(delta) {
+  window.protectedGlobals.data = window.protectedGlobals.data || {};
+  window.protectedGlobals.data.volume = Math.min(
     100,
-    Math.max(0, (parseInt(data.volume) || 0) + delta),
+    Math.max(0, (parseInt(window.protectedGlobals.data.volume) || 0) + delta),
   );
-  setAllMediaVolume(data.volume / 100);
-  window.dispatchEvent(new CustomEvent("system-volume", { detail: data.volume }));
+  window.protectedGlobals.setAllMediaVolume(window.protectedGlobals.data.volume / 100);
+  window.dispatchEvent(new CustomEvent("system-volume", { detail: window.protectedGlobals.data.volume }));
   try {
-    if (typeof window.persistUserProfilePatch === "function") {
-      window.persistUserProfilePatch({ volume: Number(data.volume) });
+    if (typeof window.protectedGlobals.persistUserProfilePatch === "function") {
+      window.protectedGlobals.persistUserProfilePatch({ volume: Number(window.protectedGlobals.data.volume) });
     }
   } catch (err) {}
   try {
-    notification(`Volume: ${data.volume}%`);
+    window.protectedGlobals.notification(`Volume: ${window.protectedGlobals.data.volume}%`);
   } catch (e) {}
 }
 
-function cycleFocusedWindow(reverse, modKey = "Alt") {
-  if (typeof cycleWindowFocus === "function") {
-    cycleWindowFocus(!!reverse, modKey);
+const cycleFocusedWindow = window.protectedGlobals.cycleFocusedWindow = function cycleFocusedWindow(reverse, modKey = "Alt") {
+  if (typeof window.protectedGlobals.cycleWindowFocus === "function") {
+    window.protectedGlobals.cycleWindowFocus(!!reverse, modKey);
   }
 }
 
-function launchFocusedAppWindow() {
-  var focusedApp = atTop || "";
-  if (focusedApp && typeof launchApp === "function") {
-    launchApp(focusedApp);
-    return;
-  }
+const launchFocusedAppWindow = window.protectedGlobals.launchFocusedAppWindow = function launchFocusedAppWindow() {
+  var focusedApp = window.protectedGlobals.atTop;
+    window.protectedGlobals.launchApp(focusedApp);
+  // this fallback is okay because it dont cause the user to crash out
   var fallback =
-    (data.taskbuttons && data.taskbuttons[0]) ||
-    (window.apps && window.apps[0] && getPreferredAppIdentifier(window.apps[0]));
-  if (fallback) launchApp(fallback);
+    (window.protectedGlobals.data && window.protectedGlobals.data.taskbuttons && window.protectedGlobals.data.taskbuttons[0]) ||
+    (window.protectedGlobals.apps && window.protectedGlobals.apps[0] && window.protectedGlobals.apps[0].functionname);
+  if (fallback) window.protectedGlobals.launchApp(fallback);
 }
 
-function closeFocusedAppWindow() {
-  if (!atTop) return;
+const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = function closeFocusedAppWindow() {
+  if (!window.protectedGlobals.atTop) return;
   try {
-    var targetAppId = String(atTop || "").trim();
+    var targetAppId = String(window.protectedGlobals.atTop || "").trim();
     if (!targetAppId) return;
 
     var roots = Array.from(document.querySelectorAll(".app-window-root"));
@@ -502,8 +504,8 @@ function closeFocusedAppWindow() {
       } catch (e) {}
 
       try {
-        var appObj = (window.apps || []).find(function (a) {
-          return appMatchesIdentifier(a, targetAppId);
+        var appObj = (window.protectedGlobals.apps || []).find(function (a) {
+          return window.protectedGlobals.appMatchesIdentifier(a, targetAppId);
         });
         if (appObj && appObj.globalvarobjectstring && appObj.allapparraystring) {
           var gv = window[appObj.globalvarobjectstring];
@@ -544,7 +546,7 @@ function closeFocusedAppWindow() {
       } catch (e) {}
 
       try {
-        removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
+        window.protectedGlobals.removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
       } catch (e) {}
     }
   } catch (e) {
@@ -552,14 +554,15 @@ function closeFocusedAppWindow() {
   }
 }
 
-function createShortcutButton(label, description, handler) {
+const createShortcutButton = window.protectedGlobals.createShortcutButton = function createShortcutButton(label, description, handler) {
+  var isDarkTheme = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
   const btn = document.createElement("button");
   btn.type = "button";
   btn.style.padding = "12px";
   btn.style.borderRadius = "8px";
-  btn.style.border = data.dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.12)";
-  btn.style.background = data.dark ? "#2a2a2a" : "#fff";
-  btn.style.color = data.dark ? "#f5f5f5" : "#222";
+  btn.style.border = isDarkTheme ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.12)";
+  btn.style.background = isDarkTheme ? "#2a2a2a" : "#fff";
+  btn.style.color = isDarkTheme ? "#f5f5f5" : "#222";
   btn.style.cursor = "pointer";
   btn.style.textAlign = "left";
   btn.style.font = "inherit";
@@ -572,16 +575,16 @@ function createShortcutButton(label, description, handler) {
   btn.style.maxHeight = '180px';
   btn.innerHTML = `<p>${label}</p><span style="font-size:12px;opacity:0.75;">${description}</span>`;
   btn.addEventListener("mouseenter", () => {
-    btn.style.background = data.dark ? "#343434" : "#eef4ff";
+    btn.style.background = isDarkTheme ? "#343434" : "#eef4ff";
   });
   btn.addEventListener("mouseleave", () => {
-    btn.style.background = data.dark ? "#2a2a2a" : "#fff";
+    btn.style.background = isDarkTheme ? "#2a2a2a" : "#fff";
   });
   btn.addEventListener("click", handler);
   return btn;
 }
 
-async function renderQuickActionsGrid() {
+const renderQuickActionsGrid = window.protectedGlobals.renderQuickActionsGrid = async function renderQuickActionsGrid() {
   const container = document.getElementById('shortcutsGrid');
   if (!container) return;
   container.innerHTML = '';
@@ -601,16 +604,16 @@ async function renderQuickActionsGrid() {
 }
 
 // ============= RENDER FUNCTIONS =============
-async function renderPinnedAppsGrid() {
+const renderPinnedAppsGrid = window.protectedGlobals.renderPinnedAppsGrid = async function renderPinnedAppsGrid() {
   const container = document.getElementById('appsGrid');
   if (!container) return;
   container.innerHTML = '';
 
-  if (!window._startMenuConfig || !window.apps) return;
+  if (!window.protectedGlobals._startMenuConfig || !window.protectedGlobals.apps) return;
 
-  const pinnedApps = window._startMenuConfig.pinnedApps || [];
-  const appsMap = new Map(    window.apps.map(app => [
-getPreferredAppIdentifier(app), app
+  const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
+  const appsMap = new Map(    window.protectedGlobals.apps.map(app => [
+app.functionname, app
   ])  );
 
   for (const appId of pinnedApps) {
@@ -620,16 +623,16 @@ getPreferredAppIdentifier(app), app
   }
 }
 
-async function renderRecentsGrid() {
+const renderRecentsGrid = window.protectedGlobals.renderRecentsGrid = async function renderRecentsGrid() {
   const container = document.getElementById('recentsGrid');
   if (!container) return;
   container.innerHTML = '';
 
-  if (!window._startMenuConfig || !window.apps) return;
+  if (!window.protectedGlobals._startMenuConfig || !window.protectedGlobals.apps) return;
 
-  const recents = window._startMenuConfig.recents || [];
-  const appsMap = new Map(    window.apps.map(app => [
-getPreferredAppIdentifier(app), app
+  const recents = window.protectedGlobals._startMenuConfig.recents || [];
+  const appsMap = new Map(    window.protectedGlobals.apps.map(app => [
+app.functionname, app
   ])  );
 
   for (const appId of recents) {
@@ -643,23 +646,23 @@ getPreferredAppIdentifier(app), app
   }
 }
 
-async function renderAllAppsGrid() {
+const renderAllAppsGrid = window.protectedGlobals.renderAllAppsGrid = async function renderAllAppsGrid() {
   const container = document.getElementById('allAppsGrid');
   if (!container) return;
   container.innerHTML = '';
 
-  if (!window.apps) return;
+  if (!window.protectedGlobals.apps) return;
 
-  for (const app of window.apps) {
+  for (const app of window.protectedGlobals.apps) {
     if (!app.icon) continue;
     createAppTile(app, container, false);
   }
 }
 
-function createAppTile(app, container, draggable) {
+const createAppTile = window.protectedGlobals.createAppTile = function createAppTile(app, container, draggable) {
   const div = document.createElement('div');
   div.className = 'app';
-  div.dataset.appId = getPreferredAppIdentifier(app);
+  div.dataset.appId = app.functionname;
   div.id = (app.functionname || app.id) + 'app';
   div.style.padding = '10px';
   div.style.borderRadius = '6px';
@@ -697,13 +700,13 @@ function createAppTile(app, container, draggable) {
       e.preventDefault();
       div.classList.remove('drag-over');
       const appId = e.dataTransfer.getData('appId');
-      const pinnedApps = window._startMenuConfig.pinnedApps || [];
+      const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
       const fromIndex = pinnedApps.indexOf(appId);
       const toIndex = pinnedApps.indexOf(div.dataset.appId);
       if (fromIndex > -1 && toIndex > -1 && fromIndex !== toIndex) {
         pinnedApps.splice(fromIndex, 1);
         pinnedApps.splice(toIndex, 0, appId);
-        window._startMenuConfig.pinnedApps = pinnedApps;
+        window.protectedGlobals._startMenuConfig.pinnedApps = pinnedApps;
         await saveStartMenuConfig();
         renderPinnedAppsGrid();
       }
@@ -712,11 +715,11 @@ function createAppTile(app, container, draggable) {
 
   function runAppPackageContextMenu(evt) {
     try {
-      if (typeof window.cmfl1 === "function") {
-        window.cmfl1(evt, app);
+      if (typeof window.protectedGlobals.cmfl1 === "function") {
+        window.protectedGlobals.cmfl1(evt, app);
       }
     } catch (err) {
-      flowawayError('createAppTile', 'Failed to run app package context menu',         err,         {
+      window.protectedGlobals.flowawayError('createAppTile', 'Failed to run app package context menu',         err,         {
           appId: app && app.id,
         }      );
     }
@@ -732,14 +735,14 @@ function createAppTile(app, container, draggable) {
   // Click to launch
   div.addEventListener('click', () => {
     addToRecents(div.dataset.appId);
-    launchApp(div.dataset.appId);
+    window.protectedGlobals.launchApp(div.dataset.appId);
     startMenu.style.display = 'none';
   });
 
   container.appendChild(div);
 }
 
-function showAppContextMenu(x, y, app, canPin) {
+const showAppContextMenu = window.protectedGlobals.showAppContextMenu = function showAppContextMenu(x, y, app, canPin) {
   // Remove existing menu
   const existing = document.querySelector('.app-context-menu');
   if (existing) existing.remove();
@@ -749,8 +752,8 @@ function showAppContextMenu(x, y, app, canPin) {
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
 
-  const appId = getPreferredAppIdentifier(app);
-  const pinnedApps = window._startMenuConfig.pinnedApps || [];
+  const appId = app.functionname;
+  const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const isPinned = pinnedApps.includes(appId);
 
   let html = '';
@@ -774,7 +777,7 @@ function showAppContextMenu(x, y, app, canPin) {
       const action = item.dataset.action;
       if (action === 'pin') {
         pinnedApps.push(appId);
-        window._startMenuConfig.pinnedApps = pinnedApps;
+        window.protectedGlobals._startMenuConfig.pinnedApps = pinnedApps;
         await saveStartMenuConfig();
         switchTab('pinned');
       } else if (action === 'unpin' || action === 'remove') {
@@ -800,23 +803,23 @@ function showAppContextMenu(x, y, app, canPin) {
 try {
   var sb = document.getElementById("signOutBtn");
   if (sb) {
-    if (window._flowaway_handlers.onSignOut)
-      sb.removeEventListener("click", window._flowaway_handlers.onSignOut);
-    window._flowaway_handlers.onSignOut = () => {
+    if (window.protectedGlobals.systemAPIs.onSignOut)
+      sb.removeEventListener("click", window.protectedGlobals.systemAPIs.onSignOut);
+    window.protectedGlobals.systemAPIs.onSignOut = () => {
       try {
-        rebuildhandler();
+        window.protectedGlobals.rebuildhandler();
       } catch (e) {
         console.error("rebuildhandler error", e);
       }
     };
-    sb.addEventListener("click", window._flowaway_handlers.onSignOut);
+    sb.addEventListener("click", window.protectedGlobals.systemAPIs.onSignOut);
   }
 } catch (e) {
   console.error("signOut hookup error", e);
 }
 
 // -------- TIME --------
-function updateTime() {
+const updateTime = window.protectedGlobals.updateTime = function updateTime() {
   var now = new Date();
   var time = now.toLocaleTimeString([], {
     hour: "2-digit",
@@ -827,11 +830,11 @@ function updateTime() {
 
 updateTime();
 try {
-  if (window._flowaway_handlers.timeIntervalId)
-    clearInterval(window._flowaway_handlers.timeIntervalId);
-  window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000);
+  if (window.protectedGlobals.systemAPIs.timeIntervalId)
+    clearInterval(window.protectedGlobals.systemAPIs.timeIntervalId);
+  window.protectedGlobals.systemAPIs.timeIntervalId = setInterval(updateTime, 1000);
 } catch (e) {
-  window._flowaway_handlers.timeIntervalId = setInterval(updateTime, 1000);
+  window.protectedGlobals.systemAPIs.timeIntervalId = setInterval(updateTime, 1000);
 }
 
 // -------- BATTERY --------
@@ -847,41 +850,41 @@ if (navigator.getBattery) {
     updateBattery();
     try {
       if (
-        window._flowaway_handlers.battery &&
-        window._flowaway_handlers.battery.ref
+        window.protectedGlobals.systemAPIs.battery &&
+        window.protectedGlobals.systemAPIs.battery.ref
       ) {
         try {
-          window._flowaway_handlers.battery.ref.removeEventListener(
+          window.protectedGlobals.systemAPIs.battery.ref.removeEventListener(
             "levelchange",
-            window._flowaway_handlers.battery.levelHandler,
+            window.protectedGlobals.systemAPIs.battery.levelHandler,
           );
         } catch (e) {}
         try {
-          window._flowaway_handlers.battery.ref.removeEventListener(
+          window.protectedGlobals.systemAPIs.battery.ref.removeEventListener(
             "chargingchange",
-            window._flowaway_handlers.battery.chargingHandler,
+            window.protectedGlobals.systemAPIs.battery.chargingHandler,
           );
         } catch (e) {}
       }
-      window._flowaway_handlers.battery = {
+      window.protectedGlobals.systemAPIs.battery = {
         ref: battery,
         levelHandler: updateBattery,
         chargingHandler: updateBattery,
       };
       battery.addEventListener(
         "levelchange",
-        window._flowaway_handlers.battery.levelHandler,
+        window.protectedGlobals.systemAPIs.battery.levelHandler,
       );
       battery.addEventListener(
         "chargingchange",
-        window._flowaway_handlers.battery.chargingHandler,
+        window.protectedGlobals.systemAPIs.battery.chargingHandler,
       );
     } catch (e) {}
   });
 } else {
   document.getElementById("batteryStatus").textContent = "🔋 N/A";
 }
-function updateWiFi() {
+const updateWiFi = window.protectedGlobals.updateWiFi = function updateWiFi() {
   var wifi = document.getElementById("wifiStatus");
   if (navigator.onLine) {
     wifi.textContent = "🛜";
@@ -894,18 +897,18 @@ function updateWiFi() {
 
 updateWiFi();
 try {
-  if (window._flowaway_handlers.onOnline)
-    window.removeEventListener("online", window._flowaway_handlers.onOnline);
-  if (window._flowaway_handlers.onOffline)
-    window.removeEventListener("offline", window._flowaway_handlers.onOffline);
-  window._flowaway_handlers.onOnline = updateWiFi;
-  window._flowaway_handlers.onOffline = updateWiFi;
-  window.addEventListener("online", window._flowaway_handlers.onOnline);
-  window.addEventListener("offline", window._flowaway_handlers.onOffline);
+  if (window.protectedGlobals.systemAPIs.onOnline)
+    window.removeEventListener("online", window.protectedGlobals.systemAPIs.onOnline);
+  if (window.protectedGlobals.systemAPIs.onOffline)
+    window.removeEventListener("offline", window.protectedGlobals.systemAPIs.onOffline);
+  window.protectedGlobals.systemAPIs.onOnline = updateWiFi;
+  window.protectedGlobals.systemAPIs.onOffline = updateWiFi;
+  window.addEventListener("online", window.protectedGlobals.systemAPIs.onOnline);
+  window.addEventListener("offline", window.protectedGlobals.systemAPIs.onOffline);
 } catch (e) {}
 
 // ----------------- TOGGLE START MENU -----------------
-var starthandler = () => {
+window.protectedGlobals.starthandler = () => {
   startMenu.style.display =
     startMenu.style.display === "block" ? "none" : "block";
   // Auto-switch to pinned tab when opening
@@ -920,12 +923,12 @@ var starthandler = () => {
 
 // ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
 try {
-  if (window._flowaway_handlers.onDocumentClick)
+  if (window.protectedGlobals.systemAPIs.onDocumentClick)
     document.removeEventListener(
       "click",
-      window._flowaway_handlers.onDocumentClick,
+      window.protectedGlobals.systemAPIs.onDocumentClick,
     );
-  window._flowaway_handlers.onDocumentClick = (e) => {
+  window.protectedGlobals.systemAPIs.onDocumentClick = (e) => {
     var contextMenuRoot =       e.target && e.target.closest
         ? e.target.closest(
             '.app-context-menu, .app-menu, #custom-context-menu, [id*="context-menu"], [class*="context-menu"], [class*="contextmenu"], .misc',
@@ -941,86 +944,26 @@ try {
       startMenu.style.display = "none";
     }
   };
-  document.addEventListener("click", window._flowaway_handlers.onDocumentClick);
+  document.addEventListener("click", window.protectedGlobals.systemAPIs.onDocumentClick);
 } catch (e) {}
 
-// Do not pre-load specific app scripts here; apps are loaded from the user's `apps/` folder dynamically.
-// Only load system helper script.
-window._flowawaySystemHelperState = {
-  started: false,
-  loaded: false,
-  promise: null,
-};
-async function loadSystemHelperScript() {
-  var helperState =
-    window._flowawaySystemHelperState ||
-    (window._flowawaySystemHelperState = {
-      started: false,
-      loaded: false,
-      promise: null,
-    });
-  if (helperState.loaded) return true;
-  if (helperState.promise) return helperState.promise;
 
-  helperState.started = true;
-  helperState.promise = (async () => {
-    var loaded = false;
 
+const injectGoldenbodyScript = window.protectedGlobals.injectGoldenbodyScript = async function injectGoldenbodyScript() {
     try {
-      const headers = { "Content-Type": "application/json" };
-      if (window.data && window.data.authToken)
-        headers["Authorization"] = "Bearer " + window.data.authToken;
-
-      const res = await fetch(SERVER, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          username:
-            (window.data && window.data.username) ||
-            (data && data.username) ||
-            "",
-          requestFile: true,
-          requestFileName: "systemfiles/goldenbody.js",
-        }),
-      });
-
-      let body = null;
-      try {
-        body = await res.json();
-      } catch (e) {
-        body = null;
-      }
-
-      if (res.ok && body && typeof body.filecontent === "string") {
-        var sysScript = document.createElement("script");
-        sysScript.type = "text/javascript";
-        sysScript.textContent = base64ToUtf8(body.filecontent);
-        document.body.appendChild(sysScript);
-        loaded = true;
-      }
+      let body = await window.protectedGlobals.ReadFile("systemfiles/goldenbody.js");
+      var sysScript = document.createElement("script");
+      sysScript.type = "text/javascript";
+      sysScript.textContent = window.protectedGlobals.base64ToUtf8(body.filecontent);
+      document.body.appendChild(sysScript);
+      window.protectedGlobals.loaded = true;
     } catch (e) {
-      console.warn("failed to load user goldenbody.js from VFS", e);
+      window.protectedGlobals.notification("failed to load user goldenbody.js from VFS", e);
     }
-
-    if (!loaded) {
-      var fallbackScript = document.createElement("script");
-      fallbackScript.src = "systemfiles/goldenbody.js";
-      document.body.appendChild(fallbackScript);
-      loaded = true;
-    }
-
-    helperState.loaded = loaded;
-    helperState.started = loaded;
-    return loaded;
-  })().finally(() => {
-    helperState.promise = null;
-  });
-
-  return helperState.promise;
 }
 
 setTimeout(() => {
-  loadSystemHelperScript();
+  injectGoldenbodyScript();
   setTimeout(() => {
     var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
     window.dispatchEvent(appUpdatedEvent);
@@ -1039,7 +982,7 @@ setTimeout(() => {
   }, 5000);
 }, 100);
 // user warnings here, you can remove this in your own build if you want
-notification(
+window.protectedGlobals.notification(
   "this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah",
 );
 
@@ -1048,15 +991,15 @@ notification(
 // common VFS actions. Responses are the raw server responses; use
 // `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 
-window.ReadFile = async function (relPath) {
+window.protectedGlobals.ReadFile = async function (relPath) {
   if (!relPath) throw new Error("No path");
-  return await filePost({
+  return await window.protectedGlobals.filePost({
     requestFile: true,
     requestFileName: String(relPath),
   });
 };
 
-window.WriteFile = async function (relPath, contents, options = {}) {
+window.protectedGlobals.WriteFile = async function (relPath, contents, options = {}) {
   if (!relPath) throw new Error("No path");
   // Use the saveSnapshot + directions API to perform edits
   if (options.buffer) {
@@ -1071,27 +1014,27 @@ window.WriteFile = async function (relPath, contents, options = {}) {
     },
     { end: true },
   ];
-  return await filePost({ saveSnapshot: true, directions });
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.DeleteFile = async function (relPath) {
+window.protectedGlobals.DeleteFile = async function (relPath) {
   if (!relPath) throw new Error("No path");
   const directions = [{ delete: true, path: String(relPath) }, { end: true }];
-  return await filePost({ saveSnapshot: true, directions });
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.RenameFile = async function (relPath, newName) {
+window.protectedGlobals.RenameFile = async function (relPath, newName) {
   if (!relPath) throw new Error("No path");
   if (!newName) throw new Error("No new name");
   const directions = [
     { rename: true, path: String(relPath), newName: String(newName) },
     { end: true },
   ];
-  return await filePost({ saveSnapshot: true, directions });
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
 // clipboardItems: array of { path: 'root/dir/file', isCut: true|false }
-window.PasteFile = async function (destinationRelPath, clipboardItems) {
+window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems) {
   if (!destinationRelPath) throw new Error("No destination path");
   if (!Array.isArray(clipboardItems) || !clipboardItems.length)
     throw new Error("No clipboard items");
@@ -1100,5 +1043,7 @@ window.PasteFile = async function (destinationRelPath, clipboardItems) {
     { paste: true, path: String(destinationRelPath) },
     { end: true },
   ];
-  return await filePost({ saveSnapshot: true, directions });
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
+
+})();

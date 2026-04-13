@@ -1,11 +1,12 @@
 // Ensure this pre-init block runs only once even if the script is injected twice
-if (!window.__ouchbad_preinit_done) {
-  window.__ouchbad_preinit_done = true;
-  window.__ouchbad_BASE = window.origin;
-  window.__ouchbad_goldenbodywebsite = window.__ouchbad_BASE + "/";
-  window.__ouchbad_zmcdserver = `${window.__ouchbad_BASE}/server/zmcd`;
-  window.__ouchbad_SERVER = `${window.__ouchbad_BASE}/server/fetchfiles/`;
-  window.__ouchbad_downloadserver = `${window.__ouchbad_BASE}/server/download/`;
+window.protectedGlobals = window.protectedGlobals || {};
+if (!window.protectedGlobals.__ouchbad_preinit_done) {
+  window.protectedGlobals.__ouchbad_preinit_done = true;
+  window.protectedGlobals.__ouchbad_BASE = window.origin;
+  window.protectedGlobals.__ouchbad_goldenbodywebsite = window.protectedGlobals.__ouchbad_BASE + "/";
+  window.protectedGlobals.__ouchbad_zmcdserver = `${window.protectedGlobals.__ouchbad_BASE}/server/zmcd`;
+  window.protectedGlobals.__ouchbad_SERVER = `${window.protectedGlobals.__ouchbad_BASE}/server/fetchfiles/`;
+  window.protectedGlobals.__ouchbad_downloadserver = `${window.protectedGlobals.__ouchbad_BASE}/server/download/`;
   let __ouchbad_openerOrigin = null;
   try {
     if (window.opener && window.opener.location && window.opener.location.origin) {
@@ -14,35 +15,34 @@ if (!window.__ouchbad_preinit_done) {
   } catch (e) {
     __ouchbad_openerOrigin = null;
   }
-  window.__ouchbad_baseOrigin = __ouchbad_openerOrigin || window.location.origin;
-  window.__ouchbad_wsProtocol = window.__ouchbad_baseOrigin.startsWith('https')
+  window.protectedGlobals.__ouchbad_baseOrigin = __ouchbad_openerOrigin || window.location.origin;
+  window.protectedGlobals.__ouchbad_wsProtocol = window.protectedGlobals.__ouchbad_baseOrigin.startsWith('https')
     ? 'wss://'
     : 'ws://';
-  window.__ouchbad_hostname = new URL(window.__ouchbad_baseOrigin).hostname;
+  window.protectedGlobals.__ouchbad_hostname = new URL(window.protectedGlobals.__ouchbad_baseOrigin).hostname;
 }
-async function filePost(data) {
+window.protectedGlobals.filePost = async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
-  if (window.data && window.data.authToken) headers["Authorization"] = "Bearer " + window.data.authToken;
-  var res = await fetch(SERVER, {
+  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
+  var res = await fetch(window.protectedGlobals.SERVER, {
     method: "POST",
     headers,
-    body: JSON.stringify({ username: window.data.username, ...data }),
+    body: JSON.stringify({ username: window.protectedGlobals.data && window.protectedGlobals.data.username ? window.protectedGlobals.data.username : "", ...data }),
   });
   return res.json();
-}
-var firstlogin = true;
-var BASE = window.__ouchbad_BASE;
-var goldenbodywebsite = window.__ouchbad_goldenbodywebsite;
-var zmcdserver = window.__ouchbad_zmcdserver;
-var SERVER = window.__ouchbad_SERVER;
-var downloadserver = window.__ouchbad_downloadserver;
-var baseOrigin = window.__ouchbad_baseOrigin;
-var wsProtocol = window.__ouchbad_wsProtocol;
-var hostname = window.__ouchbad_hostname;
+};
+window.protectedGlobals.BASE = window.protectedGlobals.__ouchbad_BASE;
+window.protectedGlobals.goldenbodywebsite = window.protectedGlobals.__ouchbad_goldenbodywebsite;
+window.protectedGlobals.zmcdserver = window.protectedGlobals.__ouchbad_zmcdserver;
+window.protectedGlobals.SERVER = window.protectedGlobals.__ouchbad_SERVER;
+window.protectedGlobals.downloadserver = window.protectedGlobals.__ouchbad_downloadserver;
+window.protectedGlobals.baseOrigin = window.protectedGlobals.__ouchbad_baseOrigin;
+window.protectedGlobals.wsProtocol = window.protectedGlobals.__ouchbad_wsProtocol;
+window.protectedGlobals.hostname = window.protectedGlobals.__ouchbad_hostname;
+window.protectedGlobals.data = window.protectedGlobals.data || {};
 
-var zmcdata;
-var data;
-window.firstlogin = false;
+window.protectedGlobals.zmcdata = null;
+window.protectedGlobals.firstlogin = false;
 
 // ce7bade715c14ddaaea9ad31b7a3b252/ d09120b5745a4d49a090cf5ac33221b0
 (() => {
@@ -101,7 +101,7 @@ box.innerHTML = `
   </div>
 `;
 // UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
-function base64ToUtf8(b64OrBuffer) {
+window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
   try {
     // If caller passed an ArrayBuffer or Uint8Array, decode directly
     if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {
@@ -135,7 +135,7 @@ function base64ToUtf8(b64OrBuffer) {
     } catch (ee) {}
     return '';
   }
-}
+};
 
   document.body.innerHTML = "";
   document.body.appendChild(box);
@@ -165,7 +165,7 @@ function base64ToUtf8(b64OrBuffer) {
       needNewAcc
     };
 
-    fetch(zmcdserver, {
+    fetch(window.protectedGlobals.zmcdserver, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -173,21 +173,20 @@ function base64ToUtf8(b64OrBuffer) {
       .then(res => res.json())
       .then(result => {
         console.log("zmcdata now:", result);
-        zmcdata = result;
+        window.protectedGlobals.zmcdata = result;
 
-        if (typeof zmcdata === "string" && zmcdata.startsWith("error:")) {
-          msg.textContent = zmcdata;
+        if (typeof window.protectedGlobals.zmcdata === "string" && window.protectedGlobals.zmcdata.startsWith("error:")) {
+          msg.textContent = window.protectedGlobals.zmcdata;
           msg.style.color = "red";
           return;
         }
 
         msg.textContent = "Success!";
         msg.style.color = "lime";
-        data = zmcdata;
-        // Explicitly set window.data so flowaway.js can use the authToken immediately
-        window.data = data;
-        if(!window.firstlogin && data.username.startsWith("183")) {
-          window.firstlogin = true;
+        window.protectedGlobals.data = window.protectedGlobals.zmcdata;
+        // Explicitly set window.protectedGlobals.data so flowaway.js can use the authToken immediately
+        if(!window.protectedGlobals.firstlogin && String(window.protectedGlobals.data && window.protectedGlobals.data.username ? window.protectedGlobals.data.username : "").startsWith("183")) {
+          window.protectedGlobals.firstlogin = true;
     var backgroundMusic = document.createElement('audio');
     backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
     backgroundMusic.loop = true;
@@ -201,12 +200,12 @@ function base64ToUtf8(b64OrBuffer) {
     }, { once: true });
   }
   setTimeout(() => {
-  window._flowawayIsRebuilding = false;
+  window.protectedGlobals._flowawayIsRebuilding = false;
   }, 5000);
         // SAME behavior as before
         setTimeout(async () => {   let a = document.createElement('script');
-          let res = await filePost({ requestFile: true, requestFileName: 'systemfiles/flowaway.js' }); 
-          a.textContent = base64ToUtf8(res.filecontent);
+          let res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: 'systemfiles/flowaway.js' }); 
+          a.textContent = window.protectedGlobals.base64ToUtf8(res.filecontent);
           document.body.appendChild(a); box.remove();
 });
       })

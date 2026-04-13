@@ -1,14 +1,6 @@
 (function () {
-  if (window.FlowawayAppLoader && window.FlowawayAppLoader.__loaded) {
+  if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
-  }
-
-  function getRequiredFunction(name) {
-    var fn = window[name];
-    if (typeof fn !== "function") {
-      throw new Error("FlowawayAppLoader missing required function: " + name);
-    }
-    return fn;
   }
 
   function isImageIconValue(value) {
@@ -56,7 +48,7 @@
       normalizedPath = String(folderPath || "") + "/" + normalizedPath;
     }
 
-    var fetchFileContentByPath = getRequiredFunction("fetchFileContentByPath");
+    var fetchFileContentByPath = window.protectedGlobals.fetchFileContentByPath;
     var iconB64 = await fetchFileContentByPath(normalizedPath);
     if (!iconB64) return "";
     var mimeType = getIconMimeType(normalizedPath);
@@ -64,27 +56,14 @@
   }
 
   async function extractAppData(appFolder) {
-    var getFolderListing = getRequiredFunction("getFolderListing");
-    var fetchFileContentByPath = getRequiredFunction("fetchFileContentByPath");
-    var decodeFileTextStrict = getRequiredFunction("decodeFileTextStrict");
-    var base64ToUtf8 = getRequiredFunction("base64ToUtf8");
-
     var folderName = appFolder[0];
     var folderPath =
       appFolder[2] && appFolder[2].path
         ? appFolder[2].path
         : "apps/" + folderName;
-    var files = await getFolderListing(folderPath);
-    if (!files) {
-      if (
-        window._flowawayMissingFolders &&
-        window._flowawayMissingFolders.has(folderPath)
-      ) {
-        var enoent = new Error("Missing folder: " + folderPath);
-        enoent.code = "ENOENT";
-        throw enoent;
-      }
-      return null;
+    var files = await window.protectedGlobals.getFilesFromFolder(folderPath);
+    if (!Array.isArray(files)) {
+      throw new Error("Invalid folder listing for " + String(folderPath));
     }
 
     var jsFile =
@@ -119,8 +98,9 @@
     if (entryObjectfile) {
       try {
         var entryPath = folderPath + "/" + entryObjectfile;
+        var fetchFileContentByPath = window.protectedGlobals.fetchFileContentByPath;
         var b64 = await fetchFileContentByPath(entryPath);
-        var entryText = decodeFileTextStrict(b64, entryPath, { allowEmpty: true });
+        var entryText = window.protectedGlobals.decodeFileTextStrict(b64, entryPath, { allowEmpty: true });
         if (entryText && entryText.trim()) {
           try {
             var entryObj = JSON.parse(entryText);
@@ -133,16 +113,16 @@
               cmf = entryObj.cmf || "";
               cmfl1 = entryObj.cmfl1 || "";
             } else {
-              flowawayError("extractAppData", "entry.json is not a valid object.", null, entryPath);
+              window.protectedGlobals.flowawayError("extractAppData", "entry.json is not a valid object.", null, entryPath);
             }
           } catch (pe) {
-            flowawayError("extractAppData", "Failed to parse entry.json.", pe, entryPath);
+            window.protectedGlobals.flowawayError("extractAppData", "Failed to parse entry.json.", pe, entryPath);
           }
         } else {
-          flowawayError("extractAppData", "entry.json is empty or missing; using defaults.", null, entryPath);
+          window.protectedGlobals.flowawayError("extractAppData", "entry.json is empty or missing; using defaults.", null, entryPath);
         }
       } catch (e) {
-        flowawayError("extractAppData", "Failed to read app entry metadata.", e, folderPath + "/" + entryObjectfile);
+        window.protectedGlobals.flowawayError("extractAppData", "Failed to read app entry metadata.", e, folderPath + "/" + entryObjectfile);
       }
     }
 
@@ -156,14 +136,14 @@
         try {
           var iconPath = folderPath + "/" + iconFile;
           var iconB64 = await fetchFileContentByPath(iconPath);
-          var parsedIcon = base64ToUtf8(iconB64).trim();
+          var parsedIcon = window.protectedGlobals.base64ToUtf8(iconB64).trim();
           if (isImageIconValue(parsedIcon)) {
             icon = (await toIconImageMarkup(parsedIcon, folderPath)) || icon;
           } else {
             icon = parsedIcon || icon;
           }
         } catch (e) {
-          flowawayError("extractAppData", "Failed to read app icon metadata.", e, folderPath + "/" + iconFile);
+          window.protectedGlobals.flowawayError("extractAppData", "Failed to read app icon metadata.", e, folderPath + "/" + iconFile);
         }
       }
     }
@@ -184,7 +164,7 @@
     };
   }
 
-  window.FlowawayAppLoader = {
+  window.protectedGlobals.AppLoaderAPIs = {
     isImageIconValue: isImageIconValue,
     getIconMimeType: getIconMimeType,
     toIconImageMarkupFromSource: toIconImageMarkupFromSource,

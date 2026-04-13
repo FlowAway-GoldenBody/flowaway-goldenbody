@@ -1,6 +1,6 @@
 window.yourApp = function (posX, posY) {
-  var root = window.apptools.createRoot('yourApp', posX, posY);
-  var topbar = window.apptools.createtitlebar(root);
+  var root = window.protectedGlobals.apptools.createRoot('yourApp', posX, posY);
+  var topbar = window.protectedGlobals.apptools.createtitlebar(root);
 
   var content = document.createElement("div");
   content.className = "appContent";
@@ -12,13 +12,13 @@ window.yourApp = function (posX, posY) {
   content.appendChild(title);
   root.appendChild(content);
 
-  var instance = window.apptools.api.createAppInstance({
+  var instance = window.protectedGlobals.apptools.api.createAppInstance({
     rootElement: root,
     title: "Your App",
     btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
   });
 
-  window.apptools.api.trackInstance(instance, "yourApp");
+  window.protectedGlobals.apptools.api.trackInstance(instance, "yourApp");
   return instance;
 };
 

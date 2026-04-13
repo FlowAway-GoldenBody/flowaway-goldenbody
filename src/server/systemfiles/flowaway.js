@@ -1,8 +1,9 @@
 (function () {
-  if (window.__flowawayBootLoaded) {
+  window.protectedGlobals = window.protectedGlobals || {};
+  if (window.protectedGlobals.__flowawayBootLoaded) {
     return;
   }
-  window.__flowawayBootLoaded = true;
+  window.protectedGlobals.__flowawayBootLoaded = true;
 
   function crash(message, detail) {
     var title = "System Crash";
@@ -90,12 +91,12 @@
   }
 
   async function loadVfsScript(path) {
-    if (typeof filePost !== "function") {
+    if (typeof window.protectedGlobals.filePost !== "function") {
       crash("Flowaway bootstrap missing filePost.", "Cannot fetch " + String(path || ""));
       return;
     }
 
-    var response = await filePost({
+    var response = await window.protectedGlobals.filePost({
       requestFile: true,
       requestFileName: String(path || ""),
     });
@@ -129,7 +130,7 @@
       await loadVfsScript(parts[i]);
     }
 
-    window.__flowawayRuntimeLoaded = true;
+    window.protectedGlobals.__flowawayRuntimeLoaded = true;
   }
 
   loadRuntime().catch(function (e) {

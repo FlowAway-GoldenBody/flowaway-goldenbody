@@ -1,3 +1,4 @@
+(function () {
   // taskbar
   var taskbuttons;
   // Remove any existing taskbar element (cleanup from previous runs)
@@ -21,37 +22,38 @@
   taskbar.style.paddingLeft = "4%"; // 50px empty space on left
   taskbar.style.boxSizing = "border-box";
   document.body.appendChild(taskbar);
+  window.protectedGlobals.taskbar = taskbar;
 
   // Autohide support (reveals only from bottom-edge hold)
   try {
-    var autohideEnabled = (typeof data !== 'undefined' && data && data.autohidetaskbar);
+    var autohideEnabled = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
   } catch (e) {
     var autohideEnabled = false;
   }
   function getTaskbarRevealEdgePx() {
-    var v = Number(window.data && window.data.taskbarRevealEdgePx);
+    var v = Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealEdgePx);
     if (!Number.isFinite(v)) return 6;
     return Math.max(1, Math.min(64, Math.round(v)));
   }
   function getTaskbarRevealHoldDelayMs() {
-    var v = Number(window.data && window.data.taskbarRevealHoldDelayMs);
+    var v = Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealHoldDelayMs);
     if (!Number.isFinite(v)) return 450;
     return Math.max(0, Math.min(5000, Math.round(v)));
   }
   // Ensure global handler registry exists and clean any previous autohide listeners
-  window._flowaway_handlers = window._flowaway_handlers || {};
-  if (window._flowaway_handlers.autohideCleanup) {
-    try { window._flowaway_handlers.autohideCleanup(); } catch (e) {}
-    delete window._flowaway_handlers.autohideCleanup;
+  window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+  if (window.protectedGlobals.systemAPIs.autohideCleanup) {
+    try { window.protectedGlobals.systemAPIs.autohideCleanup(); } catch (e) {}
+    delete window.protectedGlobals.systemAPIs.autohideCleanup;
   }
-  if (window._flowaway_handlers.taskButtonContextMenuCleanup) {
-    try { window._flowaway_handlers.taskButtonContextMenuCleanup(); } catch (e) {}
-    delete window._flowaway_handlers.taskButtonContextMenuCleanup;
+  if (window.protectedGlobals.systemAPIs.taskButtonContextMenuCleanup) {
+    try { window.protectedGlobals.systemAPIs.taskButtonContextMenuCleanup(); } catch (e) {}
+    delete window.protectedGlobals.systemAPIs.taskButtonContextMenuCleanup;
   }
   // Also remove any previously-registered autohide refs (older versions)
-  if (window._flowaway_handlers.autohideRefs) {
+  if (window.protectedGlobals.systemAPIs.autohideRefs) {
     try {
-      var r = window._flowaway_handlers.autohideRefs;
+      var r = window.protectedGlobals.systemAPIs.autohideRefs;
       if (r && r.mousemove) document.removeEventListener('mousemove', r.mousemove);
       if (r && r.pointerenter) document.removeEventListener('pointerenter', r.pointerenter);
       if (r && r.pointerleave) document.removeEventListener('pointerleave', r.pointerleave);
@@ -60,7 +62,7 @@
       if (r && r.touchend) document.removeEventListener('touchend', r.touchend);
       if (r && r.touchcancel) document.removeEventListener('touchcancel', r.touchcancel);
     } catch (e) {}
-    delete window._flowaway_handlers.autohideRefs;
+    delete window.protectedGlobals.systemAPIs.autohideRefs;
   }
   taskbar.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
   taskbar.style.transform = 'translateY(0)';
@@ -207,7 +209,7 @@
   document.addEventListener('contextmenu', _onContextMenuCapture, true);
   document.addEventListener('pointerdown', _onPointerDownCloseTaskButtonContextMenu, true);
   document.addEventListener('keydown', _onEscapeCloseTaskButtonContextMenu, true);
-  window._flowaway_handlers.taskButtonContextMenuCleanup = function () {
+  window.protectedGlobals.systemAPIs.taskButtonContextMenuCleanup = function () {
     try {
       taskbar.removeEventListener('contextmenu', _onContextMenuCapture, true);
       document.removeEventListener('contextmenu', _onContextMenuCapture, true);
@@ -261,7 +263,7 @@
     document.addEventListener('touchcancel', _onTouchEnd, { passive: true });
 
     // register cleanup so other instances (rebuild) can remove these listeners
-    window._flowaway_handlers.autohideCleanup = function () {
+    window.protectedGlobals.systemAPIs.autohideCleanup = function () {
       try {
         _cancelRevealTimer();
         if (_hideTimer) {
@@ -278,7 +280,7 @@
       } catch (e) {}
     };
     // also expose concrete refs so older runtimes can remove them explicitly
-    window._flowaway_handlers.autohideRefs = {
+    window.protectedGlobals.systemAPIs.autohideRefs = {
       mousemove: _onMouseMove,
       pointerenter: _onTaskbarEnter,
       pointerleave: _onTaskbarLeave,
@@ -299,9 +301,9 @@
       _hideTimer = null;
     }
     // remove listeners added when enabled
-    if (window._flowaway_handlers && window._flowaway_handlers.autohideCleanup) {
-      try { window._flowaway_handlers.autohideCleanup(); } catch (e) {}
-      delete window._flowaway_handlers.autohideCleanup;
+    if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.autohideCleanup) {
+      try { window.protectedGlobals.systemAPIs.autohideCleanup(); } catch (e) {}
+      delete window.protectedGlobals.systemAPIs.autohideCleanup;
     } else {
       document.removeEventListener('mousemove', _onMouseMove);
       taskbar.removeEventListener('pointerenter', _onTaskbarEnter);
@@ -311,9 +313,9 @@
       document.removeEventListener('touchend', _onTouchEnd);
       document.removeEventListener('touchcancel', _onTouchEnd);
     }
-    if (window._flowaway_handlers && window._flowaway_handlers.autohideRefs) {
+    if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.autohideRefs) {
       try {
-        var rr = window._flowaway_handlers.autohideRefs;
+        var rr = window.protectedGlobals.systemAPIs.autohideRefs;
         if (rr && rr.mousemove) document.removeEventListener('mousemove', rr.mousemove);
         if (rr && rr.pointerenter) taskbar.removeEventListener('pointerenter', rr.pointerenter);
         if (rr && rr.pointerleave) taskbar.removeEventListener('pointerleave', rr.pointerleave);
@@ -322,26 +324,26 @@
         if (rr && rr.touchend) document.removeEventListener('touchend', rr.touchend);
         if (rr && rr.touchcancel) document.removeEventListener('touchcancel', rr.touchcancel);
       } catch (e) {}
-      delete window._flowaway_handlers.autohideRefs;
+      delete window.protectedGlobals.systemAPIs.autohideRefs;
     }
     autohideActive = false;
     // ensure visible
     showTaskbar();
   }
 
-  window.applyTaskbarAutohideSettings = function (settings) {
+  window.protectedGlobals.applyTaskbarAutohideSettings = function (settings) {
     try {
-      if (!window.data) window.data = {};
+      if (!window.protectedGlobals.data) window.protectedGlobals.data = {};
       if (settings && typeof settings.autohidetaskbar !== 'undefined') {
-        window.data.autohidetaskbar = !!settings.autohidetaskbar;
+        window.protectedGlobals.data.autohidetaskbar = !!settings.autohidetaskbar;
       }
       if (settings && typeof settings.taskbarRevealEdgePx !== 'undefined') {
-        window.data.taskbarRevealEdgePx = Number(settings.taskbarRevealEdgePx);
+        window.protectedGlobals.data.taskbarRevealEdgePx = Number(settings.taskbarRevealEdgePx);
       }
       if (settings && typeof settings.taskbarRevealHoldDelayMs !== 'undefined') {
-        window.data.taskbarRevealHoldDelayMs = Number(settings.taskbarRevealHoldDelayMs);
+        window.protectedGlobals.data.taskbarRevealHoldDelayMs = Number(settings.taskbarRevealHoldDelayMs);
       }
-      autohideEnabled = !!(window.data && window.data.autohidetaskbar);
+      autohideEnabled = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
       if (autohideEnabled) enableAutohide(); else disableAutohide();
     } catch (e) {}
   };
@@ -354,8 +356,8 @@
     var cm = document.createElement('div');
     cm.style.position = 'fixed';
     cm.style.zIndex = 1000000; // above taskbar but below modals/overlays
-    cm.style.background = data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
-    cm.style.color = data.dark ? 'white' : 'black';
+    cm.style.background = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
+    cm.style.color = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'white' : 'black';
     cm.style.padding = '8px';
     cm.style.borderRadius = '6px';
     cm.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
@@ -401,11 +403,11 @@
       if (autohideEnabled) _setTaskbarContextMenuOpen(true);
       var x = ev.clientX;
       var y = ev.clientY;
-      chk.checked = !!(window.data && window.data.autohidetaskbar);
+      chk.checked = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
       cm.style.left = Math.min(window.innerWidth - 200, x) + 'px';
       cm.style.top = Math.min(window.innerHeight - 50, y) + 'px';
-      cm.style.color = data.dark ? 'white' : 'black'; 
-      cm.style.background = data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
+      cm.style.color = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'white' : 'black'; 
+      cm.style.background = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
       cm.style.display = 'block';
       document.addEventListener('pointerdown', onDocPointerDown);
       taskbar.addEventListener('pointerdown', onDocPointerDown); // also close if clicking taskbar (but not buttons)
@@ -414,17 +416,17 @@
 
     chk.addEventListener('change', function () {
       var newVal = !!chk.checked;
-      try { if (!window.data) window.data = {}; window.data.autohidetaskbar = newVal; } catch (e) {}
+      try { if (!window.protectedGlobals.data) window.protectedGlobals.data = {}; window.protectedGlobals.data.autohidetaskbar = newVal; } catch (e) {}
       // update runtime behavior
       if (newVal) enableAutohide(); else disableAutohide();
 
       // persist to server if available
       try {
-        if (typeof window.persistUserProfilePatch === 'function') {
-          window.persistUserProfilePatch({
+          if (typeof window.protectedGlobals.persistUserProfilePatch === 'function') {
+          window.protectedGlobals.persistUserProfilePatch({
             autohidetaskbar: newVal,
-            taskbarRevealEdgePx: Number(window.data && window.data.taskbarRevealEdgePx),
-            taskbarRevealHoldDelayMs: Number(window.data && window.data.taskbarRevealHoldDelayMs)
+            taskbarRevealEdgePx: Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealEdgePx),
+            taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealHoldDelayMs)
           });
         }
       } catch (e) { console.warn('failed to persist autohide setting', e); }
@@ -446,9 +448,8 @@
 
   function syncTaskButtons() {
     taskbuttons = [...taskbar.querySelectorAll("button")];
-    if (!window._suppressTaskbarPersist) {
-      saveTaskButtons(true);
-    }
+    window.protectedGlobals.taskbuttons = taskbuttons;
+    window.protectedGlobals.saveTaskButtons(true);
   }
 
   function setupTaskButtonDrag(btn) {
@@ -507,7 +508,7 @@
     btn.style.marginRight = "5px";
     btn.style.border = "none";
     btn.className = 'taskbutton';
-    var isDarkTaskbarTheme = !!(window.data && window.data.dark);
+    var isDarkTaskbarTheme = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
     btn.classList.toggle('dark', isDarkTaskbarTheme);
     btn.classList.toggle('light', !isDarkTaskbarTheme);
     btn.style.borderRadius = "3px";
@@ -530,8 +531,8 @@
       // Add clicked task to recent apps grid if available. Guard for missing function.
       try {
         var aid = (btn.dataset && btn.dataset.appId) ? btn.dataset.appId : (btn.value && String(btn.value).trim());
-        if (aid && typeof addToRecents === 'function') {
-          try { addToRecents(aid); } catch (e) { /* non-fatal */ }
+        if (aid && typeof window.protectedGlobals.addToRecents === 'function') {
+          try { window.protectedGlobals.addToRecents(aid); } catch (e) { /* non-fatal */ }
         }
       } catch (e) {}
     });
@@ -564,17 +565,20 @@
     taskbar.appendChild(btn);
     syncTaskButtons();
     setTimeout(() => {
-      applyStyles();
+      window.protectedGlobals.applyStyles();
     }, 100);
     return btn;
   }
+  window.protectedGlobals.addTaskButton = addTaskButton;
   function removeTaskButton(btn) {
     btn.remove();
-    saveTaskButtons();
+    window.protectedGlobals.saveTaskButtons();
   }
-  window._suppressTaskbarPersist = true;
-  addTaskButton("⤢", _fullscreen, false, '', '', true);
-  addTaskButton("▶", starthandler, false, '', '', true);
-  window._suppressTaskbarPersist = false;
-  purgeButtons();
+  window.protectedGlobals.removeTaskButton = removeTaskButton;
+  window.protectedGlobals._fullscreen = _fullscreen;
+  addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
+  addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true);
+  window.protectedGlobals.purgeButtons();
+
+})();
 

@@ -1,33 +1,75 @@
-// ----------------- DYNAMIC AP LOADER -----------------
-window.apps = window.apps || [];
-window._flowawayMissingFolders = window._flowawayMissingFolders || new Set();
-
-async function getFolderListing(relPath) {
-  try {
-    window._flowawayMissingFolders.delete(relPath);
-    var r = await filePost({ requestFile: true, requestFileName: relPath });
-    if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
-    if (
-      r &&
-      (r.missing ||
-        r.code === "ENOENT" ||
-        r.kind === "missing" ||
-        r.error === "ENOENT")
-    ) {
-      window._flowawayMissingFolders.add(relPath);
-      return null;
+(function () {
+  window.protectedGlobals.zmcdpost = async function (data) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) headers['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
+    var res = await fetch(window.protectedGlobals.zmcdserver, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            username: getCurrentUsernameForRequests(),
+            ...data
+        })
+    });
+    let body = null;
+    try {
+        body = await res.json();
+    } catch (e) {
+        body = null;
     }
+    if (body && (body.authToken || body.token)) {
+        try {
+            window.protectedGlobals.data = window.protectedGlobals.data || {};
+            window.protectedGlobals.data.authToken = body.authToken || body.token;
+        } catch (e) {}
+    }
+    if (res.status === 401) {
+        try {
+            window.protectedGlobals.showSessionExpiredDialog();
+        } catch (e) {}
+        return body || { error: 'unauthorized' };
+    }
+    return body;
+}
+// ----------------- DYNAMIC AP LOADER -----------------
+window.protectedGlobals.apps = window.protectedGlobals.apps || [];
+window.protectedGlobals._flowawayMissingFolders = window.protectedGlobals._flowawayMissingFolders || new Set();
+
+window.protectedGlobals.getFilesFromFolder = async function getFilesFromFolder(relPath) {
+  try {
+    window.protectedGlobals._flowawayMissingFolders.delete(relPath);
+    var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
+    if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
+
+    var isMissing =
+      !!(
+        r &&
+        (
+          r.missing ||
+          r.kind === "missing" ||
+          r.error === "ENOENT" ||
+          r.code === "ENOENT"
+        )
+      );
+
+    if (isMissing) {
+      window.protectedGlobals._flowawayMissingFolders.add(relPath);
+      var missingError = new Error("ENOENT: Missing folder " + String(relPath));
+      missingError.code = "ENOENT";
+      throw missingError;
+    }
+
+    throw new Error("Invalid folder response for " + String(relPath));
   } catch (e) {
-    console.error("getFolderListing error", e);
+    window.protectedGlobals.notification("getFilesFromFolder error", e);
+    throw e;
   }
-  return null;
 }
 
-function normalizeAppFolders(folders) {
+const dedupefiles = window.protectedGlobals.dedupefiles = function dedupefiles(folders) {
   var seen = new Set();
   var list = [];
   for (const folder of folders || []) {
-    if (!Array.isArray(folder) || typeof folder[0] !== "string") continue;
+    if (!Array.isArray(folder)) continue;
     var folderName = folder[0].trim();
     if (!folderName || folderName === ".DS_Store" || folderName.startsWith("."))
       continue;
@@ -41,35 +83,20 @@ function normalizeAppFolders(folders) {
   return list;
 }
 
-function getFlowawayAppLoaderRuntime() {
-  var runtime = window.FlowawayAppLoader;
-  if (!runtime || runtime.__loaded !== true) {
-    flowawayCrash(
-      "App loader runtime unavailable.",
-      "systemfiles/appLoader.js was not loaded.",
-    );
-  }
-  return runtime;
+
+const isImageIconValue = window.protectedGlobals.isImageIconValue = function isImageIconValue(value) {
+  return !!window.protectedGlobals.AppLoaderAPIs.isImageIconValue(value);
 }
 
-function isImageIconValue(value) {
-  return !!getFlowawayAppLoaderRuntime().isImageIconValue(value);
+const getIconMimeType = window.protectedGlobals.getIconMimeType = function getIconMimeType(pathOrValue) {
+  return window.protectedGlobals.AppLoaderAPIs.getIconMimeType(pathOrValue);
 }
 
-function getIconMimeType(pathOrValue) {
-  return getFlowawayAppLoaderRuntime().getIconMimeType(pathOrValue);
+const toIconImageMarkupFromSource = window.protectedGlobals.toIconImageMarkupFromSource = function toIconImageMarkupFromSource(iconSource) {
+  return window.protectedGlobals.AppLoaderAPIs.toIconImageMarkupFromSource(iconSource);
 }
 
-function toIconImageMarkupFromSource(iconSource) {
-  return getFlowawayAppLoaderRuntime().toIconImageMarkupFromSource(iconSource);
-}
-
-function getPreferredAppIdentifier(app) {
-  if (!app) return "";
-  return app.functionname || app.id || app.icon || "";
-}
-
-function appMatchesIdentifier(app, identifier) {
+const appMatchesIdentifier = window.protectedGlobals.appMatchesIdentifier = function appMatchesIdentifier(app, identifier) {
   if (!app || !identifier) return false;
   var id = String(identifier).trim();
   if (!id) return false;
@@ -80,7 +107,7 @@ function appMatchesIdentifier(app, identifier) {
   return candidates.includes(id);
 }
 
-function getAppInstanceArrayKeys(app) {
+const getAppInstanceArrayKeys = window.protectedGlobals.getAppInstanceArrayKeys = function getAppInstanceArrayKeys(app) {
   var keys = [];
   if (!app) return keys;
   if (typeof app.allapparraystring === "string") {
@@ -98,7 +125,7 @@ function getAppInstanceArrayKeys(app) {
   return keys;
 }
 
-function ensureAppRuntimeState(app) {
+const ensureAppRuntimeState = window.protectedGlobals.ensureAppRuntimeState = function ensureAppRuntimeState(app) {
   if (!app || !app.globalvarobjectstring) return null;
   try {
     var globalName = String(app.globalvarobjectstring || "").trim();
@@ -129,7 +156,7 @@ function ensureAppRuntimeState(app) {
   }
 }
 
-function getPrimaryAppInstanceArray(app) {
+const getPrimaryAppInstanceArray = window.protectedGlobals.getPrimaryAppInstanceArray = function getPrimaryAppInstanceArray(app) {
   if (!app) return [];
   try {
     var appGlobalObj = ensureAppRuntimeState(app);
@@ -144,7 +171,7 @@ function getPrimaryAppInstanceArray(app) {
   }
 }
 
-function getAllAppInstanceArrays(app) {
+const getAllAppInstanceArrays = window.protectedGlobals.getAllAppInstanceArrays = function getAllAppInstanceArrays(app) {
   var lists = [];
   if (!app) return lists;
   try {
@@ -162,21 +189,21 @@ function getAllAppInstanceArrays(app) {
   }
 }
 
-function allocateAppGoldenbodyId(app) {
+const allocateAppGoldenbodyId = window.protectedGlobals.allocateAppGoldenbodyId = function allocateAppGoldenbodyId(app) {
   var appGlobalObj = ensureAppRuntimeState(app);
   if (!appGlobalObj || typeof appGlobalObj !== "object") return null;
   appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId || 0) + 1;
   return appGlobalObj.goldenbodyId;
 }
 
-function registerAppInstance(app, instance) {
+const registerAppInstance = window.protectedGlobals.registerAppInstance = function registerAppInstance(app, instance) {
   if (!app || !instance) return;
   var list = getPrimaryAppInstanceArray(app);
   if (!Array.isArray(list)) return;
   if (list.indexOf(instance) === -1) list.push(instance);
 }
 
-function deregisterAppInstance(app, instance) {
+const deregisterAppInstance = window.protectedGlobals.deregisterAppInstance = function deregisterAppInstance(app, instance) {
   if (!app || !instance) return;
   var lists = getAllAppInstanceArrays(app);
   if (!Array.isArray(lists) || !lists.length) return;
@@ -188,20 +215,20 @@ function deregisterAppInstance(app, instance) {
   }
 }
 
-function allocateFallbackRuntimeGoldenbodyId() {
+const allocateFallbackRuntimeGoldenbodyId = window.protectedGlobals.allocateFallbackRuntimeGoldenbodyId = function allocateFallbackRuntimeGoldenbodyId() {
   var now = Date.now();
-  var state = Number(window.__flowawayFallbackRuntimeGoldenbodyState || 0);
+  var state = Number(window.protectedGlobals.__flowawayFallbackRuntimeGoldenbodyState || 0);
   if (!Number.isFinite(state) || state <= 0) state = 0;
   if (state < now) state = now;
   else state = state + 1;
-  window.__flowawayFallbackRuntimeGoldenbodyState = state;
+  window.protectedGlobals.__flowawayFallbackRuntimeGoldenbodyState = state;
   return state;
 }
 
-function applyAppWindowTagging(app, rootElement) {
+const applyAppWindowTagging = window.protectedGlobals.applyAppWindowTagging = function applyAppWindowTagging(app, rootElement) {
   if (!app || !rootElement || !rootElement.dataset) return;
   try {
-    var appIdentifier = getPreferredAppIdentifier(app);
+    var appIdentifier = app.functionname;
     var appLabel = String(
       app.label || app.functionname || app.id || appIdentifier || "",
     );
@@ -214,19 +241,19 @@ function applyAppWindowTagging(app, rootElement) {
   } catch (e) {}
 }
 
-window.ensureAppRuntimeState = ensureAppRuntimeState;
+window.protectedGlobals.ensureAppRuntimeState = ensureAppRuntimeState;
 
-function resolveApptoolsContext(explicitAppId) {
-  var launchContext = window.__flowawayLaunchContext || null;
+const resolveApptoolsContext = window.protectedGlobals.resolveApptoolsContext = function resolveApptoolsContext(explicitAppId) {
+  var launchContext = window.protectedGlobals.__flowawayLaunchContext || null;
   var resolvedAppId = String(explicitAppId || "").trim();
   if (!resolvedAppId && launchContext && launchContext.appId) {
     resolvedAppId = String(launchContext.appId || "").trim();
   }
-  var app = (window.apps || []).find(function (a) {
+  var app = (window.protectedGlobals.apps || []).find(function (a) {
     return appMatchesIdentifier(a, resolvedAppId);
   }) || (launchContext && launchContext.app) || null;
   if (!resolvedAppId && app) {
-    resolvedAppId = getPreferredAppIdentifier(app);
+    resolvedAppId = app.functionname;
   }
   return {
     appId: resolvedAppId || "",
@@ -235,9 +262,9 @@ function resolveApptoolsContext(explicitAppId) {
   };
 }
 
-function initAppTools() {
-  var existing = window.apptools && typeof window.apptools === "object"
-    ? window.apptools
+const initAppTools = window.protectedGlobals.initAppTools = function initAppTools() {
+  var existing = window.protectedGlobals.apptools && typeof window.protectedGlobals.apptools === "object"
+    ? window.protectedGlobals.apptools
     : {};
   existing.api = existing.api && typeof existing.api === "object"
     ? existing.api
@@ -247,7 +274,7 @@ function initAppTools() {
     var ctx = resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
-    var isDark = !!(window.data && window.data.dark);
+    var isDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
     root.classList.toggle("dark", isDark);
     root.classList.toggle("light", !isDark);
     if (ctx.appId) {
@@ -263,8 +290,8 @@ function initAppTools() {
     if (document && document.body) {
       document.body.appendChild(root);
     }
-    if (typeof bringToFront === "function") bringToFront(root);
-    if (ctx.appId) atTop = ctx.appId;
+    if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
+    if (ctx.appId) window.protectedGlobals.atTop = ctx.appId;
     return root;
   };
 
@@ -296,8 +323,8 @@ function initAppTools() {
     }
 
     function setMaximizedIcon(maximized) {
-      if (btnMax && typeof window.setWindowMaximizeIcon === "function") {
-        window.setWindowMaximizeIcon(btnMax, !!maximized);
+      if (btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+        window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
       }
     }
 
@@ -310,7 +337,7 @@ function initAppTools() {
       var thresholdCrossed = false;
 
       function getDragThreshold() {
-        var v = Number(data && data.DRAG_THRESHOLD);
+        var v = Number(window.protectedGlobals.data && window.protectedGlobals.data.DRAG_THRESHOLD);
         if (!Number.isFinite(v)) return 15;
         return Math.max(2, Math.min(128, Math.round(v)));
       }
@@ -319,9 +346,9 @@ function initAppTools() {
       var currentY;
 
       dragTarget.addEventListener("mousedown", function (ev) {
-        var configuredThreshold = Number(data && data.DRAG_THRESHOLD);
+        var configuredThreshold = Number(window.protectedGlobals.data && window.protectedGlobals.data.DRAG_THRESHOLD);
         if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
-          window.DRAG_THRESHOLD = configuredThreshold;
+          window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
         }
         dragging = true;
         thresholdCrossed = false;
@@ -523,7 +550,7 @@ function initAppTools() {
       dragStrip.style.cursor = "move";
       dragStrip.style.width = "100%";
       dragStrip.addEventListener("click", function () {
-        if (typeof bringToFront === "function") bringToFront(root);
+        if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
       });
       root.prepend(dragStrip);
     }
@@ -537,7 +564,7 @@ function initAppTools() {
       barrier.style.height = "14px";
       barrier.style.width = "100%";
       barrier.addEventListener("click", function () {
-        if (typeof bringToFront === "function") bringToFront(root);
+        if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
       });
       root.prepend(barrier);
     }
@@ -573,12 +600,12 @@ function initAppTools() {
 
     function applyWindowControlStyles() {
       var applyIcon =
-        typeof window.applyWindowControlIcon === "function"
-          ? window.applyWindowControlIcon
+        typeof window.protectedGlobals.applyWindowControlIcon === "function"
+          ? window.protectedGlobals.applyWindowControlIcon
           : function () {};
       var setMaxIcon =
-        typeof window.setWindowMaximizeIcon === "function"
-          ? window.setWindowMaximizeIcon
+        typeof window.protectedGlobals.setWindowMaximizeIcon === "function"
+          ? window.protectedGlobals.setWindowMaximizeIcon
           : function () {};
 
       applyIcon(btnMin, "minimize");
@@ -605,7 +632,7 @@ function initAppTools() {
     });
 
     function applyTitlebarTheme() {
-      var dark = !!(window.data && window.data.dark);
+      var dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
       root.classList.toggle("dark", dark);
       root.classList.toggle("light", !dark);
       topBar.style.background = dark ? "#444" : "#ccc";
@@ -628,8 +655,8 @@ function initAppTools() {
     }
 
     function setMaximizedIcon(maximized) {
-      if (typeof window.setWindowMaximizeIcon === "function") {
-        window.setWindowMaximizeIcon(btnMax, !!maximized);
+      if (typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+        window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
       }
     }
 
@@ -651,7 +678,7 @@ function initAppTools() {
         root.style.left = "0";
         root.style.top = "0";
         root.style.width = "100%";
-        root.style.height = !data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
+        root.style.height = !(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
         root.style.borderRadius = "0";
         root._apptoolsMaximized = true;
         setMaximizedIcon(true);
@@ -696,7 +723,7 @@ function initAppTools() {
     });
 
     topBar.addEventListener("click", function () {
-      if (typeof bringToFront === "function") bringToFront(root);
+      if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
     });
 
     root.appendChild(topBar);
@@ -718,7 +745,7 @@ function initAppTools() {
         hintedAppId = String(instance.appId || "").trim();
       }
       if (hintedAppId) {
-        app = (window.apps || []).find(function (candidate) {
+        app = (window.protectedGlobals.apps || []).find(function (candidate) {
           return appMatchesIdentifier(candidate, hintedAppId);
         }) || null;
       }
@@ -741,8 +768,8 @@ function initAppTools() {
     if (instance.rootElement) {
       instance.rootElement._goldenbodyId = instance.goldenbodyId;
       if (instance.rootElement.dataset) {
-        instance.rootElement.dataset.goldenbodyId = String(instance.goldenbodyId || "");
-        instance.rootElement.dataset.appId = String(getPreferredAppIdentifier(app) || "");
+        instance.rootElement.dataset.goldenbodyId = String(instance.goldenbodyId);
+        instance.rootElement.dataset.appId = app.functionname.trim();
       }
     }
 
@@ -765,7 +792,7 @@ function initAppTools() {
         hintedAppId = String(instance.rootElement.dataset.appId || "").trim();
       }
       if (hintedAppId) {
-        app = (window.apps || []).find(function (candidate) {
+        app = (window.protectedGlobals.apps || []).find(function (candidate) {
           return appMatchesIdentifier(candidate, hintedAppId);
         }) || null;
       }
@@ -788,8 +815,8 @@ function initAppTools() {
       root = existing.createRoot(appId, options.posX, options.posY);
     }
 
-    if (title && typeof window.setAppDataTitle === "function") {
-      window.setAppDataTitle(root, title);
+    if (title && typeof window.protectedGlobals.setAppDataTitle === "function") {
+      window.protectedGlobals.setAppDataTitle(root, title);
     }
 
     var instance = {
@@ -844,13 +871,13 @@ function initAppTools() {
       instance.rootElement.style.left = "0";
       instance.rootElement.style.top = "0";
       instance.rootElement.style.width = "100%";
-      instance.rootElement.style.height = !data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
+      instance.rootElement.style.height = !(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
       instance.rootElement.style.borderRadius = "0px";
       instance._isMaximized = true;
       instance._isMinimized = false;
       instance.rootElement._apptoolsMaximized = true;
-      if (instance.btnMax && typeof window.setWindowMaximizeIcon === "function") {
-        window.setWindowMaximizeIcon(instance.btnMax, true);
+      if (instance.btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+        window.protectedGlobals.setWindowMaximizeIcon(instance.btnMax, true);
       }
     };
 
@@ -869,8 +896,8 @@ function initAppTools() {
       instance.rootElement.style.borderRadius = "10px";
       instance._isMaximized = false;
       instance.rootElement._apptoolsMaximized = false;
-      if (instance.btnMax && typeof window.setWindowMaximizeIcon === "function") {
-        window.setWindowMaximizeIcon(instance.btnMax, false);
+      if (instance.btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+        window.protectedGlobals.setWindowMaximizeIcon(instance.btnMax, false);
       }
     };
 
@@ -883,7 +910,7 @@ function initAppTools() {
       instance.rootElement.style.display =
         previousDisplay && previousDisplay !== "none" ? previousDisplay : "";
       instance._isMinimized = false;
-      if (typeof bringToFront === "function") bringToFront(instance.rootElement);
+      if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(instance.rootElement);
     };
 
     instance.hideWindow = function () {
@@ -915,7 +942,7 @@ function initAppTools() {
         instance.showWindow();
         return;
       }
-      var allInstances = window.getAppInstances(app);
+      var allInstances = window.protectedGlobals.getAppInstances(app);
       allInstances.sort(function (a, b) {
         var az = Number(a && a.rootElement && a.rootElement.style && a.rootElement.style.zIndex) || 0;
         var bz = Number(b && b.rootElement && b.rootElement.style && b.rootElement.style.zIndex) || 0;
@@ -933,7 +960,7 @@ function initAppTools() {
         instance.hideWindow();
         return;
       }
-      var allInstances = window.getAppInstances(app);
+      var allInstances = window.protectedGlobals.getAppInstances(app);
       for (var i = 0; i < allInstances.length; i++) {
         if (allInstances[i] && typeof allInstances[i].hideWindow === "function") {
           allInstances[i].hideWindow();
@@ -946,7 +973,7 @@ function initAppTools() {
         instance.closeWindow();
         return;
       }
-      var allInstances = [...window.getAppInstances(app)];
+      var allInstances = [...window.protectedGlobals.getAppInstances(app)];
       for (var i = 0; i < allInstances.length; i++) {
         if (allInstances[i] && typeof allInstances[i].closeWindow === "function") {
           allInstances[i].closeWindow();
@@ -956,7 +983,7 @@ function initAppTools() {
 
     instance.newWindow = function () {
       if (!appId) return null;
-      return launchApp(appId);
+      return window.protectedGlobals.launchApp(appId);
     };
 
     if (app && !instance.goldenbodyId) {
@@ -983,14 +1010,14 @@ function initAppTools() {
     return instance;
   };
 
-  window.apptools = existing;
+  window.protectedGlobals.apptools = existing;
 }
 
 initAppTools();
 
-function resolveLaunchContextRoot() {
+const resolveLaunchContextRoot = window.protectedGlobals.resolveLaunchContextRoot = function resolveLaunchContextRoot() {
   try {
-    var launchContext = window.__flowawayLaunchContext;
+    var launchContext = window.protectedGlobals.__flowawayLaunchContext;
     var launchAppId =
       launchContext && launchContext.appId
         ? String(launchContext.appId)
@@ -1011,7 +1038,7 @@ function resolveLaunchContextRoot() {
   }
 }
 
-window.setAppDataTitle = function (targetOrTitle, maybeTitle) {
+window.protectedGlobals.setAppDataTitle = function (targetOrTitle, maybeTitle) {
   var target = null;
   var title = "";
 
@@ -1037,93 +1064,80 @@ window.setAppDataTitle = function (targetOrTitle, maybeTitle) {
   }
 };
 
-window.setDataTitle = window.setAppDataTitle;
+window.protectedGlobals.setDataTitle = window.protectedGlobals.setAppDataTitle;
 
-async function toIconImageMarkup(iconPathOrUrl, folderPath) {
-  return getFlowawayAppLoaderRuntime().toIconImageMarkup(iconPathOrUrl, folderPath);
+const toIconImageMarkup = window.protectedGlobals.toIconImageMarkup = async function toIconImageMarkup(iconPathOrUrl, folderPath) {
+  return window.protectedGlobals.AppLoaderAPIs.toIconImageMarkup(iconPathOrUrl, folderPath);
 }
 
 // Helper function to extract app data from an app folder
-async function extractAppData(appFolder) {
-  return getFlowawayAppLoaderRuntime().extractAppData(appFolder);
+const extractAppData = window.protectedGlobals.extractAppData = async function extractAppData(appFolder) {
+  if (!window.protectedGlobals.AppLoaderAPIs || window.protectedGlobals.AppLoaderAPIs.__loaded !== true) {
+    await window.protectedGlobals.ensureFlowawayAppLoaderLoaded();
+  }
+  return window.protectedGlobals.AppLoaderAPIs.extractAppData(appFolder);
 }
-async function loadAppsFromTree() {
-  if (loaded) return;
-  loaded = true;
-  window.apps = [];
-  if (!window.treeData) await window.loadTree();
+const loadAppsFromTree = window.protectedGlobals.loadAppsFromTree = async function loadAppsFromTree() {
+  if (window.protectedGlobals.loaded) return;
+  window.protectedGlobals.loaded = true;
+  window.protectedGlobals.apps = [];
+  if (!window.protectedGlobals.treeData) await window.protectedGlobals.loadTree();
   try {
-    var rootChildren = (window.treeData && window.treeData[1]) || [];
+    var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
     var appsNode = rootChildren.find(
       (c) => c[0] === "apps" && Array.isArray(c[1]),
     );
     if (!appsNode) return;
-    var appFolders = normalizeAppFolders(appsNode[1]);
+    var appFolders = dedupefiles(appsNode[1]);
     for (const appFolder of appFolders) {
       try {
         const appData = await extractAppData(appFolder);
         if (appData) {
           ensureAppRuntimeState(appData);
-          window.apps.push(appData);
+          window.protectedGlobals.apps.push(appData);
         }
       } catch (e) {
-        flowawayError("loadAppsFromTree", "Failed to parse app folder", e, {
+        window.protectedGlobals.flowawayError("loadAppsFromTree", "Failed to parse app folder", e, {
           folder: appFolder && appFolder[0],
         });
       }
     }
 
     // Sort apps alphabetically by label
-    window.apps.sort((a, b) => a.label.localeCompare(b.label));
+    window.protectedGlobals.apps.sort((a, b) => a.label.localeCompare(b.label));
 
     // render
     await renderAppsGrid();
 
      // reapply task buttons now that apps may be present
-     applyTaskButtons();
-    purgeButtons();
-    setTimeout(() => {
+    window.protectedGlobals.applyTaskButtons();
+      window.protectedGlobals.purgeButtons();
       var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
       window.dispatchEvent(appUpdatedEvent);
-      setTimeout(() => {
-        var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-        window.dispatchEvent(appUpdatedEvent);
-        setTimeout(() => {
-          var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-          window.dispatchEvent(appUpdatedEvent);
-          setTimeout(() => {
-            var appUpdatedEvent = new CustomEvent("appUpdated", {
-              detail: null,
-            });
-            window.dispatchEvent(appUpdatedEvent);
-          }, 5000);
-        }, 5000);
-      }, 5000);
-    }, 5000);
     // Start polling for app changes
     startAppPolling();
   } catch (e) {
-    flowawayError("loadAppsFromTree", "loadAppsFromTree failed", e);
+    window.protectedGlobals.flowawayError("loadAppsFromTree", "loadAppsFromTree failed", e);
   }
 }
 
-async function renderAppsGrid() {
+const renderAppsGrid = window.protectedGlobals.renderAppsGrid = async function renderAppsGrid() {
   // Load config and render pinned apps
-  if (!window._startMenuConfig) await loadStartMenuConfig();
-  await renderPinnedAppsGrid();
+  if (!window.protectedGlobals._startMenuConfig) await loadStartMenuConfig();
+  await window.protectedGlobals.renderPinnedAppsGrid();
   // Also load all app scripts
-  if (!window.apps) return;
-  for (const app of window.apps) {
+  if (!window.protectedGlobals.apps) return;
+  for (const app of window.protectedGlobals.apps) {
     try {
       ensureAppRuntimeState(app);
       if (!app.icon) {
         if (!app.scriptLoaded && app.jsFile) {
           try {
-            var b64NoIcon = await fetchFileContentByPath(
+            var b64NoIcon = await window.protectedGlobals.fetchFileContentByPath(
               `${app.path}/${app.jsFile}`,
             );
-            var scriptTextNoIcon = base64ToUtf8(b64NoIcon);
-            app._lastScriptHash = hashScriptContent(scriptTextNoIcon);
+            var scriptTextNoIcon = window.protectedGlobals.base64ToUtf8(b64NoIcon);
+            app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptTextNoIcon);
             try {
               var globalvarobjectstring = app.globalvarobjectstring;
               if (app.functionname && typeof window[app.functionname] !== "undefined") {
@@ -1135,7 +1149,7 @@ async function renderAppsGrid() {
                 app.cmf &&
                 globalvarobjectstring &&
                 window[globalvarobjectstring] &&
-                !isProtectedAppGlobalName(app.cmf) &&
+                !window.protectedGlobals.isProtectedAppGlobalName(app.cmf) &&
                 typeof window[globalvarobjectstring][app.cmf] !== "undefined"
               ) {
                 try {
@@ -1177,7 +1191,7 @@ async function renderAppsGrid() {
               setTimeout(captureAddedNoIcon, 2500);
             } catch (e) {}
           } catch (e) {
-            flowawayError(
+            window.protectedGlobals.flowawayError(
               "renderAppsGrid",
               "Failed to load app script (no icon)",
               e,
@@ -1191,14 +1205,14 @@ async function renderAppsGrid() {
       // Just load the app script
       if (!app.scriptLoaded && app.jsFile) {
         try {
-          var b64 = await fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-          var scriptText = decodeFileTextStrict(
+          var b64 = await window.protectedGlobals.fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+          var scriptText = window.protectedGlobals.decodeFileTextStrict(
             b64,
             `${app.path}/${app.jsFile}`,
             { allowEmpty: true },
           );
           if (!String(scriptText || "").trim()) {
-            flowawayError("renderAppsGrid", "App script is empty; skipping load", null, {
+            window.protectedGlobals.flowawayError("renderAppsGrid", "App script is empty; skipping load", null, {
               appId: app && app.id,
               path: app && app.path,
               jsFile: app && app.jsFile,
@@ -1206,7 +1220,7 @@ async function renderAppsGrid() {
             continue;
           }
           // Store hash for future change detection
-          app._lastScriptHash = hashScriptContent(scriptText);
+          app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
           // Prefer removing globals created by previous script rather than deleting app metadata
           try {
             var globalvarobjectstring = app.globalvarobjectstring;
@@ -1219,7 +1233,7 @@ async function renderAppsGrid() {
               app.cmf &&
               globalvarobjectstring &&
               window[globalvarobjectstring] &&
-              !isProtectedAppGlobalName(app.cmf) &&
+              !window.protectedGlobals.isProtectedAppGlobalName(app.cmf) &&
               typeof window[globalvarobjectstring][app.cmf] !== "undefined"
             ) {
               try {
@@ -1259,14 +1273,14 @@ async function renderAppsGrid() {
             setTimeout(captureAdded, 2500);
           } catch (e) {}
         } catch (e) {
-          flowawayCrash(
+          window.protectedGlobals.flowawayCrash(
             "Failed to load app script.",
             `${app && app.path}/${app && app.jsFile}` + "\n" + String(e && (e.stack || e.message) || e),
           );
         }
       }
     } catch (e) {
-      flowawayError("renderAppsGrid", "Failed while loading app", e, {
+      window.protectedGlobals.flowawayError("renderAppsGrid", "Failed while loading app", e, {
         appId: app && app.id,
         path: app && app.path,
       });
@@ -1274,16 +1288,16 @@ async function renderAppsGrid() {
     }
   }
 }
-async function launchApp(appId) {
-  var app = (window.apps || []).find((a) => appMatchesIdentifier(a, appId));
+const launchApp = window.protectedGlobals.launchApp = async function launchApp(appId) {
+  var app = (window.protectedGlobals.apps || []).find((a) => appMatchesIdentifier(a, appId));
   window[app.functionname]();
 }
 
 // ===== LIVE APP POLLING =====
-function getFlowawayAppPollingRuntime() {
-  var runtime = window.FlowawayAppPolling;
+const getFlowawayAppPollingRuntime = window.protectedGlobals.getFlowawayAppPollingRuntime = function getFlowawayAppPollingRuntime() {
+  var runtime = window.protectedGlobals.FlowawayAppPolling;
   if (!runtime || runtime.__loaded !== true) {
-    flowawayCrash(
+    window.protectedGlobals.flowawayCrash(
       "App polling runtime unavailable.",
       "systemfiles/appPolling.js was not loaded.",
     );
@@ -1291,76 +1305,76 @@ function getFlowawayAppPollingRuntime() {
   return runtime;
 }
 
-function queueAppPollingHint(msg) {
+const queueAppPollingHint = window.protectedGlobals.queueAppPollingHint = function queueAppPollingHint(msg) {
   return getFlowawayAppPollingRuntime().queueHint(msg);
 }
 
-function collectAppPollingHint() {
+const collectAppPollingHint = window.protectedGlobals.collectAppPollingHint = function collectAppPollingHint() {
   return getFlowawayAppPollingRuntime().collectHint();
 }
 
-function refreshAppsUiAfterChanges() {
+const refreshAppsUiAfterChanges = window.protectedGlobals.refreshAppsUiAfterChanges = function refreshAppsUiAfterChanges() {
   return getFlowawayAppPollingRuntime().refreshAppsUiAfterChanges();
 }
 
-function scheduleAppPoll(reason = "unknown") {
+const scheduleAppPoll = window.protectedGlobals.scheduleAppPoll = function scheduleAppPoll(reason = "unknown") {
   return getFlowawayAppPollingRuntime().schedulePoll(reason);
 }
 
-function startAppPollingViaWebSocket() {
+const startAppPollingViaWebSocket = window.protectedGlobals.startAppPollingViaWebSocket = function startAppPollingViaWebSocket() {
   return getFlowawayAppPollingRuntime().startViaWebSocket();
 }
 
-async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) {
+const pollAppChanges = window.protectedGlobals.pollAppChanges = async function pollAppChanges(forceMetadataCheck = false, targetFolders = null) {
   return getFlowawayAppPollingRuntime().pollAppChanges(forceMetadataCheck, targetFolders);
 }
 
-async function pollSpecificAppChanges(changedFolders = []) {
+const pollSpecificAppChanges = window.protectedGlobals.pollSpecificAppChanges = async function pollSpecificAppChanges(changedFolders = []) {
   return getFlowawayAppPollingRuntime().pollSpecificAppChanges(changedFolders);
 }
 // appUpdated - ensure single binding
 try {
-  if (window._flowaway_handlers.onAppUpdated)
+  if (window.protectedGlobals.systemAPIs.onAppUpdated)
     window.removeEventListener(
       "appUpdated",
-      window._flowaway_handlers.onAppUpdated,
+      window.protectedGlobals.systemAPIs.onAppUpdated,
     );
-  window._flowaway_handlers.onAppUpdated = (e) => {
-    purgeButtons();
+  window.protectedGlobals.systemAPIs.onAppUpdated = (e) => {
+    window.protectedGlobals.purgeButtons();
   };
-  window.addEventListener("appUpdated", window._flowaway_handlers.onAppUpdated);
+  window.addEventListener("appUpdated", window.protectedGlobals.systemAPIs.onAppUpdated);
 } catch (e) {}
-function startAppPolling() {
+const startAppPolling = window.protectedGlobals.startAppPolling = function startAppPolling() {
   return getFlowawayAppPollingRuntime().start();
 }
 
 // Ensure loadAppsFromTree runs after initial tree load
-var oldLoadTree = window.loadTree;
-window.loadTree = async function () {
-  await oldLoadTree();
+window.protectedGlobals.oldLoadTree = window.protectedGlobals.loadTree;
+window.protectedGlobals.loadTree = async function () {
+  await window.protectedGlobals.oldLoadTree();
   await loadAppsFromTree();
-  annotateTreeWithPaths(window.treeData);
+  window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
 };
-async function ensureFlowawayAppLoaderLoaded() {
+const ensureFlowawayAppLoaderLoaded = window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function ensureFlowawayAppLoaderLoaded() {
   try {
-    if (window.FlowawayAppLoader && window.FlowawayAppLoader.__loaded) {
+    if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
       return true;
     }
 
-    if (window.__flowawayAppLoaderSystemPromise) {
+    if (window.protectedGlobals.__flowawayAppLoaderSystemPromise) {
       try {
-        await window.__flowawayAppLoaderSystemPromise;
+        await window.protectedGlobals.__flowawayAppLoaderSystemPromise;
       } catch (e) {}
-      if (window.FlowawayAppLoader && window.FlowawayAppLoader.__loaded) {
+      if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
         return true;
       }
-      delete window.__flowawayAppLoaderSystemPromise;
+      delete window.protectedGlobals.__flowawayAppLoaderSystemPromise;
     }
 
-    window.__flowawayAppLoaderSystemPromise = (async function () {
-      if (typeof fetchFileContentByPath === "function") {
-        var b64Runtime = await fetchFileContentByPath("systemfiles/appLoader.js");
-        var inlineText = decodeFileTextStrict(
+    window.protectedGlobals.__flowawayAppLoaderSystemPromise = (async function () {
+      if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
+        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/appLoader.js");
+        var inlineText = window.protectedGlobals.decodeFileTextStrict(
           b64Runtime,
           "systemfiles/appLoader.js",
           { allowEmpty: false },
@@ -1369,7 +1383,7 @@ async function ensureFlowawayAppLoaderLoaded() {
         inlineScript.type = "text/javascript";
         inlineScript.textContent = inlineText;
         document.body.appendChild(inlineScript);
-        if (window.FlowawayAppLoader && window.FlowawayAppLoader.__loaded) {
+        if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
           return true;
         }
       }
@@ -1391,28 +1405,28 @@ async function ensureFlowawayAppLoaderLoaded() {
         }
       });
 
-      if (window.FlowawayAppLoader && window.FlowawayAppLoader.__loaded) {
+      if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
         return true;
       }
-      flowawayCrash(
+      window.protectedGlobals.flowawayCrash(
         "App loader runtime failed to initialize.",
-        "systemfiles/appLoader.js loaded but FlowawayAppLoader is unavailable.",
+        "systemfiles/appLoader.js loaded but AppLoaderAPIs is unavailable.",
       );
     })();
 
     try {
-      await window.__flowawayAppLoaderSystemPromise;
-      return !!(window.FlowawayAppLoader && window.FlowawayAppLoader.__loaded);
+      await window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+      return !!(window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded);
     } catch (e) {
-      delete window.__flowawayAppLoaderSystemPromise;
-      flowawayCrash(
+      delete window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+      window.protectedGlobals.flowawayCrash(
         "Failed to load app loader runtime.",
         String(e && (e.stack || e.message) || e),
       );
       return false;
     }
   } catch (e) {
-    flowawayCrash(
+    window.protectedGlobals.flowawayCrash(
       "Unexpected app loader runtime failure.",
       String(e && (e.stack || e.message) || e),
     );
@@ -1420,26 +1434,26 @@ async function ensureFlowawayAppLoaderLoaded() {
   }
 }
 
-async function ensureFlowawayAppPollingLoaded() {
+const ensureFlowawayAppPollingLoaded = window.protectedGlobals.ensureFlowawayAppPollingLoaded = async function ensureFlowawayAppPollingLoaded() {
   try {
-    if (window.FlowawayAppPolling && window.FlowawayAppPolling.__loaded) {
+    if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
       return true;
     }
 
-    if (window.__flowawayAppPollingSystemPromise) {
+    if (window.protectedGlobals.__flowawayAppPollingSystemPromise) {
       try {
-        await window.__flowawayAppPollingSystemPromise;
+        await window.protectedGlobals.__flowawayAppPollingSystemPromise;
       } catch (e) {}
-      if (window.FlowawayAppPolling && window.FlowawayAppPolling.__loaded) {
+      if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
         return true;
       }
-      delete window.__flowawayAppPollingSystemPromise;
+      delete window.protectedGlobals.__flowawayAppPollingSystemPromise;
     }
 
-    window.__flowawayAppPollingSystemPromise = (async function () {
-      if (typeof fetchFileContentByPath === "function") {
-        var b64Runtime = await fetchFileContentByPath("systemfiles/appPolling.js");
-        var inlineText = decodeFileTextStrict(
+    window.protectedGlobals.__flowawayAppPollingSystemPromise = (async function () {
+      if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
+        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/appPolling.js");
+        var inlineText = window.protectedGlobals.decodeFileTextStrict(
           b64Runtime,
           "systemfiles/appPolling.js",
           { allowEmpty: false },
@@ -1448,7 +1462,7 @@ async function ensureFlowawayAppPollingLoaded() {
         inlineScript.type = "text/javascript";
         inlineScript.textContent = inlineText;
         document.body.appendChild(inlineScript);
-        if (window.FlowawayAppPolling && window.FlowawayAppPolling.__loaded) {
+        if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
           return true;
         }
       }
@@ -1470,30 +1484,30 @@ async function ensureFlowawayAppPollingLoaded() {
         }
       });
 
-      if (window.FlowawayAppPolling && window.FlowawayAppPolling.__loaded) {
+      if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
         return true;
       }
-      flowawayCrash(
+      window.protectedGlobals.flowawayCrash(
         "App polling runtime failed to initialize.",
         "systemfiles/appPolling.js loaded but FlowawayAppPolling is unavailable.",
       );
     })();
 
     try {
-      await window.__flowawayAppPollingSystemPromise;
-      delete window.__flowawayAppPollingSystemFailed;
-      return !!(window.FlowawayAppPolling && window.FlowawayAppPolling.__loaded);
+      await window.protectedGlobals.__flowawayAppPollingSystemPromise;
+      delete window.protectedGlobals.__flowawayAppPollingSystemFailed;
+      return !!(window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded);
     } catch (e) {
-      window.__flowawayAppPollingSystemFailed = true;
-      delete window.__flowawayAppPollingSystemPromise;
-      flowawayCrash(
+      window.protectedGlobals.__flowawayAppPollingSystemFailed = true;
+      delete window.protectedGlobals.__flowawayAppPollingSystemPromise;
+      window.protectedGlobals.flowawayCrash(
         "Failed to load app polling runtime.",
         String(e && (e.stack || e.message) || e),
       );
       return false;
     }
   } catch (e) {
-    flowawayCrash(
+    window.protectedGlobals.flowawayCrash(
       "Unexpected app polling runtime failure.",
       String(e && (e.stack || e.message) || e),
     );
@@ -1501,26 +1515,26 @@ async function ensureFlowawayAppPollingLoaded() {
   }
 }
 
-async function ensureProcessRuntimeLoaded() {
+const ensureProcessRuntimeLoaded = window.protectedGlobals.ensureProcessRuntimeLoaded = async function ensureProcessRuntimeLoaded() {
   try {
-    if (window.FlowawayProcess && window.FlowawayProcess.__loaded) {
+    if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
       return true;
     }
 
-    if (window.__flowawayProcessSystemPromise) {
+    if (window.protectedGlobals.__flowawayProcessSystemPromise) {
       try {
-        await window.__flowawayProcessSystemPromise;
+        await window.protectedGlobals.__flowawayProcessSystemPromise;
       } catch (e) {}
-      if (window.FlowawayProcess && window.FlowawayProcess.__loaded) {
+      if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
         return true;
       }
-      delete window.__flowawayProcessSystemPromise;
+      delete window.protectedGlobals.__flowawayProcessSystemPromise;
     }
 
-    window.__flowawayProcessSystemPromise = (async function () {
-      if (typeof fetchFileContentByPath === "function") {
-        var b64ProcessRuntime = await fetchFileContentByPath("systemfiles/processes.js");
-        var inlineProcessText = decodeFileTextStrict(
+    window.protectedGlobals.__flowawayProcessSystemPromise = (async function () {
+      if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
+        var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/processes.js");
+        var inlineProcessText = window.protectedGlobals.decodeFileTextStrict(
           b64ProcessRuntime,
           "systemfiles/processes.js",
           { allowEmpty: false },
@@ -1529,7 +1543,7 @@ async function ensureProcessRuntimeLoaded() {
         inlineProcessScript.type = "text/javascript";
         inlineProcessScript.textContent = inlineProcessText;
         document.body.appendChild(inlineProcessScript);
-        if (window.FlowawayProcess && window.FlowawayProcess.__loaded) {
+        if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
           return true;
         }
       }
@@ -1551,30 +1565,30 @@ async function ensureProcessRuntimeLoaded() {
         }
       });
 
-      if (window.FlowawayProcess && window.FlowawayProcess.__loaded) {
+      if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
         return true;
       }
-      flowawayCrash(
+      window.protectedGlobals.flowawayCrash(
         "Process runtime failed to initialize.",
-        "systemfiles/processes.js loaded but FlowawayProcess is unavailable.",
+        "systemfiles/processes.js loaded but protectedGlobals.FlowawayProcess is unavailable.",
       );
     })();
 
     try {
-      await window.__flowawayProcessSystemPromise;
-      delete window.__flowawayProcessSystemFailed;
-      return !!(window.FlowawayProcess && window.FlowawayProcess.__loaded);
+      await window.protectedGlobals.__flowawayProcessSystemPromise;
+      delete window.protectedGlobals.__flowawayProcessSystemFailed;
+      return !!(window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded);
     } catch (e) {
-      window.__flowawayProcessSystemFailed = true;
-      delete window.__flowawayProcessSystemPromise;
-      flowawayCrash(
+      window.protectedGlobals.__flowawayProcessSystemFailed = true;
+      delete window.protectedGlobals.__flowawayProcessSystemPromise;
+      window.protectedGlobals.flowawayCrash(
         "Failed to load process runtime.",
         String(e && (e.stack || e.message) || e),
       );
       return false;
     }
   } catch (e) {
-    flowawayCrash(
+    window.protectedGlobals.flowawayCrash(
       "Unexpected process runtime loader failure.",
       String(e && (e.stack || e.message) || e),
     );
@@ -1588,24 +1602,24 @@ Promise.all([
   ensureProcessRuntimeLoaded(),
 ])
   .finally(function () {
-    if (typeof window.loadTree === "function") {
-      window.loadTree();
+    if (typeof window.protectedGlobals.loadTree === "function") {
+      window.protectedGlobals.loadTree();
     }
   });
-window.onlyloadTree = oldLoadTree;
+window.protectedGlobals.onlyloadTree = protectedGlobals.oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 
-var username = (  typeof data !== 'undefined' && data && typeof data.username === 'string')     ? data.username : '';
+window.protectedGlobals.username = window.protectedGlobals.data && typeof window.protectedGlobals.data.username === 'string' ? window.protectedGlobals.data.username : '';
 
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding
 try {
-  if (window._flowaway_handlers.onFullscreenChange)
+  if (window.protectedGlobals.systemAPIs.onFullscreenChange)
     document.removeEventListener(
       "fullscreenchange",
-      window._flowaway_handlers.onFullscreenChange,
+      window.protectedGlobals.systemAPIs.onFullscreenChange,
     );
-  window._flowaway_handlers.onFullscreenChange = async () => {
+  window.protectedGlobals.systemAPIs.onFullscreenChange = async () => {
     if (document.fullscreenElement) {
       if (navigator.keyboard && typeof navigator.keyboard.lock === "function") {
         try {
@@ -1625,11 +1639,11 @@ try {
   };
   document.addEventListener(
     "fullscreenchange",
-    window._flowaway_handlers.onFullscreenChange,
+    window.protectedGlobals.systemAPIs.onFullscreenChange,
   );
 } catch (e) {}
 
-window.removeOtherMenus = function (except) {
+window.protectedGlobals.removeOtherMenus = function (except) {
   try {
     // Remove any menus with the shared .app-menu class (used across apps)
     var menus = document.querySelectorAll(".app-menu");
@@ -1644,16 +1658,19 @@ window.removeOtherMenus = function (except) {
   } catch (e) {}
 };
 
-window.resolveAppFromEvent = function (evt, appOverride = null) {
+window.protectedGlobals.resolveAppFromEvent = function (evt, appOverride = null) {
   if (appOverride && typeof appOverride === "object") return appOverride;
   try {
+    var appNode = evt && evt.target && evt.target.closest
+      ? evt.target.closest("[data-app-id], [data-appid]")
+      : null;
     var appId =
       evt &&
       evt.target &&
       evt.target.closest &&
-      evt.target.closest("[data-app-id], [data-appid]")
-        ? evt.target.closest("[data-app-id], [data-appid]").dataset.appId ||
-          evt.target.closest("[data-app-id], [data-appid]").dataset.appid
+      appNode
+        ? appNode.dataset.appId ||
+          appNode.dataset.appid
         : "";
 
     if (!appId && evt && evt.target && evt.target.closest) {
@@ -1667,13 +1684,13 @@ window.resolveAppFromEvent = function (evt, appOverride = null) {
     }
 
     if (!appId) return null;
-    return       (window.apps || []).find((a) => appMatchesIdentifier(a, appId)) || null;
+    return       (window.protectedGlobals.apps || []).find((a) => appMatchesIdentifier(a, appId)) || null;
   } catch (e) {
     return null;
   }
 };
 
-window.getAppInstances = function (app) {
+window.protectedGlobals.getAppInstances = function (app) {
   if (!app) return [];
   try {
     return getPrimaryAppInstanceArray(app);
@@ -1682,37 +1699,37 @@ window.getAppInstances = function (app) {
   }
 };
 
-window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemove = true) {
+window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemove = true) {
   if (!e) return;
   e.preventDefault();
 
-  var app = window.resolveAppFromEvent(e, appOverride);
+  var app = window.protectedGlobals.resolveAppFromEvent(e, appOverride);
   if (!app) return;
 
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
   try {
-    window._flowaway_handlers = window._flowaway_handlers || {};
-    if (window._flowaway_handlers.onAppMenuOutsidePointerDown) {
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    if (window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
       document.removeEventListener(
         "pointerdown",
-        window._flowaway_handlers.onAppMenuOutsidePointerDown,
+        window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
         true,
       );
-      delete window._flowaway_handlers.onAppMenuOutsidePointerDown;
+      delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
     }
-    if (window._flowaway_handlers.onAppMenuEscapeKey) {
+    if (window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
       document.removeEventListener(
         "keydown",
-        window._flowaway_handlers.onAppMenuEscapeKey,
+        window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
         true,
       );
-      delete window._flowaway_handlers.onAppMenuEscapeKey;
+      delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
     }
   } catch (err) {}
 
   const menu = document.createElement("div");
   try {
-    removeOtherMenus(app.id || app.functionname || "");
+    window.protectedGlobals.removeOtherMenus(app.id || app.functionname || "");
   } catch (err) {}
 
   menu.className = "app-menu";
@@ -1729,13 +1746,13 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
     fontSize: "13px",
     visibility: "hidden",
   });
-  data.dark
+  (window.protectedGlobals.data && window.protectedGlobals.data.dark)
     ? menu.classList.toggle("dark", true)
     : menu.classList.toggle("light", true);
 
   function withInstances(handler) {
     try {
-      var instances = window.getAppInstances(app);
+      var instances = window.protectedGlobals.getAppInstances(app);
       handler(instances);
     } catch (err) {}
     menu.remove();
@@ -1804,7 +1821,7 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
           instance.showWindow();
         } else if (instance && instance.rootElement) {
           instance.rootElement.style.display = "block";
-          bringToFront(instance.rootElement);
+          window.protectedGlobals.bringToFront(instance.rootElement);
         }
       }
     });
@@ -1821,7 +1838,7 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
       if (first && typeof first.newWindow === "function") {
         first.newWindow();
       } else {
-        launchApp(getPreferredAppIdentifier(app));
+        window.protectedGlobals.launchApp(app.functionname);
       }
     });
   });
@@ -1839,17 +1856,17 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
           ? contextMenuEvent.target.closest("button.taskbutton")
           : null;
       if (btn) {
-        removeTaskButton(btn);
+        window.protectedGlobals.removeTaskButton(btn);
         try {
-          saveTaskButtons();
-          purgeButtons();
+          window.protectedGlobals.saveTaskButtons();
+          window.protectedGlobals.purgeButtons();
         } catch (err) {}
       }
       menu.remove();
     });
     menu.appendChild(remove);
   } else {
-    const appId = getPreferredAppIdentifier(app);
+    const appId = app.functionname;
     const existingBtn = document.querySelector(
       `button.taskbutton[data-app-id="${appId}"]`,
     );
@@ -1860,10 +1877,10 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
       remove.style.padding = "6px 10px";
       remove.style.cursor = "pointer";
       remove.addEventListener("click", function () {
-        removeTaskButton(existingBtn);
+        window.protectedGlobals.removeTaskButton(existingBtn);
         try {
-          saveTaskButtons();
-          purgeButtons();
+          window.protectedGlobals.saveTaskButtons();
+          window.protectedGlobals.purgeButtons();
         } catch (err) {}
         menu.remove();
       });
@@ -1874,16 +1891,16 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
       add.style.padding = "6px 10px";
       add.style.cursor = "pointer";
       add.addEventListener("click", function () {
-        const btn = addTaskButton(
+        const btn = window.protectedGlobals.addTaskButton(
           app.icon,
-          () => launchApp(appId),
+          () => window.protectedGlobals.launchApp(appId),
           "cmf",
           "",
           appId,
         );
         if (btn) btn.dataset.appId = appId;
-        saveTaskButtons();
-        purgeButtons();
+        window.protectedGlobals.saveTaskButtons();
+        window.protectedGlobals.purgeButtons();
         menu.remove();
       });
       menu.appendChild(add);
@@ -1893,7 +1910,7 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
   const barrier = document.createElement("hr");
   menu.appendChild(barrier);
 
-  const instances = window.getAppInstances(app);
+  const instances = window.protectedGlobals.getAppInstances(app);
   if (instances.length === 0) {
     const item = document.createElement("div");
     item.textContent = "No open windows";
@@ -1918,7 +1935,7 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
             instance.showWindow();
           } else if (instance && instance.rootElement) {
             instance.rootElement.style.display = "block";
-            bringToFront(instance.rootElement);
+            window.protectedGlobals.bringToFront(instance.rootElement);
           }
         } catch (err) {}
         menu.remove();
@@ -1939,28 +1956,28 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
       nativeMenuRemove();
     } catch (err) {}
     try {
-      if (window._flowaway_handlers && window._flowaway_handlers.onAppMenuOutsidePointerDown) {
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
         document.removeEventListener(
           "pointerdown",
-          window._flowaway_handlers.onAppMenuOutsidePointerDown,
+          window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
           true,
         );
-        delete window._flowaway_handlers.onAppMenuOutsidePointerDown;
+        delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
       }
-      if (window._flowaway_handlers && window._flowaway_handlers.onAppMenuEscapeKey) {
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
         document.removeEventListener(
           "keydown",
-          window._flowaway_handlers.onAppMenuEscapeKey,
+          window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
           true,
         );
-        delete window._flowaway_handlers.onAppMenuEscapeKey;
+        delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
       }
     } catch (err) {}
   }
 
   try {
-    window._flowaway_handlers = window._flowaway_handlers || {};
-    window._flowaway_handlers.onAppMenuOutsidePointerDown = function (evt) {
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown = function (evt) {
       if (!menu || !menu.isConnected) {
         closeMenu();
         return;
@@ -1968,18 +1985,18 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
       if (evt && evt.target && menu.contains(evt.target)) return;
       closeMenu();
     };
-    window._flowaway_handlers.onAppMenuEscapeKey = function (evt) {
+    window.protectedGlobals.systemAPIs.onAppMenuEscapeKey = function (evt) {
       if (!evt) return;
       if (evt.key === "Escape") closeMenu();
     };
     document.addEventListener(
       "pointerdown",
-      window._flowaway_handlers.onAppMenuOutsidePointerDown,
+      window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
       true,
     );
     document.addEventListener(
       "keydown",
-      window._flowaway_handlers.onAppMenuEscapeKey,
+      window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
       true,
     );
   } catch (err) {}
@@ -1996,11 +2013,13 @@ window.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemo
 
 };
 
-window.cmf = function (e, appOverride = null) {
-  window.showUnifiedAppContextMenu(e, appOverride, true);
+window.protectedGlobals.cmf = function (e, appOverride = null) {
+  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride, true);
 };
 
-window.cmfl1 = function (e, appOverride = null) {
-  window.showUnifiedAppContextMenu(e, appOverride, false);
+window.protectedGlobals.cmfl1 = function (e, appOverride = null) {
+  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride, false);
 };
+
+})();
 

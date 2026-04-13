@@ -5,8 +5,8 @@ taskManagerGlobals.allTaskManagers = Array.isArray(taskManagerGlobals.allTaskMan
 taskManagerGlobals.goldenbodyId = Number(taskManagerGlobals.goldenbodyId ?? 0);
 
 taskManager = function (posX = 50, posY = 50) {
-  if (typeof startMenu !== "undefined" && startMenu) {
-    startMenu.style.display = "none";
+  if (window.protectedGlobals.startMenu) {
+    window.protectedGlobals.startMenu.style.display = "none";
   }
 
   let isMaximized = false;
@@ -17,7 +17,7 @@ taskManager = function (posX = 50, posY = 50) {
   let latestRows = [];
 
   try {
-    atTop = "taskManager";
+    window.protectedGlobals.atTop = "taskManager";
   } catch (e) {}
 
   const root = document.createElement("div");
@@ -38,7 +38,7 @@ taskManager = function (posX = 50, posY = 50) {
   });
   root.classList.add("taskManager");
   root.dataset.appId = "taskManager";
-  bringToFront(root);
+  window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
 
   taskManagerGlobals.goldenbodyId++;
@@ -71,7 +71,7 @@ taskManager = function (posX = 50, posY = 50) {
   dragStrip.style.cursor = "move";
   dragStrip.style.width = "100%";
   dragStrip.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(dragStrip);
 
@@ -81,7 +81,7 @@ taskManager = function (posX = 50, posY = 50) {
   barrier.style.height = "14px";
   barrier.style.width = "100%";
   barrier.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(barrier);
 
@@ -110,14 +110,14 @@ taskManager = function (posX = 50, posY = 50) {
     el.style.cursor = "pointer";
   });
 
-  const applyWindowControlIcon = window.applyWindowControlIcon || function () {};
-  const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+  const applyWindowControlIcon = window.protectedGlobals.applyWindowControlIcon || function () {};
+  const setWindowMaximizeIcon = window.protectedGlobals.setWindowMaximizeIcon || function () {};
   applyWindowControlIcon(btnMin, "minimize");
   setWindowMaximizeIcon(btnMax, false);
   applyWindowControlIcon(btnClose, "close");
 
   topBar.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.appendChild(topBar);
 
@@ -150,7 +150,7 @@ taskManager = function (posX = 50, posY = 50) {
     root.style.left = "0";
     root.style.top = "0";
     root.style.width = "100%";
-    root.style.height = !data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
+    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
     root.style.borderRadius = "0";
     isMaximized = true;
     _isMinimized = false;
@@ -176,7 +176,7 @@ taskManager = function (posX = 50, posY = 50) {
     if (disposed) return;
     root.style.display = "flex";
     _isMinimized = false;
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   }
 
   function clearAutoRefresh() {
@@ -197,8 +197,8 @@ taskManager = function (posX = 50, posY = 50) {
     );
     if (index !== -1) taskManagerGlobals.allTaskManagers.splice(index, 1);
 
-    if (typeof window.removeAllEventListenersForApp === "function") {
-      window.removeAllEventListenersForApp(scopedListenerName);
+    if (typeof window.protectedGlobals.removeAllEventListenersForApp === "function") {
+      window.protectedGlobals.removeAllEventListenersForApp(scopedListenerName);
     }
   }
 
@@ -257,10 +257,10 @@ taskManager = function (posX = 50, posY = 50) {
       let currentX;
       let currentY;
       let thresholdCrossed = false;
-      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15;
+      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15;
 
       dragTarget.addEventListener("mousedown", (ev) => {
-        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -578,7 +578,7 @@ taskManager = function (posX = 50, posY = 50) {
   let defaultStatusColor = "";
 
   function applyTaskManagerTheme() {
-    const dark = !!(data && data.dark);
+    const dark = !!window.protectedGlobals.data.dark;
     const textColor = dark ? "#e5e7eb" : "#0f172a";
     const mutedTextColor = dark ? "#cbd5e1" : "#334155";
     const panelBg = dark ? "#111827" : "#f8fafc";
@@ -632,7 +632,7 @@ taskManager = function (posX = 50, posY = 50) {
   function resolveAppLabelById(appId) {
     const id = String(appId || "").trim();
     if (!id) return "";
-    const apps = Array.isArray(window.apps) ? window.apps : [];
+    const apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     for (let i = 0; i < apps.length; i++) {
       const app = apps[i] || {};
       const candidates = [app.id, app.functionname, app.icon, app.path]
@@ -918,13 +918,13 @@ taskManager = function (posX = 50, posY = 50) {
   }
 
   function loadSnapshot() {
-    if (typeof window.getTaskManagerSnapshot !== "function") {
+    if (typeof window.protectedGlobals.getTaskManagerSnapshot !== "function") {
       return { unavailable: true, rows: [], summary: summarizeRows(null, []) };
     }
 
     let snapshot;
     try {
-      snapshot = window.getTaskManagerSnapshot();
+      snapshot = window.protectedGlobals.getTaskManagerSnapshot();
     } catch (e) {
       return { unavailable: true, rows: [], summary: summarizeRows(null, []) };
     }
@@ -942,7 +942,7 @@ taskManager = function (posX = 50, posY = 50) {
     renderRows(result.rows);
 
     if (result.unavailable) {
-      setStatus("Task snapshot API unavailable (window.getTaskManagerSnapshot).", true);
+      setStatus("Task snapshot API unavailable (protectedGlobals.getTaskManagerSnapshot).", true);
       return;
     }
 
@@ -952,7 +952,7 @@ taskManager = function (posX = 50, posY = 50) {
   }
 
   function resolveAppMetaForRow(row) {
-    const apps = Array.isArray(window.apps) ? window.apps : [];
+    const apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     const wanted = [row.appId, row.functionname, row.globalVar, row.label]
       .filter(Boolean)
       .map((v) => String(v));
@@ -1014,8 +1014,8 @@ taskManager = function (posX = 50, posY = 50) {
 
     if (!appMeta) return [];
 
-    if (typeof window.getAppInstances === "function") {
-      const list = window.getAppInstances(appMeta);
+    if (typeof window.protectedGlobals.getAppInstances === "function") {
+      const list = window.protectedGlobals.getAppInstances(appMeta);
       if (Array.isArray(list)) return list.slice();
     }
 
@@ -1068,7 +1068,7 @@ taskManager = function (posX = 50, posY = 50) {
       } catch (e) {}
     }
 
-    if (removedRoots.length && typeof window.removeAllEventListenersForApp === "function") {
+    if (removedRoots.length && typeof window.protectedGlobals.removeAllEventListenersForApp === "function") {
       for (let r = 0; r < removedRoots.length; r++) {
         const gid =
           removedRoots[r] &&
@@ -1081,7 +1081,7 @@ taskManager = function (posX = 50, posY = 50) {
 
         for (let h = 0; h < hints.length; h++) {
           try {
-            window.removeAllEventListenersForApp(String(hints[h]) + String(gid));
+            window.protectedGlobals.removeAllEventListenersForApp(String(hints[h]) + String(gid));
           } catch (e) {}
         }
       }
@@ -1145,10 +1145,10 @@ taskManager = function (posX = 50, posY = 50) {
       if (
         base &&
         (gid || gid === 0) &&
-        typeof window.removeAllEventListenersForApp === "function"
+        typeof window.protectedGlobals.removeAllEventListenersForApp === "function"
       ) {
         try {
-          window.removeAllEventListenersForApp(String(base) + String(gid));
+          window.protectedGlobals.removeAllEventListenersForApp(String(base) + String(gid));
         } catch (e) {}
       }
       return true;
@@ -1228,16 +1228,16 @@ taskManager = function (posX = 50, posY = 50) {
 
     try {
       if (
-        window.FlowawayProcess &&
-        typeof window.FlowawayProcess.terminate === "function" &&
+        window.protectedGlobals.FlowawayProcess &&
+        typeof window.protectedGlobals.FlowawayProcess.terminate === "function" &&
         targetPid
       ) {
-        terminatedByProcessApi = !!window.FlowawayProcess.terminate(targetPid, "task-manager-kill");
+        terminatedByProcessApi = !!window.protectedGlobals.FlowawayProcess.terminate(targetPid, "task-manager-kill");
       } else if (
-        typeof window.killProcess === "function" &&
+        typeof window.protectedGlobals.killProcess === "function" &&
         targetPid
       ) {
-        terminatedByProcessApi = !!window.killProcess(targetPid, "task-manager-kill");
+        terminatedByProcessApi = !!window.protectedGlobals.killProcess(targetPid, "task-manager-kill");
       }
     } catch (e) {}
 
@@ -1286,7 +1286,7 @@ taskManager = function (posX = 50, posY = 50) {
       } catch (e) {}
     }
 
-    if (typeof window.removeAllEventListenersForApp === "function") {
+    if (typeof window.protectedGlobals.removeAllEventListenersForApp === "function") {
       const prefixes = [
         row.appId,
         row.functionname,
@@ -1305,7 +1305,7 @@ taskManager = function (posX = 50, posY = 50) {
           const gid = getInstanceGoldenbodyId(listenerTargets[i]);
           if (!gid && gid !== 0) continue;
           try {
-            window.removeAllEventListenersForApp(base + String(gid));
+            window.protectedGlobals.removeAllEventListenersForApp(base + String(gid));
           } catch (e) {}
         }
       }
@@ -1380,7 +1380,7 @@ taskManager = function (posX = 50, posY = 50) {
   setStatus("Ready.");
   applyTaskManagerTheme();
 
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 
   return {
     rootElement: root,

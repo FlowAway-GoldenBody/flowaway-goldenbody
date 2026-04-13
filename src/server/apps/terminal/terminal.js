@@ -6,13 +6,13 @@ window.terminalGlobals = {};
 terminalGlobals.allTerminals = [];
 terminalGlobals.goldenbodyId = 0;
 
-window.__terminalCustomCommands =
-  window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
-    ? window.__terminalCustomCommands
+window.protectedGlobals.__terminalCustomCommands =
+  window.protectedGlobals.__terminalCustomCommands && typeof window.protectedGlobals.__terminalCustomCommands === "object"
+    ? window.protectedGlobals.__terminalCustomCommands
     : {};
 
-window.__terminalBuiltInCommandNames = Array.isArray(window.__terminalBuiltInCommandNames)
-  ? window.__terminalBuiltInCommandNames
+window.protectedGlobals.__terminalBuiltInCommandNames = Array.isArray(window.protectedGlobals.__terminalBuiltInCommandNames)
+  ? window.protectedGlobals.__terminalBuiltInCommandNames
   : [
       "help", "clear", "echo", "date", "whoami", "pwd", "history", "exit",
       "ls", "cd", "cat", "head", "tail", "mkdir", "touch", "write", "rm", "cp", "mv",
@@ -29,8 +29,8 @@ function normalizeTerminalCommandName(raw) {
 }
 
 function getTerminalBuiltInCommandNames() {
-  var names = Array.isArray(window.__terminalBuiltInCommandNames)
-    ? window.__terminalBuiltInCommandNames
+  var names = Array.isArray(window.protectedGlobals.__terminalBuiltInCommandNames)
+    ? window.protectedGlobals.__terminalBuiltInCommandNames
     : [];
   var normalizedNames = [];
   var seen = {};
@@ -53,7 +53,7 @@ function getTerminalBuiltInCommandMap() {
   return map;
 }
 
-window.registerTerminalAppCommand = function (definition, options) {
+window.protectedGlobals.registerTerminalAppCommand = function (definition, options) {
   var opts = options && typeof options === "object" ? options : {};
   var force = !!opts.force;
   var def = definition && typeof definition === "object" ? definition : {};
@@ -87,8 +87,8 @@ window.registerTerminalAppCommand = function (definition, options) {
   }
 
   var registry =
-    window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
-      ? window.__terminalCustomCommands
+    window.protectedGlobals.__terminalCustomCommands && typeof window.protectedGlobals.__terminalCustomCommands === "object"
+      ? window.protectedGlobals.__terminalCustomCommands
       : {};
 
   for (var existingName in registry) {
@@ -124,20 +124,20 @@ window.registerTerminalAppCommand = function (definition, options) {
     forceOverride: force,
     updatedAt: Date.now(),
   };
-  window.__terminalCustomCommands = registry;
+  window.protectedGlobals.__terminalCustomCommands = registry;
   return { ok: true, command: registry[name] };
 };
 
-window.unregisterTerminalAppCommand = function (nameOrAlias) {
+window.protectedGlobals.unregisterTerminalAppCommand = function (nameOrAlias) {
   var target = normalizeTerminalCommandName(nameOrAlias);
   if (!target) return false;
   var registry =
-    window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
-      ? window.__terminalCustomCommands
+    window.protectedGlobals.__terminalCustomCommands && typeof window.protectedGlobals.__terminalCustomCommands === "object"
+      ? window.protectedGlobals.__terminalCustomCommands
       : {};
   if (registry[target]) {
     delete registry[target];
-    window.__terminalCustomCommands = registry;
+    window.protectedGlobals.__terminalCustomCommands = registry;
     return true;
   }
   for (var name in registry) {
@@ -145,24 +145,24 @@ window.unregisterTerminalAppCommand = function (nameOrAlias) {
     var aliases = Array.isArray(registry[name].aliases) ? registry[name].aliases : [];
     if (aliases.indexOf(target) !== -1) {
       delete registry[name];
-      window.__terminalCustomCommands = registry;
+      window.protectedGlobals.__terminalCustomCommands = registry;
       return true;
     }
   }
   return false;
 };
 
-if (!window.__terminalTaskmanDemoRegistered && typeof window.registerTerminalAppCommand === "function") {
-  window.registerTerminalAppCommand({
+if (!window.protectedGlobals.__terminalTaskmanDemoRegistered && typeof window.protectedGlobals.registerTerminalAppCommand === "function") {
+  window.protectedGlobals.registerTerminalAppCommand({
     name: "taskman",
     description: "Show Flowaway task-manager snapshot summary.",
     usage: "taskman [json]",
     sourceApp: "terminal",
     handler: function (context, args) {
-      if (typeof window.getTaskManagerSnapshot !== "function") {
+      if (typeof window.protectedGlobals.getTaskManagerSnapshot !== "function") {
         return "taskman: task manager data unavailable";
       }
-      var snapshot = window.getTaskManagerSnapshot();
+      var snapshot = window.protectedGlobals.getTaskManagerSnapshot();
       var summary = snapshot && snapshot.summary ? snapshot.summary : {};
       if (String(args && args[0] || "").toLowerCase() === "json") {
         return snapshot || {};
@@ -175,23 +175,23 @@ if (!window.__terminalTaskmanDemoRegistered && typeof window.registerTerminalApp
       return;
     },
   });
-  window.__terminalTaskmanDemoRegistered = true;
+  window.protectedGlobals.__terminalTaskmanDemoRegistered = true;
 }
 
-if (!window.__terminalProcessCommandsRegistered && typeof window.registerTerminalAppCommand === "function") {
-  window.registerTerminalAppCommand({
+if (!window.protectedGlobals.__terminalProcessCommandsRegistered && typeof window.protectedGlobals.registerTerminalAppCommand === "function") {
+  window.protectedGlobals.registerTerminalAppCommand({
     name: "procs",
     description: "List the current Flowaway process snapshot.",
     usage: "procs [json]",
     sourceApp: "terminal",
     handler: function (context, args) {
-      if (typeof window.FlowawayProcess !== "object" || !window.FlowawayProcess) {
+      if (typeof window.protectedGlobals.FlowawayProcess !== "object" || !window.protectedGlobals.FlowawayProcess) {
         return "procs: process runtime unavailable";
       }
-      var snapshot = typeof window.FlowawayProcess.snapshot === "function"
-        ? window.FlowawayProcess.snapshot()
-        : typeof window.getTaskManagerSnapshot === "function"
-          ? window.getTaskManagerSnapshot()
+      var snapshot = typeof window.protectedGlobals.FlowawayProcess.snapshot === "function"
+        ? window.protectedGlobals.FlowawayProcess.snapshot()
+        : typeof window.protectedGlobals.getTaskManagerSnapshot === "function"
+          ? window.protectedGlobals.getTaskManagerSnapshot()
           : null;
       if (String(args && args[0] || "").toLowerCase() === "json") {
         return snapshot || {};
@@ -206,7 +206,7 @@ if (!window.__terminalProcessCommandsRegistered && typeof window.registerTermina
     },
   });
 
-  window.registerTerminalAppCommand({
+  window.protectedGlobals.registerTerminalAppCommand({
     name: "killproc",
     description: "Terminate a process by pid.",
     usage: "killproc <pid>",
@@ -214,7 +214,7 @@ if (!window.__terminalProcessCommandsRegistered && typeof window.registerTermina
     handler: function (context, args) {
       var target = String(args && args[0] || "").trim();
       if (!target) return "killproc: missing pid";
-      if (typeof window.FlowawayProcess !== "object" || !window.FlowawayProcess) {
+      if (typeof window.protectedGlobals.FlowawayProcess !== "object" || !window.protectedGlobals.FlowawayProcess) {
         return "killproc: process runtime unavailable";
       }
       var pid = Number(target);
@@ -222,22 +222,22 @@ if (!window.__terminalProcessCommandsRegistered && typeof window.registerTermina
         return "killproc: pid must be numeric";
       }
       var ok = false;
-      if (typeof window.FlowawayProcess.terminate === "function") {
-        ok = !!window.FlowawayProcess.terminate(pid, "terminal-kill");
+      if (typeof window.protectedGlobals.FlowawayProcess.terminate === "function") {
+        ok = !!window.protectedGlobals.FlowawayProcess.terminate(pid, "terminal-kill");
       }
       return ok ? "killproc: terminated " + String(pid) : "killproc: no matching process for pid " + String(pid);
     },
   });
 
-  window.__terminalProcessCommandsRegistered = true;
+  window.protectedGlobals.__terminalProcessCommandsRegistered = true;
 }
 
 terminal = function (posX = 50, posY = 50) {
-  notification("Terminal is in beta. Type 'help' for available commands.");
-  startMenu.style.display = "none";
+  window.protectedGlobals.notification("Terminal is in beta. Type 'help' for available commands.");
+  window.protectedGlobals.startMenu.style.display = "none";
   let isMaximized = false;
   let _isMinimized = false;
-  atTop = "terminal";
+  window.protectedGlobals.atTop = "terminal";
   const root = document.createElement("div");
 
   root.className = "app-root app-window-root";
@@ -257,7 +257,7 @@ terminal = function (posX = 50, posY = 50) {
   });
   root.classList.add("terminal");
   root.dataset.appId = "terminal";
-  bringToFront(root);
+  window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   terminalGlobals.goldenbodyId++;
   root._goldenbodyId = terminalGlobals.goldenbodyId;
@@ -288,7 +288,7 @@ terminal = function (posX = 50, posY = 50) {
   dragStrip.style.cursor = "move";
   dragStrip.style.width = "100%";
   dragStrip.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(dragStrip);
   const barrier = document.createElement("div");
@@ -297,7 +297,7 @@ terminal = function (posX = 50, posY = 50) {
   barrier.style.height = "14px";
   barrier.style.width = "100%";
   barrier.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.prepend(barrier);
 
@@ -325,13 +325,13 @@ terminal = function (posX = 50, posY = 50) {
     el.style.cursor = "pointer";
   });
   const applyWindowControlIcon =
-    window.applyWindowControlIcon || function () {};
-  const setWindowMaximizeIcon = window.setWindowMaximizeIcon || function () {};
+    window.protectedGlobals.applyWindowControlIcon || function () {};
+  const setWindowMaximizeIcon = window.protectedGlobals.setWindowMaximizeIcon || function () {};
   applyWindowControlIcon(btnMin, "minimize");
   setWindowMaximizeIcon(btnMax, false);
   applyWindowControlIcon(btnClose, "close");
   topBar.addEventListener("click", function () {
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   });
   root.appendChild(topBar);
   // --- Saved bounds shared correctly ---
@@ -351,7 +351,7 @@ terminal = function (posX = 50, posY = 50) {
       }
     }
     if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
-    window.removeAllEventListenersForApp("terminal" + root._goldenbodyId);
+    window.protectedGlobals.removeAllEventListenersForApp("terminal" + root._goldenbodyId);
   }
 
   function hideWindow() {
@@ -363,7 +363,7 @@ terminal = function (posX = 50, posY = 50) {
   function showWindow() {
     root.style.display = "flex";
     _isMinimized = false;
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
   }
 
   function closeAll() {
@@ -403,7 +403,7 @@ terminal = function (posX = 50, posY = 50) {
     root.style.left = "0";
     root.style.top = "0";
     root.style.width = "100%";
-    root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
     root.style.borderRadius = "0px";
     isMaximized = true;
     _isMinimized = false;
@@ -465,11 +465,11 @@ terminal = function (posX = 50, posY = 50) {
         origLeft = 0,
         origTop = 0;
       let thresholdCrossed = false;
-      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
+      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
-        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -627,9 +627,9 @@ terminal = function (posX = 50, posY = 50) {
     minHeight: "0",
     margin: "0 8px 8px 8px",
     borderRadius: "8px",
-    border: data.dark ? "1px solid #2f2f2f" : "1px solid #d8d8d8",
-    background: data.dark ? "#0f0f10" : "#f5f6f8",
-    color: data.dark ? "#d8d8d8" : "#222",
+    border: window.protectedGlobals.data.dark ? "1px solid #2f2f2f" : "1px solid #d8d8d8",
+    background: window.protectedGlobals.data.dark ? "#0f0f10" : "#f5f6f8",
+    color: window.protectedGlobals.data.dark ? "#d8d8d8" : "#222",
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
@@ -651,7 +651,7 @@ terminal = function (posX = 50, posY = 50) {
   const inputWrap = document.createElement("div");
   Object.assign(inputWrap.style, {
     flexShrink: "0",
-    borderTop: data.dark ? "1px solid #2a2a2a" : "1px solid #dcdcdc",
+    borderTop: window.protectedGlobals.data.dark ? "1px solid #2a2a2a" : "1px solid #dcdcdc",
     padding: "10px 12px",
     display: "flex",
     alignItems: "center",
@@ -681,7 +681,7 @@ terminal = function (posX = 50, posY = 50) {
   root.appendChild(terminalSurface);
 
   function applyTerminalTheme() {
-    const dark = !!(data && data.dark);
+    const dark = !!window.protectedGlobals.data.dark;
     const textColor = dark ? "#d8d8d8" : "#111827";
 
     terminalSurface.style.border = dark
@@ -706,7 +706,7 @@ terminal = function (posX = 50, posY = 50) {
   root.addEventListener("styleapplied", applyTerminalTheme);
   applyTerminalTheme();
 
-  const username = (typeof data !== "undefined" && data && data.username) ? data.username : "guest";
+  const username = window.protectedGlobals.data.username || "guest";
   let cwdRelPath = "";
   let commandHistory = [];
   let historyIndex = -1;
@@ -821,8 +821,8 @@ terminal = function (posX = 50, posY = 50) {
   }
 
   function getTreeNode(relPath) {
-    if (!window.treeData) return null;
-    let cur = window.treeData;
+    if (!window.protectedGlobals.treeData) return null;
+    let cur = window.protectedGlobals.treeData;
     const parts = splitPath(relPath);
     for (const part of parts) {
       if (!cur || !Array.isArray(cur[1])) return null;
@@ -864,34 +864,34 @@ terminal = function (posX = 50, posY = 50) {
   }
 
   async function saveTextFileByPath(relPath, text) {
-    if (typeof filePost !== "function") {
-      throw new Error("filePost is unavailable");
+    if (typeof window.protectedGlobals.filePost !== "function") {
+      throw new Error("window.protectedGlobals.filePost is unavailable");
     }
-    await filePost({
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
         { edit: true, contents: utf8ToBase64(text), path: relPath, replace: true },
         { end: true },
       ],
     });
-    if (typeof window.onlyloadTree === "function") {
+    if (typeof window.protectedGlobals.onlyloadTree === "function") {
       try {
-        await window.onlyloadTree();
+        await window.protectedGlobals.onlyloadTree();
       } catch (e) {}
     }
   }
 
   async function applySnapshotDirections(directions) {
-    if (typeof filePost !== "function") {
-      throw new Error("filePost is unavailable");
+    if (typeof window.protectedGlobals.filePost !== "function") {
+      throw new Error("window.protectedGlobals.filePost is unavailable");
     }
-    await filePost({
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [...directions, { end: true }],
     });
-    if (typeof window.onlyloadTree === "function") {
+    if (typeof window.protectedGlobals.onlyloadTree === "function") {
       try {
-        await window.onlyloadTree();
+        await window.protectedGlobals.onlyloadTree();
       } catch (e) {}
     }
   }
@@ -954,8 +954,8 @@ terminal = function (posX = 50, posY = 50) {
 
   function listApps() {
     try {
-      if (Array.isArray(window.apps) && window.apps.length) {
-        return window.apps
+      if (Array.isArray(window.protectedGlobals.apps) && window.protectedGlobals.apps.length) {
+        return window.protectedGlobals.apps
           .map((a) => (a.functionname || a.id || a.label || a.path || ""))
           .filter(Boolean)
           .map((s) => String(s).toLowerCase());
@@ -968,7 +968,7 @@ terminal = function (posX = 50, posY = 50) {
     const target = String(name || "").trim().toLowerCase();
     if (!target) return false;
     try {
-      const apps = Array.isArray(window.apps) ? window.apps : [];
+      const apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
       let app = apps.find((a) => {
         const candidates = [a.functionname, a.id, a.label, a.path]
           .filter((v) => typeof v !== "undefined" && v !== null)
@@ -996,8 +996,8 @@ terminal = function (posX = 50, posY = 50) {
 
   function getCustomCommandEntries() {
     var registry =
-      window.__terminalCustomCommands && typeof window.__terminalCustomCommands === "object"
-        ? window.__terminalCustomCommands
+      window.protectedGlobals.__terminalCustomCommands && typeof window.protectedGlobals.__terminalCustomCommands === "object"
+        ? window.protectedGlobals.__terminalCustomCommands
         : {};
     return Object.keys(registry)
       .map((name) => registry[name])
@@ -1671,7 +1671,7 @@ terminal = function (posX = 50, posY = 50) {
 
     const dirRelPath = dirPart ? resolvePath(dirPart.replace(/\/$/, "")) : cwdRelPath;
     // When dirRelPath is empty string we are at the filesystem root node
-    const dirNode = dirRelPath ? getTreeNode(dirRelPath) : (window.treeData || null);
+    const dirNode = dirRelPath ? getTreeNode(dirRelPath) : (window.protectedGlobals.treeData || null);
     if (!dirNode) return;
     const children = (dirNode && Array.isArray(dirNode[1])) ? dirNode[1] : [];
     const matches = children.filter((entry) =>
@@ -1789,7 +1789,7 @@ terminal = function (posX = 50, posY = 50) {
     newwindow: newWindow,
     goldenbodyId: root._goldenbodyId,
   });
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 
   return {
     rootElement: root,

@@ -1,5 +1,227 @@
 //browser global vars
 window.browserGlobals = {};
+window.browserGlobals.nhjd = 1;
+window.browserGlobals.browserCss = `
+ .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
+.sim-chrome-top {
+  background: linear-gradient(#f6f7f8,#ededf0);
+  height: 44px;
+  display:flex;
+  align-items:center;
+  padding:0 8px;
+  gap:8px;
+}
+
+.sim-chrome-tabs {
+  display:flex;
+  gap:2px;
+  align-items:center;
+  height:32px;
+  scrollbar-width:none;
+}
+.sim-chrome-tabs::-webkit-scrollbar { display:none; }
+
+.sim-tab {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  user-select:none;
+  font-size:13px;
+  color:#333;
+  max-width:200px;
+  min-width:185px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.sim-tab.active {
+  background: rgba(0,0,0,0.06);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
+}
+
+.sim-tab .close {
+  font-weight:700;
+  color:#777;
+  cursor:pointer;
+  margin-left:auto;
+}
+
+.sim-address-row {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  margin: 0 8px;
+}
+
+.sim-open-btn,
+.sim-fullscreen-btn,
+.sim-netab-btn {
+  height:28px;
+  padding:0 12px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.12);
+  background:#fff;
+  cursor:pointer;
+  font-size:13px;
+}
+
+.sim-toolbar {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px;
+  background:#fff;
+  border-top:1px solid rgba(0,0,0,0.06);
+}
+
+.sim-iframe {
+  width:100%;
+  height:calc(100% - 84px);
+  border:0;
+  background:#fff;
+}
+
+.sim-status {
+  font-size:12px;
+  color:#666;
+  margin-left:8px;
+}
+
+
+
+
+
+
+
+
+
+.app-root.light .sim-chrome-top {
+  background: linear-gradient(#f6f7f8, #ededf0);
+}
+
+.app-root.light .sim-chrome-tabs {
+  background: transparent;
+}
+
+.app-root.light .sim-tab {
+  color: #333;
+}
+
+.app-root.light .sim-tab.active {
+  background: rgba(0,0,0,0.06);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.04);
+}
+
+.app-root.light .sim-tab .close {
+  color: #777;
+}
+
+/* Address row */
+.app-root.light .sim-address-row {
+  background: transparent;
+  margin: 0 8px;
+}
+
+/* URL / proxy inputs */
+.app-root.light .sim-url-input,
+.app-root.light .sim-proxy-input {
+  background: #fff;
+  color: #222;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+/* Buttons */
+.app-root.light .sim-open-btn,
+.app-root.light .sim-fullscreen-btn,
+.app-root.light .sim-netab-btn {
+  background: #fff;
+  color: #222;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+/* Toolbar */
+.app-root.light .sim-toolbar {
+  background: #fff;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Iframe area */
+.app-root.light .sim-iframe {
+  background: #fff;
+}
+
+/* Status text */
+.app-root.light .sim-status {
+  color: #666;
+}
+.app-root.dark .sim-address-row {
+  background: #222; margin: 0 8px;
+}
+
+/* Iframe background */
+.app-root.dark .sim-iframe {
+  background: #111; /* deep dark, matches content area */
+}
+.app-root.dark {
+  background:#1e1e1e;
+  color:#ddd;
+}
+
+.app-root.dark .sim-chrome-top {
+  background: linear-gradient(#2a2a2a,#1f1f1f);
+}
+
+.app-root.dark .sim-tab {
+  color:#ddd;
+}
+
+.app-root.dark .sim-tab.active {
+  background: rgba(255,255,255,0.08);
+}
+
+.app-root.dark .sim-tab .close {
+  color:rgba(251, 248, 248, 1);
+}
+  .app-root.dark .sim-url-input { flex:1; height:32px; background-color: "black"; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
+.app-root.dark .sim-url-input,
+.app-root.dark .sim-proxy-input {
+  background:#2a2a2a;
+  color:#eee;
+  border:1px solid rgba(255,255,255,0.15);
+}
+
+.app-root.dark .sim-open-btn,
+.app-root.dark .sim-fullscreen-btn,
+.app-root.dark .sim-netab-btn {
+  background:#2a2a2a;
+  color:#eee;
+  border:1px solid rgba(255,255,255,0.15);
+}
+
+.app-root.dark .sim-toolbar {
+  background:#1e1e1e;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+
+.app-root.dark .sim-iframe {
+  background:#111;
+}
+
+.app-root.dark .sim-status {
+  color:#aaa;
+}
+`;
+window.browserGlobals.injectCss = function () {
+  const style = document.createElement("style");
+  style.textContent = window.browserGlobals.browserCss;
+  document.body.appendChild(style);
+};
+window.browserGlobals.injectCss();
 window.browserGlobals.__globalAddTab = function (url, index) {
   let t = window.browserGlobals.allBrowsers[index].addTab(url, "New Tab");
   for (const tab of window.browserGlobals.allBrowsers[index].tabs) {
@@ -98,8 +320,8 @@ async function readProfileTextFileMeta(filePath, options = {}) {
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      if (typeof ReadFile === "function") {
-        const res = await ReadFile(filePath);
+      if (typeof window.protectedGlobals.ReadFile === "function") {
+        const res = await window.protectedGlobals.ReadFile(filePath);
         if (!res || res.missing || res.code === "ENOENT" || res.kind === "missing") {
           if (attempt + 1 < attempts) {
             if (retryDelayMs > 0) await sleep(retryDelayMs);
@@ -148,7 +370,7 @@ function defaultBrowserProfile() {
     enableURLSync: true,
     lazyloading: true,
     siteZoom: {},
-    // themeMode: 'auto' | 'manual' ; when 'auto' use global `data.dark`
+    // themeMode: 'auto' | 'manual' ; when 'auto' use global `window.protectedGlobals.data.dark`
     themeMode: "auto",
     // when themeMode !== 'auto', this boolean indicates dark (true) or light (false)
     dark: false,
@@ -243,12 +465,12 @@ async function writeBrowserProfile(profile, options = {}) {
   }
 
   const content = btoa(JSON.stringify(payload, null, 2));
-  if (typeof WriteFile === "function") {
-    await WriteFile(browserGlobals.profileSettingsPath, content);
+  if (typeof window.protectedGlobals.WriteFile === "function") {
+    await window.protectedGlobals.WriteFile(browserGlobals.profileSettingsPath, content);
     return true;
   }
-  if (typeof filePost === "function") {
-    await filePost({
+  if (typeof window.protectedGlobals.filePost === "function") {
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
         {
@@ -267,12 +489,12 @@ async function writeBrowserProfile(profile, options = {}) {
 
 async function writeBrowserUserId(id) {
   const encoded = btoa(String(id || ""));
-  if (typeof WriteFile === "function") {
-    await WriteFile(browserGlobals.profileUserIdPath, encoded);
+  if (typeof window.protectedGlobals.WriteFile === "function") {
+    await window.protectedGlobals.WriteFile(browserGlobals.profileUserIdPath, encoded);
     return;
   }
-  if (typeof filePost === "function") {
-    await filePost({
+  if (typeof window.protectedGlobals.filePost === "function") {
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
         {
@@ -318,12 +540,12 @@ browserGlobals.profileReadyPromise = (async () => {
   try {
     const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : "auto";
     if (pm === "auto") {
-      browserGlobals.dark = !!(window.data && window.data.dark);
+      browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
     } else {
       browserGlobals.dark = !!browserGlobals.profile.dark;
     }
   } catch (e) {
-    browserGlobals.dark = !!(window.data && window.data.dark);
+    browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
   }
 
   const idRead = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
@@ -366,9 +588,9 @@ browserGlobals.subWebsite = function (url) {
 }
 browserGlobals.unshuffleURL = function (url) {
   if (!url) return "";
-  if (url === goldenbodywebsite + "flowerfeast.html") {
+  if (url === window.protectedGlobals.goldenbodywebsite + "flowerfeast.html") {
     return "goldenbody://newtab/";
-  } else if (url === goldenbodywebsite + "singlesdaylosesingle.html") {
+  } else if (url === window.protectedGlobals.goldenbodywebsite + "singlesdaylosesingle.html") {
     return "goldenbody://app-store/";
   }
 
@@ -387,7 +609,7 @@ browserGlobals.unshuffleURL = function (url) {
     return url.replace(/^file:\/\//i, "");
   }
 
-  if(!url.includes(BASE)) {return url};
+  if(!url.includes(window.protectedGlobals.BASE)) {return url};
   url = url.split("/");
   if (url) {
     if (typeof url === "string") {
@@ -429,6 +651,7 @@ window.browser = function (
   posX = 20,
   posY = 20,
 ) {
+      let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
     if (browserGlobals.profileReadyPromise) {
       await browserGlobals.profileReadyPromise;
@@ -688,7 +911,7 @@ window.browser = function (
 
     apply.onclick = () => {
       // ===== LOGIC HOOK (YOU IMPLEMENT) =====
-      notification("reload this page to apply your updated settings!");
+      window.protectedGlobals.notification("reload this page to apply your updated settings!");
 
       const newSandbox = Object.entries(sandboxCheckboxes)
         .filter(([_, cb]) => cb.checked)
@@ -719,7 +942,7 @@ window.browser = function (
   if (posY < 0) {
     posY = 0;
   }
-  atTop = "browser";
+  window.protectedGlobals.atTop = "browser";
   let windowTitleInterval;
   const chromeWindow = (function createChromeLikeUI() {
     // --- Create root container ---
@@ -737,13 +960,13 @@ window.browser = function (
       borderRadius: "10px",
       overflow: "hidden",
     });
-    bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
     root._goldenbodyId = allocateBrowserGoldenbodyId();
     browserGlobals.goldenbodyOrderId++;
     root._goldenbodyOrderId = browserGlobals.goldenbodyOrderId;
     root.tabIndex = "0";
     // Respect per-app ignore flag; compute effective browser dark mode
-    // If a window has `data-theme-manual` set to 'true', flowaway.applyStyles
+    // If a window has `data-theme-manual` set to 'true', flowaway.window.protectedGlobals.applyStyles
     // will avoid changing its theme classes. Initialize based on profile.
     try {
       const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : 'auto';
@@ -758,16 +981,16 @@ window.browser = function (
       root.dataset.themeManual = root.dataset.themeManual || 'false';
     }
     root.addEventListener("styleapplied", () => {
-      // If user preference is 'auto' then mirror global `data.dark`, otherwise use stored profile value
+      // If user preference is 'auto' then mirror global `window.protectedGlobals.data.dark`, otherwise use stored profile value
       try {
         const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : "auto";
         if (pm === "auto") {
-          browserGlobals.dark = !!(window.data && window.data.dark);
+          browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
         } else {
           browserGlobals.dark = !!browserGlobals.profile.dark;
         }
       } catch (e) {
-        browserGlobals.dark = !!(window.data && window.data.dark);
+        browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
       }
 
       for (const tab of tabs) {
@@ -911,7 +1134,6 @@ window.browser = function (
       menu.style.background = browserGlobals.dark ? "#1f1f1f" : "#ffffff";
       menu.style.color = browserGlobals.dark ? "#f5f5f5" : "#222";
       menu.style.border = browserGlobals.dark ? "1px solid #444" : "1px solid #d0d0d0";
-
       const closeMenu = () => {
         menu.remove();
         window.removeEventListener("click", closeMenu);
@@ -1009,7 +1231,7 @@ window.browser = function (
 
     root.addEventListener("click", (e) => {
       // App-specific click handler can be implemented here
-      bringToFront(root);
+      window.protectedGlobals.bringToFront(root);
     });
     document.addEventListener("browser" + root._goldenbodyId, "click", (e) => {
       // Scoped listener for browser app cleanup
@@ -1022,7 +1244,7 @@ window.browser = function (
     root.appendChild(top);
 
     top.addEventListener("click", function () {
-      bringToFront(root);
+      window.protectedGlobals.bringToFront(root);
     });
     var topBar = false;
     if (!topBar) {
@@ -1060,9 +1282,9 @@ window.browser = function (
       el.style.cursor = "pointer";
     });
     const applyWindowControlIcon =
-      window.applyWindowControlIcon || function () {};
+      window.protectedGlobals.applyWindowControlIcon || function () {};
     const setWindowMaximizeIcon =
-      window.setWindowMaximizeIcon || function () {};
+      window.protectedGlobals.setWindowMaximizeIcon || function () {};
     applyWindowControlIcon(btnMin, "minimize");
     setWindowMaximizeIcon(btnMax, false);
     applyWindowControlIcon(btnClose, "close");
@@ -1094,7 +1316,7 @@ window.browser = function (
       root.style.left = "0";
       root.style.top = "0";
       root.style.width = "100%";
-      root.style.height = !data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+      root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
       root.style.borderRadius = "0px";
       isMaximized = true;
       _isMinimized = false;
@@ -1159,7 +1381,7 @@ window.browser = function (
       window.removeEventListener("message", messageHandler);
       window.removeEventListener("pointerup", onpointerupAnywhere);
       // Clean up all event listeners added by this app
-      window.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
+      window.protectedGlobals.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
       releaseBrowserGoldenbodyId(root);
       root = null;
       _browserCalled = false;
@@ -1449,18 +1671,18 @@ window.browser = function (
       btnDownload.style.color = "#fff";
       btnDownload.onclick = async () => {
         const url = (input.value || "").trim();
-        if (!url) return notification("Enter a URL");
+        if (!url) return window.protectedGlobals.notification("Enter a URL");
         const filename = computeName(url);
         try {
-          if (typeof downloadPost === "function") {
-            await downloadPost({ href: url, filename });
-            notification("Download request sent");
+          if (typeof window.protectedGlobals.downloadPost === "function") {
+            await window.protectedGlobals.downloadPost({ href: url, filename });
+            window.protectedGlobals.notification("Download request sent");
           } else {
-            notification("downloadPost not available");
+            window.protectedGlobals.notification("downloadPost not available");
           }
         } catch (e) {
           console.error("downloadPost error", e);
-          notification("Download failed to start");
+          window.protectedGlobals.notification("Download failed to start");
         }
         cleanup();
       };
@@ -1627,14 +1849,14 @@ window.browser = function (
         // update effective dark
         try {
           if((browserGlobals.profile && browserGlobals.profile.themeMode === 'auto')) {
-            browserGlobals.dark = !!(window.data && window.data.dark);
+            browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
           } else {
             browserGlobals.dark = !!(browserGlobals.profile && browserGlobals.profile.dark);
           }
-        } catch (e) { browserGlobals.dark = !!(window.data && window.data.dark); }
+        } catch (e) { browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark); }
 
-        // If manual, pin theme on all browser roots so `applyStyles` won't
-        // override them. If auto, remove the pin so `applyStyles` manages them.
+        // If manual, pin theme on all browser roots so `window.protectedGlobals.applyStyles` won't
+        // override them. If auto, remove the pin so `window.protectedGlobals.applyStyles` manages them.
         try {
           const allRoots = document.querySelectorAll('.app-window-root[data-app-id="browser"]');
           for (const rr of allRoots) {
@@ -1755,7 +1977,7 @@ window.browser = function (
       browserGlobals.profileState.enableURLSync = true;
       browserGlobals.profileState.lazyloading = true;
       browserGlobals.profileState.siteZoom = {};
-      notification("site data cleared! please close all browser windows!");
+      window.protectedGlobals.notification("site data cleared! please close all browser windows!");
     }
     clear.onclick = clearBrowsingData;
 
@@ -1805,7 +2027,7 @@ window.browser = function (
         resizeDiv.style.display = "none";
       }
       previousn = activatedTab.resizeP;
-    }, 3000 * nhjd);
+    }, 3000 * browserGlobals.nhjd);
     // ⟳ ⋮
     // iframes
     var iframes = [];
@@ -2047,7 +2269,7 @@ window.browser = function (
           if (activeTabId !== t.id) activateTab(t.id);
         });
         el.addEventListener("pointerup", function () {
-          bringToFront(root);
+          window.protectedGlobals.bringToFront(root);
         });
         el.addEventListener("dragstart", (ev) => {
           browserGlobals.dragstartwindow = chromeWindow;
@@ -2246,10 +2468,10 @@ window.browser = function (
               window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
               function readTopDark(){
                 try{
-                  if(window.top && window.top.browserGlobals && typeof window.top.browserGlobals.dark !== 'undefined') return !!window.top.browserGlobals.dark;
+                  if(window.top && window.top.protectedGlobals && window.top.browserGlobals && typeof window.top.browserGlobals.dark !== 'undefined') return !!window.top.browserGlobals.dark;
                 }catch(e){}
                 try{
-                  if(window.top && window.top.data && typeof window.top.data.dark !== 'undefined') return !!window.top.data.dark;
+                  if(window.top && window.top.protectedGlobals && window.top.protectedGlobals.data && typeof window.top.protectedGlobals.data.dark !== 'undefined') return !!window.top.protectedGlobals.data.dark;
                 }catch(e){}
                 return null;
               }
@@ -2302,7 +2524,7 @@ window.browser = function (
         tab.iframe.contentWindow.postMessage(
           {
             message: "GOLDENBODY_id",
-            website: goldenbodywebsite,
+            website: window.protectedGlobals.goldenbodywebsite,
             value: browserGlobals.id,
             dark: browserGlobals.dark,
           },
@@ -2410,10 +2632,10 @@ window.browser = function (
           );
         applyZoomToTab(tab);
         // let sfc = tab.iframe.contentDocument.createElement("script");
-        // sfc.src = goldenbodywebsite + "sfc__o.js";
+        // sfc.src = window.protectedGlobals.goldenbodywebsite + "sfc__o.js";
         // tab.iframe.contentDocument.head.prepend(sfc);
         var script = tab.iframe.contentDocument.createElement("script");
-        script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+        script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${browserGlobals.nhjd}); function callParent(url) {
   window.parent.postMessage(
     { type: "FROM_IFRAME", message: url },
     "*"
@@ -2491,7 +2713,7 @@ window.browser = function (
         }
         if (previousTabTitle !== tab.title) renderTabs();
         previousTabTitle = tab.title;
-      }, 1000 * nhjd);
+      }, 1000 * browserGlobals.nhjd);
 
       createPermInput(iframe, url);
       if (browserGlobals.profileReadyPromise) {
@@ -2597,7 +2819,7 @@ window.browser = function (
             e.ctrlKey &&
             e.shiftKey &&
             e.key === "W" &&
-            atTop == "browser"
+            window.protectedGlobals.atTop == "browser"
           ) {
             let allIds = [];
             for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
@@ -2613,7 +2835,7 @@ window.browser = function (
               ) {
                 const closingRoot = browserGlobals.allBrowsers[i].rootElement;
                 closingRoot.remove();
-                removeAllEventListenersForApp(
+                window.protectedGlobals.removeAllEventListenersForApp(
                   closingRoot.dataset.appId + closingRoot._goldenbodyId,
                 );
                 releaseBrowserGoldenbodyId(closingRoot);
@@ -2787,7 +3009,7 @@ window.browser = function (
                 await navigator.clipboard.writeText(linkUrl);
               });
               addContextMenuItem("Download linkㅤㅤㅤㅤㅤ", () => {
-                downloadPost({
+                window.protectedGlobals.downloadPost({
                   href: linkUrl,
                   filename: contextMenuFilename(linkElement.href, "download"),
                 });
@@ -2806,7 +3028,7 @@ window.browser = function (
                 await navigator.clipboard.writeText(imageUrl);
               });
               addContextMenuItem("Download image", () => {
-                downloadPost({
+                window.protectedGlobals.downloadPost({
                   href: imageUrl,
                   filename: contextMenuFilename(imageElement.src, "image"),
                 });
@@ -2994,14 +3216,14 @@ window.browser = function (
         // ----------------------------
         let sentreqframe;
 
-        onlyloadTree();
+        window.protectedGlobals.onlyloadTree();
 
         let fullPath;
         function getSessionAuthHeaders() {
           const headers = { "Content-Type": "application/json" };
           const token =
-            window.data && typeof window.data.authToken === "string"
-              ? window.data.authToken.trim()
+            window.protectedGlobals.data && typeof window.protectedGlobals.data.authToken === "string"
+              ? window.protectedGlobals.data.authToken.trim()
               : "";
           if (token) headers.Authorization = "Bearer " + token;
           return headers;
@@ -3010,7 +3232,7 @@ window.browser = function (
         async function fetchFileContent(username, fileFullPath) {
           if (!fileFullPath) throw new Error("No file path provided");
 
-          const res = await fetch(SERVER, {
+          const res = await fetch(window.protectedGlobals.SERVER, {
             method: "POST",
             headers: getSessionAuthHeaders(),
             body: JSON.stringify({
@@ -3147,7 +3369,7 @@ window.browser = function (
               if (i === 0) {
                 chunkBuf = base64ToArrayBuffer(result.filecontent);
               } else {
-                const r = await fetch(SERVER, {
+                const r = await fetch(window.protectedGlobals.SERVER, {
                   method: "POST",
                   headers: getSessionAuthHeaders(),
                   body: JSON.stringify({
@@ -3315,7 +3537,7 @@ window.browser = function (
                 if (ci === 0)
                   chunkBuf = base64ToArrayBuffer(result.filecontent);
                 else {
-                  const r = await fetch(SERVER, {
+                  const r = await fetch(window.protectedGlobals.SERVER, {
                     method: "POST",
                     headers: getSessionAuthHeaders(),
                     body: JSON.stringify({
@@ -3484,7 +3706,7 @@ window.browser = function (
           dragHandle.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
             if (
-              ev.target.closest("button, input, select, textarea, a, [role='button']")
+              ev.target?.closest?.("button, input, select, textarea, a, [role='button']")
             )
               return;
             ev.preventDefault();
@@ -3504,11 +3726,11 @@ window.browser = function (
         }
 
         function openCustomPickerUI() {
-          if (!window.treeData) {
-            window.onlyloadTree();
+          if (!window.protectedGlobals.treeData) {
+            window.protectedGlobals.onlyloadTree();
           }
 
-          pickerTree = JSON.parse(JSON.stringify(window.treeData));
+          pickerTree = JSON.parse(JSON.stringify(window.protectedGlobals.treeData));
           pickerCurrentPath = ["root"];
           pickerSelection = [];
 
@@ -3664,7 +3886,7 @@ window.browser = function (
               const targetFrame = sentreqframe; // snapshot iframe
 
               if (!selections.length)
-                return notification("Select a file or folder");
+                return window.protectedGlobals.notification("Select a file or folder");
               if (!targetFrame) {
                 console.warn("No iframe found");
                 return;
@@ -3720,16 +3942,16 @@ window.browser = function (
         // ----------------------------
         // 3b. Custom save-as overlay
         // ----------------------------
-        let post = filePost;
+        let post = window.protectedGlobals.filePost;
         function openCustomSaveUI(suggestedName) {
-          if (!window.treeData) {
-            window.onlyloadTree();
+          if (!window.protectedGlobals.treeData) {
+            window.protectedGlobals.onlyloadTree();
           }
 
           const theme = getPickerTheme();
 
           const savePickerTree = JSON.parse(
-            JSON.stringify(window.treeData || {}),
+            JSON.stringify(window.protectedGlobals.treeData || {}),
           );
           let savePickerCurrentPath = ["root"];
           let savePickerSelection = [];
@@ -3879,7 +4101,7 @@ window.browser = function (
             const basePath = savePickerCurrentPath.slice(1).join("/");
             const fname = (nameInput.value || "").trim();
             if (!fname) {
-              notification("Enter a filename");
+              window.protectedGlobals.notification("Enter a filename");
               return;
             }
             let chosen;
@@ -3889,7 +4111,7 @@ window.browser = function (
               const sel = selections[0];
               const isFolder = Array.isArray(sel[1]);
               if (isFolder) chosen = (basePath ? basePath + "/" : "") + fname;
-              else notification("Select a folder to save into");
+              else window.protectedGlobals.notification("Select a folder to save into");
             }
 
             // send response to requesting iframe
@@ -3910,14 +4132,14 @@ window.browser = function (
         // 3c. Custom directory picker overlay
         // ----------------------------
         function openCustomDirectoryPickerUI() {
-          if (!window.treeData) {
-            window.onlyloadTree();
+          if (!window.protectedGlobals.treeData) {
+            window.protectedGlobals.onlyloadTree();
           }
 
           const theme = getPickerTheme();
 
           const dirPickerTree = JSON.parse(
-            JSON.stringify(window.treeData || {}),
+            JSON.stringify(window.protectedGlobals.treeData || {}),
           );
           let dirPickerCurrentPath = ["root"];
           let dirPickerSelectionPaths = [];
@@ -4087,7 +4309,7 @@ window.browser = function (
             }
 
             if (!selectedNode) {
-              notification("Selected directory not found");
+              window.protectedGlobals.notification("Selected directory not found");
               return;
             }
 
@@ -5187,16 +5409,16 @@ const layer1Iframe = w.frameElement;
 let allbrowserindex = 0;
 // console.log(layer1Iframe); // ✅ the first iframe under the main page
 for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
-    if(window.top.browserGlobals.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
+  if(window.top.browserGlobals.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
 }
     debugger;
     if(url == "") url = "about:blank";
     if(!url.includes(':')) {
        if(document.getElementsByTagName('base').length > 0) {
-       url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
+      url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
        }
        else {
-       url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
+      url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
        }
     }
   if(location === '_parent') {
@@ -5567,7 +5789,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                 if (!frameDoc.getElementById("_gb_a_setter")) {
                   var script = frameDoc.createElement("script");
                   script.id = "_gb_a_setter";
-                  script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${nhjd}); function callParent(url) {
+                  script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${browserGlobals.nhjd}); function callParent(url) {
   window.parent.postMessage(
     { type: "FROM_IFRAME", message: url },
     "*"
@@ -6213,7 +6435,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           console.error(e);
           clearInterval(checkInterval);
         }
-      }, 250 * nhjd);
+      }, 250 * browserGlobals.nhjd);
       renderTabs();
     }
 
@@ -6406,11 +6628,11 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     async function resolveLocalFileNavigation(inputPath) {
       const normalizedPath = normalizeLocalFilePath(inputPath);
       if (!normalizedPath) throw new Error("Missing file path");
-      if (typeof filePost !== "function") {
+      if (typeof window.protectedGlobals.filePost !== "function") {
         throw new Error("File service unavailable");
       }
 
-      const response = await filePost({
+      const response = await window.protectedGlobals.filePost({
         requestFile: true,
         requestFileName: normalizedPath,
       });
@@ -6474,7 +6696,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       const tab = tabs[tabIndex];
       const input = String(rawUrl || "").trim();
       if (!input) {
-        notification("Enter a URL or file path");
+        window.protectedGlobals.notification("Enter a URL or file path");
         return;
       }
 
@@ -6499,7 +6721,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           urlInput.value = localNav.displayUrl;
           return;
         } catch (err) {
-          notification(`Unable to open file: ${String(err && err.message ? err.message : err)}`);
+          window.protectedGlobals.notification(`Unable to open file: ${String(err && err.message ? err.message : err)}`);
           return;
         }
       }
@@ -6582,7 +6804,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           tab.history.currentCanonical = prevHistorySnapshot.currentCanonical;
           tab.history.suppressNextRecord =
             prevHistorySnapshot.suppressNextRecord;
-          notification("Navigation failed");
+          window.protectedGlobals.notification("Navigation failed");
           return;
         }
       }
@@ -6622,20 +6844,20 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         origTop = 0,
         targetel = null;
       let thresholdCrossed = false;
-      let DRAG_THRESHOLD = data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
+      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
 
       top.addEventListener("pointerdown", (ev) => {
-        DRAG_THRESHOLD = Number(data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         targetel = ev.target;
       });
 
       top.addEventListener("mousedown", (ev) => {
         if (
-          ev.target.closest(".sim-tab") ||
+          ev.target?.closest?.(".sim-tab") ||
           ev.target === newTabBtn ||
           ev.target === urlInput ||
           ev.target === openBtn ||
-          targetel.closest(".sim-tab")
+          targetel?.closest?.(".sim-tab")
         )
           return;
         dragging = true;
@@ -6889,7 +7111,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       showWindow: function () {
         root.style.display = "block";
         isMinimized = false;
-        bringToFront(root);
+        window.protectedGlobals.bringToFront(root);
       },
 
       hideWindow: function () {
@@ -6913,7 +7135,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     try {
       chromeWindow.rootElement.setAttribute("data-title", nextTitle);
     } catch (e) {}
-  }, 1000 * nhjd);
+  }, 1000 * browserGlobals.nhjd);
   chromeWindow.rootElement.setAttribute("data-title", "Untitled");
   chromeWindow.closeAll = function () {
     for (const instance of [...browserGlobals.allBrowsers]) {
@@ -6948,7 +7170,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
   chromeWindow.closeall = chromeWindow.closeAll;
   chromeWindow.newwindow = chromeWindow.newWindow;
   browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
-  applyStyles();
+  window.protectedGlobals.applyStyles();
 
   function a(url, proxyurl) {
     function encodeUV(str) {
@@ -6972,12 +7194,12 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         return str;
       }
       if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
-        return goldenbodywebsite + "flowerfeast.html";
+        return window.protectedGlobals.goldenbodywebsite + "flowerfeast.html";
       } else if (
         str === "goldenbody://app-store/" ||
         str === "goldenbody://app-store"
       ) {
-        return goldenbodywebsite + "singlesdaylosesingle.html";
+        return window.protectedGlobals.goldenbodywebsite + "singlesdaylosesingle.html";
       }
       return proxylink + browserGlobals.id + "/" + url;
     }
