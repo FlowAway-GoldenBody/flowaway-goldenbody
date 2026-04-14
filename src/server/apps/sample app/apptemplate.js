@@ -22,3 +22,11 @@ window.yourApp = function (posX, posY) {
   return instance;
 };
 
+yourAppGlobals.shell = (e) => {
+  protectedGlobals.notification("Hello from your app's shell function!");
+    window.protectedGlobals.cmf(e);
+}
+yourAppGlobals.shell1 = (e) => {
+  protectedGlobals.notification("Hello from your app's shell1 function!");
+  window.protectedGlobals.cmfl1(e);
+}

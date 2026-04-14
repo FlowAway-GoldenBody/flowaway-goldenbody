@@ -520,7 +520,6 @@
 
     btn.style.width = "60px";
     btn.style.fontSize = "30px"; // Ensures
-
     btn.addEventListener("click", () => {
       try {
         console.log("Task clicked:", btn.value);
@@ -563,7 +562,6 @@
     }
     setupTaskButtonDrag(btn);
     taskbar.appendChild(btn);
-    syncTaskButtons();
     setTimeout(() => {
       window.protectedGlobals.applyStyles();
     }, 100);

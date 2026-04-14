@@ -63,15 +63,28 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       );
       if (app) {
         const appId = app.functionname;
+        let btn;
         if (seenAppIds.has(appId)) continue;
         seenAppIds.add(appId);
-        const btn = window.protectedGlobals.addTaskButton(
-          app.icon,
-          () => window.protectedGlobals.launchApp(appId),
-          "cmf",
-          "",
-          appId,
-        );
+        debugger
+        if (app.cmf) {
+          btn = window.protectedGlobals.addTaskButton(
+            app.icon,
+            () => window.protectedGlobals.launchApp(appId),
+            window[app.globalvarobjectstring][app.cmf],
+            "",
+            appId,
+          );
+        }
+        else {
+          btn = window.protectedGlobals.addTaskButton(
+            app.icon,
+            () => window.protectedGlobals.launchApp(appId),
+            window.protectedGlobals.cmf,
+            "",
+            appId,
+          );
+        }
         if (btn) btn.dataset.appId = appId;
       }
     }
@@ -103,6 +116,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       }
     } catch (retryErr) {}
   }
+  window.protectedGlobals.saveTaskButtons();
 }
 
 const purgeButtons = window.protectedGlobals.purgeButtons = function purgeButtons() {
@@ -129,6 +143,7 @@ const purgeButtons = window.protectedGlobals.purgeButtons = function purgeButton
 }
 
 const saveTaskButtons = window.protectedGlobals.saveTaskButtons = function saveTaskButtons(silence = true) {
+  if (!window.protectedGlobals.appsButtonsApplied) return;
   var buttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
   buttons.splice(0, 2);
   var postdata = [];

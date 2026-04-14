@@ -621,32 +621,32 @@ settings = function (posX = 50, posY = 50) {
   autohideRow.style.alignItems = "center";
   autohideRow.style.marginTop = "8px";
 
-  const autohideLabel = document.createElement("div");
-  autohideLabel.textContent = "Autohide Taskbar";
-  autohideLabel.style.fontSize = "13px";
+  // const autohideLabel = document.createElement("div");
+  // autohideLabel.textContent = "Autohide Taskbar";
+  // autohideLabel.style.fontSize = "13px";
 
-  const autohideToggle = document.createElement("input");
-  autohideToggle.type = "checkbox";
-  autohideToggle.checked = !!window.protectedGlobals.data.autohidetaskbar;
+  // const autohideToggle = document.createElement("input");
+  // autohideToggle.type = "checkbox";
+  // autohideToggle.checked = !!window.protectedGlobals.data.autohidetaskbar;
 
-  autohideToggle.onchange = async () => {
-    window.protectedGlobals.data.autohidetaskbar = autohideToggle.checked;
-    await persistSettingsProfilePatch({
-      autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
-      taskbarRevealEdgePx: Number(window.protectedGlobals.data.taskbarRevealEdgePx),
-      taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs),
-    });
-    if (window.protectedGlobals.applyTaskbarAutohideSettings) {
-      window.protectedGlobals.applyTaskbarAutohideSettings({
-        autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
-        taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
-        taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
-      });
-    }
-  };
+  // autohideToggle.onchange = async () => {
+  //   window.protectedGlobals.data.autohidetaskbar = autohideToggle.checked;
+  //   await persistSettingsProfilePatch({
+  //     autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
+  //     taskbarRevealEdgePx: Number(window.protectedGlobals.data.taskbarRevealEdgePx),
+  //     taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs),
+  //   });
+  //   if (window.protectedGlobals.applyTaskbarAutohideSettings) {
+  //     window.protectedGlobals.applyTaskbarAutohideSettings({
+  //       autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
+  //       taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
+  //       taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
+  //     });
+  //   }
+  // };
 
-  autohideRow.append(autohideLabel, autohideToggle);
-  mainContainer.appendChild(autohideRow);
+  // autohideRow.append(autohideLabel, autohideToggle);
+  // mainContainer.appendChild(autohideRow);
 
   const taskbarRevealEdgeLabel = document.createElement("div");
   taskbarRevealEdgeLabel.textContent = "Taskbar Reveal Edge (px)";
