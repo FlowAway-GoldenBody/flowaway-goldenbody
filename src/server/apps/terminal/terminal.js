@@ -848,10 +848,10 @@ terminal = function (posX = 50, posY = 50) {
   }
 
   async function readFileByPath(relPath) {
-    if (typeof fetchFileContentByPath !== "function") {
+    if (typeof window.protectedGlobals.fetchFileContentByPath !== "function") {
       throw new Error("fetchFileContentByPath is unavailable");
     }
-    const b64 = await fetchFileContentByPath(relPath);
+    const b64 = await window.protectedGlobals.fetchFileContentByPath(relPath);
     return decodeBase64Utf8(b64);
   }
 

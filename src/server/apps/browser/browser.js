@@ -7002,6 +7002,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         ) {
           applyBounds(getBounds());
           restoreWindow(false);
+        savedBounds = getBounds();
           const rr = el.getBoundingClientRect();
           active.sx = e.clientX;
           active.sy = e.clientY;
@@ -7042,7 +7043,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       function end() {
         clearInterval(draginterval);
         if (!active) return;
-        savedBounds = getBounds();
         active = null;
         resizing = false;
         document.body.style.userSelect = "";

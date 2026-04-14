@@ -1110,7 +1110,6 @@ window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsern
 
 
 window.protectedGlobals.filePost = async function filePost(data) {
-  debugger
   const headers = { "Content-Type": "application/json" };
   if (window.protectedGlobals.data && window.protectedGlobals.data.authToken)
     headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
@@ -1154,7 +1153,7 @@ window.protectedGlobals.buildPersistableUserProfile = function buildPersistableU
         ? overrides.taskbuttons
         : Array.isArray(runtime.taskbuttons)
           ? runtime.taskbuttons
-          : ["🌐", "🗂", "⚙", "📝", "🖥️"],
+          : [],
     brightness: Number.isFinite(Number(overrides.brightness))
       ? Number(overrides.brightness)
       : Number.isFinite(Number(runtime.brightness))

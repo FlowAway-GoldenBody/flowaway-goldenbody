@@ -1891,13 +1891,25 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
       add.style.padding = "6px 10px";
       add.style.cursor = "pointer";
       add.addEventListener("click", function () {
-        const btn = window.protectedGlobals.addTaskButton(
+        let btn;
+        if(app.cmf) {
+        btn = window.protectedGlobals.addTaskButton(
           app.icon,
           () => window.protectedGlobals.launchApp(appId),
-          "cmf",
+          window[app.globalvarobjectstring][app.cmf],
           "",
           appId,
         );
+        }
+        else {
+        btn = window.protectedGlobals.addTaskButton(
+          app.icon,
+          () => window.protectedGlobals.launchApp(appId),
+          window.protectedGlobals.cmf,
+          "",
+          appId,
+        );
+       }
         if (btn) btn.dataset.appId = appId;
         window.protectedGlobals.saveTaskButtons();
         window.protectedGlobals.purgeButtons();

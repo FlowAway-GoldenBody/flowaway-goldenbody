@@ -715,7 +715,10 @@ const createAppTile = window.protectedGlobals.createAppTile = function createApp
 
   function runAppPackageContextMenu(evt) {
     try {
-      if (typeof window.protectedGlobals.cmfl1 === "function") {
+      if(app.cmfl1) {
+        window[app.globalvarobjectstring][app.cmfl1](evt);
+      }
+      else {
         window.protectedGlobals.cmfl1(evt, app);
       }
     } catch (err) {
@@ -728,6 +731,7 @@ const createAppTile = window.protectedGlobals.createAppTile = function createApp
   // Context menu
   div.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+      debugger;
     runAppPackageContextMenu(e);
     showAppContextMenu(e.clientX, e.clientY, app, draggable);
   });
