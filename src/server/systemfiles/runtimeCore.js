@@ -1108,6 +1108,37 @@ window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsern
   return liveUsername || cachedUsername;
 };
 
+window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending = false;
+window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight = null;
+
+window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRefresh() {
+  window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending = true;
+  if (window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight) return;
+
+  window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
+    while (window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending) {
+      window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending = false;
+      try {
+        if (window.protectedGlobals.onlyloadTree) {
+          await window.protectedGlobals.onlyloadTree();
+        }
+      } catch (e) {
+        try {
+          window.protectedGlobals.flowawayError(
+            "queueOnlyLoadTreeRefresh",
+            "onlyloadTree refresh failed.",
+            e,
+          );
+        } catch (ee) {}
+      }
+    }
+  })();
+
+  window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight.finally(() => {
+    window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight = null;
+  });
+};
+
 
 window.protectedGlobals.filePost = async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
@@ -1139,6 +1170,13 @@ window.protectedGlobals.filePost = async function filePost(data) {
     } catch (e) {}
     return body || { error: "unauthorized" };
   }
+
+  try {
+    if (!data || !data.initFE) {
+      window.protectedGlobals.queueOnlyLoadTreeRefresh();
+    }
+  } catch (e) {}
+
   window.protectedGlobals.firstlogin = false;
   return body;
 };
