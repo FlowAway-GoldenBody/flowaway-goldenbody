@@ -1026,6 +1026,7 @@ window.browser = function (
         addTab("goldenbody://newtab/", "New Tab");
         return true;
       }
+      console.log("Running browser shortcut for new window");
       browser();
       return true;
     }
@@ -7002,7 +7003,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         ) {
           applyBounds(getBounds());
           restoreWindow(false);
-        savedBounds = getBounds();
+        console.log(savedBounds)
           const rr = el.getBoundingClientRect();
           active.sx = e.clientX;
           active.sy = e.clientY;
@@ -7037,6 +7038,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             el.style.top = "0px";
           }
         }
+      savedBounds = getBounds();
       });
 
       // end
