@@ -32,11 +32,11 @@
 }
 // ----------------- DYNAMIC AP LOADER -----------------
 window.protectedGlobals.apps = window.protectedGlobals.apps || [];
-window.protectedGlobals._flowawayMissingFolders = window.protectedGlobals._flowawayMissingFolders || new Set();
+window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
 window.protectedGlobals.getFilesFromFolder = async function getFilesFromFolder(relPath) {
   try {
-    window.protectedGlobals._flowawayMissingFolders.delete(relPath);
+    window.protectedGlobals.missingFolders.delete(relPath);
     var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
     if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
 
@@ -52,7 +52,7 @@ window.protectedGlobals.getFilesFromFolder = async function getFilesFromFolder(r
       );
 
     if (isMissing) {
-      window.protectedGlobals._flowawayMissingFolders.add(relPath);
+      window.protectedGlobals.missingFolders.add(relPath);
       var missingError = new Error("ENOENT: Missing folder " + String(relPath));
       missingError.code = "ENOENT";
       throw missingError;
@@ -217,11 +217,11 @@ const deregisterAppInstance = window.protectedGlobals.deregisterAppInstance = fu
 
 const allocateFallbackRuntimeGoldenbodyId = window.protectedGlobals.allocateFallbackRuntimeGoldenbodyId = function allocateFallbackRuntimeGoldenbodyId() {
   var now = Date.now();
-  var state = Number(window.protectedGlobals.__flowawayFallbackRuntimeGoldenbodyState || 0);
+  var state = Number(window.protectedGlobals._fallbackRuntimeGoldenbodyState || 0);
   if (!Number.isFinite(state) || state <= 0) state = 0;
   if (state < now) state = now;
   else state = state + 1;
-  window.protectedGlobals.__flowawayFallbackRuntimeGoldenbodyState = state;
+  window.protectedGlobals._fallbackRuntimeGoldenbodyState = state;
   return state;
 }
 
@@ -244,7 +244,7 @@ const applyAppWindowTagging = window.protectedGlobals.applyAppWindowTagging = fu
 window.protectedGlobals.ensureAppRuntimeState = ensureAppRuntimeState;
 
 const resolveApptoolsContext = window.protectedGlobals.resolveApptoolsContext = function resolveApptoolsContext(explicitAppId) {
-  var launchContext = window.protectedGlobals.__flowawayLaunchContext || null;
+  var launchContext = window.protectedGlobals._launchContext || null;
   var resolvedAppId = String(explicitAppId || "").trim();
   if (!resolvedAppId && launchContext && launchContext.appId) {
     resolvedAppId = String(launchContext.appId || "").trim();
@@ -372,7 +372,7 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
           var isMaximized = !!((instance && instance._isMaximized) || root._apptoolsMaximized);
           if (isMaximized) {
             applyBounds(
-              (instance && instance._flowawaySavedBounds) ||
+              (instance && instance.savedBounds) ||
                 root._apptoolsSavedBounds ||
                 getBounds(),
             );
@@ -514,7 +514,7 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
         if (bounds.width == "100%" || bounds.height == "100%") {
         } else {
           var instance = getInstance();
-          if (instance) instance._flowawaySavedBounds = bounds;
+          if (instance) instance.savedBounds = bounds;
           root._apptoolsSavedBounds = bounds;
         }
       });
@@ -524,7 +524,7 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
         document.body.style.userSelect = "";
         var bounds = getBounds();
         var instance = getInstance();
-        if (instance) instance._flowawaySavedBounds = bounds;
+        if (instance) instance.savedBounds = bounds;
         root._apptoolsSavedBounds = bounds;
       });
 
@@ -866,7 +866,7 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
     instance.maximizeWindow = function () {
       if (!instance.rootElement || !instance.rootElement.style) return;
       var savedBounds = instance.getBounds();
-      instance._flowawaySavedBounds = savedBounds;
+      instance.savedBounds = savedBounds;
       instance.rootElement._apptoolsSavedBounds = savedBounds;
       instance.rootElement.style.left = "0";
       instance.rootElement.style.top = "0";
@@ -886,7 +886,7 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
       var shouldUseOriginal = typeof useOriginalBounds === "undefined" ? true : !!useOriginalBounds;
       if (shouldUseOriginal) {
         var restoreBounds =
-          instance._flowawaySavedBounds ||
+          instance.savedBounds ||
           instance.rootElement._apptoolsSavedBounds ||
           null;
         if (restoreBounds) {
@@ -904,8 +904,8 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
     instance.showWindow = function () {
       if (!instance.rootElement || !instance.rootElement.style) return;
       var previousDisplay =
-        typeof instance._flowawayPreviousDisplay === "string"
-          ? instance._flowawayPreviousDisplay
+        typeof instance.previousDisplay === "string"
+          ? instance.previousDisplay
           : "";
       instance.rootElement.style.display =
         previousDisplay && previousDisplay !== "none" ? previousDisplay : "";
@@ -920,7 +920,7 @@ const initAppTools = window.protectedGlobals.initAppTools = function initAppTool
           ? instance.rootElement.style.display
           : "";
       if (currentDisplay && currentDisplay !== "none") {
-        instance._flowawayPreviousDisplay = currentDisplay;
+        instance.previousDisplay = currentDisplay;
       }
       instance.rootElement.style.display = "none";
       instance._isMinimized = true;
@@ -1017,7 +1017,7 @@ initAppTools();
 
 const resolveLaunchContextRoot = window.protectedGlobals.resolveLaunchContextRoot = function resolveLaunchContextRoot() {
   try {
-    var launchContext = window.protectedGlobals.__flowawayLaunchContext;
+    var launchContext = window.protectedGlobals._launchContext;
     var launchAppId =
       launchContext && launchContext.appId
         ? String(launchContext.appId)
@@ -1361,17 +1361,17 @@ const ensureFlowawayAppLoaderLoaded = window.protectedGlobals.ensureFlowawayAppL
       return true;
     }
 
-    if (window.protectedGlobals.__flowawayAppLoaderSystemPromise) {
+    if (window.protectedGlobals._appLoaderSystemPromise) {
       try {
-        await window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+        await window.protectedGlobals._appLoaderSystemPromise;
       } catch (e) {}
       if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
         return true;
       }
-      delete window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+      delete window.protectedGlobals._appLoaderSystemPromise;
     }
 
-    window.protectedGlobals.__flowawayAppLoaderSystemPromise = (async function () {
+    window.protectedGlobals._appLoaderSystemPromise = (async function () {
       if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
         var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/appLoader.js");
         var inlineText = window.protectedGlobals.decodeFileTextStrict(
@@ -1415,10 +1415,10 @@ const ensureFlowawayAppLoaderLoaded = window.protectedGlobals.ensureFlowawayAppL
     })();
 
     try {
-      await window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+      await window.protectedGlobals._appLoaderSystemPromise;
       return !!(window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded);
     } catch (e) {
-      delete window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+      delete window.protectedGlobals._appLoaderSystemPromise;
       window.protectedGlobals.flowawayCrash(
         "Failed to load app loader runtime.",
         String(e && (e.stack || e.message) || e),
@@ -1440,17 +1440,17 @@ const ensureFlowawayAppPollingLoaded = window.protectedGlobals.ensureFlowawayApp
       return true;
     }
 
-    if (window.protectedGlobals.__flowawayAppPollingSystemPromise) {
+    if (window.protectedGlobals._appPollingSystemPromise) {
       try {
-        await window.protectedGlobals.__flowawayAppPollingSystemPromise;
+        await window.protectedGlobals._appPollingSystemPromise;
       } catch (e) {}
       if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
         return true;
       }
-      delete window.protectedGlobals.__flowawayAppPollingSystemPromise;
+      delete window.protectedGlobals._appPollingSystemPromise;
     }
 
-    window.protectedGlobals.__flowawayAppPollingSystemPromise = (async function () {
+    window.protectedGlobals._appPollingSystemPromise = (async function () {
       if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
         var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/appPolling.js");
         var inlineText = window.protectedGlobals.decodeFileTextStrict(
@@ -1494,12 +1494,12 @@ const ensureFlowawayAppPollingLoaded = window.protectedGlobals.ensureFlowawayApp
     })();
 
     try {
-      await window.protectedGlobals.__flowawayAppPollingSystemPromise;
-      delete window.protectedGlobals.__flowawayAppPollingSystemFailed;
+      await window.protectedGlobals._appPollingSystemPromise;
+      delete window.protectedGlobals._appPollingSystemFailed;
       return !!(window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded);
     } catch (e) {
-      window.protectedGlobals.__flowawayAppPollingSystemFailed = true;
-      delete window.protectedGlobals.__flowawayAppPollingSystemPromise;
+      window.protectedGlobals._appPollingSystemFailed = true;
+      delete window.protectedGlobals._appPollingSystemPromise;
       window.protectedGlobals.flowawayCrash(
         "Failed to load app polling runtime.",
         String(e && (e.stack || e.message) || e),
@@ -1521,17 +1521,17 @@ const ensureProcessRuntimeLoaded = window.protectedGlobals.ensureProcessRuntimeL
       return true;
     }
 
-    if (window.protectedGlobals.__flowawayProcessSystemPromise) {
+    if (window.protectedGlobals._processSystemPromise) {
       try {
-        await window.protectedGlobals.__flowawayProcessSystemPromise;
+        await window.protectedGlobals._processSystemPromise;
       } catch (e) {}
       if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
         return true;
       }
-      delete window.protectedGlobals.__flowawayProcessSystemPromise;
+      delete window.protectedGlobals._processSystemPromise;
     }
 
-    window.protectedGlobals.__flowawayProcessSystemPromise = (async function () {
+    window.protectedGlobals._processSystemPromise = (async function () {
       if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
         var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/processes.js");
         var inlineProcessText = window.protectedGlobals.decodeFileTextStrict(
@@ -1575,12 +1575,12 @@ const ensureProcessRuntimeLoaded = window.protectedGlobals.ensureProcessRuntimeL
     })();
 
     try {
-      await window.protectedGlobals.__flowawayProcessSystemPromise;
-      delete window.protectedGlobals.__flowawayProcessSystemFailed;
+      await window.protectedGlobals._processSystemPromise;
+      delete window.protectedGlobals._processSystemFailed;
       return !!(window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded);
     } catch (e) {
-      window.protectedGlobals.__flowawayProcessSystemFailed = true;
-      delete window.protectedGlobals.__flowawayProcessSystemPromise;
+      window.protectedGlobals._processSystemFailed = true;
+      delete window.protectedGlobals._processSystemPromise;
       window.protectedGlobals.flowawayCrash(
         "Failed to load process runtime.",
         String(e && (e.stack || e.message) || e),

@@ -200,7 +200,7 @@ window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
     }, { once: true });
   }
   setTimeout(() => {
-  window.protectedGlobals._flowawayIsRebuilding = false;
+  window.protectedGlobals.isRebuilding = false;
   }, 5000);
         // SAME behavior as before
         setTimeout(async () => {   let a = document.createElement('script');
