@@ -463,13 +463,9 @@ const cycleFocusedWindow = window.protectedGlobals.cycleFocusedWindow = function
 }
 
 const launchFocusedAppWindow = window.protectedGlobals.launchFocusedAppWindow = function launchFocusedAppWindow() {
+  console.log(window.protectedGlobals.atTop)
   var focusedApp = window.protectedGlobals.atTop;
     window.protectedGlobals.launchApp(focusedApp);
-  // this fallback is okay because it dont cause the user to crash out
-  var fallback =
-    (window.protectedGlobals.data && window.protectedGlobals.data.taskbuttons && window.protectedGlobals.data.taskbuttons[0]) ||
-    (window.protectedGlobals.apps && window.protectedGlobals.apps[0] && window.protectedGlobals.apps[0].functionname);
-  if (fallback) window.protectedGlobals.launchApp(fallback);
 }
 
 const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = function closeFocusedAppWindow() {
