@@ -1,9 +1,9 @@
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
-  if (window.protectedGlobals.__flowawayBootLoaded) {
+  if (window.protectedGlobals._bootLoaded) {
     return;
   }
-  window.protectedGlobals.__flowawayBootLoaded = true;
+  window.protectedGlobals._bootLoaded = true;
 
   function crash(message, detail) {
     var title = "System Crash";
@@ -130,7 +130,7 @@
       await loadVfsScript(parts[i]);
     }
 
-    window.protectedGlobals.__flowawayRuntimeLoaded = true;
+    window.protectedGlobals._runtimeLoaded = true;
   }
 
   loadRuntime().catch(function (e) {

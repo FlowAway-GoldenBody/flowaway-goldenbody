@@ -39,33 +39,33 @@ window.protectedGlobals.calculateVwInPixels = function(vwValue) {
   return pixels;
 }
 
-window.protectedGlobals._flowawayDebugState = window.protectedGlobals._flowawayDebugState || {
+window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
   enabled: false,
   errors: [],
   maxErrors: 200,
 };
 
 window.protectedGlobals.setFlowawayDebug = function (enabled) {
-  window.protectedGlobals._flowawayDebugState = window.protectedGlobals._flowawayDebugState || {
+  window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
     enabled: false,
     errors: [],
     maxErrors: 200,
   };
-  window.protectedGlobals._flowawayDebugState.enabled = !!enabled;
+  window.protectedGlobals.debugState.enabled = !!enabled;
 };
 
 window.protectedGlobals.getFlowawayErrors = function () {
-  window.protectedGlobals._flowawayDebugState = window.protectedGlobals._flowawayDebugState || {
+  window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
     enabled: false,
     errors: [],
     maxErrors: 200,
   };
-  return (window.protectedGlobals._flowawayDebugState.errors || []).slice();
+  return (window.protectedGlobals.debugState.errors || []).slice();
 };
 
 window.protectedGlobals.flowawayDebug = function(scope, message, meta) {
   try {
-    if (!window.protectedGlobals._flowawayDebugState || !window.protectedGlobals._flowawayDebugState.enabled)
+    if (!window.protectedGlobals.debugState || !window.protectedGlobals.debugState.enabled)
       return;
     if (typeof meta === "undefined")
       console.debug("[FLOWAWAY][" + scope + "] " + message);
@@ -75,7 +75,7 @@ window.protectedGlobals.flowawayDebug = function(scope, message, meta) {
 
 window.protectedGlobals.flowawayError = function(scope, message, error, meta) {
   try {
-    window.protectedGlobals._flowawayDebugState = window.protectedGlobals._flowawayDebugState || {
+    window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
       enabled: false,
       errors: [],
       maxErrors: 200,
@@ -87,13 +87,13 @@ window.protectedGlobals.flowawayError = function(scope, message, error, meta) {
       meta: meta || null,
       error: error ? error.stack || error.message || String(error) : null,
     };
-    window.protectedGlobals._flowawayDebugState.errors = window.protectedGlobals._flowawayDebugState.errors || [];
-    window.protectedGlobals._flowawayDebugState.errors.push(entry);
+    window.protectedGlobals.debugState.errors = window.protectedGlobals.debugState.errors || [];
+    window.protectedGlobals.debugState.errors.push(entry);
     if (
-      window.protectedGlobals._flowawayDebugState.errors.length >
-      (window.protectedGlobals._flowawayDebugState.maxErrors || 200)
+      window.protectedGlobals.debugState.errors.length >
+      (window.protectedGlobals.debugState.maxErrors || 200)
     ) {
-      window.protectedGlobals._flowawayDebugState.errors.shift();
+      window.protectedGlobals.debugState.errors.shift();
     }
   } catch (e) {}
 
@@ -236,13 +236,13 @@ window.protectedGlobals.flowawayCrash = function(message, detail) {
   var extra = detail ? String(detail) : "";
 
   try {
-    if (window.protectedGlobals._flowawayCrashed) {
+    if (window.protectedGlobals.crashed) {
       try {
         window.protectedGlobals.showFlowawayMessage(title, extra ? body + "\n\n" + extra : body, "fatal");
       } catch (e) {}
       return;
     }
-    window.protectedGlobals._flowawayCrashed = true;
+    window.protectedGlobals.crashed = true;
     window.protectedGlobals.flowawayError("fatal", body, null, extra ? { detail: extra } : undefined);
 
     var existing = document.getElementById("flowaway-fatal-crash-dialog");
@@ -600,7 +600,7 @@ document.body.style.backgroundRepeat = "no-repeat";
 window.protectedGlobals.rebuildhandler = function () {
   try {
     try {
-      window.protectedGlobals._flowawayIsRebuilding = true;
+      window.protectedGlobals.isRebuilding = true;
     } catch (e) {}
     try {
       if (
@@ -651,51 +651,51 @@ window.protectedGlobals.rebuildhandler = function () {
       delete window.protectedGlobals.__taskProcessIdByIdentity;
       delete window.protectedGlobals.__taskProcessObjectIdentity;
       delete window.protectedGlobals.__taskProcessObjectIdentityCounter;
-      delete window.protectedGlobals._flowawayProcessTrackerState;
-      delete window.protectedGlobals.__flowawayProcessSystemPromise;
-      delete window.protectedGlobals.__flowawayProcessSystemFailed;
+      delete window.protectedGlobals.processTrackerState;
+      delete window.protectedGlobals._processSystemPromise;
+      delete window.protectedGlobals._processSystemFailed;
       delete window.protectedGlobals.AppLoaderAPIs;
-      delete window.protectedGlobals.__flowawayAppLoaderSystemPromise;
+      delete window.protectedGlobals._appLoaderSystemPromise;
       delete window.protectedGlobals.FlowawayAppPolling;
-      delete window.protectedGlobals.__flowawayAppPollingSystemPromise;
-      delete window.protectedGlobals.__flowawayAppPollingSystemFailed;
-      delete window.protectedGlobals.__flowawayProcessLoadTreeWrapped;
-      delete window.protectedGlobals.__flowawayProcessLaunchAppWrapped;
-      delete window.protectedGlobals.__flowawayProcessAppUpdatedBound;
-      delete window.protectedGlobals.__flowawayProcessTimerApisWrapped;
-      delete window.protectedGlobals.__flowawayProcessRafApisWrapped;
-      delete window.protectedGlobals.__flowawayProcessMutationObserverWrapped;
-      delete window.protectedGlobals.__flowawayLaunchContext;
+      delete window.protectedGlobals._appPollingSystemPromise;
+      delete window.protectedGlobals._appPollingSystemFailed;
+      delete window.protectedGlobals._processLoadTreeWrapped;
+      delete window.protectedGlobals._processLaunchAppWrapped;
+      delete window.protectedGlobals._processAppUpdatedBound;
+      delete window.protectedGlobals._processTimerApisWrapped;
+      delete window.protectedGlobals._processRafApisWrapped;
+      delete window.protectedGlobals._processMutationObserverWrapped;
+      delete window.protectedGlobals._launchContext;
     } catch (e) {}
     try {
-      if (typeof window.protectedGlobals.__flowawayProcessNativeSetTimeout === "function") {
-        window.setTimeout = window.protectedGlobals.__flowawayProcessNativeSetTimeout;
+      if (typeof window.protectedGlobals._processNativeSetTimeout === "function") {
+        window.setTimeout = window.protectedGlobals._processNativeSetTimeout;
       }
-      if (typeof window.protectedGlobals.__flowawayProcessNativeSetInterval === "function") {
-        window.setInterval = window.protectedGlobals.__flowawayProcessNativeSetInterval;
+      if (typeof window.protectedGlobals._processNativeSetInterval === "function") {
+        window.setInterval = window.protectedGlobals._processNativeSetInterval;
       }
-      if (typeof window.protectedGlobals.__flowawayProcessNativeClearTimeout === "function") {
-        window.clearTimeout = window.protectedGlobals.__flowawayProcessNativeClearTimeout;
+      if (typeof window.protectedGlobals._processNativeClearTimeout === "function") {
+        window.clearTimeout = window.protectedGlobals._processNativeClearTimeout;
       }
-      if (typeof window.protectedGlobals.__flowawayProcessNativeClearInterval === "function") {
-        window.clearInterval = window.protectedGlobals.__flowawayProcessNativeClearInterval;
+      if (typeof window.protectedGlobals._processNativeClearInterval === "function") {
+        window.clearInterval = window.protectedGlobals._processNativeClearInterval;
       }
-      if (typeof window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame === "function") {
-        window.requestAnimationFrame = window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame;
+      if (typeof window.protectedGlobals._processNativeRequestAnimationFrame === "function") {
+        window.requestAnimationFrame = window.protectedGlobals._processNativeRequestAnimationFrame;
       }
-      if (typeof window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame === "function") {
-        window.cancelAnimationFrame = window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame;
+      if (typeof window.protectedGlobals._processNativeCancelAnimationFrame === "function") {
+        window.cancelAnimationFrame = window.protectedGlobals._processNativeCancelAnimationFrame;
       }
-      if (typeof window.protectedGlobals.__flowawayProcessNativeMutationObserver === "function") {
-        window.MutationObserver = window.protectedGlobals.__flowawayProcessNativeMutationObserver;
+      if (typeof window.protectedGlobals._processNativeMutationObserver === "function") {
+        window.MutationObserver = window.protectedGlobals._processNativeMutationObserver;
       }
-      delete window.protectedGlobals.__flowawayProcessNativeSetTimeout;
-      delete window.protectedGlobals.__flowawayProcessNativeSetInterval;
-      delete window.protectedGlobals.__flowawayProcessNativeClearTimeout;
-      delete window.protectedGlobals.__flowawayProcessNativeClearInterval;
-      delete window.protectedGlobals.__flowawayProcessNativeRequestAnimationFrame;
-      delete window.protectedGlobals.__flowawayProcessNativeCancelAnimationFrame;
-      delete window.protectedGlobals.__flowawayProcessNativeMutationObserver;
+      delete window.protectedGlobals._processNativeSetTimeout;
+      delete window.protectedGlobals._processNativeSetInterval;
+      delete window.protectedGlobals._processNativeClearTimeout;
+      delete window.protectedGlobals._processNativeClearInterval;
+      delete window.protectedGlobals._processNativeRequestAnimationFrame;
+      delete window.protectedGlobals._processNativeCancelAnimationFrame;
+      delete window.protectedGlobals._processNativeMutationObserver;
     } catch (e) {}
     // remove all event listeners to refresh the environment.
     window.protectedGlobals.removeAllEventListernersInWindow();
@@ -755,15 +755,15 @@ window.protectedGlobals.rebuildhandler = function () {
     } catch (e) {}
 
     try {
-      delete window.protectedGlobals._flowawayLoadTreePromise;
-      delete window.protectedGlobals._flowawayFileFetchInFlight;
-      delete window.protectedGlobals._flowawayFileFetchRecent;
-      delete window.protectedGlobals._flowawayMissingFolders;
+      delete window.protectedGlobals.loadTreePromise;
+      delete window.protectedGlobals.fileFetchInFlight;
+      delete window.protectedGlobals.fileFetchRecent;
+      delete window.protectedGlobals.missingFolders;
       window.protectedGlobals.loaded = false;
-      window.protectedGlobals.__flowawayBootLoaded = false;
-      window.protectedGlobals.__flowawayRuntimeLoaded = false;
-      window.protectedGlobals._flowawayCrashed = false;
-      window.protectedGlobals._flowawayIsRebuilding = false;
+      window.protectedGlobals._bootLoaded = false;
+      window.protectedGlobals._runtimeLoaded = false;
+      window.protectedGlobals.crashed = false;
+      window.protectedGlobals.isRebuilding = false;
     } catch (e) {}
     // Remove all children from the documentElement (head/body) to get a clean slate
     var docEl = document.documentElement;
@@ -887,7 +887,7 @@ try {
 } catch (e) {}
 
 window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDialog() {
-  if (    document.getElementById("session-expired-dialog") ||     window.protectedGlobals._flowawayIsRebuilding  ) {
+  if (    document.getElementById("session-expired-dialog") ||     window.protectedGlobals.isRebuilding  ) {
     // already shown
     return;
   }
@@ -1081,7 +1081,7 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
 };
 
 // Session-expired suppression removed. Previously set/checked a global
-// `window.protectedGlobals._flowawaySuppressSessionExpiredUntil`; this logic is no longer
+// `window.protectedGlobals.suppressSessionExpiredUntil`; this logic is no longer
 // required and has been removed.
 
 window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsernameForRequests() {
@@ -1094,30 +1094,30 @@ window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsern
   } catch (e) {}
 
   try {
-    if (typeof window.protectedGlobals.__flowawayCachedUsername === "string") {
-      cachedUsername = String(window.protectedGlobals.__flowawayCachedUsername || "").trim();
+    if (typeof window.protectedGlobals._cachedUsername === "string") {
+      cachedUsername = String(window.protectedGlobals._cachedUsername || "").trim();
     }
   } catch (e) {}
 
   if (liveUsername) {
     try {
-      window.protectedGlobals.__flowawayCachedUsername = liveUsername;
+      window.protectedGlobals._cachedUsername = liveUsername;
     } catch (e) {}
   }
 
   return liveUsername || cachedUsername;
 };
 
-window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending = false;
-window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight = null;
+window.protectedGlobals.onlyLoadTreeRefreshPending = false;
+window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
 
 window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRefresh() {
-  window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending = true;
-  if (window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight) return;
+  window.protectedGlobals.onlyLoadTreeRefreshPending = true;
+  if (window.protectedGlobals.onlyLoadTreeRefreshInFlight) return;
 
-  window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
-    while (window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending) {
-      window.protectedGlobals._flowawayOnlyLoadTreeRefreshPending = false;
+  window.protectedGlobals.onlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
+    while (window.protectedGlobals.onlyLoadTreeRefreshPending) {
+      window.protectedGlobals.onlyLoadTreeRefreshPending = false;
       try {
         if (window.protectedGlobals.onlyloadTree) {
           await window.protectedGlobals.onlyloadTree();
@@ -1134,8 +1134,8 @@ window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRef
     }
   })();
 
-  window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight.finally(() => {
-    window.protectedGlobals._flowawayOnlyLoadTreeRefreshInFlight = null;
+  window.protectedGlobals.onlyLoadTreeRefreshInFlight.finally(() => {
+    window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
   });
 };
 
@@ -1325,11 +1325,11 @@ window.protectedGlobals.annotateTreeWithPaths = function annotateTreeWithPaths(t
   }
 };
 window.protectedGlobals.loadTree = async function () {
-  if (window.protectedGlobals._flowawayLoadTreePromise) {
-    return window.protectedGlobals._flowawayLoadTreePromise;
+  if (window.protectedGlobals.loadTreePromise) {
+    return window.protectedGlobals.loadTreePromise;
   }
 
-  window.protectedGlobals._flowawayLoadTreePromise = (async () => {
+  window.protectedGlobals.loadTreePromise = (async () => {
     var data = await window.protectedGlobals.filePost({ initFE: true });
     window.protectedGlobals.treeData = data.tree;
 
@@ -1337,9 +1337,9 @@ window.protectedGlobals.loadTree = async function () {
   })();
 
   try {
-    await window.protectedGlobals._flowawayLoadTreePromise;
+    await window.protectedGlobals.loadTreePromise;
   } finally {
-    window.protectedGlobals._flowawayLoadTreePromise = null;
+    window.protectedGlobals.loadTreePromise = null;
   }
 
   // render();
@@ -1409,9 +1409,9 @@ window.protectedGlobals.decodeFileTextStrict = function decodeFileTextStrict(raw
   return text;
 };
 
-window.protectedGlobals._flowawayFileFetchInFlight =
-  window.protectedGlobals._flowawayFileFetchInFlight || new Map();
-window.protectedGlobals._flowawayFileFetchRecent = window.protectedGlobals._flowawayFileFetchRecent || new Map();
+window.protectedGlobals.fileFetchInFlight =
+  window.protectedGlobals.fileFetchInFlight || new Map();
+window.protectedGlobals.fileFetchRecent = window.protectedGlobals.fileFetchRecent || new Map();
 window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
 
 window.protectedGlobals.fetchFileContentByPath = async function fetchFileContentByPath(path) {
@@ -1420,12 +1420,12 @@ window.protectedGlobals.fetchFileContentByPath = async function fetchFileContent
   if (!normalizedPath) throw new Error("No path");
 
   var now = Date.now();
-  var recentHit = window.protectedGlobals._flowawayFileFetchRecent.get(normalizedPath);
+  var recentHit = window.protectedGlobals.fileFetchRecent.get(normalizedPath);
   if (recentHit && now - recentHit.ts <= window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS) {
     return recentHit.value;
   }
 
-  var inFlight = window.protectedGlobals._flowawayFileFetchInFlight.get(normalizedPath);
+  var inFlight = window.protectedGlobals.fileFetchInFlight.get(normalizedPath);
   if (inFlight) {
     return inFlight;
   }
@@ -1446,7 +1446,7 @@ window.protectedGlobals.fetchFileContentByPath = async function fetchFileContent
       typeof res.filecontent === "string" &&
       (!res.totalChunks || res.totalChunks <= 1)
     ) {
-      window.protectedGlobals._flowawayFileFetchRecent.set(normalizedPath, {
+      window.protectedGlobals.fileFetchRecent.set(normalizedPath, {
         ts: Date.now(),
         value: res.filecontent,
       });
@@ -1481,7 +1481,7 @@ window.protectedGlobals.fetchFileContentByPath = async function fetchFileContent
         off += u.byteLength;
       }
       var combinedBuffer = combined.buffer;
-      window.protectedGlobals._flowawayFileFetchRecent.set(normalizedPath, {
+      window.protectedGlobals.fileFetchRecent.set(normalizedPath, {
         ts: Date.now(),
         value: combinedBuffer,
       });
@@ -1491,12 +1491,12 @@ window.protectedGlobals.fetchFileContentByPath = async function fetchFileContent
     window.protectedGlobals.flowawayCrash("Could not fetch requested file.", normalizedPath);
   })();
 
-  window.protectedGlobals._flowawayFileFetchInFlight.set(normalizedPath, req);
+  window.protectedGlobals.fileFetchInFlight.set(normalizedPath, req);
   try {
     return await req;
   } finally {
-    if (window.protectedGlobals._flowawayFileFetchInFlight.get(normalizedPath) === req) {
-      window.protectedGlobals._flowawayFileFetchInFlight.delete(normalizedPath);
+    if (window.protectedGlobals.fileFetchInFlight.get(normalizedPath) === req) {
+      window.protectedGlobals.fileFetchInFlight.delete(normalizedPath);
     }
   }
 };
