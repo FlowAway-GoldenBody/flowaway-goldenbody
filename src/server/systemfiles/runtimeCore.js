@@ -3,889 +3,66 @@
 // i mean by no if(appId === 'browser') or similar checks anywhere in the core (flowaway.js/goldenbody.js). its not allowed!
 
 // all added global system vars are in the protectedglobals namespace, no exceptions. this is to avoid conflicts with apps and to make it clear what is part of the core system vs what is app-level.
-window.protectedGlobals.__incomingData = window.protectedGlobals.data;
-window.protectedGlobals.data = window.protectedGlobals.__incomingData;
-window.protectedGlobals.____gbEventListners = [];
-window.protectedGlobals.loaded = false;
-window.protectedGlobals.APP_VERSION = "v1.14.8";
-window.protectedGlobals.hasChanges = false;
-window.protectedGlobals.atTop = "";
-window.protectedGlobals.zTop = 10;
-window.protectedGlobals.removeAllEventListernersInWindow = function() {
-  for (const listener of window.protectedGlobals.____gbEventListners) {
-    try {
-      window.removeEventListener(        listener.type,         listener.handler,         listener.options      );
-      document.removeEventListener(        listener.type,         listener.handler,         listener.options      );
-    } catch (e) {
-      console.error("Error removing event listener", e);
-    }
-  }
-  window.protectedGlobals.____gbEventListners = [];
-}
-window.protectedGlobals.formatBytes = function(bytes, decimals = 2) {
-  if (bytes === 0) return "0 Bytes";
+// ----------------- Convenience file helpers -----------------
+// These wrap the existing `filePost` API so apps can easily perform
+// common VFS actions. Responses are the raw server responses; use
+// `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB"];
-
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-}
-window.protectedGlobals.calculateVwInPixels = function(vwValue) {
-  const viewportWidth = window.innerWidth; // Get the current viewport width in pixels
-  const pixels = (vwValue * viewportWidth) / 100; // Apply the conversion formula
-  return pixels;
-}
-
-window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
-  enabled: false,
-  errors: [],
-  maxErrors: 200,
-};
-
-window.protectedGlobals.setFlowawayDebug = function (enabled) {
-  window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
-    enabled: false,
-    errors: [],
-    maxErrors: 200,
-  };
-  window.protectedGlobals.debugState.enabled = !!enabled;
-};
-
-window.protectedGlobals.getFlowawayErrors = function () {
-  window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
-    enabled: false,
-    errors: [],
-    maxErrors: 200,
-  };
-  return (window.protectedGlobals.debugState.errors || []).slice();
-};
-
-window.protectedGlobals.flowawayDebug = function(scope, message, meta) {
-  try {
-    if (!window.protectedGlobals.debugState || !window.protectedGlobals.debugState.enabled)
-      return;
-    if (typeof meta === "undefined")
-      console.debug("[FLOWAWAY][" + scope + "] " + message);
-    else console.debug("[FLOWAWAY][" + scope + "] " + message, meta);
-  } catch (e) {}
-}
-
-window.protectedGlobals.flowawayError = function(scope, message, error, meta) {
-  try {
-    window.protectedGlobals.debugState = window.protectedGlobals.debugState || {
-      enabled: false,
-      errors: [],
-      maxErrors: 200,
-    };
-    var entry = {
-      ts: Date.now(),
-      scope: scope,
-      message: message,
-      meta: meta || null,
-      error: error ? error.stack || error.message || String(error) : null,
-    };
-    window.protectedGlobals.debugState.errors = window.protectedGlobals.debugState.errors || [];
-    window.protectedGlobals.debugState.errors.push(entry);
-    if (
-      window.protectedGlobals.debugState.errors.length >
-      (window.protectedGlobals.debugState.maxErrors || 200)
-    ) {
-      window.protectedGlobals.debugState.errors.shift();
-    }
-  } catch (e) {}
-
-  if (typeof meta === "undefined")
-    console.error("[FLOWAWAY][" + scope + "] " + message, error);
-  else console.error("[FLOWAWAY][" + scope + "] " + message, meta, error);
-
-  try {
-    window.protectedGlobals.showFlowawayMessage(
-      "System Message",
-      "[" + String(scope || "runtime") + "] " + String(message || "Unknown error"),
-      "error",
-    );
-  } catch (e) {}
-}
-
-window.protectedGlobals.showFlowawayMessage = function(title, body, level) {
-  var isDark = true;
-  try {
-    var darkVal = null;
-    if (window.protectedGlobals.data && typeof window.protectedGlobals.data.dark !== "undefined") darkVal = window.protectedGlobals.data.dark;
-    else if (document.documentElement && document.documentElement.dataset && typeof document.documentElement.dataset.dark !== "undefined") darkVal = document.documentElement.dataset.dark;
-    else if (document.body && document.body.dataset && typeof document.body.dataset.dark !== "undefined") darkVal = document.body.dataset.dark;
-
-    if (typeof darkVal === "boolean") isDark = darkVal;
-    else if (typeof darkVal === "number") isDark = !!darkVal;
-    else if (typeof darkVal === "string") {
-      var dv = darkVal.trim().toLowerCase();
-      if (dv === "false" || dv === "0" || dv === "no" || dv === "off") isDark = false;
-      else if (dv === "true" || dv === "1" || dv === "yes" || dv === "on") isDark = true;
-    }
-  } catch (e) {}
-
-  var container = document.getElementById("flowaway-message-stack");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "flowaway-message-stack";
-    Object.assign(container.style, {
-      position: "fixed",
-      top: "14px",
-      right: "14px",
-      zIndex: "2147483646",
-      display: "flex",
-      flexDirection: "column",
-      gap: "10px",
-      maxWidth: "min(460px, calc(100vw - 24px))",
-      pointerEvents: "none",
-    });
-    document.body.appendChild(container);
-  }
-
-  var card = document.createElement("div");
-  var baseBg = isDark ? "#161616" : "#ffffff";
-  var errorBg = isDark ? "#2a1717" : "#fff1f1";
-  var fg = isDark ? "#fff" : "#111";
-  var border = isDark ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(0,0,0,0.16)";
-  Object.assign(card.style, {
-    pointerEvents: "auto",
-    borderRadius: "10px",
-    border: border,
-    background: level === "error" ? errorBg : baseBg,
-    color: fg,
-    boxShadow: isDark ? "0 8px 28px rgba(0,0,0,0.35)" : "0 8px 28px rgba(0,0,0,0.18)",
-    fontFamily: "sans-serif",
-    fontSize: "13px",
-    lineHeight: "1.4",
-    overflow: "hidden",
+window.protectedGlobals.ReadFile = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  return await window.protectedGlobals.filePost({
+    requestFile: true,
+    requestFileName: String(relPath),
   });
-
-  var header = document.createElement("div");
-  Object.assign(header.style, {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 12px",
-    fontWeight: "700",
-    borderBottom: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.10)",
-  });
-
-  var titleEl = document.createElement("div");
-  titleEl.textContent = String(title || "Message");
-
-  var closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.textContent = "✕";
-  Object.assign(closeBtn.style, {
-    border: "none",
-    background: "transparent",
-    color: fg,
-    fontSize: "16px",
-    lineHeight: "1",
-    cursor: "pointer",
-    padding: "0 2px",
-  });
-  closeBtn.addEventListener("click", function () {
-    try {
-      card.remove();
-    } catch (e) {}
-  });
-
-  var bodyEl = document.createElement("div");
-  bodyEl.textContent = String(body || "");
-  bodyEl.style.padding = "10px 12px 12px";
-  bodyEl.style.whiteSpace = "pre-wrap";
-
-  header.appendChild(titleEl);
-  header.appendChild(closeBtn);
-  card.appendChild(header);
-  card.appendChild(bodyEl);
-  container.appendChild(card);
-
-  setTimeout(function () {
-    try {
-      card.remove();
-    } catch (e) {}
-  }, 9000);
-}
-
-window.alert = function (message) {
-  window.protectedGlobals.showFlowawayMessage("Alert", String(message || ""), "info");
 };
 
-window.confirm = function (message) {
-  window.protectedGlobals.showFlowawayMessage("Confirm", String(message || ""), "info");
-  return false;
-};
-
-window.prompt = function (message, defaultValue) {
-  var text = String(message || "");
-  if (typeof defaultValue !== "undefined" && defaultValue !== null) {
-    text += "\nDefault: " + String(defaultValue);
+window.protectedGlobals.WriteFile = async function (relPath, contents, options = {}) {
+  if (!relPath) throw new Error("No path");
+  // Use the saveSnapshot + directions API to perform edits
+  if (options.buffer) {
+    contents = arrayBufferToBase64(contents);
   }
-  window.protectedGlobals.showFlowawayMessage("Prompt", text, "info");
-  return null;
+  const directions = [
+    {
+      edit: true,
+      path: String(relPath),
+      contents: String(contents || ""),
+      replace: !!options.replace,
+    },
+    { end: true },
+  ];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.protectedGlobals.flowawayCrash = function(message, detail) {
-  var title = "System Crash";
-  var body = String(message || "A fatal system error occurred.");
-  var extra = detail ? String(detail) : "";
-
-  try {
-    if (window.protectedGlobals.crashed) {
-      try {
-        window.protectedGlobals.showFlowawayMessage(title, extra ? body + "\n\n" + extra : body, "fatal");
-      } catch (e) {}
-      return;
-    }
-    window.protectedGlobals.crashed = true;
-    window.protectedGlobals.flowawayError("fatal", body, null, extra ? { detail: extra } : undefined);
-
-    var existing = document.getElementById("flowaway-fatal-crash-dialog");
-    if (!existing) {
-      var overlay = document.createElement("div");
-      overlay.id = "flowaway-fatal-crash-dialog";
-      Object.assign(overlay.style, {
-        position: "fixed",
-        inset: "0",
-        zIndex: "2147483647",
-        background: "rgba(0, 0, 0, 0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-      });
-
-      var box = document.createElement("div");
-      Object.assign(box.style, {
-        width: "min(680px, 100%)",
-        borderRadius: "10px",
-        border: "1px solid rgba(255,255,255,0.18)",
-        background: "#161616",
-        color: "#fff",
-        fontFamily: "sans-serif",
-        padding: "18px",
-        boxSizing: "border-box",
-      });
-
-      var titleEl = document.createElement("div");
-      titleEl.textContent = title;
-      titleEl.style.fontSize = "18px";
-      titleEl.style.fontWeight = "700";
-      titleEl.style.marginBottom = "10px";
-
-      var bodyEl = document.createElement("div");
-      bodyEl.id = "flowaway-fatal-crash-body";
-      bodyEl.style.whiteSpace = "pre-wrap";
-      bodyEl.style.fontSize = "13px";
-      bodyEl.style.lineHeight = "1.45";
-
-      box.appendChild(titleEl);
-      box.appendChild(bodyEl);
-      overlay.appendChild(box);
-      document.body.appendChild(overlay);
-    }
-
-    var bodyNode = document.getElementById("flowaway-fatal-crash-body");
-    if (bodyNode) {
-      bodyNode.textContent = extra ? body + "\n\n" + extra : body;
-    }
-  } catch (e) {
-    try {
-      console.error(title + ": " + body + (extra ? "\n\n" + extra : ""));
-    } catch (ee) {}
-  }
-
-  throw new Error(body + (extra ? " | " + extra : ""));
-}
-
-window.protectedGlobals.nativeEventTargetAdd =
-  window.EventTarget &&
-  window.EventTarget.prototype &&
-  typeof window.EventTarget.prototype.addEventListener === "function"
-    ? window.EventTarget.prototype.addEventListener
-    : null;
-window.protectedGlobals.nativeDocumentEventlister = window.protectedGlobals.nativeEventTargetAdd
-  ? window.protectedGlobals.nativeEventTargetAdd.bind(document)
-  : document.addEventListener.bind(document);
-window.protectedGlobals.nativeWindowEventlister = window.protectedGlobals.nativeEventTargetAdd
-  ? window.protectedGlobals.nativeEventTargetAdd.bind(window)
-  : window.addEventListener.bind(window);
-window.protectedGlobals.nativeEventTargetRemove =
-  window.EventTarget &&
-  window.EventTarget.prototype &&
-  typeof window.EventTarget.prototype.removeEventListener === "function"
-    ? window.EventTarget.prototype.removeEventListener
-    : null;
-window.protectedGlobals.nativeDocumentEventRemover = window.protectedGlobals.nativeEventTargetRemove
-  ? window.protectedGlobals.nativeEventTargetRemove.bind(document)
-  : document.removeEventListener.bind(document);
-window.protectedGlobals.nativeWindowEventRemover = window.protectedGlobals.nativeEventTargetRemove
-  ? window.protectedGlobals.nativeEventTargetRemove.bind(window)
-  : window.removeEventListener.bind(window);
-
-window.protectedGlobals.isValidEventListener = function(handler) {
-  return (
-    typeof handler === "function" ||
-    !!(handler && typeof handler.handleEvent === "function")
-  );
-}
-
-window.protectedGlobals.normalizeCaptureOption = function(options) {
-  if (typeof options === "boolean") return options;
-  if (
-    options &&
-    typeof options === "object" &&
-    typeof options.capture === "boolean"
-  )
-    return options.capture;
-  return false;
-}
-
-window.protectedGlobals.normalizeAddEventArgs = function(a, b, c, d) {
-  // Supports both signatures:
-  // 1) native: (type, handler, options)
-  // 2) scoped: (appname, type, handler, options)
-  if (typeof b === "string" && window.protectedGlobals.isValidEventListener(c)) {
-    return { appname: String(a || ""), type: b, handler: c, options: d };
-  }
-  return { appname: "", type: a, handler: b, options: c };
+window.protectedGlobals.DeleteFile = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const directions = [{ delete: true, path: String(relPath) }, { end: true }];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.protectedGlobals.addScopedListener = function(
-  targetName,
-  nativeAdd,
-  appname,
-  type,
-  handler,
-  options,
-) {
-  if (typeof type !== "string" || !window.protectedGlobals.isValidEventListener(handler)) {
-    return;
-  }
-  window.protectedGlobals.____gbEventListners.push({type, handler, options});
-  nativeAdd(type, handler, options);
-
-  if (!appname) return;
-  var scopedAppName = String(appname).trim();
-  if (!scopedAppName) return;
-  window.protectedGlobals[scopedAppName + "_handlers"] =
-    window.protectedGlobals[scopedAppName + "_handlers"] || [];
-  window.protectedGlobals[scopedAppName + "_handlers"].push({
-    target: targetName,
-    type,
-    handler,
-    options,
-    capture: window.protectedGlobals.normalizeCaptureOption(options),
-  });
-}
-
-document.addEventListener = function (a, b, c, d) {
-  var parsed = window.protectedGlobals.normalizeAddEventArgs(a, b, c, d);
-  window.protectedGlobals.addScopedListener(
-    "document",
-    window.protectedGlobals.nativeDocumentEventlister,
-    parsed.appname,
-    parsed.type,
-    parsed.handler,
-    parsed.options,
-  );
+window.protectedGlobals.RenameFile = async function (relPath, newName) {
+  if (!relPath) throw new Error("No path");
+  if (!newName) throw new Error("No new name");
+  const directions = [
+    { rename: true, path: String(relPath), newName: String(newName) },
+    { end: true },
+  ];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.addEventListener = function (a, b, c, d) {
-  var parsed = window.protectedGlobals.normalizeAddEventArgs(a, b, c, d);
-  window.protectedGlobals.addScopedListener(
-    "window",
-    window.protectedGlobals.nativeWindowEventlister,
-    parsed.appname,
-    parsed.type,
-    parsed.handler,
-    parsed.options,
-  );
+// clipboardItems: array of { path: 'root/dir/file', isCut: true|false }
+window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems) {
+  if (!destinationRelPath) throw new Error("No destination path");
+  if (!Array.isArray(clipboardItems) || !clipboardItems.length)
+    throw new Error("No clipboard items");
+  const directions = [
+    { copy: true, directions: clipboardItems },
+    { paste: true, path: String(destinationRelPath) },
+    { end: true },
+  ];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
-
-window.protectedGlobals.removeAllEventListenersForApp = function (appname) {
-  var scopedAppName = String(appname || "").trim();
-  if (!scopedAppName) return;
-  var handlers = window.protectedGlobals[scopedAppName + "_handlers"] || [];
-  handlers.forEach(({ target, type, handler, options, capture }) => {
-    if (target === "document") {
-      try {
-        window.protectedGlobals.nativeDocumentEventRemover(type, handler, options);
-      } catch (e) {}
-      try {
-        window.protectedGlobals.nativeDocumentEventRemover(
-          type,
-          handler,
-          typeof capture === "boolean"
-            ? capture
-            : window.protectedGlobals.normalizeCaptureOption(options),
-        );
-      } catch (e) {}
-      return;
-    }
-    if (target === "window") {
-      try {
-        window.protectedGlobals.nativeWindowEventRemover(type, handler, options);
-      } catch (e) {}
-      try {
-        window.protectedGlobals.nativeWindowEventRemover(
-          type,
-          handler,
-          typeof capture === "boolean"
-            ? capture
-            : window.protectedGlobals.normalizeCaptureOption(options),
-        );
-      } catch (e) {}
-      return;
-    }
-    // Backward compatibility for older tracked entries without target.
-    var fallbackCapture =
-      typeof capture === "boolean" ? capture : window.protectedGlobals.normalizeCaptureOption(options);
-    try {
-      window.protectedGlobals.nativeWindowEventRemover(type, handler, options);
-    } catch (e) {}
-    try {
-      window.protectedGlobals.nativeWindowEventRemover(type, handler, fallbackCapture);
-    } catch (e) {}
-    try {
-      window.protectedGlobals.nativeDocumentEventRemover(type, handler, options);
-    } catch (e) {}
-    try {
-      window.protectedGlobals.nativeDocumentEventRemover(type, handler, fallbackCapture);
-    } catch (e) {}
-  });
-  window.protectedGlobals[scopedAppName + "_handlers"] = [];
-};
-
-window.protectedGlobals.windowControlSvgs = {
-  minimize:
-    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
-  maximize:
-    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1" ry="1"></rect></svg>',
-  restore:
-    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="10" height="10" rx="1" ry="1"></rect><path d="M15 9V5H5v10h4"></path></svg>',
-  close:
-    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false" style="display:block;margin:auto" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>',
-};
-
-window.protectedGlobals.applyWindowControlIcon = function (button, iconName, options = {}) {
-  if (!button) return;
-  var svg = window.protectedGlobals.windowControlSvgs[iconName] || "";
-  button.innerHTML = svg;
-  button.style.minHeight = options.minHeight || "1vh";
-
-  // Store metadata on the element so we can recompute on resize
-  button.dataset.flowControl = "true";
-  button.dataset.flowControlIcon = iconName;
-  // preferred vw amount for this control (numbers only)
-  if (typeof options.minVw !== "undefined")
-    button.dataset.minVw = String(options.minVw);
-  else
-    button.dataset.minVw =
-      iconName === "restore" || iconName === "maximize" ? "2.6" : "2.3";
-  // thresholds and fallbacks (pixels) - keep them identical per your request
-  if (typeof options.thresholdPx !== "undefined")
-    button.dataset.thresholdPx = String(options.thresholdPx);
-  else
-    button.dataset.thresholdPx =
-      iconName === "restore" || iconName === "maximize" ? "35" : "31";
-  if (typeof options.fallbackPx !== "undefined")
-    button.dataset.fallbackPx = String(options.fallbackPx);
-  else
-    button.dataset.fallbackPx =
-      iconName === "restore" || iconName === "maximize" ? "35" : "31";
-  // allow overriding the explicit CSS value for minWidth
-  if (typeof options.minWidth !== "undefined")
-    button.dataset.minWidthOption = String(options.minWidth);
-
-  // Apply sizing now based on current viewport
-  if (!window.protectedGlobals._applyFlowawayControlSizing) {
-    window.protectedGlobals._applyFlowawayControlSizing = function (btn) {
-      if (!btn) return;
-      var icon = btn.dataset.flowControlIcon;
-      var vwVal =
-        parseFloat(btn.dataset.minVw) ||
-        (icon === "restore" || icon === "maximize" ? 2.6 : 2.3);
-      var threshold =
-        parseFloat(btn.dataset.thresholdPx) ||
-        (icon === "restore" || icon === "maximize" ? 35 : 31);
-      var fallback =
-        btn.dataset.fallbackPx ||
-        (icon === "restore" || icon === "maximize" ? "35" : "31");
-      var computedPx =window.protectedGlobals.calculateVwInPixels(vwVal);
-
-      // If a minWidth option was explicitly provided, respect it but cap it
-      var opt = btn.dataset.minWidthOption;
-      if (opt) {
-        var s = String(opt).trim();
-        if (s.endsWith("px")) {
-          var val = parseFloat(s);
-          if (!isNaN(val)) {
-            var capped = Math.min(val, threshold);
-            btn.style.minWidth = capped + "px";
-            return;
-          }
-        }
-        if (s.endsWith("vw")) {
-          var vwNum = parseFloat(s);
-          if (!isNaN(vwNum)) {
-            var px = window.protectedGlobals.calculateVwInPixels(vwNum);
-            if (px < threshold) {
-              btn.style.minWidth = s; // safe to use vw
-              return;
-            } else {
-              btn.style.minWidth = fallback + "px";
-              return;
-            }
-          }
-        }
-        // fallback: try numeric parse as px
-        var maybe = parseFloat(s);
-        if (!isNaN(maybe)) {
-          var capped2 = Math.min(maybe, threshold);
-          btn.style.minWidth = capped2 + "px";
-          return;
-        }
-        // If we couldn't parse, fallthrough to default behavior
-      }
-
-      // Default behavior: use vw when its computed px is below threshold, otherwise use fallback px
-      if (computedPx < threshold) {
-        btn.style.minWidth = vwVal + "vw";
-      } else {
-        btn.style.minWidth = fallback + "px";
-      }
-    };
-
-    // Add a resize handler that reapplies sizing to tracked controls
-    try {
-      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onResize)
-        window.removeEventListener(
-          "resize",
-          window.protectedGlobals.systemAPIs.onResize,
-        );
-      window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
-      window.protectedGlobals.systemAPIs.onResize = function () {
-        try {
-          document.querySelectorAll("[data-flow-control]").forEach((b) => {
-            try {
-              window.protectedGlobals._applyFlowawayControlSizing(b);
-            } catch (e) {}
-          });
-        } catch (e) {}
-      };
-      window.addEventListener("resize", window.protectedGlobals.systemAPIs.onResize);
-    } catch (e) {}
-  }
-
-  // finally apply sizing for this particular button
-  try {
-    window.protectedGlobals._applyFlowawayControlSizing(button);
-  } catch (e) {}
-};
-
-window.protectedGlobals.setWindowMaximizeIcon = function (button, isMaximized) {
-  window.protectedGlobals.applyWindowControlIcon(button, isMaximized ? "restore" : "maximize");
-};
-document.body.style.backgroundImage =
-  "url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)";
-document.body.style.backgroundSize = "cover";
-document.body.style.backgroundPosition = "center";
-document.body.style.backgroundRepeat = "no-repeat";
-window.protectedGlobals.rebuildhandler = function () {
-  try {
-    try {
-      window.protectedGlobals.isRebuilding = true;
-    } catch (e) {}
-    try {
-      if (
-        window.protectedGlobals.FlowawayProcess &&
-        typeof window.protectedGlobals.FlowawayProcess.disposeAll === "function"
-      ) {
-        window.protectedGlobals.FlowawayProcess.disposeAll("rebuild");
-      }
-    } catch (e) {}
-    try {
-      if (
-        window.protectedGlobals.systemAPIs &&
-        window.protectedGlobals.systemAPIs.processTrackerFallbackTimer
-      ) {
-        clearInterval(window.protectedGlobals.systemAPIs.processTrackerFallbackTimer);
-        delete window.protectedGlobals.systemAPIs.processTrackerFallbackTimer;
-      }
-      if (
-        window.protectedGlobals.systemAPIs &&
-        window.protectedGlobals.systemAPIs.processTrackerSyncTimer
-      ) {
-        clearTimeout(window.protectedGlobals.systemAPIs.processTrackerSyncTimer);
-        delete window.protectedGlobals.systemAPIs.processTrackerSyncTimer;
-      }
-    } catch (e) {}
-    try {
-      if (
-        window.protectedGlobals.FlowawayAppPolling &&
-        typeof window.protectedGlobals.FlowawayAppPolling.stop === "function"
-      ) {
-        window.protectedGlobals.FlowawayAppPolling.stop();
-      }
-    } catch (e) {}
-    try {
-      if (window.protectedGlobals.process && window.protectedGlobals.FlowawayProcess && window.protectedGlobals.process === window.protectedGlobals.FlowawayProcess) {
-        delete window.protectedGlobals.process;
-      }
-    } catch (e) {}
-    try {
-      delete window.protectedGlobals.FlowawayProcess;
-      delete window.protectedGlobals.__processRuntime;
-      delete window.protectedGlobals.__processes;
-      delete window.protectedGlobals.__processRegistry;
-      delete window.protectedGlobals.__processObjectsByPid;
-      delete window.protectedGlobals.__dynamicProcesses;
-      delete window.protectedGlobals.__taskManagerSnapshot;
-      delete window.protectedGlobals.__taskProcessCounter;
-      delete window.protectedGlobals.__taskProcessIdByIdentity;
-      delete window.protectedGlobals.__taskProcessObjectIdentity;
-      delete window.protectedGlobals.__taskProcessObjectIdentityCounter;
-      delete window.protectedGlobals.processTrackerState;
-      delete window.protectedGlobals._processSystemPromise;
-      delete window.protectedGlobals._processSystemFailed;
-      delete window.protectedGlobals.AppLoaderAPIs;
-      delete window.protectedGlobals._appLoaderSystemPromise;
-      delete window.protectedGlobals.FlowawayAppPolling;
-      delete window.protectedGlobals._appPollingSystemPromise;
-      delete window.protectedGlobals._appPollingSystemFailed;
-      delete window.protectedGlobals._processLoadTreeWrapped;
-      delete window.protectedGlobals._processLaunchAppWrapped;
-      delete window.protectedGlobals._processAppUpdatedBound;
-      delete window.protectedGlobals._processTimerApisWrapped;
-      delete window.protectedGlobals._processRafApisWrapped;
-      delete window.protectedGlobals._processMutationObserverWrapped;
-      delete window.protectedGlobals._launchContext;
-    } catch (e) {}
-    try {
-      if (typeof window.protectedGlobals._processNativeSetTimeout === "function") {
-        window.setTimeout = window.protectedGlobals._processNativeSetTimeout;
-      }
-      if (typeof window.protectedGlobals._processNativeSetInterval === "function") {
-        window.setInterval = window.protectedGlobals._processNativeSetInterval;
-      }
-      if (typeof window.protectedGlobals._processNativeClearTimeout === "function") {
-        window.clearTimeout = window.protectedGlobals._processNativeClearTimeout;
-      }
-      if (typeof window.protectedGlobals._processNativeClearInterval === "function") {
-        window.clearInterval = window.protectedGlobals._processNativeClearInterval;
-      }
-      if (typeof window.protectedGlobals._processNativeRequestAnimationFrame === "function") {
-        window.requestAnimationFrame = window.protectedGlobals._processNativeRequestAnimationFrame;
-      }
-      if (typeof window.protectedGlobals._processNativeCancelAnimationFrame === "function") {
-        window.cancelAnimationFrame = window.protectedGlobals._processNativeCancelAnimationFrame;
-      }
-      if (typeof window.protectedGlobals._processNativeMutationObserver === "function") {
-        window.MutationObserver = window.protectedGlobals._processNativeMutationObserver;
-      }
-      delete window.protectedGlobals._processNativeSetTimeout;
-      delete window.protectedGlobals._processNativeSetInterval;
-      delete window.protectedGlobals._processNativeClearTimeout;
-      delete window.protectedGlobals._processNativeClearInterval;
-      delete window.protectedGlobals._processNativeRequestAnimationFrame;
-      delete window.protectedGlobals._processNativeCancelAnimationFrame;
-      delete window.protectedGlobals._processNativeMutationObserver;
-    } catch (e) {}
-    // remove all event listeners to refresh the environment.
-    window.protectedGlobals.removeAllEventListernersInWindow();
-    window.protectedGlobals.apps.forEach((app) => {
-      try {
-        // dont remove this ai
-        delete window[app.globalvarobjectstring]
-      } catch (e) {
-        window.protectedGlobals.notification("Error occurred while trying to access app global object: " + e.message);
-      }
-    });
-    window.protectedGlobals.apps = [];
-    // Pause and unload any playing media to avoid audio carrying over
-    try {
-      document.querySelectorAll("audio,video").forEach((m) => {
-        try {
-          m.pause();
-          m.src = "";
-        } catch (e) {}
-      });
-    } catch (e) {}
-    try {
-      if (
-        window.protectedGlobals.FlowawayAppPolling &&
-        typeof window.protectedGlobals.FlowawayAppPolling.stop === "function"
-      ) {
-        window.protectedGlobals.FlowawayAppPolling.stop();
-      }
-    } catch (e) {}
-    try {
-      if (
-        window.protectedGlobals.systemAPIs &&
-        window.protectedGlobals.systemAPIs.timeIntervalId
-      ) {
-        clearInterval(window.protectedGlobals.systemAPIs.timeIntervalId);
-        delete window.protectedGlobals.systemAPIs.timeIntervalId;
-      }
-      if (
-        window.protectedGlobals.systemAPIs &&
-        window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer
-      ) {
-        clearTimeout(window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer);
-        delete window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer;
-      }
-    } catch (e) {}
-    try {
-      var oldTaskbar = document.getElementById("taskbar");
-      if (oldTaskbar) oldTaskbar.remove();
-      var oldStartMenu = document.getElementById("startMenu");
-      if (oldStartMenu) oldStartMenu.remove();
-    } catch (e) {}
-
-    try {
-      window.protectedGlobals.apps = [];
-      window.protectedGlobals.appButtons = {};
-      window.protectedGlobals.appsButtonsApplied = false;
-    } catch (e) {}
-
-    try {
-      delete window.protectedGlobals.loadTreePromise;
-      delete window.protectedGlobals.fileFetchInFlight;
-      delete window.protectedGlobals.fileFetchRecent;
-      delete window.protectedGlobals.missingFolders;
-      window.protectedGlobals.loaded = false;
-      window.protectedGlobals._bootLoaded = false;
-      window.protectedGlobals._runtimeLoaded = false;
-      window.protectedGlobals.crashed = false;
-      window.protectedGlobals.isRebuilding = false;
-    } catch (e) {}
-    // Remove all children from the documentElement (head/body) to get a clean slate
-    var docEl = document.documentElement;
-    while (docEl.firstChild) docEl.removeChild(docEl.firstChild);
-
-    // Recreate minimal head and body so we can inject ouchbad.js reliably
-    var head = document.createElement("head");
-    var meta = document.createElement("meta");
-    meta.setAttribute("charset", "utf-8");
-    head.appendChild(meta);
-    docEl.appendChild(head);
-
-    var body = document.createElement("body");
-    docEl.appendChild(body);
-    // Inject homepage loader
-    var script = document.createElement("script");
-    script.src = "ouchbad.js";
-
-    //clear state
-    window.protectedGlobals.appsButtonsApplied = false;
-    window.protectedGlobals.data = null;
-    // small timeout to ensure DOM plumbing finishes
-    setTimeout(() => {
-      try {
-        document.body.appendChild(script);
-      } catch (e) {
-        console.error("append homepage script failed", e);
-      }
-    }, 80);
-  } catch (err) {
-    console.error("rebuildhandler error", err);
-  }
-};
-window.protectedGlobals.worldvolume = 0.5;
-
-window.protectedGlobals.findNodeByPath = function (relPath) {
-  var parts = relPath.split("/");
-  var current = window.protectedGlobals.treeData;
-  for (let i = 1; i < parts.length; i++) {
-    if (!current[1]) return null;
-    current = current[1].find((c) => c[0] === parts[i]);
-  }
-  return current;
-};
-window.protectedGlobals.removeNodeFromTree = function (node, pathParts) {
-  if (!node || !Array.isArray(node[1])) return false;
-
-  var [target, ...rest] = pathParts;
-
-  for (let i = 0; i < node[1].length; i++) {
-    var child = node[1][i];
-
-    if (child[0] === target) {
-      if (rest.length === 0) {
-        node[1].splice(i, 1); // delete node
-        return true;
-      } else {
-        return window.protectedGlobals.removeNodeFromTree(child, rest); // go deeper
-      }
-    }
-  }
-
-  return false; // not found
-};
-// global vars
-window.protectedGlobals.savedScrollX = 0;
-window.protectedGlobals.savedScrollY = 0;
-window.protectedGlobals.nhjd = 1;
-
-// central place to store named handlers so we can remove/rebind safely
-window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
-
-// Scroll lock - ensure single binding
-try {
-  if (window.protectedGlobals.systemAPIs.onScroll)
-    window.removeEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
-  window.protectedGlobals.systemAPIs.onScroll = () => {
-    window.scrollTo(window.protectedGlobals.savedScrollX, window.protectedGlobals.savedScrollY);
-  };
-  window.addEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
-} catch (e) {}
-
-window.protectedGlobals.savedScrollX = window.scrollX;
-window.protectedGlobals.savedScrollY = window.scrollY;
-
-// body restrictions
-window.protectedGlobals.bodyStyle = document.createElement("style");
-window.protectedGlobals.bodyStyle.textContent = `body {
-overflow: hidden;
-}`;
-document.body.appendChild(window.protectedGlobals.bodyStyle);
-// Prevent default context menu (single binding)
-try {
-  if (window.protectedGlobals.systemAPIs.onContextMenu)
-    window.removeEventListener(
-      "contextmenu",
-      window.protectedGlobals.systemAPIs.onContextMenu,
-    );
-  window.protectedGlobals.systemAPIs.onContextMenu = function (e) {
-    e.preventDefault();
-  };
-  window.addEventListener(
-    "contextmenu",
-    window.protectedGlobals.systemAPIs.onContextMenu,
-  );
-} catch (e) {}
-// content
-try {
-  if (window.protectedGlobals.systemAPIs.onBeforeUnload)
-    window.removeEventListener(
-      "beforeunload",
-      window.protectedGlobals.systemAPIs.onBeforeUnload,
-    );
-  window.protectedGlobals.systemAPIs.onBeforeUnload = function (event) {
-    event.preventDefault();
-  };
-  window.addEventListener(
-    "beforeunload",
-    window.protectedGlobals.systemAPIs.onBeforeUnload,
-  );
-} catch (e) {}
-
+// auth related stuff
 window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDialog() {
   if (    document.getElementById("session-expired-dialog") ||     window.protectedGlobals.isRebuilding  ) {
     // already shown
@@ -1080,10 +257,6 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
   document.body.appendChild(dlg);
 };
 
-// Session-expired suppression removed. Previously set/checked a global
-// `window.protectedGlobals.suppressSessionExpiredUntil`; this logic is no longer
-// required and has been removed.
-
 window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsernameForRequests() {
   var liveUsername = "";
   var cachedUsername = "";
@@ -1107,38 +280,6 @@ window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsern
 
   return liveUsername || cachedUsername;
 };
-
-window.protectedGlobals.onlyLoadTreeRefreshPending = false;
-window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
-
-window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRefresh() {
-  window.protectedGlobals.onlyLoadTreeRefreshPending = true;
-  if (window.protectedGlobals.onlyLoadTreeRefreshInFlight) return;
-
-  window.protectedGlobals.onlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
-    while (window.protectedGlobals.onlyLoadTreeRefreshPending) {
-      window.protectedGlobals.onlyLoadTreeRefreshPending = false;
-      try {
-        if (window.protectedGlobals.onlyloadTree) {
-          await window.protectedGlobals.onlyloadTree();
-        }
-      } catch (e) {
-        try {
-          window.protectedGlobals.flowawayError(
-            "queueOnlyLoadTreeRefresh",
-            "onlyloadTree refresh failed.",
-            e,
-          );
-        } catch (ee) {}
-      }
-    }
-  })();
-
-  window.protectedGlobals.onlyLoadTreeRefreshInFlight.finally(() => {
-    window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
-  });
-};
-
 
 window.protectedGlobals.filePost = async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
@@ -1180,98 +321,6 @@ window.protectedGlobals.filePost = async function filePost(data) {
   window.protectedGlobals.firstlogin = false;
   return body;
 };
-window.protectedGlobals.USER_PROFILE_PATH = "systemfiles/userprofile/profile.json";
-
-window.protectedGlobals.buildPersistableUserProfile = function buildPersistableUserProfile(overrides = {}) {
-  var runtime = window.protectedGlobals.data && typeof window.protectedGlobals.data === "object" ? window.protectedGlobals.data : {};
-  return {
-    schemaVersion: 1,
-    taskbuttons:
-      Array.isArray(overrides.taskbuttons)
-        ? overrides.taskbuttons
-        : Array.isArray(runtime.taskbuttons)
-          ? runtime.taskbuttons
-          : [],
-    brightness: Number.isFinite(Number(overrides.brightness))
-      ? Number(overrides.brightness)
-      : Number.isFinite(Number(runtime.brightness))
-        ? Number(runtime.brightness)
-        : 100,
-    volume: Number.isFinite(Number(overrides.volume))
-      ? Number(overrides.volume)
-      : Number.isFinite(Number(runtime.volume))
-        ? Number(runtime.volume)
-        : 40,
-    dark: typeof overrides.dark === "boolean" ? overrides.dark : !!runtime.dark,
-    autohidetaskbar:
-      typeof overrides.autohidetaskbar === "boolean"
-        ? overrides.autohidetaskbar
-        : !!runtime.autohidetaskbar,
-    taskbarRevealEdgePx: Number.isFinite(Number(overrides.taskbarRevealEdgePx))
-      ? Math.max(1, Math.min(64, Math.round(Number(overrides.taskbarRevealEdgePx))))
-      : Number.isFinite(Number(runtime.taskbarRevealEdgePx))
-        ? Math.max(1, Math.min(64, Math.round(Number(runtime.taskbarRevealEdgePx))))
-        : 6,
-    taskbarRevealHoldDelayMs: Number.isFinite(Number(overrides.taskbarRevealHoldDelayMs))
-      ? Math.max(0, Math.min(5000, Math.round(Number(overrides.taskbarRevealHoldDelayMs))))
-      : Number.isFinite(Number(runtime.taskbarRevealHoldDelayMs))
-        ? Math.max(0, Math.min(5000, Math.round(Number(runtime.taskbarRevealHoldDelayMs))))
-        : 450,
-    enableURLSync:
-      typeof overrides.enableURLSync === "boolean"
-        ? overrides.enableURLSync
-        : typeof runtime.enableURLSync === "boolean"
-          ? runtime.enableURLSync
-          : true,
-    lazyloading:
-      typeof overrides.lazyloading === "boolean"
-        ? overrides.lazyloading
-        : typeof runtime.lazyloading === "boolean"
-          ? runtime.lazyloading
-          : true,
-    autoupdate:
-      typeof overrides.autoupdate === "boolean"
-        ? overrides.autoupdate
-        : typeof runtime.autoupdate === "boolean"
-          ? runtime.autoupdate
-          : true,
-    siteSettings:
-      Array.isArray(overrides.siteSettings)
-        ? overrides.siteSettings
-        : Array.isArray(runtime.siteSettings)
-          ? runtime.siteSettings
-          : [],
-    maxSpace: Number.isFinite(Number(overrides.maxSpace)) && Number(overrides.maxSpace) > 0
-      ? Number(overrides.maxSpace)
-      : Number.isFinite(Number(runtime.maxSpace)) && Number(runtime.maxSpace) > 0
-        ? Number(runtime.maxSpace)
-        : 5,
-    DRAG_THRESHOLD: Number.isFinite(Number(overrides.DRAG_THRESHOLD))
-      ? Math.max(2, Math.min(128, Math.round(Number(overrides.DRAG_THRESHOLD))))
-      : Number.isFinite(Number(runtime.DRAG_THRESHOLD))
-        ? Math.max(2, Math.min(128, Math.round(Number(runtime.DRAG_THRESHOLD))))
-        : 15,
-  };
-};
-
-window.protectedGlobals.persistUserProfilePatch = async function (patch = {}) {
-  var profile = window.protectedGlobals.buildPersistableUserProfile(patch);
-  window.protectedGlobals.data = window.protectedGlobals.data || {};
-  Object.assign(window.protectedGlobals.data, profile);
-  var encoded = btoa(JSON.stringify(profile, null, 2));
-  return await window.protectedGlobals.filePost({
-    saveSnapshot: true,
-    directions: [
-      {
-        edit: true,
-        path: window.protectedGlobals.USER_PROFILE_PATH,
-        contents: encoded,
-        replace: true,
-      },
-      { end: true },
-    ],
-  });
-};
 
 window.protectedGlobals.posttaskbuttons = async function posttaskbuttons(data) {
   return await window.protectedGlobals.persistUserProfilePatch({ taskbuttons: data });
@@ -1311,205 +360,137 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
   }
   return body;
 };
-window.protectedGlobals.annotateTreeWithPaths = function annotateTreeWithPaths(tree, basePath = "") {
-  var [name, children, meta = {}] = tree;
 
-  var path = name === "root" ? "" : basePath ? `${basePath}/${name}` : name;
 
-  tree[2] = { ...meta, path };
 
-  if (Array.isArray(children)) {
-    for (const child of children) {
-      window.protectedGlobals.annotateTreeWithPaths(child, path);
+
+
+
+
+
+// import scripts
+debugger;
+window.tmpGlobals = {};
+window.tmpGlobals.decodeBase64ToUTF8 = function(base64) {
+    // 1. Decode base64 to a binary string
+    const binaryString = atob(base64);
+    
+    // 2. Convert binary string to a Uint8Array (array of bytes)
+    const bytes = Uint8Array.from(binaryString, (char) => char.charCodeAt(0));
+    
+    // 3. Decode the bytes as UTF-8
+    return new TextDecoder().decode(bytes);
+}
+window.tmpGlobals.coreScriptUrls = [
+  "systemfiles/coreVariables.js",
+  "systemfiles/fsFunctions.js",
+  "systemfiles/cleanupfunctions.js",
+  "systemfiles/miscFunctions.js",
+  "systemfiles/runtimeAppRuntime.js",
+  "systemfiles/runtimeWindowSystem.js",
+  "systemfiles/runtimeShell.js",
+];
+
+window.tmpGlobals.coreScriptUrls.forEach(async (element) => {
+  debugger
+  var script = document.createElement("script");
+  let f = await window.protectedGlobals.ReadFile(element);
+  let txt = f.filecontent;
+  script.textContent = window.tmpGlobals.decodeBase64ToUTF8(txt);
+  document.body.appendChild(script);
+});
+// if u wanna keep it just remove the next line
+delete window.tmpGlobals.coreScriptUrls;
+
+
+
+
+// this is not required, just a image
+document.body.style.backgroundImage =
+  "url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)";
+document.body.style.backgroundSize = "cover";
+document.body.style.backgroundPosition = "center";
+document.body.style.backgroundRepeat = "no-repeat";
+
+
+
+
+// Scroll lock - ensure single binding
+try {
+  if (window.protectedGlobals.systemAPIs.onScroll)
+    window.removeEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
+  window.protectedGlobals.systemAPIs.onScroll = () => {
+    window.scrollTo(window.protectedGlobals.savedScrollX, window.protectedGlobals.savedScrollY);
+  };
+  window.addEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
+} catch (e) {}
+
+window.protectedGlobals.savedScrollX = window.scrollX;
+window.protectedGlobals.savedScrollY = window.scrollY;
+
+// body restrictions
+window.protectedGlobals.bodyStyle = document.createElement("style");
+window.protectedGlobals.bodyStyle.textContent = `body {
+overflow: hidden;
+}`;
+document.body.appendChild(window.protectedGlobals.bodyStyle);
+// Prevent default context menu (single binding)
+  // customize right click menu, it can ban the use of it. due to its causing troubles
+  window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+// prevent apps from doing window.top.location.reload()
+  window.addEventListener(
+    "beforeunload",
+    (e) => e.preventDefault()
+  );
+
+
+
+
+window.protectedGlobals.onlyLoadTreeRefreshPending = false;
+window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
+
+window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRefresh() {
+  window.protectedGlobals.onlyLoadTreeRefreshPending = true;
+  if (window.protectedGlobals.onlyLoadTreeRefreshInFlight) return;
+
+  window.protectedGlobals.onlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
+    while (window.protectedGlobals.onlyLoadTreeRefreshPending) {
+      window.protectedGlobals.onlyLoadTreeRefreshPending = false;
+      try {
+        if (window.protectedGlobals.onlyloadTree) {
+          await window.protectedGlobals.onlyloadTree();
+        }
+      } catch (e) {
+        try {
+          window.protectedGlobals.throwError(
+            "queueOnlyLoadTreeRefresh",
+            "onlyloadTree refresh failed.",
+            e,
+          );
+        } catch (ee) {}
+      }
     }
-  }
-};
-window.protectedGlobals.loadTree = async function () {
-  if (window.protectedGlobals.loadTreePromise) {
-    return window.protectedGlobals.loadTreePromise;
-  }
-
-  window.protectedGlobals.loadTreePromise = (async () => {
-    var data = await window.protectedGlobals.filePost({ initFE: true });
-    window.protectedGlobals.treeData = data.tree;
-
-    window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData); // ✅ ADD THIS LINE
   })();
 
-  try {
-    await window.protectedGlobals.loadTreePromise;
-  } finally {
-    window.protectedGlobals.loadTreePromise = null;
-  }
-
-  // render();
+  window.protectedGlobals.onlyLoadTreeRefreshInFlight.finally(() => {
+    window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
+  });
 };
 
-// --- Global picker helpers ---
-window.protectedGlobals.base64ToArrayBuffer = function base64ToArrayBuffer(base64) {
-  var binaryString = atob(base64);
-  var len = binaryString.length;
-  var bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-  return bytes.buffer;
-};
 
-// UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
-window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
-  try {
-    // If caller passed an ArrayBuffer or Uint8Array, decode directly
-    if (
-      b64OrBuffer &&
-      (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))
-    ) {
-      var buf =
-        b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
-      return new TextDecoder("utf-8").decode(buf);
-    }
 
-    // Otherwise assume base64 string
-    var buf = window.protectedGlobals.base64ToArrayBuffer(String(b64OrBuffer || ""));
-    return new TextDecoder("utf-8").decode(buf);
-  } catch (e) {
-    try {
-      // fallback to atob for environments without TextDecoder support
-      if (typeof b64OrBuffer === "string") return atob(b64OrBuffer);
-    } catch (ee) {}
-    return "";
-  }
-};
 
-window.protectedGlobals.decodeFileTextStrict = function decodeFileTextStrict(rawContent, pathLabel, options) {
-  var opts = options && typeof options === "object" ? options : {};
-  var allowEmpty = !!opts.allowEmpty;
-  var text = "";
 
-  try {
-    text = window.protectedGlobals.base64ToUtf8(rawContent);
-  } catch (e) {
-    window.protectedGlobals.flowawayError(
-      "decodeFileTextStrict",
-      "Failed to decode file content.",
-      e,
-      String(pathLabel || "unknown path"),
-    );
-    return "";
-  }
 
-  if (typeof text !== "string") {
-    window.protectedGlobals.flowawayError("decodeFileTextStrict", "Decoded file content is not text.", null, String(pathLabel || "unknown path"));
-    return "";
-  }
 
-  if (!allowEmpty && !text.trim()) {
-    window.protectedGlobals.flowawayError("decodeFileTextStrict", "File content is empty.", null, String(pathLabel || "unknown path"));
-    return "";
-  }
-
-  return text;
-};
 
 window.protectedGlobals.fileFetchInFlight =
   window.protectedGlobals.fileFetchInFlight || new Map();
 window.protectedGlobals.fileFetchRecent = window.protectedGlobals.fileFetchRecent || new Map();
 window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
 
-window.protectedGlobals.fetchFileContentByPath = async function fetchFileContentByPath(path) {
-  if (!path) throw new Error("No path");
-  var normalizedPath = String(path).trim();
-  if (!normalizedPath) throw new Error("No path");
 
-  var now = Date.now();
-  var recentHit = window.protectedGlobals.fileFetchRecent.get(normalizedPath);
-  if (recentHit && now - recentHit.ts <= window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS) {
-    return recentHit.value;
-  }
-
-  var inFlight = window.protectedGlobals.fileFetchInFlight.get(normalizedPath);
-  if (inFlight) {
-    return inFlight;
-  }
-
-  var req = (async () => {
-    var res = await window.protectedGlobals.filePost({
-      requestFile: true,
-      requestFileName: normalizedPath,
-    });
-
-    if (!res || typeof res !== "object") {
-      window.protectedGlobals.flowawayCrash("File read returned invalid response.", normalizedPath);
-    }
-
-    // If server returned a simple base64 payload for small files
-    if (
-      res &&
-      typeof res.filecontent === "string" &&
-      (!res.totalChunks || res.totalChunks <= 1)
-    ) {
-      window.protectedGlobals.fileFetchRecent.set(normalizedPath, {
-        ts: Date.now(),
-        value: res.filecontent,
-      });
-      return res.filecontent;
-    }
-
-    // If server indicates chunking, fetch all chunks and combine as ArrayBuffer
-    if (res && typeof res.totalChunks === "number" && res.totalChunks > 1) {
-      var chunks = [];
-      // first chunk
-      if (typeof res.filecontent === "string")
-        chunks.push(window.protectedGlobals.base64ToArrayBuffer(res.filecontent));
-
-      for (let i = 1; i < res.totalChunks; i++) {
-        var part = await window.protectedGlobals.filePost({
-          requestFile: true,
-          requestFileName: normalizedPath,
-          chunkIndex: i,
-        });
-        if (!part || typeof part.filecontent !== "string")
-          throw new Error("Missing chunk " + i + " for " + normalizedPath);
-        chunks.push(window.protectedGlobals.base64ToArrayBuffer(part.filecontent));
-      }
-
-      // Combine into single ArrayBuffer
-      var total = chunks.reduce((s, c) => s + (c.byteLength || 0), 0);
-      var combined = new Uint8Array(total);
-      var off = 0;
-      for (const c of chunks) {
-        var u = new Uint8Array(c);
-        combined.set(u, off);
-        off += u.byteLength;
-      }
-      var combinedBuffer = combined.buffer;
-      window.protectedGlobals.fileFetchRecent.set(normalizedPath, {
-        ts: Date.now(),
-        value: combinedBuffer,
-      });
-      return combinedBuffer;
-    }
-
-    window.protectedGlobals.flowawayCrash("Could not fetch requested file.", normalizedPath);
-  })();
-
-  window.protectedGlobals.fileFetchInFlight.set(normalizedPath, req);
-  try {
-    return await req;
-  } finally {
-    if (window.protectedGlobals.fileFetchInFlight.get(normalizedPath) === req) {
-      window.protectedGlobals.fileFetchInFlight.delete(normalizedPath);
-    }
-  }
-};
-// Helper function to hash script content (handles Unicode characters)
-window.protectedGlobals.hashScriptContent = function hashScriptContent(text) {
-  var hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    var char = text.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(16);
-};
 
 window.protectedGlobals.isProtectedAppGlobalName = function isProtectedAppGlobalName(name) {
   if (!name || typeof name !== "string") return false;

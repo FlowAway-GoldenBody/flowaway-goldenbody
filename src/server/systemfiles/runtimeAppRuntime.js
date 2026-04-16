@@ -84,17 +84,6 @@ const dedupefiles = window.protectedGlobals.dedupefiles = function dedupefiles(f
 }
 
 
-const isImageIconValue = window.protectedGlobals.isImageIconValue = function isImageIconValue(value) {
-  return !!window.protectedGlobals.AppLoaderAPIs.isImageIconValue(value);
-}
-
-const getIconMimeType = window.protectedGlobals.getIconMimeType = function getIconMimeType(pathOrValue) {
-  return window.protectedGlobals.AppLoaderAPIs.getIconMimeType(pathOrValue);
-}
-
-const toIconImageMarkupFromSource = window.protectedGlobals.toIconImageMarkupFromSource = function toIconImageMarkupFromSource(iconSource) {
-  return window.protectedGlobals.AppLoaderAPIs.toIconImageMarkupFromSource(iconSource);
-}
 
 const appMatchesIdentifier = window.protectedGlobals.appMatchesIdentifier = function appMatchesIdentifier(app, identifier) {
   if (!app || !identifier) return false;
@@ -1066,9 +1055,6 @@ window.protectedGlobals.setAppDataTitle = function (targetOrTitle, maybeTitle) {
 
 window.protectedGlobals.setDataTitle = window.protectedGlobals.setAppDataTitle;
 
-const toIconImageMarkup = window.protectedGlobals.toIconImageMarkup = async function toIconImageMarkup(iconPathOrUrl, folderPath) {
-  return window.protectedGlobals.AppLoaderAPIs.toIconImageMarkup(iconPathOrUrl, folderPath);
-}
 
 // Helper function to extract app data from an app folder
 const extractAppData = window.protectedGlobals.extractAppData = async function extractAppData(appFolder) {
@@ -1097,7 +1083,7 @@ const loadAppsFromTree = window.protectedGlobals.loadAppsFromTree = async functi
           window.protectedGlobals.apps.push(appData);
         }
       } catch (e) {
-        window.protectedGlobals.flowawayError("loadAppsFromTree", "Failed to parse app folder", e, {
+        window.protectedGlobals.throwError("loadAppsFromTree", "Failed to parse app folder", e, {
           folder: appFolder && appFolder[0],
         });
       }
@@ -1117,7 +1103,7 @@ const loadAppsFromTree = window.protectedGlobals.loadAppsFromTree = async functi
     // Start polling for app changes
     startAppPolling();
   } catch (e) {
-    window.protectedGlobals.flowawayError("loadAppsFromTree", "loadAppsFromTree failed", e);
+    window.protectedGlobals.throwError("loadAppsFromTree", "loadAppsFromTree failed", e);
   }
 }
 
@@ -1191,7 +1177,7 @@ const renderAppsGrid = window.protectedGlobals.renderAppsGrid = async function r
               setTimeout(captureAddedNoIcon, 2500);
             } catch (e) {}
           } catch (e) {
-            window.protectedGlobals.flowawayError(
+            window.protectedGlobals.throwError(
               "renderAppsGrid",
               "Failed to load app script (no icon)",
               e,
@@ -1212,7 +1198,7 @@ const renderAppsGrid = window.protectedGlobals.renderAppsGrid = async function r
             { allowEmpty: true },
           );
           if (!String(scriptText || "").trim()) {
-            window.protectedGlobals.flowawayError("renderAppsGrid", "App script is empty; skipping load", null, {
+            window.protectedGlobals.throwError("renderAppsGrid", "App script is empty; skipping load", null, {
               appId: app && app.id,
               path: app && app.path,
               jsFile: app && app.jsFile,
@@ -1280,7 +1266,7 @@ const renderAppsGrid = window.protectedGlobals.renderAppsGrid = async function r
         }
       }
     } catch (e) {
-      window.protectedGlobals.flowawayError("renderAppsGrid", "Failed while loading app", e, {
+      window.protectedGlobals.throwError("renderAppsGrid", "Failed while loading app", e, {
         appId: app && app.id,
         path: app && app.path,
       });
@@ -1388,23 +1374,6 @@ const ensureFlowawayAppLoaderLoaded = window.protectedGlobals.ensureFlowawayAppL
         }
       }
 
-      await new Promise(function (resolve, reject) {
-        try {
-          var script = document.createElement("script");
-          script.src = "systemfiles/appLoader.js";
-          script.async = false;
-          script.onload = function () {
-            resolve(true);
-          };
-          script.onerror = function (err) {
-            reject(err || new Error("Failed to load systemfiles/appLoader.js"));
-          };
-          document.body.appendChild(script);
-        } catch (e) {
-          reject(e);
-        }
-      });
-
       if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
         return true;
       }
@@ -1466,23 +1435,6 @@ const ensureFlowawayAppPollingLoaded = window.protectedGlobals.ensureFlowawayApp
           return true;
         }
       }
-
-      await new Promise(function (resolve, reject) {
-        try {
-          var script = document.createElement("script");
-          script.src = "systemfiles/appPolling.js";
-          script.async = false;
-          script.onload = function () {
-            resolve(true);
-          };
-          script.onerror = function (err) {
-            reject(err || new Error("Failed to load systemfiles/appPolling.js"));
-          };
-          document.body.appendChild(script);
-        } catch (e) {
-          reject(e);
-        }
-      });
 
       if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
         return true;
@@ -1547,23 +1499,6 @@ const ensureProcessRuntimeLoaded = window.protectedGlobals.ensureProcessRuntimeL
           return true;
         }
       }
-
-      await new Promise(function (resolve, reject) {
-        try {
-          var script = document.createElement("script");
-          script.src = "systemfiles/processes.js";
-          script.async = false;
-          script.onload = function () {
-            resolve(true);
-          };
-          script.onerror = function (err) {
-            reject(err || new Error("Failed to load systemfiles/processes.js"));
-          };
-          document.body.appendChild(script);
-        } catch (e) {
-          reject(e);
-        }
-      });
 
       if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
         return true;
