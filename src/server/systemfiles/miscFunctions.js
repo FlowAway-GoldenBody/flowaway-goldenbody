@@ -420,3 +420,357 @@ window.prompt = function (message, defaultValue) {
 window.protectedGlobals.flowawayCrash = function(message, detail) {
   window.protectedGlobals.notification("A critical error occurred: " + String(message || "") + (detail ? "\n\n" + String(detail) : ""));
 }
+
+
+
+
+
+
+window.protectedGlobals.removeOtherMenus = function (except) {
+  try {
+    // Remove any menus with the shared .app-menu class (used across apps)
+    var menus = document.querySelectorAll(".app-menu");
+    for (const m of menus) {
+      try {
+        if (except && m.dataset && m.dataset.appId === except) continue;
+      } catch (e) {}
+      try {
+        m.remove();
+      } catch (e) {}
+    }
+  } catch (e) {}
+};
+window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemove = true) {
+  if (!e) return;
+  e.preventDefault();
+
+  var app = window.protectedGlobals.resolveAppFromEvent(e, appOverride);
+  if (!app) return;
+
+  document.querySelectorAll(".app-menu").forEach((m) => m.remove());
+  try {
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    if (window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
+      document.removeEventListener(
+        "pointerdown",
+        window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
+        true,
+      );
+      delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
+    }
+    if (window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
+      document.removeEventListener(
+        "keydown",
+        window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
+        true,
+      );
+      delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
+    }
+  } catch (err) {}
+
+  const menu = document.createElement("div");
+  try {
+    window.protectedGlobals.removeOtherMenus(app.id || app.functionname || "");
+  } catch (err) {}
+
+  menu.className = "app-menu";
+  if (app && app.id) menu.dataset.appId = String(app.id);
+  Object.assign(menu.style, {
+    position: "fixed",
+    left: `${e.clientX}px`,
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+    zIndex: 9999999,
+    padding: "4px 0",
+    minWidth: "160px",
+    fontSize: "13px",
+    visibility: "hidden",
+  });
+  (window.protectedGlobals.data && window.protectedGlobals.data.dark)
+    ? menu.classList.toggle("dark", true)
+    : menu.classList.toggle("light", true);
+
+  function withInstances(handler) {
+    try {
+      var instances = window.protectedGlobals.getAppInstances(app);
+      handler(instances);
+    } catch (err) {}
+    menu.remove();
+  }
+
+  const closeAll = document.createElement("div");
+  closeAll.textContent = "Close all";
+  closeAll.style.padding = "6px 10px";
+  closeAll.style.cursor = "pointer";
+  closeAll.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.closeAll === "function") {
+        first.closeAll();
+        return;
+      }
+      for (const instance of [...instances]) {
+        if (instance && typeof instance.closeWindow === "function") {
+          instance.closeWindow();
+        }
+      }
+    });
+  });
+  menu.appendChild(closeAll);
+
+  const hideAll = document.createElement("div");
+  hideAll.textContent = "Hide all";
+  hideAll.style.padding = "6px 10px";
+  hideAll.style.cursor = "pointer";
+  hideAll.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.hideAll === "function") {
+        first.hideAll();
+        return;
+      }
+      for (const instance of instances) {
+        if (instance && typeof instance.hideWindow === "function") {
+          instance.hideWindow();
+        } else if (instance && instance.rootElement) {
+          instance.rootElement.style.display = "none";
+        }
+      }
+    });
+  });
+  menu.appendChild(hideAll);
+
+  const showAll = document.createElement("div");
+  showAll.textContent = "Show all";
+  showAll.style.padding = "6px 10px";
+  showAll.style.cursor = "pointer";
+  showAll.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.showAll === "function") {
+        first.showAll();
+        return;
+      }
+      instances.sort((a, b) => {
+        var az = Number(a && a.rootElement && a.rootElement.style && a.rootElement.style.zIndex) || 0;
+        var bz = Number(b && b.rootElement && b.rootElement.style && b.rootElement.style.zIndex) || 0;
+        return az - bz;
+      });
+      for (const instance of instances) {
+        if (instance && typeof instance.showWindow === "function") {
+          instance.showWindow();
+        } else if (instance && instance.rootElement) {
+          instance.rootElement.style.display = "block";
+          window.protectedGlobals.bringToFront(instance.rootElement);
+        }
+      }
+    });
+  });
+  menu.appendChild(showAll);
+
+  const newWindow = document.createElement("div");
+  newWindow.textContent = "New window";
+  newWindow.style.padding = "6px 10px";
+  newWindow.style.cursor = "pointer";
+  newWindow.addEventListener("click", () => {
+    withInstances((instances) => {
+      const first = instances[0];
+      if (first && typeof first.newWindow === "function") {
+        first.newWindow();
+      } else {
+        window.protectedGlobals.launchApp(app.functionname);
+      }
+    });
+  });
+  menu.appendChild(newWindow);
+
+  if (needRemove) {
+    const remove = document.createElement("div");
+    remove.textContent = "Remove from taskbar";
+    remove.style.padding = "6px 10px";
+    remove.style.cursor = "pointer";
+    const contextMenuEvent = e;
+    remove.addEventListener("click", () => {
+      var btn =
+        contextMenuEvent &&         contextMenuEvent.target &&         contextMenuEvent.target.closest
+          ? contextMenuEvent.target.closest("button.taskbutton")
+          : null;
+      if (btn) {
+        window.protectedGlobals.removeTaskButton(btn);
+        try {
+          window.protectedGlobals.saveTaskButtons();
+          window.protectedGlobals.purgeButtons();
+        } catch (err) {}
+      }
+      menu.remove();
+    });
+    menu.appendChild(remove);
+  } else {
+    const appId = app.functionname;
+    const existingBtn = document.querySelector(
+      `button.taskbutton[data-app-id="${appId}"]`,
+    );
+
+    if (existingBtn) {
+      const remove = document.createElement("div");
+      remove.textContent = "Remove from taskbar";
+      remove.style.padding = "6px 10px";
+      remove.style.cursor = "pointer";
+      remove.addEventListener("click", function () {
+        window.protectedGlobals.removeTaskButton(existingBtn);
+        try {
+          window.protectedGlobals.saveTaskButtons();
+          window.protectedGlobals.purgeButtons();
+        } catch (err) {}
+        menu.remove();
+      });
+      menu.appendChild(remove);
+    } else {
+      const add = document.createElement("div");
+      add.textContent = "Add to taskbar";
+      add.style.padding = "6px 10px";
+      add.style.cursor = "pointer";
+      add.addEventListener("click", function () {
+        let btn;
+        if(app.cmf) {
+        btn = window.protectedGlobals.addTaskButton(
+          app.icon,
+          () => window.protectedGlobals.launchApp(appId),
+          window[app.globalvarobjectstring][app.cmf],
+          "",
+          appId,
+        );
+        }
+        else {
+        btn = window.protectedGlobals.addTaskButton(
+          app.icon,
+          () => window.protectedGlobals.launchApp(appId),
+          window.protectedGlobals.cmf,
+          "",
+          appId,
+        );
+       }
+        if (btn) btn.dataset.appId = appId;
+        window.protectedGlobals.saveTaskButtons();
+        window.protectedGlobals.purgeButtons();
+        menu.remove();
+      });
+      menu.appendChild(add);
+    }
+  }
+
+  const barrier = document.createElement("hr");
+  menu.appendChild(barrier);
+
+  const instances = window.protectedGlobals.getAppInstances(app);
+  if (instances.length === 0) {
+    const item = document.createElement("div");
+    item.textContent = "No open windows";
+    item.style.padding = "6px 10px";
+    menu.appendChild(item);
+  } else {
+    instances.forEach((instance, i) => {
+      const item = document.createElement("div");
+      item.textContent = instance.title || `${app.label || "Window"} ${i + 1}`;
+      Object.assign(item.style, {
+        padding: "6px 10px",
+        cursor: "pointer",
+        maxWidth: "185px",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      });
+
+      item.addEventListener("click", () => {
+        try {
+          if (instance && typeof instance.showWindow === "function") {
+            instance.showWindow();
+          } else if (instance && instance.rootElement) {
+            instance.rootElement.style.display = "block";
+            window.protectedGlobals.bringToFront(instance.rootElement);
+          }
+        } catch (err) {}
+        menu.remove();
+      });
+
+      menu.appendChild(item);
+    });
+  }
+
+  document.body.appendChild(menu);
+
+  var nativeMenuRemove = menu.remove.bind(menu);
+  var menuClosed = false;
+  function closeMenu() {
+    if (menuClosed) return;
+    menuClosed = true;
+    try {
+      nativeMenuRemove();
+    } catch (err) {}
+    try {
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
+        document.removeEventListener(
+          "pointerdown",
+          window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
+          true,
+        );
+        delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
+      }
+      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
+        document.removeEventListener(
+          "keydown",
+          window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
+          true,
+        );
+        delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
+      }
+    } catch (err) {}
+  }
+
+  try {
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown = function (evt) {
+      if (!menu || !menu.isConnected) {
+        closeMenu();
+        return;
+      }
+      if (evt && evt.target && menu.contains(evt.target)) return;
+      closeMenu();
+    };
+    window.protectedGlobals.systemAPIs.onAppMenuEscapeKey = function (evt) {
+      if (!evt) return;
+      if (evt.key === "Escape") closeMenu();
+    };
+    document.addEventListener(
+      "pointerdown",
+      window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
+      true,
+    );
+    document.addEventListener(
+      "keydown",
+      window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
+      true,
+    );
+  } catch (err) {}
+
+  menu.remove = closeMenu;
+
+  requestAnimationFrame(() => {
+    const menuHeight = menu.offsetHeight;
+    let top = e.clientY - menuHeight;
+    if (top < 0) top = 0;
+    menu.style.top = `${top}px`;
+    menu.style.visibility = "visible";
+  });
+
+};
+
+window.protectedGlobals.cmf = function (e, appOverride = null) {
+  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride, true);
+};
+
+window.protectedGlobals.cmfl1 = function (e, appOverride = null) {
+  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride, false);
+};
+

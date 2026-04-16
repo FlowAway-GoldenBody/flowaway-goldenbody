@@ -63,6 +63,37 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 // auth related stuff
+  window.protectedGlobals.zmcdpost = async function (data) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) headers['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
+    var res = await fetch(window.protectedGlobals.zmcdserver, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            username: getCurrentUsernameForRequests(),
+            ...data
+        })
+    });
+    let body = null;
+    try {
+        body = await res.json();
+    } catch (e) {
+        body = null;
+    }
+    if (body && (body.authToken || body.token)) {
+        try {
+            window.protectedGlobals.data = window.protectedGlobals.data || {};
+            window.protectedGlobals.data.authToken = body.authToken || body.token;
+        } catch (e) {}
+    }
+    if (res.status === 401) {
+        try {
+            window.protectedGlobals.showSessionExpiredDialog();
+        } catch (e) {}
+        return body || { error: 'unauthorized' };
+    }
+    return body;
+}
 window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDialog() {
   if (    document.getElementById("session-expired-dialog") ||     window.protectedGlobals.isRebuilding  ) {
     // already shown
@@ -386,6 +417,7 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/fsFunctions.js",
   "systemfiles/cleanupfunctions.js",
   "systemfiles/miscFunctions.js",
+  "systemfiles/appExtractHelper.js",
   "systemfiles/runtimeAppRuntime.js",
   "systemfiles/runtimeWindowSystem.js",
   "systemfiles/runtimeShell.js",
