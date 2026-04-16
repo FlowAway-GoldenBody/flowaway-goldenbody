@@ -8,6 +8,55 @@ window.protectedGlobals.findNodeByPath = function (relPath) {
   }
   return current;
 };
+window.protectedGlobals.getFilesFromFolder = async function (relPath) {
+  try {
+    window.protectedGlobals.missingFolders.delete(relPath);
+    var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
+    if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
+
+    var isMissing =
+      !!(
+        r &&
+        (
+          r.missing ||
+          r.kind === "missing" ||
+          r.error === "ENOENT" ||
+          r.code === "ENOENT"
+        )
+      );
+
+    if (isMissing) {
+      window.protectedGlobals.missingFolders.add(relPath);
+      var missingError = new Error("ENOENT: Missing folder " + String(relPath));
+      missingError.code = "ENOENT";
+      throw missingError;
+    }
+
+    throw new Error("Invalid folder response for " + String(relPath));
+  } catch (e) {
+    window.protectedGlobals.notification("getFilesFromFolder error", e);
+    throw e;
+  }
+}
+
+window.protectedGlobals.dedupefiles = function (folders) {
+  var seen = new Set();
+  var list = [];
+  for (const folder of folders || []) {
+    if (!Array.isArray(folder)) continue;
+    var folderName = folder[0].trim();
+    if (!folderName || folderName === ".DS_Store" || folderName.startsWith("."))
+      continue;
+    var folderPath =
+      folder[2] && folder[2].path ? folder[2].path : `apps/${folderName}`;
+    var key = String(folderPath).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push(folder);
+  }
+  return list;
+}
+
 window.protectedGlobals.removeNodeFromTree = function (node, pathParts) {
   if (!node || !Array.isArray(node[1])) return false;
 

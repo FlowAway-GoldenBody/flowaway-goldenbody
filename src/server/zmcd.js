@@ -177,6 +177,7 @@ function ensureRuntimeFiles(userPaths) {
     'processes.js',
     'appLoader.js',
     'appPolling.js',
+    'appExtractHelper.js',
   ];
 
   for (const fileName of runtimeFiles) {
