@@ -2,7 +2,6 @@
 
 // ----------------- DYNAMIC AP LOADER -----------------
 window.protectedGlobals.apps = window.protectedGlobals.apps || [];
-window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
 window.protectedGlobals.setDataTitle = window.protectedGlobals.setAppDataTitle;
 
@@ -20,7 +19,13 @@ try {
 } catch (e) {}
 
 // Ensure loadAppsFromTree runs after initial tree load
+
 window.protectedGlobals.oldLoadTree = window.protectedGlobals.loadTree;
+window.protectedGlobals.loadTree = async function () {
+  await window.protectedGlobals.oldLoadTree();
+  await window.protectedGlobals.loadAppsFromTree();
+  window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
+};
 Promise.all([
   window.protectedGlobals.ensureFlowawayAppLoaderLoaded(),
   window.protectedGlobals.ensureFlowawayAppPollingLoaded(),

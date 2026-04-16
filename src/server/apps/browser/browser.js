@@ -2703,7 +2703,7 @@ window.browser = function (
             iframe.contentWindow.location.href,
           );
           if (iframe.contentDocument.readyState === "complete" && !tab.donotm) {
-            const docTitle = iframe.contentDocument.title || "Untitled";
+            const docTitle = iframe.contentDocument.title || iframe.contentDocument.querySelector('title').childNodes[0].nodeValue  || "Untitled";
             tab.title = docTitle;
           } else {
             tab.title = "Loading...";
@@ -5412,7 +5412,7 @@ let allbrowserindex = 0;
 for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
   if(window.top.browserGlobals.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
 }
-    debugger;
+    
     if(url == "") url = "about:blank";
     if(!url.includes(':')) {
        if(document.getElementsByTagName('base').length > 0) {
@@ -6424,8 +6424,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             try {
               if (tab.iframe.contentDocument.readyState === "complete") {
                 const docTitle =
-                  tab.iframe.contentDocument &&
-                  tab.iframe.contentDocument.title;
+                  tab.iframe.contentDocument.title || tab.iframe.contentDocument.querySelector('title').childNodes[0].nodeValue  || "Untitled";
                 tab.title = docTitle;
               }
             } catch (e) {}
