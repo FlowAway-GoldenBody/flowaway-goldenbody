@@ -66,7 +66,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
         let btn;
         if (seenAppIds.has(appId)) continue;
         seenAppIds.add(appId);
-        debugger
+        
         if (app.cmf) {
           btn = window.protectedGlobals.addTaskButton(
             app.icon,

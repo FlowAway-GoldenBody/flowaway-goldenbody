@@ -7,6 +7,7 @@
 // These wrap the existing `filePost` API so apps can easily perform
 // common VFS actions. Responses are the raw server responses; use
 // `base64ToArrayBuffer()` above to convert base64 payloads when needed.
+window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
 window.protectedGlobals.ReadFile = async function (relPath) {
   if (!relPath) throw new Error("No path");
@@ -400,7 +401,7 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
 
 
 // import scripts
-debugger;
+
 window.tmpGlobals = {};
 window.tmpGlobals.decodeBase64ToUTF8 = function(base64) {
     // 1. Decode base64 to a binary string
@@ -417,20 +418,24 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/fsFunctions.js",
   "systemfiles/cleanupfunctions.js",
   "systemfiles/miscFunctions.js",
-  "systemfiles/appExtractHelper.js",
+  "systemfiles/appHelperFunctions.js",
   "systemfiles/runtimeAppRuntime.js",
   "systemfiles/runtimeWindowSystem.js",
   "systemfiles/runtimeShell.js",
 ];
 
-window.tmpGlobals.coreScriptUrls.forEach(async (element) => {
-  debugger
-  var script = document.createElement("script");
-  let f = await window.protectedGlobals.ReadFile(element);
-  let txt = f.filecontent;
-  script.textContent = window.tmpGlobals.decodeBase64ToUTF8(txt);
-  document.body.appendChild(script);
-});
+window.tmpGlobals.loadCoreScriptsSequentially = async function() {
+  for (const element of window.tmpGlobals.coreScriptUrls) {
+    
+    var script = document.createElement("script");
+    let f = await window.protectedGlobals.ReadFile(element);
+    let txt = f.filecontent;
+    script.textContent = window.tmpGlobals.decodeBase64ToUTF8(txt);
+    document.body.appendChild(script);
+  }
+};
+
+window.tmpGlobals.loadCoreScriptsSequentially();
 // if u wanna keep it just remove the next line
 delete window.tmpGlobals.coreScriptUrls;
 

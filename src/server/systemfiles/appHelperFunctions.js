@@ -1205,11 +1205,7 @@ window.protectedGlobals.pollSpecificAppChanges = async function (changedFolders 
 window.protectedGlobals.startAppPolling = function () {
   return window.protectedGlobals.queueAppPollingHint().start();
 }
-window.protectedGlobals.loadTree = async function () {
-  await window.protectedGlobals.oldLoadTree();
-  await window.protectedGlobals.loadAppsFromTree();
-  window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
-};
+
 window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function () {
   try {
     if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {

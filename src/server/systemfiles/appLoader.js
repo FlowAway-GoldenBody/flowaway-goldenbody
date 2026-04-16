@@ -2,7 +2,7 @@
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
   }
-  async function extractAppData(appFolder) {
+  window.protectedGlobals.extractAppData = async function (appFolder) {
     var folderName = appFolder[0];
     var folderPath =
       appFolder[2] && appFolder[2].path
@@ -101,7 +101,7 @@
   }
 
   window.protectedGlobals.AppLoaderAPIs = {
-    extractAppData: extractAppData,
+    extractAppData: window.protectedGlobals.extractAppData,
     __loaded: true,
   };
 })();

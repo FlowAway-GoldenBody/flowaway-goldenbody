@@ -101,7 +101,7 @@ function updateAllSystemApps() {
       'processes.js',
       'appLoader.js',
       'appPolling.js',
-      'appExtractHelper.js',
+      'appHelperFunctions.js',
     ];
     if (!fs.existsSync(systemAppsPath)) {
       console.log('System apps directory not found:', systemAppsPath);
