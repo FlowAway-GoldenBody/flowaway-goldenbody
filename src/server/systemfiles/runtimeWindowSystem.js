@@ -879,9 +879,9 @@ var notification = window.protectedGlobals.notification = function(message, opti
     }
 
     // Prefer the unified in-UI message system if available
-    if (typeof window.protectedGlobals.showFlowawayMessage === "function") {
+    if (typeof window.protectedGlobals.showModal === "function") {
       try {
-        window.protectedGlobals.showFlowawayMessage("Notification", String(message), options.level || "info");
+        window.protectedGlobals.showModal("Notification", String(message), options.level || "info");
         return null;
       } catch (e) {}
     }

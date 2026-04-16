@@ -267,7 +267,7 @@ const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async 
     window.protectedGlobals._startMenuConfig = JSON.parse(configText);
     return window.protectedGlobals._startMenuConfig;
   } catch (e) {
-    window.protectedGlobals.flowawayError('startMenu', 'Failed to load config, using defaults', e);
+    window.protectedGlobals.throwError('startMenu', 'Failed to load config, using defaults', e);
     window.protectedGlobals._startMenuConfig = {
       version: '1.0',
       pinnedApps: [],
@@ -291,7 +291,7 @@ const saveStartMenuConfig = window.protectedGlobals.saveStartMenuConfig = async 
       configJson: configJson
     });
   } catch (e) {
-    window.protectedGlobals.flowawayError('startMenu', 'Failed to save config', e);
+    window.protectedGlobals.throwError('startMenu', 'Failed to save config', e);
   }
 }
 
@@ -718,7 +718,7 @@ const createAppTile = window.protectedGlobals.createAppTile = function createApp
         window.protectedGlobals.cmfl1(evt, app);
       }
     } catch (err) {
-      window.protectedGlobals.flowawayError('createAppTile', 'Failed to run app package context menu',         err,         {
+      window.protectedGlobals.throwError('createAppTile', 'Failed to run app package context menu',         err,         {
           appId: app && app.id,
         }      );
     }
@@ -986,64 +986,6 @@ window.protectedGlobals.notification(
   "this is the Dev version of the system, please visit https://study.mathvariables.xyz/learn.html for the stable version... actually this one has less bugs but its rarely online so yeah",
 );
 
-// ----------------- Convenience file helpers -----------------
-// These wrap the existing `filePost` API so apps can easily perform
-// common VFS actions. Responses are the raw server responses; use
-// `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 
-window.protectedGlobals.ReadFile = async function (relPath) {
-  if (!relPath) throw new Error("No path");
-  return await window.protectedGlobals.filePost({
-    requestFile: true,
-    requestFileName: String(relPath),
-  });
-};
-
-window.protectedGlobals.WriteFile = async function (relPath, contents, options = {}) {
-  if (!relPath) throw new Error("No path");
-  // Use the saveSnapshot + directions API to perform edits
-  if (options.buffer) {
-    contents = arrayBufferToBase64(contents);
-  }
-  const directions = [
-    {
-      edit: true,
-      path: String(relPath),
-      contents: String(contents || ""),
-      replace: !!options.replace,
-    },
-    { end: true },
-  ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
-};
-
-window.protectedGlobals.DeleteFile = async function (relPath) {
-  if (!relPath) throw new Error("No path");
-  const directions = [{ delete: true, path: String(relPath) }, { end: true }];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
-};
-
-window.protectedGlobals.RenameFile = async function (relPath, newName) {
-  if (!relPath) throw new Error("No path");
-  if (!newName) throw new Error("No new name");
-  const directions = [
-    { rename: true, path: String(relPath), newName: String(newName) },
-    { end: true },
-  ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
-};
-
-// clipboardItems: array of { path: 'root/dir/file', isCut: true|false }
-window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems) {
-  if (!destinationRelPath) throw new Error("No destination path");
-  if (!Array.isArray(clipboardItems) || !clipboardItems.length)
-    throw new Error("No clipboard items");
-  const directions = [
-    { copy: true, directions: clipboardItems },
-    { paste: true, path: String(destinationRelPath) },
-    { end: true },
-  ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
-};
 
 })();
