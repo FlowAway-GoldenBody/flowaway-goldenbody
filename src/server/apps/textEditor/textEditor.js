@@ -2,7 +2,7 @@
 window.textEditorGlobals = {};
 textEditorGlobals.allTextEditors = [];
 textEditorGlobals.goldenbodyId = 0;
-textEditorGlobals.settingsPath = "/apps/textEditor/data/settings.json";
+textEditorGlobals.settingsPath = "/systemfiles/runtime/apps/textEditor/data/settings.json";
 textEditorGlobals.editorSettings = {
   fontSize: 14,
   tabSize: 2,

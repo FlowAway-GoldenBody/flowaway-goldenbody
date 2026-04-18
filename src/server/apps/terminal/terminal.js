@@ -710,7 +710,7 @@ terminal = function (posX = 50, posY = 50) {
   let cwdRelPath = "";
   let commandHistory = [];
   let historyIndex = -1;
-  const GBENV_PATH = ".boot/gbenv.js";
+  const GBENV_PATH = "/systemfiles/.boot/gbenv.js";
   const GBENV_GLOBAL_KEY = "__gbenv_shortcut";
   let terminalGbenv =
     typeof window[GBENV_GLOBAL_KEY] === "object" && window[GBENV_GLOBAL_KEY]

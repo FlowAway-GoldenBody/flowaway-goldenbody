@@ -7,7 +7,7 @@
     var folderPath =
       appFolder[2] && appFolder[2].path
         ? appFolder[2].path
-        : "apps/" + folderName;
+        : "systemfiles/runtime/apps/" + folderName;
     var files = await window.protectedGlobals.getFilesFromFolder(folderPath);
     if (!Array.isArray(files)) {
       throw new Error("Invalid folder listing for " + String(folderPath));

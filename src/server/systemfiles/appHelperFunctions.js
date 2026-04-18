@@ -956,9 +956,17 @@ window.protectedGlobals.loadAppsFromTree = async function () {
   if (!window.protectedGlobals.treeData) await window.protectedGlobals.loadTree();
   try {
     var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
-    var appsNode = rootChildren.find(
-      (c) => c[0] === "apps" && Array.isArray(c[1]),
+    var systemfilesNode = rootChildren.find(
+      (c) => c[0] === "systemfiles" && Array.isArray(c[1]),
     );
+    var runtimeNode =
+      systemfilesNode && Array.isArray(systemfilesNode[1])
+        ? systemfilesNode[1].find((c) => c[0] === "runtime" && Array.isArray(c[1]))
+        : null;
+    var appsNode =
+      runtimeNode && Array.isArray(runtimeNode[1])
+        ? runtimeNode[1].find((c) => c[0] === "apps" && Array.isArray(c[1]))
+        : null;
     if (!appsNode) return;
     var appFolders = window.protectedGlobals.dedupefiles(appsNode[1]);
     for (const appFolder of appFolders) {

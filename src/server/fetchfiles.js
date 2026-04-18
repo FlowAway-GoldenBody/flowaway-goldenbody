@@ -534,8 +534,8 @@ async function applyDirections(rootPath, directions, username) {
       const relativeTarget = path
         .relative(rootPath, targetPath)
         .replace(/\\/g, '/');
-      if (relativeTarget === 'apps') {
-        continue; // prevent deleting root 'apps' folder only
+      if (relativeTarget === 'systemfiles') {
+        continue; // prevent deleting root 'systemfiles' folder only
       }
       const targetExists = await fsp
         .access(targetPath)

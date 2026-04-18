@@ -61,7 +61,7 @@
 
   async function loadRuntime() {
     var parts = [
-      "systemfiles/runtimeCore.js",
+      "systemfiles/runtime/runtimeCore.js",
     ];
 
     for (var i = 0; i < parts.length; i++) {

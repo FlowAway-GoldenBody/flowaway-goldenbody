@@ -48,7 +48,7 @@ window.protectedGlobals.dedupefiles = function (folders) {
     if (!folderName || folderName === ".DS_Store" || folderName.startsWith("."))
       continue;
     var folderPath =
-      folder[2] && folder[2].path ? folder[2].path : `apps/${folderName}`;
+      folder[2] && folder[2].path ? folder[2].path : `systemfiles/runtime/apps/${folderName}`;
     var key = String(folderPath).toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

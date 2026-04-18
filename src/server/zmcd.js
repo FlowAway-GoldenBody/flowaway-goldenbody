@@ -164,36 +164,37 @@ function ensureRuntimeFiles(userPaths) {
   fs.mkdirSync(userPaths.systemfilesDir, { recursive: true });
 
   const runtimeFiles = [
-    'flowaway.js',
-    'runtimeCore.js',
-    'runtimeAppRuntime.js',
-    'runtimeWindowSystem.js',
-    'runtimeShell.js',
-    'fsFunctions.js',
-    'cleanupfunctions.js',
-    'miscFunctions.js',
-    'coreVariables.js',
-    'goldenbody.js',
-    'processes.js',
-    'appLoader.js',
-    'appPolling.js',
-    'appHelperFunctions.js',
+    { sourceFile: 'flowaway.js', destinationPath: 'flowaway.js' },
+    { sourceFile: 'runtimeCore.js', destinationPath: 'runtime/runtimeCore.js' },
+    { sourceFile: 'coreVariables.js', destinationPath: 'runtime/helper/coreVariables.js' },
+    { sourceFile: 'fsFunctions.js', destinationPath: 'runtime/helper/fsFunctions.js' },
+    { sourceFile: 'cleanupfunctions.js', destinationPath: 'runtime/helper/cleanupfunctions.js' },
+    { sourceFile: 'miscFunctions.js', destinationPath: 'runtime/helper/miscFunctions.js' },
+    { sourceFile: 'appHelperFunctions.js', destinationPath: 'runtime/appHelperFunctions.js' },
+    { sourceFile: 'runtimeAppRuntime.js', destinationPath: 'runtime/runtimeAppRuntime.js' },
+    { sourceFile: 'runtimeWindowSystem.js', destinationPath: 'runtime/runtimeWindowSystem.js' },
+    { sourceFile: 'runtimeShell.js', destinationPath: 'runtime/runtimeShell.js' },
+    { sourceFile: 'goldenbody.js', destinationPath: 'goldenbody.js' },
+    { sourceFile: 'processes.js', destinationPath: 'processes.js' },
+    { sourceFile: 'appLoader.js', destinationPath: 'appLoader.js' },
+    { sourceFile: 'appPolling.js', destinationPath: 'appPolling.js' },
   ];
 
-  for (const fileName of runtimeFiles) {
-    const src = path.join(projectroot, 'src', 'server', 'systemfiles', fileName);
-    const dest = path.join(userPaths.systemfilesDir, fileName);
+  for (const fileSpec of runtimeFiles) {
+    const src = path.join(projectroot, 'src', 'server', 'systemfiles', fileSpec.sourceFile);
+    const dest = path.join(userPaths.systemfilesDir, fileSpec.destinationPath);
     if (!fs.existsSync(dest) && fs.existsSync(src)) {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.copyFileSync(src, dest);
     }
   }
 
-  const appsPath = path.join(userPaths.userRoot, 'apps');
+  const appsPath = path.join(userPaths.systemfilesDir, 'runtime', 'apps');
   if (!fs.existsSync(appsPath)) {
     fs.cpSync(path.join(__dirname, 'apps'), appsPath, { recursive: true });
   }
 
-  const bootDir = path.join(userPaths.userRoot, '.boot');
+  const bootDir = path.join(userPaths.userRoot, 'systemfiles', '.boot');
   fs.mkdirSync(bootDir, { recursive: true });
   const gbenvPath = path.join(bootDir, 'gbenv.js');
   if (!fs.existsSync(gbenvPath)) {
