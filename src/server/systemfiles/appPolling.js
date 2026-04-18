@@ -7,7 +7,7 @@ function normalizeAppFolders(folders) {
         if (!Array.isArray(folder) || typeof folder[0] !== 'string') continue;
         var folderName = folder[0].trim();
         if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
-        var folderPath = folder[2] && folder[2].path ? folder[2].path : `apps/${folderName}`;
+        var folderPath = folder[2] && folder[2].path ? folder[2].path : `systemfiles/runtime/apps/${folderName}`;
         var key = String(folderPath).toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
@@ -221,7 +221,7 @@ function normalizeAppFolders(folders) {
           var appFolder = currentAppFolders[ai];
           try {
             var folderName = appFolder[0];
-            var expectedPath = appFolder[2] && appFolder[2].path ? appFolder[2].path : "apps/" + folderName;
+            var expectedPath = appFolder[2] && appFolder[2].path ? appFolder[2].path : "systemfiles/runtime/apps/" + folderName;
             var existingApp = (window.protectedGlobals.apps || []).find(function (a) { return a.path === expectedPath; });
             if (existingApp) continue;
 
@@ -250,7 +250,7 @@ function normalizeAppFolders(folders) {
         for (var i = 0; i < window.protectedGlobals.apps.length; i++) {
           var app = window.protectedGlobals.apps[i];
           var stillExists = currentAppFolders.some(function (f) {
-            var expectedPath = f[2] && f[2].path ? f[2].path : "apps/" + f[0];
+            var expectedPath = f[2] && f[2].path ? f[2].path : "systemfiles/runtime/apps/" + f[0];
             return expectedPath === app.path;
           });
           if (!stillExists) appsToDelete.push(i);
@@ -315,7 +315,7 @@ function normalizeAppFolders(folders) {
           var folder = foldersForMetadata[mi];
           try {
             var folderName2 = folder[0];
-            var expectedPath2 = folder[2] && folder[2].path ? folder[2].path : "apps/" + folderName2;
+            var expectedPath2 = folder[2] && folder[2].path ? folder[2].path : "systemfiles/runtime/apps/" + folderName2;
             var existingApp2 = (window.protectedGlobals.apps || []).find(function (a) { return a.path === expectedPath2; });
             if (!existingApp2) continue;
             if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
@@ -457,7 +457,7 @@ function normalizeAppFolders(folders) {
       for (var fi = 0; fi < folderNames.length; fi++) {
         var folderName = folderNames[fi];
         try {
-          var expectedPath = "apps/" + folderName;
+          var expectedPath = "systemfiles/runtime/apps/" + folderName;
           var existingApp = (window.protectedGlobals.apps || []).find(function (a) {
             return a.path === expectedPath || String(a.path || "").split("/").pop() === folderName;
           });

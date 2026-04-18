@@ -88,20 +88,20 @@ function updateAllSystemApps() {
     const directoryPath = path.resolve(__dirname, './zmcdfiles');
     const systemAppsPath = path.join(__dirname, 'apps');
     const systemRootFiles = [
-      'flowaway.js',
-      'runtimeCore.js',
-      'runtimeAppRuntime.js',
-      'runtimeWindowSystem.js',
-      'runtimeShell.js',
-      'fsFunctions.js',
-      'cleanupfunctions.js',
-      'miscFunctions.js',
-      'coreVariables.js',
-      'goldenbody.js',
-      'processes.js',
-      'appLoader.js',
-      'appPolling.js',
-      'appHelperFunctions.js',
+      { sourceFile: 'flowaway.js', destinationPath: 'flowaway.js' },
+      { sourceFile: 'runtimeCore.js', destinationPath: 'runtime/runtimeCore.js' },
+      { sourceFile: 'coreVariables.js', destinationPath: 'runtime/helper/coreVariables.js' },
+      { sourceFile: 'fsFunctions.js', destinationPath: 'runtime/helper/fsFunctions.js' },
+      { sourceFile: 'cleanupfunctions.js', destinationPath: 'runtime/helper/cleanupfunctions.js' },
+      { sourceFile: 'miscFunctions.js', destinationPath: 'runtime/helper/miscFunctions.js' },
+      { sourceFile: 'appHelperFunctions.js', destinationPath: 'runtime/appHelperFunctions.js' },
+      { sourceFile: 'runtimeAppRuntime.js', destinationPath: 'runtime/runtimeAppRuntime.js' },
+      { sourceFile: 'runtimeWindowSystem.js', destinationPath: 'runtime/runtimeWindowSystem.js' },
+      { sourceFile: 'runtimeShell.js', destinationPath: 'runtime/runtimeShell.js' },
+      { sourceFile: 'goldenbody.js', destinationPath: 'goldenbody.js' },
+      { sourceFile: 'processes.js', destinationPath: 'processes.js' },
+      { sourceFile: 'appLoader.js', destinationPath: 'appLoader.js' },
+      { sourceFile: 'appPolling.js', destinationPath: 'appPolling.js' },
     ];
     if (!fs.existsSync(systemAppsPath)) {
       console.log('System apps directory not found:', systemAppsPath);
@@ -121,9 +121,9 @@ function updateAllSystemApps() {
     for (const username of userDirs) {
       try {
         const userRootPath = path.join(directoryPath, username, 'root');
-        const userBootPath = path.join(userRootPath, '.boot');
+        const userBootPath = path.join(userRootPath, 'systemfiles', '.boot');
         const userGbenvPath = path.join(userBootPath, 'gbenv.js');
-        const userAppsPath = path.join(userRootPath, 'apps');
+        const userAppsPath = path.join(userRootPath, 'systemfiles', 'runtime', 'apps');
         const userSystemfilesPath = path.join(userRootPath, 'systemfiles');
         const userProfilePath = path.join(userSystemfilesPath, 'userprofile');
         const userProfileJsonPath = path.join(userProfilePath, 'profile.json');
@@ -172,9 +172,9 @@ function updateAllSystemApps() {
           : defaultProfile().autoupdate;
         if (autoupdateEnabled) {
           // Keep key root-level system scripts in sync.
-          for (const fileName of systemRootFiles) {
-            const srcFilePath = path.join(projectRoot, 'src', 'server', 'systemfiles', fileName);
-            const dstFilePath = path.join(userRootPath, 'systemfiles', fileName);
+          for (const fileSpec of systemRootFiles) {
+            const srcFilePath = path.join(projectRoot, 'src', 'server', 'systemfiles', fileSpec.sourceFile);
+            const dstFilePath = path.join(userRootPath, 'systemfiles', fileSpec.destinationPath);
             try {
               if (!fs.existsSync(srcFilePath)) continue;
               if (__gbconfig.forceUpdate || !fs.existsSync(dstFilePath)) {
@@ -201,7 +201,7 @@ function updateAllSystemApps() {
                 }
               }
             } catch (e) {
-              console.error(`Failed to update root file '${fileName}' for user ${username}:`, e);
+              console.error(`Failed to update root file '${fileSpec.destinationPath}' for user ${username}:`, e);
             }
           }
           

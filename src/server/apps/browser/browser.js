@@ -242,8 +242,8 @@ window.browserGlobals.__vfsMessageListenerAdded = false;
 window.browserGlobals.tabisDragging = false;
 window.browserGlobals.draggedtab = 0;
 window.browserGlobals.__localFileUrlMap = window.browserGlobals.__localFileUrlMap || new Map();
-window.browserGlobals.profileUserIdPath = "/apps/browser/profile/userID.txt";
-window.browserGlobals.profileSettingsPath = "/apps/browser/profile/settings.json";
+window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser/profile/userID.txt";
+window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser/profile/settings.json";
 window.browserGlobals.profileState = {
   siteSettings: [],
   enableURLSync: true,
@@ -251,7 +251,7 @@ window.browserGlobals.profileState = {
   siteZoom: {},
 };
 
-function safeDecodeBase64Text(v) {
+window.browserGlobals.safeDecodeBase64Text = function (v) {
   try {
     return atob(String(v || ""));
   } catch (e) {
@@ -259,23 +259,23 @@ function safeDecodeBase64Text(v) {
   }
 }
 
-function looksLikeSessionId(value) {
+window.browserGlobals.looksLikeSessionId = function (value) {
   const s = String(value || "").trim();
   return /^[A-Za-z0-9._-]{8,}$/.test(s);
 }
 
-function decodeMaybeBase64(raw) {
+window.browserGlobals.decodeMaybeBase64 = function (raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
   if (s[0] === "{" || s[0] === "[") return s;
   const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
   if (!looksLikeBase64) return s;
-  const decoded = safeDecodeBase64Text(s);
+  const decoded = window.browserGlobals.safeDecodeBase64Text(s);
   if (!decoded) return s;
   const trimmed = decoded.trim();
   if (!trimmed) return s;
   if (trimmed[0] === "{" || trimmed[0] === "[") return trimmed;
-  if (looksLikeSessionId(trimmed)) return trimmed;
+  if (window.browserGlobals.looksLikeSessionId(trimmed)) return trimmed;
 
   let printable = 0;
   for (let i = 0; i < decoded.length; i++) {
@@ -290,30 +290,30 @@ function decodeMaybeBase64(raw) {
   return s;
 }
 
-function sleep(ms) {
+window.browserGlobals.sleep = function (ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
+};
 
-function allocateBrowserGoldenbodyId() {
-  if (browserGlobals.reusableGoldenbodyIds.length > 0) {
-    return browserGlobals.reusableGoldenbodyIds.pop();
+window.browserGlobals.allocateBrowserGoldenbodyId = function () {
+  if (window.browserGlobals.reusableGoldenbodyIds.length > 0) {
+    return window.browserGlobals.reusableGoldenbodyIds.pop();
   }
-  browserGlobals.goldenbodyId++;
-  return browserGlobals.goldenbodyId;
+  window.browserGlobals.goldenbodyId++;
+  return window.browserGlobals.goldenbodyId;
 }
 
-function releaseBrowserGoldenbodyId(root) {
+window.browserGlobals.releaseBrowserGoldenbodyId = function (root) {
   if (!root || root._goldenbodyIdReleased) return;
   const id = Number(root._goldenbodyId);
   if (!Number.isFinite(id)) return;
   root._goldenbodyIdReleased = true;
-  if (browserGlobals.reusableGoldenbodyIds.indexOf(id) === -1) {
-    browserGlobals.reusableGoldenbodyIds.push(id);
+  if (window.browserGlobals.reusableGoldenbodyIds.indexOf(id) === -1) {
+    window.browserGlobals.reusableGoldenbodyIds.push(id);
   }
 }
 
 
-async function readProfileTextFileMeta(filePath, options = {}) {
+window.browserGlobals.readProfileTextFileMeta = async function (filePath, options = {}) {
   const attempts = Math.max(1, Number(options.attempts || 1));
   const retryDelayMs = Math.max(0, Number(options.retryDelayMs || 0));
   let lastError = null;
@@ -324,30 +324,30 @@ async function readProfileTextFileMeta(filePath, options = {}) {
         const res = await window.protectedGlobals.ReadFile(filePath);
         if (!res || res.missing || res.code === "ENOENT" || res.kind === "missing") {
           if (attempt + 1 < attempts) {
-            if (retryDelayMs > 0) await sleep(retryDelayMs);
+            if (retryDelayMs > 0) await window.browserGlobals.sleep(retryDelayMs);
             continue;
           }
           return { text: "", missing: true, error: null };
         }
         if (typeof res === "string") {
-          return { text: decodeMaybeBase64(res), missing: false, error: null };
+          return { text: window.browserGlobals.decodeMaybeBase64(res), missing: false, error: null };
         }
         if (typeof res.filecontent === "string") {
-          return { text: decodeMaybeBase64(res.filecontent), missing: false, error: null };
+          return { text: window.browserGlobals.decodeMaybeBase64(res.filecontent), missing: false, error: null };
         }
         return { text: "", missing: false, error: null };
       }
 
       if (typeof readFile === "function") {
         const value = readFile(filePath);
-        return { text: decodeMaybeBase64(value), missing: false, error: null };
+        return { text: window.browserGlobals.decodeMaybeBase64(value), missing: false, error: null };
       }
 
       return { text: "", missing: false, error: new Error("No file reader available") };
     } catch (e) {
       lastError = e;
       if (attempt + 1 < attempts) {
-        if (retryDelayMs > 0) await sleep(retryDelayMs);
+        if (retryDelayMs > 0) await window.browserGlobals.sleep(retryDelayMs);
         continue;
       }
     }
@@ -356,15 +356,15 @@ async function readProfileTextFileMeta(filePath, options = {}) {
   return { text: "", missing: false, error: lastError || new Error("Failed to read file") };
 }
 
-async function readProfileTextFile(filePath) {
-  const result = await readProfileTextFileMeta(filePath, {
+window.browserGlobals.readProfileTextFile = async function (filePath) {
+  const result = await window.browserGlobals.readProfileTextFileMeta(filePath, {
     attempts: 3,
     retryDelayMs: 120,
   });
   return result.text || "";
 }
 
-function defaultBrowserProfile() {
+window.browserGlobals.defaultBrowserProfile = function () {
   return {
     siteSettings: [],
     enableURLSync: true,
@@ -377,8 +377,8 @@ function defaultBrowserProfile() {
   };
 }
 
-function normalizeBrowserProfile(parsed) {
-  if (!parsed || typeof parsed !== "object") return defaultBrowserProfile();
+window.browserGlobals.repairBrowserProfile = function (parsed) {
+  if (!parsed || typeof parsed !== "object") return window.browserGlobals.defaultBrowserProfile();
   const normalizedSiteZoom = {};
   if (parsed.siteZoom && typeof parsed.siteZoom === "object") {
     for (const key of Object.keys(parsed.siteZoom)) {
@@ -400,32 +400,23 @@ function normalizeBrowserProfile(parsed) {
   };
 }
 
-function isDefaultLikeProfile(profile) {
-  return (
-    !!profile &&
-    Array.isArray(profile.siteSettings) &&
-    profile.siteSettings.length === 0 &&
-    profile.enableURLSync === true &&
-    profile.lazyloading === true
-  );
-}
 
-async function readBrowserProfile() {
+window.browserGlobals.readBrowserProfile = async function () {
   try {
-    const profileRead = await readProfileTextFileMeta(browserGlobals.profileSettingsPath, {
+    const profileRead = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileSettingsPath, {
       attempts: 4,
       retryDelayMs: 120,
     });
     const raw = profileRead.text;
-    if (!raw) return defaultBrowserProfile();
+    if (!raw) return window.browserGlobals.defaultBrowserProfile();
     const parsed = JSON.parse(raw);
-    return normalizeBrowserProfile(parsed);
+    return window.browserGlobals.repairBrowserProfile(parsed);
   } catch (e) {
-    return defaultBrowserProfile();
+    return window.browserGlobals.defaultBrowserProfile();
   }
 }
 
-async function writeBrowserProfile(profile, options = {}) {
+window.browserGlobals.writeBrowserProfile = async function (profile, options = {}) {
   const payload = {
     siteSettings: Array.isArray(profile?.siteSettings) ? profile.siteSettings : [],
     enableURLSync: !!profile?.enableURLSync,
@@ -440,24 +431,13 @@ async function writeBrowserProfile(profile, options = {}) {
 
   if (!options.force) {
     try {
-      const existingRead = await readProfileTextFileMeta(
-        browserGlobals.profileSettingsPath,
-        {
-          attempts: 3,
-          retryDelayMs: 100,
-        },
-      );
+      const existingRead = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileSettingsPath, {
+        attempts: 3,
+        retryDelayMs: 100,
+      });
       const existingRaw = existingRead.text;
       if (existingRaw) {
-        const existing = normalizeBrowserProfile(JSON.parse(existingRaw));
-        if (!isDefaultLikeProfile(existing) && isDefaultLikeProfile(payload)) {
-          // Guard against race conditions wiping a real settings file with defaults.
-          return false;
-        }
-      } else if (isDefaultLikeProfile(payload)) {
-        // Never auto-write default profile when existing content is empty/uncertain.
-        // This prevents transient read races from wiping real data.
-        return false;
+        const existing = window.browserGlobals.repairBrowserProfile(JSON.parse(existingRaw));
       }
     } catch (e) {
       // ignore parse/read guard failures and continue with write
@@ -466,7 +446,7 @@ async function writeBrowserProfile(profile, options = {}) {
 
   const content = btoa(JSON.stringify(payload, null, 2));
   if (typeof window.protectedGlobals.WriteFile === "function") {
-    await window.protectedGlobals.WriteFile(browserGlobals.profileSettingsPath, content);
+    await window.protectedGlobals.WriteFile(window.browserGlobals.profileSettingsPath, content);
     return true;
   }
   if (typeof window.protectedGlobals.filePost === "function") {
@@ -475,7 +455,7 @@ async function writeBrowserProfile(profile, options = {}) {
       directions: [
         {
           edit: true,
-          path: browserGlobals.profileSettingsPath,
+          path: window.browserGlobals.profileSettingsPath,
           contents: content,
           replace: true,
         },
@@ -487,10 +467,10 @@ async function writeBrowserProfile(profile, options = {}) {
   return false;
 }
 
-async function writeBrowserUserId(id) {
+window.browserGlobals.writeBrowserUserId = async function (id) {
   const encoded = btoa(String(id || ""));
   if (typeof window.protectedGlobals.WriteFile === "function") {
-    await window.protectedGlobals.WriteFile(browserGlobals.profileUserIdPath, encoded);
+    await window.protectedGlobals.WriteFile(window.browserGlobals.profileUserIdPath, encoded);
     return;
   }
   if (typeof window.protectedGlobals.filePost === "function") {
@@ -499,7 +479,7 @@ async function writeBrowserUserId(id) {
       directions: [
         {
           edit: true,
-          path: browserGlobals.profileUserIdPath,
+          path: window.browserGlobals.profileUserIdPath,
           contents: encoded,
           replace: true,
         },
@@ -509,7 +489,7 @@ async function writeBrowserUserId(id) {
   }
 }
 
-async function requestNewBrowserSessionId() {
+window.browserGlobals.requestNewBrowserSessionId = async function () {
   const candidates = ["/server/newsession", "/newsession"];
   let lastError = null;
   for (const endpoint of candidates) {
@@ -529,32 +509,32 @@ async function requestNewBrowserSessionId() {
   throw lastError || new Error("Failed to create new browser session");
 }
 
-browserGlobals.profile = defaultBrowserProfile();
-browserGlobals.profileState = normalizeBrowserProfile(browserGlobals.profile);
-browserGlobals.id = "";
-browserGlobals.profileReadyPromise = (async () => {
-  const loadedProfile = await readBrowserProfile();
-  browserGlobals.profile = loadedProfile;
-  browserGlobals.profileState = normalizeBrowserProfile(loadedProfile);
+window.browserGlobals.profile = window.browserGlobals.defaultBrowserProfile();
+window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
+window.browserGlobals.id = "";
+window.browserGlobals.profileReadyPromise = (async () => {
+  const loadedProfile = await window.browserGlobals.readBrowserProfile();
+  window.browserGlobals.profile = loadedProfile;
+  window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
   // Determine effective browser theme setting
   try {
-    const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : "auto";
+    const pm = window.browserGlobals.profile && window.browserGlobals.profile.themeMode ? window.browserGlobals.profile.themeMode : "auto";
     if (pm === "auto") {
-      browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+      window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
     } else {
-      browserGlobals.dark = !!browserGlobals.profile.dark;
+      window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
     }
   } catch (e) {
-    browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+    window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
   }
 
-  const idRead = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+  const idRead = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileUserIdPath, {
     attempts: 5,
     retryDelayMs: 150,
   });
   const persistedId = String(idRead.text || "").trim();
   if (persistedId) {
-    browserGlobals.id = persistedId;
+    window.browserGlobals.id = persistedId;
     return;
   }
 
@@ -564,29 +544,29 @@ browserGlobals.profileReadyPromise = (async () => {
 
   // One more confirmation pass before generating/writing a new session id.
   // This avoids replacing an existing id when the first read was transiently empty.
-  const idReadConfirm = await readProfileTextFileMeta(browserGlobals.profileUserIdPath, {
+  const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileUserIdPath, {
     attempts: 6,
     retryDelayMs: 220,
   });
   const confirmedId = String(idReadConfirm.text || "").trim();
   if (confirmedId) {
-    browserGlobals.id = confirmedId;
+    window.browserGlobals.id = confirmedId;
     return;
   }
   if (idReadConfirm.error) {
     return;
   }
-  const id = await requestNewBrowserSessionId();
-  browserGlobals.id = id;
-  await writeBrowserUserId(id);
+  const id = await window.browserGlobals.requestNewBrowserSessionId();
+  window.browserGlobals.id = id;
+  await window.browserGlobals.writeBrowserUserId(id);
 })().catch(() => {});
 
-browserGlobals.subWebsite = function (url) {
+window.browserGlobals.subWebsite = function (url) {
   url = url.split("?");
   url = url[0].split("#");
   return url[0];
 }
-browserGlobals.unshuffleURL = function (url) {
+window.browserGlobals.unshuffleURL = function (url) {
   if (!url) return "";
   if (url === window.protectedGlobals.goldenbodywebsite + "flowerfeast.html") {
     return "goldenbody://newtab/";
@@ -596,11 +576,11 @@ browserGlobals.unshuffleURL = function (url) {
 
   try {
     if (typeof url === "string" && url.startsWith("blob:")) {
-      const mapped = browserGlobals.__localFileUrlMap.get(url);
+      const mapped = window.browserGlobals.__localFileUrlMap.get(url);
       if (mapped) return mapped;
 
       const withoutHash = url.split("#")[0];
-      const mappedNoHash = browserGlobals.__localFileUrlMap.get(withoutHash);
+      const mappedNoHash = window.browserGlobals.__localFileUrlMap.get(withoutHash);
       if (mappedNoHash) return mappedNoHash;
     }
   } catch (e) {}
@@ -630,7 +610,7 @@ browserGlobals.unshuffleURL = function (url) {
   return newUrl;
 };
 // browser global functions
-browserGlobals.mainWebsite = function (string) {
+window.browserGlobals.mainWebsite = function (string) {
   let s = "";
   let anti_numtots = 0;
   for (let i = 0; i < string.length; i++) {
@@ -653,25 +633,25 @@ window.browser = function (
 ) {
       let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
-    if (browserGlobals.profileReadyPromise) {
-      await browserGlobals.profileReadyPromise;
+    if (window.browserGlobals.profileReadyPromise) {
+      await window.browserGlobals.profileReadyPromise;
     }
 
-    browserGlobals.profileState.enableURLSync = !!content.enableURLSync;
-    browserGlobals.profileState.lazyloading = !!content.lazyloading;
+    window.browserGlobals.profileState.enableURLSync = !!content.enableURLSync;
+    window.browserGlobals.profileState.lazyloading = !!content.lazyloading;
     if (content.lazyloading)
-      browserGlobals.allBrowsers.forEach((b) =>
+      window.browserGlobals.allBrowsers.forEach((b) =>
         b.tabs.forEach((t) => (t.iframe.loading = "lazy")),
       );
     else
-      browserGlobals.allBrowsers.forEach((b) =>
+      window.browserGlobals.allBrowsers.forEach((b) =>
         b.tabs.forEach((t) => (t.iframe.loading = "")),
       );
 
-    const currentUrl = browserGlobals.mainWebsite(
+    const currentUrl = window.browserGlobals.mainWebsite(
       browserGlobals.unshuffleURL(iframe.src),
     );
-    const profile = browserGlobals.profile || defaultBrowserProfile();
+    const profile = browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
     const list = Array.isArray(profile.siteSettings) ? profile.siteSettings : [];
     let updated = false;
     for (let i = 0; i < list.length; i++) {
@@ -694,7 +674,7 @@ window.browser = function (
       profile.siteZoom && typeof profile.siteZoom === "object"
         ? profile.siteZoom
         : {};
-    await writeBrowserProfile(profile);
+    await window.browserGlobals.writeBrowserProfile(profile);
 
     iframe.sandbox = content.newSandbox;
   }
@@ -713,7 +693,7 @@ window.browser = function (
 
     let fullscreen = true;
     let addTheSite = true;
-    let siteSettings = browserGlobals.profileState.siteSettings;
+    let siteSettings = window.browserGlobals.profileState.siteSettings;
     for (const site of siteSettings) {
       if (url === site[0]) {
         sandbox = site[1];
@@ -961,19 +941,19 @@ window.browser = function (
       overflow: "hidden",
     });
     window.protectedGlobals.bringToFront(root);
-    root._goldenbodyId = allocateBrowserGoldenbodyId();
-    browserGlobals.goldenbodyOrderId++;
-    root._goldenbodyOrderId = browserGlobals.goldenbodyOrderId;
+    root._goldenbodyId = window.browserGlobals.allocateBrowserGoldenbodyId();
+    window.browserGlobals.goldenbodyOrderId++;
+    root._goldenbodyOrderId = window.browserGlobals.goldenbodyOrderId;
     root.tabIndex = "0";
     // Respect per-app ignore flag; compute effective browser dark mode
     // If a window has `data-theme-manual` set to 'true', flowaway.window.protectedGlobals.applyStyles
     // will avoid changing its theme classes. Initialize based on profile.
     try {
-      const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : 'auto';
+      const pm = window.browserGlobals.profile && window.browserGlobals.profile.themeMode ? window.browserGlobals.profile.themeMode : 'auto';
       if (pm === 'manual') {
         root.dataset.themeManual = 'true';
         // ensure this root reflects the pinned theme
-        try { root.classList.toggle('dark', !!browserGlobals.dark); root.classList.toggle('light', !browserGlobals.dark); } catch (e) {}
+        try { root.classList.toggle('dark', !!window.browserGlobals.dark); root.classList.toggle('light', !window.browserGlobals.dark); } catch (e) {}
       } else {
         root.dataset.themeManual = 'false';
       }
@@ -983,20 +963,20 @@ window.browser = function (
     root.addEventListener("styleapplied", () => {
       // If user preference is 'auto' then mirror global `window.protectedGlobals.data.dark`, otherwise use stored profile value
       try {
-        const pm = browserGlobals.profile && browserGlobals.profile.themeMode ? browserGlobals.profile.themeMode : "auto";
+        const pm = window.browserGlobals.profile && window.browserGlobals.profile.themeMode ? window.browserGlobals.profile.themeMode : "auto";
         if (pm === "auto") {
-          browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+          window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
         } else {
-          browserGlobals.dark = !!browserGlobals.profile.dark;
+          window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
         }
       } catch (e) {
-        browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+        window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
       }
 
       for (const tab of tabs) {
         tab.iframe.contentWindow.postMessage({
           __goldenbodyChangeTheme__: true,
-          dark: browserGlobals.dark,
+          dark: window.browserGlobals.dark,
         });
       }
     });
@@ -1375,15 +1355,15 @@ window.browser = function (
       root.remove();
 
       // Remove from browserGlobals.allBrowsers
-      const index = browserGlobals.allBrowsers.indexOf(chromeWindow);
+      const index = window.browserGlobals.allBrowsers.indexOf(chromeWindow);
       if (index !== -1) {
-        browserGlobals.allBrowsers.splice(index, 1);
+        window.browserGlobals.allBrowsers.splice(index, 1);
       }
       window.removeEventListener("message", messageHandler);
       window.removeEventListener("pointerup", onpointerupAnywhere);
       // Clean up all event listeners added by this app
       window.protectedGlobals.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
-      releaseBrowserGoldenbodyId(root);
+      window.browserGlobals.releaseBrowserGoldenbodyId(root);
       root = null;
       _browserCalled = false;
     }
@@ -1845,7 +1825,7 @@ window.browser = function (
             browserGlobals.profile.themeMode = 'manual';
             browserGlobals.profile.dark = chosen === 'dark';
           }
-          await writeBrowserProfile(browserGlobals.profile, { force: true });
+          await window.browserGlobals.writeBrowserProfile(browserGlobals.profile, { force: true });
         } catch (e) {}
         // update effective dark
         try {
@@ -1964,20 +1944,20 @@ window.browser = function (
       );
       if (!confirmClear) return;
 
-      const id = await requestNewBrowserSessionId();
-      browserGlobals.id = id;
-      await writeBrowserUserId(id);
-      browserGlobals.profile = {
+      const id = await window.browserGlobals.requestNewBrowserSessionId();
+      window.browserGlobals.id = id;
+      await window.browserGlobals.writeBrowserUserId(id);
+      window.browserGlobals.profile = {
         siteSettings: [],
         enableURLSync: true,
         lazyloading: true,
         siteZoom: {},
       };
-      await writeBrowserProfile(browserGlobals.profile, { force: true });
-      browserGlobals.profileState.siteSettings = [];
-      browserGlobals.profileState.enableURLSync = true;
-      browserGlobals.profileState.lazyloading = true;
-      browserGlobals.profileState.siteZoom = {};
+      await window.browserGlobals.writeBrowserProfile(window.browserGlobals.profile, { force: true });
+      window.browserGlobals.profileState.siteSettings = [];
+      window.browserGlobals.profileState.enableURLSync = true;
+      window.browserGlobals.profileState.lazyloading = true;
+      window.browserGlobals.profileState.siteZoom = {};
       window.protectedGlobals.notification("site data cleared! please close all browser windows!");
     }
     clear.onclick = clearBrowsingData;
@@ -2028,7 +2008,7 @@ window.browser = function (
         resizeDiv.style.display = "none";
       }
       previousn = activatedTab.resizeP;
-    }, 3000 * browserGlobals.nhjd);
+    }, 3000 * window.browserGlobals.nhjd);
     // ⟳ ⋮
     // iframes
     var iframes = [];
@@ -2560,19 +2540,19 @@ window.browser = function (
         function persistSiteZoomForTab(tab) {
           const key = getSiteZoomKeyForTab(tab);
           if (!key) return;
-          const profile = browserGlobals.profile || defaultBrowserProfile();
+          const profile = window.browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
           if (!profile.siteZoom || typeof profile.siteZoom !== "object") {
             profile.siteZoom = {};
           }
           profile.siteZoom[key] = tab.resizeP;
-          browserGlobals.profile = profile;
-          browserGlobals.profileState.siteZoom = profile.siteZoom;
+          window.browserGlobals.profile = profile;
+          window.browserGlobals.profileState.siteZoom = profile.siteZoom;
           try {
-            if (browserGlobals.__siteZoomPersistTimer) {
-              clearTimeout(browserGlobals.__siteZoomPersistTimer);
+            if (window.browserGlobals.__siteZoomPersistTimer) {
+              clearTimeout(window.browserGlobals.__siteZoomPersistTimer);
             }
-            browserGlobals.__siteZoomPersistTimer = setTimeout(() => {
-              writeBrowserProfile(profile).catch(() => {});
+            window.browserGlobals.__siteZoomPersistTimer = setTimeout(() => {
+              window.browserGlobals.writeBrowserProfile(profile).catch(() => {});
             }, 220);
           } catch (e) {}
         }
@@ -2580,7 +2560,7 @@ window.browser = function (
         function loadSiteZoomForTab(tab) {
           const key = getSiteZoomKeyForTab(tab);
           if (!key) return;
-          const profile = browserGlobals.profile || defaultBrowserProfile();
+          const profile = window.browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
           const siteZoom =
             profile.siteZoom && typeof profile.siteZoom === "object"
               ? profile.siteZoom
@@ -2635,16 +2615,28 @@ window.browser = function (
         // let sfc = tab.iframe.contentDocument.createElement("script");
         // sfc.src = window.protectedGlobals.goldenbodywebsite + "sfc__o.js";
         // tab.iframe.contentDocument.head.prepend(sfc);
-        var script = tab.iframe.contentDocument.createElement("script");
-        script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${browserGlobals.nhjd}); function callParent(url) {
-  window.parent.postMessage(
-    { type: "FROM_IFRAME", message: url },
-    "*"
-  );
-}
+        setInterval(function () {
+          try {
+            if (!iframe || !iframe.contentDocument) clearInterval(this);
+  var links = iframe.contentDocument.getElementsByTagName("a");
 
-`;
-        tab.iframe.contentDocument.head.appendChild(script);
+  for (let i = 0; i < links.length; i++) {
+ 
+    links[i].target = "_self";
+
+    links[i].onclick = (e) => {
+      if (e.metaKey) {
+      e.preventDefault();
+        const url = links[i].href;
+
+        iframe.contentWindow.open(url, "_blank");
+        console.log(links[i].href);
+      }
+    };
+  }
+} catch(e) {clearInterval(this);}
+}, 2000 * browserGlobals.nhjd);
+
       });
       iframe.addEventListener("load", function onLoad() {
         const doc = iframe.contentDocument;
@@ -2703,7 +2695,7 @@ window.browser = function (
             iframe.contentWindow.location.href,
           );
           if (iframe.contentDocument.readyState === "complete" && !tab.donotm) {
-            const docTitle = iframe.contentDocument.title || iframe.contentDocument.querySelector('title').childNodes[0].nodeValue  || "Untitled";
+            const docTitle = iframe.contentDocument.title || iframe.contentDocument.querySelector('title')?.childNodes[0]?.nodeValue  || window.browserGlobals.unshuffleURL(iframe.contentWindow.location.href) || "Untitled";
             tab.title = docTitle;
           } else {
             tab.title = "Loading...";
@@ -2839,9 +2831,9 @@ window.browser = function (
                 window.protectedGlobals.removeAllEventListenersForApp(
                   closingRoot.dataset.appId + closingRoot._goldenbodyId,
                 );
-                releaseBrowserGoldenbodyId(closingRoot);
-                browserGlobals.allBrowsers[i].rootElement = null;
-                browserGlobals.allBrowsers.splice(i, 1);
+                window.browserGlobals.releaseBrowserGoldenbodyId(closingRoot);
+                window.browserGlobals.allBrowsers[i].rootElement = null;
+                window.browserGlobals.allBrowsers.splice(i, 1);
               }
             }
           }
@@ -6394,9 +6386,13 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
       // Inject custom styles
       checkInterval = setInterval(() => {
+        try {
         if (browserGlobals.allBrowsers.length == 0) {
           clearInterval(checkInterval);
         }
+      } catch (e) {
+        clearInterval(checkInterval);
+      }
         try {
           const currentUrl = browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
@@ -6421,13 +6417,13 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           } else {
             setAddressButtonIcon(reloadBtn, "reload");
             reloadBtn.dataset.mode = "reload";
-            try {
-              if (tab.iframe.contentDocument.readyState === "complete") {
-                const docTitle =
-                  tab.iframe.contentDocument.title || tab.iframe.contentDocument.querySelector('title').childNodes[0].nodeValue  || "Untitled";
-                tab.title = docTitle;
-              }
-            } catch (e) {}
+            // try {
+            //   if (tab.iframe.contentDocument.readyState === "complete") {
+            //     const docTitle =
+            //       tab.iframe.contentDocument.title || tab.iframe.contentDocument.querySelector('title').childNodes[0].nodeValue  || tab.iframe.contentWindow.location.href || "Untitled";
+            //     tab.title = docTitle;
+            //   }
+            // } catch (e) {}
           }
           if (previousTabTitle !== tab.title) renderTabs();
           previousTabTitle = tab.title;
@@ -6650,7 +6646,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         : "";
 
       if (ext === ".url") {
-        const text = decodeMaybeBase64(base64);
+        const text = window.browserGlobals.decodeMaybeBase64(base64);
         const direct = text.trim();
         const match = text.match(/^\s*URL\s*=\s*(\S+)/im);
         const targetUrl = (match && match[1] ? match[1] : direct).trim();

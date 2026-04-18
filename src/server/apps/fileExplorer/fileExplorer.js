@@ -1668,7 +1668,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   saveBtn.onclick = handlesave;
   // root.addEventListener("mouseup", handlesave);
   // --- Upload helpers ---
-  const MAX_INLINE_BASE64 = 250 * 1024 * 1024; // 250 MB inline threshold
+  const MAX_INLINE_BASE64 = 10 * 1024 * 1024; // 10 MB inline threshold
   const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks for large files
   const MAX_CHUNK_RETRIES = 3;
   const CHUNK_RETRY_BASE_MS = 500; // ms

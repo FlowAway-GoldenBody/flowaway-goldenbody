@@ -7,7 +7,7 @@ window.yourApp = function (posX, posY) {
 
   var title = document.createElement("h1");
   title.textContent =
-    "this is a sample app, edit /apps/sample app/apptemplate.js to make it your own!";
+    "this is a sample app, edit /systemfiles/runtime/apps/sample app/apptemplate.js to make it your own!";
 
   content.appendChild(title);
   root.appendChild(content);
