@@ -2622,9 +2622,10 @@ window.browser = function (
 
   for (let i = 0; i < links.length; i++) {
  
-    links[i].target = "_self";
 
     links[i].onclick = (e) => {
+      if(links[i].target === "_self") iframe.contentWindow.location.href = links[i].href;
+      else iframe.contentWindow.open(links[i].href, "_blank");
       if (e.metaKey) {
       e.preventDefault();
         const url = links[i].href;
@@ -5782,7 +5783,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                 if (!frameDoc.getElementById("_gb_a_setter")) {
                   var script = frameDoc.createElement("script");
                   script.id = "_gb_a_setter";
-                  script.textContent = `setInterval(function(){var _goldenbody = document.getElementsByTagName('a'); for(let i = 0; i < _goldenbody.length; i++) {_goldenbody[i].target="_self";} },2000*${browserGlobals.nhjd}); function callParent(url) {
+                  script.textContent = `function callParent(url) {
   window.parent.postMessage(
     { type: "FROM_IFRAME", message: url },
     "*"
