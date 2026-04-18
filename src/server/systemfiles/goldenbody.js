@@ -76,22 +76,12 @@
     taskbar.style.transform = 'translateY(0)';
     taskbar.style.opacity = 0.8;
     taskbarVisible = true;
-    for(let root of document.querySelectorAll('.app-window-root')){
-      if(root.style.height === "100%") {
-      root.style.height = `calc(100% - 60px)`;
-      }
-    }
   }
   function hideTaskbar() {
     if (!taskbarVisible) return;
     taskbar.style.transform = 'translateY(100%)';
     taskbar.style.opacity = 0;
     taskbarVisible = false;
-    for(let root of document.querySelectorAll('.app-window-root')){
-      if(root.style.height === `calc(100% - 60px)`){
-      root.style.height = "100%";
-      }
-    }
   }
   // Autohide handlers (kept as references so we can add/remove them)
   var _revealHoldTimer = null;
@@ -254,6 +244,11 @@
     if (autohideActive) return;
     autohideEnabled = true;
     hideTaskbar();
+    for(let root of document.querySelectorAll('.app-window-root')){
+      if(root.style.height === `calc(100% - 60px)`) {
+      root.style.height = '100%';
+      }
+    }
     document.addEventListener('mousemove', _onMouseMove);
     taskbar.addEventListener('pointerenter', _onTaskbarEnter);
     taskbar.addEventListener('pointerleave', _onTaskbarLeave);
@@ -296,6 +291,11 @@
     if (!autohideEnabled) return;
     autohideEnabled = false;
     _cancelRevealTimer();
+    for(let root of document.querySelectorAll('.app-window-root')){
+      if(root.style.height === `100%`) {
+      root.style.height = `calc(100% - 60px)`;
+      }
+    }
     if (_hideTimer) {
       clearTimeout(_hideTimer);
       _hideTimer = null;

@@ -34,7 +34,7 @@ window.protectedGlobals.getFilesFromFolder = async function (relPath) {
 
     throw new Error("Invalid folder response for " + String(relPath));
   } catch (e) {
-    window.protectedGlobals.notification("getFilesFromFolder error", e);
+    console.error("getFilesFromFolder error", e);
     throw e;
   }
 }
