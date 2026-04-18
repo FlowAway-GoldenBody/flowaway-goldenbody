@@ -74,4 +74,5 @@
   loadRuntime().catch(function (e) {
     crash("Flowaway bootstrap failed.", String((e && (e.stack || e.message)) || e));
   });
+  window.protectedGlobals.notification("if you dont see any apps, refresh the page!", {duration: 5000});
 })();

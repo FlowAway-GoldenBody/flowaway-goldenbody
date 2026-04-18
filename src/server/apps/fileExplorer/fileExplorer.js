@@ -891,6 +891,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
   function render() {
     // Always keep treeData sorted before rendering so the UI is alphabetical
     sortTree();
+    window.protectedGlobals.annotateTreeWithPaths(treeData);
     renderBreadcrumbs();
     renderFiles();
     updateStorageDisplay();
@@ -1459,8 +1460,7 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
         const selectedExtensions = toOpen
           .filter((node) => node && !Array.isArray(node[1]))
           .map((node) => {
-            // Prefer explicit cached path, then computed path, then fallback to the item's name
-            const candidatePath = (node && node[2] && node[2].path) || getItemPath(node) || (Array.isArray(node) ? node[0] : "");
+            const candidatePath = node[2].path;
             return String(candidatePath || "");
           })
           .map((path) => {
@@ -1529,7 +1529,8 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
                 hideContextMenu();
                 for (const node of toOpen) {
                   if (!node || Array.isArray(node[1])) continue;
-                  let path = (node && node[2] && node[2].path) || getItemPath(node) || (Array.isArray(node) ? node[0] : "");
+                  let path = node[2].path;
+                  console.log("Opening with app", app.functionName, path, node);
                   try {
                     window[app.functionName](path);
                   } catch (e) {

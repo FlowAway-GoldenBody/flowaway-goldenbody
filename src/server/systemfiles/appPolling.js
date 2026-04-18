@@ -29,9 +29,14 @@ function normalizeAppFolders(folders) {
   };
 
   function normalizeFolderName(value) {
-    var normalized = String(value || "").trim();
+    var normalized = String(value || "").replace(/\\/g, "/").trim();
     if (!normalized || normalized.startsWith(".")) return "";
-    return normalized;
+    var parts = normalized.split("/").filter(Boolean);
+    if (!parts.length) return "";
+    var appsIndex = parts.lastIndexOf("apps");
+    var candidate = appsIndex >= 0 && parts[appsIndex + 1] ? parts[appsIndex + 1] : parts[0];
+    if (!candidate || candidate.startsWith(".")) return "";
+    return candidate;
   }
 
   function queueHint(msg) {
@@ -70,13 +75,6 @@ function normalizeAppFolders(folders) {
   }
 
   function refreshAppsUiAfterChanges() {
-    try {
-      if (typeof window.protectedGlobals.loadAppsFromTree === "function") window.protectedGlobals.loadAppsFromTree();
-    } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
-        window.protectedGlobals.throwError("refreshAppsUiAfterChanges", "loadAppsFromTree failed", e);
-      }
-    }
     try {
       if (typeof window.protectedGlobals.renderAppsGrid === "function") window.protectedGlobals.renderAppsGrid();
     } catch (e) {
@@ -191,9 +189,17 @@ function normalizeAppFolders(folders) {
     try {
       var scriptReloadedPaths = new Set();
       var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
-      var appsNode = rootChildren.find(function (c) {
-        return c[0] === "apps" && Array.isArray(c[1]);
+      var systemfilesNode = rootChildren.find(function (c) {
+        return c[0] === "systemfiles" && Array.isArray(c[1]);
       });
+      var runtimeNode =
+        systemfilesNode && Array.isArray(systemfilesNode[1])
+          ? systemfilesNode[1].find(function (c) { return c[0] === "runtime" && Array.isArray(c[1]); })
+          : null;
+      var appsNode =
+        runtimeNode && Array.isArray(runtimeNode[1])
+          ? runtimeNode[1].find(function (c) { return c[0] === "apps" && Array.isArray(c[1]); })
+          : null;
       if (!appsNode) return;
 
       var currentAppFolders = normalizeAppFolders(appsNode[1]);
@@ -232,10 +238,6 @@ function normalizeAppFolders(folders) {
             }
             window.protectedGlobals.apps.push(newAppData);
             window.protectedGlobals.apps.sort(function (a, b) { return a.label.localeCompare(b.label); });
-              window.protectedGlobals.throwError("pollAppChanges", "New app detected", null, {
-                label: newAppData.label,
-                path: newAppData.path,
-              });
             window.protectedGlobals.hasChanges = true;
           } catch (e) {
             if (typeof window.protectedGlobals.throwError === "function") {
@@ -711,7 +713,7 @@ function normalizeAppFolders(folders) {
     state.socket.onmessage = function (ev) {
       try {
         var msg = JSON.parse(ev.data);
-        if (!msg || !msg.appChanges) return;
+        if (!msg) return;
         if (!Array.isArray(msg.changedApps) || msg.changedApps.length === 0) return;
         queueHint(msg);
         schedulePoll();
@@ -748,7 +750,7 @@ function normalizeAppFolders(folders) {
     }
     console.log("[APP POLLING] WebSocket polling enabled");
   }
-
+  start();
   function stop() {
     try {
       if (state.timer) clearTimeout(state.timer);

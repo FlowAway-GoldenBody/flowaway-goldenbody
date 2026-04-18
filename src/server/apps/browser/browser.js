@@ -2615,9 +2615,9 @@ window.browser = function (
         // let sfc = tab.iframe.contentDocument.createElement("script");
         // sfc.src = window.protectedGlobals.goldenbodywebsite + "sfc__o.js";
         // tab.iframe.contentDocument.head.prepend(sfc);
-        setInterval(function () {
+        let linkinterval = setInterval(function () {
           try {
-            if (!iframe || !iframe.contentDocument) clearInterval(this);
+            if (!iframe || !iframe.contentDocument) clearInterval(linkinterval);
   var links = iframe.contentDocument.getElementsByTagName("a");
 
   for (let i = 0; i < links.length; i++) {
@@ -2634,7 +2634,7 @@ window.browser = function (
       }
     };
   }
-} catch(e) {clearInterval(this);}
+} catch(e) {clearInterval(linkinterval);}
 }, 2000 * browserGlobals.nhjd);
 
       });

@@ -29,7 +29,7 @@ function getChangedAppFolder(filename) {
 }
 
 function getUserAppsPath(username) {
-  return path.join(userRootBase, username, 'root', 'apps');
+  return path.join(userRootBase, username, 'root', 'systemfiles', 'runtime', 'apps');
 }
 
 function notifyUserChanges(username) {
