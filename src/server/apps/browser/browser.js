@@ -1,6 +1,12 @@
 //browser global vars
 window.browserGlobals = {};
 window.browserGlobals.nhjd = 1;
+window.browserGlobals.tmp = {};
+window.browserGlobals.tmp.a = async function () {
+  window.browserGlobals.hammerheadscript = await window.protectedGlobals.ReadFile("systemfiles/runtime/apps/browser/hammerheadscript.js", { text: true, direct: true }) || "";
+};
+window.browserGlobals.tmp.a();
+delete window.browserGlobals.tmp.a;
 window.browserGlobals.browserCss = `
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
 .sim-chrome-top {
@@ -242,6 +248,7 @@ window.browserGlobals.__vfsMessageListenerAdded = false;
 window.browserGlobals.tabisDragging = false;
 window.browserGlobals.draggedtab = 0;
 window.browserGlobals.__localFileUrlMap = window.browserGlobals.__localFileUrlMap || new Map();
+window.browserGlobals.__localFilePathToBlobMap = window.browserGlobals.__localFilePathToBlobMap || new Map();
 window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser/profile/userID.txt";
 window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser/profile/settings.json";
 window.browserGlobals.profileState = {
@@ -586,7 +593,13 @@ window.browserGlobals.unshuffleURL = function (url) {
   } catch (e) {}
 
   if (typeof url === "string" && url.startsWith("file://")) {
-    return url.replace(/^file:\/\//i, "");
+    let localPath = url.replace(/^file:\/\//i, "");
+    try {
+      localPath = decodeURIComponent(localPath);
+    } catch (e) {}
+    localPath = localPath.replace(/\/{2,}/g, "/");
+    localPath = localPath.replace(/^\/+/, "");
+    return localPath;
   }
 
   if(!url.includes(window.protectedGlobals.BASE)) {return url};
@@ -1237,6 +1250,10 @@ window.browser = function (
       topBar.style.padding = "2px";
       topBar.style.cursor = "move";
       topBar.style.flexShrink = "0";
+      topBar.style.position = "static";
+      topBar.style.top = "";
+      topBar.style.right = "";
+      topBar.style.marginLeft = "auto";
     }
 
     var btnMin = document.createElement("button");
@@ -2187,7 +2204,7 @@ window.browser = function (
     window.addEventListener("message", messageHandler);
     window.addEventListener("pointerup", onpointerupAnywhere);
     renderInterval = setInterval(() => {
-      if (!root) {
+      if (!browserGlobals.allBrowsers.some((b) => b.rootElement === root)) {
         clearInterval(renderInterval);
         console.warn("interval cleared, root missing!");
       }
@@ -2622,7 +2639,11 @@ window.browser = function (
 
   for (let i = 0; i < links.length; i++) {
  
-
+    if (!links[i].href.includes(browserGlobals.id)) {
+      if (links[i].href.startsWith("http")) {
+        links[i].href = a(links[i].href, browserGlobals.proxyurl);
+      }
+    }
     links[i].onclick = (e) => {
       if(links[i].target === "_self") iframe.contentWindow.location.href = links[i].href;
       else iframe.contentWindow.open(links[i].href, "_blank");
@@ -2702,7 +2723,6 @@ window.browser = function (
             tab.title = "Loading...";
           }
         } catch (e) {
-          clearInterval(titleInterval);
           console.warn("Interval cleared due to error:", e);
         }
         if (previousTabTitle !== tab.title) renderTabs();
@@ -6263,15 +6283,26 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
     function canonicalHistoryUrl(url) {
       if (!url) return "";
-      try {
-        const parsed = new URL(url);
-        if (parsed.pathname.length > 1 && parsed.pathname.endsWith("/")) {
-          parsed.pathname = parsed.pathname.slice(0, -1);
-        }
-        return parsed.href;
-      } catch (e) {
-        return String(url).replace(/\/+$/, "");
+      const raw = String(url);
+      const hashIndex = raw.indexOf("#");
+      const queryIndex = raw.indexOf("?");
+      let splitIndex = raw.length;
+
+      if (queryIndex !== -1 && queryIndex < splitIndex) {
+        splitIndex = queryIndex;
       }
+      if (hashIndex !== -1 && hashIndex < splitIndex) {
+        splitIndex = hashIndex;
+      }
+
+      let head = raw.slice(0, splitIndex);
+      const tail = raw.slice(splitIndex);
+
+      if (head.length > 1) {
+        head = head.replace(/\/+$/, "");
+      }
+
+      return head + tail;
     }
 
     function historyRecord(tab, url) {
@@ -6284,7 +6315,10 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           tab.history.index >= 0 &&
           tab.history.index < tab.history.stack.length
         ) {
-          tab.history.stack[tab.history.index] = url;
+          const currentStackUrl = tab.history.stack[tab.history.index];
+          tab.history.current = currentStackUrl;
+          tab.history.currentCanonical = canonicalHistoryUrl(currentStackUrl);
+          return;
         }
         tab.history.current = url;
         tab.history.currentCanonical = canonical;
@@ -6315,7 +6349,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       tab.history.currentCanonical = canonical;
     }
 
-    function historyNavigate(tab, direction) {
+    async function historyNavigate(tab, direction) {
       if (!tab || !tab.history) return;
       const nextIndex = tab.history.index + direction;
       if (nextIndex < 0 || nextIndex >= tab.history.stack.length) return;
@@ -6333,6 +6367,33 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       try {
         createPermInput(tab.iframe, targetUrl);
       } catch (e) {}
+      if (String(targetUrl).startsWith("file://")) {
+        try {
+          cleanupLocalFileNav(tab);
+          const localPath = normalizeLocalFilePath(targetUrl);
+          let blobUrl = browserGlobals.__localFilePathToBlobMap.get(localPath);
+          if (!blobUrl) {
+            const localNav = await resolveLocalFileNavigation(localPath);
+            blobUrl = localNav.iframeSrc;
+            tab.__localFileNav = localNav;
+          } else {
+            tab.__localFileNav = {
+              iframeSrc: blobUrl,
+              historyUrl: `file://${localPath}`,
+              displayUrl: localPath,
+              blobUrl,
+              isLocal: true,
+            };
+          }
+          tab.iframe.src = blobUrl;
+          urlInput.value = localPath;
+          return;
+        } catch (e) {
+          tab.history.suppressNextRecord = false;
+          window.protectedGlobals.notification("Unable to open file from history");
+          return;
+        }
+      }
       try {
         tab.iframe.contentWindow.location.href = a(
           targetUrl,
@@ -6395,6 +6456,12 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         clearInterval(checkInterval);
       }
         try {
+          if(!tab.iframe.contentWindow?.gbdataset?.hammerheadloaded) {
+            const doc = tab.iframe.contentDocument;
+            let script = doc.createElement("script");
+            script.textContent = window.browserGlobals.hammerheadscript;
+            doc.head.appendChild(script);
+          }
           const currentUrl = browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
@@ -6430,7 +6497,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           previousTabTitle = tab.title;
         } catch (e) {
           console.error(e);
-          clearInterval(checkInterval);
         }
       }, 250 * browserGlobals.nhjd);
       renderTabs();
@@ -6622,7 +6688,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       return URL.createObjectURL(blob);
     }
 
-    async function resolveLocalFileNavigation(inputPath) {
+    async function resolveLocalFileNavigation(inputPath, options = null) {
       const normalizedPath = normalizeLocalFilePath(inputPath);
       if (!normalizedPath) throw new Error("Missing file path");
       if (typeof window.protectedGlobals.filePost !== "function") {
@@ -6662,9 +6728,60 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       }
 
       const mime = mimeFromPath(normalizedPath);
-      const blobUrl = base64ToBlobUrl(base64, mime);
+      const htmlLikeExts = new Set([
+        ".html",
+        ".htm",
+        ".aspx",
+        ".asp",
+        ".php",
+        ".jsp",
+        ".cgi",
+      ]);
+      const shouldInjectPreloadHammerhead =
+        !!options?.injectHammerheadPreload && htmlLikeExts.has(ext);
+
+      let blobUrl = "";
+      if (shouldInjectPreloadHammerhead) {
+        try {
+          const raw = String(base64 || "");
+          const clean = raw.replace(/\s+/g, "");
+          const binary = atob(clean);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          const htmlText = new TextDecoder().decode(bytes);
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlText, "text/html");
+          const hammerheadScript = String(
+            window.browserGlobals.hammerheadscript || "",
+          );
+          const scriptEl = doc.createElement("script");
+          scriptEl.textContent = hammerheadScript;
+          if (doc.head) {
+            doc.head.prepend(scriptEl);
+          } else if (doc.documentElement) {
+            doc.documentElement.prepend(scriptEl);
+          }
+          const serialized =
+            (doc.doctype
+              ? "<!DOCTYPE " + doc.doctype.name + ">\n"
+              : "<!DOCTYPE html>\n") +
+            doc.documentElement.outerHTML;
+          blobUrl = URL.createObjectURL(
+            new Blob([serialized], {
+              type: mime || "text/html;charset=utf-8",
+            }),
+          );
+        } catch (e) {
+          blobUrl = base64ToBlobUrl(base64, mime);
+        }
+      } else {
+        blobUrl = base64ToBlobUrl(base64, mime);
+      }
       try {
         browserGlobals.__localFileUrlMap.set(blobUrl, normalizedPath);
+        browserGlobals.__localFilePathToBlobMap.set(normalizedPath, blobUrl);
       } catch (e) {}
       return {
         iframeSrc: blobUrl,
@@ -6678,8 +6795,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     function cleanupLocalFileNav(tab) {
       try {
         if (tab && tab.__localFileNav && tab.__localFileNav.blobUrl) {
+          const mappedPath = browserGlobals.__localFileUrlMap.get(tab.__localFileNav.blobUrl);
           try {
             browserGlobals.__localFileUrlMap.delete(tab.__localFileNav.blobUrl);
+          } catch (e) {}
+          try {
+            if (mappedPath) {
+              browserGlobals.__localFilePathToBlobMap.delete(mappedPath);
+            }
           } catch (e) {}
           URL.revokeObjectURL(tab.__localFileNav.blobUrl);
         }
@@ -6687,7 +6810,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       if (tab) tab.__localFileNav = null;
     }
 
-    async function openUrlInActiveTab(rawUrl) {
+    async function openUrlInActiveTab(rawUrl, options = null) {
       const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
       if (tabIndex === -1) return;
       const tab = tabs[tabIndex];
@@ -6700,7 +6823,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       if (looksLikeLocalFilePath(input)) {
         try {
           cleanupLocalFileNav(tab);
-          const localNav = await resolveLocalFileNavigation(input);
+          const localNav = await resolveLocalFileNavigation(input, options);
           tab.__localFileNav = localNav;
           tab.url = localNav.historyUrl;
           tab.loadedurl = localNav.historyUrl;
@@ -6819,7 +6942,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     if (preloadlink) {
       const id = addTab("goldenbody://newtab/", "New Tab");
       activateTab(id);
-      openUrlInActiveTab(preloadlink);
+      openUrlInActiveTab(preloadlink, { injectHammerheadPreload: true });
     }
 
     // new tab
@@ -7170,7 +7293,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
   browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
   window.protectedGlobals.applyStyles();
 
-  function a(url, proxyurl) {
+function a(url, proxyurl) {
     function encodeUV(str) {
       return encodeURIComponent(
         str
@@ -7210,4 +7333,3 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     // => hvtrs8%2F-wuw%2Chgrm-uaps%2Ccmm
   }
 };
-

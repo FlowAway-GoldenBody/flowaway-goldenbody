@@ -9,12 +9,19 @@
 // `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
-window.protectedGlobals.ReadFile = async function (relPath) {
+window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
   if (!relPath) throw new Error("No path");
-  return await window.protectedGlobals.filePost({
+  let res = await window.protectedGlobals.filePost({
     requestFile: true,
     requestFileName: String(relPath),
   });
+  if (options.text) {
+    if (res && typeof res.filecontent === "string") {
+      res.filecontent = window.tmpGlobals.decodeBase64ToUTF8(res.filecontent);
+    }
+  }
+  if (options.direct) return res.filecontent;
+  return res;
 };
 
 window.protectedGlobals.WriteFile = async function (relPath, contents, options = {}) {
