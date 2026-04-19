@@ -14,7 +14,7 @@
   OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
-  /* global Reflect, Promise, SuppressedError, Symbol */
+  /* global Reflect, Promise, SuppressedError, Symbol, Iterator */
 
   var extendStatics = function(d, b) {
     extendStatics = Object.setPrototypeOf ||
@@ -1770,9 +1770,7 @@
   parseInt(info.version, 10);
   info.version;
   webkitVersionMatch && webkitVersionMatch[1] || '';
-  !!(info.msie || info.msedge);
   !!info.firefox;
-  !!info.msedge;
   !!info.chrome;
   var isSafari = !!info.safari;
   !!(info.webkit || info.blink);

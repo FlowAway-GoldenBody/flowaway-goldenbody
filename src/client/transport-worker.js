@@ -1640,9 +1640,7 @@
     parseInt(info.version, 10);
     info.version;
     webkitVersionMatch && webkitVersionMatch[1] || '';
-    !!(info.msie || info.msedge);
     !!info.firefox;
-    !!info.msedge;
     !!info.chrome;
     !!info.safari;
     !!(info.webkit || info.blink);
