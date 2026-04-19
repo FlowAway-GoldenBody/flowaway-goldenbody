@@ -2645,14 +2645,16 @@ window.browser = function (
       }
     }
     links[i].onclick = (e) => {
-      if(links[i].target === "_self") iframe.contentWindow.location.href = links[i].href;
-      else iframe.contentWindow.open(links[i].href, "_blank");
-      if (e.metaKey) {
       e.preventDefault();
-        const url = links[i].href;
+      if (e.metaKey) {
+        const url = browserGlobals.unshuffleURL(links[i].href);
 
         iframe.contentWindow.open(url, "_blank");
         console.log(links[i].href);
+      }
+      else {
+      if(links[i].target === "_self") iframe.contentWindow.location.href = browserGlobals.unshuffleURL(links[i].href);
+      else iframe.contentWindow.open(browserGlobals.unshuffleURL(links[i].href), "_blank");
       }
     };
   }
@@ -2890,6 +2892,7 @@ window.browser = function (
         function normalizeContextMenuUrl(url) {
           if (!url || typeof url !== "string") return "";
           try {
+            console.log(browserGlobals.unshuffleURL(url));
             return browserGlobals.unshuffleURL(url);
           } catch (e) {
             return url;
