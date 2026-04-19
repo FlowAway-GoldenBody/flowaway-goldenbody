@@ -1,6 +1,5 @@
 // this app is a place holder
 // how it works is you reference the path of the app you want to run, the 2nd arg is the command, and the rest is from the app itself.
-// there is a env var map in /.boot/gbenv.js
 
 window.terminalGlobals = {};
 terminalGlobals.allTerminals = [];
@@ -17,8 +16,6 @@ window.protectedGlobals.__terminalBuiltInCommandNames = Array.isArray(window.pro
       "help", "clear", "echo", "date", "whoami", "pwd", "history", "exit",
       "ls", "cd", "cat", "head", "tail", "mkdir", "touch", "write", "rm", "cp", "mv",
       "apps", "open", "run",
-      "env", "set", "unset",
-      "gbenv",
     ];
 
 function normalizeTerminalCommandName(raw) {
@@ -710,27 +707,12 @@ terminal = function (posX = 50, posY = 50) {
   let cwdRelPath = "";
   let commandHistory = [];
   let historyIndex = -1;
-  const GBENV_PATH = "/systemfiles/.boot/gbenv.js";
-  const GBENV_GLOBAL_KEY = "__gbenv_shortcut";
-  let terminalGbenv =
-    typeof window[GBENV_GLOBAL_KEY] === "object" && window[GBENV_GLOBAL_KEY]
-      ? { ...window[GBENV_GLOBAL_KEY] }
-      : typeof window.__gbenv === "object" && window.__gbenv
-      ? { ...window.__gbenv }
-      : {};
-  const terminalEnv = {
-    USER: username,
-    HOME: "~",
-    SHELL: "flowaway-terminal",
-    LANG: "en_US.UTF-8",
-  };
 
   function cwdDisplayPath() {
     return cwdRelPath ? `~/${cwdRelPath}` : "~";
   }
 
   function updatePrompt() {
-    terminalEnv.PWD = cwdDisplayPath();
     promptLabel.textContent = `${username}@flowaway:${cwdDisplayPath()}$`;
   }
 
@@ -896,61 +878,6 @@ terminal = function (posX = 50, posY = 50) {
     }
   }
 
-  function serializeGbenv(map) {
-    const payload = JSON.stringify(map || {}, null, 2);
-    return `window.${GBENV_GLOBAL_KEY} = ${payload};\n`;
-  }
-
-  function parseGbenvScript(scriptText) {
-    const text = String(scriptText || "");
-    const candidates = ["window.__gbenv_shortcut", "window.__gbenv"];
-    for (const keyPath of candidates) {
-      const start = text.indexOf(keyPath);
-      if (start === -1) continue;
-      const eq = text.indexOf("=", start);
-      if (eq === -1) continue;
-      const rhs = text.slice(eq + 1).trim().replace(/;\s*$/, "");
-      try {
-        const obj = Function(`"use strict"; return (${rhs});`)();
-        if (obj && typeof obj === "object") return obj;
-      } catch (e) {}
-    }
-    return {};
-  }
-
-  async function loadGbenvFromDisk() {
-    try {
-      const raw = await readFileByPath(GBENV_PATH);
-      terminalGbenv = parseGbenvScript(raw);
-      window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
-      window.__gbenv = { ...terminalGbenv };
-      return true;
-    } catch (e) {
-      terminalGbenv =
-        typeof window[GBENV_GLOBAL_KEY] === "object" && window[GBENV_GLOBAL_KEY]
-          ? { ...window[GBENV_GLOBAL_KEY] }
-          : typeof window.__gbenv === "object" && window.__gbenv
-          ? { ...window.__gbenv }
-          : {};
-      return false;
-    }
-  }
-
-  async function saveGbenvToDisk() {
-    const out = serializeGbenv(terminalGbenv);
-    await saveTextFileByPath(GBENV_PATH, out);
-    window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
-    window.__gbenv = { ...terminalGbenv };
-  }
-
-  function expandVars(text) {
-    return String(text || "").replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (_, key) => {
-      if (Object.prototype.hasOwnProperty.call(terminalEnv, key)) {
-        return terminalEnv[key];
-      }
-      return "";
-    });
-  }
 
   function listApps() {
     try {
@@ -1029,9 +956,7 @@ terminal = function (posX = 50, posY = 50) {
       },
       openAppByName: openAppByName,
       listApps: listApps,
-      getEnvSnapshot: function () {
-        return { ...terminalEnv };
-      },
+
       getCwd: function () {
         return cwdDisplayPath();
       },
@@ -1101,8 +1026,6 @@ terminal = function (posX = 50, posY = 50) {
       writeLine("            mkdir <path>, touch <path>, write <path> <text>, rm <path>");
       writeLine("            cp <src> <dst>, mv <src> <dst>");
       writeLine("Apps:       apps, open <app>, run <path|function> [args...]");
-      writeLine("Env:        env, set <KEY> <VALUE>, unset <KEY>");
-      writeLine("gbenv:      gbenv, gbenv get|set|unset|save|reload");
       const customCommands = getCustomCommandEntries();
       if (customCommands.length) {
         writeLine(
@@ -1483,33 +1406,15 @@ terminal = function (posX = 50, posY = 50) {
       return;
     }
 
-    if (command === "env") {
-      const keys = Object.keys(terminalEnv).sort();
-      keys.forEach((key) => writeLine(`${key}=${terminalEnv[key]}`));
-      return;
-    }
 
-    if (command === "set") {
-      if (!args[0] || args.length < 2) {
-        writeLine("usage: set <KEY> <VALUE>");
-        return;
-      }
-      const key = args[0];
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-        writeLine(`set: invalid variable name '${key}'`, "#ff7a7a");
-        return;
-      }
-      terminalEnv[key] = args.slice(1).join(" ");
-      return;
-    }
+
+
 
     if (command === "unset") {
       if (!args[0]) {
         writeLine("usage: unset <KEY>");
         return;
       }
-      delete terminalEnv[args[0]];
-      if (args[0] === "PWD") terminalEnv.PWD = cwdDisplayPath();
       return;
     }
 
@@ -1533,8 +1438,6 @@ terminal = function (posX = 50, posY = 50) {
 
       const rawTarget = args[0];
       const resolvedPath = resolvePath(rawTarget);
-      const gbenv = terminalGbenv || {};
-      const mappedFnName = gbenv[resolvedPath] || gbenv["/" + resolvedPath] || gbenv[rawTarget];
       const fnName = mappedFnName || rawTarget;
       const fn = window[fnName];
 
@@ -1552,79 +1455,6 @@ terminal = function (posX = 50, posY = 50) {
       } catch (e) {
         writeLine(`run: execution failed for '${rawTarget}'`, "#ff7a7a");
       }
-      return;
-    }
-
-    if (command === "gbenv") {
-      const sub = (args[0] || "").toLowerCase();
-
-      if (!sub || sub === "list") {
-        const keys = Object.keys(terminalGbenv || {}).sort();
-        if (!keys.length) {
-          writeLine("gbenv is empty");
-          return;
-        }
-        keys.forEach((key) => writeLine(`${key} => ${terminalGbenv[key]}`));
-        return;
-      }
-
-      if (sub === "get") {
-        const key = args[1];
-        if (!key) {
-          writeLine("usage: gbenv get <scriptPath>");
-          return;
-        }
-        const val = terminalGbenv[key];
-        if (typeof val === "undefined") {
-          writeLine(`gbenv: no mapping for '${key}'`, "#ff7a7a");
-        } else {
-          writeLine(`${key} => ${val}`);
-        }
-        return;
-      }
-
-      if (sub === "set") {
-        if (!args[1] || !args[2]) {
-          writeLine("usage: gbenv set <scriptPath> <functionName>");
-          return;
-        }
-        terminalGbenv[args[1]] = args[2];
-        window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
-        window.__gbenv = { ...terminalGbenv };
-        writeLine(`mapped ${args[1]} => ${args[2]}`);
-        return;
-      }
-
-      if (sub === "unset") {
-        if (!args[1]) {
-          writeLine("usage: gbenv unset <scriptPath>");
-          return;
-        }
-        delete terminalGbenv[args[1]];
-        window[GBENV_GLOBAL_KEY] = { ...terminalGbenv };
-        window.__gbenv = { ...terminalGbenv };
-        writeLine(`removed mapping for ${args[1]}`);
-        return;
-      }
-
-      if (sub === "save") {
-        try {
-          await saveGbenvToDisk();
-          writeLine(`saved ${GBENV_PATH}`);
-        } catch (e) {
-          writeLine(`gbenv: failed to save ${GBENV_PATH}`, "#ff7a7a");
-        }
-        return;
-      }
-
-      if (sub === "reload") {
-        const ok = await loadGbenvFromDisk();
-        if (ok) writeLine(`reloaded ${GBENV_PATH}`);
-        else writeLine(`gbenv: failed to load ${GBENV_PATH}`, "#ff7a7a");
-        return;
-      }
-
-      writeLine("usage: gbenv [list|get|set|unset|save|reload] ...");
       return;
     }
 
@@ -1764,7 +1594,6 @@ terminal = function (posX = 50, posY = 50) {
   });
 
   updatePrompt();
-  loadGbenvFromDisk();
   setTimeout(() => {
     try { input.focus(); } catch (e) {}
   }, 0);

@@ -194,14 +194,6 @@ function ensureRuntimeFiles(userPaths) {
     fs.cpSync(path.join(__dirname, 'apps'), appsPath, { recursive: true });
   }
 
-  const bootDir = path.join(userPaths.userRoot, 'systemfiles', '.boot');
-  fs.mkdirSync(bootDir, { recursive: true });
-  const gbenvPath = path.join(bootDir, 'gbenv.js');
-  if (!fs.existsSync(gbenvPath)) {
-    fs.writeFileSync(gbenvPath, 'window.__gbenv_shortcut = {};\n');
-  }
-
-  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
   ensureStartMenuConfig(userPaths);
 }
 
