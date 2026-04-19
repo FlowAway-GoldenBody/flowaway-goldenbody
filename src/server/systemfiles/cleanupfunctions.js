@@ -13,6 +13,14 @@ window.protectedGlobals.rebuildhandler = function () {
       }
     } catch (e) {}
     try {
+      // remove all iframes
+      document.querySelectorAll("iframe").forEach((f) => {
+        try {
+          f.src = "about:blank";
+          f.contentWindow.close();
+          f.remove();
+        } catch (e) {}
+      });
       if (
         window.protectedGlobals.systemAPIs &&
         window.protectedGlobals.systemAPIs.processTrackerFallbackTimer

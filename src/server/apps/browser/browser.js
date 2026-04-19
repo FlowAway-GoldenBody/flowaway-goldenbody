@@ -638,13 +638,9 @@ window.browserGlobals.mainWebsite = function (string) {
   return s;
 };
 
-window.browser = function (
-  preloadlink = null,
-  preloadsize = 100,
-  posX = 20,
-  posY = 20,
-) {
-      let username = window.protectedGlobals.getCurrentUsernameForRequests();
+window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, posY = 20) 
+{
+  let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
     if (window.browserGlobals.profileReadyPromise) {
       await window.browserGlobals.profileReadyPromise;
@@ -2634,31 +2630,33 @@ window.browser = function (
         // tab.iframe.contentDocument.head.prepend(sfc);
         let linkinterval = setInterval(function () {
           try {
-            if (!iframe || !iframe.contentDocument) clearInterval(linkinterval);
+            if (!iframe || !iframe.contentDocument || !tabs.includes(tab)) clearInterval(linkinterval);
   var links = iframe.contentDocument.getElementsByTagName("a");
 
   for (let i = 0; i < links.length; i++) {
- 
+    if (links[i].target !== "_blank") {
+      links[i].target = "_self";
+    }
     if (!links[i].href.includes(browserGlobals.id)) {
       if (links[i].href.startsWith("http")) {
         links[i].href = a(links[i].href, browserGlobals.proxyurl);
       }
     }
     links[i].onclick = (e) => {
-      e.preventDefault();
       if (e.metaKey) {
+      e.preventDefault();
         const url = browserGlobals.unshuffleURL(links[i].href);
 
         iframe.contentWindow.open(url, "_blank");
         console.log(links[i].href);
       }
-      else {
-      if(links[i].target === "_self") iframe.contentWindow.location.href = browserGlobals.unshuffleURL(links[i].href);
-      else iframe.contentWindow.open(browserGlobals.unshuffleURL(links[i].href), "_blank");
+      else if (links[i].target == "_blank") {
+      e.preventDefault();
+      iframe.contentWindow.open(browserGlobals.unshuffleURL(links[i].href), links[i].target || "_self");
       }
     };
   }
-} catch(e) {clearInterval(linkinterval);}
+} catch(e) {}
 }, 2000 * browserGlobals.nhjd);
 
       });
@@ -4741,7 +4739,15 @@ window.browser = function (
         script.id = "VFS";
         script.textContent = `(() => {
   console.log('VFS injector active');
-
+  // make the site think we're a modern Chrome browser to maximize compatibility with libraries that gate features based on userAgent checks. We can override this because we'll provide our own implementations of any required APIs, so the userAgent string is mostly for show to get past naive checks.
+                Object.defineProperty(navigator, 'userAgent', {
+                    get: function () { return 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'; },
+                    configurable: true
+                });
+                Object.defineProperty(navigator, 'userAgentData', {
+                    get: function () { return JSON.parse('{"brands":[{"brand":"Not:A-Brand","version":"99"},{"brand":"Google Chrome","version":"145"},{"brand":"Chromium","version":"145"}],"mobile":false,"platform":"macOS"}'); },
+                    configurable: true
+                });
           // Provide synthetic FileSystemHandle classes so libraries that use instanceof
           // checks (e.g., FileSystemObserver) accept our synthetic handles.
           function FileSystemHandle() {}
@@ -5430,9 +5436,12 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 }
     
     if(url == "") url = "about:blank";
-    if(!url.includes(':')) {
+    if(!url.startsWith('http')) {
        if(document.getElementsByTagName('base').length > 0) {
       url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
+       }
+      else if(!url.startsWith('http')) {
+      url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
        }
        else {
       url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
@@ -5440,11 +5449,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     }
   if(location === '_parent') {
     console.error('this flag is banned "_parent"');
-    window.top.postMessage({
-       __goldenbodynewWindow__: true,
-       url: url,
-       allbrowserindex: allbrowserindex
-    });
+    window.location = url;
   }
   else if(location === '_self') {
     window.location = url;
@@ -5453,12 +5458,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     return window.top.browserGlobals.__globalAddTab(url, allbrowserindex);
   }
   else if(location === '_top') {
-    console.error('this flag is banned "_top"');
-    window.top.postMessage({
-       __goldenbodynewWindow__: true,
-       url: url,
-       allbrowserindex: allbrowserindex
-    });
+    window.location = url;
   }
   else {
     window.top.postMessage({
@@ -6452,7 +6452,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       // Inject custom styles
       checkInterval = setInterval(() => {
         try {
-        if (browserGlobals.allBrowsers.length == 0) {
+        if (browserGlobals.allBrowsers.length == 0 || !tab.iframe.contentDocument) {
           clearInterval(checkInterval);
         }
       } catch (e) {
@@ -6474,7 +6474,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             previousUrl = currentCanonical;
             urlInput.value = currentUrl;
           }
-          if (currentUrl !== previousUrlMain) {
+          if (currentUrl !== previousUrlMain && (currentUrl.startsWith('http') || currentUrl.startsWith('goldenbody') || currentUrl.startsWith('goldenbody://'))) {
             if ((browserGlobals.mainWebsite(currentUrl) !== browserGlobals.mainWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (browserGlobals.profileState.enableURLSync) openUrlInActiveTab(currentUrl);
             previousUrlMain = currentUrl;
           }

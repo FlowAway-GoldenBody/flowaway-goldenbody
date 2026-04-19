@@ -121,8 +121,6 @@ function updateAllSystemApps() {
     for (const username of userDirs) {
       try {
         const userRootPath = path.join(directoryPath, username, 'root');
-        const userBootPath = path.join(userRootPath, 'systemfiles', '.boot');
-        const userGbenvPath = path.join(userBootPath, 'gbenv.js');
         const userAppsPath = path.join(userRootPath, 'systemfiles', 'runtime', 'apps');
         const userSystemfilesPath = path.join(userRootPath, 'systemfiles');
         const userProfilePath = path.join(userSystemfilesPath, 'userprofile');
@@ -131,12 +129,8 @@ function updateAllSystemApps() {
         const legacyStartMenuConfigPath = path.join(userRootPath, 'startmenuAppConfig', 'startMenu-config.json');
 
         fs.mkdirSync(userRootPath, { recursive: true });
-        fs.mkdirSync(userBootPath, { recursive: true });
         fs.mkdirSync(userSystemfilesPath, { recursive: true });
         fs.mkdirSync(userProfilePath, { recursive: true });
-        if (!fs.existsSync(userGbenvPath)) {
-          fs.writeFileSync(userGbenvPath, 'window.__gbenv_shortcut = {};\n');
-        }
 
         fs.mkdirSync(userAppsPath, { recursive: true });
         if (!fs.existsSync(userProfileJsonPath)) {
