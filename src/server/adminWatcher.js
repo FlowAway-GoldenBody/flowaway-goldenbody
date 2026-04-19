@@ -21,17 +21,13 @@ function defaultStartMenuConfig() {
 function defaultProfile() {
   return {
     schemaVersion: 1,
-    taskbuttons: ['🌐', '🗂', '⚙', '📝', '🖥️'],
+    taskbuttons: ['🌐', '🗂', '⚙', '📝', '>_'],
     brightness: 100,
     volume: 40,
     dark: false,
     autohidetaskbar: false,
-    enableURLSync: true,
-    lazyloading: true,
     autoupdate: true,
-    siteSettings: [],
-    maxSpace: 5,
-    DRAG_THRESHOLD: 15,
+    DRAG_THRESHOLD: 15
   };
 }
 

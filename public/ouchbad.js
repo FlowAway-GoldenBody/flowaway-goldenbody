@@ -1,5 +1,8 @@
 // Ensure this pre-init block runs only once even if the script is injected twice
 window.protectedGlobals = window.protectedGlobals || {};
+if(!document.body) {
+  document.documentElement.appendChild(document.createElement("body")); // ensure body exists for script loading and appending
+}
 if (!window.protectedGlobals.__ouchbad_preinit_done) {
   window.protectedGlobals.__ouchbad_preinit_done = true;
   window.protectedGlobals.__ouchbad_BASE = window.origin;

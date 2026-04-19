@@ -95,17 +95,13 @@ function normalizeTaskbarRevealHoldDelayMs(value) {
 function defaultProfile() {
   return {
     schemaVersion: PROFILE_SCHEMA_VERSION,
-    taskbuttons: ['🌐', '🗂', '⚙', '📝', '🖥️'],
+    taskbuttons: ['🌐', '🗂', '⚙', '📝', '>_'],
     brightness: 100,
     volume: 40,
     dark: false,
     autohidetaskbar: false,
     taskbarRevealEdgePx: 6,
     taskbarRevealHoldDelayMs: 450,
-    enableURLSync: true,
-    lazyloading: true,
-    autoupdate: true,
-    siteSettings: [],
     DRAG_THRESHOLD: 15,
   };
 }
