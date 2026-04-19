@@ -2,11 +2,6 @@
 window.browserGlobals = {};
 window.browserGlobals.nhjd = 1;
 window.browserGlobals.tmp = {};
-window.browserGlobals.tmp.a = async function () {
-  window.browserGlobals.hammerheadscript = await window.protectedGlobals.ReadFile("systemfiles/runtime/apps/browser/hammerheadscript.js", { text: true, direct: true }) || "";
-};
-window.browserGlobals.tmp.a();
-delete window.browserGlobals.tmp.a;
 window.browserGlobals.browserCss = `
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
 .sim-chrome-top {
@@ -228,7 +223,7 @@ window.browserGlobals.injectCss = function () {
   document.body.appendChild(style);
 };
 window.browserGlobals.injectCss();
-window.browserGlobals.__globalAddTab = function (url, index) {
+window.browserGlobals.__globalAddTab = function (url, index, opener) {
   let t = window.browserGlobals.allBrowsers[index].addTab(url, "New Tab");
   for (const tab of window.browserGlobals.allBrowsers[index].tabs) {
     if (tab.id == t) {
@@ -236,6 +231,7 @@ window.browserGlobals.__globalAddTab = function (url, index) {
       break;
     }
   }
+  t.iframe.contentWindow.opener = opener;
   return t.iframe.contentWindow;
 };
 window.browserGlobals.allBrowsers = [];
@@ -2435,26 +2431,6 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         let eggpatch = document.createElement("script");
         eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
         iframe.contentDocument.body.appendChild(eggpatch);
-        let eggpatch2 = document.createElement("script");
-        eggpatch2.textContent = `
-              const nativeURL = window.URL;
-              function URLShim(url = '', base) {
-                const normalizedUrl = url == null ? '' : String(url);
-                const hasBase = arguments.length > 1;
-
-                if (hasBase) {
-                  const normalizedBase = base == null ? '' : String(base);
-                  return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
-                }
-
-                return new nativeURL(normalizedUrl || window.location.href);
-              }
-
-              Object.setPrototypeOf(URLShim, nativeURL);
-              URLShim.prototype = nativeURL.prototype;
-              window.URL = URLShim;
-          `;
-        iframe.contentDocument.body.appendChild(eggpatch2);
         let themeOverride = document.createElement("script");
               themeOverride.textContent = `
           (function(){
@@ -5436,7 +5412,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 }
     
     if(url == "") url = "about:blank";
-    if(!url.startsWith('http')) {
+    if(!url.startsWith('http') || !url.startsWith('about:')) {
        if(document.getElementsByTagName('base').length > 0) {
       url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
        }
@@ -5455,18 +5431,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     window.location = url;
   }
   else if(location === '_blank') {
-    return window.top.browserGlobals.__globalAddTab(url, allbrowserindex);
+    return window.top.browserGlobals.__globalAddTab(url, allbrowserindex, window);
   }
   else if(location === '_top') {
     window.location = url;
   }
   else {
-    window.top.postMessage({
-       __goldenbodynewWindow__: true,
-       url: url,
-       allbrowserindex: allbrowserindex
-    });
-    }
+    return window.top.browserGlobals.__globalAddTab(url, allbrowserindex, window);
+  }
 }
 })();
 
@@ -6459,12 +6431,6 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         clearInterval(checkInterval);
       }
         try {
-          if(!tab.iframe.contentWindow?.gbdataset?.hammerheadloaded) {
-            const doc = tab.iframe.contentDocument;
-            let script = doc.createElement("script");
-            script.textContent = window.browserGlobals.hammerheadscript;
-            doc.head.appendChild(script);
-          }
           const currentUrl = browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
@@ -6639,7 +6605,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       if (knownLocalExt.has(ext)) return true;
       const firstSegment = input.split("/")[0] || "";
       if (/^[a-z0-9-]+\.[a-z]{2,}$/i.test(firstSegment)) return false;
-      return true;
+      return false;
     }
 
     function mimeFromPath(path) {
@@ -6740,48 +6706,10 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         ".jsp",
         ".cgi",
       ]);
-      const shouldInjectPreloadHammerhead =
-        !!options?.injectHammerheadPreload && htmlLikeExts.has(ext);
 
       let blobUrl = "";
-      if (shouldInjectPreloadHammerhead) {
-        try {
-          const raw = String(base64 || "");
-          const clean = raw.replace(/\s+/g, "");
-          const binary = atob(clean);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          const htmlText = new TextDecoder().decode(bytes);
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(htmlText, "text/html");
-          const hammerheadScript = String(
-            window.browserGlobals.hammerheadscript || "",
-          );
-          const scriptEl = doc.createElement("script");
-          scriptEl.textContent = hammerheadScript;
-          if (doc.head) {
-            doc.head.prepend(scriptEl);
-          } else if (doc.documentElement) {
-            doc.documentElement.prepend(scriptEl);
-          }
-          const serialized =
-            (doc.doctype
-              ? "<!DOCTYPE " + doc.doctype.name + ">\n"
-              : "<!DOCTYPE html>\n") +
-            doc.documentElement.outerHTML;
-          blobUrl = URL.createObjectURL(
-            new Blob([serialized], {
-              type: mime || "text/html;charset=utf-8",
-            }),
-          );
-        } catch (e) {
-          blobUrl = base64ToBlobUrl(base64, mime);
-        }
-      } else {
-        blobUrl = base64ToBlobUrl(base64, mime);
-      }
+
+      blobUrl = base64ToBlobUrl(base64, mime);
       try {
         browserGlobals.__localFileUrlMap.set(blobUrl, normalizedPath);
         browserGlobals.__localFilePathToBlobMap.set(normalizedPath, blobUrl);
@@ -6945,7 +6873,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     if (preloadlink) {
       const id = addTab("goldenbody://newtab/", "New Tab");
       activateTab(id);
-      openUrlInActiveTab(preloadlink, { injectHammerheadPreload: true });
+      openUrlInActiveTab(preloadlink);
     }
 
     // new tab

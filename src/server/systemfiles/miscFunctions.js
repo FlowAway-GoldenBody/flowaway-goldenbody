@@ -197,35 +197,12 @@ window.protectedGlobals.buildPersistableUserProfile = function buildPersistableU
       : Number.isFinite(Number(runtime.taskbarRevealHoldDelayMs))
         ? Math.max(0, Math.min(5000, Math.round(Number(runtime.taskbarRevealHoldDelayMs))))
         : 450,
-    enableURLSync:
-      typeof overrides.enableURLSync === "boolean"
-        ? overrides.enableURLSync
-        : typeof runtime.enableURLSync === "boolean"
-          ? runtime.enableURLSync
-          : true,
-    lazyloading:
-      typeof overrides.lazyloading === "boolean"
-        ? overrides.lazyloading
-        : typeof runtime.lazyloading === "boolean"
-          ? runtime.lazyloading
-          : true,
     autoupdate:
       typeof overrides.autoupdate === "boolean"
         ? overrides.autoupdate
         : typeof runtime.autoupdate === "boolean"
           ? runtime.autoupdate
           : true,
-    siteSettings:
-      Array.isArray(overrides.siteSettings)
-        ? overrides.siteSettings
-        : Array.isArray(runtime.siteSettings)
-          ? runtime.siteSettings
-          : [],
-    maxSpace: Number.isFinite(Number(overrides.maxSpace)) && Number(overrides.maxSpace) > 0
-      ? Number(overrides.maxSpace)
-      : Number.isFinite(Number(runtime.maxSpace)) && Number(runtime.maxSpace) > 0
-        ? Number(runtime.maxSpace)
-        : 5,
     DRAG_THRESHOLD: Number.isFinite(Number(overrides.DRAG_THRESHOLD))
       ? Math.max(2, Math.min(128, Math.round(Number(overrides.DRAG_THRESHOLD))))
       : Number.isFinite(Number(runtime.DRAG_THRESHOLD))
