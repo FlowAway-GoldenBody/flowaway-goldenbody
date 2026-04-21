@@ -5412,7 +5412,8 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 }
     
     if(url == "") url = "about:blank";
-    if(!url.startsWith('http') || !url.startsWith('about:')) {
+    console.log(url)
+    if(!url.startsWith('http') && !url.startsWith('about:')) {
        if(document.getElementsByTagName('base').length > 0) {
       url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
        }

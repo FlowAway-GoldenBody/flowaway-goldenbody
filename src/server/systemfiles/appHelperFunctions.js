@@ -1172,46 +1172,35 @@ window.protectedGlobals.launchApp = async function (appId) {
   window[app.functionname]();
 }
 // ===== LIVE APP POLLING =====
-window.protectedGlobals.queueAppPollingHint = function () {
-  var runtime = window.protectedGlobals.FlowawayAppPolling;
-  if (!runtime || runtime.__loaded !== true) {
-    window.protectedGlobals.flowawayCrash(
-      "App polling runtime unavailable.",
-      "systemfiles/appPolling.js was not loaded.",
-    );
-  }
-  return runtime;
-}
-
 window.protectedGlobals.queueAppPollingHint = function (msg) {
-  return window.protectedGlobals.queueAppPollingHint().queueHint(msg);
+  return window.protectedGlobals.FlowawayAppPolling.queueHint(msg);
 }
 
 window.protectedGlobals.collectAppPollingHint = function () {
-  return window.protectedGlobals.queueAppPollingHint().collectHint();
+  return window.protectedGlobals.FlowawayAppPolling.collectHint();
 }
 
 window.protectedGlobals.refreshAppsUiAfterChanges = function () {
-  return window.protectedGlobals.queueAppPollingHint().refreshAppsUiAfterChanges();
+  return window.protectedGlobals.FlowawayAppPolling.refreshAppsUiAfterChanges();
 }
 
 window.protectedGlobals.scheduleAppPoll = function (reason = "unknown") {
-  return window.protectedGlobals.queueAppPollingHint().schedulePoll(reason);
+  return window.protectedGlobals.FlowawayAppPolling.schedulePoll(reason);
 }
 
 window.protectedGlobals.startAppPollingViaWebSocket = function () {
-  return window.protectedGlobals.queueAppPollingHint().startViaWebSocket();
+  return window.protectedGlobals.FlowawayAppPolling.startViaWebSocket();
 }
 
 window.protectedGlobals.pollAppChanges = async function (forceMetadataCheck = false, targetFolders = null) {
-  return window.protectedGlobals.queueAppPollingHint().pollAppChanges(forceMetadataCheck, targetFolders);
+  return window.protectedGlobals.FlowawayAppPolling.pollAppChanges(forceMetadataCheck, targetFolders);
 }
 
 window.protectedGlobals.pollSpecificAppChanges = async function (changedFolders = []) {
-  return window.protectedGlobals.queueAppPollingHint().pollSpecificAppChanges(changedFolders);
+  return window.protectedGlobals.FlowawayAppPolling.pollSpecificAppChanges(changedFolders);
 }
 window.protectedGlobals.startAppPolling = function () {
-  return window.protectedGlobals.queueAppPollingHint().start();
+  return window.protectedGlobals.FlowawayAppPolling.start();
 }
 
 window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function () {

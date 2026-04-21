@@ -1,310 +1,3 @@
-(function rhFastDialogBootstrap() {
-	window.gbdataset = {};
-	window.gbdataset.hammerheadloaded = true;
-	if (window.__rhFastDialogBootstrapInstalled)
-		return;
-	window.__rhFastDialogBootstrapInstalled = true;
-
-	function topWindowSafe() {
-		try {
-			return window.top || window;
-		}
-		catch (e) {
-			return window;
-		}
-	}
-
-	function ensureNativeDialogs(topWin) {
-		if (!topWin)
-			topWin = topWindowSafe();
-
-		if (!topWin.__rhNativeDialogs)
-			topWin.__rhNativeDialogs = { confirm: null, prompt: null };
-
-		var dialogs = topWin.__rhNativeDialogs;
-
-		if (!dialogs.confirm) {
-			try {
-				if (typeof topWin.confirm === 'function')
-					dialogs.confirm = topWin.confirm.bind(topWin);
-			}
-			catch (e) {}
-		}
-
-		if (!dialogs.prompt) {
-			try {
-				if (typeof topWin.prompt === 'function')
-					dialogs.prompt = topWin.prompt.bind(topWin);
-			}
-			catch (e) {}
-		}
-
-		return dialogs;
-	}
-
-	function siteTitle(win) {
-		try {
-			var topWin = topWindowSafe();
-			var bg = topWin && topWin.browserGlobals;
-			if (bg && bg.mainWebsite && bg.unshuffleURL)
-				return bg.mainWebsite(bg.unshuffleURL(win.location.href)) + ' says...';
-		}
-		catch (e) {}
-		return 'This site says...';
-	}
-
-	function stateFor(topWin) {
-		if (!topWin.__rhFastDialogState)
-			topWin.__rhFastDialogState = { queue: [], open: false };
-		return topWin.__rhFastDialogState;
-	}
-
-	function showDialog(topWin, win, item) {
-		var hostDoc;
-		try {
-			hostDoc = topWin.document;
-		}
-		catch (e) {
-			hostDoc = document;
-		}
-
-		if (!hostDoc || !hostDoc.body) {
-			if (item.type === 'confirm')
-				item.resolve(false);
-			else if (item.type === 'prompt')
-				item.resolve(null);
-			else
-				item.resolve(undefined);
-			return;
-		}
-
-		var overlay = hostDoc.createElement('div');
-		overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
-
-		var panel = hostDoc.createElement('div');
-		panel.style.cssText = 'width:min(520px,calc(100vw - 24px));max-width:520px;background:#1f1f1f;color:#fff;border:1px solid #555;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;';
-
-		var title = hostDoc.createElement('div');
-		title.style.cssText = 'font-weight:600;font-size:13px;';
-		title.textContent = siteTitle(win);
-
-		var message = hostDoc.createElement('div');
-		message.style.cssText = 'font-size:13px;white-space:pre-wrap;word-break:break-word;';
-		message.textContent = String(item.text == null ? '' : item.text);
-
-		var input = hostDoc.createElement('input');
-		input.type = 'text';
-		input.value = String(item.defaultValue == null ? '' : item.defaultValue);
-		input.style.cssText = 'width:100%;padding:8px;border-radius:8px;border:1px solid #666;background:#111;color:#fff;';
-
-		var actions = hostDoc.createElement('div');
-		actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
-
-		var cancel = hostDoc.createElement('button');
-		cancel.textContent = 'Cancel';
-		cancel.style.cssText = 'padding:7px 12px;border-radius:8px;border:1px solid #666;background:#2a2a2a;color:#fff;';
-
-		var ok = hostDoc.createElement('button');
-		ok.textContent = 'OK';
-		ok.style.cssText = 'padding:7px 12px;border-radius:8px;border:1px solid #666;background:#3a3a3a;color:#fff;';
-
-		var done = false;
-		function finish(value) {
-			if (done)
-				return;
-			done = true;
-			overlay.remove();
-			item.resolve(value);
-			var st = stateFor(topWin);
-			st.open = false;
-			pump(topWin);
-		}
-
-		if (item.type === 'alert') {
-			cancel.style.display = 'none';
-			ok.onclick = function () { return finish(undefined); };
-		}
-		else if (item.type === 'confirm') {
-			cancel.onclick = function () { return finish(false); };
-			ok.onclick = function () { return finish(true); };
-		}
-		else {
-			cancel.onclick = function () { return finish(null); };
-			ok.onclick = function () { return finish(input.value); };
-		}
-
-		panel.appendChild(title);
-		panel.appendChild(message);
-		if (item.type === 'prompt')
-			panel.appendChild(input);
-		actions.appendChild(cancel);
-		actions.appendChild(ok);
-		panel.appendChild(actions);
-		overlay.appendChild(panel);
-		hostDoc.body.appendChild(overlay);
-
-		if (item.type === 'prompt') {
-			input.focus();
-			input.select();
-		}
-		else {
-			ok.focus();
-		}
-	}
-
-	function pump(topWin) {
-		var st = stateFor(topWin);
-		if (st.open || !st.queue.length)
-			return;
-		st.open = true;
-		showDialog(topWin, st.queue[0].win, st.queue.shift());
-	}
-
-	function enqueue(win, type, text, defaultValue) {
-		var topWin = topWindowSafe();
-		var st = stateFor(topWin);
-		st.queue.push({
-			win: win,
-			type: type,
-			text: text,
-			defaultValue: defaultValue,
-			resolve: function () {}
-		});
-		pump(topWin);
-	}
-
-	function patchWindow(win) {
-		if (!win || win.__rhFastDialogsPatched)
-			return;
-		win.__rhFastDialogsPatched = true;
-
-		var lockedFns = {};
-		var topWinRef = topWindowSafe();
-		var nativeDialogs = ensureNativeDialogs(topWinRef);
-		var nativeTopConfirm = nativeDialogs.confirm;
-		var nativeTopPrompt = nativeDialogs.prompt;
-		var nativeConfirm = null;
-		var nativePrompt = null;
-
-		try {
-			if (typeof win.confirm === 'function')
-				nativeConfirm = win.confirm.bind(win);
-		}
-		catch (e) {}
-
-		try {
-			if (typeof win.prompt === 'function')
-				nativePrompt = win.prompt.bind(win);
-		}
-		catch (e) {}
-
-		function lockApi(name, fn) {
-			lockedFns[name] = fn;
-			try {
-				Object.defineProperty(win, name, {
-					configurable: false,
-					enumerable: false,
-					get: function () { return fn; },
-					set: function () {}
-				});
-			}
-			catch (e) {
-				try {
-					win[name] = fn;
-				}
-				catch (e2) {}
-			}
-		}
-
-		try {
-			lockApi('alert', function (msg) {
-				enqueue(win, 'alert', msg, '');
-			});
-			lockApi('confirm', function (msg) {
-				if (nativeTopConfirm) {
-					try {
-						return !!nativeTopConfirm(msg);
-					}
-					catch (e) {}
-				}
-				if (nativeConfirm) {
-					try {
-						return !!nativeConfirm(msg);
-					}
-					catch (e) {}
-				}
-				enqueue(win, 'confirm', msg, '');
-				return false;
-			});
-			lockApi('prompt', function (msg, def) {
-				if (nativeTopPrompt) {
-					try {
-						return nativeTopPrompt(msg, def);
-					}
-					catch (e) {}
-				}
-				if (nativePrompt) {
-					try {
-						return nativePrompt(msg, def);
-					}
-					catch (e) {}
-				}
-				enqueue(win, 'prompt', msg, def);
-				return null;
-			});
-			lockApi('print', function () {
-				enqueue(win, 'alert', 'Printing is blocked in fullscreen mode.', '');
-			});
-			// lockApi('open', function (url) {
-			// 	enqueue(win, 'alert', url ? 'Popups are blocked in fullscreen mode.\n\n' + String(url) : 'Popups are blocked in fullscreen mode.', '');
-			// 	return null;
-			// });
-			lockApi('showModalDialog', function (message) {
-				enqueue(win, 'alert', message, '');
-				return null;
-			});
-		}
-		catch (e) {}
-
-		try {
-			var nativeAdd = win.addEventListener.bind(win);
-			win.addEventListener = function (type, listener, options) {
-				if (type === 'beforeunload')
-					return;
-				return nativeAdd(type, listener, options);
-			};
-		}
-		catch (e) {}
-
-		try {
-			Object.defineProperty(win, 'onbeforeunload', {
-				configurable: true,
-				get: function () { return null; },
-				set: function () {}
-			});
-		}
-		catch (e) {}
-
-		if (!win.__rhFastDialogsWatchId) {
-			try {
-				win.__rhFastDialogsWatchId = setInterval(function () {
-					for (var key in lockedFns) {
-						if (win[key] !== lockedFns[key]) {
-							try {
-								win[key] = lockedFns[key];
-							}
-							catch (e) {}
-						}
-					}
-				}, 100);
-			}
-			catch (e) {}
-		}
-	}
-
-	patchWindow(window);
-})();
-
 (function initHammerheadClient () {if (window["%is-hammerhead%"]) throw new TypeError("already ran"); window["%is-hammerhead%"] = true;window.rammerheadTop = (function() {var w = window; while (w !== w.top && w.parent["%hammerhead"]) w = w.parent; return w;})();window.rammerheadParent = window.rammerheadTop === window ? window : window.rammerheadParent;window.distanceRammerheadTopToTop = (function() { var i=0,w=window; while (w !== window.rammerheadTop) {i++;w=w.parent} return i; })();window.rammerheadAncestorOrigins = Array.from(location.ancestorOrigins).slice(0, -window.distanceRammerheadTopToTop);
 
     (function () {
@@ -621,7 +314,7 @@
 	OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 	PERFORMANCE OF THIS SOFTWARE.
 	***************************************************************************** */
-	/* global Reflect, Promise, SuppressedError, Symbol */
+	/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
 
 	var extendStatics = function(d, b) {
 	  extendStatics = Object.setPrototypeOf ||
@@ -2310,7 +2003,7 @@
 	function overrideGetCrossDomainIframeProxyUrl(func) {
 	    getCrossDomainIframeProxyUrl = func;
 	}
-	function getPageProxyUrl(url, windowId) {
+	function getPageProxyUrl(url, windowId, nativeAutomation) {
 	    var parsedProxyUrl = parseProxyUrl(url);
 	    var resourceType = null;
 	    if (parsedProxyUrl) {
@@ -2324,7 +2017,7 @@
 	    }
 	    var isCrossDomainUrl = !sameOriginCheck(getLocation(), url);
 	    var proxyPort = isCrossDomainUrl ? settings$1.get().crossDomainProxyPort : location.port.toString(); // eslint-disable-line no-restricted-properties
-	    return getProxyUrl(url, { windowId: windowId, proxyPort: proxyPort, resourceType: resourceType });
+	    return getProxyUrl(url, { windowId: windowId, proxyPort: proxyPort, resourceType: resourceType }, nativeAutomation);
 	}
 	function getCrossDomainProxyPort(proxyPort) {
 	    return settings$1.get().crossDomainProxyPort === proxyPort
@@ -3070,12 +2763,7 @@
 	var version = parseInt(info.version, 10);
 	var fullVersion = info.version;
 	var webkitVersion = webkitVersionMatch && webkitVersionMatch[1] || '';
-	var isIE = !!(info.msie || info.msedge);
-	var isIE11 = isIE && version === 11;
-	var isIE10 = isIE && version === 10;
-	var isIE9 = isIE && version === 9;
 	var isFirefox = !!info.firefox;
-	var isMSEdge = !!info.msedge;
 	var isChrome = !!info.chrome;
 	var isSafari = !!info.safari;
 	var isWebKit = !!(info.webkit || info.blink);
@@ -3092,12 +2780,7 @@
 		version: version,
 		fullVersion: fullVersion,
 		webkitVersion: webkitVersion,
-		isIE: isIE,
-		isIE11: isIE11,
-		isIE10: isIE10,
-		isIE9: isIE9,
 		isFirefox: isFirefox,
-		isMSEdge: isMSEdge,
 		isChrome: isChrome,
 		isSafari: isSafari,
 		isWebKit: isWebKit,
@@ -3356,7 +3039,7 @@
 	function getOffset(el) {
 	    if (!el || isWindow(el) || isDocument(el))
 	        return null;
-	    var clientRect = el.getBoundingClientRect();
+	    var clientRect = getClientRectangle(el);
 	    // NOTE: A detached node or documentElement.
 	    var doc = el.ownerDocument;
 	    var docElement = doc.documentElement;
@@ -3371,7 +3054,7 @@
 	    var clientLeft = docElement.clientLeft || doc.body.clientLeft || 0;
 	    var scrollTop = win.pageYOffset || docElement.scrollTop || doc.body.scrollTop;
 	    var scrollLeft = win.pageXOffset || docElement.scrollLeft || doc.body.scrollLeft;
-	    clientRect = el.getBoundingClientRect();
+	    clientRect = getClientRectangle(el);
 	    return {
 	        top: clientRect.top + scrollTop - clientTop,
 	        left: clientRect.left + scrollLeft - clientLeft,
@@ -3441,7 +3124,7 @@
 	    return obj === null ? 'null' : 'undefined';
 	}
 	function isNullOrUndefined(obj) {
-	    return obj === null || obj === void 0;
+	    return obj === void 0 || isNull(obj);
 	}
 	function isPrimitiveType(obj) {
 	    var objType = typeof obj;
@@ -4123,6 +3806,14 @@
 	    var doc = findDocument(el);
 	    return el.control || el.htmlFor && nativeMethods.getElementById.call(doc, el.htmlFor);
 	}
+	function getClientRectangle(el) {
+	    var rects = el.getClientRects();
+	    for (var i = 0; i < rects.length; i++) {
+	        if (rects[i].height > 0 && rects[i].width > 0)
+	            return rects[i];
+	    }
+	    return el.getBoundingClientRect();
+	}
 
 	var domUtils = /*#__PURE__*/Object.freeze({
 		__proto__: null,
@@ -4229,7 +3920,8 @@
 		getScripts: getScripts,
 		isNumberOrEmailInput: isNumberOrEmailInput,
 		isInputWithoutSelectionProperties: isInputWithoutSelectionProperties,
-		getAssociatedElement: getAssociatedElement
+		getAssociatedElement: getAssociatedElement,
+		getClientRectangle: getClientRectangle
 	});
 
 	var SandboxBase = /** @class */ (function (_super) {
@@ -5533,8 +5225,13 @@
 	            _.js += ']';
 	        }
 
-	        else
-	            _.js += ($expr.optional ? '?.' : '.') + $prop.name;
+	        else {
+	            const prefix        = $prop.type === Syntax.PrivateIdentifier ? '#' : '';
+	            const chainOperator = $expr.optional ? '?.' : '.';
+	            const propName      = prefix + $prop.name;
+	            
+	            _.js += chainOperator + propName;
+	        }
 
 	        if (parenthesize)
 	            _.js += ')';
@@ -5749,9 +5446,14 @@
 	        if ($expr.computed)
 	            keyJs = '[' + keyJs + ']';
 
-	        _.js += exprJs + keyJs + '=' + _.optSpace;
+	        if ($val) {
+	            _.js += exprJs + keyJs + '=' + _.optSpace;
+	    
+	            ExprGen[$val.type]($val, Preset.e4);
+	        }
+	        else
+	            _.js += exprJs + keyJs + _.optSpace;
 
-	        ExprGen[$val.type]($val, Preset.e4);
 
 	        if (semicolons || !settings.semicolonOptional)
 	            _.js += ';';
@@ -6989,13 +6691,16 @@
 	    var setPropertyIdentifier = createIdentifier(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty);
 	    return createSimpleCallExpression(setPropertyIdentifier, [obj, createSimpleLiteral(propertyName), value]);
 	}
-	function createMethodCallWrapper(owner, method, methodArgs, optional) {
+	function createMethodCallWrapper(owner, method, methodArgs, optional, calleeOptional) {
 	    if (optional === void 0) { optional = false; }
+	    if (calleeOptional === void 0) { calleeOptional = false; }
 	    var callMethodIdentifier = createIdentifier(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod);
 	    var methodArgsArray = createArrayExpression(methodArgs);
 	    var args = [owner, method, methodArgsArray];
-	    if (optional)
+	    if (optional || calleeOptional)
 	        args.push(createSimpleLiteral(optional));
+	    if (calleeOptional)
+	        args.push(createSimpleLiteral(calleeOptional));
 	    return createSimpleCallExpression(callMethodIdentifier, args);
 	}
 	function createPropertyGetWrapper(propertyName, owner, optional) {
@@ -7718,6 +7423,10 @@
 	        // Skip: class X { location () {} }
 	        if (parent.type === Syntax_1.MethodDefinition)
 	            return false;
+	        // Skip: class X { location }
+	        // @ts-ignore
+	        if (parent.type === Syntax_1.PropertyDefinition)
+	            return false;
 	        // Skip: class location { x () {} }
 	        if (parent.type === Syntax_1.ClassDeclaration)
 	            return false;
@@ -7766,6 +7475,10 @@
 	        if (node.computed || !parent)
 	            return false;
 	        if (node.property.type === Syntax_1.Identifier && !shouldInstrumentProperty(node.property.name))
+	            return false;
+	        // Skip: object.#prop
+	        // @ts-ignore
+	        if (node.property.type === Syntax_1.PrivateIdentifier)
 	            return false;
 	        // Skip: super.prop
 	        if (node.object.type === Syntax_1.Super)
@@ -7846,7 +7559,8 @@
 	            ? callee.property
 	            : createSimpleLiteral(callee.property.name); // eslint-disable-line no-extra-parens
 	        var optional = node.optional;
-	        return createMethodCallWrapper(callee.object, method, node.arguments, optional);
+	        var calleeOptional = callee.optional;
+	        return createMethodCallWrapper(callee.object, method, node.arguments, optional, calleeOptional);
 	    },
 	};
 
@@ -8470,13 +8184,14 @@
 	var STRICT_MODE_PLACEHOLDER = '{strict-placeholder}';
 	var SW_SCOPE_HEADER_VALUE = '{sw-scope-header-value}';
 	var WORKER_SETTINGS_PLACEHOLDER = '{worker-settings}';
-	var IMPORT_WORKER_HAMMERHEAD = "\nif (typeof importScripts !== \"undefined\" && /\\[native code]/g.test(importScripts.toString())) {\n    var ".concat(SCRIPT_PROCESSING_INSTRUCTIONS.getWorkerSettings, " = function () {return ").concat(WORKER_SETTINGS_PLACEHOLDER, "};\n    importScripts((location.origin || (location.protocol + \"//\" + location.host)) + \"").concat(SERVICE_ROUTES.workerHammerhead, "\");\n}\n");
-	var PROCESS_DOM_METHOD = "window['".concat(INTERNAL_PROPS.processDomMethodName, "'] && window['").concat(INTERNAL_PROPS.processDomMethodName, "']();");
+	// NOTE: we need try/catch if a worker with ES module (fix for https://github.com/DevExpress/testcafe/issues/8251)
+	var IMPORT_WORKER_HAMMERHEAD = "\nif (typeof importScripts !== \"undefined\" && /\\[native code]/g.test(importScripts.toString())) {\n    var ".concat(SCRIPT_PROCESSING_INSTRUCTIONS.getWorkerSettings, " = function () {return ").concat(WORKER_SETTINGS_PLACEHOLDER, "};\n    try {\n        importScripts((location.origin || (location.protocol + \"//\" + location.host)) + \"").concat(SERVICE_ROUTES.workerHammerhead, "\");\n    } catch (e) {\n        (async function () { await import((location.origin || (location.protocol + \"//\" + location.host)) + \"").concat(SERVICE_ROUTES.workerHammerhead, "\"); })();\n    }\n}\n");
+	var PROCESS_DOM_METHOD = "globalThis.window['".concat(INTERNAL_PROPS.processDomMethodName, "'] && globalThis.window['").concat(INTERNAL_PROPS.processDomMethodName, "']();");
 	function trim(val) {
 	    return val.replace(/\n(?!$)\s*/g, '');
 	}
-	var NATIVE_AUTOMATION_HEADER = trim("\n    ".concat(SCRIPT_PROCESSING_START_COMMENT, "\n    ").concat(STRICT_MODE_PLACEHOLDER, "\n\n    if (typeof window !== 'undefined' && window) {\n        ").concat(PROCESS_DOM_METHOD, "\n    }\n\n    ").concat(SCRIPT_PROCESSING_END_HEADER_COMMENT, "\n"));
-	var HEADER = trim("\n    ".concat(SCRIPT_PROCESSING_START_COMMENT, "\n    ").concat(STRICT_MODE_PLACEHOLDER, "\n    ").concat(SW_SCOPE_HEADER_VALUE, "\n\n    if (typeof window !== 'undefined' && window){\n        ").concat(PROCESS_DOM_METHOD, "\n\n        if (window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " && typeof ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " === 'undefined')\n            var ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getLocation, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getLocation, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setLocation, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setLocation, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getEval, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getEval, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processScript, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processScript, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processHtml, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processHtml, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getPostMessage, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getPostMessage, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProxyUrl, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProxyUrl, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restArray, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restArray, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restObject, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restObject, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.arrayFrom, " = window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.arrayFrom, ";\n    } else {\n        if (typeof ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " === 'undefined')\n            var ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getLocation, " = function(l){return l},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setLocation, " = function(l,v){return l = v},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty, " = function(o,p,v){return o[p] = v},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " = function(o,p){return o[p]},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, " = function(o,p,a){return o[p].apply(o,a)},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getEval, " = function(e){return e},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processScript, " = function(s){return s},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processHtml, " = function(h){return h},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getPostMessage, " = function(w,p){return arguments.length===1?w.postMessage:p},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProxyUrl, " = function(u,d){return u},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restArray, " = function(a,i){return Array.prototype.slice.call(a, i)},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restObject, " = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.arrayFrom, " = function(r){if(!r)return r;return!Array.isArray(r)&&\"function\"==typeof r[Symbol.iterator]?Array.from(r):r};\n\n        ").concat(IMPORT_WORKER_HAMMERHEAD, "\n    }\n    ").concat(SCRIPT_PROCESSING_END_HEADER_COMMENT, "\n"));
+	var NATIVE_AUTOMATION_HEADER = trim("\n    ".concat(SCRIPT_PROCESSING_START_COMMENT, "\n    ").concat(STRICT_MODE_PLACEHOLDER, "\n\n    if (typeof globalThis.window !== 'undefined' && globalThis.window) {\n        ").concat(PROCESS_DOM_METHOD, "\n    }\n\n    ").concat(SCRIPT_PROCESSING_END_HEADER_COMMENT, "\n"));
+	var HEADER = trim("\n    ".concat(SCRIPT_PROCESSING_START_COMMENT, "\n    ").concat(STRICT_MODE_PLACEHOLDER, "\n    ").concat(SW_SCOPE_HEADER_VALUE, "\n\n    if (typeof globalThis.window !== 'undefined' && globalThis.window){\n        ").concat(PROCESS_DOM_METHOD, "\n\n        if (globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " && typeof ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " === 'undefined')\n            var ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getLocation, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getLocation, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setLocation, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setLocation, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getEval, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getEval, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processScript, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processScript, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processHtml, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processHtml, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getPostMessage, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getPostMessage, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProxyUrl, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProxyUrl, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restArray, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restArray, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restObject, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restObject, ",\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.arrayFrom, " = globalThis.window.").concat(SCRIPT_PROCESSING_INSTRUCTIONS.arrayFrom, ";\n    } else {\n        if (typeof ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " === 'undefined')\n            var ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getLocation, " = function(l){return l},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setLocation, " = function(l,v){return l = v},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.setProperty, " = function(o,p,v){return o[p] = v},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProperty, " = function(o,p,opt=false){return opt&&(o===undefined||o===null)?undefined:o[p]},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, " = function(o,p,a){return o[p].apply(o,a)},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getEval, " = function(e){return e},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processScript, " = function(s){return s},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.processHtml, " = function(h){return h},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getPostMessage, " = function(w,p){return arguments.length===1?w.postMessage:p},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.getProxyUrl, " = function(u,d){return u},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restArray, " = function(a,i){return Array.prototype.slice.call(a, i)},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.restObject, " = function(o,p){var k=Object.keys(o),n={};for(var i=0;i<k.length;++i)if(p.indexOf(k[i])<0)n[k[i]]=o[k[i]];return n},\n                ").concat(SCRIPT_PROCESSING_INSTRUCTIONS.arrayFrom, " = function(r){if(!r)return r;return!Array.isArray(r)&&\"function\"==typeof r[Symbol.iterator]?Array.from(r):r};\n\n        ").concat(IMPORT_WORKER_HAMMERHEAD, "\n    }\n    ").concat(SCRIPT_PROCESSING_END_HEADER_COMMENT, "\n"));
 	var HEADER_RE = new RegExp("".concat(reEscape(SCRIPT_PROCESSING_START_COMMENT), "[\\S\\s]+?").concat(reEscape(SCRIPT_PROCESSING_END_HEADER_COMMENT), "\n?"), 'gi');
 	var PROCESSING_END_COMMENT_RE = new RegExp("\n?".concat(reEscape(SCRIPT_PROCESSING_END_COMMENT), "\\s*"), 'gi');
 	function remove$1(code) {
@@ -16879,7 +16594,7 @@
 	        var tagName = getTagName(el);
 	        var isUrlAttr = domProcessor.isUrlAttr(el, attr, ns);
 	        var isEventAttr = domProcessor.EVENTS.indexOf(attr) !== -1;
-	        var isUrlsSet = attr === 'srcset';
+	        var isUrlsSet = loweredAttr === 'srcset';
 	        var needToCallTargetChanged = false;
 	        var needToRecalcHref = false;
 	        var isSpecialPage$1 = isSpecialPage(value);
@@ -18194,7 +17909,7 @@
 	        rectangle = getSelectChildRectangle(el);
 	    else {
 	        var elementOffset = getOffsetPosition(el);
-	        var relativeRectangle = isSVGElementOrChild(el) ? getSvgElementRelativeRectangle(el) : el.getBoundingClientRect();
+	        var relativeRectangle = isSVGElementOrChild(el) ? getSvgElementRelativeRectangle(el) : getClientRectangle(el);
 	        rectangle = {
 	            height: relativeRectangle.height,
 	            left: elementOffset.left,
@@ -21267,10 +20982,14 @@
 	        // NOTE: In Google Chrome, iframes whose src contains html code raise the 'load' event twice.
 	        // So, we need to define code instrumentation functions as 'configurable' so that they can be redefined.
 	        nativeMethods.objectDefineProperty(window, SCRIPT_PROCESSING_INSTRUCTIONS.callMethod, {
-	            value: function (owner, methName, args, optional) {
+	            value: function (owner, methName, args, optional, calleeOptional) {
 	                if (optional === void 0) { optional = false; }
-	                if (isNullOrUndefined(owner) && !optional)
+	                if (calleeOptional === void 0) { calleeOptional = false; }
+	                if (isNullOrUndefined(owner)) {
+	                    if (optional || calleeOptional)
+	                        return void 0;
 	                    MethodCallInstrumentation._error("Cannot call method '".concat(methName, "' of ").concat(inaccessibleTypeToStr(owner)));
+	                }
 	                if (!isFunction(owner[methName]) && !optional)
 	                    MethodCallInstrumentation._error("'".concat(methName, "' is not a function"));
 	                // OPTIMIZATION: previously we've performed the
@@ -41576,6 +41295,13 @@
 	    };
 	    MessageSandbox.prototype.postMessage = function (contentWindow, args) {
 	        var targetUrl = args[1] || getOriginHeader();
+	        // NOTE: We do NOT support the postMessage(message, options) overload.
+	        // The second argument is expected to be `targetOrigin` (string).
+	        // If an options object is provided instead, the call is considered invalid and will be aborted.
+	        if (typeof targetUrl !== 'string') {
+	            nativeMethods.consoleMeths.log("testcafe-hammerhead: postMessage called with invalid targetOrigin; aborting call (type: ".concat(typeof targetUrl, ")"));
+	            return null;
+	        }
 	        // NOTE: Here, we pass all messages as "no preference" ("*").
 	        // We do an origin check in "_onWindowMessage" to access the target origin.
 	        args[1] = '*';
@@ -41795,10 +41521,9 @@
 	            nativeMethods.objectDefineProperty(e, 'returnValue', createPropertyDesc({
 	                get: function () { return eventProperties.storedReturnValue; },
 	                set: function (value) {
-	                    // NOTE: In all browsers, if the property is set to any value, unload is prevented. In FireFox,
-	                    // only if a value is set to an empty string, the unload operation is prevented.
+	                    // NOTE: In all browsers, if the property is set to any value except empty string, unload is prevented.
 	                    eventProperties.storedReturnValue = UnloadSandbox._prepareStoredReturnValue(value);
-	                    eventProperties.prevented = isFirefox ? value !== '' : true;
+	                    eventProperties.prevented = eventProperties.prevented || value !== '';
 	                },
 	            }));
 	            nativeMethods.objectDefineProperty(e, 'preventDefault', createPropertyDesc({
@@ -42990,17 +42715,21 @@
 	    };
 	    StyleSandbox.prototype.detectBrowserFeatures = function () {
 	        var features = {};
-	        // NOTE: The CSS2Properties class is supported only in the Firefox
+	        // @ts-expect-error NOTE: The CSS2Properties class is supported only in Firefox < 144
 	        // and its prototype contains all property descriptors
-	        // @ts-ignore
 	        features.css2PropertiesProtoContainsAllProps = !!window.CSS2Properties;
+	        // @ts-expect-error NOTE: The CSSStyleProperties class is supported only in Firefox >= 144 and Safari >= 26
+	        var cssStylePropertiesClass = window.CSSStyleProperties;
+	        features.cssStylePropertiesProtoContainsAllProps = !!cssStylePropertiesClass
+	            && this.nativeMethods.objectHasOwnProperty.call(cssStylePropertiesClass.prototype, 'background')
+	            && this.nativeMethods.objectHasOwnProperty.call(cssStylePropertiesClass.prototype, 'background-image');
 	        features.cssStyleDeclarationProtoContainsUrlProps = this.nativeMethods.objectHasOwnProperty
 	            .call(window.CSSStyleDeclaration.prototype, 'background');
 	        features.cssStyleDeclarationProtoContainsDashedProps = this.nativeMethods.objectHasOwnProperty
 	            .call(window.CSSStyleDeclaration.prototype, 'background-image');
 	        features.cssStyleDeclarationContainsAllProps = features.cssStyleDeclarationProtoContainsUrlProps &&
 	            features.cssStyleDeclarationProtoContainsDashedProps;
-	        if (!features.css2PropertiesProtoContainsAllProps && !features.cssStyleDeclarationProtoContainsUrlProps) {
+	        if (!features.css2PropertiesProtoContainsAllProps && !features.cssStylePropertiesProtoContainsAllProps && !features.cssStyleDeclarationProtoContainsUrlProps) {
 	            var testDiv = this.nativeMethods.createElement.call(document, 'div');
 	            var propertySetterIsCalled_1 = false;
 	            var testDivDescriptor = this.nativeMethods.objectGetOwnPropertyDescriptor
@@ -43028,7 +42757,9 @@
 	        if (settings$1.nativeAutomation)
 	            return;
 	        this.overrideStyleInElement();
-	        if (this.FEATURES.css2PropertiesProtoContainsAllProps)
+	        if (this.FEATURES.cssStylePropertiesProtoContainsAllProps)
+	            this.overridePropsInCSSStyleProperties();
+	        else if (this.FEATURES.css2PropertiesProtoContainsAllProps)
 	            this.overridePropsInCSS2Properties();
 	        else
 	            this.overridePropsInCSSStyleDeclaration();
@@ -43047,7 +42778,7 @@
 	        var nativeMethods = this.nativeMethods;
 	        var styleSandbox = this;
 	        overrideDescriptor(this.window[nativeMethods.htmlElementStylePropOwnerName].prototype, 'style', {
-	            getter: this.FEATURES.css2PropertiesProtoContainsAllProps || this.FEATURES.cssStyleDeclarationContainsAllProps
+	            getter: this.FEATURES.css2PropertiesProtoContainsAllProps || this.FEATURES.cssStylePropertiesProtoContainsAllProps || this.FEATURES.cssStyleDeclarationContainsAllProps
 	                ? null
 	                : function () {
 	                    var style = nativeMethods.htmlElementStyleGetter.call(this);
@@ -43128,6 +42859,18 @@
 	            var prop = _c[_b];
 	            // @ts-ignore
 	            this.overrideStyleProp(this.window.CSS2Properties.prototype, prop);
+	        }
+	    };
+	    StyleSandbox.prototype.overridePropsInCSSStyleProperties = function () {
+	        for (var _i = 0, _a = this.URL_PROPS; _i < _a.length; _i++) {
+	            var prop = _a[_i];
+	            // @ts-ignore
+	            this.overrideStyleProp(this.window.CSSStyleProperties.prototype, prop);
+	        }
+	        for (var _b = 0, _c = this.DASHED_URL_PROPS; _b < _c.length; _b++) {
+	            var prop = _c[_b];
+	            // @ts-ignore
+	            this.overrideStyleProp(this.window.CSSStyleProperties.prototype, prop);
 	        }
 	    };
 	    StyleSandbox.prototype.overridePropsInCSSStyleDeclaration = function () {
@@ -43242,6 +42985,11 @@
 	    return array[0];
 	}
 
+	function isTargetBlank (value) {
+	    if (value === void 0) { value = ''; }
+	    return value === '_blank';
+	}
+
 	var DEFAULT_WINDOW_PARAMETERS = 'width=500px, height=500px';
 	var STORE_CHILD_WINDOW_CMD = 'hammerhead|command|store-child-window';
 	var ChildWindowSandbox = /** @class */ (function (_super) {
@@ -43266,22 +43014,23 @@
 	        target = target || defaultTarget;
 	        target = target.toLowerCase();
 	        if (isKeywordTarget(target))
-	            return target === '_blank';
+	            return isTargetBlank(target);
 	        return !findByName(target);
 	    };
-	    ChildWindowSandbox.prototype._openUrlInNewWindow = function (url, windowName, windowParams, window) {
+	    ChildWindowSandbox.prototype._openUrlInNewWindow = function (url, windowName, windowParams, window, form) {
 	        var windowId = getRandomInt16Value().toString();
 	        windowParams = windowParams || DEFAULT_WINDOW_PARAMETERS;
 	        windowName = windowName || windowId;
-	        var newPageUrl = settings$1.get().nativeAutomation ? url : getPageProxyUrl(url, windowId);
+	        var newPageUrl = getPageProxyUrl(url, windowId, settings$1.nativeAutomation);
 	        var targetWindow = window || this.window;
 	        var beforeWindowOpenedEventArgs = { isPrevented: false };
 	        this.emit(this.BEFORE_WINDOW_OPENED_EVENT, beforeWindowOpenedEventArgs);
 	        if (beforeWindowOpenedEventArgs.isPrevented)
 	            return null;
-	        var openedWindow = nativeMethods.windowOpen.call(targetWindow, newPageUrl, windowName, windowParams);
+	        var startPageUrl = settings$1.nativeAutomation ? SPECIAL_BLANK_PAGE : newPageUrl;
+	        var openedWindow = nativeMethods.windowOpen.call(targetWindow, startPageUrl, windowName, windowParams);
 	        this._tryToStoreChildWindow(openedWindow, getTopOpenerWindow());
-	        this.emit(this.WINDOW_OPENED_EVENT, { windowId: windowId, window: openedWindow });
+	        this.emit(this.WINDOW_OPENED_EVENT, { windowId: windowId, window: openedWindow, windowName: windowName, pageUrl: newPageUrl, form: form });
 	        return { windowId: windowId, wnd: openedWindow };
 	    };
 	    ChildWindowSandbox._calculateTargetForElement = function (el) {
@@ -43304,7 +43053,7 @@
 	    ChildWindowSandbox.prototype.handleClickOnLinkOrArea = function (el) {
 	        var _this = this;
 	        if (!settings$1.get().allowMultipleWindows) {
-	            if (settings$1.get().nativeAutomation)
+	            if (settings$1.nativeAutomation)
 	                this._handleClickOnLinkOrAreaInNativeAutomation(el);
 	            return;
 	        }
@@ -43346,7 +43095,7 @@
 	    ChildWindowSandbox.prototype.handleWindowOpen = function (window, args) {
 	        var url = args[0], target = args[1], parameters = args[2];
 	        if (settings$1.get().allowMultipleWindows && ChildWindowSandbox._shouldOpenInNewWindow(target, defaultTarget.windowOpen)) {
-	            var openedWindowInfo = this._openUrlInNewWindow(url, target, parameters, window);
+	            var openedWindowInfo = this._openUrlInNewWindow(url, isTargetBlank(target) ? void 0 : target, parameters, window);
 	            return openedWindowInfo === null || openedWindowInfo === void 0 ? void 0 : openedWindowInfo.wnd;
 	        }
 	        // NOTE: Safari stopped throwing the 'unload' event for this case starting from 14 version.
@@ -43369,7 +43118,7 @@
 	    ChildWindowSandbox.prototype._handleFormSubmitting = function (window) {
 	        var _this = this;
 	        if (!settings$1.get().allowMultipleWindows) {
-	            if (settings$1.get().nativeAutomation)
+	            if (settings$1.nativeAutomation)
 	                this._handleFormSubmittingInNativeAutomation(window);
 	            return;
 	        }
@@ -43379,14 +43128,17 @@
 	            if (!isFormElement(form) ||
 	                !ChildWindowSandbox._shouldOpenInNewWindowOnElementAction(form, defaultTarget.form))
 	                return;
-	            var aboutBlankUrl = getProxyUrl(SPECIAL_BLANK_PAGE);
-	            var openedInfo = _this._openUrlInNewWindow(aboutBlankUrl);
+	            var isNativeAutomation = settings$1.nativeAutomation;
+	            var aboutBlankUrl = getProxyUrl(SPECIAL_BLANK_PAGE, void 0, isNativeAutomation);
+	            var openedInfo = _this._openUrlInNewWindow(aboutBlankUrl, void 0, void 0, void 0, form);
 	            if (!openedInfo)
 	                return;
 	            var formAction = nativeMethods.formActionGetter.call(form);
-	            var newWindowUrl = getPageProxyUrl(formAction, openedInfo.windowId);
+	            var newWindowUrl = getPageProxyUrl(formAction, openedInfo.windowId, isNativeAutomation);
 	            nativeMethods.formActionSetter.call(form, newWindowUrl);
 	            nativeMethods.formTargetSetter.call(form, openedInfo.windowId);
+	            if (isNativeAutomation)
+	                e.preventDefault();
 	            // TODO: On hammerhead start we need to clean up the window.name
 	            // It's necessary for form submit.
 	            // Also we need clean up the form target to the original value.
