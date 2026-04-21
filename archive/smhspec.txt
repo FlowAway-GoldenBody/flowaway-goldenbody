@@ -1,0 +1,12 @@
+you are designing a framework for local hosting
+the spec is:
+    window.serverglobals.startserver(route, function(req, authtoken) return res): // it makes an endpoint at the route, assign a internal number for it, like pids. and it would say its already registered if that route exists.
+    window.serverglobals.killserver(route, authtoken): // kills a route, return true or false depending on succeed or not
+    window.serverglobals.readFile(path, options = {}) [maps to the version in protectedglobals.ReadFile(path, options)]: // returns {filecontent: ...}
+    // other file apis not listed but similar
+    
+    ### client side code
+    window.serverglobals.sendData = async (endpoint <string>, body = {...}) {...; return res <object>} // the res object is a plain object returned by the endpoint's callback, this system dont have server codes (eg. 200, 404)
+    // it forwards the request directly to the callback function in startserver.
+
+    // new apis will arrive soon

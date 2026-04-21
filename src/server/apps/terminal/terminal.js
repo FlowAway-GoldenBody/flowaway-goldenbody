@@ -15,7 +15,7 @@ window.protectedGlobals.__terminalBuiltInCommandNames = Array.isArray(window.pro
   : [
       "help", "clear", "echo", "date", "whoami", "pwd", "history", "exit",
       "ls", "cd", "cat", "head", "tail", "mkdir", "touch", "write", "rm", "cp", "mv",
-      "apps", "open", "run",
+      "changeperm", "apps", "open", "run",
     ];
 
 function normalizeTerminalCommandName(raw) {
@@ -615,6 +615,7 @@ terminal = function (posX = 50, posY = 50) {
   
   // --- EVENT LISTENER ---
   root.addEventListener("click", () => {
+    if (input.disabled) return;
     try { input.focus(); } catch (e) {}
   });
 
@@ -845,17 +846,81 @@ terminal = function (posX = 50, posY = 50) {
     }
   }
 
+  function ensureServerResultOk(response) {
+    if (!response) {
+      throw new Error("empty server response");
+    }
+    if (response.error) {
+      const errorMessage = String(response.error || "");
+      if (/denied/i.test(errorMessage) && typeof window.protectedGlobals.notification === "function") {
+        window.protectedGlobals.notification(errorMessage);
+      }
+      throw new Error(String(response.error));
+    }
+  }
+
+  function parsePermissionMode(rawOptionText) {
+    const normalized = String(rawOptionText || "").trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "none") return { read: false, write: false };
+    if (normalized === "read") return { read: true, write: false };
+    if (normalized === "write") return { read: false, write: true };
+
+    const parts = normalized
+      .replace(/[+,]/g, " ")
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (!parts.length) return null;
+
+    let read = false;
+    let write = false;
+    for (const part of parts) {
+      if (part === "read") {
+        read = true;
+        continue;
+      }
+      if (part === "write") {
+        write = true;
+        continue;
+      }
+      return null;
+    }
+
+    return { read, write };
+  }
+
+  function notifyDenied(message) {
+    if (typeof window.protectedGlobals.notification === "function") {
+      window.protectedGlobals.notification(String(message || "Access denied."));
+    }
+  }
+  let pendingPasswordAction = null;
+
+  function promptForPassword(promptMessage) {
+    return new Promise((resolve) => {
+      pendingPasswordAction = {
+        resolve,
+        promptMessage: String(promptMessage || "password"),
+      };
+      writeLine("password:");
+      try { input.value = ""; } catch (e) {}
+      try { input.focus(); } catch (e) {}
+    });
+  }
+
   async function saveTextFileByPath(relPath, text) {
     if (typeof window.protectedGlobals.filePost !== "function") {
       throw new Error("window.protectedGlobals.filePost is unavailable");
     }
-    await window.protectedGlobals.filePost({
+    const response = await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
         { edit: true, contents: utf8ToBase64(text), path: relPath, replace: true },
         { end: true },
       ],
     });
+    ensureServerResultOk(response);
     if (typeof window.protectedGlobals.onlyloadTree === "function") {
       try {
         await window.protectedGlobals.onlyloadTree();
@@ -867,10 +932,11 @@ terminal = function (posX = 50, posY = 50) {
     if (typeof window.protectedGlobals.filePost !== "function") {
       throw new Error("window.protectedGlobals.filePost is unavailable");
     }
-    await window.protectedGlobals.filePost({
+    const response = await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [...directions, { end: true }],
     });
+    ensureServerResultOk(response);
     if (typeof window.protectedGlobals.onlyloadTree === "function") {
       try {
         await window.protectedGlobals.onlyloadTree();
@@ -1025,6 +1091,7 @@ terminal = function (posX = 50, posY = 50) {
       writeLine("Filesystem: ls [path], cd [path], cat <path>, head [-n N] <path>, tail [-n N] <path>");
       writeLine("            mkdir <path>, touch <path>, write <path> <text>, rm <path>");
       writeLine("            cp <src> <dst>, mv <src> <dst>");
+      writeLine("Perms:      changeperm <path> <read|write|read+write|none>");
       writeLine("Apps:       apps, open <app>, run <path|function> [args...]");
       const customCommands = getCustomCommandEntries();
       if (customCommands.length) {
@@ -1277,6 +1344,7 @@ terminal = function (posX = 50, posY = 50) {
       }
       try {
         const content = await readFileByPath(srcRelPath);
+      let pendingPasswordAction = null;
         await saveTextFileByPath(dstFinalPath, content);
       } catch (e) {
         writeLine(`cp: failed to copy '${args[0]}'`, "#ff7a7a");
@@ -1401,6 +1469,53 @@ terminal = function (posX = 50, posY = 50) {
       return;
     }
 
+    if (command === "changeperm") {
+      if (!args[0] || !args[1]) {
+        writeLine("usage: changeperm <path> <read|write|read+write|none>");
+        return;
+      }
+
+      const targetRelPath = resolvePath(args[0]);
+      const mode = parsePermissionMode(args.slice(1).join(" "));
+      if (!mode) {
+        writeLine("changeperm: invalid mode (use read, write, read+write, or none)", "#ff7a7a");
+        return;
+      }
+
+      if (typeof window.protectedGlobals.getCurrentUsernameForRequests !== "function" || typeof window.protectedGlobals.zmcdserver !== "string") {
+        writeLine("changeperm: permission API unavailable", "#ff7a7a");
+        return;
+      }
+
+      const normalizedPermissionPath = targetRelPath ? `/${targetRelPath}` : "/";
+      const password = await promptForPassword(`Password required to change ${normalizedPermissionPath}`);
+      if (password === null) {
+        return;
+      }
+
+      try {
+        const response = await window.protectedGlobals.zmcdpost({updatePathPermission: {
+          path: normalizedPermissionPath,
+          perm: mode,
+        },           password: String(password || ""),
+});
+        let body = response;
+        ensureServerResultOk(response);
+        window.protectedGlobals.data = window.protectedGlobals.data || {};
+        window.protectedGlobals.data.pathPermissions = Array.isArray(body.pathPermissions)
+          ? body.pathPermissions
+          : window.protectedGlobals.data.pathPermissions;
+        writeLine(`changeperm: ${normalizedPermissionPath} -> read=${mode.read} write=${mode.write}`);
+      } catch (e) {
+        const message = String((e && e.message) || "failed");
+        if (/denied|unauthorized/i.test(message)) {
+          notifyDenied(message);
+        }
+        writeLine(`changeperm: ${message}`, "#ff7a7a");
+      }
+      return;
+    }
+
     if (command === "apps") {
       writeLine("Openable apps: " + (listApps().join(", ") || "none detected"));
       return;
@@ -1438,7 +1553,7 @@ terminal = function (posX = 50, posY = 50) {
 
       const rawTarget = args[0];
       const resolvedPath = resolvePath(rawTarget);
-      const fnName = mappedFnName || rawTarget;
+      const fnName = rawTarget;
       const fn = window[fnName];
 
       if (typeof fn !== "function") {
@@ -1530,6 +1645,37 @@ terminal = function (posX = 50, posY = 50) {
   }
 
   input.addEventListener("keydown", async (event) => {
+    if (pendingPasswordAction) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        const pending = pendingPasswordAction;
+        pendingPasswordAction = null;
+        try { input.value = ""; } catch (e) {}
+        writeLine("changeperm: cancelled");
+        if (pending && typeof pending.resolve === "function") pending.resolve(null);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const pending = pendingPasswordAction;
+        const password = String(input.value || "");
+        if (!password.trim()) {
+          writeLine("password:");
+          try { input.value = ""; } catch (e) {}
+          return;
+        }
+        pendingPasswordAction = null;
+        try { input.value = ""; } catch (e) {}
+        if (pending && typeof pending.resolve === "function") pending.resolve(password);
+        return;
+      }
+
+      if (event.key === "Tab" || event.ctrlKey || event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        return;
+      }
+    }
     if (event.key === "Tab") {
       event.preventDefault();
       tabComplete();

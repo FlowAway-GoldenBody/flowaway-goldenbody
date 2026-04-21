@@ -38,7 +38,6 @@ async function walkDir(dir, base = dir) {
           try {
             const txt = await fsp.readFile(userFile, 'utf8');
             const obj = JSON.parse(txt);
-            console.log(providedPassword, obj.password, 'auth attempt for', username);
             if (obj && typeof obj.password === 'string' && obj.password.length) {
               // Check password match first
               if (providedPassword === obj.password) return true;
@@ -77,6 +76,68 @@ function normalizeUserRelativePath(inputPath) {
   if (normalized.startsWith('..') || normalized.includes('/../')) return '';
 
   return normalized;
+}
+
+function normalizePermissionPath(value) {
+  const raw = String(value || '').replace(/\\/g, '/').trim();
+  if (!raw) return '/';
+  const normalized = path.posix.normalize(raw.startsWith('/') ? raw : `/${raw}`);
+  if (!normalized || normalized === '.') return '/';
+  if (normalized.includes('..')) return '';
+  return normalized;
+}
+
+function normalizePermissionEntries(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const out = [];
+  for (const row of list) {
+    const normalizedPath = normalizePermissionPath(row && row.path);
+    if (!normalizedPath) continue;
+    const perm = row && row.perm ? row.perm : {};
+    out.push({
+      path: normalizedPath,
+      perm: {
+        read: perm.read !== false,
+        write: perm.write !== false,
+      },
+    });
+  }
+  if (!out.some((row) => row && row.path === '/systemfiles')) {
+    out.push({
+      path: '/systemfiles',
+      perm: {
+        read: true,
+        write: false,
+      },
+    });
+  }
+  return out;
+}
+
+function getPermissionForRelativePath(relPath, permissionEntries) {
+  const normalizedRel = normalizeUserRelativePath(relPath);
+  const normalizedTarget = normalizePermissionPath(normalizedRel ? `/${normalizedRel}` : '/');
+  if (!normalizedTarget) return { read: false, write: false };
+
+  let matched = null;
+  for (const row of permissionEntries || []) {
+    const base = normalizePermissionPath(row && row.path);
+    if (!base) continue;
+    const isMatch = normalizedTarget === base || normalizedTarget.startsWith(`${base}/`);
+    if (!isMatch) continue;
+    if (!matched || base.length > matched.path.length) {
+      matched = {
+        path: base,
+        perm: {
+          read: row.perm && row.perm.read !== false,
+          write: row.perm && row.perm.write !== false,
+        },
+      };
+    }
+  }
+
+  if (!matched) return { read: true, write: true };
+  return matched.perm;
 }
 
 // Storage quota (bytes). Can be overridden by env var STORAGE_QUOTA_BYTES.
@@ -157,12 +218,30 @@ async function handleFetchfiles(req, res) {
       }
       // authenticate download request
       if (!(await authenticateUser(username, pwd, authHeader))) {
-        console.log(pwd, 'failed auth for', username);
         res.writeHead(401);
         return res.end('unauthorized');
       }
+      let userPathPermissions = [];
+      try {
+        const authFilePath = path.join(directoryPath, username, `${username}.txt`);
+        const authContent = await fsp.readFile(authFilePath, 'utf8');
+        const authObj = JSON.parse(authContent);
+        userPathPermissions = normalizePermissionEntries(authObj && authObj.pathPermissions);
+      } catch (e) {
+        userPathPermissions = [];
+      }
+      const normalizedDownloadPath = normalizeUserRelativePath(rel);
+      if (!normalizedDownloadPath) {
+        res.writeHead(400);
+        return res.end('invalid path');
+      }
+      const downloadPerm = getPermissionForRelativePath(normalizedDownloadPath, userPathPermissions);
+      if (!downloadPerm.read) {
+        res.writeHead(403);
+        return res.end('read permission denied');
+      }
       const userRoot = path.join(directoryPath, username, 'root');
-      const abs = path.join(userRoot, rel);
+      const abs = path.join(userRoot, normalizedDownloadPath);
       if (!fs.existsSync(abs)) {
         res.writeHead(404);
         return res.end('not found');
@@ -220,8 +299,17 @@ async function handleFetchfiles(req, res) {
     const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
     if (!(await authenticateUser(username, data.password, authHeader))) {
       res.writeHead(401);
-        console.log(data.password, 'failed auth for', username);
       return res.end(JSON.stringify({ error: 'unauthorized' }));
+    }
+
+    const authFilePath = path.join(directoryPath, username, `${username}.txt`);
+    let userPathPermissions = [];
+    try {
+      const authContent = await fsp.readFile(authFilePath, 'utf8');
+      const authObj = JSON.parse(authContent);
+      userPathPermissions = normalizePermissionEntries(authObj && authObj.pathPermissions);
+    } catch (e) {
+      userPathPermissions = [];
     }
 
     const userRoot = path.join(directoryPath, username, 'root');
@@ -243,6 +331,12 @@ if (data.requestFile) {
   const normalizedRequestPath = normalizeUserRelativePath(data.requestFileName);
   if (!normalizedRequestPath) {
     return res.end(JSON.stringify({ error: 'Invalid file path' }));
+  }
+
+  const permission = getPermissionForRelativePath(normalizedRequestPath, userPathPermissions);
+  if (!permission.read) {
+    res.writeHead(403);
+    return res.end(JSON.stringify({ error: 'read permission denied', path: `/${normalizedRequestPath}` }));
   }
 
   const fullPath = path.join(userRoot, normalizedRequestPath);
@@ -365,7 +459,7 @@ async function getUniquePath(destPath) {
   return path.join(dir, newName);
 }
 
-async function applyDirections(rootPath, directions, username) {
+async function applyDirections(rootPath, directions, username, userPathPermissions) {
   // result object used to return information back to the caller
   const result = {};
   // Initialize clipboard from server storage or create new
@@ -380,6 +474,31 @@ async function applyDirections(rootPath, directions, username) {
     const parts = p.split('/').filter(Boolean);
     if (parts[0] === 'root') parts.shift();
     return path.join(rootPath, ...parts);
+  }
+
+  const directionPathToRelative = (p = '') => {
+    if (!p || p === 'root') return '';
+    const parts = String(p).split('/').filter(Boolean);
+    if (parts[0] === 'root') parts.shift();
+    return normalizeUserRelativePath(parts.join('/'));
+  }
+
+  const assertReadAllowed = (relativePath) => {
+    const perm = getPermissionForRelativePath(relativePath, userPathPermissions);
+    if (!perm.read) {
+      const err = new Error(`Read permission denied: /${relativePath}`);
+      err.code = 'EACCES';
+      throw err;
+    }
+  }
+
+  const assertWriteAllowed = (relativePath) => {
+    const perm = getPermissionForRelativePath(relativePath, userPathPermissions);
+    if (!perm.write) {
+      const err = new Error(`Write permission denied: /${relativePath}`);
+      err.code = 'EACCES';
+      throw err;
+    }
   }
 
   // Helper: compute total size (bytes) of a directory recursively
@@ -476,6 +595,9 @@ async function applyDirections(rootPath, directions, username) {
     }
   }
 
+  const parentRel = directionPathToRelative(dir.path || 'root');
+  assertWriteAllowed(parentRel);
+
   await ensureDir(parentPath);
 
   // If an entry exists at the target path, ensure it's a directory.
@@ -493,6 +615,8 @@ async function applyDirections(rootPath, directions, username) {
 }
 
     if (dir.addFile) {
+      const fileRel = directionPathToRelative(dir.path || '');
+      assertWriteAllowed(fileRel);
       const filePath = resolvePath(dir.path);
       await fsp.mkdir(path.dirname(filePath), { recursive: true });
       await fsp.writeFile(filePath, '');
@@ -501,10 +625,13 @@ async function applyDirections(rootPath, directions, username) {
 
     if (dir.rename) {
         try {
+      const oldRelPath = directionPathToRelative(dir.path || '');
+      assertWriteAllowed(oldRelPath);
       const oldPath = resolvePath(dir.path);
       const oldRel = dir.path.split('/').slice(1).join('/');
       const newPath = path.join(path.dirname(oldPath), dir.newName);
       const newRel = path.join(path.dirname(oldRel), dir.newName).replace(/\\/g, '/');
+      assertWriteAllowed(normalizeUserRelativePath(newRel));
       await fsp.rename(oldPath, newPath);
 
       // Update any server-side clipboard entries that reference the renamed path
@@ -530,6 +657,8 @@ async function applyDirections(rootPath, directions, username) {
     }
 
     if (dir.delete) {
+      const deleteRelPath = directionPathToRelative(dir.path || '');
+      assertWriteAllowed(deleteRelPath);
       const targetPath = resolvePath(dir.path);
       const relativeTarget = path
         .relative(rootPath, targetPath)
@@ -589,6 +718,8 @@ async function applyDirections(rootPath, directions, username) {
     }
 
     if (dir.permanentDelete) {
+      const deleteRelPath = directionPathToRelative(dir.path || '');
+      assertWriteAllowed(deleteRelPath);
       const targetPath = resolvePath(dir.path);
       // Security: only allow permanent deletion of items inside .trash
       const trashDir = path.join(rootPath, '.trash');
@@ -603,6 +734,8 @@ async function applyDirections(rootPath, directions, username) {
     }
 
     if (dir.restore) {
+      const restoreRelPath = directionPathToRelative(dir.path || '');
+      assertWriteAllowed(restoreRelPath);
       const targetPath = resolvePath(dir.path);
       // Security: only restore items that are inside .trash
       const trashDir = path.join(rootPath, '.trash');
@@ -624,6 +757,11 @@ async function applyDirections(rootPath, directions, username) {
     }
 
     if (dir.copy) {
+        const copyRows = Array.isArray(dir.directions) ? dir.directions : [];
+        for (const row of copyRows) {
+          const copyRelPath = normalizeUserRelativePath(row && row.path ? row.path : '');
+          assertReadAllowed(copyRelPath);
+        }
         // Store the list of items to clipboard and avoid creating on-disk temp copies.
         // Copy will be performed at paste time from the live location; if the source
         // no longer exists when pasting, the operation will fail (matching real cloud drive behavior).
@@ -632,6 +770,8 @@ async function applyDirections(rootPath, directions, username) {
     }
 
     if (dir.paste && clipboard) {
+        const destinationRelPath = directionPathToRelative(dir.path || 'root');
+        assertWriteAllowed(destinationRelPath);
         const destinationDir = path.join(userRoot, dir.path);
         // Resolve per-user quota and current usage once
         const quota = await getUserQuotaBytes(userRoot);
@@ -639,6 +779,8 @@ async function applyDirections(rootPath, directions, username) {
 
         // Check and copy/move each item; abort the whole paste if any item would exceed quota
         for (const item of clipboard) {
+          const sourceRelPath = normalizeUserRelativePath(item && item.path ? item.path : '');
+          assertReadAllowed(sourceRelPath);
           const src = path.join(userRoot, item.path);
 
           // ensure source still exists
@@ -692,6 +834,8 @@ async function applyDirections(rootPath, directions, username) {
       // 1) Small inline edit: dir.contents (base64 string)
       // 2) Chunked upload: dir.chunk (single part), dir.chunks (array of parts), and dir.finalize/dir.finalizeUpload to assemble
       const destRel = dir.path || '';
+      const editRelPath = directionPathToRelative(destRel);
+      assertWriteAllowed(editRelPath);
       console.log(destRel)
       const filePath = resolvePath(destRel);
       console.log(filePath)
@@ -932,7 +1076,7 @@ function removeNodeFromTree(node, pathParts) {
 }
 if (data.saveSnapshot) {
   // Apply all frontend directions to build tree
-  const result = await applyDirections(userRoot, data.directions, username);
+  const result = await applyDirections(userRoot, data.directions, username, userPathPermissions);
 
   return res.end(JSON.stringify({ success: true, result, clipboard: result.clipboard }));
 }
@@ -940,6 +1084,11 @@ if (data.saveSnapshot) {
 // Save start menu config
 if (data.action === 'saveStartMenuConfig' && data.configJson) {
   try {
+    const permission = getPermissionForRelativePath('systemfiles/userprofile/startMenu-config.json', userPathPermissions);
+    if (!permission.write) {
+      res.writeHead(403);
+      return res.end(JSON.stringify({ error: 'write permission denied', path: '/systemfiles/userprofile/startMenu-config.json' }));
+    }
     const configPath = path.join(userRoot, 'systemfiles', 'userprofile', 'startMenu-config.json');
     await fsp.mkdir(path.dirname(configPath), { recursive: true });
     await fsp.writeFile(configPath, data.configJson, 'utf8');
@@ -958,6 +1107,10 @@ if (data.action === 'saveStartMenuConfig' && data.configJson) {
 
     } catch (err) {
       console.error(err);
+      if (err && err.code === 'EACCES') {
+        res.writeHead(403);
+        return res.end(JSON.stringify({ error: err.message || 'permission denied' }));
+      }
       res.writeHead(500);
       res.end(JSON.stringify({ error: err.message }));
     }

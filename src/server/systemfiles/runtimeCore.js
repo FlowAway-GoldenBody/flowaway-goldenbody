@@ -78,7 +78,7 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
         method: 'POST',
         headers,
         body: JSON.stringify({
-            username: getCurrentUsernameForRequests(),
+            username: window.protectedGlobals.getCurrentUsernameForRequests(),
             ...data
         })
     });
@@ -94,6 +94,12 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
             window.protectedGlobals.data.authToken = body.authToken || body.token;
         } catch (e) {}
     }
+    try {
+      var zmcdErrorMessage = body && body.error ? String(body.error) : "";
+      if (res.status === 403 || /denied/i.test(zmcdErrorMessage)) {
+        window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
+      }
+    } catch (e) {}
     if (res.status === 401) {
         try {
             window.protectedGlobals.showSessionExpiredDialog();
@@ -344,6 +350,12 @@ window.protectedGlobals.filePost = async function filePost(data) {
       window.protectedGlobals.data.authToken = body.authToken || body.token;
     } catch (e) {}
   }
+  try {
+    var fileErrorMessage = body && body.error ? String(body.error) : "";
+    if (res.status === 403 || /denied/i.test(fileErrorMessage)) {
+      window.protectedGlobals.notification(fileErrorMessage || "Access denied.");
+    }
+  } catch (e) {}
   if (res.status === 401 && !window.protectedGlobals.firstlogin) {
     try {
       window.protectedGlobals.showSessionExpiredDialog();
