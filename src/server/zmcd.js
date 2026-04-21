@@ -60,17 +60,87 @@ function getUserPaths(username) {
   };
 }
 
+function normalizePermissionPath(value) {
+  const raw = String(value || '').replace(/\\/g, '/').trim();
+  if (!raw) return '/';
+  const normalized = path.posix.normalize(raw.startsWith('/') ? raw : `/${raw}`);
+  if (!normalized || normalized === '.') return '/';
+  if (normalized.includes('..')) return '';
+  return normalized;
+}
+
+function normalizePermissionEntry(entry) {
+  const raw = entry || {};
+  const p = normalizePermissionPath(raw.path);
+  if (!p) return null;
+  const perm = raw.perm || {};
+  return {
+    path: p,
+    perm: {
+      read: perm.read !== false,
+      write: perm.write !== false,
+    },
+  };
+}
+
+function defaultSystemPathPermissions() {
+  return [
+    {
+      path: '/systemfiles',
+      perm: { read: true, write: false },
+    },
+    {
+      path: '/systemfiles/runtime/apps',
+      perm: { read: true, write: true },
+    },
+    {
+      path: '/systemfiles/userprofile',
+      perm: { read: true, write: true },
+    },
+  ];
+}
+
+function mergePathPermissionsWithDefaults(existingEntries) {
+  const defaults = defaultSystemPathPermissions();
+  const merged = [];
+  const byPath = new Map();
+
+  for (const row of defaults) {
+    const normalized = normalizePermissionEntry(row);
+    if (!normalized) continue;
+    byPath.set(normalized.path, normalized);
+    merged.push(normalized);
+  }
+
+  for (const row of existingEntries || []) {
+    const normalized = normalizePermissionEntry(row);
+    if (!normalized) continue;
+    if (byPath.has(normalized.path)) {
+      byPath.set(normalized.path, normalized);
+    } else {
+      byPath.set(normalized.path, normalized);
+      merged.push(normalized);
+    }
+  }
+
+  return merged.map((row) => byPath.get(row.path)).filter(Boolean);
+}
+
 function sanitizeAuthRecord(raw, username, passwordHint = '') {
   const base = raw && typeof raw === 'object' ? raw : {};
   const authTokens = Array.isArray(base.authTokens)
     ? base.authTokens.filter((tokenRow) => tokenRow && tokenRow.token && tokenRow.expires)
     : [];
   const password = typeof base.password === 'string' ? base.password : String(passwordHint || '');
+  const pathPermissions = mergePathPermissionsWithDefaults(
+    Array.isArray(base.pathPermissions) ? base.pathPermissions : [],
+  );
   return {
     username: String(base.username || username || '').trim(),
     password,
     authTokens,
     maxSpace: normalizeMaxSpaceGb(base.maxSpace),
+    pathPermissions,
   };
 }
 
@@ -274,6 +344,7 @@ function buildLoginResponse(authRecord, profile, token) {
     username: authRecord.username,
     authTokens: authRecord.authTokens,
     authToken: token,
+    pathPermissions: Array.isArray(authRecord.pathPermissions) ? authRecord.pathPermissions : [],
     ...profile,
     maxSpace: normalizeMaxSpaceGb(authRecord.maxSpace),
   };
@@ -377,6 +448,60 @@ function handleZMCd(req, res) {
         const newToken = issueToken(authRecord);
         writeAuthRecord(userPaths, authRecord);
         return res.end(JSON.stringify({ success: true, authToken: newToken }));
+      }
+
+      if (data.updatePathPermission || data.setPathPermissions) {
+        const authResult = readAuthRecord(userPaths);
+        if (!authResult) {
+          res.writeHead(404);
+          return res.end(JSON.stringify({ error: 'User file not found' }));
+        }
+
+        const authRecord = authResult.auth;
+        if (!isAuthorized(authRecord, data, authHeader)) {
+          res.writeHead(401);
+          return res.end(JSON.stringify({ error: 'authorization required to change path permissions' }));
+        }
+
+        let nextPermissions = Array.isArray(authRecord.pathPermissions)
+          ? authRecord.pathPermissions.slice()
+          : [];
+
+        if (Array.isArray(data.setPathPermissions)) {
+          nextPermissions = mergePathPermissionsWithDefaults(data.setPathPermissions);
+        }
+
+        if (data.updatePathPermission) {
+          console.log(data.username, data.updatePathPermission);
+          let userfile = fs.readFileSync(userPaths.authFile, 'utf8');
+          userfile = JSON.parse(userfile);
+          console.log(data.password, userfile.password);
+          if(data.password !== userfile.password) {
+            res.writeHead(403);
+            return res.end(JSON.stringify({ error: 'incorrect password' }));
+          }
+          const normalizedRow = normalizePermissionEntry(data.updatePathPermission);
+          if (!normalizedRow) {
+            res.writeHead(403);
+            return res.end(JSON.stringify({ error: 'invalid path permission payload' }));
+          }
+          let replaced = false;
+          nextPermissions = nextPermissions.map((row) => {
+            const normalizedExisting = normalizePermissionEntry(row);
+            if (!normalizedExisting) return row;
+            if (normalizedExisting.path !== normalizedRow.path) return normalizedExisting;
+            replaced = true;
+            return normalizedRow;
+          });
+          if (!replaced) nextPermissions.push(normalizedRow);
+        }
+
+        authRecord.pathPermissions = mergePathPermissionsWithDefaults(nextPermissions);
+        writeAuthRecord(userPaths, authRecord);
+        return res.end(JSON.stringify({
+          success: true,
+          pathPermissions: authRecord.pathPermissions,
+        }));
       }
 
       if (data.updatePassword) {

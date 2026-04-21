@@ -1978,8 +1978,8 @@
 
   window.protectedGlobals.__processRuntime = runtime;
   window.protectedGlobals.FlowawayProcess = runtime;
-  if (!window.process || typeof window.process !== "object") {
-    window.process = runtime;
+  if (!window.protectedGlobals.process || typeof window.protectedGlobals.process !== "object") {
+    window.protectedGlobals.process = runtime;
   }
 
   window.protectedGlobals.registerDynamicProcess = registerDynamicProcess;
