@@ -2,6 +2,11 @@ node_modules/
 
 # don't commit generated builds or env files
 src/server/zmcdfiles/
+node_modules/
+dist/
+build/
+archive/
+.vscode/
 .env
 
 # don't commit session and cache data

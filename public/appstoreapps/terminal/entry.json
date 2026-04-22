@@ -1,8 +1,0 @@
-{
-  "functionname": "terminal",
-  "label": "Terminal",
-  "cmf": "terminalContextMenu",
-  "cmfl1": "terminalcontextmenuhandlerL1",
-  "globalvarobjectstring": "terminalGlobals",
-  "allapparraystring": "allTerminals"
-}

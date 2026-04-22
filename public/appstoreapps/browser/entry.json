@@ -1,8 +1,0 @@
-{
-  "functionname": "browser",
-  "label": "Browser",
-  "cmf": "browsermenuhandler",
-  "cmfl1": "browsercontextmenuhandlerL1",
-  "globalvarobjectstring": "browserGlobals",
-  "allapparraystring": "allBrowsers"
-}
