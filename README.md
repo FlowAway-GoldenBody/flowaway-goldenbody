@@ -2,9 +2,7 @@
 flowaway goldenbody is an OS-like web interface built with vanilla JavaScript and a Node.js server. 
 
 ## EXAMPLE IMAGE
-![goldenbody](https://s6.imgcdn.dev/Yv9K0u.png)
-![goldenbody2](https://s6.imgcdn.dev/Yx57Iy.png)
-![goldenbody3](https://s6.imgcdn.dev/Yx5B78.png)
+![goldenbody](https://github-production-user-asset-6210df.s3.amazonaws.com/226630685/582211410-2c4ed831-de36-4e6a-8696-0fb81dc6c321.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260422%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260422T195228Z&X-Amz-Expires=300&X-Amz-Signature=9a5a45edde4bfafe4a31636eac613019f54942a74cacfb888899a81671579fa2&X-Amz-SignedHeaders=host&response-content-type=image%2Fpng)
 
 ## QUICK DEV & RUN
 

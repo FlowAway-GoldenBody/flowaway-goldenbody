@@ -580,11 +580,11 @@ window.browserGlobals.unshuffleURL = function (url) {
   try {
     if (typeof url === "string" && url.startsWith("blob:")) {
       const mapped = window.browserGlobals.__localFileUrlMap.get(url);
-      if (mapped) return mapped;
+      if (mapped) return `file://${mapped}`;
 
       const withoutHash = url.split("#")[0];
       const mappedNoHash = window.browserGlobals.__localFileUrlMap.get(withoutHash);
-      if (mappedNoHash) return mappedNoHash;
+      if (mappedNoHash) return `file://${mappedNoHash}`;
     }
   } catch (e) {}
 
@@ -595,7 +595,7 @@ window.browserGlobals.unshuffleURL = function (url) {
     } catch (e) {}
     localPath = localPath.replace(/\/{2,}/g, "/");
     localPath = localPath.replace(/^\/+/, "");
-    return localPath;
+    return `file://${localPath}`;
   }
 
   if(!url.includes(window.protectedGlobals.BASE)) {return url};
@@ -636,6 +636,31 @@ window.browserGlobals.mainWebsite = function (string) {
 
 window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, posY = 20) 
 {
+  function normalizePreloadLink(value) {
+    const input = String(value || "").trim();
+    if (!input) return "";
+    if (
+      input.startsWith("file://") ||
+      input.startsWith("http://") ||
+      input.startsWith("https://") ||
+      input.startsWith("goldenbody://") ||
+      input.startsWith("javascript:")
+    ) {
+      return input;
+    }
+    if (
+      input.startsWith("root/") ||
+      input.startsWith("/") ||
+      input.startsWith("./") ||
+      input.startsWith("../") ||
+      /[\\/]/.test(input) ||
+      /\.[a-z0-9]{1,10}([?#].*)?$/i.test(input)
+    ) {
+      return `file://${input.replace(/^\/+/, "")}`;
+    }
+    return input;
+  }
+  
   let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
     if (window.browserGlobals.profileReadyPromise) {
@@ -1165,7 +1190,13 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         () => {
           if (typeof reloadBtn.onclick === "function") reloadBtn.onclick();
           else if (activeTab && activeTab.iframe && activeTab.iframe.contentWindow) {
-            activeTab.iframe.contentWindow.location.reload();
+            let tmp = browserGlobals.unshuffleURL(activeTab.iframe.src);
+            if(looksLikeLocalFilePath(tmp)) {
+              openUrlInActiveTab(tmp);
+            }
+            else {
+              activeTab.iframe.contentWindow.location.reload();
+            }
           }
         },
         !hasActiveTab,
@@ -3117,7 +3148,12 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
             reload.onmouseenter = () => (reload.style.background = "#444");
             reload.onmouseleave = () => (reload.style.background = "none");
             reload.onclick = () => {
+            let tmp = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
+            if(looksLikeLocalFilePath(tmp)) {
+              openUrlInActiveTab(tmp);
+            } else {
               iframe.contentWindow.location.reload();
+            }
               hideMenu();
             };
             menu.appendChild(reload);
@@ -6189,7 +6225,12 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           tab.iframe.style.display === "block"
         ) {
           e.preventDefault();
-          tab.iframe.contentWindow.location.reload();
+            let tmp = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+            if(looksLikeLocalFilePath(tmp)) {
+              openUrlInActiveTab(tmp);
+            } else {
+              tab.iframe.contentWindow.location.reload();
+            }
         }
       }
       root.addEventListener("keydown", handleReload);
@@ -6376,13 +6417,13 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             tab.__localFileNav = {
               iframeSrc: blobUrl,
               historyUrl: `file://${localPath}`,
-              displayUrl: localPath,
+              displayUrl: `file://${localPath}`,
               blobUrl,
               isLocal: true,
             };
           }
           tab.iframe.src = blobUrl;
-          urlInput.value = localPath;
+          urlInput.value = `file://${localPath}`;
           return;
         } catch (e) {
           tab.history.suppressNextRecord = false;
@@ -6420,12 +6461,17 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         if (reloadBtn.dataset.mode === "stop") {
           tab.iframe.contentWindow.stop();
         } else {
-          tab.iframe.contentWindow.location.reload();
+            let tmp = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
+            if(looksLikeLocalFilePath(tmp)) {
+              openUrlInActiveTab(tmp);
+            } else {
+              tab.iframe.contentWindow.location.reload();
+            }
         }
       };
       sitesettingsbtn.onclick = () => {
         openPermissionsUI(
-          browserGlobals.unshuffleURL(tab.iframe.src),
+          browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
           tab.iframe,
           sitesettingsbtn.getBoundingClientRect(),
         );
@@ -6595,38 +6641,8 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     }
 
     function looksLikeLocalFilePath(value) {
-      const input = String(value || "").trim();
-      if (!input) return false;
-      const lower = input.toLowerCase();
-      if (
-        lower.startsWith("http://") ||
-        lower.startsWith("https://") ||
-        lower.startsWith("goldenbody://") ||
-        lower.startsWith("javascript:")
-      ) {
-        return false;
-      }
-      if (lower.startsWith("root/") || lower.startsWith("/") || lower.startsWith("file://")) {
-        return true;
-      }
-      if (lower.startsWith("./") || lower.startsWith("../")) {
-        return true;
-      }
-      const fileLikeName = /(^|\/)?.+\.[a-z0-9]{1,10}$/i.test(input);
-      if (!fileLikeName) return false;
-      const ext = input.includes(".")
-        ? input.slice(input.lastIndexOf(".")).toLowerCase()
-        : "";
-      const knownLocalExt = new Set([
-        ".html", ".htm", ".aspx", ".asp", ".php", ".jsp", ".cgi",
-        ".txt", ".md", ".json", ".xml", ".css", ".js", ".mjs",
-        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico",
-        ".mp4", ".webm", ".ogg", ".mp3", ".wav", ".flac", ".pdf", ".url",
-      ]);
-      if (knownLocalExt.has(ext)) return true;
-      const firstSegment = input.split("/")[0] || "";
-      if (/^[a-z0-9-]+\.[a-z]{2,}$/i.test(firstSegment)) return false;
-      return false;
+      if(!value.startsWith("file://")) return false;
+      return true;
     }
 
     function mimeFromPath(path) {
@@ -6738,7 +6754,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       return {
         iframeSrc: blobUrl,
         historyUrl: `file://${normalizedPath}`,
-        displayUrl: normalizedPath,
+        displayUrl: `file://${normalizedPath}`,
         blobUrl,
         isLocal: true,
       };
@@ -6894,7 +6910,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     if (preloadlink) {
       const id = addTab("goldenbody://newtab/", "New Tab");
       activateTab(id);
-      openUrlInActiveTab(preloadlink);
+      openUrlInActiveTab(normalizePreloadLink(preloadlink));
     }
 
     // new tab
