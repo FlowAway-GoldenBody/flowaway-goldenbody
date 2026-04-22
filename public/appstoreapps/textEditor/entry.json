@@ -1,8 +1,0 @@
-{
-  "functionname": "textEditor",
-  "label": "Text Editor",
-  "cmf": "textEditorContextMenu",
-  "cmfl1": "textEditorcontextmenuhandlerL1",
-  "globalvarobjectstring": "textEditorGlobals",
-  "allapparraystring": "allTextEditors"
-}

@@ -1,8 +1,0 @@
-{
-  "functionname": "settings",
-  "label": "Settings",
-  "cmf": "settingsContextMenu",
-  "cmfl1": "settingscontextmenuhandlerL1",
-  "globalvarobjectstring": "settingsGlobals",
-  "allapparraystring": "allSettings"
-}

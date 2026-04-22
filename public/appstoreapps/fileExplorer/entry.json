@@ -1,8 +1,0 @@
-{
-  "functionname": "fileExplorer",
-  "label": "File Explorer",
-  "cmf": "fileExplorerContextMenu",
-  "cmfl1": "fileExplorercontextmenuhandlerL1",
-  "globalvarobjectstring": "explorerGlobals",
-  "allapparraystring": "allExplorers"
-}
