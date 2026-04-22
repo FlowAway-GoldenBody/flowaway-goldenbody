@@ -1,0 +1,9 @@
+{
+  "functionname": "textEditor",
+  "label": "Text Editor",
+  "globalvarobjectstring": "textEditorGlobals",
+  "allapparraystring": "allTextEditors",
+  "openfilecapability": [
+    "*"
+  ]
+}

@@ -1,0 +1,14 @@
+node_modules/
+
+# don't commit generated builds or env files
+src/server/zmcdfiles/
+.env
+
+# don't commit session and cache data
+sessions/*
+
+# but commit the empty folders
+!sessions/.gitkeep
+!cache-js/.gitkeep
+
+# ignore any custom configurations

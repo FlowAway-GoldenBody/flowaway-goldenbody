@@ -1,0 +1,9 @@
+---
+description: whenever you are writing any code in this workspace
+# applyTo: 'whenever you are writing any code in this workspace' # when provided, instructions will automatically be added to the request context when the pattern matches an attached file
+---
+you should not be overly careful. Don't be afraid to delete code that seems to be unused or redundant. If you think a piece of code can be removed without breaking the functionality, go ahead and remove it. This will help keep the codebase clean and maintainable. If you are unsure about whether a piece of code can be removed, you can always ask for clarification or guidance.
+you need to make sure you dont cause any landmines that would bite back. make sure you focus on making the production as realistic as possible to a real os. because it is one to many students who only have a chromebook.
+
+global const/let is banned in non (()=>{})() wrappers. if you need to declare a global variable, you should attach it to the window.protectedGlobals object. for example, instead of writing `const foo = 123;`, you should write `window.protectedGlobals.foo = 123;`. this is to prevent accidental global variable declarations that can lead to bugs and conflicts in the codebase.
+same with var, function, class, async function, generator function, async generator function, etc. they all should be in the protectedGlobals object if they need to be global. if they are only used in a specific module or file, they should be declared as local variables or functions within that module or file. this will help keep the code organized and prevent unintended side effects from global variables.

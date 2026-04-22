@@ -1,0 +1,9 @@
+{
+  "functionname": "fileExplorer",
+  "label": "File Explorer",
+  "globalvarobjectstring": "explorerGlobals",
+  "allapparraystring": "allExplorers",
+  "openfilecapability": [
+    "*"
+  ]
+}

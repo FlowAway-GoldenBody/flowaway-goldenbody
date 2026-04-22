@@ -1,0 +1,7 @@
+{
+  "functionname": "settings",
+  "label": "Settings",
+  "globalvarobjectstring": "settingsGlobals",
+  "allapparraystring": "allSettings",
+  "openfilecapability": []
+}

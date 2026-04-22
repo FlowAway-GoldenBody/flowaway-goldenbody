@@ -1,0 +1,9 @@
+{
+  "functionname": "yourApp",
+  "label": "Your App",
+  "globalvarobjectstring": "yourAppGlobals",
+  "allapparraystring": "allYourAppInstances",
+  "openfilecapability": [],
+  "cmf": "shell",
+  "cmfl1": "shell1"
+}

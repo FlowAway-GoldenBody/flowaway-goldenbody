@@ -1,0 +1,7 @@
+{
+  "functionname": "taskManager",
+  "label": "Task Manager",
+  "globalvarobjectstring": "taskManagerGlobals",
+  "allapparraystring": "allTaskManagers",
+  "openfilecapability": []
+}

@@ -1,0 +1,7 @@
+{
+  "functionname": "terminal",
+  "label": "Terminal",
+  "globalvarobjectstring": "terminalGlobals",
+  "allapparraystring": "allTerminals",
+  "openfilecapability": []
+}
