@@ -1,5 +1,9 @@
 (function initHammerheadClient () {if (window["%is-hammerhead%"]) throw new TypeError("already ran"); window["%is-hammerhead%"] = true;window.rammerheadTop = (function() {var w = window; while (w !== w.top && w.parent["%hammerhead"]) w = w.parent; return w;})();window.rammerheadParent = window.rammerheadTop === window ? window : window.rammerheadParent;window.distanceRammerheadTopToTop = (function() { var i=0,w=window; while (w !== window.rammerheadTop) {i++;w=w.parent} return i; })();window.rammerheadAncestorOrigins = Array.from(location.ancestorOrigins).slice(0, -window.distanceRammerheadTopToTop);
+	try {
 
+	} catch (e) {
+		console.error(e);
+	}
     (function () {
 
 	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};

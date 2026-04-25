@@ -7,7 +7,7 @@ explorerGlobals.clipboard = {
   path: null, // full path string
 };
 
-fileExplorer = function (posX = 50, posY = 50, path = '/') {
+fileExplorer = function (path = '/', posX = 50, posY = 50) {
   let isMaximized = false;
   let _isMinimized = false;
   window.protectedGlobals.atTop = "fileExplorer";
@@ -1323,6 +1323,14 @@ fileExplorer = function (posX = 50, posY = 50, path = '/') {
 
     // Rename only if single item is selected
     if (!isBlank && selectedItem && selectedItems.length <= 1) {
+      if(isFolder) {
+      addItem("Open in Terminal", () => {
+        const path = getItemPath(selectedItem);
+        if (path) {
+          window.terminal(path);
+        }
+      });
+      }
       addItem("Rename", () => {
         const oldName = selectedItem[0];
 

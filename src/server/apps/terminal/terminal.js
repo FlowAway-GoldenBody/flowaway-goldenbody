@@ -229,7 +229,7 @@ if (!window.protectedGlobals.__terminalProcessCommandsRegistered && typeof windo
   window.protectedGlobals.__terminalProcessCommandsRegistered = true;
 }
 
-terminal = function (posX = 50, posY = 50) {
+terminal = function (argPath = '', posX = 50, posY = 50) {
   window.protectedGlobals.notification("Terminal is in beta. Type 'help' for available commands.");
   window.protectedGlobals.startMenu.style.display = "none";
   let isMaximized = false;
@@ -705,7 +705,7 @@ terminal = function (posX = 50, posY = 50) {
   applyTerminalTheme();
 
   const username = window.protectedGlobals.data.username || "guest";
-  let cwdRelPath = "";
+  let cwdRelPath = argPath;
   let commandHistory = [];
   let historyIndex = -1;
 

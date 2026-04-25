@@ -203,7 +203,7 @@ async function handleFetchfiles(req, res) {
   }
 
   // Support simple streaming download endpoint for large files.
-  console.log('fetchfiles request', req.method, req.url);
+  // console.log('fetchfiles request', req.method, req.url);
   if (req.method === 'GET' && req.url && req.url.startsWith('/download')) {
     try {
       const { URL } = require('url');
@@ -572,7 +572,7 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
 
   for (const dir of directions) {
  if (dir.addFolder) {
-  console.log(dir.path)
+  // console.log(dir.path)
   // dir.path may be either the parent folder (where to create) OR
   // a full target path that already includes the new folder name.
   // Normalize: if dir.name provided, treat dir.path as parent; otherwise
@@ -652,7 +652,7 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
         // ignore clipboard update failures
       }
 
-        } catch(e) {console.log(e)}
+        } catch(e) {console.error(e)}
       continue;
     }
 
@@ -836,13 +836,13 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
       const destRel = dir.path || '';
       const editRelPath = directionPathToRelative(destRel);
       assertWriteAllowed(editRelPath);
-      console.log(destRel)
+      // console.log(destRel)
       const filePath = resolvePath(destRel);
-      console.log(filePath)
+      // console.log(filePath)
 
       // If caller requests replace:true, remove existing file and any temp parts
       if (dir.replace) {
-        console.log(dir.path)
+        // console.log(dir.path)
         try {
           // remove existing final file if present
           await fsp.rm(filePath, { force: true, recursive: false });
@@ -1022,7 +1022,7 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
           throw new Error(`Storage quota exceeded: cannot write ${path.basename(filePath)} (${delta} additional bytes)`);
         }
 
-        console.log(filePath, buffer.length);
+        // console.log(filePath, buffer.length);
         await fsp.writeFile(filePath, buffer);
         continue;
       }
@@ -1120,7 +1120,7 @@ if (data.action === 'saveStartMenuConfig' && data.configJson) {
 function startServer(port = 8083, host = '0.0.0.0') {
   const server = http.createServer((req, res) => handleFetchfiles(req, res));
   server.listen(port, host, () => {
-    console.log(`fetchfiles server listening on port ${port}`);
+    // console.log(`fetchfiles server listening on port ${port}`);
   });
   return server;
 }
