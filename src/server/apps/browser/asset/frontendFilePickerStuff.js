@@ -1,7 +1,7 @@
          // ----------------------------
         // 1. Make treeData global
         // ----------------------------
-        let sentreqframe;
+        let sentreqframe = null;
 
         window.protectedGlobals.onlyloadTree();
 
@@ -20,17 +20,11 @@
         async function fetchFileContent(username, fileFullPath) {
           if (!fileFullPath) throw new Error("No file path provided");
 
-          const res = await fetch(window.protectedGlobals.SERVER, {
-            method: "POST",
-            headers: getSessionAuthHeaders(),
-            body: JSON.stringify({
-              requestFile: true,
-              requestFileName: fileFullPath, // send path relative to root
-              username,
-            }),
+          const data = await window.protectedGlobals.filePost({
+            requestFile: true,
+            requestFileName: fileFullPath,
+            username,
           });
-
-          const data = await res.json();
 
           if (data.kind === "folder") {
             throw new Error(
@@ -103,6 +97,13 @@
           return mimeMap[ext] || "application/octet-stream";
         }
 
+        function deliverVfsPayload(targetFrame, payload) {
+          if (!targetFrame) return;
+          if (targetFrame.__gbReceiveVfsPayload) {
+            targetFrame.__gbReceiveVfsPayload(payload);
+          }
+        }
+
         // Send file to iframe
         async function sendFileNodeToIframe(
           username,
@@ -157,37 +158,28 @@
               if (i === 0) {
                 chunkBuf = base64ToArrayBuffer(result.filecontent);
               } else {
-                const r = await fetch(window.protectedGlobals.SERVER, {
-                  method: "POST",
-                  headers: getSessionAuthHeaders(),
-                  body: JSON.stringify({
-                    requestFile: true,
-                    requestFileName: fullPath,
-                    chunkIndex: i,
-                    username,
-                  }),
+                const chunkData = await window.protectedGlobals.filePost({
+                  requestFile: true,
+                  requestFileName: fullPath,
+                  chunkIndex: i,
+                  username,
                 });
-                const chunkData = await r.json();
                 chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
               }
 
               await new Promise((resolve) => {
-                iframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "file",
-                    name: node[0],
-                    type,
-                    buffer: chunkBuf,
-                    path: fullPath,
-                    webkitRelativePath,
-                    chunkIndex: i,
-                    totalChunks,
-                    lastOne: i === totalChunks - 1 && lastOne,
-                  },
-                  "*",
-                  [chunkBuf],
-                );
+                deliverVfsPayload(iframe.contentWindow, {
+                  __VFS__: true,
+                  kind: "file",
+                  name: node[0],
+                  type,
+                  buffer: chunkBuf,
+                  path: fullPath,
+                  webkitRelativePath,
+                  chunkIndex: i,
+                  totalChunks,
+                  lastOne: i === totalChunks - 1 && lastOne,
+                });
                 setTimeout(resolve, 10);
               });
             }
@@ -200,40 +192,32 @@
                 const end = Math.min(start + chunkSize, buffer.byteLength);
                 const chunk = buffer.slice(start, end);
                 await new Promise((resolve) => {
-                  iframe.contentWindow.postMessage(
-                    {
-                      __VFS__: true,
-                      kind: "file",
-                      name: node[0],
-                      type,
-                      buffer: chunk,
-                      path: fullPath,
-                      webkitRelativePath,
-                      chunkIndex: i,
-                      totalChunks,
-                      lastOne: i === totalChunks - 1 && lastOne,
-                    },
-                    "*",
-                    [chunk],
-                  );
+                  deliverVfsPayload(iframe.contentWindow, {
+                    __VFS__: true,
+                    kind: "file",
+                    name: node[0],
+                    type,
+                    buffer: chunk,
+                    path: fullPath,
+                    webkitRelativePath,
+                    chunkIndex: i,
+                    totalChunks,
+                    lastOne: i === totalChunks - 1 && lastOne,
+                  });
                   setTimeout(resolve, 10);
                 });
               }
             } else {
-              iframe.contentWindow.postMessage(
-                {
-                  __VFS__: true,
-                  kind: "file",
-                  name: node[0],
-                  type,
-                  buffer,
-                  path: fullPath,
-                  webkitRelativePath,
-                  lastOne: lastOne,
-                },
-                "*",
-                [buffer],
-              );
+              deliverVfsPayload(iframe.contentWindow, {
+                __VFS__: true,
+                kind: "file",
+                name: node[0],
+                type,
+                buffer,
+                path: fullPath,
+                webkitRelativePath,
+                lastOne: lastOne,
+              });
             }
           }
         }
@@ -325,61 +309,48 @@
                 if (ci === 0)
                   chunkBuf = base64ToArrayBuffer(result.filecontent);
                 else {
-                  const r = await fetch(window.protectedGlobals.SERVER, {
-                    method: "POST",
-                    headers: getSessionAuthHeaders(),
-                    body: JSON.stringify({
-                      requestFile: true,
-                      requestFileName: file.fullPath,
-                      chunkIndex: ci,
-                      username,
-                    }),
+                  const cd = await window.protectedGlobals.filePost({
+                    requestFile: true,
+                    requestFileName: file.fullPath,
+                    chunkIndex: ci,
+                    username,
                   });
-                  const cd = await r.json();
                   chunkBuf = base64ToArrayBuffer(cd.filecontent);
                 }
                 await new Promise((resolve) => {
-                  iframe.contentWindow.postMessage(
-                    {
-                      __VFS__: true,
-                      kind: "file",
-                      name: file.name,
-                      type,
-                      buffer: chunkBuf,
-                      webkitRelativePath: file.fullPath,
-                      fileIndex: fileIndex - 1,
-                      totalFiles: filesToSend.length,
-                      chunkIndex: ci,
-                      totalChunks,
-                      lastOne:
-                        fileIndex == filesToSend.length &&
-                        ci === totalChunks - 1 &&
-                        lastOne,
-                    },
-                    "*",
-                    [chunkBuf],
-                  );
+                  deliverVfsPayload(iframe.contentWindow, {
+                    __VFS__: true,
+                    kind: "file",
+                    name: file.name,
+                    type,
+                    buffer: chunkBuf,
+                    webkitRelativePath: file.fullPath,
+                    fileIndex: fileIndex - 1,
+                    totalFiles: filesToSend.length,
+                    chunkIndex: ci,
+                    totalChunks,
+                    lastOne:
+                      fileIndex == filesToSend.length &&
+                      ci === totalChunks - 1 &&
+                      lastOne,
+                  });
                   setTimeout(resolve, 10);
                 });
               }
             } else {
               // Add delay between messages to prevent packet loss
               await new Promise((resolve) => {
-                iframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "file",
-                    name: file.name,
-                    type,
-                    buffer,
-                    webkitRelativePath: file.fullPath,
-                    fileIndex: fileIndex - 1,
-                    totalFiles: filesToSend.length,
-                    lastOne: fileIndex == filesToSend.length && lastOne,
-                  },
-                  "*",
-                  [buffer],
-                );
+                deliverVfsPayload(iframe.contentWindow, {
+                  __VFS__: true,
+                  kind: "file",
+                  name: file.name,
+                  type,
+                  buffer,
+                  webkitRelativePath: file.fullPath,
+                  fileIndex: fileIndex - 1,
+                  totalFiles: filesToSend.length,
+                  lastOne: fileIndex == filesToSend.length && lastOne,
+                });
                 setTimeout(resolve, 10);
               });
             }
@@ -522,7 +493,8 @@
           });
         }
 
- window.browserGlobals.showOpenFilePicker = function () {
+         window.browserGlobals.showOpenFilePicker = function (frameWin) {
+                  sentreqframe = resolveRequestFrame(frameWin) || sentreqframe;
           if (!window.protectedGlobals.treeData) {
             window.protectedGlobals.onlyloadTree();
           }
@@ -668,14 +640,12 @@
                 pickerOverlay.resolvePicker([]); // resolve promise with empty selection
                 pickerOverlay.resolvePicker = null;
               }
-              try {
-                if (sentreqframe && sentreqframe.contentWindow) {
-                  sentreqframe.contentWindow.postMessage(
-                    { __VFS__: true, kind: "pickerCancelled" },
-                    "*",
-                  );
-                }
-              } catch (e) {}
+              if (sentreqframe && sentreqframe.__gbReceiveVfsPayload) {
+                sentreqframe.__gbReceiveVfsPayload({
+                  __VFS__: true,
+                  kind: "pickerCancelled",
+                });
+              }
               pickerOverlay.remove();
               pickerOverlay = null;
               pickerSelection = null;
@@ -734,7 +704,7 @@
           } else {
             pickerOverlay.remove();
             pickerOverlay = null;
-            return openCustomPickerUI();
+            return window.browserGlobals.showOpenFilePicker(frameWin);
           }
 
           return new Promise((res) => (pickerOverlay.resolvePicker = res));
@@ -744,7 +714,8 @@
         // 3b. Custom save-as overlay
         // ----------------------------
         let post = window.protectedGlobals.filePost;
-        function openCustomSaveUI(suggestedName) {
+        function openCustomSaveUI(frameWin, suggestedName) {
+          sentreqframe = frameWin || sentreqframe;
           if (!window.protectedGlobals.treeData) {
             window.protectedGlobals.onlyloadTree();
           }
@@ -886,14 +857,11 @@
           render();
 
           btnCancel.onclick = () => {
-            try {
-              if (sentreqframe && sentreqframe.contentWindow) {
-                sentreqframe.contentWindow.postMessage(
-                  { __VFS__: true, kind: "saveTarget", path: null },
-                  "*",
-                );
-              }
-            } catch (e) {}
+            deliverVfsPayload(sentreqframe && sentreqframe.contentWindow, {
+              __VFS__: true,
+              kind: "saveTarget",
+              path: null,
+            });
             overlay.remove();
           };
 
@@ -919,14 +887,11 @@
             }
 
             // send response to requesting iframe
-            try {
-              if (sentreqframe && sentreqframe.contentWindow) {
-                sentreqframe.contentWindow.postMessage(
-                  { __VFS__: true, kind: "saveTarget", path: chosen },
-                  "*",
-                );
-              }
-            } catch (e) {}
+            deliverVfsPayload(sentreqframe && sentreqframe.contentWindow, {
+              __VFS__: true,
+              kind: "saveTarget",
+              path: chosen,
+            });
 
             overlay.remove();
           };
@@ -935,7 +900,8 @@
         // ----------------------------
         // 3c. Custom directory picker overlay
         // ----------------------------
-        function openCustomDirectoryPickerUI() {
+        function openCustomDirectoryPickerUI(frameWin) {
+          sentreqframe = frameWin || sentreqframe;
           if (!window.protectedGlobals.treeData) {
             window.protectedGlobals.onlyloadTree();
           }
@@ -1079,19 +1045,12 @@
           render();
 
           btnCancel.onclick = () => {
-            try {
-              if (sentreqframe && sentreqframe.contentWindow) {
-                sentreqframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "directoryTarget",
-                    path: null,
-                    treeNode: null,
-                  },
-                  "*",
-                );
-              }
-            } catch (e) {}
+            deliverVfsPayload(sentreqframe && sentreqframe.contentWindow, {
+              __VFS__: true,
+              kind: "directoryTarget",
+              path: null,
+              treeNode: null,
+            });
             overlay.remove();
           };
 
@@ -1141,15 +1100,12 @@
 
             // send directory info
             if (sentreqframe && sentreqframe.contentWindow) {
-              sentreqframe.contentWindow.postMessage(
-                {
-                  __VFS__: true,
-                  kind: "directoryTarget",
-                  path: chosen,
-                  treeNode: selectedNode,
-                },
-                "*",
-              );
+              deliverVfsPayload(sentreqframe.contentWindow, {
+                __VFS__: true,
+                kind: "directoryTarget",
+                path: chosen,
+                treeNode: selectedNode,
+              });
 
               // send each file as fileData
               for (const f of filesToSend) {
@@ -1158,17 +1114,14 @@
                     ? f.contents
                     : new TextEncoder().encode(f.contents).buffer; // convert string to ArrayBuffer
 
-                sentreqframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "fileData",
-                    path: f.path,
-                    name: f.path.split("/").pop(),
-                    type: "text/plain",
-                    buffer,
-                  },
-                  "*",
-                );
+                deliverVfsPayload(sentreqframe.contentWindow, {
+                  __VFS__: true,
+                  kind: "fileData",
+                  path: f.path,
+                  name: f.path.split("/").pop(),
+                  type: "text/plain",
+                  buffer,
+                });
               }
             }
 
@@ -1176,338 +1129,295 @@
           };
         }
 
-window.addEventListener(
-            "browser" + root._goldenbodyId,
-            "message",
-            (e) => {
-              try {
-                // Allow `saveFile` messages to be processed even when the browser root
-                // doesn't have focus. Previously the OR made the whole condition true
-                // whenever a saveFile arrived, causing the handler to return early.
-                const isSaveFile =
-                  e.data?.__VFS__ && e.data.kind === "saveFile";
-                if (
-                  (!root || !root.contains(document.activeElement)) &&
-                  !isSaveFile
-                )
-                  return;
-              } catch (e) {
-                return;
+        function resolveRequestFrame(frameWinArg) {
+          if (!frameWinArg) return null;
+          try {
+            const eventLike = { source: frameWinArg };
+            const found = recurseFrames(document, eventLike);
+            if (found) return found;
+          } catch (e) {}
+          try {
+            return frameWinArg.frameElement || null;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        window.browserGlobals.showSaveFilePicker = function (frameWinArg, options = {}) {
+          sentreqframe = resolveRequestFrame(frameWinArg);
+          openCustomSaveUI(sentreqframe, options.suggestedName);
+        };
+
+        window.browserGlobals.showDirectoryPicker = function (frameWinArg) {
+          sentreqframe = resolveRequestFrame(frameWinArg);
+          openCustomDirectoryPickerUI(sentreqframe);
+        };
+
+        window.browserGlobals.requestFileForFrame = async function (frameWinArg, request = {}) {
+          sentreqframe = resolveRequestFrame(frameWinArg);
+          const targetWindow = sentreqframe && sentreqframe.contentWindow;
+          if (!targetWindow) return;
+
+          const requestedPath = request.path;
+          const requestedName = request.name || (requestedPath ? requestedPath.split("/").pop() : "file");
+          const fileResult = await fetchFileContent(username, requestedPath);
+
+          let fileBuffer = null;
+          if (typeof fileResult === "string") {
+            fileBuffer = base64ToArrayBuffer(fileResult);
+          } else if (fileResult && fileResult.totalChunks && fileResult.totalChunks > 1) {
+            const chunks = [];
+            for (let i = 0; i < fileResult.totalChunks; i++) {
+              if (i === 0) {
+                chunks.push(base64ToArrayBuffer(fileResult.filecontent));
+                continue;
               }
-              if (e.data?.__VFS__ && e.data.kind === "requestPicker") {
-                openCustomPickerUI();
-                debugger;
-                sentreqframe = recurseFrames(document, e);
-              }
-              if (e.data?.__VFS__ && e.data.kind === "requestSavePicker") {
-                // open save-as UI and record requesting frame
-                openCustomSaveUI(e.data.suggestedName);
-                sentreqframe = recurseFrames(document, e);
-              }
-              if (e.data?.__VFS__ && e.data.kind === "requestDirectoryPicker") {
-                // open directory picker UI and record requesting frame
-                openCustomDirectoryPickerUI();
-                sentreqframe = recurseFrames(document, e);
-              }
-              if (e.data?.__VFS__ && e.data.kind === "saveFile") {
-                try {
-                  // Robust save handling that mirrors file-manager upload behaviour.
-                  const MAX_INLINE_BASE64 = 250 * 1024 * 1024; // 250MB
-                  const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+              const chunkData = await window.protectedGlobals.filePost({
+                requestFile: true,
+                requestFileName: requestedPath,
+                chunkIndex: i,
+                username,
+              });
+              chunks.push(base64ToArrayBuffer(chunkData.filecontent));
+            }
+            const totalBytes = chunks.reduce((sum, chunk) => sum + (chunk ? chunk.byteLength : 0), 0);
+            const merged = new Uint8Array(totalBytes);
+            let offset = 0;
+            for (const chunk of chunks) {
+              const view = new Uint8Array(chunk);
+              merged.set(view, offset);
+              offset += view.byteLength;
+            }
+            fileBuffer = merged.buffer;
+          } else {
+            fileBuffer = fileResult;
+          }
 
-                  // pendingSaves stores { chunks: [ArrayBuffer], bytes: number, source: MessageEvent.source }
-                  root.__pendingSaves = root.__pendingSaves || {};
+          deliverVfsPayload(targetWindow, {
+            __VFS__: true,
+            kind: "fileData",
+            path: requestedPath,
+            name: requestedName,
+            type: getMimeType(requestedName),
+            buffer: fileBuffer,
+          });
+        };
 
-                  const incomingPath = e.data.path || e.data.name || "unnamed";
-                  const fullPath = incomingPath.startsWith("root/")
-                    ? incomingPath
-                    : "root/" + incomingPath;
+window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
+  if (!data || data.__VFS__ !== true) return Promise.resolve();
+  if (data.kind !== "saveFile" && data.kind !== "saveFileAbort") {
+    return Promise.resolve();
+  }
 
-                  // Ensure entry
-                  if (!root.__pendingSaves[fullPath]) {
-                    root.__pendingSaves[fullPath] = {
-                      chunks: [],
-                      bytes: 0,
-                      source: e.source,
-                    };
-                  }
+  const MAX_INLINE_BASE64 = 250 * 1024 * 1024;
+  const CHUNK_SIZE = 10 * 1024 * 1024;
 
-                  const entry = root.__pendingSaves[fullPath];
-                  // Accept either raw ArrayBuffer in `buffer` or base64 string in `base64`.
-                  if (e.data.buffer) {
-                    // Normalize to ArrayBuffer
-                    const ab =
-                      e.data.buffer instanceof ArrayBuffer
-                        ? e.data.buffer
-                        : e.data.buffer.buffer;
-                    entry.chunks.push(ab);
-                    entry.bytes += ab.byteLength || 0;
-                    // Acknowledge receipt of this chunk so the writer can apply backpressure
-                    try {
-                      if (e.data._chunkId && e.source && e.source.postMessage) {
-                        e.source.postMessage(
-                          {
-                            __VFS__: true,
-                            kind: "chunkAck",
-                            _chunkId: e.data._chunkId,
-                            path: fullPath,
-                          },
-                          "*",
-                        );
-                      }
-                    } catch (err) {
-                      console.warn("failed to send chunkAck", err);
-                    }
-                  } else if (e.data.base64) {
-                    // convert base64 to ArrayBuffer and store
-                    const binary = atob(e.data.base64);
-                    const len = binary.length;
-                    const bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++)
-                      bytes[i] = binary.charCodeAt(i);
-                    entry.chunks.push(bytes.buffer);
-                    entry.bytes += bytes.byteLength;
-                  }
+  const rootRef = window;
+  rootRef.__pendingSaves = rootRef.__pendingSaves || {};
 
-                  const finalize = !!e.data.lastOne;
+  const incomingPath = data.path || data.name || "unnamed";
+  const fullPath = incomingPath.startsWith("root/")
+    ? incomingPath
+    : "root/" + incomingPath;
 
-                  if (!finalize) {
-                    // waiting for more data
-                    return;
-                  }
+  if (!rootRef.__pendingSaves[fullPath]) {
+    rootRef.__pendingSaves[fullPath] = {
+      chunks: [],
+      source: sourceWindow,
+      queue: Promise.resolve(),
+      finalizing: false,
+      aborted: false,
+    };
+  }
 
-                  // Assemble full ArrayBuffer
-                  let totalBytes = entry.bytes;
+  const entry = rootRef.__pendingSaves[fullPath];
+  if (sourceWindow) entry.source = sourceWindow;
 
-                  // Debug: if totalBytes is zero but chunks exist, compute a fallback
-                  if (
-                    (!totalBytes || totalBytes === 0) &&
-                    entry.chunks &&
-                    entry.chunks.length
-                  ) {
-                    try {
-                      const computed = entry.chunks.reduce((sum, c) => {
-                        try {
-                          return (
-                            sum +
-                            ((c &&
-                              (c.byteLength ||
-                                (c.byteLength === 0
-                                  ? 0
-                                  : new Uint8Array(c).byteLength))) ||
-                              0)
-                          );
-                        } catch (e) {
-                          return sum;
-                        }
-                      }, 0);
-                      if (computed > 0) {
-                        console.warn(
-                          "VFS: computed totalBytes fallback",
-                          fullPath,
-                          computed,
-                          "from",
-                          entry.chunks.length,
-                          "chunks",
-                        );
-                        totalBytes = computed;
-                      }
-                    } catch (err) {
-                      console.warn(
-                        "VFS: failed computing fallback totalBytes for",
-                        fullPath,
-                        err,
-                      );
-                    }
-                  }
+  function normalizeToUint8Array(input) {
+    try {
+      if (!input) return null;
+      if (
+        input instanceof ArrayBuffer ||
+        Object.prototype.toString.call(input) === "[object ArrayBuffer]"
+      ) {
+        return new Uint8Array(input);
+      }
+      if (ArrayBuffer.isView(input)) {
+        return new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+      }
+      return null;
+    } catch (err) {
+      return null;
+    }
+  }
 
-                  let combined;
-                  if (entry.chunks.length === 1) {
-                    combined = entry.chunks[0];
-                  } else {
-                    combined = new Uint8Array(totalBytes);
-                    let offset = 0;
-                    for (const c of entry.chunks) {
-                      const arr = new Uint8Array(c);
-                      combined.set(arr, offset);
-                      offset += arr.length;
-                    }
-                    combined = combined.buffer;
-                  }
+  function toBase64(uint8) {
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+      const sub = uint8.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...sub);
+    }
+    return btoa(binary);
+  }
 
-                  // Helper to convert ArrayBuffer slice to base64
-                  function arrayBufferToBase64(buffer) {
-                    let binary = "";
-                    const bytes = new Uint8Array(buffer);
-                    const chunk = 0x8000;
-                    for (let i = 0; i < bytes.length; i += chunk) {
-                      const sub = bytes.subarray(i, i + chunk);
-                      binary += String.fromCharCode.apply(null, sub);
-                    }
-                    return btoa(binary);
-                  }
+  async function run() {
+    try {
+      if (entry.aborted) return;
+      if (data.kind === "saveFileAbort") {
+        entry.aborted = true;
+        entry.chunks = [];
+        delete rootRef.__pendingSaves[fullPath];
+        return;
+      }
 
-                  (async () => {
-                    try {
-                      if (totalBytes <= MAX_INLINE_BASE64) {
-                        const base64 = arrayBufferToBase64(combined);
-                        await post({
-                          saveSnapshot: true,
-                          directions: [
-                            {
-                              edit: true,
-                              path: fullPath,
-                              contents: base64,
-                              replace: true,
-                            },
-                            { end: true },
-                          ],
-                        });
-                      } else {
-                        // Large file: chunk it with the same buffered strategy
-                        const total = Math.ceil(totalBytes / CHUNK_SIZE);
+      if (entry.finalizing) return;
 
-                        // ensure file placeholder
-                        await post({
-                          saveSnapshot: true,
-                          directions: [
-                            { addFile: true, path: fullPath, replace: true },
-                            { end: true },
-                          ],
-                        });
+      let chunk = null;
+      if (data.buffer) {
+        chunk = normalizeToUint8Array(data.buffer);
+      } else if (data.base64) {
+        try {
+          const binary = atob(data.base64);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          chunk = bytes;
+        } catch (err) {
+          console.warn("Invalid base64 chunk");
+        }
+      }
 
-                        // Optionally check existing parts (skip for now)
+      if (chunk && chunk.byteLength > 0) {
+        entry.chunks.push(chunk);
+      } else if (data.buffer || data.base64) {
+        console.warn("Skipped invalid chunk", data);
+      }
 
-                        // Check which parts already exist on server (resume support)
-                        let presentParts = [];
-                        try {
-                          const chk = await post({
-                            saveSnapshot: true,
-                            directions: [
-                              { checkParts: true, path: fullPath },
-                              { end: true },
-                            ],
-                          });
-                          presentParts =
-                            (chk &&
-                              chk.result &&
-                              chk.result.checkParts &&
-                              chk.result.checkParts[fullPath]) ||
-                            [];
-                        } catch (e) {
-                          presentParts = [];
-                        }
+      if (!data.lastOne) return;
 
-                        const presentSet = new Set(presentParts);
+      entry.finalizing = true;
 
-                        const MAX_CHUNK_RETRIES = 3;
-                        const CHUNK_RETRY_BASE_MS = 500;
+      const validChunks = entry.chunks.filter((c) => c && c.byteLength > 0);
+      if (validChunks.length === 0) {
+        throw new Error("No valid chunks received");
+      }
 
-                        function sleep(ms) {
-                          return new Promise((r) => setTimeout(r, ms));
-                        }
+      const totalBytes = validChunks.reduce((sum, c) => sum + c.byteLength, 0);
 
-                        async function uploadChunkWithRetries(
-                          path,
-                          chunkBase64,
-                          index,
-                          total,
-                        ) {
-                          let attempts = 0;
-                          while (true) {
-                            try {
-                              await post({
-                                saveSnapshot: true,
-                                directions: [
-                                  {
-                                    edit: true,
-                                    path,
-                                    chunk: chunkBase64,
-                                    index,
-                                    total,
-                                  },
-                                  { end: true },
-                                ],
-                              });
-                              return;
-                            } catch (err) {
-                              attempts++;
-                              if (attempts > MAX_CHUNK_RETRIES) throw err;
-                              const backoff =
-                                CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
-                              await sleep(backoff);
-                            }
-                          }
-                        }
+      let combined;
+      if (validChunks.length === 1) {
+        combined = validChunks[0];
+      } else {
+        combined = new Uint8Array(totalBytes);
+        let offset = 0;
+        for (const c of validChunks) {
+          combined.set(c, offset);
+          offset += c.byteLength;
+        }
+      }
 
-                        let uploadedCount = presentSet.size;
-                        for (let i = 0; i < total; i++) {
-                          if (presentSet.has(i)) continue; // already uploaded
-                          const start = i * CHUNK_SIZE;
-                          const end = Math.min(totalBytes, start + CHUNK_SIZE);
-                          const slice = combined.slice(start, end);
-                          const chunkBase64 = arrayBufferToBase64(slice);
-                          try {
-                            await uploadChunkWithRetries(
-                              fullPath,
-                              chunkBase64,
-                              i,
-                              total,
-                            );
-                            uploadedCount++;
-                          } catch (err) {
-                            console.error(
-                              `Failed to upload chunk ${i} for ${fullPath}:`,
-                              err,
-                            );
-                            throw err;
-                          }
-                        }
-
-                        // finalize
-                        await post({
-                          saveSnapshot: true,
-                          directions: [
-                            { edit: true, path: fullPath, finalize: true },
-                            { end: true },
-                          ],
-                        });
-                      }
-
-                      // ACK back to source
-                      try {
-                        e.source.postMessage(
-                          {
-                            __VFS__: true,
-                            kind: "saved",
-                            path: incomingPath,
-                            ok: true,
-                          },
-                          "*",
-                        );
-                      } catch (err) {}
-                    } catch (err) {
-                      console.error("saveFile handling error", err);
-                      try {
-                        e.source.postMessage(
-                          {
-                            __VFS__: true,
-                            kind: "saved",
-                            path: incomingPath,
-                            ok: false,
-                            error: (err && err.message) || String(err),
-                          },
-                          "*",
-                        );
-                      } catch (err) {}
-                    } finally {
-                      // cleanup
-                      delete root.__pendingSaves[fullPath];
-                    }
-                  })();
-                } catch (err) {
-                  console.error("saveFile outer error", err);
-                }
-              }
+      if (totalBytes <= MAX_INLINE_BASE64) {
+        const base64 = toBase64(combined);
+        await post({
+          saveSnapshot: true,
+          directions: [
+            {
+              edit: true,
+              path: fullPath,
+              contents: base64,
+              replace: true,
             },
-          );
+            { end: true },
+          ],
+        });
+      } else {
+        const total = Math.ceil(totalBytes / CHUNK_SIZE);
+        await post({
+          saveSnapshot: true,
+          directions: [
+            { addFile: true, path: fullPath, replace: true },
+            { end: true },
+          ],
+        });
+
+        let presentSet = new Set();
+        try {
+          const chk = await post({
+            saveSnapshot: true,
+            directions: [
+              { checkParts: true, path: fullPath },
+              { end: true },
+            ],
+          });
+          const present = chk?.result?.checkParts?.[fullPath] || [];
+          presentSet = new Set(present);
+        } catch (err) {}
+
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        async function uploadChunk(path, base64, index, total) {
+          let attempts = 0;
+          while (attempts < 3) {
+            try {
+              await post({
+                saveSnapshot: true,
+                directions: [
+                  { edit: true, path, chunk: base64, index, total },
+                  { end: true },
+                ],
+              });
+              return;
+            } catch (err) {
+              attempts++;
+              await sleep(500 * Math.pow(2, attempts));
+            }
+          }
+          throw new Error("Chunk upload failed: " + index);
+        }
+
+        for (let i = 0; i < total; i++) {
+          if (presentSet.has(i)) continue;
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(totalBytes, start + CHUNK_SIZE);
+          const slice = combined.subarray(start, end);
+          const base64 = toBase64(slice);
+          await uploadChunk(fullPath, base64, i, total);
+        }
+
+        await post({
+          saveSnapshot: true,
+          directions: [
+            { edit: true, path: fullPath, finalize: true },
+            { end: true },
+          ],
+        });
+      }
+
+      deliverVfsPayload(entry.source, {
+        __VFS__: true,
+        kind: "saved",
+        path: incomingPath,
+        ok: true,
+      });
+    } catch (err) {
+      console.error("saveFile handling error", err);
+      deliverVfsPayload(entry.source, {
+        __VFS__: true,
+        kind: "saved",
+        path: incomingPath,
+        ok: false,
+        error: err?.message || String(err),
+      });
+    } finally {
+      if (entry.finalizing || entry.aborted) {
+        delete rootRef.__pendingSaves[fullPath];
+      }
+    }
+  }
+
+  entry.queue = entry.queue.then(run, run);
+  return entry.queue;
+};
