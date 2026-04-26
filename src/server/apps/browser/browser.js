@@ -2,6 +2,7 @@
 window.browserGlobals = {};
 window.browserGlobals.nhjd = 1;
 window.browserGlobals.tmp = {};
+window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser/profile/localstorage/cookies.json";
 window.browserGlobals.browserCss = `
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
 .sim-chrome-top {
@@ -446,7 +447,6 @@ window.browserGlobals.writeBrowserProfile = async function (profile, options = {
       // ignore parse/read guard failures and continue with write
     }
   }
-
   const content = btoa(JSON.stringify(payload, null, 2));
   if (typeof window.protectedGlobals.WriteFile === "function") {
     await window.protectedGlobals.WriteFile(window.browserGlobals.profileSettingsPath, content);
@@ -490,6 +490,45 @@ window.browserGlobals.writeBrowserUserId = async function (id) {
       ],
     });
   }
+}
+
+window.browserGlobals.readCookiesStore = async function () {
+  let rawCookieStore = "";
+  try {
+    const fileRes = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath);
+    rawCookieStore = fileRes && fileRes.filecontent ? fileRes.filecontent : "";
+  } catch (e) {
+    rawCookieStore = "";
+  }
+
+  if (!rawCookieStore) {
+    rawCookieStore = btoa("{}");
+    await window.protectedGlobals.WriteFile(window.browserGlobals.cookiesPath, rawCookieStore);
+  }
+
+  try {
+    const decoded = window.browserGlobals.decodeMaybeBase64(rawCookieStore);
+    return JSON.parse(decoded || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+window.browserGlobals.writeCookiesStore = async function (cookies) {
+  const serialized = JSON.stringify(cookies || {});
+  await window.protectedGlobals.WriteFile(window.browserGlobals.cookiesPath, btoa(serialized));
+}
+
+window.browserGlobals.clearCookiesForSite = async function (site) {
+  const cookies = await window.browserGlobals.readCookiesStore();
+  const key = String(site || "").trim();
+  if (!key) return;
+  delete cookies[key];
+  await window.browserGlobals.writeCookiesStore(cookies);
+}
+
+window.browserGlobals.clearAllCookies = async function () {
+  await window.browserGlobals.writeCookiesStore({});
 }
 
 window.browserGlobals.requestNewBrowserSessionId = async function () {
@@ -636,6 +675,88 @@ window.browserGlobals.mainWebsite = function (string) {
 
 window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, posY = 20) 
 {
+      function showConfirmDialog(title, message) {
+      return new Promise((resolve) => {
+        document.getElementById("confirm-dialog")?.remove();
+
+        const dialog = document.createElement("div");
+        dialog.id = "confirm-dialog";
+        dialog.className = "panel";
+          dialog.classList.toggle("dark", browserGlobals.dark);
+          dialog.classList.toggle("light", !browserGlobals.dark);
+        dialog.style.cssText =
+          "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
+
+        let resolved = false;
+        function closeConfirmDialog(result) {
+          if (resolved) return;
+          resolved = true;
+          try {
+            document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+          } catch (e) {}
+          try {
+            document.removeEventListener("keydown", onEscKeyDown, true);
+          } catch (e) {}
+          dialog.remove();
+          resolve(result);
+        }
+
+        function onOutsidePointerDown(event) {
+          if (!dialog.contains(event.target)) {
+            closeConfirmDialog(false);
+          }
+        }
+
+        function onEscKeyDown(event) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            closeConfirmDialog(false);
+          }
+        }
+
+        const titleEl = document.createElement("div");
+        titleEl.style.cssText = "font-weight:600;margin-bottom:12px;font-size:16px;";
+        titleEl.textContent = title;
+        dialog.appendChild(titleEl);
+
+        const msgEl = document.createElement("div");
+        msgEl.style.cssText =`font-size:14px;color:#${browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+        msgEl.textContent = message;
+        dialog.appendChild(msgEl);
+
+        const btnRow = document.createElement("div");
+        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
+
+        const btnCancel = document.createElement("button");
+        btnCancel.textContent = "Cancel";
+        btnCancel.style.cssText = "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
+        btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
+        btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
+        btnCancel.onclick = () => closeConfirmDialog(false);
+
+        const btnConfirm = document.createElement("button");
+        btnConfirm.textContent = "Continue";
+        btnConfirm.style.cssText = "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
+        btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
+        btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
+        btnConfirm.onclick = () => closeConfirmDialog(true);
+
+        btnRow.appendChild(btnCancel);
+        btnRow.appendChild(btnConfirm);
+        dialog.appendChild(btnRow);
+
+        document.body.appendChild(dialog);
+
+        setTimeout(() => {
+          if (!resolved) {
+            document.addEventListener("pointerdown", onOutsidePointerDown, true);
+            document.addEventListener("keydown", onEscKeyDown, true);
+          }
+        }, 0);
+
+        btnConfirm.focus();
+      });
+    }
   function normalizePreloadLink(value) {
     const input = String(value || "").trim();
     if (!input) return "";
@@ -919,6 +1040,20 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     apply.style.background = "#4c8bf5";
     apply.style.color = "#fff";
 
+    const clearSiteCookies = document.createElement("button");
+    clearSiteCookies.textContent = "Clear cookies";
+    clearSiteCookies.onclick = async () => {
+      const shouldClear = await showConfirmDialog(
+        "Clear site cookies",
+        `This will remove cookies for ${website}. Continue?`,
+      );
+      if (!shouldClear) return;
+
+      await window.browserGlobals.clearCookiesForSite(website);
+      window.protectedGlobals.notification("cookies cleared for this site");
+      closePermissionsPanel();
+    };
+
     apply.onclick = () => {
       // ===== LOGIC HOOK (YOU IMPLEMENT) =====
       window.protectedGlobals.notification("reload this page to apply your updated settings!");
@@ -938,7 +1073,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       closePermissionsPanel();
     };
 
-    actions.append(cancel, apply);
+    actions.append(clearSiteCookies, cancel, apply);
     panel.appendChild(actions);
   }
 
@@ -1515,88 +1650,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     clear.title = "delete browsing data";
     clear.className = "sim-open-btn";
     applyAddressIconButtonStyle(clear);
-    function showConfirmDialog(title, message) {
-      return new Promise((resolve) => {
-        document.getElementById("confirm-dialog")?.remove();
 
-        const dialog = document.createElement("div");
-        dialog.id = "confirm-dialog";
-        dialog.className = "panel";
-          dialog.classList.toggle("dark", browserGlobals.dark);
-          dialog.classList.toggle("light", !browserGlobals.dark);
-        dialog.style.cssText =
-          "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
-
-        let resolved = false;
-        function closeConfirmDialog(result) {
-          if (resolved) return;
-          resolved = true;
-          try {
-            document.removeEventListener("pointerdown", onOutsidePointerDown, true);
-          } catch (e) {}
-          try {
-            document.removeEventListener("keydown", onEscKeyDown, true);
-          } catch (e) {}
-          dialog.remove();
-          resolve(result);
-        }
-
-        function onOutsidePointerDown(event) {
-          if (!dialog.contains(event.target)) {
-            closeConfirmDialog(false);
-          }
-        }
-
-        function onEscKeyDown(event) {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            closeConfirmDialog(false);
-          }
-        }
-
-        const titleEl = document.createElement("div");
-        titleEl.style.cssText = "font-weight:600;margin-bottom:12px;font-size:16px;";
-        titleEl.textContent = title;
-        dialog.appendChild(titleEl);
-
-        const msgEl = document.createElement("div");
-        msgEl.style.cssText =`font-size:14px;color:#${browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
-        msgEl.textContent = message;
-        dialog.appendChild(msgEl);
-
-        const btnRow = document.createElement("div");
-        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
-
-        const btnCancel = document.createElement("button");
-        btnCancel.textContent = "Cancel";
-        btnCancel.style.cssText = "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
-        btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
-        btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
-        btnCancel.onclick = () => closeConfirmDialog(false);
-
-        const btnConfirm = document.createElement("button");
-        btnConfirm.textContent = "Continue";
-        btnConfirm.style.cssText = "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
-        btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
-        btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
-        btnConfirm.onclick = () => closeConfirmDialog(true);
-
-        btnRow.appendChild(btnCancel);
-        btnRow.appendChild(btnConfirm);
-        dialog.appendChild(btnRow);
-
-        document.body.appendChild(dialog);
-
-        setTimeout(() => {
-          if (!resolved) {
-            document.addEventListener("pointerdown", onOutsidePointerDown, true);
-            document.addEventListener("keydown", onEscKeyDown, true);
-          }
-        }, 0);
-
-        btnConfirm.focus();
-      });
-    }
     function openDownloadUI(anchorPoint = null) {
       document.getElementById("download-ui")?.remove();
 
@@ -1998,6 +2052,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       window.browserGlobals.profileState.enableURLSync = true;
       window.browserGlobals.profileState.lazyloading = true;
       window.browserGlobals.profileState.siteZoom = {};
+      await window.browserGlobals.clearAllCookies();
       window.protectedGlobals.notification("site data cleared! please close all browser windows!");
     }
     clear.onclick = clearBrowsingData;
@@ -2802,7 +2857,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         }, 1500);
       };
 
-      function iframePatches() {
+      async function iframePatches() {
         // Get the document inside the iframe
         const iframeDocument =
           iframe.contentDocument || iframe.contentWindow.document;
@@ -5732,6 +5787,83 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                 const win = frame.contentWindow;
                 const frameDoc = frame.contentDocument || win?.document;
                 if (!win || !frameDoc) continue;
+                async function tmp() {
+                  const frameWin = frame.contentWindow;
+                  const frameDocCurrent = frame.contentDocument || frameWin?.document;
+                  if (!frameWin || !frameDocCurrent || frameDocCurrent.__gbCookieHookInstalled) return;
+
+                  frameDocCurrent.__gbCookieHookInstalled = true;
+                  let cookieWriteQueue = Promise.resolve();
+
+                  function queuedWriteFile(path, data) {
+                    cookieWriteQueue = cookieWriteQueue
+                      .then(() => window.top.protectedGlobals.WriteFile(path, data))
+                      .catch((err) => {
+                        console.error("Write failed:", err);
+                      });
+                    return cookieWriteQueue;
+                  }
+
+                  const readFile = window.top.protectedGlobals.ReadFile;
+                  const initialRes = await readFile(browserGlobals.cookiesPath);
+                  let rawCookieStore = initialRes && initialRes.filecontent ? initialRes.filecontent : "";
+
+                  if (!rawCookieStore) {
+                    rawCookieStore = btoa("{}");
+                    await window.top.protectedGlobals.WriteFile(browserGlobals.cookiesPath, rawCookieStore);
+                  }
+
+                  let cookies = {};
+                  try {
+                    const decoded = window.browserGlobals.decodeMaybeBase64(rawCookieStore);
+                    cookies = JSON.parse(decoded || "{}");
+                  } catch (e) {
+                    cookies = {};
+                  }
+
+                  frameWin.Object.defineProperty(frameDocCurrent, "cookie", {
+                    configurable: true,
+                    get: function () {
+                      const site = window.browserGlobals.mainWebsite(
+                        window.browserGlobals.unshuffleURL(frameWin.location.href),
+                      );
+                      const jar = cookies[site] || {};
+                      return Object.entries(jar)
+                        .map(([k, v]) => `${k}=${v}`)
+                        .join("; ");
+                    },
+                    set: function (newValue) {
+                      const site = window.browserGlobals.mainWebsite(
+                        window.browserGlobals.unshuffleURL(frameWin.location.href),
+                      );
+                      if (!cookies[site]) cookies[site] = {};
+
+                      const parts = String(newValue).split(";");
+                      for (const part of parts) {
+                        const trimmed = part.trim();
+                        if (!trimmed.includes("=")) continue;
+
+                        const [k, ...v] = trimmed.split("=");
+                        if (!k) continue;
+
+                        const key = k.trim().toLowerCase();
+                        if (
+                          ["path", "expires", "domain", "secure", "samesite", "max-age"].includes(
+                            key,
+                          )
+                        ) {
+                          continue;
+                        }
+
+                        cookies[site][key] = v.join("=").trim();
+                      }
+
+                      const serialized = JSON.stringify(cookies);
+                      queuedWriteFile(browserGlobals.cookiesPath, btoa(serialized));
+                    },
+                  });
+                }
+                tmp();
                 if (!win.__gbWindowSwitchForwardKeydown) {
                   win.__gbWindowSwitchForwardKeydown = function (e) {
                     var keyRaw = String(e.key || "");
