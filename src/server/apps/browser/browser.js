@@ -2,7 +2,16 @@
 window.browserGlobals = {};
 window.browserGlobals.nhjd = 1;
 window.browserGlobals.tmp = {};
-window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser/profile/localstorage/cookies.json";
+window.browserGlobals.vfsScriptPath = "/systemfiles/runtime/apps/browser/asset/fileSystemRelatedStuff.js";
+// this need async fn idk y
+(async () => {
+window.browserGlobals.vfstxt = await window.protectedGlobals.ReadFile(window.browserGlobals.vfsScriptPath, {text: true}).then(res => res && res.filecontent ? res.filecontent : "").catch(e => "");
+window.browserGlobals.frontendFilePickerStuffJS = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/browser/asset/frontendFilePickerStuff.js", {text: true}).then(res => res && res.filecontent ? res.filecontent : "").catch(e => "");
+})();
+window.browserGlobals.cookiesPath =
+  "/systemfiles/runtime/apps/browser/profile/localstorage/cookies.json";
+window.browserGlobals.indexedDbPath =
+  "/systemfiles/runtime/apps/browser/profile/localstorage/indexeddb.json";
 window.browserGlobals.browserCss = `
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
 .sim-chrome-top {
@@ -241,13 +250,17 @@ window.browserGlobals.goldenbodyOrderId = 0;
 window.browserGlobals.reusableGoldenbodyIds = [];
 window.browserGlobals.proxyurl = window.origin + "/";
 window.browserGlobals.dragstartwindow = null;
-window.browserGlobals.__vfsMessageListenerAdded = false;
+window.browserGlobals.__moveTabListenerAdded = false;
 window.browserGlobals.tabisDragging = false;
 window.browserGlobals.draggedtab = 0;
-window.browserGlobals.__localFileUrlMap = window.browserGlobals.__localFileUrlMap || new Map();
-window.browserGlobals.__localFilePathToBlobMap = window.browserGlobals.__localFilePathToBlobMap || new Map();
-window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser/profile/userID.txt";
-window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser/profile/settings.json";
+window.browserGlobals.__localFileUrlMap =
+  window.browserGlobals.__localFileUrlMap || new Map();
+window.browserGlobals.__localFilePathToBlobMap =
+  window.browserGlobals.__localFilePathToBlobMap || new Map();
+window.browserGlobals.profileUserIdPath =
+  "/systemfiles/runtime/apps/browser/profile/userID.txt";
+window.browserGlobals.profileSettingsPath =
+  "/systemfiles/runtime/apps/browser/profile/settings.json";
 window.browserGlobals.profileState = {
   siteSettings: [],
   enableURLSync: true,
@@ -261,18 +274,19 @@ window.browserGlobals.safeDecodeBase64Text = function (v) {
   } catch (e) {
     return "";
   }
-}
+};
 
 window.browserGlobals.looksLikeSessionId = function (value) {
   const s = String(value || "").trim();
   return /^[A-Za-z0-9._-]{8,}$/.test(s);
-}
+};
 
 window.browserGlobals.decodeMaybeBase64 = function (raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
   if (s[0] === "{" || s[0] === "[") return s;
-  const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
+  const looksLikeBase64 =
+    /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
   if (!looksLikeBase64) return s;
   const decoded = window.browserGlobals.safeDecodeBase64Text(s);
   if (!decoded) return s;
@@ -284,7 +298,12 @@ window.browserGlobals.decodeMaybeBase64 = function (raw) {
   let printable = 0;
   for (let i = 0; i < decoded.length; i++) {
     const code = decoded.charCodeAt(i);
-    if (code === 9 || code === 10 || code === 13 || (code >= 32 && code <= 126)) {
+    if (
+      code === 9 ||
+      code === 10 ||
+      code === 13 ||
+      (code >= 32 && code <= 126)
+    ) {
       printable++;
     }
   }
@@ -292,7 +311,7 @@ window.browserGlobals.decodeMaybeBase64 = function (raw) {
   if (printableRatio >= 0.95) return trimmed;
 
   return s;
-}
+};
 
 window.browserGlobals.sleep = function (ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -304,7 +323,7 @@ window.browserGlobals.allocateBrowserGoldenbodyId = function () {
   }
   window.browserGlobals.goldenbodyId++;
   return window.browserGlobals.goldenbodyId;
-}
+};
 
 window.browserGlobals.releaseBrowserGoldenbodyId = function (root) {
   if (!root || root._goldenbodyIdReleased) return;
@@ -314,10 +333,12 @@ window.browserGlobals.releaseBrowserGoldenbodyId = function (root) {
   if (window.browserGlobals.reusableGoldenbodyIds.indexOf(id) === -1) {
     window.browserGlobals.reusableGoldenbodyIds.push(id);
   }
-}
+};
 
-
-window.browserGlobals.readProfileTextFileMeta = async function (filePath, options = {}) {
+window.browserGlobals.readProfileTextFileMeta = async function (
+  filePath,
+  options = {},
+) {
   const attempts = Math.max(1, Number(options.attempts || 1));
   const retryDelayMs = Math.max(0, Number(options.retryDelayMs || 0));
   let lastError = null;
@@ -326,28 +347,50 @@ window.browserGlobals.readProfileTextFileMeta = async function (filePath, option
     try {
       if (typeof window.protectedGlobals.ReadFile === "function") {
         const res = await window.protectedGlobals.ReadFile(filePath);
-        if (!res || res.missing || res.code === "ENOENT" || res.kind === "missing") {
+        if (
+          !res ||
+          res.missing ||
+          res.code === "ENOENT" ||
+          res.kind === "missing"
+        ) {
           if (attempt + 1 < attempts) {
-            if (retryDelayMs > 0) await window.browserGlobals.sleep(retryDelayMs);
+            if (retryDelayMs > 0)
+              await window.browserGlobals.sleep(retryDelayMs);
             continue;
           }
           return { text: "", missing: true, error: null };
         }
         if (typeof res === "string") {
-          return { text: window.browserGlobals.decodeMaybeBase64(res), missing: false, error: null };
+          return {
+            text: window.browserGlobals.decodeMaybeBase64(res),
+            missing: false,
+            error: null,
+          };
         }
         if (typeof res.filecontent === "string") {
-          return { text: window.browserGlobals.decodeMaybeBase64(res.filecontent), missing: false, error: null };
+          return {
+            text: window.browserGlobals.decodeMaybeBase64(res.filecontent),
+            missing: false,
+            error: null,
+          };
         }
         return { text: "", missing: false, error: null };
       }
 
       if (typeof readFile === "function") {
         const value = readFile(filePath);
-        return { text: window.browserGlobals.decodeMaybeBase64(value), missing: false, error: null };
+        return {
+          text: window.browserGlobals.decodeMaybeBase64(value),
+          missing: false,
+          error: null,
+        };
       }
 
-      return { text: "", missing: false, error: new Error("No file reader available") };
+      return {
+        text: "",
+        missing: false,
+        error: new Error("No file reader available"),
+      };
     } catch (e) {
       lastError = e;
       if (attempt + 1 < attempts) {
@@ -357,8 +400,12 @@ window.browserGlobals.readProfileTextFileMeta = async function (filePath, option
     }
   }
 
-  return { text: "", missing: false, error: lastError || new Error("Failed to read file") };
-}
+  return {
+    text: "",
+    missing: false,
+    error: lastError || new Error("Failed to read file"),
+  };
+};
 
 window.browserGlobals.readProfileTextFile = async function (filePath) {
   const result = await window.browserGlobals.readProfileTextFileMeta(filePath, {
@@ -366,7 +413,7 @@ window.browserGlobals.readProfileTextFile = async function (filePath) {
     retryDelayMs: 120,
   });
   return result.text || "";
-}
+};
 
 window.browserGlobals.defaultBrowserProfile = function () {
   return {
@@ -379,16 +426,20 @@ window.browserGlobals.defaultBrowserProfile = function () {
     // when themeMode !== 'auto', this boolean indicates dark (true) or light (false)
     dark: false,
   };
-}
+};
 
 window.browserGlobals.repairBrowserProfile = function (parsed) {
-  if (!parsed || typeof parsed !== "object") return window.browserGlobals.defaultBrowserProfile();
+  if (!parsed || typeof parsed !== "object")
+    return window.browserGlobals.defaultBrowserProfile();
   const normalizedSiteZoom = {};
   if (parsed.siteZoom && typeof parsed.siteZoom === "object") {
     for (const key of Object.keys(parsed.siteZoom)) {
       const value = Number(parsed.siteZoom[key]);
       if (Number.isFinite(value)) {
-        normalizedSiteZoom[key] = Math.max(25, Math.min(500, Math.round(value)));
+        normalizedSiteZoom[key] = Math.max(
+          25,
+          Math.min(500, Math.round(value)),
+        );
       }
     }
   }
@@ -402,15 +453,17 @@ window.browserGlobals.repairBrowserProfile = function (parsed) {
     themeMode: typeof parsed.themeMode === "string" ? parsed.themeMode : "auto",
     dark: typeof parsed.dark === "boolean" ? parsed.dark : false,
   };
-}
-
+};
 
 window.browserGlobals.readBrowserProfile = async function () {
   try {
-    const profileRead = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileSettingsPath, {
-      attempts: 4,
-      retryDelayMs: 120,
-    });
+    const profileRead = await window.browserGlobals.readProfileTextFileMeta(
+      window.browserGlobals.profileSettingsPath,
+      {
+        attempts: 4,
+        retryDelayMs: 120,
+      },
+    );
     const raw = profileRead.text;
     if (!raw) return window.browserGlobals.defaultBrowserProfile();
     const parsed = JSON.parse(raw);
@@ -418,30 +471,41 @@ window.browserGlobals.readBrowserProfile = async function () {
   } catch (e) {
     return window.browserGlobals.defaultBrowserProfile();
   }
-}
+};
 
-window.browserGlobals.writeBrowserProfile = async function (profile, options = {}) {
+window.browserGlobals.writeBrowserProfile = async function (
+  profile,
+  options = {},
+) {
   const payload = {
-    siteSettings: Array.isArray(profile?.siteSettings) ? profile.siteSettings : [],
+    siteSettings: Array.isArray(profile?.siteSettings)
+      ? profile.siteSettings
+      : [],
     enableURLSync: !!profile?.enableURLSync,
     lazyloading: !!profile?.lazyloading,
     siteZoom:
       profile?.siteZoom && typeof profile.siteZoom === "object"
         ? profile.siteZoom
         : {},
-    themeMode: typeof profile?.themeMode === "string" ? profile.themeMode : "auto",
+    themeMode:
+      typeof profile?.themeMode === "string" ? profile.themeMode : "auto",
     dark: typeof profile?.dark === "boolean" ? profile.dark : false,
   };
 
   if (!options.force) {
     try {
-      const existingRead = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileSettingsPath, {
-        attempts: 3,
-        retryDelayMs: 100,
-      });
+      const existingRead = await window.browserGlobals.readProfileTextFileMeta(
+        window.browserGlobals.profileSettingsPath,
+        {
+          attempts: 3,
+          retryDelayMs: 100,
+        },
+      );
       const existingRaw = existingRead.text;
       if (existingRaw) {
-        const existing = window.browserGlobals.repairBrowserProfile(JSON.parse(existingRaw));
+        const existing = window.browserGlobals.repairBrowserProfile(
+          JSON.parse(existingRaw),
+        );
       }
     } catch (e) {
       // ignore parse/read guard failures and continue with write
@@ -449,7 +513,10 @@ window.browserGlobals.writeBrowserProfile = async function (profile, options = {
   }
   const content = btoa(JSON.stringify(payload, null, 2));
   if (typeof window.protectedGlobals.WriteFile === "function") {
-    await window.protectedGlobals.WriteFile(window.browserGlobals.profileSettingsPath, content);
+    await window.protectedGlobals.WriteFile(
+      window.browserGlobals.profileSettingsPath,
+      content,
+    );
     return true;
   }
   if (typeof window.protectedGlobals.filePost === "function") {
@@ -468,12 +535,15 @@ window.browserGlobals.writeBrowserProfile = async function (profile, options = {
     return true;
   }
   return false;
-}
+};
 
 window.browserGlobals.writeBrowserUserId = async function (id) {
   const encoded = btoa(String(id || ""));
   if (typeof window.protectedGlobals.WriteFile === "function") {
-    await window.protectedGlobals.WriteFile(window.browserGlobals.profileUserIdPath, encoded);
+    await window.protectedGlobals.WriteFile(
+      window.browserGlobals.profileUserIdPath,
+      encoded,
+    );
     return;
   }
   if (typeof window.protectedGlobals.filePost === "function") {
@@ -490,12 +560,14 @@ window.browserGlobals.writeBrowserUserId = async function (id) {
       ],
     });
   }
-}
+};
 
 window.browserGlobals.readCookiesStore = async function () {
   let rawCookieStore = "";
   try {
-    const fileRes = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath);
+    const fileRes = await window.protectedGlobals.ReadFile(
+      window.browserGlobals.cookiesPath,
+    );
     rawCookieStore = fileRes && fileRes.filecontent ? fileRes.filecontent : "";
   } catch (e) {
     rawCookieStore = "";
@@ -503,7 +575,10 @@ window.browserGlobals.readCookiesStore = async function () {
 
   if (!rawCookieStore) {
     rawCookieStore = btoa("{}");
-    await window.protectedGlobals.WriteFile(window.browserGlobals.cookiesPath, rawCookieStore);
+    await window.protectedGlobals.WriteFile(
+      window.browserGlobals.cookiesPath,
+      rawCookieStore,
+    );
   }
 
   try {
@@ -512,12 +587,15 @@ window.browserGlobals.readCookiesStore = async function () {
   } catch (e) {
     return {};
   }
-}
+};
 
 window.browserGlobals.writeCookiesStore = async function (cookies) {
   const serialized = JSON.stringify(cookies || {});
-  await window.protectedGlobals.WriteFile(window.browserGlobals.cookiesPath, btoa(serialized));
-}
+  await window.protectedGlobals.WriteFile(
+    window.browserGlobals.cookiesPath,
+    btoa(serialized),
+  );
+};
 
 window.browserGlobals.clearCookiesForSite = async function (site) {
   const cookies = await window.browserGlobals.readCookiesStore();
@@ -525,11 +603,85 @@ window.browserGlobals.clearCookiesForSite = async function (site) {
   if (!key) return;
   delete cookies[key];
   await window.browserGlobals.writeCookiesStore(cookies);
-}
+};
 
 window.browserGlobals.clearAllCookies = async function () {
   await window.browserGlobals.writeCookiesStore({});
-}
+};
+
+window.browserGlobals.siteToOriginKey = function (site) {
+  let normalizedSite = String(site || "").trim();
+
+  try {
+    normalizedSite = window.browserGlobals.unshuffleURL(normalizedSite);
+  } catch (e) {}
+
+  try {
+    normalizedSite = window.browserGlobals.mainWebsite(normalizedSite);
+  } catch (e) {}
+
+  try {
+    return new URL(normalizedSite).origin;
+  } catch (e) {
+    return normalizedSite;
+  }
+};
+
+window.browserGlobals.readIndexedDbStore = async function () {
+  let raw = "";
+  try {
+    const fileRes = await window.protectedGlobals.ReadFile(
+      window.browserGlobals.indexedDbPath,
+    );
+    raw = fileRes && fileRes.filecontent ? fileRes.filecontent : "";
+  } catch (e) {
+    raw = "";
+  }
+
+  if (!raw) {
+    raw = btoa(JSON.stringify({ origins: {} }));
+    await window.protectedGlobals.WriteFile(
+      window.browserGlobals.indexedDbPath,
+      raw,
+    );
+  }
+
+  try {
+    const decoded = window.browserGlobals.decodeMaybeBase64(raw);
+    const parsed = JSON.parse(decoded || "{}");
+    if (!parsed || !parsed.origins) {
+      return { origins: {} };
+    }
+    return parsed;
+  } catch (e) {
+    return { origins: {} };
+  }
+};
+
+window.browserGlobals.writeIndexedDbStore = async function (payload) {
+  const serialized = JSON.stringify(
+    payload && payload.origins ? payload : { origins: {} },
+  );
+  await window.protectedGlobals.WriteFile(
+    window.browserGlobals.indexedDbPath,
+    btoa(serialized),
+  );
+};
+
+window.browserGlobals.clearIndexedDbForSite = async function (site) {
+  const originKey = window.browserGlobals.siteToOriginKey(site);
+  if (!originKey) return;
+  const store = await window.browserGlobals.readIndexedDbStore();
+  if (!store.origins) {
+    store.origins = {};
+  }
+  delete store.origins[originKey];
+  await window.browserGlobals.writeIndexedDbStore(store);
+};
+
+window.browserGlobals.clearAllIndexedDb = async function () {
+  await window.browserGlobals.writeIndexedDbStore({ origins: {} });
+};
 
 window.browserGlobals.requestNewBrowserSessionId = async function () {
   const candidates = ["/server/newsession", "/newsession"];
@@ -538,7 +690,9 @@ window.browserGlobals.requestNewBrowserSessionId = async function () {
     try {
       const res = await fetch(endpoint);
       if (!res.ok) {
-        lastError = new Error(`Failed to create new browser session (${endpoint})`);
+        lastError = new Error(
+          `Failed to create new browser session (${endpoint})`,
+        );
         continue;
       }
       const id = (await res.text()).trim();
@@ -549,31 +703,44 @@ window.browserGlobals.requestNewBrowserSessionId = async function () {
     }
   }
   throw lastError || new Error("Failed to create new browser session");
-}
+};
 
 window.browserGlobals.profile = window.browserGlobals.defaultBrowserProfile();
-window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
+window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(
+  window.browserGlobals.profile,
+);
 window.browserGlobals.id = "";
 window.browserGlobals.profileReadyPromise = (async () => {
   const loadedProfile = await window.browserGlobals.readBrowserProfile();
   window.browserGlobals.profile = loadedProfile;
-  window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
+  window.browserGlobals.profileState =
+    window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
   // Determine effective browser theme setting
   try {
-    const pm = window.browserGlobals.profile && window.browserGlobals.profile.themeMode ? window.browserGlobals.profile.themeMode : "auto";
+    const pm =
+      window.browserGlobals.profile && window.browserGlobals.profile.themeMode
+        ? window.browserGlobals.profile.themeMode
+        : "auto";
     if (pm === "auto") {
-      window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+      window.browserGlobals.dark = !!(
+        window.protectedGlobals.data && window.protectedGlobals.data.dark
+      );
     } else {
       window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
     }
   } catch (e) {
-    window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+    window.browserGlobals.dark = !!(
+      window.protectedGlobals.data && window.protectedGlobals.data.dark
+    );
   }
 
-  const idRead = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileUserIdPath, {
-    attempts: 5,
-    retryDelayMs: 150,
-  });
+  const idRead = await window.browserGlobals.readProfileTextFileMeta(
+    window.browserGlobals.profileUserIdPath,
+    {
+      attempts: 5,
+      retryDelayMs: 150,
+    },
+  );
   const persistedId = String(idRead.text || "").trim();
   if (persistedId) {
     window.browserGlobals.id = persistedId;
@@ -586,10 +753,13 @@ window.browserGlobals.profileReadyPromise = (async () => {
 
   // One more confirmation pass before generating/writing a new session id.
   // This avoids replacing an existing id when the first read was transiently empty.
-  const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(window.browserGlobals.profileUserIdPath, {
-    attempts: 6,
-    retryDelayMs: 220,
-  });
+  const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(
+    window.browserGlobals.profileUserIdPath,
+    {
+      attempts: 6,
+      retryDelayMs: 220,
+    },
+  );
   const confirmedId = String(idReadConfirm.text || "").trim();
   if (confirmedId) {
     window.browserGlobals.id = confirmedId;
@@ -607,12 +777,15 @@ window.browserGlobals.subWebsite = function (url) {
   url = url.split("?");
   url = url[0].split("#");
   return url[0];
-}
+};
 window.browserGlobals.unshuffleURL = function (url) {
   if (!url) return "";
   if (url === window.protectedGlobals.goldenbodywebsite + "flowerfeast.html") {
     return "goldenbody://newtab/";
-  } else if (url === window.protectedGlobals.goldenbodywebsite + "singlesdaylosesingle.html") {
+  } else if (
+    url ===
+    window.protectedGlobals.goldenbodywebsite + "singlesdaylosesingle.html"
+  ) {
     return "goldenbody://app-store/";
   }
 
@@ -622,7 +795,8 @@ window.browserGlobals.unshuffleURL = function (url) {
       if (mapped) return `file://${mapped}`;
 
       const withoutHash = url.split("#")[0];
-      const mappedNoHash = window.browserGlobals.__localFileUrlMap.get(withoutHash);
+      const mappedNoHash =
+        window.browserGlobals.__localFileUrlMap.get(withoutHash);
       if (mappedNoHash) return `file://${mappedNoHash}`;
     }
   } catch (e) {}
@@ -637,7 +811,9 @@ window.browserGlobals.unshuffleURL = function (url) {
     return `file://${localPath}`;
   }
 
-  if(!url.includes(window.protectedGlobals.BASE)) {return url};
+  if (!url.includes(window.protectedGlobals.BASE)) {
+    return url;
+  }
   url = url.split("/");
   if (url) {
     if (typeof url === "string") {
@@ -673,90 +849,101 @@ window.browserGlobals.mainWebsite = function (string) {
   return s;
 };
 
-window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, posY = 20) 
-{
-      function showConfirmDialog(title, message) {
-      return new Promise((resolve) => {
-        document.getElementById("confirm-dialog")?.remove();
+window.browser = function (
+  preloadlink = null,
+  preloadsize = 100,
+  posX = 20,
+  posY = 20,
+) {
+  function showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+      document.getElementById("confirm-dialog")?.remove();
 
-        const dialog = document.createElement("div");
-        dialog.id = "confirm-dialog";
-        dialog.className = "panel";
-          dialog.classList.toggle("dark", browserGlobals.dark);
-          dialog.classList.toggle("light", !browserGlobals.dark);
-        dialog.style.cssText =
-          "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
+      const dialog = document.createElement("div");
+      dialog.id = "confirm-dialog";
+      dialog.className = "panel";
+      dialog.classList.toggle("dark", browserGlobals.dark);
+      dialog.classList.toggle("light", !browserGlobals.dark);
+      dialog.style.cssText =
+        "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
 
-        let resolved = false;
-        function closeConfirmDialog(result) {
-          if (resolved) return;
-          resolved = true;
-          try {
-            document.removeEventListener("pointerdown", onOutsidePointerDown, true);
-          } catch (e) {}
-          try {
-            document.removeEventListener("keydown", onEscKeyDown, true);
-          } catch (e) {}
-          dialog.remove();
-          resolve(result);
+      let resolved = false;
+      function closeConfirmDialog(result) {
+        if (resolved) return;
+        resolved = true;
+        try {
+          document.removeEventListener(
+            "pointerdown",
+            onOutsidePointerDown,
+            true,
+          );
+        } catch (e) {}
+        try {
+          document.removeEventListener("keydown", onEscKeyDown, true);
+        } catch (e) {}
+        dialog.remove();
+        resolve(result);
+      }
+
+      function onOutsidePointerDown(event) {
+        if (!dialog.contains(event.target)) {
+          closeConfirmDialog(false);
         }
+      }
 
-        function onOutsidePointerDown(event) {
-          if (!dialog.contains(event.target)) {
-            closeConfirmDialog(false);
-          }
+      function onEscKeyDown(event) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeConfirmDialog(false);
         }
+      }
 
-        function onEscKeyDown(event) {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            closeConfirmDialog(false);
-          }
+      const titleEl = document.createElement("div");
+      titleEl.style.cssText =
+        "font-weight:600;margin-bottom:12px;font-size:16px;";
+      titleEl.textContent = title;
+      dialog.appendChild(titleEl);
+
+      const msgEl = document.createElement("div");
+      msgEl.style.cssText = `font-size:14px;color:#${browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+      msgEl.textContent = message;
+      dialog.appendChild(msgEl);
+
+      const btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
+
+      const btnCancel = document.createElement("button");
+      btnCancel.textContent = "Cancel";
+      btnCancel.style.cssText =
+        "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
+      btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
+      btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
+      btnCancel.onclick = () => closeConfirmDialog(false);
+
+      const btnConfirm = document.createElement("button");
+      btnConfirm.textContent = "Continue";
+      btnConfirm.style.cssText =
+        "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
+      btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
+      btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
+      btnConfirm.onclick = () => closeConfirmDialog(true);
+
+      btnRow.appendChild(btnCancel);
+      btnRow.appendChild(btnConfirm);
+      dialog.appendChild(btnRow);
+
+      document.body.appendChild(dialog);
+
+      setTimeout(() => {
+        if (!resolved) {
+          document.addEventListener("pointerdown", onOutsidePointerDown, true);
+          document.addEventListener("keydown", onEscKeyDown, true);
         }
+      }, 0);
 
-        const titleEl = document.createElement("div");
-        titleEl.style.cssText = "font-weight:600;margin-bottom:12px;font-size:16px;";
-        titleEl.textContent = title;
-        dialog.appendChild(titleEl);
-
-        const msgEl = document.createElement("div");
-        msgEl.style.cssText =`font-size:14px;color:#${browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
-        msgEl.textContent = message;
-        dialog.appendChild(msgEl);
-
-        const btnRow = document.createElement("div");
-        btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
-
-        const btnCancel = document.createElement("button");
-        btnCancel.textContent = "Cancel";
-        btnCancel.style.cssText = "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
-        btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
-        btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
-        btnCancel.onclick = () => closeConfirmDialog(false);
-
-        const btnConfirm = document.createElement("button");
-        btnConfirm.textContent = "Continue";
-        btnConfirm.style.cssText = "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
-        btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
-        btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
-        btnConfirm.onclick = () => closeConfirmDialog(true);
-
-        btnRow.appendChild(btnCancel);
-        btnRow.appendChild(btnConfirm);
-        dialog.appendChild(btnRow);
-
-        document.body.appendChild(dialog);
-
-        setTimeout(() => {
-          if (!resolved) {
-            document.addEventListener("pointerdown", onOutsidePointerDown, true);
-            document.addEventListener("keydown", onEscKeyDown, true);
-          }
-        }, 0);
-
-        btnConfirm.focus();
-      });
-    }
+      btnConfirm.focus();
+    });
+  }
   function normalizePreloadLink(value) {
     const input = String(value || "").trim();
     if (!input) return "";
@@ -781,7 +968,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     }
     return input;
   }
-  
+
   let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
     if (window.browserGlobals.profileReadyPromise) {
@@ -802,8 +989,11 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     const currentUrl = window.browserGlobals.mainWebsite(
       browserGlobals.unshuffleURL(iframe.src),
     );
-    const profile = browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
-    const list = Array.isArray(profile.siteSettings) ? profile.siteSettings : [];
+    const profile =
+      browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
+    const list = Array.isArray(profile.siteSettings)
+      ? profile.siteSettings
+      : [];
     let updated = false;
     for (let i = 0; i < list.length; i++) {
       if (Array.isArray(list[i]) && list[i][0] === currentUrl) {
@@ -1021,6 +1211,88 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     sandboxSec.appendChild(warn);
 
     // ===============================
+    // SITE DATA
+    // ===============================
+    const siteDataSec = section("Site Data");
+    const siteDataTabs = document.createElement("div");
+    siteDataTabs.style.display = "flex";
+    siteDataTabs.style.gap = "6px";
+    siteDataTabs.style.marginBottom = "8px";
+
+    const siteDataTabCookies = document.createElement("button");
+    siteDataTabCookies.textContent = "Cookies";
+    const siteDataTabIndexedDb = document.createElement("button");
+    siteDataTabIndexedDb.textContent = "IndexedDB";
+
+    const siteDataDesc = document.createElement("div");
+    siteDataDesc.style.fontSize = "12px";
+    siteDataDesc.style.opacity = "0.9";
+    siteDataDesc.style.marginBottom = "8px";
+
+    const siteDataClearBtn = document.createElement("button");
+    siteDataClearBtn.style.background = "#8b1f1f";
+    siteDataClearBtn.style.color = "#fff";
+
+    function setSiteDataTabVisual(button, active) {
+      button.style.border =
+        "1px solid " + (active ? "#4c8bf5" : "rgba(127,127,127,.45)");
+      button.style.borderRadius = "6px";
+      button.style.padding = "5px 10px";
+      button.style.cursor = "pointer";
+      button.style.background = active ? "#4c8bf5" : "transparent";
+      button.style.color = active ? "#fff" : "inherit";
+    }
+
+    let activeSiteDataTab = "cookies";
+    function renderSiteDataTab() {
+      const isCookies = activeSiteDataTab === "cookies";
+      setSiteDataTabVisual(siteDataTabCookies, isCookies);
+      setSiteDataTabVisual(siteDataTabIndexedDb, !isCookies);
+      if (isCookies) {
+        siteDataDesc.textContent = "Delete cookies only for this site.";
+        siteDataClearBtn.textContent = "Clear site cookies";
+      } else {
+        siteDataDesc.textContent =
+          "Delete IndexedDB databases only for this site.";
+        siteDataClearBtn.textContent = "Clear site IndexedDB";
+      }
+    }
+
+    siteDataTabCookies.onclick = () => {
+      activeSiteDataTab = "cookies";
+      renderSiteDataTab();
+    };
+    siteDataTabIndexedDb.onclick = () => {
+      activeSiteDataTab = "indexeddb";
+      renderSiteDataTab();
+    };
+
+    siteDataClearBtn.onclick = async () => {
+      if (activeSiteDataTab === "cookies") {
+        const shouldClearCookies = await showConfirmDialog(
+          "Clear site cookies",
+          `This will remove cookies for ${website}. Continue?`,
+        );
+        if (!shouldClearCookies) return;
+        await window.browserGlobals.clearCookiesForSite(website);
+        window.protectedGlobals.notification("cookies cleared for this site");
+        return;
+      }
+
+      const shouldClearIndexedDb = await showConfirmDialog(
+        "Clear site IndexedDB",
+        `This will remove IndexedDB for ${website}. Continue?`,
+      );
+      if (!shouldClearIndexedDb) return;
+      await window.browserGlobals.clearIndexedDbForSite(website);
+      window.protectedGlobals.notification("indexeddb cleared for this site");
+    };
+
+    siteDataTabs.append(siteDataTabCookies, siteDataTabIndexedDb);
+    siteDataSec.append(siteDataTabs, siteDataDesc, siteDataClearBtn);
+    renderSiteDataTab();
+
+    // ===============================
     // ACTIONS
     // ===============================
     const actions = document.createElement("div");
@@ -1040,23 +1312,11 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     apply.style.background = "#4c8bf5";
     apply.style.color = "#fff";
 
-    const clearSiteCookies = document.createElement("button");
-    clearSiteCookies.textContent = "Clear cookies";
-    clearSiteCookies.onclick = async () => {
-      const shouldClear = await showConfirmDialog(
-        "Clear site cookies",
-        `This will remove cookies for ${website}. Continue?`,
-      );
-      if (!shouldClear) return;
-
-      await window.browserGlobals.clearCookiesForSite(website);
-      window.protectedGlobals.notification("cookies cleared for this site");
-      closePermissionsPanel();
-    };
-
     apply.onclick = () => {
       // ===== LOGIC HOOK (YOU IMPLEMENT) =====
-      window.protectedGlobals.notification("reload this page to apply your updated settings!");
+      window.protectedGlobals.notification(
+        "reload this page to apply your updated settings!",
+      );
 
       const newSandbox = Object.entries(sandboxCheckboxes)
         .filter(([_, cb]) => cb.checked)
@@ -1073,7 +1333,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       closePermissionsPanel();
     };
 
-    actions.append(clearSiteCookies, cancel, apply);
+    actions.append(cancel, apply);
     panel.appendChild(actions);
   }
 
@@ -1092,7 +1352,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
   const chromeWindow = (function createChromeLikeUI() {
     // --- Create root container ---
     var root = document.createElement("div");
-    root.__vfsMessageListenerAdded = false;
+    root.__moveTabListenerAdded = false;
     root.className = "app-root app-window-root";
     root.dataset.appId = "browser";
     Object.assign(root.style, {
@@ -1114,28 +1374,42 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     // If a window has `data-theme-manual` set to 'true', flowaway.window.protectedGlobals.applyStyles
     // will avoid changing its theme classes. Initialize based on profile.
     try {
-      const pm = window.browserGlobals.profile && window.browserGlobals.profile.themeMode ? window.browserGlobals.profile.themeMode : 'auto';
-      if (pm === 'manual') {
-        root.dataset.themeManual = 'true';
+      const pm =
+        window.browserGlobals.profile && window.browserGlobals.profile.themeMode
+          ? window.browserGlobals.profile.themeMode
+          : "auto";
+      if (pm === "manual") {
+        root.dataset.themeManual = "true";
         // ensure this root reflects the pinned theme
-        try { root.classList.toggle('dark', !!window.browserGlobals.dark); root.classList.toggle('light', !window.browserGlobals.dark); } catch (e) {}
+        try {
+          root.classList.toggle("dark", !!window.browserGlobals.dark);
+          root.classList.toggle("light", !window.browserGlobals.dark);
+        } catch (e) {}
       } else {
-        root.dataset.themeManual = 'false';
+        root.dataset.themeManual = "false";
       }
     } catch (e) {
-      root.dataset.themeManual = root.dataset.themeManual || 'false';
+      root.dataset.themeManual = root.dataset.themeManual || "false";
     }
     root.addEventListener("styleapplied", () => {
       // If user preference is 'auto' then mirror global `window.protectedGlobals.data.dark`, otherwise use stored profile value
       try {
-        const pm = window.browserGlobals.profile && window.browserGlobals.profile.themeMode ? window.browserGlobals.profile.themeMode : "auto";
+        const pm =
+          window.browserGlobals.profile &&
+          window.browserGlobals.profile.themeMode
+            ? window.browserGlobals.profile.themeMode
+            : "auto";
         if (pm === "auto") {
-          window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+          window.browserGlobals.dark = !!(
+            window.protectedGlobals.data && window.protectedGlobals.data.dark
+          );
         } else {
           window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
         }
       } catch (e) {
-        window.browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+        window.browserGlobals.dark = !!(
+          window.protectedGlobals.data && window.protectedGlobals.data.dark
+        );
       }
 
       for (const tab of tabs) {
@@ -1240,9 +1514,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
     });
 
     function getActiveBrowserTab() {
-      return (
-        tabs.find((tab) => tab.id === activeTabId) || activatedTab || null
-      );
+      return tabs.find((tab) => tab.id === activeTabId) || activatedTab || null;
     }
 
     function dispatchShortcutToActiveBrowserTab(eventInit) {
@@ -1279,7 +1551,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       menu.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
       menu.style.background = browserGlobals.dark ? "#1f1f1f" : "#ffffff";
       menu.style.color = browserGlobals.dark ? "#f5f5f5" : "#222";
-      menu.style.border = browserGlobals.dark ? "1px solid #444" : "1px solid #d0d0d0";
+      menu.style.border = browserGlobals.dark
+        ? "1px solid #444"
+        : "1px solid #d0d0d0";
       const closeMenu = () => {
         menu.remove();
         window.removeEventListener("click", closeMenu);
@@ -1294,7 +1568,8 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         item.style.userSelect = "none";
         item.style.opacity = disabled ? "0.45" : "1";
         item.addEventListener("mouseenter", () => {
-          if (!disabled) item.style.background = browserGlobals.dark ? "#333" : "#eef4ff";
+          if (!disabled)
+            item.style.background = browserGlobals.dark ? "#333" : "#eef4ff";
         });
         item.addEventListener("mouseleave", () => {
           item.style.background = "transparent";
@@ -1324,12 +1599,15 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         "Reload tab",
         () => {
           if (typeof reloadBtn.onclick === "function") reloadBtn.onclick();
-          else if (activeTab && activeTab.iframe && activeTab.iframe.contentWindow) {
+          else if (
+            activeTab &&
+            activeTab.iframe &&
+            activeTab.iframe.contentWindow
+          ) {
             let tmp = browserGlobals.unshuffleURL(activeTab.iframe.src);
-            if(looksLikeLocalFilePath(tmp)) {
+            if (looksLikeLocalFilePath(tmp)) {
               openUrlInActiveTab(tmp);
-            }
-            else {
+            } else {
               activeTab.iframe.contentWindow.location.reload();
             }
           }
@@ -1472,7 +1750,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       root.style.left = "0";
       root.style.top = "0";
       root.style.width = "100%";
-      root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+      root.style.height = !window.protectedGlobals.data.autohidetaskbar
+        ? `calc(100% - 60px)`
+        : "100%";
       root.style.borderRadius = "0px";
       isMaximized = true;
       _isMinimized = false;
@@ -1537,7 +1817,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       window.removeEventListener("message", messageHandler);
       window.removeEventListener("pointerup", onpointerupAnywhere);
       // Clean up all event listeners added by this app
-      window.protectedGlobals.removeAllEventListenersForApp(root.dataset.appId + root._goldenbodyId);
+      window.protectedGlobals.removeAllEventListenersForApp(
+        root.dataset.appId + root._goldenbodyId,
+      );
       window.browserGlobals.releaseBrowserGoldenbodyId(root);
       root = null;
       _browserCalled = false;
@@ -1677,7 +1959,11 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
           document.removeEventListener("pointerup", onPointerUp);
         } catch (e) {}
         try {
-          document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+          document.removeEventListener(
+            "pointerdown",
+            onOutsidePointerDown,
+            true,
+          );
         } catch (e) {}
       }
 
@@ -1853,10 +2139,22 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       function cleanup() {
         if (closed) return;
         closed = true;
-        try { panel.remove(); } catch (e) {}
-        try { document.removeEventListener("pointerdown", onOutsidePointerDown, true); } catch (e) {}
-        try { document.removeEventListener("pointermove", onPointerMoveTheme); } catch (e) {}
-        try { document.removeEventListener("pointerup", onPointerUpTheme); } catch (e) {}
+        try {
+          panel.remove();
+        } catch (e) {}
+        try {
+          document.removeEventListener(
+            "pointerdown",
+            onOutsidePointerDown,
+            true,
+          );
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointermove", onPointerMoveTheme);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerup", onPointerUpTheme);
+        } catch (e) {}
       }
 
       const panel = document.createElement("div");
@@ -1864,7 +2162,8 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
       panel.className = "panel";
       panel.classList.toggle("dark", browserGlobals.dark);
       panel.classList.toggle("light", !browserGlobals.dark);
-      panel.style.cssText = "position:fixed;z-index:999999;width:320px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+      panel.style.cssText =
+        "position:fixed;z-index:999999;width:320px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
       function onOutsidePointerDown(event) {
         if (!panel.contains(event.target)) {
@@ -1879,70 +2178,126 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
 
       const desc = document.createElement("div");
       desc.style.cssText = "font-size:12px;color:#888;margin-bottom:8px";
-      desc.textContent = "Choose theme for this browser app (light/dark/default).";
+      desc.textContent =
+        "Choose theme for this browser app (light/dark/default).";
       panel.appendChild(desc);
 
       const form = document.createElement("div");
       form.style.cssText = "display:flex;flex-direction:column;gap:8px;";
 
-      function radioOption(value, label, checked){
-        const row = document.createElement('label');
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;';
-        const r = document.createElement('input'); r.type='radio'; r.name='gb-theme-mode'; r.value = value; r.checked = !!checked;
-        row.appendChild(r); row.appendChild(document.createTextNode(label));
+      function radioOption(value, label, checked) {
+        const row = document.createElement("label");
+        row.style.cssText = "display:flex;align-items:center;gap:8px;";
+        const r = document.createElement("input");
+        r.type = "radio";
+        r.name = "gb-theme-mode";
+        r.value = value;
+        r.checked = !!checked;
+        row.appendChild(r);
+        row.appendChild(document.createTextNode(label));
         return row;
       }
 
-      const currentMode = (browserGlobals.profile && browserGlobals.profile.themeMode) ? browserGlobals.profile.themeMode : 'auto';
-      const manualDark = !!(browserGlobals.profile && browserGlobals.profile.dark);
+      const currentMode =
+        browserGlobals.profile && browserGlobals.profile.themeMode
+          ? browserGlobals.profile.themeMode
+          : "auto";
+      const manualDark = !!(
+        browserGlobals.profile && browserGlobals.profile.dark
+      );
 
-      form.appendChild(radioOption('auto','Default (system preference)', currentMode === 'auto'));
-      form.appendChild(radioOption('light','Light', currentMode === 'manual' && !manualDark));
-      form.appendChild(radioOption('dark','Dark', currentMode === 'manual' && manualDark));
+      form.appendChild(
+        radioOption(
+          "auto",
+          "Default (system preference)",
+          currentMode === "auto",
+        ),
+      );
+      form.appendChild(
+        radioOption("light", "Light", currentMode === "manual" && !manualDark),
+      );
+      form.appendChild(
+        radioOption("dark", "Dark", currentMode === "manual" && manualDark),
+      );
 
       // No per-window ignore checkbox — manual theme selection will pin
       // theme for all browser windows by setting `data-theme-manual` on roots.
 
       panel.appendChild(form);
 
-      const actions = document.createElement('div');
-      actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:12px;';
-      const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnCancel.onclick = () => cleanup();
-      const btnApply = document.createElement('button'); btnApply.textContent = 'Apply'; btnApply.style.background = '#4c8bf5'; btnApply.style.color = '#fff';
+      const actions = document.createElement("div");
+      actions.style.cssText =
+        "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
+      const btnCancel = document.createElement("button");
+      btnCancel.textContent = "Cancel";
+      btnCancel.onclick = () => cleanup();
+      const btnApply = document.createElement("button");
+      btnApply.textContent = "Apply";
+      btnApply.style.background = "#4c8bf5";
+      btnApply.style.color = "#fff";
       btnApply.onclick = async () => {
-        const chosen = Array.from(panel.querySelectorAll('input[name="gb-theme-mode"]')).find(i=>i.checked)?.value || 'auto';
+        const chosen =
+          Array.from(
+            panel.querySelectorAll('input[name="gb-theme-mode"]'),
+          ).find((i) => i.checked)?.value || "auto";
         try {
           browserGlobals.profile = browserGlobals.profile || {};
-          if(chosen === 'auto') {
-            browserGlobals.profile.themeMode = 'auto';
+          if (chosen === "auto") {
+            browserGlobals.profile.themeMode = "auto";
           } else {
-            browserGlobals.profile.themeMode = 'manual';
-            browserGlobals.profile.dark = chosen === 'dark';
+            browserGlobals.profile.themeMode = "manual";
+            browserGlobals.profile.dark = chosen === "dark";
           }
-          await window.browserGlobals.writeBrowserProfile(browserGlobals.profile, { force: true });
+          await window.browserGlobals.writeBrowserProfile(
+            browserGlobals.profile,
+            { force: true },
+          );
         } catch (e) {}
         // update effective dark
         try {
-          if((browserGlobals.profile && browserGlobals.profile.themeMode === 'auto')) {
-            browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+          if (
+            browserGlobals.profile &&
+            browserGlobals.profile.themeMode === "auto"
+          ) {
+            browserGlobals.dark = !!(
+              window.protectedGlobals.data && window.protectedGlobals.data.dark
+            );
           } else {
-            browserGlobals.dark = !!(browserGlobals.profile && browserGlobals.profile.dark);
+            browserGlobals.dark = !!(
+              browserGlobals.profile && browserGlobals.profile.dark
+            );
           }
-        } catch (e) { browserGlobals.dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark); }
+        } catch (e) {
+          browserGlobals.dark = !!(
+            window.protectedGlobals.data && window.protectedGlobals.data.dark
+          );
+        }
 
         // If manual, pin theme on all browser roots so `window.protectedGlobals.applyStyles` won't
         // override them. If auto, remove the pin so `window.protectedGlobals.applyStyles` manages them.
         try {
-          const allRoots = document.querySelectorAll('.app-window-root[data-app-id="browser"]');
+          const allRoots = document.querySelectorAll(
+            '.app-window-root[data-app-id="browser"]',
+          );
           for (const rr of allRoots) {
-            if (browserGlobals.profile && browserGlobals.profile.themeMode === 'manual') {
-              rr.dataset.themeManual = 'true';
-              rr.classList.toggle('dark', browserGlobals.dark);
-              rr.classList.toggle('light', !browserGlobals.dark);
+            if (
+              browserGlobals.profile &&
+              browserGlobals.profile.themeMode === "manual"
+            ) {
+              rr.dataset.themeManual = "true";
+              rr.classList.toggle("dark", browserGlobals.dark);
+              rr.classList.toggle("light", !browserGlobals.dark);
             } else {
-              try { delete rr.dataset.themeManual; } catch (e) { rr.dataset.themeManual = 'false'; }
+              try {
+                delete rr.dataset.themeManual;
+              } catch (e) {
+                rr.dataset.themeManual = "false";
+              }
               // Ensure the root reflects the effective (global) theme immediately
-              try { rr.classList.toggle('dark', !!browserGlobals.dark); rr.classList.toggle('light', !browserGlobals.dark); } catch (e) {}
+              try {
+                rr.classList.toggle("dark", !!browserGlobals.dark);
+                rr.classList.toggle("light", !browserGlobals.dark);
+              } catch (e) {}
             }
           }
         } catch (e) {}
@@ -1950,14 +2305,16 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         // Dispatch styleapplied to notify apps
         try {
           allRoots = [];
-          browserGlobals.allBrowsers.forEach(b => {
+          browserGlobals.allBrowsers.forEach((b) => {
             try {
               const r = b.rootElement;
               if (r) allRoots.push(r);
             } catch (e) {}
           });
-          for(const r of allRoots) {
-            try { r.dispatchEvent(new CustomEvent('styleapplied', {})); } catch (e) {}
+          for (const r of allRoots) {
+            try {
+              r.dispatchEvent(new CustomEvent("styleapplied", {}));
+            } catch (e) {}
           }
         } catch (e) {}
 
@@ -1983,8 +2340,12 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         if (!isDragging) return;
         isDragging = false;
         title.style.cursor = "grab";
-        try { document.removeEventListener("pointermove", onPointerMoveTheme); } catch (e) {}
-        try { document.removeEventListener("pointerup", onPointerUpTheme); } catch (e) {}
+        try {
+          document.removeEventListener("pointermove", onPointerMoveTheme);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerup", onPointerUpTheme);
+        } catch (e) {}
       }
       title.addEventListener("pointerdown", (ev) => {
         ev.preventDefault();
@@ -2047,26 +2408,35 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         lazyloading: true,
         siteZoom: {},
       };
-      await window.browserGlobals.writeBrowserProfile(window.browserGlobals.profile, { force: true });
+      await window.browserGlobals.writeBrowserProfile(
+        window.browserGlobals.profile,
+        { force: true },
+      );
       window.browserGlobals.profileState.siteSettings = [];
       window.browserGlobals.profileState.enableURLSync = true;
       window.browserGlobals.profileState.lazyloading = true;
       window.browserGlobals.profileState.siteZoom = {};
       await window.browserGlobals.clearAllCookies();
-      window.protectedGlobals.notification("site data cleared! please close all browser windows!");
+      await window.browserGlobals.clearAllIndexedDb();
+      window.protectedGlobals.notification(
+        "site data cleared! please close all browser windows!",
+      );
     }
     clear.onclick = clearBrowsingData;
 
     addressRow.appendChild(downloadBtn);
     // Theme button
-    var themeBtn = document.createElement('button');
-    themeBtn.className = 'sim-open-btn';
-    themeBtn.title = 'Theme';
-    setAddressButtonIcon(themeBtn, 'theme');
+    var themeBtn = document.createElement("button");
+    themeBtn.className = "sim-open-btn";
+    themeBtn.title = "Theme";
+    setAddressButtonIcon(themeBtn, "theme");
     applyAddressIconButtonStyle(themeBtn);
-    themeBtn.onclick = function(e){ const r = themeBtn.getBoundingClientRect(); openThemeUI({ x: r.right, y: r.top + r.height }); };
+    themeBtn.onclick = function (e) {
+      const r = themeBtn.getBoundingClientRect();
+      openThemeUI({ x: r.right, y: r.top + r.height });
+    };
     addressRow.appendChild(themeBtn);
-  const browserActionsBtn = document.createElement("button");
+    const browserActionsBtn = document.createElement("button");
     browserActionsBtn.className = "sim-open-btn";
     browserActionsBtn.title = "More browser actions";
     browserActionsBtn.textContent = "⋯";
@@ -2519,7 +2889,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         iframe.contentDocument.body.appendChild(eggpatch);
 
         let themeOverride = document.createElement("script");
-              themeOverride.textContent = `
+        themeOverride.textContent = `
           (function(){
             try{
               window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
@@ -2616,7 +2986,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         function persistSiteZoomForTab(tab) {
           const key = getSiteZoomKeyForTab(tab);
           if (!key) return;
-          const profile = window.browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
+          const profile =
+            window.browserGlobals.profile ||
+            window.browserGlobals.defaultBrowserProfile();
           if (!profile.siteZoom || typeof profile.siteZoom !== "object") {
             profile.siteZoom = {};
           }
@@ -2628,7 +3000,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
               clearTimeout(window.browserGlobals.__siteZoomPersistTimer);
             }
             window.browserGlobals.__siteZoomPersistTimer = setTimeout(() => {
-              window.browserGlobals.writeBrowserProfile(profile).catch(() => {});
+              window.browserGlobals
+                .writeBrowserProfile(profile)
+                .catch(() => {});
             }, 220);
           } catch (e) {}
         }
@@ -2636,7 +3010,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         function loadSiteZoomForTab(tab) {
           const key = getSiteZoomKeyForTab(tab);
           if (!key) return;
-          const profile = window.browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
+          const profile =
+            window.browserGlobals.profile ||
+            window.browserGlobals.defaultBrowserProfile();
           const siteZoom =
             profile.siteZoom && typeof profile.siteZoom === "object"
               ? profile.siteZoom
@@ -2677,12 +3053,18 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
 
         try {
           if (tab.__onResizeKeydown && tab.__resizeKeyTarget) {
-            tab.__resizeKeyTarget.removeEventListener("keydown", tab.__onResizeKeydown);
+            tab.__resizeKeyTarget.removeEventListener(
+              "keydown",
+              tab.__onResizeKeydown,
+            );
           }
         } catch (e) {}
         tab.__onResizeKeydown = handleresizel1;
         tab.__resizeKeyTarget = tab.iframe.contentWindow;
-        tab.__resizeKeyTarget.addEventListener("keydown", tab.__onResizeKeydown);
+        tab.__resizeKeyTarget.addEventListener(
+          "keydown",
+          tab.__onResizeKeydown,
+        );
         if (!tab.iframe.style.display === "none")
           urlInput.value = browserGlobals.unshuffleURL(
             iframe.contentWindow.location.href,
@@ -2693,35 +3075,37 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         // tab.iframe.contentDocument.head.prepend(sfc);
         let linkinterval = setInterval(function () {
           try {
-            if (!iframe || !iframe.contentDocument || !tabs.includes(tab)) clearInterval(linkinterval);
-  var links = iframe.contentDocument.getElementsByTagName("a");
+            if (!iframe || !iframe.contentDocument || !tabs.includes(tab))
+              clearInterval(linkinterval);
+            var links = iframe.contentDocument.getElementsByTagName("a");
 
-  for (let i = 0; i < links.length; i++) {
-    if (links[i].target !== "_blank") {
-      links[i].target = "_self";
-    }
-    if (!links[i].href.includes(browserGlobals.id)) {
-      if (links[i].href.startsWith("http")) {
-        links[i].href = a(links[i].href, browserGlobals.proxyurl);
-      }
-    }
-    links[i].onclick = (e) => {
-      if (e.metaKey) {
-      e.preventDefault();
-        const url = browserGlobals.unshuffleURL(links[i].href);
+            for (let i = 0; i < links.length; i++) {
+              if (links[i].target !== "_blank") {
+                links[i].target = "_self";
+              }
+              if (!links[i].href.includes(browserGlobals.id)) {
+                if (links[i].href.startsWith("http")) {
+                  links[i].href = a(links[i].href, browserGlobals.proxyurl);
+                }
+              }
+              links[i].onclick = (e) => {
+                if (e.metaKey) {
+                  e.preventDefault();
+                  const url = browserGlobals.unshuffleURL(links[i].href);
 
-        iframe.contentWindow.open(url, "_blank");
-        console.log(links[i].href);
-      }
-      else if (links[i].target == "_blank") {
-      e.preventDefault();
-      iframe.contentWindow.open(browserGlobals.unshuffleURL(links[i].href), links[i].target || "_self");
-      }
-    };
-  }
-} catch(e) {}
-}, 2000 * browserGlobals.nhjd);
-
+                  iframe.contentWindow.open(url, "_blank");
+                  console.log(links[i].href);
+                } else if (links[i].target == "_blank") {
+                  e.preventDefault();
+                  iframe.contentWindow.open(
+                    browserGlobals.unshuffleURL(links[i].href),
+                    links[i].target || "_self",
+                  );
+                }
+              };
+            }
+          } catch (e) {}
+        }, 2000 * browserGlobals.nhjd);
       });
       iframe.addEventListener("load", function onLoad() {
         const doc = iframe.contentDocument;
@@ -2780,7 +3164,14 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
             iframe.contentWindow.location.href,
           );
           if (iframe.contentDocument.readyState === "complete" && !tab.donotm) {
-            const docTitle = iframe.contentDocument.title || iframe.contentDocument.querySelector('title')?.childNodes[0]?.nodeValue  || window.browserGlobals.unshuffleURL(iframe.contentWindow.location.href) || "Untitled";
+            const docTitle =
+              iframe.contentDocument.title ||
+              iframe.contentDocument.querySelector("title")?.childNodes[0]
+                ?.nodeValue ||
+              window.browserGlobals.unshuffleURL(
+                iframe.contentWindow.location.href,
+              ) ||
+              "Untitled";
             tab.title = docTitle;
           } else {
             tab.title = "Loading...";
@@ -2799,10 +3190,14 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
             try {
               createPermInput(
                 iframe,
-                browserGlobals.unshuffleURL(iframe.contentWindow.location.href || url),
+                browserGlobals.unshuffleURL(
+                  iframe.contentWindow.location.href || url,
+                ),
               );
             } catch (e) {
-              try { createPermInput(iframe, url); } catch (ee) {}
+              try {
+                createPermInput(iframe, url);
+              } catch (ee) {}
             }
           })
           .catch(() => {});
@@ -2865,8 +3260,8 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         startPatchIntegrityChecker();
         if (iframe.__gbPatchedDocument === iframeDocument) return;
         const iframeWindow = iframe.contentWindow;
-          let eggpatch2 = document.createElement("script");
-          eggpatch2.textContent = `
+        let eggpatch2 = document.createElement("script");
+        eggpatch2.textContent = `
               const nativeURL = window.URL;
               function URLShim(url = '', base) {
                 let normalizedUrl = url == null ? '' : String(url);
@@ -2886,7 +3281,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
               URLShim.prototype = nativeURL.prototype;
               window.URL = URLShim;
           `;
-          iframe.contentDocument.body.appendChild(eggpatch2);
+        iframe.contentDocument.body.appendChild(eggpatch2);
         if (iframeWindow.__gbBrowserShortcutHandler) {
           iframeWindow.removeEventListener(
             "keydown",
@@ -2900,15 +3295,14 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
           }
 
           var switcherMode =
-            (window.windowSwitchState && window.windowSwitchState.active &&
+            (window.windowSwitchState &&
+              window.windowSwitchState.active &&
               window.windowSwitchState.mod) ||
             "";
           var wantsCycle =
             (e.altKey && e.key === "Tab") ||
             (e.key === "Tab" && !!switcherMode);
-          if (
-            wantsCycle
-          ) {
+          if (wantsCycle) {
             e.preventDefault();
             root.focus();
             return;
@@ -2948,7 +3342,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
           "keydown",
           iframeWindow.__gbBrowserShortcutHandler,
         );
-  
+
         // Create a reusable custom context menu
         const menu = iframeDocument.createElement("div");
         menu.style.all = "unset";
@@ -2959,7 +3353,7 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
         menu.style.position = "fixed";
         menu.style.background = "#222";
         menu.style.color = "#fff";
-        menu.style.minWidth = '15vw';
+        menu.style.minWidth = "15vw";
         menu.style.padding = "8px 0";
         menu.style.borderRadius = "6px";
         menu.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
@@ -3010,7 +3404,9 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
             : null;
           const eventView =
             (e && e.view) || clickedElement?.ownerDocument?.defaultView || null;
-          const isSubFrame = !!(eventView && eventView !== iframe.contentWindow);
+          const isSubFrame = !!(
+            eventView && eventView !== iframe.contentWindow
+          );
 
           let frameUrl = "";
           if (isSubFrame) {
@@ -3206,12 +3602,14 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
             reload.onmouseenter = () => (reload.style.background = "#444");
             reload.onmouseleave = () => (reload.style.background = "none");
             reload.onclick = () => {
-            let tmp = browserGlobals.unshuffleURL(iframe.contentWindow.location.href);
-            if(looksLikeLocalFilePath(tmp)) {
-              openUrlInActiveTab(tmp);
-            } else {
-              iframe.contentWindow.location.reload();
-            }
+              let tmp = browserGlobals.unshuffleURL(
+                iframe.contentWindow.location.href,
+              );
+              if (looksLikeLocalFilePath(tmp)) {
+                openUrlInActiveTab(tmp);
+              } else {
+                iframe.contentWindow.location.reload();
+              }
               hideMenu();
             };
             menu.appendChild(reload);
@@ -3263,13 +3661,19 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
                 "Right-clicked on a link:",
                 contextData.linkElement.href,
               );
-            } else if (contextData.imageElement && contextData.imageElement.src) {
+            } else if (
+              contextData.imageElement &&
+              contextData.imageElement.src
+            ) {
               console.log(
                 "Right-clicked on an image:",
                 contextData.imageElement.src,
               );
             } else if (contextData.frameUrl) {
-              console.log("Right-clicked inside a frame:", contextData.frameUrl);
+              console.log(
+                "Right-clicked inside a frame:",
+                contextData.frameUrl,
+              );
             } else {
               console.log("Right-clicked on a non-link element.");
             }
@@ -3316,2262 +3720,23 @@ window.browser = function (preloadlink = null, preloadsize = 100, posX = 20, pos
 
           return { x, y };
         }
-        // ----------------------------
-        // 1. Make treeData global
-        // ----------------------------
-        let sentreqframe;
-
-        window.protectedGlobals.onlyloadTree();
-
-        let fullPath;
-        function getSessionAuthHeaders() {
-          const headers = { "Content-Type": "application/json" };
-          const token =
-            window.protectedGlobals.data && typeof window.protectedGlobals.data.authToken === "string"
-              ? window.protectedGlobals.data.authToken.trim()
-              : "";
-          if (token) headers.Authorization = "Bearer " + token;
-          return headers;
-        }
-        // Fetch file content from backend
-        async function fetchFileContent(username, fileFullPath) {
-          if (!fileFullPath) throw new Error("No file path provided");
-
-          const res = await fetch(window.protectedGlobals.SERVER, {
-            method: "POST",
-            headers: getSessionAuthHeaders(),
-            body: JSON.stringify({
-              requestFile: true,
-              requestFileName: fileFullPath, // send path relative to root
-              username,
-            }),
-          });
-
-          const data = await res.json();
-
-          if (data.kind === "folder") {
-            throw new Error(
-              `Expected a file but got a folder at ${fileFullPath}`,
-            );
-          }
-
-          // For large files, fetch all chunks and combine directly as ArrayBuffer
-          if (data.totalChunks && data.totalChunks > 1) {
-            // Return chunk metadata and first-chunk payload (base64) to caller so
-            // caller can stream chunks instead of allocating a single huge buffer.
-            return data; // { filecontent, fileSize, totalChunks }
-          }
-
-          // For small files, still return base64 from single request
-          return data.filecontent;
-        }
-
-        function base64ToArrayBuffer(base64) {
-          const binaryString = atob(base64);
-          const len = binaryString.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return bytes.buffer;
-        }
-        function getMimeType(filename) {
-          const ext = filename.split(".").pop().toLowerCase();
-
-          const mimeMap = {
-            // Images
-            png: "image/png",
-            jpg: "image/jpeg",
-            jpeg: "image/jpeg",
-            gif: "image/gif",
-            webp: "image/webp",
-            svg: "image/svg+xml",
-            bmp: "image/bmp",
-            ico: "image/x-icon",
-
-            // Audio
-            mp3: "audio/mpeg",
-            wav: "audio/wav",
-            ogg: "audio/ogg",
-            m4a: "audio/mp4",
-
-            // Video
-            mp4: "video/mp4",
-            webm: "video/webm",
-            ogv: "video/ogg",
-
-            // Text
-            txt: "text/plain",
-            html: "text/html",
-            css: "text/css",
-            js: "application/javascript",
-            json: "application/json",
-            xml: "application/xml",
-
-            // Archives
-            zip: "application/zip",
-            rar: "application/vnd.rar",
-            gz: "application/gzip",
-
-            // PDF
-            pdf: "application/pdf",
-          };
-
-          return mimeMap[ext] || "application/octet-stream";
-        }
-
-        // Send file to iframe
-        async function sendFileNodeToIframe(
-          username,
-          node,
-          iframe,
-          lastOne = false,
-        ) {
-          let currentPath = [...pickerCurrentPath];
-          currentPath.splice(0, 1);
-          const fullPath =
-            node[2].path || currentPath.join("/") + "/" + node[0];
-          const result = await fetchFileContent(username, fullPath);
-
-          // If server returned chunk metadata for a large file, stream chunks
-          const isChunked =
-            result &&
-            typeof result === "object" &&
-            result.totalChunks &&
-            result.totalChunks > 1;
-          // Handle both base64 strings and ArrayBuffers (small-file fast path)
-          const buffer =
-            !isChunked && typeof result === "string"
-              ? base64ToArrayBuffer(result)
-              : !isChunked
-                ? result
-                : null;
-          const type = getMimeType(node[0]);
-          // Compute a webkitRelativePath-like relative path for the file so the
-          // injector can reconstruct directory structure (remove picker base)
-          const fileParts = (fullPath || "").split("/").filter(Boolean);
-          const origPicker = Array.from(pickerCurrentPath || []);
-          const pickerBase = origPicker.slice(1); // drop leading 'root'
-          // remove matching leading segments
-          let relParts = Array.from(fileParts);
-          for (let i = 0; i < pickerBase.length; i++) {
-            if (relParts.length && relParts[0] === pickerBase[i])
-              relParts.shift();
-            else break;
-          }
-          const webkitRelativePath = relParts.join("/") || node[0];
-
-          // Send in chunks if large to avoid postMessage size limits
-          // Use larger chunks to reduce number of messages, add delays between sends
-          const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
-          if (isChunked) {
-            const CHUNK_SIZE = 10 * 1024 * 1024; // server chunk size
-            const totalChunks = result.totalChunks;
-
-            for (let i = 0; i < totalChunks; i++) {
-              // obtain chunk: first chunk provided inline as base64, others fetched
-              let chunkBuf;
-              if (i === 0) {
-                chunkBuf = base64ToArrayBuffer(result.filecontent);
-              } else {
-                const r = await fetch(window.protectedGlobals.SERVER, {
-                  method: "POST",
-                  headers: getSessionAuthHeaders(),
-                  body: JSON.stringify({
-                    requestFile: true,
-                    requestFileName: fullPath,
-                    chunkIndex: i,
-                    username,
-                  }),
-                });
-                const chunkData = await r.json();
-                chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
-              }
-
-              await new Promise((resolve) => {
-                iframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "file",
-                    name: node[0],
-                    type,
-                    buffer: chunkBuf,
-                    path: fullPath,
-                    webkitRelativePath,
-                    chunkIndex: i,
-                    totalChunks,
-                    lastOne: i === totalChunks - 1 && lastOne,
-                  },
-                  "*",
-                  [chunkBuf],
-                );
-                setTimeout(resolve, 10);
-              });
-            }
-          } else {
-            if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
-              const chunkSize = MAX_MESSAGE_SIZE;
-              const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
-              for (let i = 0; i < totalChunks; i++) {
-                const start = i * chunkSize;
-                const end = Math.min(start + chunkSize, buffer.byteLength);
-                const chunk = buffer.slice(start, end);
-                await new Promise((resolve) => {
-                  iframe.contentWindow.postMessage(
-                    {
-                      __VFS__: true,
-                      kind: "file",
-                      name: node[0],
-                      type,
-                      buffer: chunk,
-                      path: fullPath,
-                      webkitRelativePath,
-                      chunkIndex: i,
-                      totalChunks,
-                      lastOne: i === totalChunks - 1 && lastOne,
-                    },
-                    "*",
-                    [chunk],
-                  );
-                  setTimeout(resolve, 10);
-                });
-              }
-            } else {
-              iframe.contentWindow.postMessage(
-                {
-                  __VFS__: true,
-                  kind: "file",
-                  name: node[0],
-                  type,
-                  buffer,
-                  path: fullPath,
-                  webkitRelativePath,
-                  lastOne: lastOne,
-                },
-                "*",
-                [buffer],
-              );
-            }
-          }
-        }
-
-        async function sendFolderNodeToIframe(
-          username,
-          folderNode,
-          iframe,
-          lastOne = false,
-        ) {
-          const filesToSend = [];
-
-          function walk(node, prefix = "") {
-            const [name, children] = node;
-
-            // If node has a precomputed path use it; otherwise build from prefix
-            let nodePath;
-            if (node && node[2] && node[2].path) {
-              nodePath = node[2].path;
-            } else {
-              nodePath = prefix ? prefix + "/" + name : name;
-              console.warn(
-                "VFS: computed missing node.path for",
-                name,
-                "->",
-                nodePath,
-              );
-            }
-
-            if (children === null) {
-              filesToSend.push({
-                name,
-                fullPath: nodePath,
-              });
-              return;
-            }
-
-            if (Array.isArray(children)) {
-              const nextPrefix = nodePath;
-              for (const child of children) {
-                walk(child, nextPrefix);
-              }
-            }
-          }
-
-          walk(folderNode);
-          let fileIndex = 0;
-          // 2️⃣ Fetch + send each file with throttling to prevent packet loss
-          for (const file of filesToSend) {
-            fileIndex++;
-            const result = await fetchFileContent(username, file.fullPath);
-            const isChunked =
-              result &&
-              typeof result === "object" &&
-              result.totalChunks &&
-              result.totalChunks > 1;
-            const buffer =
-              !isChunked && typeof result === "string"
-                ? base64ToArrayBuffer(result)
-                : !isChunked
-                  ? result
-                  : null;
-            const type = getMimeType(file.name);
-            let fileParts = file.fullPath.split("/");
-            let origpickercurrentpath = Array.from(pickerCurrentPath);
-            pickerCurrentPath.splice(0, 1);
-            let pickerparts = pickerCurrentPath;
-            pickerCurrentPath = origpickercurrentpath;
-            for (let j = 0; j < pickerparts.length; j++) {
-              if (fileParts[0] === pickerparts[j]) {
-                fileParts.splice(0, 1);
-              }
-            }
-            file.fullPath = "";
-            let first = true;
-            for (let j = 0; j < fileParts.length; j++) {
-              if (first) {
-                first = false;
-                file.fullPath += fileParts[j];
-              } else {
-                file.fullPath += "/" + fileParts[j];
-              }
-            }
-
-            if (isChunked) {
-              const totalChunks = result.totalChunks;
-              for (let ci = 0; ci < totalChunks; ci++) {
-                let chunkBuf;
-                if (ci === 0)
-                  chunkBuf = base64ToArrayBuffer(result.filecontent);
-                else {
-                  const r = await fetch(window.protectedGlobals.SERVER, {
-                    method: "POST",
-                    headers: getSessionAuthHeaders(),
-                    body: JSON.stringify({
-                      requestFile: true,
-                      requestFileName: file.fullPath,
-                      chunkIndex: ci,
-                      username,
-                    }),
-                  });
-                  const cd = await r.json();
-                  chunkBuf = base64ToArrayBuffer(cd.filecontent);
-                }
-                await new Promise((resolve) => {
-                  iframe.contentWindow.postMessage(
-                    {
-                      __VFS__: true,
-                      kind: "file",
-                      name: file.name,
-                      type,
-                      buffer: chunkBuf,
-                      webkitRelativePath: file.fullPath,
-                      fileIndex: fileIndex - 1,
-                      totalFiles: filesToSend.length,
-                      chunkIndex: ci,
-                      totalChunks,
-                      lastOne:
-                        fileIndex == filesToSend.length &&
-                        ci === totalChunks - 1 &&
-                        lastOne,
-                    },
-                    "*",
-                    [chunkBuf],
-                  );
-                  setTimeout(resolve, 10);
-                });
-              }
-            } else {
-              // Add delay between messages to prevent packet loss
-              await new Promise((resolve) => {
-                iframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "file",
-                    name: file.name,
-                    type,
-                    buffer,
-                    webkitRelativePath: file.fullPath,
-                    fileIndex: fileIndex - 1,
-                    totalFiles: filesToSend.length,
-                    lastOne: fileIndex == filesToSend.length && lastOne,
-                  },
-                  "*",
-                  [buffer],
-                );
-                setTimeout(resolve, 10);
-              });
-            }
-          }
-        }
 
         // ----------------------------
-        // 3. Custom picker overlay
+        // 4. Listen for iframe requests/inject script
         // ----------------------------
-        let pickerOverlay = null;
-        let pickerSelection = [];
-        let pickerCurrentPath = ["root"];
-        let pickerTree = null;
-
-        function getPickerTheme() {
-          if (browserGlobals.dark) {
-            return {
-              panelBg: "#1f1f1f",
-              panelText: "#e8e8e8",
-              border: "#3a3a3a",
-              muted: "#a8a8a8",
-              inputBg: "#121212",
-              inputText: "#f2f2f2",
-              buttonBg: "#2a2a2a",
-              buttonText: "#e8e8e8",
-              selectedBg: "#2f5f9f",
-              hoverBg: "#2a2a2a",
-            };
-          }
-          return {
-            panelBg: "#ffffff",
-            panelText: "#111111",
-            border: "#d0d7de",
-            muted: "#666666",
-            inputBg: "#ffffff",
-            inputText: "#111111",
-            buttonBg: "#f3f4f6",
-            buttonText: "#111111",
-            selectedBg: "#d0e6ff",
-            hoverBg: "#f4f7ff",
-          };
-        }
-
-        function stylePickerButton(button, theme, isPrimary = false) {
-          Object.assign(button.style, {
-            borderRadius: "6px",
-            border: isPrimary ? "1px solid #4c8bf5" : `1px solid ${theme.border}`,
-            padding: "6px 12px",
-            cursor: "pointer",
-            background: isPrimary ? "#4c8bf5" : theme.buttonBg,
-            color: isPrimary ? "#ffffff" : theme.buttonText,
-          });
-        }
-
-        function stylePickerDialogBox(box, theme, width = "60%", height = "60%") {
-          Object.assign(box.style, {
-            position: "fixed",
-            zIndex: "1000000",
-            left: "20%",
-            top: "10%",
-            width: width,
-            height: height,
-            minWidth: "420px",
-            minHeight: "320px",
-            maxWidth: "100vw",
-            maxHeight: "100vh",
-            borderRadius: "8px",
-            resize: "both",
-            background: theme.panelBg,
-            color: theme.panelText,
-            border: `1px solid ${theme.border}`,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            boxSizing: "border-box",
-            boxShadow: "0 20px 60px rgba(0,0,0,.45)",
-          });
-        }
-
-        function makePickerDialogDraggable(box, dragHandle) {
-          if (!box || !dragHandle) return;
-          dragHandle.style.cursor = "move";
-          dragHandle.style.userSelect = "none";
-          dragHandle.style.touchAction = "none";
-
-          let dragging = false;
-          let startX = 0;
-          let startY = 0;
-          let originLeft = 0;
-          let originTop = 0;
-
-          const move = (ev) => {
-            if (!dragging) return;
-            const dx = ev.clientX - startX;
-            const dy = ev.clientY - startY;
-            const rect = box.getBoundingClientRect();
-            const maxLeft = Math.max(0, window.innerWidth - rect.width);
-            const maxTop = Math.max(0, window.innerHeight - rect.height);
-            const nextLeft = Math.min(maxLeft, Math.max(0, originLeft + dx));
-            const nextTop = Math.min(maxTop, Math.max(0, originTop + dy));
-            box.style.left = nextLeft + "px";
-            box.style.top = nextTop + "px";
-          };
-
-          const up = () => {
-            if (!dragging) return;
-            dragging = false;
-            document.removeEventListener("pointermove", move);
-            document.removeEventListener("pointerup", up);
-          };
-
-          dragHandle.addEventListener("pointerdown", (ev) => {
-            if (ev.button !== 0) return;
-            if (
-              ev.target?.closest?.("button, input, select, textarea, a, [role='button']")
-            )
-              return;
-            ev.preventDefault();
-            const rect = box.getBoundingClientRect();
-            box.style.transform = "";
-            box.style.left = rect.left + "px";
-            box.style.top = rect.top + "px";
-            box.style.position = "fixed";
-            startX = ev.clientX;
-            startY = ev.clientY;
-            originLeft = rect.left;
-            originTop = rect.top;
-            dragging = true;
-            document.addEventListener("pointermove", move);
-            document.addEventListener("pointerup", up);
-          });
-        }
-
-        function openCustomPickerUI() {
-          if (!window.protectedGlobals.treeData) {
-            window.protectedGlobals.onlyloadTree();
-          }
-
-          pickerTree = JSON.parse(JSON.stringify(window.protectedGlobals.treeData));
-          pickerCurrentPath = ["root"];
-          pickerSelection = [];
-
-          // Create overlay if it doesn't exist
-          if (!pickerOverlay) {
-            const theme = getPickerTheme();
-            pickerOverlay = document.createElement("div");
-            document.body.appendChild(pickerOverlay);
-
-            const pickerBox = document.createElement("div");
-            pickerBox.className = "pickerBox";
-            pickerBox.style.resize = "both";
-            stylePickerDialogBox(pickerBox, theme);
-            pickerOverlay.appendChild(pickerBox);
-            root.tabIndex = "0";
-
-            const titleBar = document.createElement("div");
-            titleBar.textContent = "Open File or Folder";
-            Object.assign(titleBar.style, {
-              padding: "8px 10px",
-              fontWeight: "600",
-              borderBottom: `1px solid ${theme.border}`,
-            });
-            pickerBox.appendChild(titleBar);
-            makePickerDialogDraggable(pickerBox, titleBar);
-
-            const breadcrumbDiv = document.createElement("div");
-            Object.assign(breadcrumbDiv.style, {
-              padding: "6px 10px",
-              borderBottom: `1px solid ${theme.border}`,
-            });
-            pickerBox.appendChild(breadcrumbDiv);
-
-            const fileArea = document.createElement("div");
-            fileArea.style.flex = "1";
-            fileArea.style.overflowY = "auto";
-            fileArea.style.background = theme.panelBg;
-            pickerBox.appendChild(fileArea);
-
-            const btnBar = document.createElement("div");
-            btnBar.style.padding = "8px";
-            btnBar.style.display = "flex";
-            btnBar.style.gap = "8px";
-            btnBar.style.justifyContent = "flex-end";
-            btnBar.style.borderTop = `1px solid ${theme.border}`;
-            pickerBox.appendChild(btnBar);
-
-            const btnCancel = document.createElement("button");
-            btnCancel.textContent = "Cancel";
-            stylePickerButton(btnCancel, theme, false);
-            btnBar.appendChild(btnCancel);
-
-            const btnOpen = document.createElement("button");
-            btnOpen.textContent = "Open";
-            stylePickerButton(btnOpen, theme, true);
-            btnBar.appendChild(btnOpen);
-
-            function renderPicker() {
-              breadcrumbDiv.innerHTML = "";
-              pickerCurrentPath.forEach((p, i) => {
-                const span = document.createElement("span");
-                span.textContent = i === 0 ? "Home" : " / " + p;
-                span.style.cursor = "pointer";
-                span.onclick = () => {
-                  pickerCurrentPath = pickerCurrentPath.slice(0, i + 1);
-                  renderPicker();
-                };
-                breadcrumbDiv.appendChild(span);
-              });
-
-              fileArea.innerHTML = "";
-              let node = pickerTree;
-              for (let i = 1; i < pickerCurrentPath.length; i++) {
-                node = node[1].find((c) => c[0] === pickerCurrentPath[i]);
-              }
-              if (!node || !node[1]) return;
-
-              node[1].forEach((item) => {
-                const div = document.createElement("div");
-                div.textContent =
-                  (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
-                div.style.padding = "6px 10px";
-                div.style.cursor = "pointer";
-                div.style.borderBottom = `1px solid ${theme.border}`;
-                div.onclick = (e) => {
-                  const isToggle = e.ctrlKey || e.metaKey;
-
-                  if (!isToggle) {
-                    // single select
-                    pickerSelection = [item];
-                    fileArea
-                      .querySelectorAll("div")
-                      .forEach((d) => (d.style.background = ""));
-                    div.style.background = theme.selectedBg;
-                  } else {
-                    // toggle select
-                    const idx = pickerSelection.indexOf(item);
-                    if (idx >= 0) {
-                      pickerSelection.splice(idx, 1);
-                      div.style.background = "";
-                    } else {
-                      pickerSelection.push(item);
-                      div.style.background = theme.selectedBg;
-                    }
-                  }
-                };
-                div.onmouseenter = () => {
-                  if (pickerSelection.includes(item)) return;
-                  div.style.background = theme.hoverBg;
-                };
-                div.onmouseleave = () => {
-                  if (pickerSelection.includes(item)) return;
-                  div.style.background = "";
-                };
-
-                if (Array.isArray(item[1])) {
-                  div.ondblclick = () => {
-                    pickerCurrentPath.push(item[0]);
-                    renderPicker();
-                  };
-                }
-                fileArea.appendChild(div);
-              });
-            }
-
-            renderPicker();
-
-            // Cancel / Open buttons
-            let resolvePicker;
-            pickerOverlay.resolvePicker = null;
-
-            pickerOverlay.resolvePicker = null; // define it at the start
-
-            btnCancel.onclick = () => {
-              if (pickerOverlay.resolvePicker) {
-                pickerOverlay.resolvePicker([]); // resolve promise with empty selection
-                pickerOverlay.resolvePicker = null;
-              }
-              try {
-                if (sentreqframe && sentreqframe.contentWindow) {
-                  sentreqframe.contentWindow.postMessage(
-                    { __VFS__: true, kind: "pickerCancelled" },
-                    "*",
-                  );
-                }
-              } catch (e) {}
-              pickerOverlay.remove();
-              pickerOverlay = null;
-              pickerSelection = null;
-            };
-            btnOpen.onclick = async () => {
-              const selections = [...pickerSelection]; // snapshot immediately
-              const targetFrame = sentreqframe; // snapshot iframe
-
-              if (!selections.length)
-                return window.protectedGlobals.notification("Select a file or folder");
-              if (!targetFrame) {
-                console.warn("No iframe found");
-                return;
-              }
-
-              // remove picker
-              if (pickerOverlay.resolvePicker) {
-                pickerOverlay.resolvePicker(selections);
-                pickerOverlay.resolvePicker = null;
-              }
-              pickerOverlay.remove();
-              pickerOverlay = null;
-              pickerSelection = [];
-
-              // send all selections
-              let i = 0;
-              for (const sel of selections) {
-                i++;
-                if (Array.isArray(sel[1])) {
-                  if (i == selections.length) {
-                    await sendFolderNodeToIframe(
-                      username,
-                      sel,
-                      targetFrame,
-                      true,
-                    );
-                    continue;
-                  }
-                  await sendFolderNodeToIframe(username, sel, targetFrame);
-                } else {
-                  if (i == selections.length) {
-                    await sendFileNodeToIframe(
-                      username,
-                      sel,
-                      targetFrame,
-                      true,
-                    );
-                    continue;
-                  }
-                  await sendFileNodeToIframe(username, sel, targetFrame);
-                }
-              }
-            };
-          } else {
-            pickerOverlay.remove();
-            pickerOverlay = null;
-            return openCustomPickerUI();
-          }
-
-          return new Promise((res) => (pickerOverlay.resolvePicker = res));
-        }
-
-        // ----------------------------
-        // 3b. Custom save-as overlay
-        // ----------------------------
-        let post = window.protectedGlobals.filePost;
-        function openCustomSaveUI(suggestedName) {
-          if (!window.protectedGlobals.treeData) {
-            window.protectedGlobals.onlyloadTree();
-          }
-
-          const theme = getPickerTheme();
-
-          const savePickerTree = JSON.parse(
-            JSON.stringify(window.protectedGlobals.treeData || {}),
-          );
-          let savePickerCurrentPath = ["root"];
-          let savePickerSelection = [];
-
-          const overlay = document.createElement("div");
-          document.body.appendChild(overlay);
-
-          const box = document.createElement("div");
-          stylePickerDialogBox(box, theme);
-          overlay.appendChild(box);
-
-          const titleBar = document.createElement("div");
-          titleBar.textContent = "Save File";
-          Object.assign(titleBar.style, {
-            padding: "8px 10px",
-            fontWeight: "600",
-            borderBottom: `1px solid ${theme.border}`,
-          });
-          box.appendChild(titleBar);
-          makePickerDialogDraggable(box, titleBar);
-
-          const breadcrumb = document.createElement("div");
-          Object.assign(breadcrumb.style, {
-            padding: "6px 10px",
-            borderBottom: `1px solid ${theme.border}`,
-          });
-          box.appendChild(breadcrumb);
-          const fileArea = document.createElement("div");
-          fileArea.style.flex = "1";
-          fileArea.style.overflowY = "auto";
-          fileArea.style.background = theme.panelBg;
-          box.appendChild(fileArea);
-
-          const row = document.createElement("div");
-          row.style.padding = "8px";
-          row.style.display = "flex";
-          row.style.gap = "8px";
-          row.style.borderTop = `1px solid ${theme.border}`;
-          box.appendChild(row);
-          const nameInput = document.createElement("input");
-          Object.assign(nameInput.style, {
-            flex: "1",
-            padding: "6px",
-            borderRadius: "6px",
-            border: `1px solid ${theme.border}`,
-            background: theme.inputBg,
-            color: theme.inputText,
-          });
-          nameInput.placeholder = "filename.txt";
-          nameInput.value = suggestedName || "";
-          row.appendChild(nameInput);
-
-          const btnBar = document.createElement("div");
-          btnBar.style.padding = "6px";
-          btnBar.style.display = "flex";
-          btnBar.style.gap = "8px";
-          btnBar.style.justifyContent = "flex-end";
-          btnBar.style.borderTop = `1px solid ${theme.border}`;
-          box.appendChild(btnBar);
-          const btnCancel = document.createElement("button");
-          btnCancel.textContent = "Cancel";
-          stylePickerButton(btnCancel, theme, false);
-          btnBar.appendChild(btnCancel);
-          const btnSave = document.createElement("button");
-          btnSave.textContent = "Save";
-          stylePickerButton(btnSave, theme, true);
-          btnBar.appendChild(btnSave);
-
-          function render() {
-            breadcrumb.innerHTML = "";
-            savePickerCurrentPath.forEach((p, i) => {
-              const s = document.createElement("span");
-              s.textContent = i === 0 ? "Home" : " / " + p;
-              s.style.cursor = "pointer";
-              s.onclick = () => {
-                savePickerCurrentPath = savePickerCurrentPath.slice(0, i + 1);
-                render();
-              };
-              breadcrumb.appendChild(s);
-            });
-            fileArea.innerHTML = "";
-            let node = savePickerTree;
-            for (let i = 1; i < savePickerCurrentPath.length; i++) {
-              if (!node || !node[1]) break;
-              node = node[1].find((c) => c[0] === savePickerCurrentPath[i]);
-            }
-            if (!node || !node[1]) return;
-            node[1].forEach((item) => {
-              const div = document.createElement("div");
-              div.textContent =
-                (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
-              div.style.padding = "6px";
-              div.style.cursor = "pointer";
-              div.style.borderBottom = `1px solid ${theme.border}`;
-              div.onclick = (e) => {
-                const isToggle = e.ctrlKey || e.metaKey;
-                if (!isToggle) {
-                  savePickerSelection = [item];
-                  fileArea
-                    .querySelectorAll("div")
-                    .forEach((d) => (d.style.background = ""));
-                  div.style.background = theme.selectedBg;
-                } else {
-                  const idx = savePickerSelection.indexOf(item);
-                  if (idx >= 0) {
-                    savePickerSelection.splice(idx, 1);
-                    div.style.background = "";
-                  } else {
-                    savePickerSelection.push(item);
-                    div.style.background = theme.selectedBg;
-                  }
-                }
-              };
-              div.onmouseenter = () => {
-                if (savePickerSelection.includes(item)) return;
-                div.style.background = theme.hoverBg;
-              };
-              div.onmouseleave = () => {
-                if (savePickerSelection.includes(item)) return;
-                div.style.background = "";
-              };
-              if (Array.isArray(item[1]))
-                div.ondblclick = () => {
-                  savePickerCurrentPath.push(item[0]);
-                  render();
-                };
-              fileArea.appendChild(div);
-            });
-          }
-
-          render();
-
-          btnCancel.onclick = () => {
-            try {
-              if (sentreqframe && sentreqframe.contentWindow) {
-                sentreqframe.contentWindow.postMessage(
-                  { __VFS__: true, kind: "saveTarget", path: null },
-                  "*",
-                );
-              }
-            } catch (e) {}
-            overlay.remove();
-          };
-
-          btnSave.onclick = () => {
-            const selections = [...savePickerSelection];
-            const basePath = savePickerCurrentPath.slice(1).join("/");
-            const fname = (nameInput.value || "").trim();
-            if (!fname) {
-              window.protectedGlobals.notification("Enter a filename");
-              return;
-            }
-            let chosen;
-            if (!selections.length)
-              chosen = basePath ? basePath + "/" + fname : fname;
-            else {
-              const sel = selections[0];
-              const isFolder = Array.isArray(sel[1]);
-              if (isFolder) chosen = (basePath ? basePath + "/" : "") + fname;
-              else window.protectedGlobals.notification("Select a folder to save into");
-            }
-
-            // send response to requesting iframe
-            try {
-              if (sentreqframe && sentreqframe.contentWindow) {
-                sentreqframe.contentWindow.postMessage(
-                  { __VFS__: true, kind: "saveTarget", path: chosen },
-                  "*",
-                );
-              }
-            } catch (e) {}
-
-            overlay.remove();
-          };
-        }
-
-        // ----------------------------
-        // 3c. Custom directory picker overlay
-        // ----------------------------
-        function openCustomDirectoryPickerUI() {
-          if (!window.protectedGlobals.treeData) {
-            window.protectedGlobals.onlyloadTree();
-          }
-
-          const theme = getPickerTheme();
-
-          const dirPickerTree = JSON.parse(
-            JSON.stringify(window.protectedGlobals.treeData || {}),
-          );
-          let dirPickerCurrentPath = ["root"];
-          let dirPickerSelectionPaths = [];
-
-          const overlay = document.createElement("div");
-          document.body.appendChild(overlay);
-
-          const box = document.createElement("div");
-          stylePickerDialogBox(box, theme);
-          overlay.appendChild(box);
-
-          const titleBar = document.createElement("div");
-          titleBar.textContent = "Select Directory";
-          Object.assign(titleBar.style, {
-            padding: "8px 10px",
-            fontWeight: "600",
-            borderBottom: `1px solid ${theme.border}`,
-          });
-          box.appendChild(titleBar);
-          makePickerDialogDraggable(box, titleBar);
-
-          const breadcrumb = document.createElement("div");
-          Object.assign(breadcrumb.style, {
-            padding: "6px 10px",
-            borderBottom: `1px solid ${theme.border}`,
-          });
-          box.appendChild(breadcrumb);
-          const fileArea = document.createElement("div");
-          fileArea.style.flex = "1";
-          fileArea.style.overflowY = "auto";
-          fileArea.style.background = theme.panelBg;
-          box.appendChild(fileArea);
-
-          const infoRow = document.createElement("div");
-          infoRow.style.padding = "6px";
-          infoRow.style.fontSize = "12px";
-          infoRow.style.color = theme.muted;
-          infoRow.style.borderTop = `1px solid ${theme.border}`;
-          infoRow.textContent = "Select a folder";
-          box.appendChild(infoRow);
-
-          const btnBar = document.createElement("div");
-          btnBar.style.padding = "6px";
-          btnBar.style.display = "flex";
-          btnBar.style.gap = "8px";
-          btnBar.style.justifyContent = "flex-end";
-          btnBar.style.borderTop = `1px solid ${theme.border}`;
-          box.appendChild(btnBar);
-          const btnCancel = document.createElement("button");
-          btnCancel.textContent = "Cancel";
-          stylePickerButton(btnCancel, theme, false);
-          btnBar.appendChild(btnCancel);
-          const btnOpen = document.createElement("button");
-          btnOpen.textContent = "Select";
-          stylePickerButton(btnOpen, theme, true);
-          btnBar.appendChild(btnOpen);
-
-          function render() {
-            breadcrumb.innerHTML = "";
-            dirPickerCurrentPath.forEach((p, i) => {
-              const s = document.createElement("span");
-              s.textContent = i === 0 ? "Home" : " / " + p;
-              s.style.cursor = "pointer";
-              s.onclick = () => {
-                dirPickerCurrentPath = dirPickerCurrentPath.slice(0, i + 1);
-                render();
-              };
-              breadcrumb.appendChild(s);
-            });
-            fileArea.innerHTML = "";
-            let node = dirPickerTree;
-            for (let i = 1; i < dirPickerCurrentPath.length; i++) {
-              if (!node || !node[1]) break;
-              node = node[1].find((c) => c[0] === dirPickerCurrentPath[i]);
-            }
-            if (!node || !node[1]) return;
-            node[1].forEach((item) => {
-              const isFolder = Array.isArray(item[1]);
-              const currentBasePath = dirPickerCurrentPath
-                .slice(1)
-                .join("/");
-              const itemPath = currentBasePath
-                ? currentBasePath + "/" + item[0]
-                : item[0];
-              const div = document.createElement("div");
-              div.textContent = (isFolder ? "📁 " : "📄 ") + item[0];
-              div.style.padding = "6px";
-              div.style.cursor = "pointer";
-              div.style.borderBottom = `1px solid ${theme.border}`;
-              div.onclick = (e) => {
-                // Only allow selecting folders
-                if (isFolder) {
-                  const isToggle = e.ctrlKey || e.metaKey;
-                  if (!isToggle) {
-                    dirPickerSelectionPaths = [itemPath];
-                    fileArea
-                      .querySelectorAll("div")
-                      .forEach((d) => (d.style.background = ""));
-                    div.style.background = theme.selectedBg;
-                  } else {
-                    const idx = dirPickerSelectionPaths.indexOf(itemPath);
-                    if (idx >= 0) {
-                      dirPickerSelectionPaths.splice(idx, 1);
-                      div.style.background = "";
-                    } else {
-                      dirPickerSelectionPaths.push(itemPath);
-                      div.style.background = theme.selectedBg;
-                    }
-                  }
-                }
-              };
-              div.onmouseenter = () => {
-                if (!isFolder || dirPickerSelectionPaths.includes(itemPath)) return;
-                div.style.background = theme.hoverBg;
-              };
-              div.onmouseleave = () => {
-                if (!isFolder || dirPickerSelectionPaths.includes(itemPath)) return;
-                div.style.background = "";
-              };
-              if (isFolder && dirPickerSelectionPaths.includes(itemPath)) {
-                div.style.background = theme.selectedBg;
-              }
-              if (isFolder) {
-                div.ondblclick = () => {
-                  dirPickerCurrentPath.push(item[0]);
-                  render();
-                };
-              }
-              fileArea.appendChild(div);
-            });
-          }
-
-          render();
-
-          btnCancel.onclick = () => {
-            try {
-              if (sentreqframe && sentreqframe.contentWindow) {
-                sentreqframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "directoryTarget",
-                    path: null,
-                    treeNode: null,
-                  },
-                  "*",
-                );
-              }
-            } catch (e) {}
-            overlay.remove();
-          };
-
-          btnOpen.onclick = () => {
-            const basePath = dirPickerCurrentPath.slice(1).join("/") || "root";
-            let chosen =
-              dirPickerSelectionPaths.length > 0
-                ? dirPickerSelectionPaths[0]
-                : basePath;
-
-            // Find the actual tree node for the selected path
-            let selectedNode = dirPickerTree;
-            const pathParts = chosen
-              .split("/")
-              .filter((p) => p && p !== "root");
-            for (const part of pathParts) {
-              if (!selectedNode || !selectedNode[1]) break;
-              selectedNode = selectedNode[1].find((c) => c[0] === part);
-            }
-
-            if (!selectedNode) {
-              window.protectedGlobals.notification("Selected directory not found");
-              return;
-            }
-
-            // --- NEW: recursively gather files in the directory ---
-            function collectFiles(node, currentPath) {
-              const files = [];
-              if (!node || !Array.isArray(node[1])) return files;
-              for (const item of node[1]) {
-                const [name, child] = item;
-                const itemPath = currentPath ? currentPath + "/" + name : name;
-                if (Array.isArray(child)) {
-                  // folder → recurse
-                  files.push(...collectFiles(item, itemPath));
-                } else {
-                  // file → add as base64 string (or empty placeholder if contents not loaded)
-                  files.push({ path: itemPath, contents: child || "" });
-                }
-              }
-              return files;
-            }
-
-            const filesToSend = collectFiles(selectedNode, chosen);
-
-            // send directory info
-            if (sentreqframe && sentreqframe.contentWindow) {
-              sentreqframe.contentWindow.postMessage(
-                {
-                  __VFS__: true,
-                  kind: "directoryTarget",
-                  path: chosen,
-                  treeNode: selectedNode,
-                },
-                "*",
-              );
-
-              // send each file as fileData
-              for (const f of filesToSend) {
-                const buffer =
-                  f.contents instanceof ArrayBuffer
-                    ? f.contents
-                    : new TextEncoder().encode(f.contents).buffer; // convert string to ArrayBuffer
-
-                sentreqframe.contentWindow.postMessage(
-                  {
-                    __VFS__: true,
-                    kind: "fileData",
-                    path: f.path,
-                    name: f.path.split("/").pop(),
-                    type: "text/plain",
-                    buffer,
-                  },
-                  "*",
-                );
-              }
-            }
-
-            overlay.remove();
-          };
-        }
-
-        // ----------------------------
-        // 4. Listen for iframe requests
-        // ----------------------------
-
-        if (!root.__vfsMessageListenerAdded) {
-          root.__vfsMessageListenerAdded = true;
+        eval(window.browserGlobals.frontendFilePickerStuffJS);
+        if (!root.__moveTabListenerAdded) {
+          root.__moveTabListenerAdded = true;
           root.addEventListener("keydown", function (e) {
             if (e.defaultPrevented || e.__gbBrowserCtrlHandled) return;
             runBrowserCtrlShortcut(e);
           });
           root.focus();
-          window.addEventListener(
-            "browser" + root._goldenbodyId,
-            "message",
-            (e) => {
-              try {
-                // Allow `saveFile` messages to be processed even when the browser root
-                // doesn't have focus. Previously the OR made the whole condition true
-                // whenever a saveFile arrived, causing the handler to return early.
-                const isSaveFile =
-                  e.data?.__VFS__ && e.data.kind === "saveFile";
-                if (
-                  (!root || !root.contains(document.activeElement)) &&
-                  !isSaveFile
-                )
-                  return;
-              } catch (e) {
-                return;
-              }
-              if (e.data?.__VFS__ && e.data.kind === "requestPicker") {
-                openCustomPickerUI();
-                sentreqframe = recurseFrames(document, e);
-              }
-              if (e.data?.__VFS__ && e.data.kind === "requestSavePicker") {
-                // open save-as UI and record requesting frame
-                openCustomSaveUI(e.data.suggestedName);
-                sentreqframe = recurseFrames(document, e);
-              }
-              if (e.data?.__VFS__ && e.data.kind === "requestDirectoryPicker") {
-                // open directory picker UI and record requesting frame
-                openCustomDirectoryPickerUI();
-                sentreqframe = recurseFrames(document, e);
-              }
-              if (e.data?.__VFS__ && e.data.kind === "saveFile") {
-                try {
-                  // Robust save handling that mirrors file-manager upload behaviour.
-                  const MAX_INLINE_BASE64 = 250 * 1024 * 1024; // 250MB
-                  const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
-
-                  // pendingSaves stores { chunks: [ArrayBuffer], bytes: number, source: MessageEvent.source }
-                  root.__pendingSaves = root.__pendingSaves || {};
-
-                  const incomingPath = e.data.path || e.data.name || "unnamed";
-                  const fullPath = incomingPath.startsWith("root/")
-                    ? incomingPath
-                    : "root/" + incomingPath;
-
-                  // Ensure entry
-                  if (!root.__pendingSaves[fullPath]) {
-                    root.__pendingSaves[fullPath] = {
-                      chunks: [],
-                      bytes: 0,
-                      source: e.source,
-                    };
-                  }
-
-                  const entry = root.__pendingSaves[fullPath];
-                  // Accept either raw ArrayBuffer in `buffer` or base64 string in `base64`.
-                  if (e.data.buffer) {
-                    // Normalize to ArrayBuffer
-                    const ab =
-                      e.data.buffer instanceof ArrayBuffer
-                        ? e.data.buffer
-                        : e.data.buffer.buffer;
-                    entry.chunks.push(ab);
-                    entry.bytes += ab.byteLength || 0;
-                    // Acknowledge receipt of this chunk so the writer can apply backpressure
-                    try {
-                      if (e.data._chunkId && e.source && e.source.postMessage) {
-                        e.source.postMessage(
-                          {
-                            __VFS__: true,
-                            kind: "chunkAck",
-                            _chunkId: e.data._chunkId,
-                            path: fullPath,
-                          },
-                          "*",
-                        );
-                      }
-                    } catch (err) {
-                      console.warn("failed to send chunkAck", err);
-                    }
-                  } else if (e.data.base64) {
-                    // convert base64 to ArrayBuffer and store
-                    const binary = atob(e.data.base64);
-                    const len = binary.length;
-                    const bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++)
-                      bytes[i] = binary.charCodeAt(i);
-                    entry.chunks.push(bytes.buffer);
-                    entry.bytes += bytes.byteLength;
-                  }
-
-                  const finalize = !!e.data.lastOne;
-
-                  if (!finalize) {
-                    // waiting for more data
-                    return;
-                  }
-
-                  // Assemble full ArrayBuffer
-                  let totalBytes = entry.bytes;
-
-                  // Debug: if totalBytes is zero but chunks exist, compute a fallback
-                  if (
-                    (!totalBytes || totalBytes === 0) &&
-                    entry.chunks &&
-                    entry.chunks.length
-                  ) {
-                    try {
-                      const computed = entry.chunks.reduce((sum, c) => {
-                        try {
-                          return (
-                            sum +
-                            ((c &&
-                              (c.byteLength ||
-                                (c.byteLength === 0
-                                  ? 0
-                                  : new Uint8Array(c).byteLength))) ||
-                              0)
-                          );
-                        } catch (e) {
-                          return sum;
-                        }
-                      }, 0);
-                      if (computed > 0) {
-                        console.warn(
-                          "VFS: computed totalBytes fallback",
-                          fullPath,
-                          computed,
-                          "from",
-                          entry.chunks.length,
-                          "chunks",
-                        );
-                        totalBytes = computed;
-                      }
-                    } catch (err) {
-                      console.warn(
-                        "VFS: failed computing fallback totalBytes for",
-                        fullPath,
-                        err,
-                      );
-                    }
-                  }
-
-                  let combined;
-                  if (entry.chunks.length === 1) {
-                    combined = entry.chunks[0];
-                  } else {
-                    combined = new Uint8Array(totalBytes);
-                    let offset = 0;
-                    for (const c of entry.chunks) {
-                      const arr = new Uint8Array(c);
-                      combined.set(arr, offset);
-                      offset += arr.length;
-                    }
-                    combined = combined.buffer;
-                  }
-
-                  // Helper to convert ArrayBuffer slice to base64
-                  function arrayBufferToBase64(buffer) {
-                    let binary = "";
-                    const bytes = new Uint8Array(buffer);
-                    const chunk = 0x8000;
-                    for (let i = 0; i < bytes.length; i += chunk) {
-                      const sub = bytes.subarray(i, i + chunk);
-                      binary += String.fromCharCode.apply(null, sub);
-                    }
-                    return btoa(binary);
-                  }
-
-                  (async () => {
-                    try {
-                      if (totalBytes <= MAX_INLINE_BASE64) {
-                        const base64 = arrayBufferToBase64(combined);
-                        await post({
-                          saveSnapshot: true,
-                          directions: [
-                            {
-                              edit: true,
-                              path: fullPath,
-                              contents: base64,
-                              replace: true,
-                            },
-                            { end: true },
-                          ],
-                        });
-                      } else {
-                        // Large file: chunk it with the same buffered strategy
-                        const total = Math.ceil(totalBytes / CHUNK_SIZE);
-
-                        // ensure file placeholder
-                        await post({
-                          saveSnapshot: true,
-                          directions: [
-                            { addFile: true, path: fullPath, replace: true },
-                            { end: true },
-                          ],
-                        });
-
-                        // Optionally check existing parts (skip for now)
-
-                        // Check which parts already exist on server (resume support)
-                        let presentParts = [];
-                        try {
-                          const chk = await post({
-                            saveSnapshot: true,
-                            directions: [
-                              { checkParts: true, path: fullPath },
-                              { end: true },
-                            ],
-                          });
-                          presentParts =
-                            (chk &&
-                              chk.result &&
-                              chk.result.checkParts &&
-                              chk.result.checkParts[fullPath]) ||
-                            [];
-                        } catch (e) {
-                          presentParts = [];
-                        }
-
-                        const presentSet = new Set(presentParts);
-
-                        const MAX_CHUNK_RETRIES = 3;
-                        const CHUNK_RETRY_BASE_MS = 500;
-
-                        function sleep(ms) {
-                          return new Promise((r) => setTimeout(r, ms));
-                        }
-
-                        async function uploadChunkWithRetries(
-                          path,
-                          chunkBase64,
-                          index,
-                          total,
-                        ) {
-                          let attempts = 0;
-                          while (true) {
-                            try {
-                              await post({
-                                saveSnapshot: true,
-                                directions: [
-                                  {
-                                    edit: true,
-                                    path,
-                                    chunk: chunkBase64,
-                                    index,
-                                    total,
-                                  },
-                                  { end: true },
-                                ],
-                              });
-                              return;
-                            } catch (err) {
-                              attempts++;
-                              if (attempts > MAX_CHUNK_RETRIES) throw err;
-                              const backoff =
-                                CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
-                              await sleep(backoff);
-                            }
-                          }
-                        }
-
-                        let uploadedCount = presentSet.size;
-                        for (let i = 0; i < total; i++) {
-                          if (presentSet.has(i)) continue; // already uploaded
-                          const start = i * CHUNK_SIZE;
-                          const end = Math.min(totalBytes, start + CHUNK_SIZE);
-                          const slice = combined.slice(start, end);
-                          const chunkBase64 = arrayBufferToBase64(slice);
-                          try {
-                            await uploadChunkWithRetries(
-                              fullPath,
-                              chunkBase64,
-                              i,
-                              total,
-                            );
-                            uploadedCount++;
-                          } catch (err) {
-                            console.error(
-                              `Failed to upload chunk ${i} for ${fullPath}:`,
-                              err,
-                            );
-                            throw err;
-                          }
-                        }
-
-                        // finalize
-                        await post({
-                          saveSnapshot: true,
-                          directions: [
-                            { edit: true, path: fullPath, finalize: true },
-                            { end: true },
-                          ],
-                        });
-                      }
-
-                      // ACK back to source
-                      try {
-                        e.source.postMessage(
-                          {
-                            __VFS__: true,
-                            kind: "saved",
-                            path: incomingPath,
-                            ok: true,
-                          },
-                          "*",
-                        );
-                      } catch (err) {}
-                    } catch (err) {
-                      console.error("saveFile handling error", err);
-                      try {
-                        e.source.postMessage(
-                          {
-                            __VFS__: true,
-                            kind: "saved",
-                            path: incomingPath,
-                            ok: false,
-                            error: (err && err.message) || String(err),
-                          },
-                          "*",
-                        );
-                      } catch (err) {}
-                    } finally {
-                      // cleanup
-                      delete root.__pendingSaves[fullPath];
-                    }
-                  })();
-                } catch (err) {
-                  console.error("saveFile outer error", err);
-                }
-              }
-            },
-          );
         }
-
         // ----------------------------
-        // 5. Inject override into iframe
+        // **Inject override into iframe
         // ----------------------------
-        const script = document.createElement("script");
-        script.id = "VFS";
-        script.textContent = `(() => {
-  console.log('VFS injector active');
-  // make the site think we're a modern Chrome browser to maximize compatibility with libraries that gate features based on userAgent checks. We can override this because we'll provide our own implementations of any required APIs, so the userAgent string is mostly for show to get past naive checks.
-                Object.defineProperty(navigator, 'userAgent', {
-                    get: function () { return 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'; },
-                    configurable: true
-                });
-                Object.defineProperty(navigator, 'userAgentData', {
-                    get: function () { return JSON.parse('{"brands":[{"brand":"Not:A-Brand","version":"99"},{"brand":"Google Chrome","version":"145"},{"brand":"Chromium","version":"145"}],"mobile":false,"platform":"macOS"}'); },
-                    configurable: true
-                });
-          // Provide synthetic FileSystemHandle classes so libraries that use instanceof
-          // checks (e.g., FileSystemObserver) accept our synthetic handles.
-          function FileSystemHandle() {}
-          function FileSystemFileHandle() { FileSystemHandle.call(this); }
-          FileSystemFileHandle.prototype = Object.create(FileSystemHandle.prototype);
-          FileSystemFileHandle.prototype.constructor = FileSystemFileHandle;
-          function FileSystemDirectoryHandle() { FileSystemHandle.call(this); }
-          FileSystemDirectoryHandle.prototype = Object.create(FileSystemHandle.prototype);
-          FileSystemDirectoryHandle.prototype.constructor = FileSystemDirectoryHandle;
 
-          // Polyfill common methods on prototypes so returned handles behave like
-          // native FileSystemHandle objects.
-
-FileSystemFileHandle.prototype.getFile = async function () {
-  return this._file;
-};
-
-FileSystemFileHandle.prototype.createWritable = async function () {
-  const path = this.path;
-  const name = this.name;
-
-  // Delegate to native handle if present
-  try {
-    if (this._file && (this._file.handle || this._file.fileHandle)) {
-      const h = this._file.handle || this._file.fileHandle;
-      if (h.createWritable) return await h.createWritable();
-    }
-  } catch {}
-
-  if (!path) {
-    const remote = await window.showSaveFilePicker({ suggestedName: name });
-    return await remote.createWritable();
-  }
-
-  let closed = false;
-  let pendingWrites = [];
-
-  // ✅ REAL WritableStream with proper async handling
-  const stream = new WritableStream({
-    async write(chunk) {
-      if (closed) return;
-
-      let buffer;
-
-      if (chunk instanceof Blob) {
-        buffer = await chunk.arrayBuffer();
-      } else if (typeof chunk === 'string') {
-        buffer = new TextEncoder().encode(chunk).buffer;
-      } else if (chunk instanceof ArrayBuffer) {
-        buffer = chunk;
-      } else if (ArrayBuffer.isView(chunk)) {
-        buffer = chunk.buffer;
-      } else {
-        buffer = new Uint8Array(chunk).buffer;
-      }
-
-      // Return a promise that resolves when the message is sent
-      return new Promise((resolve) => {
-        window.top.postMessage(
-          { __VFS__: true, kind: 'saveFile', path, name, buffer },
-          '*'
-        );
-        // Resolve immediately after posting (message queued)
-        resolve();
-      });
-    },
-
-    async close() {
-      closed = true;
-      // Give a small delay to ensure previous writes are processed
-      await new Promise(r => setTimeout(r, 10));
-      window.top.postMessage(
-        { __VFS__: true, kind: 'saveFile', path, name, lastOne: true },
-        '*'
-      );
-    },
-
-    async abort(reason) {
-      closed = true;
-      window.top.postMessage(
-        { __VFS__: true, kind: 'saveFileAbort', path, name, reason },
-        '*'
-      );
-    }
-  });
-
-  // 🔧 Patch native-like methods ONTO the stream
-  stream.write = async function (chunk) {
-    const writer = stream.getWriter();
-    try {
-      await writer.write(chunk);
-    } finally {
-      writer.releaseLock();
-    }
-  };
-
-  stream.close = async function () {
-    const writer = stream.getWriter();
-    try {
-      await writer.close();
-    } finally {
-      writer.releaseLock();
-    }
-  };
-
-  stream.abort = async function (reason) {
-    const writer = stream.getWriter();
-    try {
-      await writer.abort(reason);
-    } finally {
-      writer.releaseLock();
-    }
-  };
-
-  return stream;
-};
-
-
-          FileSystemFileHandle.prototype.queryPermission = async function () { return 'granted'; };
-          FileSystemFileHandle.prototype.requestPermission = async function () { return 'granted'; };
-          FileSystemFileHandle.prototype.isSameEntry = async function (other) {
-            try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
-          };
-
-          FileSystemDirectoryHandle.prototype.isSameEntry = async function (other) {
-            try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
-          };
-
-function makeFileHandle(file) {
-  const h = new FileSystemFileHandle();
-
-  h.kind = 'file';
-  h.name = file.name;
-
-  // Non-standard, VFS-only (informational)
-  h.path = normalizeVfsPath(file.fullPath || file.webkitRelativePath || file.name);
-
-  // Internal backing file
-  h._file = file;
-
-  return h;
-}
-
-          // Shim FileSystemObserver so sites that call new FileSystemObserver(...).observe(handle)
-          // with our synthetic handles won't throw a TypeError. When a synthetic handle is
-          // observed we forward an observe request to the top frame so the host can watch
-          // the underlying path if desired.
-          (function installFSObserverShim() {
-            const NativeFSObserver = window.FileSystemObserver;
-            function isSyntheticHandle(h) {
-              return !!(h && (h.path || h.name) && typeof h.getFile === 'function');
-            }
-
-            class FileSystemObserverShim {
-              constructor(cb) {
-                this.cb = cb;
-                this._native = NativeFSObserver ? new NativeFSObserver(cb) : null;
-                this._regs = new Map();
-              }
-              observe(handle) {
-                if (isSyntheticHandle(handle)) {
-                  const path = handle.path || handle.name || '/';
-                  this._regs.set(handle, path);
-                  try { window.top.postMessage({ __VFS__: true, kind: 'observePath', path }, '*'); } catch(e){}
-                  return;
-                }
-                if (this._native) return this._native.observe(handle);
-                throw new TypeError('Failed to execute "observe" on "FileSystemObserver": parameter 1 is not of type "FileSystemHandle"');
-              }
-              unobserve(handle) {
-                if (this._regs.has(handle)) {
-                  const path = this._regs.get(handle);
-                  this._regs.delete(handle);
-                  try { window.top.postMessage({ __VFS__: true, kind: 'unobservePath', path }, '*'); } catch(e){}
-                  return;
-                }
-                if (this._native) return this._native.unobserve(handle);
-              }
-            }
-
-            try {
-              window.FileSystemObserver = FileSystemObserverShim;
-            } catch (e) {}
-          })();
-
-  let injectedFiles = [];
-  let activeInput = null;
-  let pickerMode = null; // 'input' | 'picker'
-  let allFilesReceived = false;
-  let pickerCancelled = false;
-  let fileChunks = {}; // store chunks by path: { path: [buffer1, buffer2, ...] }
-
-  function normalizeVfsPath(path) {
-    if (typeof path !== 'string') return path;
-    return path.startsWith('/') ? path.slice(1) : path;
-  }
-
-  function normalizeMimeType(type) {
-    if (!type) return 'application/octet-stream';
-    if (typeof type === 'string') return type;
-    if (type.type) return type.type;
-    return 'application/octet-stream';
-  }
-
-  function injectIntoActiveInput() {
-    if (!activeInput) return;
-
-    const dt = new DataTransfer();
-    for (const file of injectedFiles) {
-      dt.items.add(file);
-    }
-
-    Object.defineProperty(activeInput, 'files', {
-      configurable: true,
-      get: () => dt.files
-    });
-
-    activeInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-    // cleanup
-    injectedFiles = [];
-    activeInput = null;
-    pickerMode = null;
-    allFilesReceived = false;
-  }
-
-  function waitUntilFiles() {
-    return new Promise((resolve, reject) => {
-      const i = setInterval(() => {
-        if (pickerCancelled) {
-          clearInterval(i);
-          pickerCancelled = false;
-          reject(new DOMException('The user aborted a request.', 'AbortError'));
-          return;
-        }
-        if (allFilesReceived) {
-          clearInterval(i);
-          resolve();
-        }
-      }, 10);
-    });
-  }
-
-  // 📨 Receive files
-  window.addEventListener('message', e => {
-    const d = e.data;
-    if (!d || d.__VFS__ !== true) return;
-
-    if (d.kind === 'pickerCancelled') {
-      pickerCancelled = true;
-      return;
-    }
-
-    if (d.kind === 'file') {
-      // Handle chunked file messages
-        if (d.totalChunks && d.totalChunks > 1) {
-          const pathKey = d.path || d.name;
-          if (!fileChunks[pathKey]) {
-            // use fill(null) to avoid sparse-array holes so .every() checks work
-            fileChunks[pathKey] = {
-              chunks: new Array(d.totalChunks).fill(null),
-              metadata: {
-                name: d.name,
-                type: d.type,
-                path: d.path,
-                webkitRelativePath: d.webkitRelativePath
-              }
-            };
-          }
-
-          // Store chunk at correct index
-          fileChunks[pathKey].chunks[d.chunkIndex] = d.buffer;
-
-          // Check if all chunks received (no null left)
-          const allChunksReceived = fileChunks[pathKey].chunks.every(c => c !== null);
-
-          if (allChunksReceived) {
-            // Combine chunks into single buffer
-            const validChunks = fileChunks[pathKey].chunks; // no nulls remain
-
-            const totalBytes = validChunks.reduce((sum, chunk) => sum + (chunk?.byteLength || 0), 0);
-            const combinedBuffer = new Uint8Array(totalBytes);
-            let offset = 0;
-            for (const chunk of validChunks) {
-              if (chunk && chunk.byteLength > 0) {
-                combinedBuffer.set(new Uint8Array(chunk), offset);
-                offset += chunk.byteLength;
-              }
-            }
-
-            const metadata = fileChunks[pathKey].metadata;
-            const file = new File([combinedBuffer.buffer], metadata.name, {
-              type: normalizeMimeType(metadata.type)
-            });
-
-            if (metadata.webkitRelativePath) {
-              Object.defineProperty(file, 'webkitRelativePath', {
-                value: metadata.webkitRelativePath
-              });
-            }
-
-            const rawPath = (metadata.path || metadata.webkitRelativePath || metadata.name) || metadata.name;
-            const normPath = normalizeVfsPath(rawPath);
-            file.fullPath = normPath;
-
-            const syntheticHandle = {
-              kind: 'file',
-              name: metadata.name,
-              path: normPath
-            };
-
-            try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
-
-            injectedFiles.push(file);
-            delete fileChunks[pathKey];
-
-            // Check if this is the last file
-            if (d.lastOne) {
-              if (pickerMode === 'input') {
-                injectIntoActiveInput();
-              } else if (pickerMode === 'picker') {
-                allFilesReceived = true;
-              }
-            }
-          }
-          return;
-        }
-      
-      // Handle non-chunked files (original path)
-      const file = new File([d.buffer], d.name, {
-        type: normalizeMimeType(d.type)
-      });
-
-      if (d.webkitRelativePath) {
-        Object.defineProperty(file, 'webkitRelativePath', {
-          value: d.webkitRelativePath
-        });
-      }
-
-      const rawPath = (d.path || d.webkitRelativePath || d.name) || d.name;
-      const normPath = normalizeVfsPath(rawPath);
-      file.fullPath = normPath;
-
-      const syntheticHandle = {
-        kind: 'file',
-        name: d.name,
-        path: normPath
-      };
-
-      try { file.handle = syntheticHandle; file.fileHandle = syntheticHandle; } catch (e) {}
-
-      injectedFiles.push(file);
-      
-      // Check if this is the last file
-      if (d.lastOne) {
-        if (pickerMode === 'input') {
-          injectIntoActiveInput();
-        } else if (pickerMode === 'picker') {
-          allFilesReceived = true;
-        }
-      }
-    }
-  });
-
-  // 📂 showOpenFilePicker
-  window.showOpenFilePicker = async () => {
-    pickerMode = 'picker';
-    allFilesReceived = false;
-    pickerCancelled = false;
-    injectedFiles = [];
-
-    window.top.postMessage(
-      { __VFS__: true, kind: 'requestPicker' },
-      '*'
-    );
-
-    try {
-      await waitUntilFiles();
-      const files = injectedFiles.slice();
-      return files.map(file => makeFileHandle(file));
-    } finally {
-      injectedFiles = [];
-      allFilesReceived = false;
-      pickerMode = null;
-    }
-  };
-
-
-// 💾 showSaveFilePicker (fixed)
-let pendingSaveResolvers = [];
-
-window.addEventListener('message', e => {
-  const d = e.data;
-  if (!d || d.__VFS__ !== true) return;
-
-  if (d.kind === 'saveTarget') {
-    const next = pendingSaveResolvers.shift();
-    if (!next) return;
-
-    // user canceled
-    if (!d.path) {
-      next.reject(
-        new DOMException('The user aborted a request.', 'AbortError')
-      );
-      return;
-    }
-
-    next.resolve(normalizeVfsPath(d.path));
-  }
-});
-
-window.showSaveFilePicker = async (options = {}) => {
-  return new Promise((resolve, reject) => {
-    pendingSaveResolvers.push({ resolve, reject });
-
-    window.top.postMessage(
-      {
-        __VFS__: true,
-        kind: 'requestSavePicker',
-        suggestedName: options.suggestedName || null,
-        types: options.types || null
-      },
-      '*'
-    );
-  }).then(path => {
-    const h = new FileSystemFileHandle();
-    h.kind = 'file';
-    h.path = path;
-    h.name = path.split('/').pop() || options.suggestedName || 'untitled';
-
-    return h;
-  });
-};
-
-
-  // � showDirectoryPicker
-  let pendingDirectoryResolvers = [];
-  let pendingDirectoryRejectors = [];
-  window.addEventListener('message', e => {
-    const d = e.data;
-    if (!d || d.__VFS__ !== true) return;
-    if (d.kind === 'directoryTarget') {
-      if (!d.path) {
-        for (const rej of pendingDirectoryRejectors) {
-          try {
-            rej(new DOMException('The user aborted a request.', 'AbortError'));
-          } catch (e) {}
-        }
-        pendingDirectoryResolvers = [];
-        pendingDirectoryRejectors = [];
-        return;
-      }
-      const normalizedPath = normalizeVfsPath(d.path);
-      for (const r of pendingDirectoryResolvers) try { r(normalizedPath, d.treeNode); } catch(e){}
-      pendingDirectoryResolvers = [];
-      pendingDirectoryRejectors = [];
-    }
-  });
-
-  window.showDirectoryPicker = async (options) => {
-    return new Promise((resolve, reject) => {
-      pendingDirectoryRejectors.push(reject);
-      pendingDirectoryResolvers.push((path, treeNode) => {
-        const h = new FileSystemDirectoryHandle();
-        h.name = path.split('/').pop() || 'root';
-        h.kind = 'directory';
-        h.path = path;
-        h._treeNode = treeNode; // store for entries() iteration
-        
-        // entries() method to iterate over directory contents
-        h.entries = async function* () {
-          if (!this._treeNode || !Array.isArray(this._treeNode[1])) return;
-          for (const child of this._treeNode[1]) {
-            const name = child[0];
-            const isFolder = Array.isArray(child[1]);
-            if (isFolder) {
-const dirHandle = new FileSystemDirectoryHandle();
-dirHandle.name = name;
-dirHandle.kind = 'directory';
-dirHandle.path = (this.path ? this.path + '/' : '') + name;
-dirHandle._treeNode = child;
-
-// attach ALL directory methods
-dirHandle.entries = this.entries;
-dirHandle.values = this.values;
-dirHandle.keys = this.keys;
-dirHandle.getDirectoryHandle = this.getDirectoryHandle;
-dirHandle.getFileHandle = this.getFileHandle;
-dirHandle.isSameEntry = this.isSameEntry;
-
-yield [name, dirHandle];
-
-            } else {
-              const fileHandle = new FileSystemFileHandle();
-              fileHandle.name = name;
-              fileHandle.kind = 'file';
-              fileHandle.path = (this.path ? this.path + '/' : '') + name;
-              yield [name, fileHandle];
-            }
-          }
-        };
-
-        // values() method
-        h.values = async function* () {
-          for await (const [, handle] of this.entries()) {
-            yield handle;
-          }
-        };
-
-        // keys() method
-        h.keys = async function* () {
-          for await (const [name] of this.entries()) {
-            yield name;
-          }
-        };
-
-        // getDirectoryHandle(name) method
-        h.getDirectoryHandle = async function(name, options = {}) {
-          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
-            throw new DOMException(\`\${this.name} is not a directory\`, 'NotADirectoryError');
-          }
-          let child = this._treeNode[1].find(c => c[0] === name);
-          if (!child) {
-            if (options && options.create) {
-              // Create a new in-memory directory node so subsequent operations
-              // (entries, getFileHandle, etc.) can operate on it.
-              const newNode = [name, []];
-              if (!Array.isArray(this._treeNode[1])) this._treeNode[1] = [];
-              this._treeNode[1].push(newNode);
-              child = newNode;
-            } else {
-              throw new DOMException(\`A directory with the name "\${name}" was not found.\`, 'NotFoundError');
-            }
-          }
-          if (!Array.isArray(child[1])) {
-            throw new DOMException(\`"\${name}" is not a directory\`, 'TypeMismatchError');
-          }
-          const dirHandle = new FileSystemDirectoryHandle();
-          dirHandle.name = name;
-          dirHandle.kind = 'directory';
-          dirHandle.path = this.path + '/' + name;
-          dirHandle._treeNode = child;
-          dirHandle.entries = this.entries;
-          dirHandle.values = this.values;
-          dirHandle.keys = this.keys;
-          dirHandle.getDirectoryHandle = this.getDirectoryHandle;
-          dirHandle.getFileHandle = this.getFileHandle;
-          dirHandle.isSameEntry = this.isSameEntry;
-          return dirHandle;
-        };
-
-        // getFileHandle(name) method
-        h.getFileHandle = async function(name, options = {}) {
-          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
-            throw new DOMException(\`\${this.name} is not a directory\`, 'NotADirectoryError');
-          }
-          const child = this._treeNode[1].find(c => c[0] === name);
-          if (!child) {
-            // Allow creation of new files when requested. We don't mutate the
-            // host tree here; instead return a handle pointing at the intended
-            // path so \`createWritable()\` will route writes through the VFS.
-            if (options && options.create) {
-              const fileHandle = new FileSystemFileHandle();
-              fileHandle.name = name;
-              fileHandle.kind = 'file';
-              fileHandle.path = this.path + '/' + name;
-              return fileHandle;
-            }
-            throw new DOMException(\`A file with the name "\${name}" was not found.\`, 'NotFoundError');
-          }
-          if (Array.isArray(child[1])) {
-            throw new DOMException(\`"\${name}" is not a file\`, 'TypeMismatchError');
-          }
-          const fileHandle = new FileSystemFileHandle();
-          fileHandle.name = name;
-          fileHandle.kind = 'file';
-          fileHandle.path = this.path + '/' + name;
-          return fileHandle;
-        };
-
-        resolve(h);
-      });
-      window.top.postMessage({ __VFS__: true, kind: 'requestDirectoryPicker' }, '*');
-    });
-  };
-let pendingFileRequests = new Map();
-
-window.addEventListener('message', e => {
-  const d = e.data;
-  if (!d || d.__VFS__ !== true) return;
-
-  if (d.kind === 'fileData') {
-    const req = pendingFileRequests.get(d.path);
-    if (!req) return;
-
-    pendingFileRequests.delete(d.path);
-
-    const file = new File(
-      [d.buffer],
-      d.name,
-      { type: d.type || 'application/octet-stream' }
-    );
-
-    file.fullPath = normalizeVfsPath(d.path);
-    req.resolve(file);
-  }
-});
-
-// ---- now override getFile ----
-FileSystemFileHandle.prototype.getFile = async function () {
-  if (this._file) return this._file;
-
-  if (!this.path) {
-    throw new Error('File not available');
-  }
-
-  const file = await new Promise((resolve, reject) => {
-    pendingFileRequests.set(this.path, { resolve, reject });
-
-    window.top.postMessage(
-      {
-        __VFS__: true,
-        kind: 'requestFile',
-        path: this.path,
-        name: this.name
-      },
-      '*'
-    );
-
-    setTimeout(() => {
-      if (pendingFileRequests.has(this.path)) {
-        pendingFileRequests.delete(this.path);
-        
-        reject(new Error('File request timed out'));
-      }
-    }, 30000);
-  });
-
-  this._file = file;
-  return file;
-};
-
-
-  // �📎 <input type="file">
-  document.addEventListener(
-    'click',
-    e => {
-      const input = e.target;
-      if (!(input instanceof HTMLInputElement)) return;
-      if (input.type !== 'file') return;
-
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
-      activeInput = input;
-      pickerMode = 'input';
-
-      window.top.postMessage(
-        {
-          __VFS__: true,
-          kind: 'requestPicker',
-          allowMultiple: input.multiple,
-          allowDirectory: input.hasAttribute('webkitdirectory')
-        },
-        '*'
-      );
-    },
-    true
-  );
-
-
-// override window.open
-window.open = function(url, location) {
-let w = window;
-
-while (w.parent !== w.top) {
-  w = w.parent;
-}
-
-const layer1Window = w;
-const layer1Iframe = w.frameElement;
-let allbrowserindex = 0;
-// console.log(layer1Iframe); // ✅ the first iframe under the main page
-for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
-  if(window.top.browserGlobals.allBrowsers[i].rootElement.contains(layer1Iframe)) allbrowserindex = i; 
-}
-    
-    if(url == "") url = "about:blank";
-    console.log(url)
-    if(!url.startsWith('http') && !url.startsWith('about:')) {
-       if(document.getElementsByTagName('base').length > 0) {
-      url = window.top.browserGlobals.mainWebsite(document.getElementsByTagName('base')[0].href).slice(0, -1) + url;
-       }
-      else if(!url.startsWith('http')) {
-      url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
-       }
-       else {
-      url = window.top.browserGlobals.mainWebsite(window.top.browserGlobals.unshuffleURL(window.location.href)).slice(0, -1) + url;
-       }
-    }
-  if(location === '_parent') {
-    console.error('this flag is banned "_parent"');
-    window.location = url;
-  }
-  else if(location === '_self') {
-    window.location = url;
-  }
-  else if(location === '_blank') {
-    return window.top.browserGlobals.__globalAddTab(url, allbrowserindex, window);
-  }
-  else if(location === '_top') {
-    window.location = url;
-  }
-  else {
-    return window.top.browserGlobals.__globalAddTab(url, allbrowserindex, window);
-  }
-}
-})();
-
-
-`;
-        function injectIntoIframe(frame) {
-          try {
-            frame.contentDocument.documentElement.appendChild(
-              script.cloneNode(true),
-            );
-          } catch {}
-        }
-        function uninjectIntoFrame(frame) {
-          try {
-            frame.contentDocument.getElementById("VFS").remove();
-          } catch {}
-        }
-        let mediaInterval;
         const observedDocs = new WeakSet();
         const observedRoots = new WeakSet();
         const trackedFrames = new WeakSet();
@@ -5588,7 +3753,11 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
               docProto.__gbCreateElementIframeWrapped = true;
               const nativeCreateElement = docProto.createElement;
               docProto.createElement = function (tagName, options) {
-                const created = nativeCreateElement.call(this, tagName, options);
+                const created = nativeCreateElement.call(
+                  this,
+                  tagName,
+                  options,
+                );
                 try {
                   if (
                     String(tagName || "").toLowerCase() === "iframe" &&
@@ -5618,7 +3787,11 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
               const nativeInsertBefore = nodeProto.insertBefore;
               nodeProto.insertBefore = function (newNode, referenceNode) {
-                const ret = nativeInsertBefore.call(this, newNode, referenceNode);
+                const ret = nativeInsertBefore.call(
+                  this,
+                  newNode,
+                  referenceNode,
+                );
                 try {
                   scanNodeForFrames(newNode, this.getRootNode?.() || this);
                 } catch (e) {}
@@ -5789,15 +3962,103 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                 if (!win || !frameDoc) continue;
                 async function tmp() {
                   const frameWin = frame.contentWindow;
-                  const frameDocCurrent = frame.contentDocument || frameWin?.document;
-                  if (!frameWin || !frameDocCurrent || frameDocCurrent.__gbCookieHookInstalled) return;
+                  const frameDocCurrent =
+                    frame.contentDocument || frameWin?.document;
+                  if (
+                    !frameWin ||
+                    !frameDocCurrent ||
+                    frameDocCurrent.__gbCookieHookInstalled
+                  )
+                    return;
+                  let vfsScriptText = browserGlobals.vfstxt;
+                  if (vfsScriptText) {
+                    debugger;
+                    eval(vfsScriptText);
+                  }
+                  // override window.open
+                  frameWin.open = function (url, location) {
+                    let w = frameWin;
 
+                    while (w.parent !== w.top) {
+                      w = w.parent;
+                    }
+
+                    const layer1Window = w;
+                    const layer1Iframe = w.frameElement;
+                    let allbrowserindex = 0;
+                    // console.log(layer1Iframe); // ✅ the first iframe under the main page
+                    for (
+                      let i = 0;
+                      i < window.browserGlobals.allBrowsers.length;
+                      i++
+                    ) {
+                      if (
+                        window.browserGlobals.allBrowsers[
+                          i
+                        ].rootElement.contains(layer1Iframe)
+                      )
+                        allbrowserindex = i;
+                    }
+
+                    if (url == "") url = "about:blank";
+                    console.log(url);
+                    if (!url.startsWith("http") && !url.startsWith("about:")) {
+                      if (document.getElementsByTagName("base").length > 0) {
+                        url =
+                          window.browserGlobals
+                            .mainWebsite(
+                              document.getElementsByTagName("base")[0].href,
+                            )
+                            .slice(0, -1) + url;
+                      } else if (!url.startsWith("http")) {
+                        url =
+                          window.browserGlobals
+                            .mainWebsite(
+                              window.browserGlobals.unshuffleURL(
+                                window.location.href,
+                              ),
+                            )
+                            .slice(0, -1) + url;
+                      } else {
+                        url =
+                          window.browserGlobals
+                            .mainWebsite(
+                              window.browserGlobals.unshuffleURL(
+                                window.location.href,
+                              ),
+                            )
+                            .slice(0, -1) + url;
+                      }
+                    }
+                    if (location === "_parent") {
+                      console.error('this flag is banned "_parent"');
+                      frameWin.location = url;
+                    } else if (location === "_self") {
+                      frameWin.location = url;
+                    } else if (location === "_blank") {
+                      return window.browserGlobals.__globalAddTab(
+                        url,
+                        allbrowserindex,
+                        window,
+                      );
+                    } else if (location === "_top") {
+                      frameWin.location = url;
+                    } else {
+                      return window.browserGlobals.__globalAddTab(
+                        url,
+                        allbrowserindex,
+                        window,
+                      );
+                    }
+                  };
                   frameDocCurrent.__gbCookieHookInstalled = true;
                   let cookieWriteQueue = Promise.resolve();
 
                   function queuedWriteFile(path, data) {
                     cookieWriteQueue = cookieWriteQueue
-                      .then(() => window.top.protectedGlobals.WriteFile(path, data))
+                      .then(() =>
+                        window.top.protectedGlobals.WriteFile(path, data),
+                      )
                       .catch((err) => {
                         console.error("Write failed:", err);
                       });
@@ -5806,16 +4067,23 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
                   const readFile = window.top.protectedGlobals.ReadFile;
                   const initialRes = await readFile(browserGlobals.cookiesPath);
-                  let rawCookieStore = initialRes && initialRes.filecontent ? initialRes.filecontent : "";
+                  let rawCookieStore =
+                    initialRes && initialRes.filecontent
+                      ? initialRes.filecontent
+                      : "";
 
                   if (!rawCookieStore) {
                     rawCookieStore = btoa("{}");
-                    await window.top.protectedGlobals.WriteFile(browserGlobals.cookiesPath, rawCookieStore);
+                    await window.top.protectedGlobals.WriteFile(
+                      browserGlobals.cookiesPath,
+                      rawCookieStore,
+                    );
                   }
 
                   let cookies = {};
                   try {
-                    const decoded = window.browserGlobals.decodeMaybeBase64(rawCookieStore);
+                    const decoded =
+                      window.browserGlobals.decodeMaybeBase64(rawCookieStore);
                     cookies = JSON.parse(decoded || "{}");
                   } catch (e) {
                     cookies = {};
@@ -5825,7 +4093,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     configurable: true,
                     get: function () {
                       const site = window.browserGlobals.mainWebsite(
-                        window.browserGlobals.unshuffleURL(frameWin.location.href),
+                        window.browserGlobals.unshuffleURL(
+                          frameWin.location.href,
+                        ),
                       );
                       const jar = cookies[site] || {};
                       return Object.entries(jar)
@@ -5834,7 +4104,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     },
                     set: function (newValue) {
                       const site = window.browserGlobals.mainWebsite(
-                        window.browserGlobals.unshuffleURL(frameWin.location.href),
+                        window.browserGlobals.unshuffleURL(
+                          frameWin.location.href,
+                        ),
                       );
                       if (!cookies[site]) cookies[site] = {};
 
@@ -5848,9 +4120,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
                         const key = k.trim().toLowerCase();
                         if (
-                          ["path", "expires", "domain", "secure", "samesite", "max-age"].includes(
-                            key,
-                          )
+                          [
+                            "path",
+                            "expires",
+                            "domain",
+                            "secure",
+                            "samesite",
+                            "max-age",
+                          ].includes(key)
                         ) {
                           continue;
                         }
@@ -5859,7 +4136,10 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                       }
 
                       const serialized = JSON.stringify(cookies);
-                      queuedWriteFile(browserGlobals.cookiesPath, btoa(serialized));
+                      queuedWriteFile(
+                        browserGlobals.cookiesPath,
+                        btoa(serialized),
+                      );
                     },
                   });
                 }
@@ -5905,9 +4185,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     var wantsCycle =
                       (e.altKey && e.key === "Tab") ||
                       (e.key === "Tab" && !!switcherMode);
-                    if (
-                      wantsCycle
-                    ) {
+                    if (wantsCycle) {
                       e.preventDefault();
                       var dispatchAlt = e.altKey || switcherMode === "Alt";
                       var dispatchCtrl = e.ctrlKey || switcherMode === "Ctrl";
@@ -5943,8 +4221,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     if (e.key !== "Alt" && e.key !== "Control") return;
                     try {
                       if (
-                        typeof window.commitWindowSwitchTarget ===
-                          "function" &&
+                        typeof window.commitWindowSwitchTarget === "function" &&
                         typeof window.resetWindowSwitchState === "function"
                       ) {
                         window.commitWindowSwitchTarget();
@@ -6064,26 +4341,32 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
                     e.stopPropagation();
 
                     // Attach handler
-                    const { x, y } = getAbsoluteMousePosition(
-                      e,
-                      frameDoc,
-                    );
+                    const { x, y } = getAbsoluteMousePosition(e, frameDoc);
                     const contextData = getContextMenuData(e);
 
                     showMenu(x, y, contextData);
 
-                    if (contextData.linkElement && contextData.linkElement.href) {
+                    if (
+                      contextData.linkElement &&
+                      contextData.linkElement.href
+                    ) {
                       console.log(
                         "Right-clicked on a link:",
                         contextData.linkElement.href,
                       );
-                    } else if (contextData.imageElement && contextData.imageElement.src) {
+                    } else if (
+                      contextData.imageElement &&
+                      contextData.imageElement.src
+                    ) {
                       console.log(
                         "Right-clicked on an image:",
                         contextData.imageElement.src,
                       );
                     } else if (contextData.frameUrl) {
-                      console.log("Right-clicked inside a frame:", contextData.frameUrl);
+                      console.log(
+                        "Right-clicked inside a frame:",
+                        contextData.frameUrl,
+                      );
                     } else {
                       console.log("Right-clicked on a non-link element.");
                     }
@@ -6208,10 +4491,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
               }
 
               // If already loaded, go in immediately
-              if (
-                frame.contentDocument ||
-                frame.contentWindow?.document
-              ) {
+              if (frame.contentDocument || frame.contentWindow?.document) {
                 const found = recurseFrames(
                   frame.contentDocument || frame.contentWindow?.document,
                   event,
@@ -6360,12 +4640,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           tab.iframe.style.display === "block"
         ) {
           e.preventDefault();
-            let tmp = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
-            if(looksLikeLocalFilePath(tmp)) {
-              openUrlInActiveTab(tmp);
-            } else {
-              tab.iframe.contentWindow.location.reload();
-            }
+          let tmp = browserGlobals.unshuffleURL(
+            tab.iframe.contentWindow.location.href,
+          );
+          if (looksLikeLocalFilePath(tmp)) {
+            openUrlInActiveTab(tmp);
+          } else {
+            tab.iframe.contentWindow.location.reload();
+          }
         }
       }
       root.addEventListener("keydown", handleReload);
@@ -6562,7 +4844,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           return;
         } catch (e) {
           tab.history.suppressNextRecord = false;
-          window.protectedGlobals.notification("Unable to open file from history");
+          window.protectedGlobals.notification(
+            "Unable to open file from history",
+          );
           return;
         }
       }
@@ -6596,12 +4880,14 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         if (reloadBtn.dataset.mode === "stop") {
           tab.iframe.contentWindow.stop();
         } else {
-            let tmp = browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
-            if(looksLikeLocalFilePath(tmp)) {
-              openUrlInActiveTab(tmp);
-            } else {
-              tab.iframe.contentWindow.location.reload();
-            }
+          let tmp = browserGlobals.unshuffleURL(
+            tab.iframe.contentWindow.location.href,
+          );
+          if (looksLikeLocalFilePath(tmp)) {
+            openUrlInActiveTab(tmp);
+          } else {
+            tab.iframe.contentWindow.location.reload();
+          }
         }
       };
       sitesettingsbtn.onclick = () => {
@@ -6626,12 +4912,15 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       // Inject custom styles
       checkInterval = setInterval(() => {
         try {
-        if (browserGlobals.allBrowsers.length == 0 || !tab.iframe.contentDocument) {
+          if (
+            browserGlobals.allBrowsers.length == 0 ||
+            !tab.iframe.contentDocument
+          ) {
+            clearInterval(checkInterval);
+          }
+        } catch (e) {
           clearInterval(checkInterval);
         }
-      } catch (e) {
-        clearInterval(checkInterval);
-      }
         try {
           const currentUrl = browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
@@ -6642,8 +4931,20 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             previousUrl = currentCanonical;
             urlInput.value = currentUrl;
           }
-          if (currentUrl !== previousUrlMain && (currentUrl.startsWith('http') || currentUrl.startsWith('goldenbody') || currentUrl.startsWith('goldenbody://'))) {
-            if ((browserGlobals.mainWebsite(currentUrl) !== browserGlobals.mainWebsite(previousUrlMain)) && (currentUrl !== "about:blank" && previousUrl !== '')) if (browserGlobals.profileState.enableURLSync) openUrlInActiveTab(currentUrl);
+          if (
+            currentUrl !== previousUrlMain &&
+            (currentUrl.startsWith("http") ||
+              currentUrl.startsWith("goldenbody") ||
+              currentUrl.startsWith("goldenbody://"))
+          ) {
+            if (
+              browserGlobals.mainWebsite(currentUrl) !==
+                browserGlobals.mainWebsite(previousUrlMain) &&
+              currentUrl !== "about:blank" &&
+              previousUrl !== ""
+            )
+              if (browserGlobals.profileState.enableURLSync)
+                openUrlInActiveTab(currentUrl);
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";
@@ -6776,7 +5077,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     }
 
     function looksLikeLocalFilePath(value) {
-      if(!value.startsWith("file://")) return false;
+      if (!value.startsWith("file://")) return false;
       return true;
     }
 
@@ -6825,7 +5126,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i);
       }
-      const blob = new Blob([bytes], { type: mimeType || "application/octet-stream" });
+      const blob = new Blob([bytes], {
+        type: mimeType || "application/octet-stream",
+      });
       return URL.createObjectURL(blob);
     }
 
@@ -6898,7 +5201,9 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
     function cleanupLocalFileNav(tab) {
       try {
         if (tab && tab.__localFileNav && tab.__localFileNav.blobUrl) {
-          const mappedPath = browserGlobals.__localFileUrlMap.get(tab.__localFileNav.blobUrl);
+          const mappedPath = browserGlobals.__localFileUrlMap.get(
+            tab.__localFileNav.blobUrl,
+          );
           try {
             browserGlobals.__localFileUrlMap.delete(tab.__localFileNav.blobUrl);
           } catch (e) {}
@@ -6933,18 +5238,25 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
           tab.title = "Loading...";
           tab.history.suppressNextRecord = false;
           if (tab.history.index < tab.history.stack.length - 1) {
-            tab.history.stack = tab.history.stack.slice(0, tab.history.index + 1);
+            tab.history.stack = tab.history.stack.slice(
+              0,
+              tab.history.index + 1,
+            );
           }
           tab.history.stack.push(localNav.historyUrl);
           tab.history.index = tab.history.stack.length - 1;
           tab.history.current = localNav.historyUrl;
-          tab.history.currentCanonical = canonicalHistoryUrl(localNav.historyUrl);
+          tab.history.currentCanonical = canonicalHistoryUrl(
+            localNav.historyUrl,
+          );
           tab.history.suppressNextRecord = true;
           tabs[tabIndex].iframe.src = localNav.iframeSrc;
           urlInput.value = localNav.displayUrl;
           return;
         } catch (err) {
-          window.protectedGlobals.notification(`Unable to open file: ${String(err && err.message ? err.message : err)}`);
+          window.protectedGlobals.notification(
+            `Unable to open file: ${String(err && err.message ? err.message : err)}`,
+          );
           return;
         }
       }
@@ -7070,7 +5382,8 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
       let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
 
       top.addEventListener("pointerdown", (ev) => {
-        DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
+        DRAG_THRESHOLD =
+          Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         targetel = ev.target;
       });
 
@@ -7102,7 +5415,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
 
           // Calculate distance dragged from initial mousedown
           const dragDistance = Math.sqrt(
-            Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2)
+            Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
           );
 
           // Only trigger the restore and drag behavior after crossing threshold
@@ -7225,7 +5538,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
         ) {
           applyBounds(getBounds());
           restoreWindow(false);
-        console.log(savedBounds)
+          console.log(savedBounds);
           const rr = el.getBoundingClientRect();
           active.sx = e.clientX;
           active.sy = e.clientY;
@@ -7260,7 +5573,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
             el.style.top = "0px";
           }
         }
-      savedBounds = getBounds();
+        savedBounds = getBounds();
       });
 
       // end
@@ -7396,7 +5709,7 @@ for(let i = 0; i < window.top.browserGlobals.allBrowsers.length; i++) {
   browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
   window.protectedGlobals.applyStyles();
 
-function a(url, proxyurl) {
+  function a(url, proxyurl) {
     function encodeUV(str) {
       return encodeURIComponent(
         str
@@ -7423,7 +5736,10 @@ function a(url, proxyurl) {
         str === "goldenbody://app-store/" ||
         str === "goldenbody://app-store"
       ) {
-        return window.protectedGlobals.goldenbodywebsite + "singlesdaylosesingle.html";
+        return (
+          window.protectedGlobals.goldenbodywebsite +
+          "singlesdaylosesingle.html"
+        );
       }
       return proxylink + browserGlobals.id + "/" + url;
     }

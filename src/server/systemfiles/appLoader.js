@@ -13,25 +13,11 @@
       throw new Error("Invalid folder listing for " + String(folderPath));
     }
 
-    var jsFile =
-      files.find(function (f) {
-        return f.name.toLowerCase().endsWith(".js");
-      })?.relativePath || null;
-
     var entryObjectfile =
       files.find(function (f) {
         return f.name.toLowerCase() === "entry.json";
       })?.relativePath || null;
 
-    var iconFile =
-      files.find(function (f) {
-        var name = f.name.toLowerCase();
-        return (
-          name.startsWith("icon") ||
-          name.endsWith(".png") ||
-          name.endsWith(".svg")
-        );
-      })?.relativePath || null;
 
     var functionName = null;
     var label = folderName;
@@ -41,7 +27,8 @@
     var openfilecapability = [];
     var cmf = "";
     var cmfl1 = "";
-
+    let jsFile = null;
+    let iconFile = null;
     if (entryObjectfile) {
       try {
         var entryPath = folderPath + "/" + entryObjectfile;
@@ -59,6 +46,12 @@
               openfilecapability = entryObj.openfilecapability || [];
               cmf = entryObj.cmf || "";
               cmfl1 = entryObj.cmfl1 || "";
+              jsFile = entryObj.jsFile || files.find(function (f) {
+                return f.name.toLowerCase().endsWith(".js");
+              })?.relativePath || "";
+              iconFile = entryObj.iconFile || files.find(function (f) {
+                return f.name.toLowerCase().endsWith(".png") || f.name.toLowerCase().endsWith(".jpg") || f.name.toLowerCase().endsWith(".jpeg") || f.name.toLowerCase().endsWith(".svg");
+              })?.relativePath || "";
             } else {
               window.protectedGlobals.throwError("extractAppData", "entry.json is not a valid object.", null, entryPath);
             }
@@ -74,6 +67,7 @@
     }
 
     if (iconFile) {
+      console.log("Found icon file for app " + folderName + ": " + iconFile); 
         try {
           var iconPath = folderPath + "/" + iconFile;
           var iconB64 = await fetchFileContentByPath(iconPath);

@@ -3,5 +3,7 @@
   "label": "Terminal",
   "globalvarobjectstring": "terminalGlobals",
   "allapparraystring": "allTerminals",
+  "jsFile": "terminal.js",
+  "iconFile": "icon.txt",
   "openfilecapability": []
 }

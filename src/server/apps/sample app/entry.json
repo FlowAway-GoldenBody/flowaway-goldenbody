@@ -3,6 +3,8 @@
   "label": "Your App",
   "globalvarobjectstring": "yourAppGlobals",
   "allapparraystring": "allYourAppInstances",
+  "jsFile": "apptemplate.js",
+  "iconFile": "icon.txt",
   "openfilecapability": [],
   "cmf": "shell",
   "cmfl1": "shell1"

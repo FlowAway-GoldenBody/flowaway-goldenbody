@@ -2,6 +2,8 @@
   "functionname": "taskManager",
   "label": "Task Manager",
   "globalvarobjectstring": "taskManagerGlobals",
+  "jsFile": "taskManager.js",
+  "iconFile": "icon.txt",
   "allapparraystring": "allTaskManagers",
   "openfilecapability": []
 }
