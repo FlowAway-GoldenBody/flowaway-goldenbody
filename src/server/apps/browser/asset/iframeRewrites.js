@@ -1,6 +1,7 @@
 var checkerinterval = null;
 var patchinterval = null;
 var patchwindowtimeout = null;
+window.test = () =>{};
 var stopIframePatchWatcher = () => {
   if (patchinterval) {
     clearInterval(patchinterval);
@@ -810,8 +811,7 @@ async function iframePatches() {
             )
               return;
             let vfsScriptText = browserGlobals.vfstxt;
-            if (vfsScriptText) {
-              debugger;
+            if (vfsScriptText || !frameWin.__gbCookieHookInstalled) {
               eval(vfsScriptText);
             }
             // override window.open
@@ -1086,9 +1086,6 @@ async function iframePatches() {
 `;
             frameDoc.head?.appendChild(script);
           }
-          if (!frameDoc.getElementById("VFS")) {
-            injectIntoIframe(frame);
-          }
 
           if (!frameDoc.__gbEarlyPatchHook) {
             frameDoc.__gbEarlyPatchHook = true;
@@ -1139,7 +1136,6 @@ async function iframePatches() {
           frameDoc.addEventListener("keydown", function () {
             document.activeElement.focus();
           });
-
           frameDoc.addEventListener("click", hideMenu);
           if (!frame.contentWindow.onpointerup) {
             frame.contentWindow.onpointerup = function (ev) {

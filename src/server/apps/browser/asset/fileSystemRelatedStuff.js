@@ -1,5 +1,6 @@
 (() => {
   console.log('VFS injector active');
+  frameWin.vfsloaded = true;
   // make this thing work ig usin this
   const {
   File,
@@ -634,46 +635,72 @@ FileSystemFileHandle.prototype.createWritable = async function () {
         buffer = new Uint8Array(chunk).buffer;
       }
 
-      // Return a promise that resolves when the message is sent
-      return new Promise((resolve) => {
-        frameWin.top.postMessage(
-          { __VFS__: true, kind: 'saveFile', path, name, buffer },
-          '*'
-        );
-        // Resolve immediately after posting (message queued)
-        resolve();
-      });
+      // Return a promise that resolves when the request is sent
+        window.browserGlobals.handleVfsSaveFile(frameWin, {
+          __VFS__: true,
+          kind: 'saveFile',
+          path,
+          name,
+          buffer,
+        });
+return Promise.resolve();
     },
 
     async close() {
       closed = true;
       // Give a small delay to ensure previous writes are processed
       await new Promise(r => setTimeout(r, 10));
-      frameWin.top.postMessage(
-        { __VFS__: true, kind: 'saveFile', path, name, lastOne: true },
-        '*'
-      );
+      window.browserGlobals.handleVfsSaveFile(frameWin, {
+        __VFS__: true,
+        kind: 'saveFile',
+        path,
+        name,
+        lastOne: true,
+      });
     },
 
     async abort(reason) {
       closed = true;
-      frameWin.top.postMessage(
-        { __VFS__: true, kind: 'saveFileAbort', path, name, reason },
-        '*'
-      );
+      window.browserGlobals.handleVfsSaveFile(frameWin, {
+        __VFS__: true,
+        kind: 'saveFileAbort',
+        path,
+        name,
+        reason,
+      });
     }
   });
 
-  // 🔧 Patch native-like methods ONTO the stream
-  stream.write = async function (chunk) {
-    const writer = stream.getWriter();
-    try {
-      await writer.write(chunk);
-    } finally {
-      writer.releaseLock();
-    }
-  };
+stream.write = async (chunk) => {
+  if (closed) return;
 
+  let buffer;
+
+  if (chunk instanceof Blob) {
+    buffer = await chunk.arrayBuffer();
+  } else if (typeof chunk === 'string') {
+    buffer = new TextEncoder().encode(chunk).buffer;
+  } else if (chunk instanceof ArrayBuffer) {
+    buffer = chunk;
+  } else if (ArrayBuffer.isView(chunk)) {
+    buffer = chunk.buffer;
+  } else {
+    buffer = new Uint8Array(chunk).buffer;
+  }
+
+  // IMPORTANT: return a promise that represents processing
+  await new Promise((resolve) => {
+    window.browserGlobals.handleVfsSaveFile(frameWin, {
+      __VFS__: true,
+      kind: 'saveFile',
+      path,
+      name,
+      buffer,
+    });
+
+    resolve();
+  });
+}
   stream.close = async function () {
     const writer = stream.getWriter();
     try {
@@ -821,6 +848,13 @@ function makeFileHandle(file) {
     });
   }
 
+  frameWin.__gbReceiveVfsPayload = function (payload) {
+    try {
+      const evt = new frameWin.MessageEvent('message', { data: payload });
+      frameWin.dispatchEvent(evt);
+    } catch (e) {}
+  };
+
   // 📨 Receive files
   frameWin.addEventListener('message', e => {
     const d = e.data;
@@ -949,7 +983,7 @@ function makeFileHandle(file) {
     pickerCancelled = false;
     injectedFiles = [];
 
-    await window.browserGlobals.showOpenFilePicker();
+    await window.browserGlobals.showOpenFilePicker(frameWin);
 
     try {
       await waitUntilFiles();
@@ -989,16 +1023,10 @@ frameWin.addEventListener('message', e => {
 frameWin.showSaveFilePicker = async (options = {}) => {
   return new Promise((resolve, reject) => {
     pendingSaveResolvers.push({ resolve, reject });
-
-    frameWin.top.postMessage(
-      {
-        __VFS__: true,
-        kind: 'requestSavePicker',
-        suggestedName: options.suggestedName || null,
-        types: options.types || null
-      },
-      '*'
-    );
+    window.browserGlobals.showSaveFilePicker(frameWin, {
+      suggestedName: options.suggestedName || null,
+      types: options.types || null,
+    });
   }).then(path => {
     const h = new FileSystemFileHandle();
     h.kind = 'file';
@@ -1157,7 +1185,7 @@ yield [name, dirHandle];
 
         resolve(h);
       });
-      frameWin.top.postMessage({ __VFS__: true, kind: 'requestDirectoryPicker' }, '*');
+      window.browserGlobals.showDirectoryPicker(frameWin);
     });
   };
 let pendingFileRequests = new Map();
@@ -1193,16 +1221,10 @@ FileSystemFileHandle.prototype.getFile = async function () {
 
   const file = await new Promise((resolve, reject) => {
     pendingFileRequests.set(this.path, { resolve, reject });
-
-    frameWin.top.postMessage(
-      {
-        __VFS__: true,
-        kind: 'requestFile',
-        path: this.path,
-        name: this.name
-      },
-      '*'
-    );
+    window.browserGlobals.requestFileForFrame(frameWin, {
+      path: this.path,
+      name: this.name,
+    });
 
     setTimeout(() => {
       if (pendingFileRequests.has(this.path)) {
@@ -1232,15 +1254,10 @@ FileSystemFileHandle.prototype.getFile = async function () {
       activeInput = input;
       pickerMode = 'input';
 
-      frameWin.top.postMessage(
-        {
-          __VFS__: true,
-          kind: 'requestPicker',
-          allowMultiple: input.multiple,
-          allowDirectory: input.hasAttribute('webkitdirectory')
-        },
-        '*'
-      );
+      window.browserGlobals.showOpenFilePicker(frameWin, {
+        allowMultiple: input.multiple,
+        allowDirectory: input.hasAttribute('webkitdirectory')
+      });
     },
     true
   );
