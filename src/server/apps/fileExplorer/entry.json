@@ -1,6 +1,8 @@
 {
   "functionname": "fileExplorer",
   "label": "File Explorer",
+  "jsFile": "fileExplorer.js",
+  "iconFile": "icon.txt",
   "globalvarobjectstring": "explorerGlobals",
   "allapparraystring": "allExplorers",
   "openfilecapability": [
