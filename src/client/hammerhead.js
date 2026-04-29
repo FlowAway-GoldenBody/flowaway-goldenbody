@@ -1,9 +1,5 @@
 (function initHammerheadClient () {if (window["%is-hammerhead%"]) throw new TypeError("already ran"); window["%is-hammerhead%"] = true;window.rammerheadTop = (function() {var w = window; while (w !== w.top && w.parent["%hammerhead"]) w = w.parent; return w;})();window.rammerheadParent = window.rammerheadTop === window ? window : window.rammerheadParent;window.distanceRammerheadTopToTop = (function() { var i=0,w=window; while (w !== window.rammerheadTop) {i++;w=w.parent} return i; })();window.rammerheadAncestorOrigins = Array.from(location.ancestorOrigins).slice(0, -window.distanceRammerheadTopToTop);
-	try {
 
-	} catch (e) {
-		console.error(e);
-	}
     (function () {
 
 	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
@@ -42372,10 +42368,6 @@
 	        this._createStorageWrappers();
 	        var localStorageWrapper = this.localStorageProxy.unwrapProxy();
 	        var sessionStorageWrapper = this.sessionStorageProxy.unwrapProxy();
-	        this.intervalId = nativeMethods.setInterval.call(this.window, function () {
-	            localStorageWrapper.checkStorageChanged();
-	            sessionStorageWrapper.checkStorageChanged();
-	        }, 10);
 	        this.localStorageChangeHandler = function (e) { return _this._simulateStorageEvent(_this.localStorageProxy, e); };
 	        this.sessionStorageChangeHandler = function (e) { return _this._simulateStorageEvent(_this.sessionStorageProxy, e); };
 	        localStorageWrapper.addChangeEventListener(this.localStorageChangeHandler);
