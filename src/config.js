@@ -80,7 +80,7 @@ module.exports = {
     password: '183115428',
 
     // disable or enable localStorage sync (turn off if clients send over huge localStorage data, resulting in huge memory usages)
-    disableLocalStorageSync: false,
+    disableLocalStorageSync: true,
 
     // restrict sessions to be only used per IP
     restrictSessionToIP: false,

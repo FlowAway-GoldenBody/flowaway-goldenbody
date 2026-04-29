@@ -891,89 +891,91 @@ async function iframePatches() {
               }
             };
             frameDocCurrent.__gbCookieHookInstalled = true;
-            let cookieWriteQueue = Promise.resolve();
-
-            function queuedWriteFile(path, data) {
-              cookieWriteQueue = cookieWriteQueue
-                .then(() => window.top.protectedGlobals.WriteFile(path, data))
-                .catch((err) => {
-                  console.error("Write failed:", err);
-                });
-              return cookieWriteQueue;
-            }
-
-            const readFile = window.top.protectedGlobals.ReadFile;
-            const initialRes = await readFile(browserGlobals.cookiesPath);
-            let rawCookieStore =
-              initialRes && initialRes.filecontent
-                ? initialRes.filecontent
-                : "";
-
-            if (!rawCookieStore) {
-              rawCookieStore = btoa("{}");
-              await window.top.protectedGlobals.WriteFile(
-                browserGlobals.cookiesPath,
-                rawCookieStore,
-              );
-            }
-
-            let cookies = {};
-            try {
-              const decoded =
-                window.browserGlobals.decodeMaybeBase64(rawCookieStore);
-              cookies = JSON.parse(decoded || "{}");
-            } catch (e) {
-              cookies = {};
-            }
-
-            frameWin.Object.defineProperty(frameDocCurrent, "cookie", {
+            frameWin.Object.defineProperty(frameWin.document, "cookie", {
               configurable: true,
+              enumerable: true,
               get: function () {
-                const site = window.browserGlobals.mainWebsite(
-                  window.browserGlobals.unshuffleURL(frameWin.location.href),
-                );
-                const jar = cookies[site] || {};
-                return Object.entries(jar)
-                  .map(([k, v]) => `${k}=${v}`)
-                  .join("; ");
-              },
-              set: function (newValue) {
-                const site = window.browserGlobals.mainWebsite(
-                  window.browserGlobals.unshuffleURL(frameWin.location.href),
-                );
-                if (!cookies[site]) cookies[site] = {};
-
-                const parts = String(newValue).split(";");
-                for (const part of parts) {
-                  const trimmed = part.trim();
-                  if (!trimmed.includes("=")) continue;
-
-                  const [k, ...v] = trimmed.split("=");
-                  if (!k) continue;
-
-                  const key = k.trim().toLowerCase();
-                  if (
-                    [
-                      "path",
-                      "expires",
-                      "domain",
-                      "secure",
-                      "samesite",
-                      "max-age",
-                    ].includes(key)
-                  ) {
-                    continue;
-                  }
-
-                  cookies[site][key] = v.join("=").trim();
+                try {
+                  return window.browserGlobals.getCookieForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)));
+                } catch (e) {
+                  return "";
                 }
-
-                const serialized = JSON.stringify(cookies);
-                queuedWriteFile(browserGlobals.cookiesPath, btoa(serialized));
+              },
+              set: function (cookie) {
+                try {
+                  window.browserGlobals.setCookieForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)), cookie);
+                } catch (e) {}
               },
             });
+
+Object.defineProperty(frameWin, "localStorage", {
+  get() {
+    const site = window.browserGlobals.mainWebsite(
+      window.browserGlobals.unshuffleURL(frameWin.location.href)
+    );
+
+    if (!window.browserGlobals.localStorageStore[site]) {
+      window.browserGlobals.localStorageStore[site] = {};
+    }
+
+    const store = window.browserGlobals.localStorageStore[site];
+
+    return {
+      // number of keys
+      get length() {
+        return Object.keys(store).length;
+      },
+
+      // get value
+      getItem(key) {
+        return store.hasOwnProperty(key) ? store[key] : null;
+      },
+
+      // set value
+      setItem(key, value) {
+        store[key] = String(value);
+
+        window.browserGlobals.writeFileOrdered(
+          window.browserGlobals.localStoragePath,
+          btoa(JSON.stringify(window.browserGlobals.localStorageStore))
+        );
+      },
+
+      // remove key
+      removeItem(key) {
+        delete store[key];
+
+        window.browserGlobals.writeFileOrdered(
+          window.browserGlobals.localStoragePath,
+          btoa(JSON.stringify(window.browserGlobals.localStorageStore))
+        );
+      },
+
+      // clear all keys for site
+      clear() {
+        window.browserGlobals.localStorageStore[site] = {};
+
+        window.browserGlobals.writeFileOrdered(
+          window.browserGlobals.localStoragePath,
+          btoa(JSON.stringify(window.browserGlobals.localStorageStore))
+        );
+      },
+
+      // key(index)
+      key(index) {
+        const keys = Object.keys(store);
+        return keys[index] ?? null;
+      }
+    };
+  }
+});
           }
           tmp();
+
+
+
+
+
           if (!win.__gbWindowSwitchForwardKeydown) {
             win.__gbWindowSwitchForwardKeydown = function (e) {
               var keyRaw = String(e.key || "");

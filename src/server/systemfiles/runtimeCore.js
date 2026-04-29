@@ -34,7 +34,7 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
     {
       edit: true,
       path: String(relPath),
-      contents: String(contents || ""),
+      contents,
       replace: !!options.replace,
     },
     { end: true },
