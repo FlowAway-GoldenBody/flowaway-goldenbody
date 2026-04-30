@@ -1,5 +1,6 @@
 window.browserGlobals._writeQueue = [];
 window.browserGlobals._writing = false;
+window.browserGlobals.erudaCDN = "https://cdn.jsdelivr.net/npm/eruda";
 window.browserGlobals.browserCss = `
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
 .sim-chrome-top {

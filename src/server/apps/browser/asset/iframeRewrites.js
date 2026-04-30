@@ -88,7 +88,7 @@ async function iframePatches() {
   const iframeWindow = iframe.contentWindow;
   let eggpatch2 = document.createElement("script");
   eggpatch2.textContent = `
-              const nativeURL = window.URL;
+              var nativeURL = window.URL;
               function URLShim(url = '', base) {
                 let normalizedUrl = url == null ? '' : String(url);
                 const hasBase = arguments.length > 1;
@@ -285,7 +285,7 @@ async function iframePatches() {
           tab.iframe.contentWindow._goldenbodyIns = true;
 
           const script = doc.createElement("script");
-          script.src = "https://cdn.jsdelivr.net/npm/eruda";
+          script.src = window.browserGlobals.erudaCDN;
           script.onload = () => {
             win.eruda.init();
             win.eruda.get("entryBtn").hide();
@@ -376,7 +376,23 @@ async function iframePatches() {
           }
         });
       }
-
+        addContextMenuItem("Inspect Frame", () => {
+          if(!frameView?._goldenbodyIns) frameView._goldenbodyIns = false;
+          if (!frameView.eruda) {
+            let script = document.createElement("script");
+            script.src = window.browserGlobals.erudaCDN;
+            script.onload = () => {
+              frameView.eruda.init();
+              frameView.eruda.get("entryBtn").hide();
+              frameView.eruda.show();
+            };
+            frameView._goldenbodyIns = true;
+            return;
+          }
+          const win = frameView;
+          win.eruda[win._goldenbodyIns ? "hide" : "show"]();
+          win._goldenbodyIns = !win._goldenbodyIns;
+        });
       addInspectContextMenuItem();
     } else {
       const openItem = iframeDocument.createElement("div");
@@ -720,13 +736,13 @@ async function iframePatches() {
     } catch (e) {}
   }
 
-  function recurseFrames(doc, event = null) {
+  function recurseFrames(doc, event = null, argFrame = false) {
     if (!doc) return;
     observeDocumentFrames(doc);
 
     // do something for this document (attach context menu, log, etc.)
-    const frames = doc.querySelectorAll("iframe");
-
+    const frames = [...doc.querySelectorAll("iframe")];
+    if(argFrame) frames.push(argFrame);
     if (doc.nodeType === 1 && doc.shadowRoot) {
       recurseFrames(doc.shadowRoot, event);
     }
@@ -755,6 +771,74 @@ async function iframePatches() {
           const win = frame.contentWindow;
           const frameDoc = frame.contentDocument || win?.document;
           if (!win || !frameDoc) continue;
+        let eggpatch = document.createElement("script");
+        eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();`;
+        frameDoc.body.appendChild(eggpatch);
+        let tmpinterval = setInterval(() => {
+          try {
+        if (!win.eruda) {
+          const script = document.createElement("script");
+          script.src = window.browserGlobals.erudaCDN;
+          script.onload = () => {
+            win.eruda.init();
+            win.eruda.get("entryBtn").hide();
+          };
+          frameDoc.head.appendChild(script);
+        } else clearInterval(tmpinterval);
+      } catch (e) { clearInterval(tmpinterval); }
+        }, 1000);
+
+        let themeOverride = document.createElement("script");
+        themeOverride.textContent = `
+          (function(){
+            try{
+              window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
+              function readTopDark(){
+                try{
+                  if(window.top && window.top.protectedGlobals && window.top.browserGlobals && typeof window.top.browserGlobals.dark !== 'undefined') return !!window.top.browserGlobals.dark;
+                }catch(e){}
+                try{
+                  if(window.top && window.top.protectedGlobals && window.top.protectedGlobals.data && typeof window.top.protectedGlobals.data.dark !== 'undefined') return !!window.top.protectedGlobals.data.dark;
+                }catch(e){}
+                return null;
+              }
+              var last = readTopDark();
+              var original = window.__originalMatchMedia;
+              function createMQ(matches){
+                var listeners = [];
+                var obj = {
+                  media: '(prefers-color-scheme: dark)',
+                  matches: !!matches,
+                  addListener: function(cb){ if(typeof cb==='function') listeners.push(cb); },
+                  removeListener: function(cb){ listeners = listeners.filter(function(l){return l!==cb}); },
+                  addEventListener: function(ev, cb){ if(ev==='change' && typeof cb==='function') listeners.push(cb); },
+                  removeEventListener: function(ev, cb){ if(ev==='change') listeners = listeners.filter(function(l){return l!==cb}); },
+                  dispatchEvent: function(e){ listeners.forEach(function(cb){try{cb(e);}catch(e){}}); return true; }
+                };
+                obj._notify = function(){
+                  var ev = {matches: obj.matches, media: obj.media};
+                  listeners.slice().forEach(function(cb){ try{ cb(ev); }catch(e){} });
+                };
+                return obj;
+              }
+              var mqInstance = createMQ(last === null ? original('(prefers-color-scheme: dark)').matches : last);
+              window.matchMedia = function(media){
+                if(media === '(prefers-color-scheme: dark)') return mqInstance;
+                return original(media);
+              };
+              setInterval(function(){
+                var cur = readTopDark();
+                if(cur === null) return;
+                cur = !!cur;
+                if(cur !== mqInstance.matches){
+                  mqInstance.matches = cur;
+                  mqInstance._notify();
+                }
+              }, 500);
+            }catch(e){}
+          })();
+          `;
+        frameDoc.body.appendChild(themeOverride);
           async function tmp() {
             const frameWin = frame.contentWindow;
             const frameDocCurrent = frame.contentDocument || frameWin?.document;
@@ -1158,7 +1242,7 @@ Object.defineProperty(frameWin, "localStorage", {
                   iframe.contentWindow._goldenbodyIns = true;
 
                   const script = doc.createElement("script");
-                  script.src = "https://cdn.jsdelivr.net/npm/eruda";
+                  script.src = window.browserGlobals.erudaCDN;
                   script.onload = () => {
                     win.eruda.init();
                     win.eruda.get("entryBtn").hide();
@@ -1263,11 +1347,11 @@ Object.defineProperty(frameWin, "localStorage", {
     }
   }
 
-  // Start from the top-level document
-  recurseFrames(iframe.contentDocument);
-  recurseFrames(root);
 
   // Hide the menu when clicking elsewhere
   iframeDocument.addEventListener("click", hideMenu);
   iframe.__gbPatchedDocument = iframeDocument;
+  iframeWindow.onload = function () {
+    recurseFrames(iframeDocument, null, iframe);
+  };
 }
