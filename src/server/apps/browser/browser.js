@@ -2440,7 +2440,6 @@ window.browser = function (
       tab.iframe.contentWindow.addEventListener("keydown", onIframeKeydown);
       tab.__onIframeKeydown = onIframeKeydown;
       tab.__stopIframePatchWatcher = stopIframePatchWatcher;
-      tab.__stopPatchIntegrityChecker = stopPatchIntegrityChecker;
 
       if (preloadsize !== 100) {
         preloadsize = 100;
@@ -2795,9 +2794,6 @@ window.browser = function (
       const removingActive = tabs[idx].id === activeTabId;
       try {
         tabs[idx].__stopIframePatchWatcher?.();
-      } catch (e) {}
-      try {
-        tabs[idx].__stopPatchIntegrityChecker?.();
       } catch (e) {}
       try {
         if (tabs[idx].__onIframeKeydown) {
