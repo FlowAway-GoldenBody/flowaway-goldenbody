@@ -1728,7 +1728,6 @@ window.browser = function (
           ? document.elementFromPoint(ev.clientX, ev.clientY)
           : null);
       if (!eventTarget && !notontab) return;
-      console.log("pointerup anywhere:", eventTarget, "notontab?", notontab);
       if (!browserGlobals.tabisDragging) return;
       if (!browserGlobals.dragstartwindow || !browserGlobals.draggedtab) {
         resetTabDragState();
