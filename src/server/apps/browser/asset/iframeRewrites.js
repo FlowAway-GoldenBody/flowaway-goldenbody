@@ -896,14 +896,14 @@ async function iframePatches() {
               enumerable: true,
               get: function () {
                 try {
-                  return window.browserGlobals.getCookieForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)));
+                  return window.browserGlobals.getCookiesForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)));
                 } catch (e) {
                   return "";
                 }
               },
               set: function (cookie) {
                 try {
-                  window.browserGlobals.setCookieForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)), cookie);
+                  window.browserGlobals.setCookiesForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)), cookie);
                 } catch (e) {}
               },
             });

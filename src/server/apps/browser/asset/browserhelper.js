@@ -592,13 +592,12 @@ window.browserGlobals.writeIndexedDbStore = async function (payload) {
 };
 
 window.browserGlobals.clearIndexedDbForSite = async function (site) {
-  const originKey = window.browserGlobals.siteToOriginKey(site);
-  if (!originKey) return;
+  if (!site) return;
   const store = await window.browserGlobals.readIndexedDbStore();
   if (!store.origins) {
     store.origins = {};
   }
-  delete store.origins[originKey];
+  delete store.origins[site];
   await window.browserGlobals.writeIndexedDbStore(store);
 };
 
@@ -804,19 +803,46 @@ window.browserGlobals.convertCookiesForBrowserUse = function (object) {
 window.browserGlobals.convertlooseCookieStringToObject = function (cookieString) {
   if (!cookieString || typeof cookieString !== "string") return {};
 
-  const obj = {};
-  const parts = cookieString.split(";").map(p => p.trim());
+  const parts = cookieString.split(";").map(p => p.trim()).filter(Boolean);
+  if (parts.length === 0) return {};
 
-  for (const part of parts) {
-    if (!part) continue;
+  // First part = actual cookie
+  const nameValue = parts[0];
+  const eqIndex = nameValue.indexOf("=");
 
-    const [key, ...rest] = part.split("=");
-    if (!key || rest.length === 0) continue;
+  if (eqIndex === -1) return {};
 
-    obj[key.trim()] = rest.join("=").trim();
+  const name = nameValue.slice(0, eqIndex).trim();
+  const value = nameValue.slice(eqIndex + 1).trim();
+
+  if (!name) return {};
+
+  // Look for expires attribute only (ignore everything else)
+  let expires = null;
+
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    const idx = part.indexOf("=");
+
+    if (idx === -1) continue;
+
+    const key = part.slice(0, idx).trim().toLowerCase();
+    if (key === "expires") {
+      expires = part.slice(idx + 1).trim();
+      break;
+    }
   }
 
-  return obj;
+  // If expired → signal deletion
+  if (expires) {
+    const expDate = new Date(expires);
+    if (!isNaN(expDate) && expDate < new Date()) {
+      return { [name]: undefined };
+    }
+  }
+
+  // Normal cookie
+  return { [name]: value };
 };
 
 window.browserGlobals.getCookiesForSite = function (site) {
@@ -837,9 +863,13 @@ window.browserGlobals.setCookiesForSite = function (site, cookieString) {
   const storagecookies =
     window.browserGlobals.convertlooseCookieStringToObject(cookieString);
 
-  for (const [key, value] of Object.entries(storagecookies)) {
+for (const [key, value] of Object.entries(storagecookies)) {
+  if (value === undefined) {
+    delete cookies[site][key];
+  } else {
     cookies[site][key] = value;
   }
+}
 
   return window.browserGlobals.writeFileOrdered(
     window.browserGlobals.cookiesPath,
