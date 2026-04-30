@@ -552,33 +552,8 @@ window.browserGlobals.writeBrowserUserId = async function (id) {
 
 window.browserGlobals.readIndexedDbStore = async function () {
   let raw = "";
-  try {
-    const fileRes = await window.protectedGlobals.ReadFile(
-      window.browserGlobals.indexedDbPath,
-    );
-    raw = fileRes && fileRes.filecontent ? fileRes.filecontent : "";
-  } catch (e) {
-    raw = "";
-  }
-
-  if (!raw) {
-    raw = btoa(JSON.stringify({ origins: {} }));
-    await window.protectedGlobals.WriteFile(
-      window.browserGlobals.indexedDbPath,
-      raw,
-    );
-  }
-
-  try {
-    const decoded = window.browserGlobals.decodeMaybeBase64(raw);
-    const parsed = JSON.parse(decoded || "{}");
-    if (!parsed || !parsed.origins) {
-      return { origins: {} };
-    }
-    return parsed;
-  } catch (e) {
-    return { origins: {} };
-  }
+  raw = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true });
+  return JSON.parse(raw);
 };
 
 window.browserGlobals.writeIndexedDbStore = async function (payload) {

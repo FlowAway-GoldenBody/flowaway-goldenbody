@@ -82,13 +82,10 @@
 
                   function getOriginKey() {
                     try {
-                      return new URL(frameWin.location.href).origin;
+                      return window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)) || 'null';
                     } catch (e) {
-                      try {
-                        return String(frameWin.location.origin || 'null');
-                      } catch (ee) {
-                        return 'null';
-                      }
+                      window.protectedGlobals.notification('Error determining origin for IndexedDB shim: ' + e.message);
+                      return 'null';
                     }
                   }
 
