@@ -1135,9 +1135,10 @@ Object.defineProperty(frameWin, "localStorage", {
               }
             };
           }
-          frameDoc.addEventListener("keydown", function () {
-            document.activeElement.focus();
-          });
+          // dead code
+          // frameDoc.addEventListener("keydown", function () {
+          //   document.activeElement.focus();
+          // });
           frameDoc.addEventListener("click", hideMenu);
           if (!frame.contentWindow.onpointerup) {
             frame.contentWindow.onpointerup = function (ev) {
