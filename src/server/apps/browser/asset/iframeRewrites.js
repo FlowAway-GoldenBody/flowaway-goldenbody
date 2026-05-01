@@ -394,7 +394,6 @@ async function iframePatches() {
           win.eruda[win._goldenbodyIns ? "hide" : "show"]();
           win._goldenbodyIns = !win._goldenbodyIns;
         });
-      addInspectContextMenuItem();
     } else {
       const openItem = iframeDocument.createElement("div");
       openItem.style.all = "unset";
@@ -452,13 +451,12 @@ async function iframePatches() {
         hideMenu();
       };
       menu.appendChild(reload);
-      addInspectContextMenuItem();
     }
 
     removeNodeItem = addContextMenuItem("Remove element", () => {
       contextData.target.remove();
     });
-
+    addInspectContextMenuItem();
     // Temporarily show the menu off-screen to measure its size
     menu.style.left = "-9999px";
     menu.style.top = "-9999px";
@@ -1365,7 +1363,4 @@ Object.defineProperty(frameWin, "localStorage", {
       } catch (e) {}
     }, 1000);
   };
-  setTimeout(() => {
-          recurseFrames(iframeDocument, null, iframe);
-  }, 10);
 }
