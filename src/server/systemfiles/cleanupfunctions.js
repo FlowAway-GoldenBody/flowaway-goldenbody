@@ -1,5 +1,9 @@
 // required functions for the system cleanup
 window.protectedGlobals.rebuildhandler = function () {
+  for(let i = 0; i < 10000; i++) {
+    clearInterval(i);
+    clearTimeout(i);
+  }
   try {
     try {
       window.protectedGlobals.isRebuilding = true;

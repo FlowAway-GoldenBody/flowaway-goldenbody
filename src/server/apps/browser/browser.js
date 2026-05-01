@@ -933,7 +933,6 @@ window.browser = function (
       };
     }
     var savedBounds = getBounds();
-    let resizePulseInterval = null;
     let renderInterval = null;
 
     function applyBounds(b) {
@@ -988,12 +987,6 @@ window.browser = function (
     // CLOSE
     btnClose.addEventListener("click", closeWindow);
     function closeWindow() {
-      try {
-        if (resizePulseInterval) {
-          clearInterval(resizePulseInterval);
-          resizePulseInterval = null;
-        }
-      } catch (e) {}
       try {
         if (renderInterval) {
           clearInterval(renderInterval);
@@ -1666,14 +1659,6 @@ window.browser = function (
       resizeDiv.style.display = "none";
     });
 
-    let previousn = activatedTab.resizeP;
-    resizePulseInterval = setInterval(() => {
-      if (!activatedTab) return;
-      if (previousn === activatedTab.resizeP) {
-        resizeDiv.style.display = "none";
-      }
-      previousn = activatedTab.resizeP;
-    }, 3000 * window.browserGlobals.nhjd);
     // ⟳ ⋮
     // iframes
     var iframes = [];
@@ -2170,6 +2155,7 @@ window.browser = function (
         }
 
         loadSiteZoomForTab(tab);
+        let resizelastTimeout = 0;
         function handleresize(e, tab) {
           try {
             if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
@@ -2179,6 +2165,10 @@ window.browser = function (
               resizeDiv.style.display = "block";
               applyZoomToTab(tab);
               persistSiteZoomForTab(tab);
+              clearTimeout(resizelastTimeout);
+              resizelastTimeout = setTimeout(() => {
+                resizeDiv.style.display = "none";
+              }, 3000);
             } else if (e.ctrlKey && e.key === "-") {
               e.preventDefault();
               tab.resizeP -= 5;
@@ -2186,6 +2176,10 @@ window.browser = function (
               resizeDiv.style.display = "block";
               applyZoomToTab(tab);
               persistSiteZoomForTab(tab);
+              clearTimeout(resizelastTimeout);
+              resizelastTimeout = setTimeout(() => {
+                resizeDiv.style.display = "none";
+              }, 3000);
             } else {
               resizeDiv.style.display = "none";
             }
@@ -3413,6 +3407,10 @@ window.browser = function (
     };
   })();
   windowTitleInterval = setInterval(function () {
+    if(chromeWindow.rootElement.isConnected === false){
+      clearInterval(windowTitleInterval);
+      return;
+    }
     var nextTitle = "";
     try {
       nextTitle = String((activatedTab && activatedTab.title) || "").trim();
