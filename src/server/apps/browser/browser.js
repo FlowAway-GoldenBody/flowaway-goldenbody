@@ -335,7 +335,7 @@ window.browser = function (
     color:#aaa;
   `;
     info.textContent =
-      "This is only for people with privacy needs, may cause bugs when many redirects happens at 1 time";
+      "Recommended if you want permissions to automatically update when you navigate to different sites. If disabled, permissions will only be set on the initial URL and won't change until you manually update them or open this panel again.";
     syncpermsSec.appendChild(info);
     let lazyloadingsect = section("Performance");
     let lazyloading = checkbox(
