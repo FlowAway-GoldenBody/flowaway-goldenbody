@@ -304,7 +304,7 @@ async function iframePatches() {
   function showMenu(x, y, contextData = {}) {
     menu.innerHTML = "";
     menu.style.display = "block";
-
+    menu.style.width = "fit-content";
     const linkElement = contextData.linkElement || null;
     const imageElement = contextData.imageElement || null;
     const frameView = contextData.frameView || null;
@@ -759,7 +759,6 @@ async function iframePatches() {
 
     for (const frame of frames) {
       try {
-          if(frame.contentDocument.__gbCookieHookInstalled) continue;
         watchFrame(frame, doc);
         if (event) {
           if (event.source == frame.contentWindow) {
@@ -771,6 +770,10 @@ async function iframePatches() {
           const win = frame.contentWindow;
           const frameDoc = frame.contentDocument || win?.document;
           if (!win || !frameDoc) continue;
+          console.log("[XXXXXXXXXXXXXXX]Patching iframe:", frame.src || frame.contentWindow?.location?.href || "about:blank");
+
+          if(frame.contentDocument.__gbCookieHookInstalled) continue;
+          console.log("Patching iframe:", frame.src || frame.contentWindow?.location?.href || "about:blank");
           let eggpatch = document.createElement("script");
         eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
         frameDoc.body.appendChild(eggpatch);
@@ -1353,14 +1356,5 @@ Object.defineProperty(frameWin, "localStorage", {
   iframeDocument.addEventListener("click", hideMenu);
   iframe.__gbPatchedDocument = iframeDocument;
 window.test = recurseFrames;
-
-  iframeWindow.onload = function () {
-    recurseFrames(iframeDocument, null, iframe);
-    // try again
-    setTimeout(() => {
-      try {
-        recurseFrames(iframeDocument, null, iframe, false);
-      } catch (e) {}
-    }, 1000);
-  };
+  recurseFrames(iframeDocument, null, iframe);
 }
