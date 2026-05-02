@@ -20,7 +20,8 @@ const projectroot = path.resolve(__dirname, '../../');
 const fsp = require('fs/promises');
 
 const PROFILE_SCHEMA_VERSION = 1;
-const START_MENU_SOURCE_PATH = path.join(__dirname, 'app-config', 'startMenu-config.json');
+const USER_TEMPLATE_PATH = path.join(__dirname, 'USER', 'root');
+const START_MENU_SOURCE_PATH = path.join(USER_TEMPLATE_PATH, 'systemfiles', 'userprofile', 'startMenu-config.json');
 
 function normalizeMaxSpaceGb(value) {
   const n = Number(value);
@@ -229,37 +230,24 @@ function ensureRuntimeFiles(userPaths) {
   fs.mkdirSync(userPaths.userRoot, { recursive: true });
   fs.mkdirSync(userPaths.systemfilesDir, { recursive: true });
 
-  const runtimeFiles = [
-    { sourceFile: 'flowaway.js', destinationPath: 'flowaway.js' },
-    { sourceFile: 'runtimeCore.js', destinationPath: 'runtime/runtimeCore.js' },
-    { sourceFile: 'coreVariables.js', destinationPath: 'runtime/helper/coreVariables.js' },
-    { sourceFile: 'fsFunctions.js', destinationPath: 'runtime/helper/fsFunctions.js' },
-    { sourceFile: 'cleanupfunctions.js', destinationPath: 'runtime/helper/cleanupfunctions.js' },
-    { sourceFile: 'miscFunctions.js', destinationPath: 'runtime/helper/miscFunctions.js' },
-    { sourceFile: 'appHelperFunctions.js', destinationPath: 'runtime/appHelperFunctions.js' },
-    { sourceFile: 'runtimeAppRuntime.js', destinationPath: 'runtime/runtimeAppRuntime.js' },
-    { sourceFile: 'runtimeWindowSystem.js', destinationPath: 'runtime/runtimeWindowSystem.js' },
-    { sourceFile: 'runtimeShell.js', destinationPath: 'runtime/runtimeShell.js' },
-    { sourceFile: 'goldenbody.js', destinationPath: 'goldenbody.js' },
-    { sourceFile: 'processes.js', destinationPath: 'processes.js' },
-    { sourceFile: 'appLoader.js', destinationPath: 'appLoader.js' },
-    { sourceFile: 'appPolling.js', destinationPath: 'appPolling.js' },
-  ];
-
-  for (const fileSpec of runtimeFiles) {
-    const src = path.join(projectroot, 'src', 'server', 'systemfiles', fileSpec.sourceFile);
-    const dest = path.join(userPaths.systemfilesDir, fileSpec.destinationPath);
-    if (!fs.existsSync(dest) && fs.existsSync(src)) {
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
+  // Copy runtime files from server template, but don't overwrite existing
+  const runtimeSourceDir = path.join(USER_TEMPLATE_PATH, 'systemfiles');
+  const copyIfNotExists = (srcDir, dstDir) => {
+    if (!fs.existsSync(srcDir)) return;
+    const items = fs.readdirSync(srcDir, { withFileTypes: true });
+    for (const it of items) {
+      const src = path.join(srcDir, it.name);
+      const dst = path.join(dstDir, it.name);
+      if (it.isDirectory()) {
+        fs.mkdirSync(dst, { recursive: true });
+        copyIfNotExists(src, dst);
+      } else if (!fs.existsSync(dst)) {
+        fs.copyFileSync(src, dst);
+      }
     }
-  }
+  };
 
-  const appsPath = path.join(userPaths.systemfilesDir, 'runtime', 'apps');
-  if (!fs.existsSync(appsPath)) {
-    fs.cpSync(path.join(__dirname, 'apps'), appsPath, { recursive: true });
-  }
-
+  copyIfNotExists(runtimeSourceDir, userPaths.systemfilesDir);
   ensureStartMenuConfig(userPaths);
 }
 

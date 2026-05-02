@@ -952,7 +952,7 @@ try {
 
 const injectGoldenbodyScript = window.protectedGlobals.injectGoldenbodyScript = async function injectGoldenbodyScript() {
     try {
-      let body = await window.protectedGlobals.ReadFile("systemfiles/goldenbody.js");
+      let body = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/goldenbody.js");
       var sysScript = document.createElement("script");
       sysScript.type = "text/javascript";
       sysScript.textContent = window.protectedGlobals.base64ToUtf8(body.filecontent);
