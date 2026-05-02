@@ -433,14 +433,14 @@ window.tmpGlobals.decodeBase64ToUTF8 = function(base64) {
     return new TextDecoder().decode(bytes);
 }
 window.tmpGlobals.coreScriptUrls = [
-  "systemfiles/runtime/helper/coreVariables.js",
-  "systemfiles/runtime/helper/fsFunctions.js",
-  "systemfiles/runtime/helper/cleanupfunctions.js",
-  "systemfiles/runtime/helper/miscFunctions.js",
-  "systemfiles/runtime/appHelperFunctions.js",
-  "systemfiles/runtime/runtimeAppRuntime.js",
-  "systemfiles/runtime/runtimeWindowSystem.js",
-  "systemfiles/runtime/runtimeShell.js",
+  "systemfiles/runtime/helpers/coreVariables.js",
+  "systemfiles/runtime/helpers/fsFunctions.js",
+  "systemfiles/runtime/helpers/cleanupfunctions.js",
+  "systemfiles/runtime/helpers/miscFunctions.js",
+  "systemfiles/runtime/helpers/appHelperFunctions.js",
+  "systemfiles/runtime/core/runtimeAppRuntime.js",
+  "systemfiles/runtime/core/runtimeWindowSystem.js",
+  "systemfiles/runtime/core/runtimeShell.js",
 ];
 
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {

@@ -207,7 +207,7 @@ window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
   }, 5000);
         // SAME behavior as before
         setTimeout(async () => {   let a = document.createElement('script');
-          let res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: 'systemfiles/flowaway.js' }); 
+          let res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: 'systemfiles/runtime/core/flowaway.js' }); 
           a.textContent = window.protectedGlobals.base64ToUtf8(res.filecontent);
           document.body.appendChild(a); box.remove();
 });

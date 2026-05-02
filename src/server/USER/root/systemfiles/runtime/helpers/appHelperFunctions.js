@@ -1221,10 +1221,10 @@ window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function () {
 
     window.protectedGlobals._appLoaderSystemPromise = (async function () {
       if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
-        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/appLoader.js");
+        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appLoader.js");
         var inlineText = window.protectedGlobals.decodeFileTextStrict(
           b64Runtime,
-          "systemfiles/appLoader.js",
+          "systemfiles/runtime/core/appLoader.js",
           { allowEmpty: false },
         );
         var inlineScript = document.createElement("script");
@@ -1241,7 +1241,7 @@ window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function () {
       }
       window.protectedGlobals.flowawayCrash(
         "App loader runtime failed to initialize.",
-        "systemfiles/appLoader.js loaded but AppLoaderAPIs is unavailable.",
+        "systemfiles/runtime/core/appLoader.js loaded but AppLoaderAPIs is unavailable.",
       );
     })();
 
@@ -1282,10 +1282,10 @@ window.protectedGlobals.ensureFlowawayAppPollingLoaded = async function () {
 
     window.protectedGlobals._appPollingSystemPromise = (async function () {
       if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
-        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/appPolling.js");
+        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appPolling.js");
         var inlineText = window.protectedGlobals.decodeFileTextStrict(
           b64Runtime,
-          "systemfiles/appPolling.js",
+          "systemfiles/runtime/core/appPolling.js",
           { allowEmpty: false },
         );
         var inlineScript = document.createElement("script");
@@ -1302,7 +1302,7 @@ window.protectedGlobals.ensureFlowawayAppPollingLoaded = async function () {
       }
       window.protectedGlobals.flowawayCrash(
         "App polling runtime failed to initialize.",
-        "systemfiles/appPolling.js loaded but FlowawayAppPolling is unavailable.",
+        "systemfiles/runtime/core/appPolling.js loaded but FlowawayAppPolling is unavailable.",
       );
     })();
 
@@ -1345,10 +1345,10 @@ window.protectedGlobals.ensureProcessRuntimeLoaded = async function () {
 
     window.protectedGlobals._processSystemPromise = (async function () {
       if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
-        var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/processes.js");
+        var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/processes.js");
         var inlineProcessText = window.protectedGlobals.decodeFileTextStrict(
           b64ProcessRuntime,
-          "systemfiles/processes.js",
+          "systemfiles/runtime/core/processes.js",
           { allowEmpty: false },
         );
         var inlineProcessScript = document.createElement("script");
@@ -1365,7 +1365,7 @@ window.protectedGlobals.ensureProcessRuntimeLoaded = async function () {
       }
       window.protectedGlobals.flowawayCrash(
         "Process runtime failed to initialize.",
-        "systemfiles/processes.js loaded but protectedGlobals.FlowawayProcess is unavailable.",
+        "systemfiles/runtime/core/processes.js loaded but protectedGlobals.FlowawayProcess is unavailable.",
       );
     })();
 
