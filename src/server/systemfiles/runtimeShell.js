@@ -824,6 +824,7 @@ const updateTime = window.protectedGlobals.updateTime = function updateTime() {
   var time = now.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   });
   document.getElementById("timeStatus").textContent = time;
 }

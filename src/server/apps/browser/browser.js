@@ -2,16 +2,37 @@
 window.browserGlobals = {};
 window.browserGlobals.nhjd = 1;
 window.browserGlobals.tmp = {};
-window.browserGlobals.vfsScriptPath = "/systemfiles/runtime/apps/browser/asset/fileSystemRelatedStuff.js";
-window.browserGlobals.frontendFilePickerStuffJSPath = "/systemfiles/runtime/apps/browser/asset/frontendFilePickerStuff.js";
-window.browserGlobals.iframePatchPath = "/systemfiles/runtime/apps/browser/asset/iframeRewrites.js";
-window.browserGlobals.browserhelperPath = "/systemfiles/runtime/apps/browser/asset/browserhelper.js";
+window.browserGlobals.vfsScriptPath =
+  "/systemfiles/runtime/apps/browser/asset/fileSystemRelatedStuff.js";
+window.browserGlobals.frontendFilePickerStuffJSPath =
+  "/systemfiles/runtime/apps/browser/asset/frontendFilePickerStuff.js";
+window.browserGlobals.iframePatchPath =
+  "/systemfiles/runtime/apps/browser/asset/iframeRewrites.js";
+window.browserGlobals.browserhelperPath =
+  "/systemfiles/runtime/apps/browser/asset/browserhelper.js";
 // this need async fn idk y
 (async () => {
-window.browserGlobals.vfstxt = await window.protectedGlobals.ReadFile(window.browserGlobals.vfsScriptPath, {text: true}).then(res => res && res.filecontent ? res.filecontent : "").catch(e => "");
-window.browserGlobals.frontendFilePickerStuffJS = await window.protectedGlobals.ReadFile(window.browserGlobals.frontendFilePickerStuffJSPath, {text: true}).then(res => res && res.filecontent ? res.filecontent : "").catch(e => "");
-window.browserGlobals.iframePatch = await window.protectedGlobals.ReadFile(window.browserGlobals.iframePatchPath, {text: true}).then(res => res && res.filecontent ? res.filecontent : "").catch(e => "");
-window.browserGlobals.browserhelper = await window.protectedGlobals.ReadFile(window.browserGlobals.browserhelperPath, {text: true}).then(res => {eval(res.filecontent)}).catch(e => "");
+  window.browserGlobals.vfstxt = await window.protectedGlobals
+    .ReadFile(window.browserGlobals.vfsScriptPath, { text: true })
+    .then((res) => (res && res.filecontent ? res.filecontent : ""))
+    .catch((e) => "");
+  window.browserGlobals.frontendFilePickerStuffJS =
+    await window.protectedGlobals
+      .ReadFile(window.browserGlobals.frontendFilePickerStuffJSPath, {
+        text: true,
+      })
+      .then((res) => (res && res.filecontent ? res.filecontent : ""))
+      .catch((e) => "");
+  window.browserGlobals.iframePatch = await window.protectedGlobals
+    .ReadFile(window.browserGlobals.iframePatchPath, { text: true })
+    .then((res) => (res && res.filecontent ? res.filecontent : ""))
+    .catch((e) => "");
+  window.browserGlobals.browserhelper = await window.protectedGlobals
+    .ReadFile(window.browserGlobals.browserhelperPath, { text: true })
+    .then((res) => {
+      eval(res.filecontent);
+    })
+    .catch((e) => "");
 })();
 window.browserGlobals.cookiesPath =
   "/systemfiles/runtime/apps/browser/profile/localstorage/cookies.json";
@@ -2211,39 +2232,50 @@ window.browser = function (
         // let sfc = tab.iframe.contentDocument.createElement("script");
         // sfc.src = window.protectedGlobals.goldenbodywebsite + "sfc__o.js";
         // tab.iframe.contentDocument.head.prepend(sfc);
-        let linkinterval = setInterval(function () {
-          try {
-            if (!iframe || !iframe.contentDocument || !tabs.includes(tab))
-              clearInterval(linkinterval);
-            var links = iframe.contentDocument.getElementsByTagName("a");
+        const hooked = new WeakSet();
 
-            for (let i = 0; i < links.length; i++) {
-              if (links[i].target !== "_blank") {
-                links[i].target = "_self";
-              }
-              if (!links[i].href.includes(browserGlobals.id)) {
-                if (links[i].href.startsWith("http")) {
-                  links[i].href = a(links[i].href, browserGlobals.proxyurl);
-                }
-              }
-              links[i].onclick = (e) => {
-                if (e.metaKey) {
-                  e.preventDefault();
-                  const url = browserGlobals.unshuffleURL(links[i].href);
+        function patchLink(link) {
+          if (hooked.has(link)) return;
+          hooked.add(link);
 
-                  iframe.contentWindow.open(url, "_blank");
-                  console.log(links[i].href);
-                } else if (links[i].target == "_blank") {
-                  e.preventDefault();
-                  iframe.contentWindow.open(
-                    browserGlobals.unshuffleURL(links[i].href),
-                    links[i].target || "_self",
-                  );
-                }
-              };
+          if (link.target !== "_blank") link.target = "_self";
+
+          if (
+            !link.href.includes(browserGlobals.id) &&
+            link.href.startsWith("http")
+          ) {
+            link.href = a(link.href, browserGlobals.proxyurl);
+          }
+
+          link.addEventListener("click", (e) => {
+            if (e.metaKey || link.target === "_blank") {
+              e.preventDefault();
+              const url = browserGlobals.unshuffleURL(link.href);
+              iframe.contentWindow.open(
+                url,
+                e.metaKey ? "_blank" : link.target || "_self",
+              );
             }
-          } catch (e) {}
-        }, 2000 * browserGlobals.nhjd);
+          });
+        }
+
+        // patch existing links once
+        iframe.contentDocument.querySelectorAll("a").forEach(patchLink);
+        const observer = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            m.addedNodes.forEach((node) => {
+              if (node.nodeType !== 1) return;
+
+              if (node.matches?.("a")) patchLink(node);
+              node.querySelectorAll?.("a").forEach(patchLink);
+            });
+          }
+        });
+
+        observer.observe(iframe.contentDocument, {
+          childList: true,
+          subtree: true,
+        });
       });
       iframe.addEventListener("load", function onLoad() {
         const doc = iframe.contentDocument;
@@ -2346,6 +2378,12 @@ window.browser = function (
 
       if (browserGlobals.proxyurl != "") {
         iframe.src = a(url, browserGlobals.proxyurl);
+        if(!window.browserGlobals.profileState.enableURLSync) {
+        setTimeout(() => {
+          // to fix a contextmenu not showing bug, thats what i can do because after checking the devtools, idk what happened.
+          iframe.contentWindow.location.reload();
+        }, 250);
+        }
       } else {
         iframe.src = url;
       }
@@ -2694,8 +2732,9 @@ window.browser = function (
               currentUrl !== "about:blank" &&
               previousUrl !== ""
             )
-              if (browserGlobals.profileState.enableURLSync)
+              if (browserGlobals.profileState.enableURLSync) {
                 openUrlInActiveTab(currentUrl);
+              }
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";
@@ -3406,26 +3445,6 @@ window.browser = function (
       },
     };
   })();
-  windowTitleInterval = setInterval(function () {
-    if(chromeWindow.rootElement.isConnected === false){
-      clearInterval(windowTitleInterval);
-      return;
-    }
-    var nextTitle = "";
-    try {
-      nextTitle = String((activatedTab && activatedTab.title) || "").trim();
-    } catch (e) {
-      nextTitle = "";
-    }
-    if (!nextTitle || nextTitle === "undefined" || nextTitle === "null") {
-      nextTitle = "Untitled";
-    }
-    chromeWindow.title = nextTitle;
-    try {
-      chromeWindow.rootElement.setAttribute("data-title", nextTitle);
-    } catch (e) {}
-  }, 1000 * browserGlobals.nhjd);
-  chromeWindow.rootElement.setAttribute("data-title", "Untitled");
   chromeWindow.closeAll = function () {
     for (const instance of [...browserGlobals.allBrowsers]) {
       if (instance && typeof instance.closeWindow === "function") {

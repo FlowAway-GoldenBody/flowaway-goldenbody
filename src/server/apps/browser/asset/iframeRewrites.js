@@ -85,6 +85,7 @@ async function iframePatches() {
   if (!iframeDocument || !iframe?.contentWindow) return;
   if (iframe.__gbPatchedDocument === iframeDocument) return;
   const iframeWindow = iframe.contentWindow;
+  if (iframeWindow.patched) return;
   let eggpatch2 = document.createElement("script");
   eggpatch2.textContent = `
               let nativeURL = window.URL;
@@ -167,7 +168,7 @@ async function iframePatches() {
   );
 
   // Create a reusable custom context menu
-  const menu = iframeDocument.createElement("div");
+  const menu = document.createElement("div");
   menu.style.all = "unset";
 
   menu.id = "custom-context-menu";
@@ -247,7 +248,7 @@ async function iframePatches() {
       frameView: isSubFrame ? eventView : null,
       frameUrl,
       isDownload: !!(linkElement && linkElement.download),
-      target: e.target
+      target: e.target,
     };
   }
 
@@ -375,9 +376,8 @@ async function iframePatches() {
             } catch (innerErr) {}
           }
         });
-      }
         addContextMenuItem("Inspect Frame", () => {
-          if(!frameView?._goldenbodyIns) frameView._goldenbodyIns = false;
+          if (!frameView?._goldenbodyIns) frameView._goldenbodyIns = false;
           if (!frameView.eruda) {
             let script = document.createElement("script");
             script.src = window.browserGlobals.erudaCDN;
@@ -393,6 +393,7 @@ async function iframePatches() {
           win.eruda[win._goldenbodyIns ? "hide" : "show"]();
           win._goldenbodyIns = !win._goldenbodyIns;
         });
+      }
     } else {
       const openItem = iframeDocument.createElement("div");
       openItem.style.all = "unset";
@@ -453,6 +454,10 @@ async function iframePatches() {
     }
 
     removeNodeItem = addContextMenuItem("Remove element", () => {
+      if (contextData.target == document.body) {
+        window.protectedGlobals.notification("Cannot remove <body> element");
+        return;
+      }
       contextData.target.remove();
     });
     addInspectContextMenuItem();
@@ -530,7 +535,7 @@ async function iframePatches() {
 
   function getAbsoluteMousePosition(e) {
     // e is the MouseEvent in any iframe
-    const topWin = tab.iframe.contentWindow;
+    const topWin = iframe.contentWindow;
     const rect = topWin.document.body.getBoundingClientRect();
     let x = e.clientX;
     let y = e.clientY;
@@ -744,7 +749,7 @@ async function iframePatches() {
 
     // do something for this document (attach context menu, log, etc.)
     const frames = [...doc.querySelectorAll("iframe")];
-    if(argFrame) frames.push(argFrame);
+    if (argFrame) frames.push(argFrame);
     if (doc.nodeType === 1 && doc.shadowRoot) {
       recurseFrames(doc.shadowRoot, event);
     }
@@ -770,30 +775,38 @@ async function iframePatches() {
           const win = frame.contentWindow;
           const frameDoc = frame.contentDocument || win?.document;
           if (!win || !frameDoc) continue;
-          console.log("[XXXXXXXXXXXXXXX]Patching iframe:", frame.src || frame.contentWindow?.location?.href || "about:blank");
+          console.log(
+            "[XXXXXXXXXXXXXXX]Patching iframe:",
+            frame.src || frame.contentWindow?.location?.href || "about:blank",
+          );
 
-          if(frame.contentDocument.__gbCookieHookInstalled) continue;
-          console.log("Patching iframe:", frame.src || frame.contentWindow?.location?.href || "about:blank");
+          if (frame.contentDocument.__gbCookieHookInstalled) continue;
+          console.log(
+            "Patching iframe:",
+            frame.src || frame.contentWindow?.location?.href || "about:blank",
+          );
           let eggpatch = document.createElement("script");
-        eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
-        frameDoc.body.appendChild(eggpatch);
-        let tmpinterval = setInterval(() => {
-          if(!iframe.isConnected) clearInterval(tmpinterval);
-          try {
-        if (!win.eruda) {
-          const script = document.createElement("script");
-          script.src = window.browserGlobals.erudaCDN;
-          script.onload = () => {
-            win.eruda.init();
-            win.eruda.get("entryBtn").hide();
-          };
-          frameDoc.head.appendChild(script);
-        } else clearInterval(tmpinterval);
-      } catch (e) { clearInterval(tmpinterval); }
-        }, 1000);
+          eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
+          frameDoc.body.appendChild(eggpatch);
+          let tmpinterval = setInterval(() => {
+            if (!iframe.isConnected) clearInterval(tmpinterval);
+            try {
+              if (!win.eruda) {
+                const script = document.createElement("script");
+                script.src = window.browserGlobals.erudaCDN;
+                script.onload = () => {
+                  win.eruda.init();
+                  win.eruda.get("entryBtn").hide();
+                };
+                frameDoc.head.appendChild(script);
+              } else clearInterval(tmpinterval);
+            } catch (e) {
+              clearInterval(tmpinterval);
+            }
+          }, 1000);
 
-        let themeOverride = document.createElement("script");
-        themeOverride.textContent = `
+          let themeOverride = document.createElement("script");
+          themeOverride.textContent = `
           (function(){
             try{
               window.__originalMatchMedia = window.__originalMatchMedia || window.matchMedia.bind(window);
@@ -842,7 +855,7 @@ async function iframePatches() {
             }catch(e){}
           })();
           `;
-        frameDoc.body.appendChild(themeOverride);
+          frameDoc.body.appendChild(themeOverride);
           async function tmp() {
             const frameWin = frame.contentWindow;
             const frameDocCurrent = frame.contentDocument || frameWin?.document;
@@ -938,85 +951,116 @@ async function iframePatches() {
               enumerable: true,
               get: function () {
                 try {
-                  return window.browserGlobals.getCookiesForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)));
+                  console.trace("Getting cookies for site", {
+                    site: window.browserGlobals.mainWebsite(
+                      window.browserGlobals.unshuffleURL(
+                        frameWin.location.href,
+                      ),
+                    ),
+                  });
+                  return window.browserGlobals.getCookiesForSite(
+                    window.browserGlobals.mainWebsite(
+                      window.browserGlobals.unshuffleURL(
+                        frameWin.location.href,
+                      ),
+                    ),
+                  );
                 } catch (e) {
                   return "";
                 }
               },
               set: function (cookie) {
+                console.trace("[SET] Setting cookie for site", {
+                  site: window.browserGlobals.mainWebsite(
+                    window.browserGlobals.unshuffleURL(
+                      frameWin.location.href,
+                    ),
+                  ),
+                  cookie,
+                });
                 try {
-                  window.browserGlobals.setCookiesForSite(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(frameWin.location.href)), cookie);
+                  window.browserGlobals.setCookiesForSite(
+                    window.browserGlobals.mainWebsite(
+                      window.browserGlobals.unshuffleURL(
+                        frameWin.location.href,
+                      ),
+                    ),
+                    cookie,
+                  );
                 } catch (e) {}
               },
             });
 
-Object.defineProperty(frameWin, "localStorage", {
-  get() {
-    const site = window.browserGlobals.mainWebsite(
-      window.browserGlobals.unshuffleURL(frameWin.location.href)
-    );
+            Object.defineProperty(frameWin, "localStorage", {
+              get() {
+                const site = window.browserGlobals.mainWebsite(
+                  window.browserGlobals.unshuffleURL(frameWin.location.href),
+                );
 
-    if (!window.browserGlobals.localStorageStore[site]) {
-      window.browserGlobals.localStorageStore[site] = {};
-    }
+                if (!window.browserGlobals.localStorageStore[site]) {
+                  window.browserGlobals.localStorageStore[site] = {};
+                }
 
-    const store = window.browserGlobals.localStorageStore[site];
+                const store = window.browserGlobals.localStorageStore[site];
 
-    return {
-      // number of keys
-      get length() {
-        return Object.keys(store).length;
-      },
+                return {
+                  // number of keys
+                  get length() {
+                    return Object.keys(store).length;
+                  },
 
-      // get value
-      getItem(key) {
-        return store.hasOwnProperty(key) ? store[key] : null;
-      },
+                  // get value
+                  getItem(key) {
+                    return store.hasOwnProperty(key) ? store[key] : null;
+                  },
 
-      // set value
-      setItem(key, value) {
-        store[key] = String(value);
+                  // set value
+                  setItem(key, value) {
+                    store[key] = String(value);
+                    console.trace("Set localStorage item", { site, key, value });
+                    window.browserGlobals.writeFileOrdered(
+                      window.browserGlobals.localStoragePath,
+                      btoa(
+                        JSON.stringify(window.browserGlobals.localStorageStore),
+                      ),
+                    );
+                  },
 
-        window.browserGlobals.writeFileOrdered(
-          window.browserGlobals.localStoragePath,
-          btoa(JSON.stringify(window.browserGlobals.localStorageStore))
-        );
-      },
+                  // remove key
+                  removeItem(key) {
+                    delete store[key];
+                    console.trace("Removed localStorage item", { site, key });
+                    window.browserGlobals.writeFileOrdered(
+                      window.browserGlobals.localStoragePath,
+                      btoa(
+                        JSON.stringify(window.browserGlobals.localStorageStore),
+                      ),
+                    );
+                  },
 
-      // remove key
-      removeItem(key) {
-        delete store[key];
+                  // clear all keys for site
+                  clear() {
+                    window.browserGlobals.localStorageStore[site] = {};
 
-        window.browserGlobals.writeFileOrdered(
-          window.browserGlobals.localStoragePath,
-          btoa(JSON.stringify(window.browserGlobals.localStorageStore))
-        );
-      },
+                    window.browserGlobals.writeFileOrdered(
+                      window.browserGlobals.localStoragePath,
+                      btoa(
+                        JSON.stringify(window.browserGlobals.localStorageStore),
+                      ),
+                    );
+                    console.trace("Cleared localStorage for site", { site });
+                  },
 
-      // clear all keys for site
-      clear() {
-        window.browserGlobals.localStorageStore[site] = {};
-
-        window.browserGlobals.writeFileOrdered(
-          window.browserGlobals.localStoragePath,
-          btoa(JSON.stringify(window.browserGlobals.localStorageStore))
-        );
-      },
-
-      // key(index)
-      key(index) {
-        const keys = Object.keys(store);
-        return keys[index] ?? null;
-      }
-    };
-  }
-});
+                  // key(index)
+                  key(index) {
+                    const keys = Object.keys(store);
+                    return keys[index] ?? null;
+                  },
+                };
+              },
+            });
           }
           tmp();
-
-
-
-
 
           if (!win.__gbWindowSwitchForwardKeydown) {
             win.__gbWindowSwitchForwardKeydown = function (e) {
@@ -1351,10 +1395,10 @@ Object.defineProperty(frameWin, "localStorage", {
     }
   }
 
-
   // Hide the menu when clicking elsewhere
   iframeDocument.addEventListener("click", hideMenu);
   iframe.__gbPatchedDocument = iframeDocument;
-window.test = recurseFrames;
+  iframeWindow.patched = true;
+  window.test = recurseFrames;
   recurseFrames(iframeDocument, null, iframe);
 }
