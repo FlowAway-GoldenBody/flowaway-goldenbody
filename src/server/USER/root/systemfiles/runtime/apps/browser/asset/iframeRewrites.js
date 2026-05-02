@@ -177,7 +177,10 @@ async function iframePatches() {
   menu.style.position = "fixed";
   menu.style.background = "#222";
   menu.style.color = "#fff";
-  menu.style.minWidth = "15vw";
+  menu.style.minWidth = "200px";
+  menu.style.maxWidth = "500px";
+  menu.style.minHeight = "140px";
+  menu.style.maxHeight = "400px";
   menu.style.padding = "8px 0";
   menu.style.borderRadius = "6px";
   menu.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
@@ -185,6 +188,7 @@ async function iframePatches() {
   menu.style.fontSize = "14px";
   menu.style.display = "none";
   menu.style.zIndex = "2147483646"; // maximum z-index to ensure it appears on top
+  menu.style.transform = "scale(1)";
   iframeDocument.body.appendChild(menu);
 
   // window.addEventListener("pointerdown", function () {
@@ -454,34 +458,44 @@ async function iframePatches() {
     }
 
     removeNodeItem = addContextMenuItem("Remove element", () => {
-      if (contextData.target == document.body) {
+      if (contextData.target == iframeDocument.body) {
         window.protectedGlobals.notification("Cannot remove <body> element");
         return;
       }
       contextData.target.remove();
     });
     addInspectContextMenuItem();
+    
     // Temporarily show the menu off-screen to measure its size
     menu.style.left = "-9999px";
     menu.style.top = "-9999px";
     menu.style.display = "block";
     const menuRect = menu.getBoundingClientRect();
 
+    // Get current zoom level
+    const zoom = iframeWindow.visualViewport?.scale || 1;
+
     // Determine iframe/document boundaries
     const viewportWidth = iframeDocument.documentElement.clientWidth;
     const viewportHeight = iframeDocument.documentElement.clientHeight;
 
-    let finalX = x;
-    let finalY = y;
+    // Adjust coordinates and measurements for zoom
+    const adjustedX = x / zoom;
+    const adjustedY = y / zoom;
+    const adjustedMenuWidth = menuRect.width / zoom;
+    const adjustedMenuHeight = menuRect.height / zoom;
+
+    let finalX = adjustedX;
+    let finalY = adjustedY;
 
     // Flip horizontally if the menu would go off the right edge
-    if (x + menuRect.width > viewportWidth) {
-      finalX = x - menuRect.width;
+    if (adjustedX + adjustedMenuWidth > viewportWidth) {
+      finalX = adjustedX - adjustedMenuWidth;
     }
 
     // Flip vertically if the menu would go off the bottom edge
-    if (y + menuRect.height > viewportHeight) {
-      finalY = y - menuRect.height;
+    if (adjustedY + adjustedMenuHeight > viewportHeight) {
+      finalY = adjustedY - adjustedMenuHeight;
     }
 
     // Apply final position
