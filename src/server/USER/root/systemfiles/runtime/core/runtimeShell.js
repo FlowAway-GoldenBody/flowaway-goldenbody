@@ -496,10 +496,6 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
     var top = candidates[candidates.length - 1];
     if (top) {
       try {
-        top.remove();
-      } catch (e) {}
-
-      try {
         var appObj = (window.protectedGlobals.apps || []).find(function (a) {
           return window.protectedGlobals.appMatchesIdentifier(a, targetAppId);
         });
@@ -533,6 +529,7 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
                   instRoot === top ||
                   (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
                 ) {
+                  arr[i].closeWindow();
                   arr.splice(i, 1);
                 }
               }

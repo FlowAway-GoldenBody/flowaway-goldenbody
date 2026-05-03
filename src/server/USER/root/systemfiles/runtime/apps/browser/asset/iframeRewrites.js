@@ -885,14 +885,7 @@ async function iframePatches() {
             }
             // override window.open
             frameWin.open = function (url, location) {
-              let w = frameWin;
-
-              while (w.parent !== w.top) {
-                w = w.parent;
-              }
-
-              const layer1Window = w;
-              const layer1Iframe = w.frameElement;
+              const layer1Iframe = iframe.contentWindow.frameElement;
               let allbrowserindex = 0;
               // console.log(layer1Iframe); // ✅ the first iframe under the main page
               for (
@@ -911,11 +904,11 @@ async function iframePatches() {
               if (url == "") url = "about:blank";
               console.log(url);
               if (!url.startsWith("http") && !url.startsWith("about:")) {
-                if (document.getElementsByTagName("base").length > 0) {
+                if (frameWin.document.getElementsByTagName("base").length > 0) {
                   url =
                     window.browserGlobals
                       .mainWebsite(
-                        document.getElementsByTagName("base")[0].href,
+                        frameWin.document.getElementsByTagName("base")[0].href,
                       )
                       .slice(0, -1) + url;
                 } else if (!url.startsWith("http")) {
@@ -923,7 +916,7 @@ async function iframePatches() {
                     window.browserGlobals
                       .mainWebsite(
                         window.browserGlobals.unshuffleURL(
-                          window.location.href,
+                          frameWin.location.href,
                         ),
                       )
                       .slice(0, -1) + url;
@@ -932,7 +925,7 @@ async function iframePatches() {
                     window.browserGlobals
                       .mainWebsite(
                         window.browserGlobals.unshuffleURL(
-                          window.location.href,
+                          frameWin.location.href,
                         ),
                       )
                       .slice(0, -1) + url;
@@ -947,7 +940,7 @@ async function iframePatches() {
                 return window.browserGlobals.__globalAddTab(
                   url,
                   allbrowserindex,
-                  window,
+                  frameWin,
                 );
               } else if (location === "_top") {
                 frameWin.location = url;
@@ -955,7 +948,7 @@ async function iframePatches() {
                 return window.browserGlobals.__globalAddTab(
                   url,
                   allbrowserindex,
-                  window,
+                  frameWin,
                 );
               }
             };
