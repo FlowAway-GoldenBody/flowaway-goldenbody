@@ -842,8 +842,7 @@ var getStringAfterChar = window.protectedGlobals.getStringAfterChar = function g
 }
 
 // Global window.protectedGlobals.notification helper: call window.protectedGlobals.notification("message") to show a temporary toast for 3s
-var notification = window.protectedGlobals.notification = function(message, options) {
-  try {
+window.protectedGlobals.notification = function(message, options) {
     if (!message && message !== 0) return;
     options = options || {};
 
@@ -878,107 +877,11 @@ var notification = window.protectedGlobals.notification = function(message, opti
       }
     }
 
-    // Prefer the unified in-UI message system if available
-    if (typeof window.protectedGlobals.showModal === "function") {
       try {
         window.protectedGlobals.showModal("Notification", String(message), options.level || "info");
         return null;
       } catch (e) {}
-    }
-
-    // Fallback inline toast with theme-aware styling
-    var container = document.getElementById("global-window.protectedGlobals.notifications");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "global-window.protectedGlobals.notifications";
-      Object.assign(container.style, {
-        position: "fixed",
-        right: "20px",
-        bottom: "20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        zIndex: 9999999,
-        pointerEvents: "none",
-      });
-      document.body.appendChild(container);
-    }
-
-    var toast = document.createElement("div");
-    toast.textContent = String(message);
-
-    // determine colors
-    var bg = 'rgba(0,0,0,0.8)';
-    var color = 'white';
-    if (theme === 'light' || theme === 'default') {
-      bg = 'white';
-      color = '#111';
-    } else if (theme === 'dark') {
-      bg = 'rgba(0,0,0,0.85)';
-      color = 'white';
-    } else {
-      try {
-        var cs = getComputedStyle(document.documentElement || document.body);
-        var varBg = cs.getPropertyValue('--window.protectedGlobals.notification-bg') || cs.getPropertyValue('--bg');
-        var varColor = cs.getPropertyValue('--window.protectedGlobals.notification-color') || cs.getPropertyValue('--fg');
-        if (varBg) bg = varBg.trim();
-        if (varColor) color = varColor.trim();
-      } catch (e) {}
-    }
-
-    Object.assign(toast.style, {
-      background: bg,
-      color: color,
-      padding: "8px 12px",
-      borderRadius: "8px",
-      maxWidth: "320px",
-      boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
-      opacity: "0",
-      transform: "translateY(6px)",
-      transition: "opacity 220ms ease, transform 220ms ease",
-      pointerEvents: "auto",
-      fontSize: "13px",
-      lineHeight: "1.2",
-      borderLeft: "4px solid transparent",
-    });
-
-    // accent by level
-    var level = (options.level || 'info').toLowerCase();
-    if (level === 'warn' || level === 'warning') {
-      toast.style.borderLeft = '4px solid #f1c40f';
-    } else if (level === 'error' || level === 'danger') {
-      toast.style.borderLeft = '4px solid #e74c3c';
-    } else if (level === 'success') {
-      toast.style.borderLeft = '4px solid #2ecc71';
-    }
-
-    container.appendChild(toast);
-
-    // Force layout then animate in
-    requestAnimationFrame(() => {
-      toast.style.opacity = "1";
-      toast.style.transform = "translateY(0)";
-    });
-
-    // Remove after duration
-    var dismissMs = typeof options.duration === 'number' ? options.duration : 3000;
-    setTimeout(() => {
-      toast.style.opacity = "0";
-      toast.style.transform = "translateY(6px)";
-      setTimeout(() => {
-        try {
-          toast.remove();
-        } catch (e) {}
-        if (container && container.children.length === 0) {
-          try { container.remove(); } catch (e) {}
-        }
-      }, 260);
-    }, dismissMs);
-    return toast;
-  } catch (e) {
-    console.error("notify error", e);
   }
-}
 var style = window.protectedGlobals.style = document.createElement("style");
 style.textContent = `
 

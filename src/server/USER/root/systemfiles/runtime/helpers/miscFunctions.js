@@ -320,6 +320,7 @@ window.protectedGlobals.showModal = function(title, body, level) {
     border: border,
     background: level === "error" ? errorBg : baseBg,
     color: fg,
+    minWidth: "300px",
     boxShadow: isDark ? "0 8px 28px rgba(0,0,0,0.35)" : "0 8px 28px rgba(0,0,0,0.18)",
     fontFamily: "sans-serif",
     fontSize: "13px",
