@@ -50,7 +50,7 @@ var attachNavigationArm = () => {
       "beforeunload",
       () => {
         iframe.__gbPatchedDocument = null;
-        startIframePatchWatcher(5000);
+        startIframePatchWatcher(2000);
       },
       { once: true },
     );
@@ -179,7 +179,7 @@ async function iframePatches() {
   menu.style.color = "#fff";
   menu.style.minWidth = "200px";
   menu.style.maxWidth = "500px";
-  menu.style.minHeight = "140px";
+  menu.style.minHeight = "120px";
   menu.style.maxHeight = "400px";
   menu.style.padding = "8px 0";
   menu.style.borderRadius = "6px";
@@ -958,13 +958,6 @@ async function iframePatches() {
               enumerable: true,
               get: function () {
                 try {
-                  console.trace("Getting cookies for site", {
-                    site: window.browserGlobals.mainWebsite(
-                      window.browserGlobals.unshuffleURL(
-                        frameWin.location.href,
-                      ),
-                    ),
-                  });
                   return window.browserGlobals.getCookiesForSite(
                     window.browserGlobals.mainWebsite(
                       window.browserGlobals.unshuffleURL(
@@ -977,14 +970,6 @@ async function iframePatches() {
                 }
               },
               set: function (cookie) {
-                console.trace("[SET] Setting cookie for site", {
-                  site: window.browserGlobals.mainWebsite(
-                    window.browserGlobals.unshuffleURL(
-                      frameWin.location.href,
-                    ),
-                  ),
-                  cookie,
-                });
                 try {
                   window.browserGlobals.setCookiesForSite(
                     window.browserGlobals.mainWebsite(
@@ -1024,7 +1009,6 @@ async function iframePatches() {
                   // set value
                   setItem(key, value) {
                     store[key] = String(value);
-                    console.trace("Set localStorage item", { site, key, value });
                     window.browserGlobals.writeFileOrdered(
                       window.browserGlobals.localStoragePath,
                       btoa(
@@ -1036,7 +1020,6 @@ async function iframePatches() {
                   // remove key
                   removeItem(key) {
                     delete store[key];
-                    console.trace("Removed localStorage item", { site, key });
                     window.browserGlobals.writeFileOrdered(
                       window.browserGlobals.localStoragePath,
                       btoa(
@@ -1055,7 +1038,6 @@ async function iframePatches() {
                         JSON.stringify(window.browserGlobals.localStorageStore),
                       ),
                     );
-                    console.trace("Cleared localStorage for site", { site });
                   },
 
                   // key(index)

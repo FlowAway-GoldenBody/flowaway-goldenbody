@@ -951,12 +951,10 @@ window.browserGlobals.writeFileOrdered = function (...args) {
   });
 };
 window.browserGlobals.processNextWrite = async function () {
-  const job = window.browserGlobals._writeQueue.shift();
+  if (window.browserGlobals._writing) return;
 
-  if (!job) {
-    window.browserGlobals._writing = false;
-    return;
-  }
+  const job = window.browserGlobals._writeQueue.shift();
+  if (!job) return;
 
   window.browserGlobals._writing = true;
 
@@ -967,8 +965,10 @@ window.browserGlobals.processNextWrite = async function () {
     job.reject(err);
   }
 
+  console.log("Finished write job, processing next if available... \n\n\n\n");
+  window.browserGlobals._writing = false;
   window.browserGlobals.processNextWrite();
-}
+};
 window.browserGlobals.clearAllCookies = async function () {
   window.browserGlobals.cookies = {};
   await window.browserGlobals.writeFileOrdered(

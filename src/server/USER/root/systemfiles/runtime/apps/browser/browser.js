@@ -569,7 +569,6 @@ window.browser = function (
     posY = 0;
   }
   window.protectedGlobals.atTop = "browser";
-  let windowTitleInterval;
   const chromeWindow = (function createChromeLikeUI() {
     // --- Create root container ---
     var root = document.createElement("div");
@@ -1012,12 +1011,6 @@ window.browser = function (
         if (renderInterval) {
           clearInterval(renderInterval);
           renderInterval = null;
-        }
-      } catch (e) {}
-      try {
-        if (windowTitleInterval) {
-          clearInterval(windowTitleInterval);
-          windowTitleInterval = null;
         }
       } catch (e) {}
 
@@ -2343,6 +2336,7 @@ window.browser = function (
               ) ||
               "Untitled";
             tab.title = docTitle;
+            chromeWindow.title = tab.title;
           } else {
             tab.title = "Loading...";
           }
@@ -2656,6 +2650,7 @@ window.browser = function (
       const tab = tabs.find((t) => t.id === id);
       if (!tab) return;
       tab.iframe.focus();
+      activatedTab = tab;
       // Hide all iframes, show only active
       tabs.forEach((t) => (t.iframe.style.display = "none"));
       tab.iframe.style.display = "block";
@@ -2711,6 +2706,7 @@ window.browser = function (
           clearInterval(checkInterval);
         }
         try {
+          title = tab.iframe.contentDocument.title || "Untitled";
           const currentUrl = browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
@@ -2738,7 +2734,6 @@ window.browser = function (
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";
-          activatedTab = tab;
           if (tab.iframe.contentDocument.readyState !== "complete") {
             setAddressButtonIcon(reloadBtn, "stop_loading");
             reloadBtn.dataset.mode = "stop";

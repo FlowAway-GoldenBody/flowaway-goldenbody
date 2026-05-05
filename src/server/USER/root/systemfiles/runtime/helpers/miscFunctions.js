@@ -640,7 +640,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   const barrier = document.createElement("hr");
   menu.appendChild(barrier);
 
-  const instances = window.protectedGlobals.getAppInstances(app);
+  const instances = window[app.globalvarobjectstring][app.allapparraystring];
   if (instances.length === 0) {
     const item = document.createElement("div");
     item.textContent = "No open windows";
