@@ -995,6 +995,21 @@ async function iframePatches() {
 
                 const store = window.browserGlobals.localStorageStore[site];
 
+                const scheduleWrite = () => {
+                  return window.browserGlobals.scheduleThrottledWrite(
+                    "localStorage",
+                    1000,
+                    function () {
+                      return window.browserGlobals.writeFileOrdered(
+                        window.browserGlobals.localStoragePath,
+                        btoa(
+                          JSON.stringify(window.browserGlobals.localStorageStore),
+                        ),
+                      );
+                    },
+                  );
+                };
+
                 return {
                   // number of keys
                   get length() {
@@ -1009,35 +1024,19 @@ async function iframePatches() {
                   // set value
                   setItem(key, value) {
                     store[key] = String(value);
-                    window.browserGlobals.writeFileOrdered(
-                      window.browserGlobals.localStoragePath,
-                      btoa(
-                        JSON.stringify(window.browserGlobals.localStorageStore),
-                      ),
-                    );
+                    scheduleWrite();
                   },
 
                   // remove key
                   removeItem(key) {
                     delete store[key];
-                    window.browserGlobals.writeFileOrdered(
-                      window.browserGlobals.localStoragePath,
-                      btoa(
-                        JSON.stringify(window.browserGlobals.localStorageStore),
-                      ),
-                    );
+                    scheduleWrite();
                   },
 
                   // clear all keys for site
                   clear() {
                     window.browserGlobals.localStorageStore[site] = {};
-
-                    window.browserGlobals.writeFileOrdered(
-                      window.browserGlobals.localStoragePath,
-                      btoa(
-                        JSON.stringify(window.browserGlobals.localStorageStore),
-                      ),
-                    );
+                    scheduleWrite();
                   },
 
                   // key(index)

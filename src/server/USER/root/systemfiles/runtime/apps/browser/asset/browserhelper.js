@@ -1,5 +1,9 @@
 window.browserGlobals._writeQueue = [];
 window.browserGlobals._writing = false;
+window.browserGlobals._lastWriteTime = 0;
+window.browserGlobals._writeTimeout = null;
+window.browserGlobals._WRITE_COOLDOWN = 1000; // 1 second cooldown between writes
+window.browserGlobals._throttledWriteStates = {};
 window.browserGlobals.erudaCDN = "https://cdn.jsdelivr.net/npm/eruda";
 window.browserGlobals.browserCss = `
  .sim-url-input { flex:1; height:32px; border-radius:6px; border:1px solid rgba(0,0,0,0.12); padding:0 10px; font-size:14px; }
@@ -304,6 +308,84 @@ window.browserGlobals.decodeMaybeBase64 = function (raw) {
 
 window.browserGlobals.sleep = function (ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+window.browserGlobals.flushThrottledWrite = function (
+  key,
+  cooldownMs,
+  writeFn,
+) {
+  const state = window.browserGlobals._throttledWriteStates[key];
+  if (!state || state.writing || !state.pending) {
+    return Promise.resolve(false);
+  }
+
+  state.writing = true;
+  state.pending = false;
+  state.timer = null;
+  state.lastWriteTime = Date.now();
+
+  return Promise.resolve()
+    .then(() => writeFn())
+    .finally(() => {
+      state.writing = false;
+
+      if (state.pending) {
+        const elapsed = Date.now() - state.lastWriteTime;
+        const delay = Math.max(0, cooldownMs - elapsed);
+
+        if (state.timer) {
+          clearTimeout(state.timer);
+        }
+
+        state.timer = setTimeout(() => {
+          window.browserGlobals.flushThrottledWrite(
+            key,
+            cooldownMs,
+            writeFn,
+          );
+        }, delay);
+      }
+    });
+};
+
+window.browserGlobals.scheduleThrottledWrite = function (
+  key,
+  cooldownMs,
+  writeFn,
+) {
+  if (!window.browserGlobals._throttledWriteStates[key]) {
+    window.browserGlobals._throttledWriteStates[key] = {
+      pending: false,
+      writing: false,
+      timer: null,
+      lastWriteTime: 0,
+    };
+  }
+
+  const state = window.browserGlobals._throttledWriteStates[key];
+  state.pending = true;
+
+  if (state.writing || state.timer) {
+    return Promise.resolve(true);
+  }
+
+  const elapsed = Date.now() - state.lastWriteTime;
+  const delay = Math.max(0, cooldownMs - elapsed);
+
+  if (delay === 0) {
+    return window.browserGlobals.flushThrottledWrite(
+      key,
+      cooldownMs,
+      writeFn,
+    );
+  }
+
+  state.timer = setTimeout(() => {
+    window.browserGlobals.flushThrottledWrite(key, cooldownMs, writeFn);
+  }, delay);
+
+  return Promise.resolve(true);
 };
 
 window.browserGlobals.allocateBrowserGoldenbodyId = function () {
@@ -847,9 +929,15 @@ for (const [key, value] of Object.entries(storagecookies)) {
   }
 }
 
-  return window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.cookiesPath,
-    btoa(JSON.stringify(cookies))
+  return window.browserGlobals.scheduleThrottledWrite(
+    "cookies",
+    1000,
+    function () {
+      return window.browserGlobals.writeFileOrdered(
+        window.browserGlobals.cookiesPath,
+        btoa(JSON.stringify(cookies)),
+      );
+    },
   );
 };
 
@@ -890,9 +978,15 @@ window.browserGlobals.setLocalStorageForSite = function (site, dataObject) {
     store[site][key] = value;
   }
 
-  return window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.localStoragePath,
-    btoa(JSON.stringify(store))
+  return window.browserGlobals.scheduleThrottledWrite(
+    "localStorage",
+    1000,
+    function () {
+      return window.browserGlobals.writeFileOrdered(
+        window.browserGlobals.localStoragePath,
+        btoa(JSON.stringify(store)),
+      );
+    },
   );
 };
 window.browserGlobals.removeLocalStorageItem = function (site, key) {
@@ -902,9 +996,15 @@ window.browserGlobals.removeLocalStorageItem = function (site, key) {
 
   delete store[site][key];
 
-  return window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.localStoragePath,
-    btoa(JSON.stringify(window.browserGlobals.localStorageStore))
+  return window.browserGlobals.scheduleThrottledWrite(
+    "localStorage",
+    1000,
+    function () {
+      return window.browserGlobals.writeFileOrdered(
+        window.browserGlobals.localStoragePath,
+        btoa(JSON.stringify(window.browserGlobals.localStorageStore)),
+      );
+    },
   );
 };
 window.browserGlobals.clearCookiesForSite = function (url) {
@@ -918,9 +1018,15 @@ window.browserGlobals.clearCookiesForSite = function (url) {
 
   window.browserGlobals.cookies[site] = {};
 
-  return window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.cookiesPath,
-    btoa(JSON.stringify(window.browserGlobals.cookies))
+  return window.browserGlobals.scheduleThrottledWrite(
+    "cookies",
+    1000,
+    function () {
+      return window.browserGlobals.writeFileOrdered(
+        window.browserGlobals.cookiesPath,
+        btoa(JSON.stringify(window.browserGlobals.cookies)),
+      );
+    },
   );
 };
 window.browserGlobals.clearLocalStorageForSite = function (url) {
@@ -934,9 +1040,15 @@ window.browserGlobals.clearLocalStorageForSite = function (url) {
 
   window.browserGlobals.localStorageStore[site] = {};
 
-  return window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.localStoragePath,
-    btoa(JSON.stringify(window.browserGlobals.localStorageStore))
+  return window.browserGlobals.scheduleThrottledWrite(
+    "localStorage",
+    1000,
+    function () {
+      return window.browserGlobals.writeFileOrdered(
+        window.browserGlobals.localStoragePath,
+        btoa(JSON.stringify(window.browserGlobals.localStorageStore)),
+      );
+    },
   );
 };
 
