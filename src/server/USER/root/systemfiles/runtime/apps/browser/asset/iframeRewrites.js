@@ -799,6 +799,11 @@ async function iframePatches() {
             "Patching iframe:",
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
+          frame.contentWindow.addEventListener("keydown", function (e) {
+            if (frame.contentDocument.pointerLockElement && e.key === "Escape") {
+            frame.contentDocument.exitPointerLock();
+            }
+          });
           let eggpatch = document.createElement("script");
           eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
           frameDoc.body.appendChild(eggpatch);
