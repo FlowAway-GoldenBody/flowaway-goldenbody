@@ -710,7 +710,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   let historyIndex = -1;
 
   function cwdDisplayPath() {
-    return cwdRelPath ? `~/${cwdRelPath}` : "~";
+    return cwdRelPath ? `~/...${cwdRelPath.split('/').slice(-1)[0]}` : "~";
   }
 
   function updatePrompt() {
@@ -1132,7 +1132,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
     }
 
     if (command === "pwd") {
-      writeLine(cwdDisplayPath());
+      writeLine(cwdRelPath);
       return;
     }
 
