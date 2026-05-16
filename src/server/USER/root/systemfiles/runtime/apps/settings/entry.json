@@ -3,6 +3,7 @@
   "label": "Settings",
   "globalvarobjectstring": "settingsGlobals",
   "allapparraystring": "allSettings",
+  "usejs": true,
   "jsFile": "settings.js",
   "iconFile": "icon.txt",
   "openfilecapability": []

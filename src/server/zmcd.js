@@ -22,6 +22,7 @@ const fsp = require('fs/promises');
 const PROFILE_SCHEMA_VERSION = 1;
 const USER_TEMPLATE_PATH = path.join(__dirname, 'USER', 'root');
 const START_MENU_SOURCE_PATH = path.join(USER_TEMPLATE_PATH, 'systemfiles', 'userprofile', 'startMenu-config.json');
+const APP_INTEGRITY_KEY = '-masterappkeyfor42systemintegrity';
 
 function normalizeMaxSpaceGb(value) {
   const n = Number(value);
@@ -226,6 +227,15 @@ function ensureStartMenuConfig(userPaths) {
   writeJsonPretty(userPaths.startMenuPath, defaultStartMenuConfig());
 }
 
+function ensureAppIntegrityKey(userPaths) {
+  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
+  const keyPath = path.join(userPaths.userProfileDir, 'jsApiKey.txt');
+  if (!fs.existsSync(keyPath)) {
+    const randomKey = crypto.randomBytes(16).toString('hex');
+    fs.writeFileSync(keyPath, randomKey);
+  }
+}
+
 function ensureRuntimeFiles(userPaths) {
   fs.mkdirSync(userPaths.userRoot, { recursive: true });
   fs.mkdirSync(userPaths.systemfilesDir, { recursive: true });
@@ -249,6 +259,24 @@ function ensureRuntimeFiles(userPaths) {
 
   copyIfNotExists(runtimeSourceDir, userPaths.systemfilesDir);
   ensureStartMenuConfig(userPaths);
+  ensureAppIntegrityKey(userPaths);
+}
+
+function syncAppKeysToUserKey(userPaths) {
+  const keyPath = path.join(userPaths.userProfileDir, 'jsApiKey.txt');
+  if (!fs.existsSync(keyPath)) return;
+  
+  const userKey = fs.readFileSync(keyPath, 'utf8');
+  const appsDir = path.join(userPaths.systemfilesDir, 'runtime', 'apps');
+  
+  if (!fs.existsSync(appsDir)) return;
+  
+  const appFolders = fs.readdirSync(appsDir, { withFileTypes: true });
+  for (const folder of appFolders) {
+    if (!folder.isDirectory() || folder.name.startsWith('.')) continue;
+    const appKeyPath = path.join(appsDir, folder.name, 'jsKey.txt');
+    fs.writeFileSync(appKeyPath, userKey);
+  }
 }
 
 function ensureUserProfile(userPaths, rawUserRecord = null) {
@@ -263,6 +291,7 @@ function ensureUserProfile(userPaths, rawUserRecord = null) {
 
   writeJsonPretty(userPaths.profilePath, profile);
   ensureStartMenuConfig(userPaths);
+  ensureAppIntegrityKey(userPaths);
   return profile;
 }
 
@@ -400,6 +429,7 @@ function handleZMCd(req, res) {
           const token = issueToken(authRecord);
           writeAuthRecord(userPaths, authRecord);
           const profile = ensureUserProfile(userPaths, null);
+          syncAppKeysToUserKey(userPaths);
           responseContent = buildLoginResponse(authRecord, profile, token);
         }
       } else {

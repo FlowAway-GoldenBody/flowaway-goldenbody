@@ -3,6 +3,7 @@
   "label": "Eval JS",
   "globalvarobjectstring": "evalJsAppGlobals",
   "allapparraystring": "allEvalJsAppInstances",
+  "usejs": true,
   "jsFile": "eval-js.js",
   "openfilecapability": [".smh"]
 }
