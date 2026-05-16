@@ -3,6 +3,7 @@
   "label": "Text Editor",
   "globalvarobjectstring": "textEditorGlobals",
   "allapparraystring": "allTextEditors",
+  "usejs": true,
   "jsFile": "textEditor.js",
   "iconFile": "icon.txt",
   "openfilecapability": [

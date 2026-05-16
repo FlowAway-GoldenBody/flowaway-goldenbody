@@ -3,6 +3,7 @@
   "label": "Browser",
   "globalvarobjectstring": "browserGlobals",
   "allapparraystring": "allBrowsers",
+  "usejs": true,
   "jsFile": "browser.js",
   "iconFile": "icon.txt",
   "openfilecapability": [

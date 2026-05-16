@@ -3,6 +3,7 @@
   "label": "Your App",
   "globalvarobjectstring": "yourAppGlobals",
   "allapparraystring": "allYourAppInstances",
+  "usejs": true,
   "jsFile": "apptemplate.js",
   "iconFile": "icon.txt",
   "openfilecapability": [],

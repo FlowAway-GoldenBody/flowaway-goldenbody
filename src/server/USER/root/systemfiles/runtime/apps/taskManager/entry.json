@@ -2,6 +2,7 @@
   "functionname": "taskManager",
   "label": "Task Manager",
   "globalvarobjectstring": "taskManagerGlobals",
+  "usejs": true,
   "jsFile": "taskManager.js",
   "iconFile": "icon.txt",
   "allapparraystring": "allTaskManagers",
