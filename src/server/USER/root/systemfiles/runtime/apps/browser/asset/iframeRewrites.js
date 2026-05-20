@@ -698,7 +698,7 @@ async function iframePatches() {
       watchFrame(node, parentRoot);
     }
 
-    if (typeof node.querySelectorAll === "function") {
+    if ((node.querySelectorAll)) {
       const nestedFrames = node.querySelectorAll("iframe");
       for (const nestedFrame of nestedFrames) {
         watchFrame(nestedFrame, parentRoot);
@@ -767,7 +767,7 @@ async function iframePatches() {
     if (doc.nodeType === 1 && doc.shadowRoot) {
       recurseFrames(doc.shadowRoot, event);
     }
-    if (typeof doc.querySelectorAll === "function") {
+    if ((doc.querySelectorAll)) {
       const hosts = doc.querySelectorAll("*");
       for (const host of hosts) {
         if (host && host.shadowRoot) {
@@ -845,9 +845,9 @@ async function iframePatches() {
                 var obj = {
                   media: '(prefers-color-scheme: dark)',
                   matches: !!matches,
-                  addListener: function(cb){ if(typeof cb==='function') listeners.push(cb); },
+                  addListener: function(cb){ if((cb)) listeners.push(cb); },
                   removeListener: function(cb){ listeners = listeners.filter(function(l){return l!==cb}); },
-                  addEventListener: function(ev, cb){ if(ev==='change' && typeof cb==='function') listeners.push(cb); },
+                  addEventListener: function(ev, cb){ if(ev==='change' && (cb)) listeners.push(cb); },
                   removeEventListener: function(ev, cb){ if(ev==='change') listeners = listeners.filter(function(l){return l!==cb}); },
                   dispatchEvent: function(e){ listeners.forEach(function(cb){try{cb(e);}catch(e){}}); return true; }
                 };
@@ -1067,7 +1067,7 @@ async function iframePatches() {
                 ((key === "arrowleft" || key === "arrowright") && !!e.altKey);
               if (isCtrlLike && isBrowserShortcutKey) {
                 e.preventDefault();
-                if (typeof e.stopPropagation === "function") {
+                if ((e.stopPropagation)) {
                   e.stopPropagation();
                 }
                 try {
@@ -1101,7 +1101,7 @@ async function iframePatches() {
                 var dispatchCtrl = e.ctrlKey || switcherMode === "Ctrl";
                 var handledDirectly = false;
                 try {
-                  if (typeof window.cycleWindowFocus === "function") {
+                  if ((window.cycleWindowFocus)) {
                     handledDirectly =
                       window.cycleWindowFocus(
                         !!e.shiftKey,
@@ -1131,8 +1131,8 @@ async function iframePatches() {
               if (e.key !== "Alt" && e.key !== "Control") return;
               try {
                 if (
-                  typeof window.commitWindowSwitchTarget === "function" &&
-                  typeof window.resetWindowSwitchState === "function"
+                  (window.commitWindowSwitchTarget) &&
+                  (window.resetWindowSwitchState)
                 ) {
                   window.commitWindowSwitchTarget();
                   window.resetWindowSwitchState();

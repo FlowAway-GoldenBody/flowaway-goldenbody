@@ -197,14 +197,14 @@ taskManager = function (posX = 50, posY = 50) {
     );
     if (index !== -1) taskManagerGlobals.allTaskManagers.splice(index, 1);
 
-    if (typeof window.protectedGlobals.removeAllEventListenersForApp === "function") {
+    if ((window.protectedGlobals.removeAllEventListenersForApp)) {
       window.protectedGlobals.removeAllEventListenersForApp(scopedListenerName);
     }
   }
 
   function closeAll() {
     for (const instance of [...taskManagerGlobals.allTaskManagers]) {
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
@@ -213,7 +213,7 @@ taskManager = function (posX = 50, posY = 50) {
 
   function hideAll() {
     for (const instance of taskManagerGlobals.allTaskManagers) {
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
@@ -224,7 +224,7 @@ taskManager = function (posX = 50, posY = 50) {
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
     for (const instance of taskManagerGlobals.allTaskManagers) {
-      if (instance && typeof instance.showWindow === "function") {
+      if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
     }
@@ -918,7 +918,7 @@ taskManager = function (posX = 50, posY = 50) {
   }
 
   function loadSnapshot() {
-    if (typeof window.protectedGlobals.getTaskManagerSnapshot !== "function") {
+    if (!(window.protectedGlobals.getTaskManagerSnapshot)) {
       return { unavailable: true, rows: [], summary: summarizeRows(null, []) };
     }
 
@@ -1014,7 +1014,7 @@ taskManager = function (posX = 50, posY = 50) {
 
     if (!appMeta) return [];
 
-    if (typeof window.protectedGlobals.getAppInstances === "function") {
+    if ((window.protectedGlobals.getAppInstances)) {
       const list = window.protectedGlobals.getAppInstances(appMeta);
       if (Array.isArray(list)) return list.slice();
     }
@@ -1068,7 +1068,7 @@ taskManager = function (posX = 50, posY = 50) {
       } catch (e) {}
     }
 
-    if (removedRoots.length && typeof window.protectedGlobals.removeAllEventListenersForApp === "function") {
+    if (removedRoots.length && (window.protectedGlobals.removeAllEventListenersForApp)) {
       for (let r = 0; r < removedRoots.length; r++) {
         const gid =
           removedRoots[r] &&
@@ -1118,21 +1118,21 @@ taskManager = function (posX = 50, posY = 50) {
   function closeOneInstance(instance, appMeta, row) {
     if (!instance || typeof instance !== "object") return false;
 
-    if (typeof instance.closeWindow === "function") {
+    if ((instance.closeWindow)) {
       try {
         instance.closeWindow();
         return true;
       } catch (e) {}
     }
 
-    if (typeof instance.close === "function") {
+    if ((instance.close)) {
       try {
         instance.close();
         return true;
       } catch (e) {}
     }
 
-    if (instance.rootElement && typeof instance.rootElement.remove === "function") {
+    if (instance.rootElement && (instance.rootElement.remove)) {
       try {
         instance.rootElement.remove();
       } catch (e) {}
@@ -1145,7 +1145,7 @@ taskManager = function (posX = 50, posY = 50) {
       if (
         base &&
         (gid || gid === 0) &&
-        typeof window.protectedGlobals.removeAllEventListenersForApp === "function"
+        (window.protectedGlobals.removeAllEventListenersForApp)
       ) {
         try {
           window.protectedGlobals.removeAllEventListenersForApp(String(base) + String(gid));
@@ -1229,12 +1229,12 @@ taskManager = function (posX = 50, posY = 50) {
     try {
       if (
         window.protectedGlobals.FlowawayProcess &&
-        typeof window.protectedGlobals.FlowawayProcess.terminate === "function" &&
+        (window.protectedGlobals.FlowawayProcess.terminate) &&
         targetPid
       ) {
         terminatedByProcessApi = !!window.protectedGlobals.FlowawayProcess.terminate(targetPid, "task-manager-kill");
       } else if (
-        typeof window.protectedGlobals.killProcess === "function" &&
+        (window.protectedGlobals.killProcess) &&
         targetPid
       ) {
         terminatedByProcessApi = !!window.protectedGlobals.killProcess(targetPid, "task-manager-kill");
@@ -1286,7 +1286,7 @@ taskManager = function (posX = 50, posY = 50) {
       } catch (e) {}
     }
 
-    if (typeof window.protectedGlobals.removeAllEventListenersForApp === "function") {
+    if ((window.protectedGlobals.removeAllEventListenersForApp)) {
       const prefixes = [
         row.appId,
         row.functionname,

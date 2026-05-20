@@ -416,7 +416,7 @@ window.browserGlobals.readProfileTextFileMeta = async function (
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      if (typeof window.protectedGlobals.ReadFile === "function") {
+      if ((window.protectedGlobals.ReadFile)) {
         const res = await window.protectedGlobals.ReadFile(filePath);
         if (
           !res ||
@@ -448,7 +448,7 @@ window.browserGlobals.readProfileTextFileMeta = async function (
         return { text: "", missing: false, error: null };
       }
 
-      if (typeof readFile === "function") {
+      if ((readFile)) {
         const value = readFile(filePath);
         return {
           text: window.browserGlobals.decodeMaybeBase64(value),
@@ -583,14 +583,14 @@ window.browserGlobals.writeBrowserProfile = async function (
     }
   }
   const content = btoa(JSON.stringify(payload, null, 2));
-  if (typeof window.protectedGlobals.WriteFile === "function") {
+  if ((window.protectedGlobals.WriteFile)) {
     await window.protectedGlobals.WriteFile(
       window.browserGlobals.profileSettingsPath,
       content,
     );
     return true;
   }
-  if (typeof window.protectedGlobals.filePost === "function") {
+  if ((window.protectedGlobals.filePost)) {
     await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
@@ -610,14 +610,14 @@ window.browserGlobals.writeBrowserProfile = async function (
 
 window.browserGlobals.writeBrowserUserId = async function (id) {
   const encoded = btoa(String(id || ""));
-  if (typeof window.protectedGlobals.WriteFile === "function") {
+  if ((window.protectedGlobals.WriteFile)) {
     await window.protectedGlobals.WriteFile(
       window.browserGlobals.profileUserIdPath,
       encoded,
     );
     return;
   }
-  if (typeof window.protectedGlobals.filePost === "function") {
+  if ((window.protectedGlobals.filePost)) {
     await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [

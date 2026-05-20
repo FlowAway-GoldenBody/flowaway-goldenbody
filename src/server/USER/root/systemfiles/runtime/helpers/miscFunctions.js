@@ -88,30 +88,19 @@ window.protectedGlobals.applyWindowControlIcon = function (button, iconName, opt
     };
 
     // Add a resize handler that reapplies sizing to tracked controls
-    try {
-      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onResize)
-        window.removeEventListener(
-          "resize",
-          window.protectedGlobals.systemAPIs.onResize,
-        );
-      window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
-      window.protectedGlobals.systemAPIs.onResize = function () {
-        try {
-          document.querySelectorAll("[data-flow-control]").forEach((b) => {
-            try {
-              window.protectedGlobals._applyFlowawayControlSizing(b);
-            } catch (e) {}
-          });
-        } catch (e) {}
-      };
-      window.addEventListener("resize", window.protectedGlobals.systemAPIs.onResize);
-    } catch (e) {}
+    if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onResize)
+      window.removeEventListener("resize", window.protectedGlobals.systemAPIs.onResize);
+    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+    window.protectedGlobals.systemAPIs.onResize = function () {
+      document.querySelectorAll("[data-flow-control]").forEach((b) => {
+        window.protectedGlobals._applyFlowawayControlSizing(b);
+      });
+    };
+    window.addEventListener("resize", window.protectedGlobals.systemAPIs.onResize);
   }
 
   // finally apply sizing for this particular button
-  try {
-    window.protectedGlobals._applyFlowawayControlSizing(button);
-  } catch (e) {}
+  window.protectedGlobals._applyFlowawayControlSizing(button);
 };
 
 window.protectedGlobals.setWindowMaximizeIcon = function (button, isMaximized) {
@@ -276,20 +265,18 @@ throw new Error(
 
 window.protectedGlobals.showModal = function(title, body, level) {
   var isDark = true;
-  try {
-    var darkVal = null;
-    if (window.protectedGlobals.data && typeof window.protectedGlobals.data.dark !== "undefined") darkVal = window.protectedGlobals.data.dark;
-    else if (document.documentElement && document.documentElement.dataset && typeof document.documentElement.dataset.dark !== "undefined") darkVal = document.documentElement.dataset.dark;
-    else if (document.body && document.body.dataset && typeof document.body.dataset.dark !== "undefined") darkVal = document.body.dataset.dark;
+  var darkVal = null;
+  if (window.protectedGlobals.data && typeof window.protectedGlobals.data.dark !== "undefined") darkVal = window.protectedGlobals.data.dark;
+  else if (document.documentElement && document.documentElement.dataset && typeof document.documentElement.dataset.dark !== "undefined") darkVal = document.documentElement.dataset.dark;
+  else if (document.body && document.body.dataset && typeof document.body.dataset.dark !== "undefined") darkVal = document.body.dataset.dark;
 
-    if (typeof darkVal === "boolean") isDark = darkVal;
-    else if (typeof darkVal === "number") isDark = !!darkVal;
-    else if (typeof darkVal === "string") {
-      var dv = darkVal.trim().toLowerCase();
-      if (dv === "false" || dv === "0" || dv === "no" || dv === "off") isDark = false;
-      else if (dv === "true" || dv === "1" || dv === "yes" || dv === "on") isDark = true;
-    }
-  } catch (e) {}
+  if (typeof darkVal === "boolean") isDark = darkVal;
+  else if (typeof darkVal === "number") isDark = !!darkVal;
+  else if (typeof darkVal === "string") {
+    var dv = darkVal.trim().toLowerCase();
+    if (dv === "false" || dv === "0" || dv === "no" || dv === "off") isDark = false;
+    else if (dv === "true" || dv === "1" || dv === "yes" || dv === "on") isDark = true;
+  }
 
   var container = document.getElementById("flowaway-message-stack");
   if (!container) {
@@ -354,9 +341,7 @@ window.protectedGlobals.showModal = function(title, body, level) {
     padding: "0 2px",
   });
   closeBtn.addEventListener("click", function () {
-    try {
-      card.remove();
-    } catch (e) {}
+    card.remove();
   });
 
   var bodyEl = document.createElement("div");
@@ -371,9 +356,7 @@ window.protectedGlobals.showModal = function(title, body, level) {
   container.appendChild(card);
 
   setTimeout(function () {
-    try {
-      card.remove();
-    } catch (e) {}
+    card.remove();
   }, 9000);
 }
 
@@ -405,18 +388,12 @@ window.protectedGlobals.flowawayCrash = function(message, detail) {
 
 
 window.protectedGlobals.removeOtherMenus = function (except) {
-  try {
-    // Remove any menus with the shared .app-menu class (used across apps)
-    var menus = document.querySelectorAll(".app-menu");
-    for (const m of menus) {
-      try {
-        if (except && m.dataset && m.dataset.appId === except) continue;
-      } catch (e) {}
-      try {
-        m.remove();
-      } catch (e) {}
-    }
-  } catch (e) {}
+  // Remove any menus with the shared .app-menu class (used across apps)
+  var menus = document.querySelectorAll(".app-menu");
+  for (const m of menus) {
+    if (except && m.dataset && m.dataset.appId === except) continue;
+    if ((m.remove)) m.remove();
+  }
 };
 window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemove = true) {
   if (!e) return;
@@ -426,30 +403,26 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   if (!app) return;
 
   document.querySelectorAll(".app-menu").forEach((m) => m.remove());
-  try {
-    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
-    if (window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
-      document.removeEventListener(
-        "pointerdown",
-        window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
-        true,
-      );
-      delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
-    }
-    if (window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
-      document.removeEventListener(
-        "keydown",
-        window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
-        true,
-      );
-      delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
-    }
-  } catch (err) {}
+  window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+  if (window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
+    document.removeEventListener(
+      "pointerdown",
+      window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
+      true,
+    );
+    delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
+  }
+  if (window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
+    document.removeEventListener(
+      "keydown",
+      window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
+      true,
+    );
+    delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
+  }
 
   const menu = document.createElement("div");
-  try {
-    window.protectedGlobals.removeOtherMenus(app.id || app.functionname || "");
-  } catch (err) {}
+  window.protectedGlobals.removeOtherMenus(app.id || app.functionname || "");
 
   menu.className = "app-menu";
   if (app && app.id) menu.dataset.appId = String(app.id);
@@ -470,10 +443,8 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     : menu.classList.toggle("light", true);
 
   function withInstances(handler) {
-    try {
-      var instances = window.protectedGlobals.getAppInstances(app);
-      handler(instances);
-    } catch (err) {}
+    var instances = window.protectedGlobals.getAppInstances(app);
+    handler(instances);
     menu.remove();
   }
 
@@ -484,12 +455,12 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   closeAll.addEventListener("click", () => {
     withInstances((instances) => {
       const first = instances[0];
-      if (first && typeof first.closeAll === "function") {
+      if (first && (first.closeAll)) {
         first.closeAll();
         return;
       }
       for (const instance of [...instances]) {
-        if (instance && typeof instance.closeWindow === "function") {
+        if (instance && (instance.closeWindow)) {
           instance.closeWindow();
         }
       }
@@ -504,12 +475,12 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   hideAll.addEventListener("click", () => {
     withInstances((instances) => {
       const first = instances[0];
-      if (first && typeof first.hideAll === "function") {
+      if (first && (first.hideAll)) {
         first.hideAll();
         return;
       }
       for (const instance of instances) {
-        if (instance && typeof instance.hideWindow === "function") {
+        if (instance && (instance.hideWindow)) {
           instance.hideWindow();
         } else if (instance && instance.rootElement) {
           instance.rootElement.style.display = "none";
@@ -526,7 +497,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   showAll.addEventListener("click", () => {
     withInstances((instances) => {
       const first = instances[0];
-      if (first && typeof first.showAll === "function") {
+      if (first && (first.showAll)) {
         first.showAll();
         return;
       }
@@ -536,7 +507,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         return az - bz;
       });
       for (const instance of instances) {
-        if (instance && typeof instance.showWindow === "function") {
+        if (instance && (instance.showWindow)) {
           instance.showWindow();
         } else if (instance && instance.rootElement) {
           instance.rootElement.style.display = "block";
@@ -554,7 +525,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   newWindow.addEventListener("click", () => {
     withInstances((instances) => {
       const first = instances[0];
-      if (first && typeof first.newWindow === "function") {
+      if (first && (first.newWindow)) {
         first.newWindow();
       } else {
         window.protectedGlobals.launchApp(app.functionname);
@@ -576,10 +547,8 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
           : null;
       if (btn) {
         window.protectedGlobals.removeTaskButton(btn);
-        try {
-          window.protectedGlobals.saveTaskButtons();
-          window.protectedGlobals.purgeButtons();
-        } catch (err) {}
+        window.protectedGlobals.saveTaskButtons();
+        window.protectedGlobals.purgeButtons();
       }
       menu.remove();
     });
@@ -597,10 +566,8 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
       remove.style.cursor = "pointer";
       remove.addEventListener("click", function () {
         window.protectedGlobals.removeTaskButton(existingBtn);
-        try {
-          window.protectedGlobals.saveTaskButtons();
-          window.protectedGlobals.purgeButtons();
-        } catch (err) {}
+        window.protectedGlobals.saveTaskButtons();
+        window.protectedGlobals.purgeButtons();
         menu.remove();
       });
       menu.appendChild(remove);
@@ -661,14 +628,12 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
       });
 
       item.addEventListener("click", () => {
-        try {
-          if (instance && typeof instance.showWindow === "function") {
-            instance.showWindow();
-          } else if (instance && instance.rootElement) {
-            instance.rootElement.style.display = "block";
-            window.protectedGlobals.bringToFront(instance.rootElement);
-          }
-        } catch (err) {}
+        if (instance && (instance.showWindow)) {
+          instance.showWindow();
+        } else if (instance && instance.rootElement) {
+          instance.rootElement.style.display = "block";
+          window.protectedGlobals.bringToFront(instance.rootElement);
+        }
         menu.remove();
       });
 
@@ -683,54 +648,48 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   function closeMenu() {
     if (menuClosed) return;
     menuClosed = true;
-    try {
-      nativeMenuRemove();
-    } catch (err) {}
-    try {
-      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
-        document.removeEventListener(
-          "pointerdown",
-          window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
-          true,
-        );
-        delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
-      }
-      if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
-        document.removeEventListener(
-          "keydown",
-          window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
-          true,
-        );
-        delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
-      }
-    } catch (err) {}
+    nativeMenuRemove();
+    if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown) {
+      document.removeEventListener(
+        "pointerdown",
+        window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
+        true,
+      );
+      delete window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown;
+    }
+    if (window.protectedGlobals.systemAPIs && window.protectedGlobals.systemAPIs.onAppMenuEscapeKey) {
+      document.removeEventListener(
+        "keydown",
+        window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
+        true,
+      );
+      delete window.protectedGlobals.systemAPIs.onAppMenuEscapeKey;
+    }
   }
 
-  try {
-    window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
-    window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown = function (evt) {
-      if (!menu || !menu.isConnected) {
-        closeMenu();
-        return;
-      }
-      if (evt && evt.target && menu.contains(evt.target)) return;
+  window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
+  window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown = function (evt) {
+    if (!menu || !menu.isConnected) {
       closeMenu();
-    };
-    window.protectedGlobals.systemAPIs.onAppMenuEscapeKey = function (evt) {
-      if (!evt) return;
-      if (evt.key === "Escape") closeMenu();
-    };
-    document.addEventListener(
-      "pointerdown",
-      window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
-      true,
-    );
-    document.addEventListener(
-      "keydown",
-      window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
-      true,
-    );
-  } catch (err) {}
+      return;
+    }
+    if (evt && evt.target && menu.contains(evt.target)) return;
+    closeMenu();
+  };
+  window.protectedGlobals.systemAPIs.onAppMenuEscapeKey = function (evt) {
+    if (!evt) return;
+    if (evt.key === "Escape") closeMenu();
+  };
+  document.addEventListener(
+    "pointerdown",
+    window.protectedGlobals.systemAPIs.onAppMenuOutsidePointerDown,
+    true,
+  );
+  document.addEventListener(
+    "keydown",
+    window.protectedGlobals.systemAPIs.onAppMenuEscapeKey,
+    true,
+  );
 
   menu.remove = closeMenu;
 

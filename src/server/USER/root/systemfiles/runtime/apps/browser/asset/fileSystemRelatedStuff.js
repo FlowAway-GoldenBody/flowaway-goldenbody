@@ -752,7 +752,7 @@ function makeFileHandle(file) {
           (function installFSObserverShim() {
             const NativeFSObserver = frameWin.FileSystemObserver;
             function isSyntheticHandle(h) {
-              return !!(h && (h.path || h.name) && typeof h.getFile === 'function');
+              return !!(h && (h.path || h.name) && (h.getFile));
             }
 
             class FileSystemObserverShim {

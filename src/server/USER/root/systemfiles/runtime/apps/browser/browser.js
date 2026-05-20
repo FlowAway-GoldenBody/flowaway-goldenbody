@@ -651,14 +651,14 @@ window.browser = function (
         root.__gbShortcutDedupe.sig === sig &&
         now - root.__gbShortcutDedupe.ts < 180
       ) {
-        if (eventLike && typeof eventLike.preventDefault === "function") {
+        if (eventLike && (eventLike.preventDefault)) {
           eventLike.preventDefault();
         }
         return true;
       }
       root.__gbShortcutDedupe = { sig, ts: now };
 
-      if (eventLike && typeof eventLike.preventDefault === "function") {
+      if (eventLike && (eventLike.preventDefault)) {
         eventLike.preventDefault();
       }
       if (normalized === "t") {
@@ -701,7 +701,7 @@ window.browser = function (
 
       if (e.altKey && (key === "arrowright" || key === "arrowleft")) {
         e.preventDefault();
-        if (typeof e.stopPropagation === "function") e.stopPropagation();
+        if ((e.stopPropagation)) e.stopPropagation();
         e.__gbBrowserCtrlHandled = true;
         cycleBrowserTabs(key === "arrowleft");
         return true;
@@ -711,7 +711,7 @@ window.browser = function (
 
       if (key === "w") {
         e.preventDefault();
-        if (typeof e.stopPropagation === "function") e.stopPropagation();
+        if ((e.stopPropagation)) e.stopPropagation();
         e.__gbBrowserCtrlHandled = true;
         closeActiveBrowserTab();
         return true;
@@ -720,7 +720,7 @@ window.browser = function (
       if (key === "t" || key === "n") {
         const handled = runBrowserShortcut(key, e);
         if (handled) {
-          if (typeof e.stopPropagation === "function") e.stopPropagation();
+          if ((e.stopPropagation)) e.stopPropagation();
           e.__gbBrowserCtrlHandled = true;
         }
         return handled;
@@ -818,7 +818,7 @@ window.browser = function (
       addItem(
         "Reload tab",
         () => {
-          if (typeof reloadBtn.onclick === "function") reloadBtn.onclick();
+          if ((reloadBtn.onclick)) reloadBtn.onclick();
           else if (
             activeTab &&
             activeTab.iframe &&
@@ -1242,7 +1242,7 @@ window.browser = function (
         if (!url) return window.protectedGlobals.notification("Enter a URL");
         const filename = computeName(url);
         try {
-          if (typeof window.protectedGlobals.downloadPost === "function") {
+          if ((window.protectedGlobals.downloadPost)) {
             await window.protectedGlobals.downloadPost({ href: url, filename });
             window.protectedGlobals.notification("Download request sent");
           } else {
@@ -2917,7 +2917,7 @@ window.browser = function (
     async function resolveLocalFileNavigation(inputPath, options = null) {
       const normalizedPath = normalizeLocalFilePath(inputPath);
       if (!normalizedPath) throw new Error("Missing file path");
-      if (typeof window.protectedGlobals.filePost !== "function") {
+      if (!(window.protectedGlobals.filePost)) {
         throw new Error("File service unavailable");
       }
 
@@ -3442,7 +3442,7 @@ window.browser = function (
   })();
   chromeWindow.closeAll = function () {
     for (const instance of [...browserGlobals.allBrowsers]) {
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
@@ -3450,7 +3450,7 @@ window.browser = function (
   };
   chromeWindow.hideAll = function () {
     for (const instance of browserGlobals.allBrowsers) {
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
@@ -3460,7 +3460,7 @@ window.browser = function (
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
     for (const instance of browserGlobals.allBrowsers) {
-      if (instance && typeof instance.showWindow === "function") {
+      if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
     }

@@ -30,15 +30,15 @@ evalJsApp = function (path, posX = 50, posY = 50) {
   (async function () {
     try {
       let raw = "";
-      if (typeof window.protectedGlobals.ReadFile === "function") {
+      if ((window.protectedGlobals.ReadFile)) {
         const res = await window.protectedGlobals.ReadFile(path);
         if (res && !res.missing) {
           if (typeof res.filecontent === "string") raw = decodeMaybeBase64Text(res.filecontent);
           else if (typeof res === "string") raw = decodeMaybeBase64Text(res);
         }
-      } else if (typeof readFile === "function") {
+      } else if ((readFile)) {
         raw = decodeMaybeBase64Text(readFile(path));
-      } else if (typeof fetch === "function") {
+      } else if ((fetch)) {
         try {
           const resp = await fetch(path);
           if (resp.ok) raw = await resp.text();

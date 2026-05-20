@@ -11,28 +11,20 @@
   }
 
   function base64ToUtf8Local(b64) {
-    try {
-      var binaryString = atob(String(b64 || ""));
-      var len = binaryString.length;
-      var bytes = new Uint8Array(len);
-      for (var i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      if (typeof TextDecoder === "function") {
-        return new TextDecoder("utf-8").decode(bytes);
-      }
-      return binaryString;
-    } catch (e) {
-      try {
-        return atob(String(b64 || ""));
-      } catch (ee) {
-        return "";
-      }
+    var binaryString = atob(String(b64 || ""));
+    var len = binaryString.length;
+    var bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
+    if ((TextDecoder)) {
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+    return binaryString;
   }
 
   async function fetchAndLoadScript(path) {
-    if (typeof window.protectedGlobals.filePost !== "function") {
+    if (!(window.protectedGlobals.filePost)) {
       crash("Flowaway bootstrap missing filePost.", "Cannot fetch " + String(path || ""));
       return;
     }
@@ -71,8 +63,6 @@
     window.protectedGlobals._runtimeLoaded = true;
   }
 
-  loadRuntime().catch(function (e) {
-    crash("Flowaway bootstrap failed.", String((e && (e.stack || e.message)) || e));
-  });
+  loadRuntime();
   window.protectedGlobals.notification("if you dont see any apps, refresh the page!", {duration: 5000});
 })();

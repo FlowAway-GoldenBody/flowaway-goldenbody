@@ -4,8 +4,8 @@ function normalizeAppFolders(folders) {
     var seen = new Set();
     var list = [];
     for (const folder of folders || []) {
-        if (!Array.isArray(folder) || typeof folder[0] !== 'string') continue;
-        var folderName = folder[0].trim();
+    if (!Array.isArray(folder)) continue;
+    var folderName = String(folder[0] || "").trim();
         if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
         var folderPath = folder[2] && folder[2].path ? folder[2].path : `systemfiles/runtime/apps/${folderName}`;
         var key = String(folderPath).toLowerCase();
@@ -40,7 +40,7 @@ function normalizeAppFolders(folders) {
   }
 
   function queueHint(msg) {
-    if (!msg || typeof msg !== "object") return;
+    if (!msg) return;
     if (!Array.isArray(msg.changedApps)) return;
     for (var i = 0; i < msg.changedApps.length; i++) {
       var normalized = normalizeFolderName(msg.changedApps[i]);
@@ -75,27 +75,9 @@ function normalizeAppFolders(folders) {
   }
 
   function refreshAppsUiAfterChanges() {
-    try {
-      if (typeof window.protectedGlobals.renderAppsGrid === "function") window.protectedGlobals.renderAppsGrid();
-    } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
-        window.protectedGlobals.throwError("refreshAppsUiAfterChanges", "renderAppsGrid failed", e);
-      }
-    }
-    try {
-      if (typeof window.protectedGlobals.applyTaskButtons === "function") window.protectedGlobals.applyTaskButtons();
-    } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
-        window.protectedGlobals.throwError("refreshAppsUiAfterChanges", "applyTaskButtons failed", e);
-      }
-    }
-    try {
-      if (typeof window.protectedGlobals.purgeButtons === "function") window.protectedGlobals.purgeButtons();
-    } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
-        window.protectedGlobals.throwError("refreshAppsUiAfterChanges", "purgeButtons failed", e);
-      }
-    }
+    if ((window.protectedGlobals.renderAppsGrid)) window.protectedGlobals.renderAppsGrid();
+    if ((window.protectedGlobals.applyTaskButtons)) window.protectedGlobals.applyTaskButtons();
+    if ((window.protectedGlobals.purgeButtons)) window.protectedGlobals.purgeButtons();
     notifyAppUpdatedBurst();
   }
 
@@ -105,9 +87,6 @@ function normalizeAppFolders(folders) {
     var decodeFileTextStrict = window.protectedGlobals.decodeFileTextStrict;
     var hashScriptContent = window.protectedGlobals.hashScriptContent;
     var isProtectedAppGlobalName = window.protectedGlobals.isProtectedAppGlobalName;
-    if (typeof fetchFileContentByPath !== "function") return false;
-    if (typeof decodeFileTextStrict !== "function") return false;
-    if (typeof hashScriptContent !== "function") return false;
 
     var b64 = await fetchFileContentByPath(existingApp.path + "/" + existingApp.jsFile);
     var scriptText = decodeFileTextStrict(b64, existingApp.path + "/" + existingApp.jsFile, {
@@ -119,7 +98,7 @@ function normalizeAppFolders(folders) {
         existingApp.scriptLoaded = false;
         existingApp._scriptElement = null;
       }
-      if (typeof window.protectedGlobals.throwError === "function") {
+      if ((window.protectedGlobals.throwError)) {
         window.protectedGlobals.throwError("reloadAppScript", "App script is empty; unload only", null, {
           path: existingApp.path,
           jsFile: existingApp.jsFile,
@@ -134,49 +113,22 @@ function normalizeAppFolders(folders) {
       existingApp.scriptLoaded = false;
     }
 
-    try {
-      if (oldFunctionName && typeof window[oldFunctionName] !== "undefined") {
-        try {
-          delete window[oldFunctionName];
-        } catch (e) {}
-      }
-      if (
-        oldCmf &&
-        typeof isProtectedAppGlobalName === "function" &&
-        !isProtectedAppGlobalName(oldCmf) &&
-        typeof window[oldCmf] !== "undefined"
-      ) {
-        try {
-          delete window[oldCmf];
-        } catch (e) {}
-      }
-    } catch (e) {}
+    if (oldFunctionName) {
+      delete window[oldFunctionName];
+    }
+    if (
+      oldCmf &&
+      (isProtectedAppGlobalName) &&
+      !isProtectedAppGlobalName(oldCmf)
+    ) {
+      delete window[oldCmf];
+    }
 
     var s = document.createElement("script");
     s.type = "text/javascript";
     s.textContent = scriptText;
-    try {
-      new Function(scriptText);
-    } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
-        window.protectedGlobals.throwError("reloadAppScript", "Updated app script has invalid syntax", e, {
-          path: existingApp.path,
-          jsFile: existingApp.jsFile,
-        });
-      }
-      return false;
-    }
-    try {
-      document.body.appendChild(s);
-    } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
-        window.protectedGlobals.throwError("reloadAppScript", "Failed to apply updated app script", e, {
-          path: existingApp.path,
-          jsFile: existingApp.jsFile,
-        });
-      }
-      return false;
-    }
+    new Function(scriptText);
+    document.body.appendChild(s);
     existingApp.scriptLoaded = true;
     existingApp._scriptElement = s;
     existingApp._lastScriptHash = currentHash;
@@ -233,14 +185,14 @@ function normalizeAppFolders(folders) {
 
             var newAppData = await window.protectedGlobals.extractAppData(appFolder);
             if (!newAppData) continue;
-            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+            if ((window.protectedGlobals.ensureAppRuntimeState)) {
               window.protectedGlobals.ensureAppRuntimeState(newAppData);
             }
             window.protectedGlobals.apps.push(newAppData);
             window.protectedGlobals.apps.sort(function (a, b) { return a.label.localeCompare(b.label); });
             window.protectedGlobals.hasChanges = true;
           } catch (e) {
-            if (typeof window.protectedGlobals.throwError === "function") {
+            if ((window.protectedGlobals.throwError)) {
               window.protectedGlobals.throwError("pollAppChanges", "Failed while handling new app folder", e, {
                 folder: appFolder && appFolder[0],
               });
@@ -282,7 +234,7 @@ function normalizeAppFolders(folders) {
             try {
               var taskbarBtn = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
                 return (
-                  (btn.dataset && typeof window.protectedGlobals.appMatchesIdentifier === "function" && window.protectedGlobals.appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
+                  (btn.dataset && (window.protectedGlobals.appMatchesIdentifier) && window.protectedGlobals.appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
                   btn.textContent.includes(deletedApp.label)
                 );
               });
@@ -299,7 +251,7 @@ function normalizeAppFolders(folders) {
 
             window.protectedGlobals.hasChanges = true;
           } catch (e) {
-            if (typeof window.protectedGlobals.throwError === "function") {
+            if ((window.protectedGlobals.throwError)) {
               window.protectedGlobals.throwError("pollAppChanges", "Failed while deleting app", e, { index: di });
             }
           }
@@ -320,7 +272,7 @@ function normalizeAppFolders(folders) {
             var expectedPath2 = folder[2] && folder[2].path ? folder[2].path : "systemfiles/runtime/apps/" + folderName2;
             var existingApp2 = (window.protectedGlobals.apps || []).find(function (a) { return a.path === expectedPath2; });
             if (!existingApp2) continue;
-            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+            if ((window.protectedGlobals.ensureAppRuntimeState)) {
               window.protectedGlobals.ensureAppRuntimeState(existingApp2);
             }
 
@@ -359,7 +311,7 @@ function normalizeAppFolders(folders) {
             existingApp2.cmf = newAppData2.cmf;
             existingApp2.cmfl1 = newAppData2.cmfl1;
             existingApp2.openfilecapability = newAppData2.openfilecapability;
-            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+            if ((window.protectedGlobals.ensureAppRuntimeState)) {
               window.protectedGlobals.ensureAppRuntimeState(existingApp2);
             }
 
@@ -384,7 +336,7 @@ function normalizeAppFolders(folders) {
 
             window.protectedGlobals.hasChanges = true;
           } catch (e) {
-            if (typeof window.protectedGlobals.throwError === "function") {
+            if ((window.protectedGlobals.throwError)) {
               window.protectedGlobals.throwError("pollAppChanges", "Failed while refreshing app metadata", e, {
                 folder: folder && folder[0],
               });
@@ -425,7 +377,7 @@ function normalizeAppFolders(folders) {
               window.protectedGlobals.hasChanges = true;
             }
           } catch (e) {
-            if (typeof window.protectedGlobals.throwError === "function") {
+            if ((window.protectedGlobals.throwError)) {
               window.protectedGlobals.throwError("pollAppChanges", "Failed to check script hash", e, {
                 appId: appToCheck && appToCheck.id,
                 label: appToCheck && appToCheck.label,
@@ -439,7 +391,7 @@ function normalizeAppFolders(folders) {
         refreshAppsUiAfterChanges();
       }
     } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
+      if ((window.protectedGlobals.throwError)) {
         window.protectedGlobals.throwError("pollAppChanges", "Error during polling", e);
       }
     }
@@ -463,7 +415,7 @@ function normalizeAppFolders(folders) {
           var existingApp = (window.protectedGlobals.apps || []).find(function (a) {
             return a.path === expectedPath || String(a.path || "").split("/").pop() === folderName;
           });
-          if (existingApp && typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+          if (existingApp && (window.protectedGlobals.ensureAppRuntimeState)) {
             window.protectedGlobals.ensureAppRuntimeState(existingApp);
           }
 
@@ -492,20 +444,15 @@ function normalizeAppFolders(folders) {
               if (existingApp._scriptElement) existingApp._scriptElement.remove();
             } catch (ee) {}
             try {
-              if (existingApp.functionname && typeof window[existingApp.functionname] !== "undefined") {
-                try {
-                  delete window[existingApp.functionname];
-                } catch (ee) {}
+              if (existingApp.functionname) {
+                delete window[existingApp.functionname];
               }
               if (
                 existingApp.cmf &&
-                typeof window.protectedGlobals.isProtectedAppGlobalName === "function" &&
-                !window.protectedGlobals.isProtectedAppGlobalName(existingApp.cmf) &&
-                typeof window[existingApp.cmf] !== "undefined"
+                (window.protectedGlobals.isProtectedAppGlobalName) &&
+                !window.protectedGlobals.isProtectedAppGlobalName(existingApp.cmf)
               ) {
-                try {
-                  delete window[existingApp.cmf];
-                } catch (ee) {}
+                delete window[existingApp.cmf];
               }
             } catch (ee) {}
 
@@ -524,7 +471,7 @@ function normalizeAppFolders(folders) {
             try {
               var taskbarBtnToDelete = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
                 return (
-                  (btn.dataset && typeof window.protectedGlobals.appMatchesIdentifier === "function" && window.protectedGlobals.appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
+                  (btn.dataset && (window.protectedGlobals.appMatchesIdentifier) && window.protectedGlobals.appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
                   btn.textContent.includes(existingApp.label)
                 );
               });
@@ -578,7 +525,7 @@ function normalizeAppFolders(folders) {
             existingApp.cmf = newAppData.cmf;
             existingApp.cmfl1 = newAppData.cmfl1;
             existingApp.openfilecapability = newAppData.openfilecapability;
-            if (typeof window.protectedGlobals.ensureAppRuntimeState === "function") {
+            if ((window.protectedGlobals.ensureAppRuntimeState)) {
               window.protectedGlobals.ensureAppRuntimeState(existingApp);
             }
 
@@ -621,7 +568,7 @@ function normalizeAppFolders(folders) {
                 }
               }
             } catch (e) {
-              if (typeof window.protectedGlobals.throwError === "function") {
+              if ((window.protectedGlobals.throwError)) {
                 window.protectedGlobals.throwError("pollSpecificAppChanges", "Failed to check script hash", e, {
                   folder: folderName,
                   appId: existingApp && existingApp.id,
@@ -630,7 +577,7 @@ function normalizeAppFolders(folders) {
             }
           }
         } catch (e) {
-          if (typeof window.protectedGlobals.throwError === "function") {
+          if ((window.protectedGlobals.throwError)) {
             window.protectedGlobals.throwError("pollSpecificAppChanges", "Failed while processing changed app folder", e, {
               folder: folderName,
             });
@@ -648,7 +595,7 @@ function normalizeAppFolders(folders) {
         refreshAppsUiAfterChanges();
       }
     } catch (e) {
-      if (typeof window.protectedGlobals.throwError === "function") {
+      if ((window.protectedGlobals.throwError)) {
         window.protectedGlobals.throwError("pollSpecificAppChanges", "Targeted poll failed, falling back to full poll", e);
       }
       await window.protectedGlobals.loadTree();
@@ -681,7 +628,6 @@ function normalizeAppFolders(folders) {
   }
 
   function startViaWebSocket() {
-    if (typeof WebSocket === "undefined") return false;
     if (
       state.socket &&
       (state.socket.readyState === WebSocket.OPEN || state.socket.readyState === WebSocket.CONNECTING)

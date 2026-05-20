@@ -159,7 +159,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
 
   function closeAll() {
     for (const instance of [...explorerGlobals.allExplorers]) {
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
@@ -168,7 +168,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
 
   function hideAll() {
     for (const instance of explorerGlobals.allExplorers) {
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
@@ -179,7 +179,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
     for (const instance of explorerGlobals.allExplorers) {
-      if (instance && typeof instance.showWindow === "function") {
+      if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
     }
@@ -1127,8 +1127,8 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       if (e.repeat) return;
     }
     if ((e.ctrlKey && e.key.toLowerCase() === "v") || e == "cmp") {
-      if (e && typeof e.preventDefault === "function") e.preventDefault();
-      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+      if (e && (e.preventDefault)) e.preventDefault();
+      if (e && (e.stopPropagation)) e.stopPropagation();
       const targetPath = [...currentPath]; // current folder path array
       // Quota check: sum total size of clipboard items
       let currentUsed = getNodeSize(treeData);
@@ -1177,8 +1177,8 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       if (e.repeat) return;
     }
     if ((e.ctrlKey && e.key.toLowerCase() === "c") || e == "copy") {
-      if (e && typeof e.preventDefault === "function") e.preventDefault();
-      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+      if (e && (e.preventDefault)) e.preventDefault();
+      if (e && (e.stopPropagation)) e.stopPropagation();
       explorerGlobals.clipboard = selectedItems.map((item) => ({
         node: item,
         path: getCurrentFolderPath() + item[0],
@@ -1503,7 +1503,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         const apps = (Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [])
           .map((app) => {
             const functionName = app && (app.functionname || app.id);
-            if (!functionName || typeof window[functionName] !== "function") return null;
+            if (!functionName || !(window[functionName])) return null;
             return {
               label: app.label || functionName,
               functionName,

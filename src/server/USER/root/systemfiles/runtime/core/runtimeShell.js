@@ -260,39 +260,20 @@ document.head.appendChild(styleTag);
 window.protectedGlobals._startMenuConfig = null;
 
 const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async function loadStartMenuConfig() {
-  try {
-    const configPath = 'systemfiles/userprofile/startMenu-config.json';
-    const configData = await window.protectedGlobals.fetchFileContentByPath(configPath);
-    const configText = window.protectedGlobals.base64ToUtf8(configData);
-    window.protectedGlobals._startMenuConfig = JSON.parse(configText);
-    return window.protectedGlobals._startMenuConfig;
-  } catch (e) {
-    window.protectedGlobals.throwError('startMenu', 'Failed to load config, using defaults', e);
-    window.protectedGlobals._startMenuConfig = {
-      version: '1.0',
-      pinnedApps: [],
-      hiddenApps: [],
-      appOrder: [],
-      recents: [],
-      maxRecents: 5,
-      displayMode: 'grid',
-      gridColumns: 4
-    };
-    return window.protectedGlobals._startMenuConfig;
-  }
+  const configPath = 'systemfiles/userprofile/startMenu-config.json';
+  const configData = await window.protectedGlobals.fetchFileContentByPath(configPath);
+  const configText = window.protectedGlobals.base64ToUtf8(configData);
+  window.protectedGlobals._startMenuConfig = JSON.parse(configText);
+  return window.protectedGlobals._startMenuConfig;
 }
 
 const saveStartMenuConfig = window.protectedGlobals.saveStartMenuConfig = async function saveStartMenuConfig() {
-  try {
-    if (!window.protectedGlobals._startMenuConfig) return;
-    const configJson = JSON.stringify(window.protectedGlobals._startMenuConfig, null, 2);
-    await window.protectedGlobals.filePost({
-      action: 'saveStartMenuConfig',
-      configJson: configJson
-    });
-  } catch (e) {
-    window.protectedGlobals.throwError('startMenu', 'Failed to save config', e);
-  }
+  if (!window.protectedGlobals._startMenuConfig) return;
+  const configJson = JSON.stringify(window.protectedGlobals._startMenuConfig, null, 2);
+  await window.protectedGlobals.filePost({
+    action: 'saveStartMenuConfig',
+    configJson: configJson
+  });
 }
 
 const addToRecents = window.protectedGlobals.addToRecents = function addToRecents(appId) {
@@ -321,10 +302,8 @@ const removeFromStartMenu = window.protectedGlobals.removeFromStartMenu = functi
 }
 
 // ============= CREATE START MENU -================
-try {
-  var existingStartMenu = document.getElementById("startMenu");
-  if (existingStartMenu) existingStartMenu.remove();
-} catch (e) {}
+var existingStartMenu = document.getElementById("startMenu");
+if (existingStartMenu) existingStartMenu.remove();
 const startMenu = window.protectedGlobals.startMenu = document.createElement("div");
 startMenu.id = "startMenu";
 startMenu.className = "startMenu";
@@ -374,15 +353,11 @@ window.protectedGlobals.tabSections = startMenu.querySelectorAll('.tabSection');
 
 const switchTab = window.protectedGlobals.switchTab = function switchTab(tabName) {
   if (!tabName) return;
-  try {
-    document
-      .querySelectorAll('.app-context-menu, .app-menu')
-      .forEach(function (menuNode) {
-        try {
-          menuNode.remove();
-        } catch (e) {}
-      });
-  } catch (e) {}
+  document
+    .querySelectorAll('.app-context-menu, .app-menu')
+    .forEach(function (menuNode) {
+      menuNode.remove();
+    });
   // Hide all sections
   window.protectedGlobals.tabSections.forEach(function (section) {
     section.classList.remove('active');
@@ -428,14 +403,10 @@ const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = func
     Math.max(0, (parseInt(window.protectedGlobals.data.brightness) || 0) + delta),
   );
   document.documentElement.style.filter = `brightness(${window.protectedGlobals.data.brightness}%)`;
-  try {
-    if (typeof window.protectedGlobals.persistUserProfilePatch === "function") {
-      window.protectedGlobals.persistUserProfilePatch({ brightness: Number(window.protectedGlobals.data.brightness) });
-    }
-  } catch (err) {}
-  try {
-    window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.data.brightness}%`);
-  } catch (e) {}
+  if ((window.protectedGlobals.persistUserProfilePatch)) {
+    window.protectedGlobals.persistUserProfilePatch({ brightness: Number(window.protectedGlobals.data.brightness) });
+  }
+  window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.data.brightness}%`);
 }
 
 const applyVolumeDelta = window.protectedGlobals.applyVolumeDelta = function applyVolumeDelta(delta) {
@@ -446,18 +417,14 @@ const applyVolumeDelta = window.protectedGlobals.applyVolumeDelta = function app
   );
   window.protectedGlobals.setAllMediaVolume(window.protectedGlobals.data.volume / 100);
   window.dispatchEvent(new CustomEvent("system-volume", { detail: window.protectedGlobals.data.volume }));
-  try {
-    if (typeof window.protectedGlobals.persistUserProfilePatch === "function") {
-      window.protectedGlobals.persistUserProfilePatch({ volume: Number(window.protectedGlobals.data.volume) });
-    }
-  } catch (err) {}
-  try {
-    window.protectedGlobals.notification(`Volume: ${window.protectedGlobals.data.volume}%`);
-  } catch (e) {}
+  if ((window.protectedGlobals.persistUserProfilePatch)) {
+    window.protectedGlobals.persistUserProfilePatch({ volume: Number(window.protectedGlobals.data.volume) });
+  }
+  window.protectedGlobals.notification(`Volume: ${window.protectedGlobals.data.volume}%`);
 }
 
 const cycleFocusedWindow = window.protectedGlobals.cycleFocusedWindow = function cycleFocusedWindow(reverse, modKey = "Alt") {
-  if (typeof window.protectedGlobals.cycleWindowFocus === "function") {
+  if ((window.protectedGlobals.cycleWindowFocus)) {
     window.protectedGlobals.cycleWindowFocus(!!reverse, modKey);
   }
 }
@@ -470,81 +437,73 @@ const launchFocusedAppWindow = window.protectedGlobals.launchFocusedAppWindow = 
 
 const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = function closeFocusedAppWindow() {
   if (!window.protectedGlobals.atTop) return;
-  try {
-    var targetAppId = String(window.protectedGlobals.atTop || "").trim();
-    if (!targetAppId) return;
+  var targetAppId = String(window.protectedGlobals.atTop || "").trim();
+  if (!targetAppId) return;
 
-    var roots = Array.from(document.querySelectorAll(".app-window-root"));
-    var candidates = roots.filter(
-      (root) => root.dataset && root.dataset.appId === targetAppId,
+  var roots = Array.from(document.querySelectorAll(".app-window-root"));
+  var candidates = roots.filter(
+    (root) => root.dataset && root.dataset.appId === targetAppId,
+  );
+
+  if (!candidates.length) {
+    candidates = roots.filter(
+      (root) => root.classList && root.classList.contains(targetAppId),
     );
+  }
 
-    if (!candidates.length) {
-      candidates = roots.filter(
-        (root) => root.classList && root.classList.contains(targetAppId),
-      );
-    }
+  if (!candidates.length) return;
 
-    if (!candidates.length) return;
+  candidates.sort((a, b) => {
+    var za = parseInt(a.style.zIndex) || 0;
+    var zb = parseInt(b.style.zIndex) || 0;
+    return za - zb;
+  });
 
-    candidates.sort((a, b) => {
-      var za = parseInt(a.style.zIndex) || 0;
-      var zb = parseInt(b.style.zIndex) || 0;
-      return za - zb;
-    });
+  var top = candidates[candidates.length - 1];
+  if (!top) return;
 
-    var top = candidates[candidates.length - 1];
-    if (top) {
-      try {
-        var appObj = (window.protectedGlobals.apps || []).find(function (a) {
-          return window.protectedGlobals.appMatchesIdentifier(a, targetAppId);
-        });
-        if (appObj && appObj.globalvarobjectstring && appObj.allapparraystring) {
-          var gv = window[appObj.globalvarobjectstring];
-          if (gv && typeof gv === "object") {
-            var arrayKeys = [];
-            if (typeof appObj.allapparraystring === "string") {
-              var single = appObj.allapparraystring.trim();
-              if (single) arrayKeys.push(single);
-            } else if (Array.isArray(appObj.allapparraystring)) {
-              for (var ak = 0; ak < appObj.allapparraystring.length; ak++) {
-                var normalized =
-                  typeof appObj.allapparraystring[ak] === "string"
-                    ? appObj.allapparraystring[ak].trim()
-                    : "";
-                if (normalized && arrayKeys.indexOf(normalized) === -1) {
-                  arrayKeys.push(normalized);
-                }
-              }
-            }
-
-            for (var keyCursor = 0; keyCursor < arrayKeys.length; keyCursor++) {
-              var arr = gv[arrayKeys[keyCursor]];
-              if (!Array.isArray(arr)) continue;
-              for (var i = arr.length - 1; i >= 0; i--) {
-                var inst = arr[i];
-                var instRoot = inst && (inst.rootElement || inst.root || inst.rootEl);
-                if (
-                  inst === top ||
-                  instRoot === top ||
-                  (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
-                ) {
-                  arr[i].closeWindow();
-                  arr.splice(i, 1);
-                }
-              }
-            }
+  var appObj = (window.protectedGlobals.apps || []).find(function (a) {
+    return window.protectedGlobals.appMatchesIdentifier(a, targetAppId);
+  });
+  if (appObj && appObj.globalvarobjectstring && appObj.allapparraystring) {
+    var gv = window[appObj.globalvarobjectstring];
+    if (gv && typeof gv === "object") {
+      var arrayKeys = [];
+      if (typeof appObj.allapparraystring === "string") {
+        var single = appObj.allapparraystring.trim();
+        if (single) arrayKeys.push(single);
+      } else if (Array.isArray(appObj.allapparraystring)) {
+        for (var ak = 0; ak < appObj.allapparraystring.length; ak++) {
+          var normalized =
+            typeof appObj.allapparraystring[ak] === "string"
+              ? appObj.allapparraystring[ak].trim()
+              : "";
+          if (normalized && arrayKeys.indexOf(normalized) === -1) {
+            arrayKeys.push(normalized);
           }
         }
-      } catch (e) {}
+      }
 
-      try {
-        window.protectedGlobals.removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
-      } catch (e) {}
+      for (var keyCursor = 0; keyCursor < arrayKeys.length; keyCursor++) {
+        var arr = gv[arrayKeys[keyCursor]];
+        if (!Array.isArray(arr)) continue;
+        for (var i = arr.length - 1; i >= 0; i--) {
+          var inst = arr[i];
+          var instRoot = inst && (inst.rootElement || inst.root || inst.rootEl);
+          if (
+            inst === top ||
+            instRoot === top ||
+            (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
+          ) {
+            arr[i].closeWindow();
+            arr.splice(i, 1);
+          }
+        }
+      }
     }
-  } catch (e) {
-    console.error("close focused app window error", e);
   }
+
+  window.protectedGlobals.removeAllEventListenersForApp(targetAppId + top._goldenbodyId);
 }
 
 const createShortcutButton = window.protectedGlobals.createShortcutButton = function createShortcutButton(label, description, handler) {
@@ -645,13 +604,11 @@ const renderAllAppsGrid = window.protectedGlobals.renderAllAppsGrid = async func
   container.innerHTML = '';
 
   if (!window.protectedGlobals.apps) return;
-
   for (const app of window.protectedGlobals.apps) {
     if (!app.icon) continue;
     createAppTile(app, container, false);
   }
 }
-
 const createAppTile = window.protectedGlobals.createAppTile = function createAppTile(app, container, draggable) {
   const div = document.createElement('div');
   div.className = 'app';
@@ -707,17 +664,11 @@ const createAppTile = window.protectedGlobals.createAppTile = function createApp
   }
 
   function runAppPackageContextMenu(evt) {
-    try {
-      if(app.cmfl1) {
-        window[app.globalvarobjectstring][app.cmfl1](evt);
-      }
-      else {
-        window.protectedGlobals.cmfl1(evt, app);
-      }
-    } catch (err) {
-      window.protectedGlobals.throwError('createAppTile', 'Failed to run app package context menu',         err,         {
-          appId: app && app.id,
-        }      );
+    if(app.cmfl1) {
+      window[app.globalvarobjectstring][app.cmfl1](evt);
+    }
+    else {
+      window.protectedGlobals.cmfl1(evt, app);
     }
   }
 
@@ -797,22 +748,16 @@ const showAppContextMenu = window.protectedGlobals.showAppContextMenu = function
 }
 
 // Wire up sign out button (now inside the statusRight area) to call rebuildhandler
-try {
+{
   var sb = document.getElementById("signOutBtn");
   if (sb) {
     if (window.protectedGlobals.systemAPIs.onSignOut)
       sb.removeEventListener("click", window.protectedGlobals.systemAPIs.onSignOut);
     window.protectedGlobals.systemAPIs.onSignOut = () => {
-      try {
-        window.protectedGlobals.rebuildhandler();
-      } catch (e) {
-        console.error("rebuildhandler error", e);
-      }
+      window.protectedGlobals.rebuildhandler();
     };
     sb.addEventListener("click", window.protectedGlobals.systemAPIs.onSignOut);
   }
-} catch (e) {
-  console.error("signOut hookup error", e);
 }
 
 // -------- TIME --------
@@ -827,11 +772,9 @@ const updateTime = window.protectedGlobals.updateTime = function updateTime() {
 }
 
 updateTime();
-try {
+{
   if (window.protectedGlobals.systemAPIs.timeIntervalId)
     clearInterval(window.protectedGlobals.systemAPIs.timeIntervalId);
-  window.protectedGlobals.systemAPIs.timeIntervalId = setInterval(updateTime, 1000);
-} catch (e) {
   window.protectedGlobals.systemAPIs.timeIntervalId = setInterval(updateTime, 1000);
 }
 
@@ -846,38 +789,32 @@ if (navigator.getBattery) {
     }
 
     updateBattery();
-    try {
-      if (
-        window.protectedGlobals.systemAPIs.battery &&
-        window.protectedGlobals.systemAPIs.battery.ref
-      ) {
-        try {
-          window.protectedGlobals.systemAPIs.battery.ref.removeEventListener(
-            "levelchange",
-            window.protectedGlobals.systemAPIs.battery.levelHandler,
-          );
-        } catch (e) {}
-        try {
-          window.protectedGlobals.systemAPIs.battery.ref.removeEventListener(
-            "chargingchange",
-            window.protectedGlobals.systemAPIs.battery.chargingHandler,
-          );
-        } catch (e) {}
-      }
-      window.protectedGlobals.systemAPIs.battery = {
-        ref: battery,
-        levelHandler: updateBattery,
-        chargingHandler: updateBattery,
-      };
-      battery.addEventListener(
+    if (
+      window.protectedGlobals.systemAPIs.battery &&
+      window.protectedGlobals.systemAPIs.battery.ref
+    ) {
+      window.protectedGlobals.systemAPIs.battery.ref.removeEventListener(
         "levelchange",
         window.protectedGlobals.systemAPIs.battery.levelHandler,
       );
-      battery.addEventListener(
+      window.protectedGlobals.systemAPIs.battery.ref.removeEventListener(
         "chargingchange",
         window.protectedGlobals.systemAPIs.battery.chargingHandler,
       );
-    } catch (e) {}
+    }
+    window.protectedGlobals.systemAPIs.battery = {
+      ref: battery,
+      levelHandler: updateBattery,
+      chargingHandler: updateBattery,
+    };
+    battery.addEventListener(
+      "levelchange",
+      window.protectedGlobals.systemAPIs.battery.levelHandler,
+    );
+    battery.addEventListener(
+      "chargingchange",
+      window.protectedGlobals.systemAPIs.battery.chargingHandler,
+    );
   });
 } else {
   document.getElementById("batteryStatus").textContent = "🔋 N/A";
@@ -894,7 +831,7 @@ const updateWiFi = window.protectedGlobals.updateWiFi = function updateWiFi() {
 }
 
 updateWiFi();
-try {
+{
   if (window.protectedGlobals.systemAPIs.onOnline)
     window.removeEventListener("online", window.protectedGlobals.systemAPIs.onOnline);
   if (window.protectedGlobals.systemAPIs.onOffline)
@@ -903,7 +840,7 @@ try {
   window.protectedGlobals.systemAPIs.onOffline = updateWiFi;
   window.addEventListener("online", window.protectedGlobals.systemAPIs.onOnline);
   window.addEventListener("offline", window.protectedGlobals.systemAPIs.onOffline);
-} catch (e) {}
+}
 
 // ----------------- TOGGLE START MENU -----------------
 window.protectedGlobals.starthandler = () => {
@@ -920,7 +857,7 @@ window.protectedGlobals.starthandler = () => {
 
 
 // ----------------- CLOSE MENU ON OUTSIDE CLICK -----------------
-try {
+{
   if (window.protectedGlobals.systemAPIs.onDocumentClick)
     document.removeEventListener(
       "click",
@@ -943,21 +880,17 @@ try {
     }
   };
   document.addEventListener("click", window.protectedGlobals.systemAPIs.onDocumentClick);
-} catch (e) {}
+}
 
 
 
 const injectGoldenbodyScript = window.protectedGlobals.injectGoldenbodyScript = async function injectGoldenbodyScript() {
-    try {
-      let body = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/goldenbody.js");
-      var sysScript = document.createElement("script");
-      sysScript.type = "text/javascript";
-      sysScript.textContent = window.protectedGlobals.base64ToUtf8(body.filecontent);
-      document.body.appendChild(sysScript);
-      window.protectedGlobals.loaded = true;
-    } catch (e) {
-      window.protectedGlobals.notification("failed to load user goldenbody.js from VFS", e);
-    }
+    let body = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/goldenbody.js");
+    var sysScript = document.createElement("script");
+    sysScript.type = "text/javascript";
+    sysScript.textContent = window.protectedGlobals.base64ToUtf8(body.filecontent);
+    document.body.appendChild(sysScript);
+    window.protectedGlobals.loaded = true;
 }
 
 setTimeout(() => {

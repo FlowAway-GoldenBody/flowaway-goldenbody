@@ -4,7 +4,7 @@ settingsGlobals.allSettings = [];
 settingsGlobals.goldenbodyId = 0;
 
 function persistSettingsProfilePatch(patch) {
-  if (typeof window.protectedGlobals.persistUserProfilePatch === "function") {
+  if ((window.protectedGlobals.persistUserProfilePatch)) {
      return window.protectedGlobals.persistUserProfilePatch(patch || {});
   }
   return Promise.resolve({ success: false, error: "profile persistence unavailable" });
@@ -163,7 +163,7 @@ settings = function (posX = 50, posY = 50) {
 
   function closeAll() {
     for (const instance of [...settingsGlobals.allSettings]) {
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
@@ -172,7 +172,7 @@ settings = function (posX = 50, posY = 50) {
 
   function hideAll() {
     for (const instance of settingsGlobals.allSettings) {
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
@@ -183,7 +183,7 @@ settings = function (posX = 50, posY = 50) {
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
     for (const instance of settingsGlobals.allSettings) {
-      if (instance && typeof instance.showWindow === "function") {
+      if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
     }

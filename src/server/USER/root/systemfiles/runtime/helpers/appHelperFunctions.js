@@ -3,95 +3,77 @@ window.protectedGlobals.appMatchesIdentifier = function (app, identifier) {
   var id = String(identifier).trim();
   if (!id) return false;
   var candidates = [app.functionname, app.id, app.icon]
-    .filter((v) => typeof v !== "undefined" && v !== null)
+    .filter((v) => v !== null && v !== undefined)
     .map((v) => String(v).trim())
     .filter(Boolean);
   return candidates.includes(id);
-}
+};
 window.protectedGlobals.getAppInstanceArrayKeys = function (app) {
   var keys = [];
   if (!app) return keys;
-  if (typeof app.allapparraystring === "string") {
-    var oneKey = app.allapparraystring.trim();
+  if (app.allapparraystring) {
+    var oneKey = String(app.allapparraystring).trim();
     if (oneKey) keys.push(oneKey);
   } else if (Array.isArray(app.allapparraystring)) {
     for (var i = 0; i < app.allapparraystring.length; i++) {
-      var key =
-        typeof app.allapparraystring[i] === "string"
-          ? app.allapparraystring[i].trim()
-          : "";
+      var key = String(app.allapparraystring[i] || "").trim();
       if (key && keys.indexOf(key) === -1) keys.push(key);
     }
   }
   return keys;
-}
+};
 window.protectedGlobals.ensureAppRuntimeState = function (app) {
   if (!app || !app.globalvarobjectstring) return null;
-  try {
-    var globalName = String(app.globalvarobjectstring || "").trim();
-    if (!globalName) return null;
+  var globalName = String(app.globalvarobjectstring || "").trim();
+  if (!globalName) return null;
 
-    var appGlobalObj = window[globalName];
-    if (!appGlobalObj || typeof appGlobalObj !== "object") {
-      appGlobalObj = {};
-      window[globalName] = appGlobalObj;
+  var appGlobalObj = window[globalName] || {};
+  window[globalName] = appGlobalObj;
+
+  var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
+  for (var i = 0; i < keys.length; i++) {
+    if (!Array.isArray(appGlobalObj[keys[i]])) {
+      appGlobalObj[keys[i]] = [];
     }
-
-    var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
-    for (var i = 0; i < keys.length; i++) {
-      if (!Array.isArray(appGlobalObj[keys[i]])) {
-        appGlobalObj[keys[i]] = [];
-      }
-    }
-
-    if (!Number.isFinite(Number(appGlobalObj.goldenbodyId))) {
-      appGlobalObj.goldenbodyId = 0;
-    } else {
-      appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId);
-    }
-
-    return appGlobalObj;
-  } catch (e) {
-    return null;
   }
-}
+
+  if (!Number.isFinite(Number(appGlobalObj.goldenbodyId))) {
+    appGlobalObj.goldenbodyId = 0;
+  } else {
+    appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId);
+  }
+
+  return appGlobalObj;
+};
 window.protectedGlobals.getPrimaryAppInstanceArray = function (app) {
   if (!app) return [];
-  try {
-    var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
-    if (!appGlobalObj || typeof appGlobalObj !== "object") return [];
-    var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
-    for (var i = 0; i < keys.length; i++) {
-      if (Array.isArray(appGlobalObj[keys[i]])) return appGlobalObj[keys[i]];
-    }
-    return [];
-  } catch (e) {
-    return [];
+  var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
+  if (!appGlobalObj) return [];
+  var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
+  for (var i = 0; i < keys.length; i++) {
+    if (Array.isArray(appGlobalObj[keys[i]])) return appGlobalObj[keys[i]];
   }
-}
+  return [];
+};
 window.protectedGlobals.getAllAppInstanceArrays = function (app) {
   var lists = [];
   if (!app) return lists;
-  try {
-    var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
-    if (!appGlobalObj || typeof appGlobalObj !== "object") return lists;
-    var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      if (!Array.isArray(appGlobalObj[key])) appGlobalObj[key] = [];
-      if (lists.indexOf(appGlobalObj[key]) === -1) lists.push(appGlobalObj[key]);
-    }
-    return lists;
-  } catch (e) {
-    return [];
+  var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
+  if (!appGlobalObj) return lists;
+  var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (!Array.isArray(appGlobalObj[key])) appGlobalObj[key] = [];
+    if (lists.indexOf(appGlobalObj[key]) === -1) lists.push(appGlobalObj[key]);
   }
-}
+  return lists;
+};
 window.protectedGlobals.allocateAppGoldenbodyId = function (app) {
   var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
-  if (!appGlobalObj || typeof appGlobalObj !== "object") return null;
+  if (!appGlobalObj) return null;
   appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId || 0) + 1;
   return appGlobalObj.goldenbodyId;
-}
+};
 window.protectedGlobals.registerAppInstance = function (app, instance) {
   if (!app || !instance) return;
   var list = window.protectedGlobals.getPrimaryAppInstanceArray(app);
@@ -152,12 +134,8 @@ window.protectedGlobals.resolveApptoolsContext = function (explicitAppId) {
   };
 }
 window.protectedGlobals.initAppTools = function () {
-  var existing = window.protectedGlobals.apptools && typeof window.protectedGlobals.apptools === "object"
-    ? window.protectedGlobals.apptools
-    : {};
-  existing.api = existing.api && typeof existing.api === "object"
-    ? existing.api
-    : {};
+  var existing = window.protectedGlobals.apptools || {};
+  existing.api = existing.api || {};
 
   existing.createRoot = function (appId, posX, posY) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
@@ -179,7 +157,7 @@ window.protectedGlobals.initAppTools = function () {
     if (document && document.body) {
       document.body.appendChild(root);
     }
-    if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
+    window.protectedGlobals.bringToFront(root);
     if (ctx.appId) window.protectedGlobals.atTop = ctx.appId;
     return root;
   };
@@ -189,9 +167,7 @@ window.protectedGlobals.initAppTools = function () {
     root._apptoolsDragResizeBound = true;
 
     function getInstance() {
-      return root._appInstance && typeof root._appInstance === "object"
-        ? root._appInstance
-        : null;
+      return root._appInstance || null;
     }
 
     function getBounds() {
@@ -212,7 +188,7 @@ window.protectedGlobals.initAppTools = function () {
     }
 
     function setMaximizedIcon(maximized) {
-      if (btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+      if (btnMax) {
         window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
       }
     }
@@ -265,7 +241,7 @@ window.protectedGlobals.initAppTools = function () {
                 root._apptoolsSavedBounds ||
                 getBounds(),
             );
-            if (instance && typeof instance.restoreWindow === "function") {
+            if (instance) {
               instance.restoreWindow(false);
             } else {
               root.style.borderRadius = "10px";
@@ -348,9 +324,7 @@ window.protectedGlobals.initAppTools = function () {
           restoredFromMax: false,
         };
         document.body.style.userSelect = "none";
-        try {
-          el.setPointerCapture(e.pointerId);
-        } catch (captureErr) {}
+        el.setPointerCapture(e.pointerId);
       });
 
       el.addEventListener("pointermove", function (e) {
@@ -362,7 +336,7 @@ window.protectedGlobals.initAppTools = function () {
             Math.abs(e.clientY - active.sy) > 1)
         ) {
           var instance = getInstance();
-          if (instance && typeof instance.restoreWindow === "function") {
+          if (instance) {
             instance.restoreWindow(false);
           } else {
             root.style.borderRadius = "10px";
@@ -425,7 +399,7 @@ window.protectedGlobals.initAppTools = function () {
   };
 
   existing.createtitlebar = function (root) {
-    if (!root || typeof root.querySelector !== "function") return null;
+    if (!root) return null;
     var existingTop = root.querySelector(".appTopBar");
     if (existingTop) return existingTop;
 
@@ -439,7 +413,7 @@ window.protectedGlobals.initAppTools = function () {
       dragStrip.style.cursor = "move";
       dragStrip.style.width = "100%";
       dragStrip.addEventListener("click", function () {
-        if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
+        window.protectedGlobals.bringToFront(root);
       });
       root.prepend(dragStrip);
     }
@@ -453,7 +427,7 @@ window.protectedGlobals.initAppTools = function () {
       barrier.style.height = "14px";
       barrier.style.width = "100%";
       barrier.addEventListener("click", function () {
-        if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
+        window.protectedGlobals.bringToFront(root);
       });
       root.prepend(barrier);
     }
@@ -488,14 +462,8 @@ window.protectedGlobals.initAppTools = function () {
     btnClose.style.backgroundColor = "red";
 
     function applyWindowControlStyles() {
-      var applyIcon =
-        typeof window.protectedGlobals.applyWindowControlIcon === "function"
-          ? window.protectedGlobals.applyWindowControlIcon
-          : function () {};
-      var setMaxIcon =
-        typeof window.protectedGlobals.setWindowMaximizeIcon === "function"
-          ? window.protectedGlobals.setWindowMaximizeIcon
-          : function () {};
+      var applyIcon = window.protectedGlobals.applyWindowControlIcon;
+      var setMaxIcon = window.protectedGlobals.setWindowMaximizeIcon;
 
       applyIcon(btnMin, "minimize");
       var currentInstance = getInstance();
@@ -538,22 +506,18 @@ window.protectedGlobals.initAppTools = function () {
     root.addEventListener("styleapplied", applyTitlebarTheme);
 
     function getInstance() {
-      return root._appInstance && typeof root._appInstance === "object"
-        ? root._appInstance
-        : null;
+      return root._appInstance || null;
     }
 
     function setMaximizedIcon(maximized) {
-      if (typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
-        window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
-      }
+      window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
     }
 
     function maximizeOrRestore() {
       var instance = getInstance();
       var isMax = (instance && !!instance._isMaximized) || !!root._apptoolsMaximized;
       if (!isMax) {
-        if (instance && typeof instance.maximizeWindow === "function") {
+        if (instance) {
           instance.maximizeWindow();
           return;
         }
@@ -573,7 +537,7 @@ window.protectedGlobals.initAppTools = function () {
         setMaximizedIcon(true);
         return;
       }
-      if (instance && typeof instance.restoreWindow === "function") {
+      if (instance) {
         instance.restoreWindow(true);
         return;
       }
@@ -591,7 +555,7 @@ window.protectedGlobals.initAppTools = function () {
 
     btnMin.addEventListener("click", function () {
       var instance = getInstance();
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance) {
         instance.hideWindow();
         return;
       }
@@ -604,15 +568,15 @@ window.protectedGlobals.initAppTools = function () {
 
     btnClose.addEventListener("click", function () {
       var instance = getInstance();
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance) {
         instance.closeWindow();
         return;
       }
-      if (typeof root.remove === "function") root.remove();
+      root.remove();
     });
 
     topBar.addEventListener("click", function () {
-      if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
+      window.protectedGlobals.bringToFront(root);
     });
 
     root.appendChild(topBar);
@@ -621,9 +585,9 @@ window.protectedGlobals.initAppTools = function () {
   };
 
   existing.api.trackInstance = function (instance, appOrId) {
-    if (!instance || typeof instance !== "object") return null;
+    if (!instance) return null;
     var app = null;
-    if (appOrId && typeof appOrId === "object") {
+    if (appOrId && appOrId !== null) {
       app = appOrId;
     } else {
       var hintedAppId = String(appOrId || "").trim();
@@ -671,9 +635,9 @@ window.protectedGlobals.initAppTools = function () {
   };
 
   existing.api.untrackInstance = function (instance, appOrId) {
-    if (!instance || typeof instance !== "object") return null;
+    if (!instance) return null;
     var app = null;
-    if (appOrId && typeof appOrId === "object") {
+    if (appOrId && appOrId !== null) {
       app = appOrId;
     } else {
       var hintedAppId = String(appOrId || "").trim();
@@ -693,18 +657,18 @@ window.protectedGlobals.initAppTools = function () {
   };
 
   existing.api.createAppInstance = function (ops) {
-    var options = ops && typeof ops === "object" ? ops : {};
+    var options = ops || {};
     var ctx = window.protectedGlobals.resolveApptoolsContext(options.appId || options.appid || "");
     var app = ctx.app;
     var appId = ctx.appId;
     var root = options.rootElement || options.root || null;
     var title = String(options.title || options.apptitle || "").trim();
 
-    if (!root || typeof root !== "object") {
+    if (!root) {
       root = existing.createRoot(appId, options.posX, options.posY);
     }
 
-    if (title && typeof window.protectedGlobals.setAppDataTitle === "function") {
+    if (title) {
       window.protectedGlobals.setAppDataTitle(root, title);
     }
 
@@ -765,14 +729,14 @@ window.protectedGlobals.initAppTools = function () {
       instance._isMaximized = true;
       instance._isMinimized = false;
       instance.rootElement._apptoolsMaximized = true;
-      if (instance.btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+      if (instance.btnMax) {
         window.protectedGlobals.setWindowMaximizeIcon(instance.btnMax, true);
       }
     };
 
     instance.restoreWindow = function (useOriginalBounds) {
       if (!instance.rootElement || !instance.rootElement.style) return;
-      var shouldUseOriginal = typeof useOriginalBounds === "undefined" ? true : !!useOriginalBounds;
+      var shouldUseOriginal = useOriginalBounds !== false;
       if (shouldUseOriginal) {
         var restoreBounds =
           instance.savedBounds ||
@@ -785,29 +749,23 @@ window.protectedGlobals.initAppTools = function () {
       instance.rootElement.style.borderRadius = "10px";
       instance._isMaximized = false;
       instance.rootElement._apptoolsMaximized = false;
-      if (instance.btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
+      if (instance.btnMax) {
         window.protectedGlobals.setWindowMaximizeIcon(instance.btnMax, false);
       }
     };
 
     instance.showWindow = function () {
       if (!instance.rootElement || !instance.rootElement.style) return;
-      var previousDisplay =
-        typeof instance.previousDisplay === "string"
-          ? instance.previousDisplay
-          : "";
+      var previousDisplay = instance.previousDisplay || "";
       instance.rootElement.style.display =
         previousDisplay && previousDisplay !== "none" ? previousDisplay : "";
       instance._isMinimized = false;
-      if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(instance.rootElement);
+      window.protectedGlobals.bringToFront(instance.rootElement);
     };
 
     instance.hideWindow = function () {
       if (!instance.rootElement || !instance.rootElement.style) return;
-      var currentDisplay =
-        typeof instance.rootElement.style.display === "string"
-          ? instance.rootElement.style.display
-          : "";
+      var currentDisplay = instance.rootElement.style.display || "";
       if (currentDisplay && currentDisplay !== "none") {
         instance.previousDisplay = currentDisplay;
       }
@@ -816,14 +774,10 @@ window.protectedGlobals.initAppTools = function () {
     };
 
     instance.closeWindow = function () {
-      try {
-        if (instance.rootElement && typeof instance.rootElement.remove === "function") {
-          instance.rootElement.remove();
-        }
-      } catch (e) {}
-      try {
-        if (app) window.protectedGlobals.deregisterAppInstance(app, instance);
-      } catch (e) {}
+      if (instance.rootElement && instance.rootElement.remove) {
+        instance.rootElement.remove();
+      }
+      if (app) window.protectedGlobals.deregisterAppInstance(app, instance);
     };
 
     instance.showAll = function () {
@@ -838,7 +792,7 @@ window.protectedGlobals.initAppTools = function () {
         return az - bz;
       });
       for (var i = 0; i < allInstances.length; i++) {
-        if (allInstances[i] && typeof allInstances[i].showWindow === "function") {
+        if (allInstances[i]) {
           allInstances[i].showWindow();
         }
       }
@@ -851,7 +805,7 @@ window.protectedGlobals.initAppTools = function () {
       }
       var allInstances = window.protectedGlobals.getAppInstances(app);
       for (var i = 0; i < allInstances.length; i++) {
-        if (allInstances[i] && typeof allInstances[i].hideWindow === "function") {
+        if (allInstances[i]) {
           allInstances[i].hideWindow();
         }
       }
@@ -864,7 +818,7 @@ window.protectedGlobals.initAppTools = function () {
       }
       var allInstances = [...window.protectedGlobals.getAppInstances(app)];
       for (var i = 0; i < allInstances.length; i++) {
-        if (allInstances[i] && typeof allInstances[i].closeWindow === "function") {
+        if (allInstances[i]) {
           allInstances[i].closeWindow();
         }
       }
@@ -903,36 +857,25 @@ window.protectedGlobals.initAppTools = function () {
 }
 window.protectedGlobals.initAppTools();
 window.protectedGlobals.resolveLaunchContextRoot = function () {
-  try {
-    var launchContext = window.protectedGlobals._launchContext;
-    var launchAppId =
-      launchContext && launchContext.appId
-        ? String(launchContext.appId)
-        : "";
-    var roots = Array.from(document.querySelectorAll(".app-window-root"));
-    if (launchAppId) {
-      for (var i = roots.length - 1; i >= 0; i--) {
-        var root = roots[i];
-        if (!root || !root.dataset) continue;
-        if (String(root.dataset.appId || "") === launchAppId) {
-          return root;
-        }
+  var launchContext = window.protectedGlobals._launchContext;
+  var launchAppId = launchContext && launchContext.appId ? String(launchContext.appId) : "";
+  var roots = Array.from(document.querySelectorAll(".app-window-root"));
+  if (launchAppId) {
+    for (var i = roots.length - 1; i >= 0; i--) {
+      var root = roots[i];
+      if (!root || !root.dataset) continue;
+      if (String(root.dataset.appId || "") === launchAppId) {
+        return root;
       }
     }
-    return roots.length ? roots[roots.length - 1] : null;
-  } catch (e) {
-    return null;
   }
+  return roots.length ? roots[roots.length - 1] : null;
 }
 window.protectedGlobals.setAppDataTitle = function (targetOrTitle, maybeTitle) {
   var target = null;
   var title = "";
 
-  if (
-    targetOrTitle &&
-    typeof targetOrTitle === "object" &&
-    typeof targetOrTitle.setAttribute === "function"
-  ) {
+  if (targetOrTitle && targetOrTitle.setAttribute) {
     target = targetOrTitle;
     title = String(maybeTitle || "").trim();
   } else {
@@ -941,13 +884,9 @@ window.protectedGlobals.setAppDataTitle = function (targetOrTitle, maybeTitle) {
   }
 
   if (!target || !title) return false;
-  try {
-    target.setAttribute("data-title", title);
-    if (target.dataset) target.dataset.title = title;
-    return true;
-  } catch (e) {
-    return false;
-  }
+  target.setAttribute("data-title", title);
+  if (target.dataset) target.dataset.title = title;
+  return true;
 };
 window.protectedGlobals.loadAppsFromTree = async function () {
   if (window.protectedGlobals.loaded) return;
@@ -1019,21 +958,16 @@ window.protectedGlobals.renderAppsGrid = async function () {
             app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptTextNoIcon);
             try {
               var globalvarobjectstring = app.globalvarobjectstring;
-              if (app.functionname && typeof window[app.functionname] !== "undefined") {
-                try {
-                  delete window[app.functionname];
-                } catch (e) {}
+              if (app.functionname) {
+                delete window[app.functionname];
               }
               if (
                 app.cmf &&
                 globalvarobjectstring &&
                 window[globalvarobjectstring] &&
-                !window.protectedGlobals.isProtectedAppGlobalName(app.cmf) &&
-                typeof window[globalvarobjectstring][app.cmf] !== "undefined"
+                !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
               ) {
-                try {
-                  delete window[globalvarobjectstring][app.cmf];
-                } catch (e) {}
+                delete window[globalvarobjectstring][app.cmf];
               }
             } catch (e) {}
             var beforeGlobalsNoIcon = new Set(
@@ -1048,21 +982,19 @@ window.protectedGlobals.renderAppsGrid = async function () {
             try {
               app._addedGlobals = [];
               var captureAddedNoIcon = () => {
-                try {
-                  var afterNoIcon = Object.getOwnPropertyNames(window);
-                  var newlyNoIcon = afterNoIcon.filter(
-                    (k) =>
-                      !beforeGlobalsNoIcon.has(k) &&
-                      !(app._addedGlobals || []).includes(k),
-                  );
-                  if (newlyNoIcon.length)
-                    app._addedGlobals = [
-                      ...new Set([
-                        ...(app._addedGlobals || []),
-                        ...newlyNoIcon,
-                      ]),
-                    ];
-                } catch (e) {}
+                var afterNoIcon = Object.getOwnPropertyNames(window);
+                var newlyNoIcon = afterNoIcon.filter(
+                  (k) =>
+                    !beforeGlobalsNoIcon.has(k) &&
+                    !(app._addedGlobals || []).includes(k),
+                );
+                if (newlyNoIcon.length)
+                  app._addedGlobals = [
+                    ...new Set([
+                      ...(app._addedGlobals || []),
+                      ...newlyNoIcon,
+                    ]),
+                  ];
               };
               captureAddedNoIcon();
               setTimeout(captureAddedNoIcon, 120);
@@ -1103,21 +1035,16 @@ window.protectedGlobals.renderAppsGrid = async function () {
           // Prefer removing globals created by previous script rather than deleting app metadata
           try {
             var globalvarobjectstring = app.globalvarobjectstring;
-            if (app.functionname && typeof window[app.functionname] !== "undefined") {
-              try {
-                delete window[app.functionname];
-              } catch (e) {}
+            if (app.functionname) {
+              delete window[app.functionname];
             }
             if (
               app.cmf &&
               globalvarobjectstring &&
               window[globalvarobjectstring] &&
-              !window.protectedGlobals.isProtectedAppGlobalName(app.cmf) &&
-              typeof window[globalvarobjectstring][app.cmf] !== "undefined"
-            ) {
-              try {
+                !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
+              ) {
                 delete window[globalvarobjectstring][app.cmf];
-              } catch (e) {}
             }
           } catch (e) {}
           // snapshot globals before injection
@@ -1132,18 +1059,16 @@ window.protectedGlobals.renderAppsGrid = async function () {
           try {
             app._addedGlobals = [];
             var captureAdded = () => {
-              try {
-                var after = Object.getOwnPropertyNames(window);
-                var newly = after.filter(
-                  (k) =>
-                    !beforeGlobals.has(k) &&
-                    !(app._addedGlobals || []).includes(k),
-                );
-                if (newly.length)
-                  app._addedGlobals = [
-                    ...new Set([...(app._addedGlobals || []), ...newly]),
-                  ];
-              } catch (e) {}
+              var after = Object.getOwnPropertyNames(window);
+              var newly = after.filter(
+                (k) =>
+                  !beforeGlobals.has(k) &&
+                  !(app._addedGlobals || []).includes(k),
+              );
+              if (newly.length)
+                app._addedGlobals = [
+                  ...new Set([...(app._addedGlobals || []), ...newly]),
+                ];
             };
             // immediate capture and a few delayed captures to catch async initializers
             captureAdded();
@@ -1220,7 +1145,7 @@ window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function () {
     }
 
     window.protectedGlobals._appLoaderSystemPromise = (async function () {
-      if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
+      {
         var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appLoader.js");
         var inlineText = window.protectedGlobals.decodeFileTextStrict(
           b64Runtime,
@@ -1281,7 +1206,7 @@ window.protectedGlobals.ensureFlowawayAppPollingLoaded = async function () {
     }
 
     window.protectedGlobals._appPollingSystemPromise = (async function () {
-      if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
+      {
         var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appPolling.js");
         var inlineText = window.protectedGlobals.decodeFileTextStrict(
           b64Runtime,
@@ -1344,7 +1269,7 @@ window.protectedGlobals.ensureProcessRuntimeLoaded = async function () {
     }
 
     window.protectedGlobals._processSystemPromise = (async function () {
-      if (typeof window.protectedGlobals.fetchFileContentByPath === "function") {
+      {
         var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/processes.js");
         var inlineProcessText = window.protectedGlobals.decodeFileTextStrict(
           b64ProcessRuntime,
@@ -1391,7 +1316,7 @@ window.protectedGlobals.ensureProcessRuntimeLoaded = async function () {
   }
 }
 window.protectedGlobals.resolveAppFromEvent = function (evt, appOverride = null) {
-  if (appOverride && typeof appOverride === "object") return appOverride;
+  if (appOverride) return appOverride;
   try {
     var appNode = evt && evt.target && evt.target.closest
       ? evt.target.closest("[data-app-id], [data-appid]")
@@ -1416,7 +1341,7 @@ window.protectedGlobals.resolveAppFromEvent = function (evt, appOverride = null)
     }
 
     if (!appId) return null;
-    return       (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId)) || null;
+    return (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId)) || null;
   } catch (e) {
     return null;
   }

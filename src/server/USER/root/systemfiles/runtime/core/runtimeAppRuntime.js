@@ -6,17 +6,16 @@ window.protectedGlobals.apps = window.protectedGlobals.apps || [];
 window.protectedGlobals.setDataTitle = window.protectedGlobals.setAppDataTitle;
 
 // appUpdated - ensure single binding
-try {
-  if (window.protectedGlobals.systemAPIs.onAppUpdated)
-    window.removeEventListener(
-      "appUpdated",
-      window.protectedGlobals.systemAPIs.onAppUpdated,
-    );
-  window.protectedGlobals.systemAPIs.onAppUpdated = (e) => {
-    window.protectedGlobals.purgeButtons();
-  };
-  window.addEventListener("appUpdated", window.protectedGlobals.systemAPIs.onAppUpdated);
-} catch (e) {}
+if (window.protectedGlobals.systemAPIs.onAppUpdated) {
+  window.removeEventListener(
+    "appUpdated",
+    window.protectedGlobals.systemAPIs.onAppUpdated,
+  );
+}
+window.protectedGlobals.systemAPIs.onAppUpdated = (e) => {
+  window.protectedGlobals.purgeButtons();
+};
+window.addEventListener("appUpdated", window.protectedGlobals.systemAPIs.onAppUpdated);
 
 // Ensure loadAppsFromTree runs after initial tree load
 
@@ -32,7 +31,7 @@ Promise.all([
   window.protectedGlobals.ensureProcessRuntimeLoaded(),
 ])
   .finally(function () {
-    if (typeof window.protectedGlobals.loadTree === "function") {
+    if ((window.protectedGlobals.loadTree)) {
       window.protectedGlobals.loadTree();
     }
   });
@@ -43,34 +42,29 @@ window.protectedGlobals.username = window.protectedGlobals.data && typeof window
 
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding
-try {
-  if (window.protectedGlobals.systemAPIs.onFullscreenChange)
-    document.removeEventListener(
-      "fullscreenchange",
-      window.protectedGlobals.systemAPIs.onFullscreenChange,
-    );
-  window.protectedGlobals.systemAPIs.onFullscreenChange = async () => {
-    if (document.fullscreenElement) {
-      if (navigator.keyboard && typeof navigator.keyboard.lock === "function") {
-        try {
-          await navigator.keyboard.lock(["Escape"]);
-        } catch (e) {}
-      }
-    } else {
-      if (
-        navigator.keyboard &&
-        typeof navigator.keyboard.unlock === "function"
-      ) {
-        try {
-          navigator.keyboard.unlock();
-        } catch (e) {}
-      }
-    }
-  };
-  document.addEventListener(
+if (window.protectedGlobals.systemAPIs.onFullscreenChange) {
+  document.removeEventListener(
     "fullscreenchange",
     window.protectedGlobals.systemAPIs.onFullscreenChange,
   );
-} catch (e) {}
+}
+window.protectedGlobals.systemAPIs.onFullscreenChange = async () => {
+  if (document.fullscreenElement) {
+    if (navigator.keyboard && (navigator.keyboard.lock)) {
+      await navigator.keyboard.lock(["Escape"]);
+    }
+  } else {
+    if (
+      navigator.keyboard &&
+      (navigator.keyboard.unlock)
+    ) {
+      navigator.keyboard.unlock();
+    }
+  }
+};
+document.addEventListener(
+  "fullscreenchange",
+  window.protectedGlobals.systemAPIs.onFullscreenChange,
+);
 })();
 

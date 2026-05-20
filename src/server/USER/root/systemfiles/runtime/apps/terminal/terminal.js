@@ -58,7 +58,7 @@ window.protectedGlobals.registerTerminalAppCommand = function (definition, optio
   if (!name) {
     return { ok: false, error: "invalid command name" };
   }
-  if (typeof def.handler !== "function") {
+  if (!(def.handler)) {
     return { ok: false, error: "handler must be a function" };
   }
 
@@ -149,14 +149,14 @@ window.protectedGlobals.unregisterTerminalAppCommand = function (nameOrAlias) {
   return false;
 };
 
-if (!window.protectedGlobals.__terminalTaskmanDemoRegistered && typeof window.protectedGlobals.registerTerminalAppCommand === "function") {
+if (!window.protectedGlobals.__terminalTaskmanDemoRegistered && (window.protectedGlobals.registerTerminalAppCommand)) {
   window.protectedGlobals.registerTerminalAppCommand({
     name: "taskman",
     description: "Show Flowaway task-manager snapshot summary.",
     usage: "taskman [json]",
     sourceApp: "terminal",
     handler: function (context, args) {
-      if (typeof window.protectedGlobals.getTaskManagerSnapshot !== "function") {
+      if (!(window.protectedGlobals.getTaskManagerSnapshot)) {
         return "taskman: task manager data unavailable";
       }
       var snapshot = window.protectedGlobals.getTaskManagerSnapshot();
@@ -175,7 +175,7 @@ if (!window.protectedGlobals.__terminalTaskmanDemoRegistered && typeof window.pr
   window.protectedGlobals.__terminalTaskmanDemoRegistered = true;
 }
 
-if (!window.protectedGlobals.__terminalProcessCommandsRegistered && typeof window.protectedGlobals.registerTerminalAppCommand === "function") {
+if (!window.protectedGlobals.__terminalProcessCommandsRegistered && (window.protectedGlobals.registerTerminalAppCommand)) {
   window.protectedGlobals.registerTerminalAppCommand({
     name: "procs",
     description: "List the current Flowaway process snapshot.",
@@ -185,9 +185,9 @@ if (!window.protectedGlobals.__terminalProcessCommandsRegistered && typeof windo
       if (typeof window.protectedGlobals.FlowawayProcess !== "object" || !window.protectedGlobals.FlowawayProcess) {
         return "procs: process runtime unavailable";
       }
-      var snapshot = typeof window.protectedGlobals.FlowawayProcess.snapshot === "function"
+      var snapshot = (window.protectedGlobals.FlowawayProcess.snapshot)
         ? window.protectedGlobals.FlowawayProcess.snapshot()
-        : typeof window.protectedGlobals.getTaskManagerSnapshot === "function"
+        : (window.protectedGlobals.getTaskManagerSnapshot)
           ? window.protectedGlobals.getTaskManagerSnapshot()
           : null;
       if (String(args && args[0] || "").toLowerCase() === "json") {
@@ -219,7 +219,7 @@ if (!window.protectedGlobals.__terminalProcessCommandsRegistered && typeof windo
         return "killproc: pid must be numeric";
       }
       var ok = false;
-      if (typeof window.protectedGlobals.FlowawayProcess.terminate === "function") {
+      if ((window.protectedGlobals.FlowawayProcess.terminate)) {
         ok = !!window.protectedGlobals.FlowawayProcess.terminate(pid, "terminal-kill");
       }
       return ok ? "killproc: terminated " + String(pid) : "killproc: no matching process for pid " + String(pid);
@@ -365,7 +365,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
 
   function closeAll() {
     for (const instance of [...terminalGlobals.allTerminals]) {
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
@@ -374,7 +374,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
 
   function hideAll() {
     for (const instance of terminalGlobals.allTerminals) {
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
@@ -385,7 +385,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
     for (const instance of terminalGlobals.allTerminals) {
-      if (instance && typeof instance.showWindow === "function") {
+      if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
     }
@@ -820,7 +820,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   function decodeBase64Utf8(raw) {
-    if (typeof base64ToUtf8 === "function") {
+    if ((base64ToUtf8)) {
       return base64ToUtf8(raw);
     }
     try {
@@ -831,7 +831,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   async function readFileByPath(relPath) {
-    if (typeof window.protectedGlobals.fetchFileContentByPath !== "function") {
+    if (!(window.protectedGlobals.fetchFileContentByPath)) {
       throw new Error("fetchFileContentByPath is unavailable");
     }
     const b64 = await window.protectedGlobals.fetchFileContentByPath(relPath);
@@ -852,7 +852,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
     }
     if (response.error) {
       const errorMessage = String(response.error || "");
-      if (/denied/i.test(errorMessage) && typeof window.protectedGlobals.notification === "function") {
+      if (/denied/i.test(errorMessage) && (window.protectedGlobals.notification)) {
         window.protectedGlobals.notification(errorMessage);
       }
       throw new Error(String(response.error));
@@ -891,7 +891,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   function notifyDenied(message) {
-    if (typeof window.protectedGlobals.notification === "function") {
+    if ((window.protectedGlobals.notification)) {
       window.protectedGlobals.notification(String(message || "Access denied."));
     }
   }
@@ -910,7 +910,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   async function saveTextFileByPath(relPath, text) {
-    if (typeof window.protectedGlobals.filePost !== "function") {
+    if (!(window.protectedGlobals.filePost)) {
       throw new Error("window.protectedGlobals.filePost is unavailable");
     }
     const response = await window.protectedGlobals.filePost({
@@ -921,7 +921,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
       ],
     });
     ensureServerResultOk(response);
-    if (typeof window.protectedGlobals.onlyloadTree === "function") {
+    if ((window.protectedGlobals.onlyloadTree)) {
       try {
         await window.protectedGlobals.onlyloadTree();
       } catch (e) {}
@@ -929,7 +929,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   async function applySnapshotDirections(directions) {
-    if (typeof window.protectedGlobals.filePost !== "function") {
+    if (!(window.protectedGlobals.filePost)) {
       throw new Error("window.protectedGlobals.filePost is unavailable");
     }
     const response = await window.protectedGlobals.filePost({
@@ -937,7 +937,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
       directions: [...directions, { end: true }],
     });
     ensureServerResultOk(response);
-    if (typeof window.protectedGlobals.onlyloadTree === "function") {
+    if ((window.protectedGlobals.onlyloadTree)) {
       try {
         await window.protectedGlobals.onlyloadTree();
       } catch (e) {}
@@ -976,7 +976,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
       }
       if (!app) return false;
       const functionName = app.functionname || app.id;
-      if (functionName && typeof window[functionName] === "function") {
+      if (functionName && (window[functionName])) {
         try {
           return window[functionName](90, 90);
         } catch (e) {
@@ -994,7 +994,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
         : {};
     return Object.keys(registry)
       .map((name) => registry[name])
-      .filter((entry) => entry && typeof entry.handler === "function")
+      .filter((entry) => entry && (entry.handler))
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
@@ -1482,7 +1482,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
         return;
       }
 
-      if (typeof window.protectedGlobals.getCurrentUsernameForRequests !== "function" || typeof window.protectedGlobals.zmcdserver !== "string") {
+      if (!(window.protectedGlobals.getCurrentUsernameForRequests) || typeof window.protectedGlobals.zmcdserver !== "string") {
         writeLine("changeperm: permission API unavailable", "#ff7a7a");
         return;
       }
@@ -1556,7 +1556,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
       const fnName = rawTarget;
       const fn = window[fnName];
 
-      if (typeof fn !== "function") {
+      if (!(fn)) {
         writeLine(`run: function not found for '${rawTarget}'`, "#ff7a7a");
         return;
       }
@@ -1652,7 +1652,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
         pendingPasswordAction = null;
         try { input.value = ""; } catch (e) {}
         writeLine("changeperm: cancelled");
-        if (pending && typeof pending.resolve === "function") pending.resolve(null);
+        if (pending && (pending.resolve)) pending.resolve(null);
         return;
       }
 
@@ -1667,7 +1667,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
         }
         pendingPasswordAction = null;
         try { input.value = ""; } catch (e) {}
-        if (pending && typeof pending.resolve === "function") pending.resolve(password);
+        if (pending && (pending.resolve)) pending.resolve(password);
         return;
       }
 
