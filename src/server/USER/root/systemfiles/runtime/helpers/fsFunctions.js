@@ -9,34 +9,29 @@ window.protectedGlobals.findNodeByPath = function (relPath) {
   return current;
 };
 window.protectedGlobals.getFilesFromFolder = async function (relPath) {
-  try {
-    window.protectedGlobals.missingFolders.delete(relPath);
-    var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
-    if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
+  window.protectedGlobals.missingFolders.delete(relPath);
+  var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
+  if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
 
-    var isMissing =
-      !!(
-        r &&
-        (
-          r.missing ||
-          r.kind === "missing" ||
-          r.error === "ENOENT" ||
-          r.code === "ENOENT"
-        )
-      );
+  var isMissing =
+    !!(
+      r &&
+      (
+        r.missing ||
+        r.kind === "missing" ||
+        r.error === "ENOENT" ||
+        r.code === "ENOENT"
+      )
+    );
 
-    if (isMissing) {
-      window.protectedGlobals.missingFolders.add(relPath);
-      var missingError = new Error("ENOENT: Missing folder " + String(relPath));
-      missingError.code = "ENOENT";
-      throw missingError;
-    }
-
-    throw new Error("Invalid folder response for " + String(relPath));
-  } catch (e) {
-    console.error("getFilesFromFolder error", e);
-    throw e;
+  if (isMissing) {
+    window.protectedGlobals.missingFolders.add(relPath);
+    var missingError = new Error("ENOENT: Missing folder " + String(relPath));
+    missingError.code = "ENOENT";
+    throw missingError;
   }
+
+  throw new Error("Invalid folder response for " + String(relPath));
 }
 
 window.protectedGlobals.dedupefiles = function (folders) {
@@ -110,54 +105,31 @@ window.protectedGlobals.base64ToArrayBuffer = function base64ToArrayBuffer(base6
 
 // UTF-8 safe base64 -> string helper. Use this for text files (JS, txt, svg, etc.)
 window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
-  try {
-    // If caller passed an ArrayBuffer or Uint8Array, decode directly
-    if (
-      b64OrBuffer &&
-      (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))
-    ) {
-      var buf =
-        b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
-      return new TextDecoder("utf-8").decode(buf);
-    }
-
-    // Otherwise assume base64 string
-    var buf = window.protectedGlobals.base64ToArrayBuffer(String(b64OrBuffer || ""));
+  // If caller passed an ArrayBuffer or Uint8Array, decode directly
+  if (
+    b64OrBuffer &&
+    (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))
+  ) {
+    var buf = b64OrBuffer instanceof ArrayBuffer ? b64OrBuffer : b64OrBuffer.buffer;
     return new TextDecoder("utf-8").decode(buf);
-  } catch (e) {
-    try {
-      // fallback to atob for environments without TextDecoder support
-      if (typeof b64OrBuffer === "string") return atob(b64OrBuffer);
-    } catch (ee) {}
-    return "";
   }
+
+  // Otherwise assume base64 string
+  var buf = window.protectedGlobals.base64ToArrayBuffer(String(b64OrBuffer || ""));
+  return new TextDecoder("utf-8").decode(buf);
 };
 
 window.protectedGlobals.decodeFileTextStrict = function decodeFileTextStrict(rawContent, pathLabel, options) {
   var opts = options && typeof options === "object" ? options : {};
   var allowEmpty = !!opts.allowEmpty;
-  var text = "";
-
-  try {
-    text = window.protectedGlobals.base64ToUtf8(rawContent);
-  } catch (e) {
-    window.protectedGlobals.throwError(
-      "decodeFileTextStrict",
-      "Failed to decode file content.",
-      e,
-      String(pathLabel || "unknown path"),
-    );
-    return "";
-  }
+  var text = window.protectedGlobals.base64ToUtf8(rawContent);
 
   if (typeof text !== "string") {
-    window.protectedGlobals.throwError("decodeFileTextStrict", "Decoded file content is not text.", null, String(pathLabel || "unknown path"));
-    return "";
+    throw new Error("decodeFileTextStrict: Decoded file content is not text. " + String(pathLabel || "unknown path"));
   }
 
   if (!allowEmpty && !text.trim()) {
-    window.protectedGlobals.throwError("decodeFileTextStrict", "File content is empty.", null, String(pathLabel || "unknown path"));
-    return "";
+    throw new Error("decodeFileTextStrict: File content is empty. " + String(pathLabel || "unknown path"));
   }
 
   return text;

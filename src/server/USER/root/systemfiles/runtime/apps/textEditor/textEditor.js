@@ -64,13 +64,13 @@ async function loadTextEditorSettings(forceRefresh = false) {
   textEditorGlobals.settingsLoadPromise = (async () => {
     try {
       let raw = "";
-      if (typeof window.protectedGlobals.ReadFile === "function") {
+      if ((window.protectedGlobals.ReadFile)) {
         const res = await window.protectedGlobals.ReadFile(textEditorGlobals.settingsPath);
         if (res && !res.missing) {
           if (typeof res.filecontent === "string") raw = decodeMaybeBase64Text(res.filecontent);
           else if (typeof res === "string") raw = decodeMaybeBase64Text(res);
         }
-      } else if (typeof readFile === "function") {
+      } else if ((readFile)) {
         raw = decodeMaybeBase64Text(readFile(textEditorGlobals.settingsPath));
       }
 
@@ -92,11 +92,11 @@ async function saveTextEditorSettings(settings) {
   textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
   const content = btoa(JSON.stringify(normalized, null, 2));
 
-  if (typeof WriteFile === "function") {
+  if ((WriteFile)) {
     await window.protectedGlobals.WriteFile(textEditorGlobals.settingsPath, content, { replace: true });
     return;
   }
-  if (typeof window.protectedGlobals.filePost === "function") {
+  if ((window.protectedGlobals.filePost)) {
     await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
@@ -269,7 +269,7 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   function closeAll() {
     for (const instance of [...textEditorGlobals.allTextEditors]) {
-      if (instance && typeof instance.closeWindow === "function") {
+      if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
@@ -278,7 +278,7 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   function hideAll() {
     for (const instance of textEditorGlobals.allTextEditors) {
-      if (instance && typeof instance.hideWindow === "function") {
+      if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
@@ -289,7 +289,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
     for (const instance of textEditorGlobals.allTextEditors) {
-      if (instance && typeof instance.showWindow === "function") {
+      if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
     }
@@ -994,7 +994,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     applySavePickerTheme();
 
     const getUIMessage = (msg) => {
-      if (typeof window.protectedGlobals.notification === "function") window.protectedGlobals.notification(msg);
+      if ((window.protectedGlobals.notification)) window.protectedGlobals.notification(msg);
       else window.protectedGlobals.notification(msg);
     };
 

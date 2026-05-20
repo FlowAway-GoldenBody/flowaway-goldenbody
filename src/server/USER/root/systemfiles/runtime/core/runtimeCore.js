@@ -16,7 +16,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
     requestFileName: String(relPath),
   });
   if (options.text) {
-    if (res && typeof res.filecontent === "string") {
+    if (res && res.filecontent) {
       res.filecontent = window.tmpGlobals.decodeBase64ToUTF8(res.filecontent);
     }
   }
@@ -82,28 +82,17 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
             ...data
         })
     });
-    let body = null;
-    try {
-        body = await res.json();
-    } catch (e) {
-        body = null;
-    }
+    let body = await res.json();
     if (body && (body.authToken || body.token)) {
-        try {
-            window.protectedGlobals.data = window.protectedGlobals.data || {};
-            window.protectedGlobals.data.authToken = body.authToken || body.token;
-        } catch (e) {}
+      window.protectedGlobals.data = window.protectedGlobals.data || {};
+      window.protectedGlobals.data.authToken = body.authToken || body.token;
     }
-    try {
-      var zmcdErrorMessage = body && body.error ? String(body.error) : "";
-      if (res.status === 403 || /denied/i.test(zmcdErrorMessage)) {
-        window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
-      }
-    } catch (e) {}
+    var zmcdErrorMessage = body && body.error ? String(body.error) : "";
+    if (res.status === 403 || /denied/i.test(zmcdErrorMessage)) {
+      window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
+    }
     if (res.status === 401) {
-        try {
-            window.protectedGlobals.showSessionExpiredDialog();
-        } catch (e) {}
+      window.protectedGlobals.showSessionExpiredDialog();
         return body || { error: 'unauthorized' };
     }
     return body;
@@ -225,8 +214,8 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
     // Instead prompt for password and only send a password-based refill when provided.
     const uname = (function () {
       const u = window.protectedGlobals.getCurrentUsernameForRequests();
-      if (u && typeof u === 'string' && u.trim()) return u.trim();
-      if (window.protectedGlobals.data && typeof window.protectedGlobals.data.username === 'string')         return window.protectedGlobals.data.username.trim();
+      if (u && u.trim()) return u.trim();
+      if (window.protectedGlobals.data && window.protectedGlobals.data.username)         return String(window.protectedGlobals.data.username).trim();
       return '';
     })();
 
@@ -236,13 +225,13 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
       return;
     }
 
-    const password = (      pwdInput && typeof pwdInput.value === 'string')         ? pwdInput.value.trim() : '';
+    const password = pwdInput ? pwdInput.value.trim() : '';
 
     // If no password provided yet, focus the input and ask the user to enter it.
     if (!password) {
       status.textContent =         "Enter your account password above and click Refill to submit.";
       status.style.color = "#c66";
-      try {         pwdInput.focus();       } catch (e) {}
+      pwdInput.focus();
       return;
     }
 
@@ -258,8 +247,7 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
         body: JSON.stringify({           refillSession: true,           username: uname,           password         }),
       });
 
-      let body = null;
-      try {         body = await res.json();       } catch (e) {         body = null;       }
+      let body = await res.json();
 
       if (!res.ok) {
         const serverMsg =           (body && body.error) || body || res.statusText || 'unknown error';
@@ -285,15 +273,11 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
       window.protectedGlobals.data.authToken = body.authToken;
       status.textContent = 'Session refilled. You can continue.';
       status.style.color = 'green';
-      setTimeout(() => {         try {           dlg.remove();         } catch (e) {}       }, 350);
-    } catch (err) {
-      console.error('Refill request error', err);
-      status.textContent = 'Session refill failed. Sign in again.';
-      status.style.color = 'red';
+      setTimeout(() => { dlg.remove(); }, 350);
+    } finally {
+      refillBtn.disabled = false;
+      refillBtn.textContent = 'Refill Session';
     }
-
-    refillBtn.disabled = false;
-    refillBtn.textContent = 'Refill Session';
   });
   reloadBtn.addEventListener("click", () => {
     window.protectedGlobals.rebuildhandler();
@@ -305,22 +289,16 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
 window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsernameForRequests() {
   var liveUsername = "";
   var cachedUsername = "";
-  try {
-    if (window.protectedGlobals.data && typeof window.protectedGlobals.data.username === "string") {
-      liveUsername = String(window.protectedGlobals.data.username || "").trim();
-    }
-  } catch (e) {}
+  if (window.protectedGlobals.data && window.protectedGlobals.data.username) {
+    liveUsername = String(window.protectedGlobals.data.username || "").trim();
+  }
 
-  try {
-    if (typeof window.protectedGlobals._cachedUsername === "string") {
-      cachedUsername = String(window.protectedGlobals._cachedUsername || "").trim();
-    }
-  } catch (e) {}
+  if (window.protectedGlobals._cachedUsername) {
+    cachedUsername = String(window.protectedGlobals._cachedUsername || "").trim();
+  }
 
   if (liveUsername) {
-    try {
-      window.protectedGlobals._cachedUsername = liveUsername;
-    } catch (e) {}
+    window.protectedGlobals._cachedUsername = liveUsername;
   }
 
   return liveUsername || cachedUsername;
@@ -338,36 +316,23 @@ window.protectedGlobals.filePost = async function filePost(data) {
       ...data,
     }),
   });
-  let body = null;
-  try {
-    body = await res.json();
-  } catch (e) {
-    body = null;
-  }
+  let body = await res.json();
   if (body && (body.authToken || body.token)) {
-    try {
-      window.protectedGlobals.data = window.protectedGlobals.data || {};
-      window.protectedGlobals.data.authToken = body.authToken || body.token;
-    } catch (e) {}
+    window.protectedGlobals.data = window.protectedGlobals.data || {};
+    window.protectedGlobals.data.authToken = body.authToken || body.token;
   }
-  try {
-    var fileErrorMessage = body && body.error ? String(body.error) : "";
-    if (res.status === 403 || /denied/i.test(fileErrorMessage)) {
-      window.protectedGlobals.notification(fileErrorMessage || "Access denied.");
-    }
-  } catch (e) {}
+  var fileErrorMessage = body && body.error ? String(body.error) : "";
+  if (res.status === 403 || /denied/i.test(fileErrorMessage)) {
+    window.protectedGlobals.notification(fileErrorMessage || "Access denied.");
+  }
   if (res.status === 401 && !window.protectedGlobals.firstlogin) {
-    try {
-      window.protectedGlobals.showSessionExpiredDialog();
-    } catch (e) {}
+    window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };
   }
 
-  try {
-    if (!data || !data.initFE) {
-      window.protectedGlobals.queueOnlyLoadTreeRefresh();
-    }
-  } catch (e) {}
+  if (!data || !data.initFE) {
+    window.protectedGlobals.queueOnlyLoadTreeRefresh();
+  }
 
   window.protectedGlobals.firstlogin = false;
   return body;
@@ -391,22 +356,13 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
       edittaskbuttons: true,
     }),
   });
-  let body = null;
-  try {
-    body = await res.json();
-  } catch (e) {
-    body = null;
-  }
+  let body = await res.json();
   if (body && (body.authToken || body.token)) {
-    try {
-      window.protectedGlobals.data = window.protectedGlobals.data || {};
-      window.protectedGlobals.data.authToken = body.authToken || body.token;
-    } catch (e) {}
+    window.protectedGlobals.data = window.protectedGlobals.data || {};
+    window.protectedGlobals.data.authToken = body.authToken || body.token;
   }
   if (res.status === 401) {
-    try {
-      window.protectedGlobals.showSessionExpiredDialog();
-    } catch (e) {}
+    window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };
   }
   return body;
@@ -472,14 +428,12 @@ document.body.style.backgroundRepeat = "no-repeat";
 
 
 // Scroll lock - ensure single binding
-try {
-  if (window.protectedGlobals.systemAPIs.onScroll)
-    window.removeEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
-  window.protectedGlobals.systemAPIs.onScroll = () => {
-    window.scrollTo(window.protectedGlobals.savedScrollX, window.protectedGlobals.savedScrollY);
-  };
-  window.addEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
-} catch (e) {}
+if (window.protectedGlobals.systemAPIs.onScroll)
+  window.removeEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
+window.protectedGlobals.systemAPIs.onScroll = () => {
+  window.scrollTo(window.protectedGlobals.savedScrollX, window.protectedGlobals.savedScrollY);
+};
+window.addEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
 
 window.protectedGlobals.savedScrollX = window.scrollX;
 window.protectedGlobals.savedScrollY = window.scrollY;
@@ -513,18 +467,8 @@ window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRef
   window.protectedGlobals.onlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
     while (window.protectedGlobals.onlyLoadTreeRefreshPending) {
       window.protectedGlobals.onlyLoadTreeRefreshPending = false;
-      try {
-        if (window.protectedGlobals.onlyloadTree) {
-          await window.protectedGlobals.onlyloadTree();
-        }
-      } catch (e) {
-        try {
-          window.protectedGlobals.throwError(
-            "queueOnlyLoadTreeRefresh",
-            "onlyloadTree refresh failed.",
-            e,
-          );
-        } catch (ee) {}
+      if (window.protectedGlobals.onlyloadTree) {
+        await window.protectedGlobals.onlyloadTree();
       }
     }
   })();
@@ -549,7 +493,7 @@ window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
 
 
 window.protectedGlobals.isProtectedAppGlobalName = function isProtectedAppGlobalName(name) {
-  if (!name || typeof name !== "string") return false;
+  if (!name) return false;
   return (
     /Globals$/.test(name) ||
     name === "apps" ||

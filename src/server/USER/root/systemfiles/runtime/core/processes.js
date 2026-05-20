@@ -4,56 +4,32 @@
     return;
   }
 
-  var runtime = window.protectedGlobals.__processRuntime && typeof window.protectedGlobals.__processRuntime === "object"
-    ? window.protectedGlobals.__processRuntime
-    : {};
+  var runtime = window.protectedGlobals.__processRuntime || {};
 
   runtime.__loaded = false;
   runtime.listeners = runtime.listeners instanceof Set ? runtime.listeners : new Set();
-  runtime.manualProcesses = runtime.manualProcesses && typeof runtime.manualProcesses === "object"
-    ? runtime.manualProcesses
-    : {};
-  runtime.launchRegistry = runtime.launchRegistry && typeof runtime.launchRegistry === "object"
-    ? runtime.launchRegistry
-    : {};
-  runtime.dynamicProcesses = runtime.dynamicProcesses && typeof runtime.dynamicProcesses === "object"
-    ? runtime.dynamicProcesses
-    : {};
-  runtime.processObjectsByPid = runtime.processObjectsByPid && typeof runtime.processObjectsByPid === "object"
-    ? runtime.processObjectsByPid
-    : (window.protectedGlobals.__processObjectsByPid && typeof window.protectedGlobals.__processObjectsByPid === "object" ? window.protectedGlobals.__processObjectsByPid : {});
+  runtime.manualProcesses = runtime.manualProcesses || {};
+  runtime.launchRegistry = runtime.launchRegistry || {};
+  runtime.dynamicProcesses = runtime.dynamicProcesses || {};
+  runtime.processObjectsByPid = runtime.processObjectsByPid || (window.protectedGlobals.__processObjectsByPid || {});
   runtime.processes = Array.isArray(runtime.processes) ? runtime.processes : [];
-  runtime.processRegistry = runtime.processRegistry && typeof runtime.processRegistry === "object"
-    ? runtime.processRegistry
-    : {};
+  runtime.processRegistry = runtime.processRegistry || {};
   runtime.taskProcessCounter = Number(runtime.taskProcessCounter || window.protectedGlobals.__taskProcessCounter || 0);
   runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool)
     ? runtime.reusablePidPool
     : (Array.isArray(window.protectedGlobals.__reusablePidPool) ? window.protectedGlobals.__reusablePidPool : []);
-  runtime.taskProcessIdByIdentity = runtime.taskProcessIdByIdentity && typeof runtime.taskProcessIdByIdentity === "object"
-    ? runtime.taskProcessIdByIdentity
-    : (window.protectedGlobals.__taskProcessIdByIdentity && typeof window.protectedGlobals.__taskProcessIdByIdentity === "object" ? window.protectedGlobals.__taskProcessIdByIdentity : {});
+  runtime.taskProcessIdByIdentity = runtime.taskProcessIdByIdentity || (window.protectedGlobals.__taskProcessIdByIdentity || {});
   runtime.taskProcessObjectIdentity = runtime.taskProcessObjectIdentity instanceof WeakMap
     ? runtime.taskProcessObjectIdentity
     : (window.protectedGlobals.__taskProcessObjectIdentity instanceof WeakMap ? window.protectedGlobals.__taskProcessObjectIdentity : new WeakMap());
   runtime.taskProcessObjectIdentityCounter = Number(
     runtime.taskProcessObjectIdentityCounter || window.protectedGlobals.__taskProcessObjectIdentityCounter || 0,
   );
-  runtime.timerProcessBindings = runtime.timerProcessBindings && typeof runtime.timerProcessBindings === "object"
-    ? runtime.timerProcessBindings
-    : {};
-  runtime.rafProcessBindings = runtime.rafProcessBindings && typeof runtime.rafProcessBindings === "object"
-    ? runtime.rafProcessBindings
-    : {};
-  runtime.observerProcessBindings = runtime.observerProcessBindings && typeof runtime.observerProcessBindings === "object"
-    ? runtime.observerProcessBindings
-    : {};
-  runtime.listenerProcessBindings = runtime.listenerProcessBindings && typeof runtime.listenerProcessBindings === "object"
-    ? runtime.listenerProcessBindings
-    : {};
-  runtime.iframeProcessBindings = runtime.iframeProcessBindings && typeof runtime.iframeProcessBindings === "object"
-    ? runtime.iframeProcessBindings
-    : {};
+  runtime.timerProcessBindings = runtime.timerProcessBindings || {};
+  runtime.rafProcessBindings = runtime.rafProcessBindings || {};
+  runtime.observerProcessBindings = runtime.observerProcessBindings || {};
+  runtime.listenerProcessBindings = runtime.listenerProcessBindings || {};
+  runtime.iframeProcessBindings = runtime.iframeProcessBindings || {};
   runtime.iframeHookedElements = runtime.iframeHookedElements instanceof WeakSet
     ? runtime.iframeHookedElements
     : new WeakSet();
@@ -61,30 +37,16 @@
     ? runtime.iframeBindingByElement
     : new WeakMap();
   runtime.iframeHookObserver = runtime.iframeHookObserver || null;
-  runtime.serviceWorkerProcessBindings = runtime.serviceWorkerProcessBindings && typeof runtime.serviceWorkerProcessBindings === "object"
-    ? runtime.serviceWorkerProcessBindings
-    : {};
-  runtime.workerProcessBindings = runtime.workerProcessBindings && typeof runtime.workerProcessBindings === "object"
-    ? runtime.workerProcessBindings
-    : {};
+  runtime.serviceWorkerProcessBindings = runtime.serviceWorkerProcessBindings || {};
+  runtime.workerProcessBindings = runtime.workerProcessBindings || {};
   runtime.workerInstances = runtime.workerInstances instanceof WeakMap
     ? runtime.workerInstances
     : new WeakMap();
-  runtime.hookStatus = runtime.hookStatus && typeof runtime.hookStatus === "object"
-    ? runtime.hookStatus
-    : {};
-  runtime.hookStatus.iframe = runtime.hookStatus.iframe && typeof runtime.hookStatus.iframe === "object"
-    ? runtime.hookStatus.iframe
-    : { hookable: false, reason: "not-initialized", hooked: false, hookedCount: 0, observed: false };
-  runtime.hookStatus.serviceWorker = runtime.hookStatus.serviceWorker && typeof runtime.hookStatus.serviceWorker === "object"
-    ? runtime.hookStatus.serviceWorker
-    : { hookable: false, reason: "not-initialized", hooked: false };
-  runtime._nativeServiceWorkerRegister = typeof runtime._nativeServiceWorkerRegister === "function"
-    ? runtime._nativeServiceWorkerRegister
-    : null;
-  runtime._nativeWorkerConstructor = typeof runtime._nativeWorkerConstructor === "function"
-    ? runtime._nativeWorkerConstructor
-    : null;
+  runtime.hookStatus = runtime.hookStatus || {};
+  runtime.hookStatus.iframe = runtime.hookStatus.iframe || { hookable: false, reason: "not-initialized", hooked: false, hookedCount: 0, observed: false };
+  runtime.hookStatus.serviceWorker = runtime.hookStatus.serviceWorker || { hookable: false, reason: "not-initialized", hooked: false };
+  runtime._nativeServiceWorkerRegister = runtime._nativeServiceWorkerRegister || null;
+  runtime._nativeWorkerConstructor = runtime._nativeWorkerConstructor || null;
 
   function getFirstDefinedValue() {
     for (var i = 0; i < arguments.length; i++) {
@@ -121,26 +83,22 @@
       known[String(pid)] = true;
     }
 
-    var identityMap = runtime.taskProcessIdByIdentity && typeof runtime.taskProcessIdByIdentity === "object"
-      ? runtime.taskProcessIdByIdentity
-      : {};
-    var identityKeys = Object.keys(identityMap);
-    for (var i = 0; i < identityKeys.length; i++) {
-      markPid(identityMap[identityKeys[i]]);
-    }
-
-    var processes = Array.isArray(runtime.processes) ? runtime.processes : [];
-    for (var p = 0; p < processes.length; p++) {
-      var record = processes[p] && typeof processes[p] === "object" ? processes[p] : null;
-      if (!record) continue;
-      markPid(getFirstDefinedValue(record.pid, record.processId, record.id));
-    }
-
-    var store = runtime.processObjectsByPid && typeof runtime.processObjectsByPid === "object"
-      ? runtime.processObjectsByPid
-      : {};
-    var storeKeys = Object.keys(store);
-    for (var s = 0; s < storeKeys.length; s++) {
+    var identityMap = runtime.taskProcessIdByIdentity || {};
+     var identityKeys = Object.keys(identityMap);
+     for (var i = 0; i < identityKeys.length; i++) {
+       markPid(identityMap[identityKeys[i]]);
+     }
+ 
+     var processes = Array.isArray(runtime.processes) ? runtime.processes : [];
+     for (var p = 0; p < processes.length; p++) {
+       var record = processes[p] || null;
+       if (!record) continue;
+       markPid(getFirstDefinedValue(record.pid, record.processId, record.id));
+     }
+ 
+     var store = runtime.processObjectsByPid || {};
+     var storeKeys = Object.keys(store);
+     for (var s = 0; s < storeKeys.length; s++) {
       markPid(storeKeys[s]);
       var stored = store[storeKeys[s]];
       if (stored && typeof stored === "object") {
@@ -344,7 +302,7 @@
     var originExisting = existing.origin && typeof existing.origin === "object" ? existing.origin : {};
 
     return {
-      fn: typeof input.fn === "function" ? input.fn : (typeof existing.fn === "function" ? existing.fn : noopProcessFn),
+      fn: (input.fn) ? input.fn : ((existing.fn) ? existing.fn : noopProcessFn),
       args: Array.isArray(input.args) ? input.args.slice() : (Array.isArray(existing.args) ? existing.args.slice() : []),
       intervalId: getFirstDefinedValue(input.intervalId, existing.intervalId, null),
       rafId: getFirstDefinedValue(input.rafId, existing.rafId, null),
@@ -398,25 +356,25 @@
       typeValue === "app" || typeValue === "launch",
     );
 
-    var cleanupFn = typeof input.cleanup === "function"
+    var cleanupFn = (input.cleanup)
       ? input.cleanup
-      : typeof input.stop === "function"
+      : (input.stop)
         ? input.stop
-        : typeof existing.cleanup === "function"
+        : (existing.cleanup)
           ? existing.cleanup
-          : typeof existing.stop === "function"
+          : (existing.stop)
             ? existing.stop
             : noopProcessFn;
 
-    var runFn = typeof input.run === "function"
+    var runFn = (input.run)
       ? input.run
-      : typeof existing.run === "function"
+      : (existing.run)
         ? existing.run
         : noopProcessFn;
 
-    var handlerFn = typeof input.handler === "function"
+    var handlerFn = (input.handler)
       ? input.handler
-      : typeof existing.handler === "function"
+      : (existing.handler)
         ? existing.handler
         : runFn;
 
@@ -650,7 +608,7 @@
       goldenbodyId: getFirstDefinedValue(input.goldenbodyId, null),
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      stop: typeof input.stop === "function" ? input.stop : null,
+      stop: (input.stop) ? input.stop : null,
       meta: Object.assign({}, input),
     };
 
@@ -688,8 +646,8 @@
         hasWindow: !!getFirstDefinedValue(input.hasWindow, false),
         windowIds: getFirstDefinedValue(input.windowIds, []),
         created: Number(record.createdAt || Date.now()),
-        cleanup: typeof record.stop === "function" ? record.stop : noopProcessFn,
-        run: typeof input.run === "function" ? input.run : noopProcessFn,
+        cleanup: (record.stop) ? record.stop : noopProcessFn,
+        run: (input.run) ? input.run : noopProcessFn,
         parentPid: getFirstDefinedValue(input.parentPid, null),
         children: getFirstDefinedValue(input.children, []),
       },
@@ -731,21 +689,21 @@
   function closeLiveAppInstance(instance, appMeta) {
     if (!instance || typeof instance !== "object") return false;
 
-    if (typeof instance.closeWindow === "function") {
+    if ((instance.closeWindow)) {
       try {
         instance.closeWindow();
         return true;
       } catch (e) {}
     }
 
-    if (typeof instance.close === "function") {
+    if ((instance.close)) {
       try {
         instance.close();
         return true;
       } catch (e) {}
     }
 
-    if (instance.rootElement && typeof instance.rootElement.remove === "function") {
+    if (instance.rootElement && (instance.rootElement.remove)) {
       try {
         instance.rootElement.remove();
       } catch (e) {}
@@ -815,9 +773,9 @@
   function terminateRecord(record, reason) {
     if (!record || typeof record !== "object") return false;
     try {
-      if (typeof record.stop === "function") {
+      if ((record.stop)) {
         record.stop(reason || "terminate");
-      } else if (record.handle && typeof record.handle.stop === "function") {
+      } else if (record.handle && (record.handle.stop)) {
         record.handle.stop(reason || "terminate");
       }
     } catch (e) {}
@@ -837,12 +795,12 @@
 
     if (pidKey && runtime.processObjectsByPid[pidKey]) {
       var processObject = runtime.processObjectsByPid[pidKey];
-      if (processObject && typeof processObject.stop === "function") {
+      if (processObject && (processObject.stop)) {
         try {
           processObject.stop(reason || "terminate");
           terminated = true;
         } catch (e) {}
-      } else if (processObject && processObject.handle && typeof processObject.handle.stop === "function") {
+      } else if (processObject && processObject.handle && (processObject.handle.stop)) {
         try {
           processObject.handle.stop(reason || "terminate");
           terminated = true;
@@ -930,7 +888,7 @@
     if (processObject.__cleanupCalled) return;
     processObject.__cleanupCalled = true;
     try {
-      if (typeof processObject.cleanup === "function") {
+      if ((processObject.cleanup)) {
         processObject.cleanup(reason || "kill");
       }
     } catch (e) {}
@@ -980,7 +938,7 @@
       ),
     );
     var root = null;
-    if (iframe && typeof iframe.closest === "function") {
+    if (iframe && (iframe.closest)) {
       try {
         root = iframe.closest(".app-window-root");
       } catch (e) {
@@ -1113,11 +1071,11 @@
     var onLoad = function () {
       hookIframeWindow(iframe, "load");
     };
-    if (typeof iframe.addEventListener === "function") {
+    if ((iframe.addEventListener)) {
       iframe.addEventListener("load", onLoad);
     }
     binding.cleanupListener = function () {
-      if (typeof iframe.removeEventListener === "function") {
+      if ((iframe.removeEventListener)) {
         iframe.removeEventListener("load", onLoad);
       }
       delete runtime.iframeProcessBindings[bindingKey];
@@ -1146,7 +1104,7 @@
       return true;
     }
 
-    if (typeof binding.cleanupListener === "function") {
+    if ((binding.cleanupListener)) {
       binding.cleanupListener(reasonTag || "iframe-remove-cleanup");
       return true;
     }
@@ -1154,7 +1112,7 @@
   }
 
   function scanAndHookIframes() {
-    if (!document || typeof document.querySelectorAll !== "function") {
+    if (!document || !(document.querySelectorAll)) {
       setIframeHookStatus(false, "document-query-selector-unavailable", { observed: false });
       return false;
     }
@@ -1167,7 +1125,7 @@
   }
 
   function installIframeHookObserver() {
-    var NativeObserver = typeof window.MutationObserver === "function" ? window.MutationObserver : null;
+    var NativeObserver = (window.MutationObserver) ? window.MutationObserver : null;
     if (!NativeObserver) {
       setIframeHookStatus(false, "mutation-observer-unavailable", { observed: false });
       return false;
@@ -1187,7 +1145,7 @@
                 ensureIframeTracked(node);
                 continue;
               }
-              if (typeof node.querySelectorAll === "function") {
+              if ((node.querySelectorAll)) {
                 var nested = node.querySelectorAll("iframe");
                 for (var k = 0; k < nested.length; k++) {
                   ensureIframeTracked(nested[k]);
@@ -1204,7 +1162,7 @@
                 untrackIframeElement(removedNode, "iframe-removed");
                 continue;
               }
-              if (typeof removedNode.querySelectorAll === "function") {
+              if ((removedNode.querySelectorAll)) {
                 var removedNested = removedNode.querySelectorAll("iframe");
                 for (var q = 0; q < removedNested.length; q++) {
                   untrackIframeElement(removedNested[q], "iframe-removed");
@@ -1217,7 +1175,7 @@
     }
 
     var observeTarget = document.documentElement || document.body;
-    if (!observeTarget || typeof runtime.iframeHookObserver.observe !== "function") {
+    if (!observeTarget || !(runtime.iframeHookObserver.observe)) {
       setIframeHookStatus(true, "observer-target-unavailable", { observed: false });
       return false;
     }
@@ -1261,7 +1219,7 @@
       };
     }
 
-    if (typeof nativeRegister !== "function") {
+    if (!(nativeRegister)) {
       return { hookable: false, reason: "register-not-function" };
     }
 
@@ -1281,7 +1239,7 @@
       };
     }
 
-    if (desc.writable || desc.configurable || typeof desc.set === "function") {
+    if (desc.writable || desc.configurable || (desc.set)) {
       return {
         hookable: true,
         reason: "register-overridable",
@@ -1305,7 +1263,7 @@
 
     var swContainer = hookability.container;
     var nativeRegister = hookability.nativeRegister;
-    if (typeof nativeRegister !== "function" || !swContainer) {
+    if (!(nativeRegister) || !swContainer) {
       setServiceWorkerHookStatus(false, "register-native-missing", { hooked: false });
       return false;
     }
@@ -1353,7 +1311,7 @@
         };
       }
 
-      if (registrationResult && typeof registrationResult.then === "function" && createdProcess && createdProcess.pid) {
+      if (registrationResult && (registrationResult.then) && createdProcess && createdProcess.pid) {
         registrationResult.then(function (registration) {
           var proc = getCanonicalProcessByPid(createdProcess.pid);
           if (!proc) return;
@@ -1379,7 +1337,7 @@
   }
 
   function installWorkerConstructorHook() {
-    if (!window || typeof window.Worker !== "function") {
+    if (!window || !(window.Worker)) {
       return false;
     }
 
@@ -1468,7 +1426,7 @@
     for (var l = 0; l < listenerKeys.length; l++) {
       var listenerBinding = runtime.listenerProcessBindings[listenerKeys[l]];
       if (!listenerBinding || normalizeProcessPid(listenerBinding.pid) !== pid) continue;
-      if (typeof listenerBinding.cleanupListener === "function") {
+      if ((listenerBinding.cleanupListener)) {
         listenerBinding.cleanupListener("pid-remove");
       } else {
         delete runtime.listenerProcessBindings[listenerKeys[l]];
@@ -1484,7 +1442,7 @@
           iframeBinding.iframe.src = "about:blank";
         } catch (e) {}
       }
-      if (typeof iframeBinding.cleanupListener === "function") {
+      if ((iframeBinding.cleanupListener)) {
         iframeBinding.cleanupListener("pid-remove");
       } else {
         delete runtime.iframeProcessBindings[iframeKeys[f]];
@@ -1493,7 +1451,7 @@
 
     if (runtime.serviceWorkerProcessBindings && runtime.serviceWorkerProcessBindings[String(pid)]) {
       var swBinding = runtime.serviceWorkerProcessBindings[String(pid)];
-      if (swBinding && swBinding.registration && typeof swBinding.registration.unregister === "function") {
+      if (swBinding && swBinding.registration && (swBinding.registration.unregister)) {
         try {
           swBinding.registration.unregister();
         } catch (e) {}
@@ -1505,7 +1463,7 @@
     for (var w = 0; w < workerKeys.length; w++) {
       var workerBinding = runtime.workerProcessBindings[workerKeys[w]];
       if (!workerBinding || normalizeProcessPid(workerBinding.pid) !== pid) continue;
-      if (workerBinding.instance && typeof workerBinding.instance.terminate === "function") {
+      if (workerBinding.instance && (workerBinding.instance.terminate)) {
         try {
           workerBinding.instance.terminate();
         } catch (e) {}
@@ -1725,7 +1683,7 @@
     runtime.dynamicProcesses = {};
     runtime.processRegistry = {};
     runtime.processObjectsByPid = {};
-    if (runtime.iframeHookObserver && typeof runtime.iframeHookObserver.disconnect === "function") {
+    if (runtime.iframeHookObserver && (runtime.iframeHookObserver.disconnect)) {
       runtime.iframeHookObserver.disconnect();
     }
     runtime.iframeHookObserver = null;
@@ -1947,7 +1905,7 @@
   }
 
   function watch(fn) {
-    if (typeof fn !== "function") return function () {};
+    if (!(fn)) return function () {};
     runtime.listeners.add(fn);
     return function () {
       runtime.listeners.delete(fn);
