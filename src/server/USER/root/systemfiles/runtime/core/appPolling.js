@@ -124,12 +124,15 @@ function normalizeAppFolders(folders) {
     ) {
       delete window[oldCmf];
     }
-
+    if(existingApp.jsFile) {
     var s = document.createElement("script");
     s.type = "text/javascript";
     s.textContent = scriptText;
     new Function(scriptText);
     document.body.appendChild(s);
+    } else {
+      window.protectedGlobals.smh.initSMH(existingApp);
+    }
     existingApp.scriptLoaded = true;
     existingApp._scriptElement = s;
     existingApp._lastScriptHash = currentHash;
@@ -186,9 +189,7 @@ function normalizeAppFolders(folders) {
 
             var newAppData = await window.protectedGlobals.extractAppData(appFolder);
             if (!newAppData) continue;
-            if ((window.protectedGlobals.ensureAppRuntimeState)) {
-              window.protectedGlobals.ensureAppRuntimeState(newAppData);
-            }
+            window.protectedGlobals.initAppRuntimeState(newAppData);
             window.protectedGlobals.apps.push(newAppData);
             window.protectedGlobals.apps.sort(function (a, b) { return a.label.localeCompare(b.label); });
             window.protectedGlobals.hasChanges = true;
@@ -215,14 +216,10 @@ function normalizeAppFolders(folders) {
           try {
             var appIndex = appsToDelete[di];
             var deletedApp = window.protectedGlobals.apps[appIndex];
-            try {
-              if (deletedApp.functionname && window[deletedApp.functionname]) {
-                try {
-                  window[deletedApp.functionname] = null;
-                  delete window[deletedApp.functionname];
-                } catch (e) {}
-              }
-            } catch (e) {}
+            if (deletedApp.functionname && window[deletedApp.functionname]) {
+              window[deletedApp.functionname] = null;
+              delete window[deletedApp.functionname];
+            }
 
             if (deletedApp._scriptElement) deletedApp._scriptElement.remove();
             window.protectedGlobals.apps.splice(appIndex, 1);
@@ -232,15 +229,13 @@ function normalizeAppFolders(folders) {
               document.getElementById(deletedApp.id + "app");
             if (appElement) appElement.remove();
 
-            try {
-              var taskbarBtn = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
-                return (
-                  (btn.dataset && (window.protectedGlobals.appMatchesIdentifier) && window.protectedGlobals.appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
-                  btn.textContent.includes(deletedApp.label)
-                );
-              });
-              if (taskbarBtn) taskbarBtn.remove();
-            } catch (e) {}
+            var taskbarBtn = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
+              return (
+                (btn.dataset && (window.protectedGlobals.appMatchesIdentifier) && window.protectedGlobals.appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
+                btn.textContent.includes(deletedApp.label)
+              );
+            });
+            if (taskbarBtn) taskbarBtn.remove();
 
             var appIdToMatch = deletedApp.functionname;
             var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
@@ -273,9 +268,7 @@ function normalizeAppFolders(folders) {
             var expectedPath2 = folder[2] && folder[2].path ? folder[2].path : "systemfiles/runtime/apps/" + folderName2;
             var existingApp2 = (window.protectedGlobals.apps || []).find(function (a) { return a.path === expectedPath2; });
             if (!existingApp2) continue;
-            if ((window.protectedGlobals.ensureAppRuntimeState)) {
-              window.protectedGlobals.ensureAppRuntimeState(existingApp2);
-            }
+            window.protectedGlobals.initAppRuntimeState(existingApp2);
 
             var newAppData2 = await window.protectedGlobals.extractAppData(folder);
             if (!newAppData2) continue;
@@ -312,9 +305,7 @@ function normalizeAppFolders(folders) {
             existingApp2.cmf = newAppData2.cmf;
             existingApp2.cmfl1 = newAppData2.cmfl1;
             existingApp2.openfilecapability = newAppData2.openfilecapability;
-            if ((window.protectedGlobals.ensureAppRuntimeState)) {
-              window.protectedGlobals.ensureAppRuntimeState(existingApp2);
-            }
+            window.protectedGlobals.initAppRuntimeState(existingApp2);
 
             var appGridElement =
               document.getElementById((newAppData2.functionname || newAppData2.id) + "app") ||
@@ -326,12 +317,8 @@ function normalizeAppFolders(folders) {
 
             var scriptReloadRequired = jsFileChanged || functionChanged || cmfChanged;
             if (scriptReloadRequired && existingApp2.jsFile) {
-              try {
-                if (await reloadAppScript(existingApp2, oldFunctionName, oldCmf)) {
-                  scriptReloadedPaths.add(existingApp2.path);
-                }
-              } catch (e) {
-                console.error("[APP POLLING] Failed to reload script for " + existingApp2.label + ":", e);
+              if (await reloadAppScript(existingApp2, oldFunctionName, oldCmf)) {
+                scriptReloadedPaths.add(existingApp2.path);
               }
             }
 
@@ -416,17 +403,13 @@ function normalizeAppFolders(folders) {
           var existingApp = (window.protectedGlobals.apps || []).find(function (a) {
             return a.path === expectedPath || String(a.path || "").split("/").pop() === folderName;
           });
-          if (existingApp && (window.protectedGlobals.ensureAppRuntimeState)) {
-            window.protectedGlobals.ensureAppRuntimeState(existingApp);
+          if (existingApp) {
+            window.protectedGlobals.initAppRuntimeState(existingApp);
           }
 
           if (!existingApp) {
             var folderStillExists = null;
-            try {
-              folderStillExists = await window.protectedGlobals.getFilesFromFolder(expectedPath);
-            } catch (e) {
-              folderStillExists = null;
-            }
+            folderStillExists = await window.protectedGlobals.getFilesFromFolder(expectedPath);
             if (Array.isArray(folderStillExists)) {
               shouldFallback = true;
             }
@@ -526,9 +509,7 @@ function normalizeAppFolders(folders) {
             existingApp.cmf = newAppData.cmf;
             existingApp.cmfl1 = newAppData.cmfl1;
             existingApp.openfilecapability = newAppData.openfilecapability;
-            if ((window.protectedGlobals.ensureAppRuntimeState)) {
-              window.protectedGlobals.ensureAppRuntimeState(existingApp);
-            }
+            window.protectedGlobals.initAppRuntimeState(existingApp);
 
             var appGridElement =
               document.getElementById((newAppData.functionname || newAppData.id) + "app") ||
@@ -540,13 +521,9 @@ function normalizeAppFolders(folders) {
 
             var scriptReloadRequired = jsFileChanged || functionChanged || cmfChanged;
             if (scriptReloadRequired && existingApp.jsFile) {
-              try {
-                if (await reloadAppScript(existingApp, oldFunctionName, oldCmf)) {
-                  scriptReloadedPaths.add(existingApp.path);
-                  localHasChanges = true;
-                }
-              } catch (e) {
-                console.error("[APP POLLING] Failed to reload script for " + existingApp.label + ":", e);
+              if (await reloadAppScript(existingApp, oldFunctionName, oldCmf)) {
+                scriptReloadedPaths.add(existingApp.path);
+                localHasChanges = true;
               }
             }
 
@@ -647,14 +624,12 @@ function normalizeAppFolders(folders) {
         clearTimeout(state.reconnectTimer);
         state.reconnectTimer = null;
       }
-      try {
-        state.socket.send(
-          JSON.stringify({
-            subscribeToAppChanges: true,
-            username: username,
-          }),
-        );
-      } catch (e) {}
+      state.socket.send(
+        JSON.stringify({
+          subscribeToAppChanges: true,
+          username: username,
+        }),
+      );
     };
 
     state.socket.onmessage = function (ev) {
@@ -699,25 +674,21 @@ function normalizeAppFolders(folders) {
   }
   start();
   function stop() {
-    try {
-      if (state.timer) clearTimeout(state.timer);
-      state.timer = null;
-      state.inFlight = false;
-      state.dirty = false;
-      state.pendingFolders.clear();
-      if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
-      state.reconnectTimer = null;
-      if (state.socket) {
-        try {
-          state.socket.onmessage = null;
-          state.socket.onerror = null;
-          state.socket.onclose = null;
-          state.socket.close();
-        } catch (e) {}
-      }
-      state.socket = null;
-      state.active = false;
-    } catch (e) {}
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = null;
+    state.inFlight = false;
+    state.dirty = false;
+    state.pendingFolders.clear();
+    if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+    state.reconnectTimer = null;
+    if (state.socket) {
+      state.socket.onmessage = null;
+      state.socket.onerror = null;
+      state.socket.onclose = null;
+      state.socket.close();
+    }
+    state.socket = null;
+    state.active = false;
   }
 
   window.protectedGlobals.FlowawayAppPolling = {

@@ -226,7 +226,7 @@ window.protectedGlobals.windowSwitchState = {
 };
 var windowSwitchState = window.protectedGlobals.windowSwitchState;
 
-var ensureWindowSwitchPreview = window.protectedGlobals.ensureWindowSwitchPreview = function ensureWindowSwitchPreview() {
+var prepareWindowSwitchPreview = window.protectedGlobals.prepareWindowSwitchPreview = function prepareWindowSwitchPreview() {
   if (
     windowSwitchState.previewRoot &&
     windowSwitchState.previewRoot.isConnected
@@ -301,7 +301,7 @@ var hideWindowSwitchPreview = window.protectedGlobals.hideWindowSwitchPreview = 
 }
 
 var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPreview = function renderWindowSwitchPreview(modLabel) {
-  ensureWindowSwitchPreview();
+  prepareWindowSwitchPreview();
   if (!windowSwitchState.previewRoot || !windowSwitchState.previewList) return;
 
   var list = windowSwitchState.previewList;
