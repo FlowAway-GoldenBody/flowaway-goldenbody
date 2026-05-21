@@ -1,20 +1,5 @@
 (function () {
   if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) return;
-function normalizeAppFolders(folders) {
-    var seen = new Set();
-    var list = [];
-    for (const folder of folders || []) {
-    if (!Array.isArray(folder)) continue;
-    var folderName = String(folder[0] || "").trim();
-        if (!folderName || folderName === '.DS_Store' || folderName.startsWith('.')) continue;
-        var folderPath = folder[2] && folder[2].path ? folder[2].path : `systemfiles/runtime/apps/${folderName}`;
-        var key = String(folderPath).toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        list.push(folder);
-    }
-    return list;
-}
   var state = {
     active: false,
     socket: null,
@@ -27,6 +12,25 @@ function normalizeAppFolders(folders) {
     socketMaxBackoff: 60 * 1000,
     debounceMs: 1000,
   };
+
+  function checkAppModified(existingApp, newAppData) {
+    if (!existingApp || !newAppData) return false;
+    var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
+    var functionChanged = existingApp.functionname !== newAppData.functionname;
+    var cmfChanged = existingApp.cmf !== newAppData.cmf;
+    return (
+      jsFileChanged ||
+      functionChanged ||
+      existingApp.id !== newAppData.id ||
+      existingApp.icon !== newAppData.icon ||
+      existingApp.label !== newAppData.label ||
+      JSON.stringify(existingApp.allapparraystring || []) !== JSON.stringify(newAppData.allapparraystring || []) ||
+      existingApp.globalvarobjectstring !== newAppData.globalvarobjectstring ||
+      cmfChanged ||
+      existingApp.cmfl1 !== newAppData.cmfl1 ||
+      JSON.stringify(existingApp.openfilecapability || []) !== JSON.stringify(newAppData.openfilecapability || [])
+    );
+  }
 
   function normalizeFolderName(value) {
     var normalized = String(value || "").replace(/\\/g, "/").trim();
@@ -158,7 +162,7 @@ function normalizeAppFolders(folders) {
           : null;
       if (!appsNode) return;
 
-      var currentAppFolders = normalizeAppFolders(appsNode[1]);
+      var currentAppFolders = window.protectedGlobals.dedupefiles(appsNode[1]);
       var targetFolderSet =
         Array.isArray(targetFolders) && targetFolders.length
           ? new Set(targetFolders.map(function (v) { return String(v || "").trim(); }).filter(Boolean))
@@ -276,17 +280,7 @@ function normalizeAppFolders(folders) {
             var jsFileChanged = existingApp2.jsFile !== newAppData2.jsFile;
             var functionChanged = existingApp2.functionname !== newAppData2.functionname;
             var cmfChanged = existingApp2.cmf !== newAppData2.cmf;
-            var appModified =
-              jsFileChanged ||
-              functionChanged ||
-              existingApp2.id !== newAppData2.id ||
-              existingApp2.icon !== newAppData2.icon ||
-              existingApp2.label !== newAppData2.label ||
-              JSON.stringify(existingApp2.allapparraystring || []) !== JSON.stringify(newAppData2.allapparraystring || []) ||
-              existingApp2.globalvarobjectstring !== newAppData2.globalvarobjectstring ||
-              cmfChanged ||
-              existingApp2.cmfl1 !== newAppData2.cmfl1 ||
-              JSON.stringify(existingApp2.openfilecapability || []) !== JSON.stringify(newAppData2.openfilecapability || []);
+            var appModified = checkAppModified(existingApp2, newAppData2);
 
             if (!appModified) continue;
 
@@ -481,17 +475,7 @@ function normalizeAppFolders(folders) {
           var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
           var functionChanged = existingApp.functionname !== newAppData.functionname;
           var cmfChanged = existingApp.cmf !== newAppData.cmf;
-          var appModified =
-            jsFileChanged ||
-            functionChanged ||
-            existingApp.id !== newAppData.id ||
-            existingApp.icon !== newAppData.icon ||
-            existingApp.label !== newAppData.label ||
-            JSON.stringify(existingApp.allapparraystring || []) !== JSON.stringify(newAppData.allapparraystring || []) ||
-            existingApp.globalvarobjectstring !== newAppData.globalvarobjectstring ||
-            cmfChanged ||
-            existingApp.cmfl1 !== newAppData.cmfl1 ||
-            JSON.stringify(existingApp.openfilecapability || []) !== JSON.stringify(newAppData.openfilecapability || []);
+          var appModified = checkAppModified(existingApp, newAppData);
 
           if (appModified) {
             var oldFunctionName = existingApp.functionname;

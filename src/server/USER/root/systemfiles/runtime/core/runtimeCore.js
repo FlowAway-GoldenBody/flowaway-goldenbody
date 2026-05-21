@@ -70,6 +70,15 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
   ];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
+
+// Helper function to extract auth token from response
+function extractAuthTokenFromResponse(body) {
+  if (body && (body.authToken || body.token)) {
+    window.protectedGlobals.data = window.protectedGlobals.data || {};
+    window.protectedGlobals.data.authToken = body.authToken || body.token;
+  }
+}
+
 // auth related stuff
   window.protectedGlobals.zmcdpost = async function (data) {
     const headers = { 'Content-Type': 'application/json' };
@@ -83,10 +92,7 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
         })
     });
     let body = await res.json();
-    if (body && (body.authToken || body.token)) {
-      window.protectedGlobals.data = window.protectedGlobals.data || {};
-      window.protectedGlobals.data.authToken = body.authToken || body.token;
-    }
+    extractAuthTokenFromResponse(body);
     var zmcdErrorMessage = body && body.error ? String(body.error) : "";
     if (res.status === 403 || /denied/i.test(zmcdErrorMessage)) {
       window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
@@ -317,10 +323,7 @@ window.protectedGlobals.filePost = async function filePost(data) {
     }),
   });
   let body = await res.json();
-  if (body && (body.authToken || body.token)) {
-    window.protectedGlobals.data = window.protectedGlobals.data || {};
-    window.protectedGlobals.data.authToken = body.authToken || body.token;
-  }
+  extractAuthTokenFromResponse(body);
   var fileErrorMessage = body && body.error ? String(body.error) : "";
   if (res.status === 403 || /denied/i.test(fileErrorMessage)) {
     window.protectedGlobals.notification(fileErrorMessage || "Access denied.");
@@ -356,10 +359,7 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
     }),
   });
   let body = await res.json();
-  if (body && (body.authToken || body.token)) {
-    window.protectedGlobals.data = window.protectedGlobals.data || {};
-    window.protectedGlobals.data.authToken = body.authToken || body.token;
-  }
+  extractAuthTokenFromResponse(body);
   if (res.status === 401) {
     window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };
