@@ -379,7 +379,11 @@ window.prompt = function (message, defaultValue) {
 };
 
 window.protectedGlobals.flowawayCrash = function(message, detail) {
-  window.protectedGlobals.notification("A critical error occurred: " + String(message || "") + (detail ? "\n\n" + String(detail) : ""));
+  if (window.protectedGlobals.notification && typeof window.protectedGlobals.notification === "function") {
+    window.protectedGlobals.notification("A critical error occurred: " + String(message || "") + (detail ? "\n\n" + String(detail) : ""));
+  } else {
+    console.error("CRASH:", message, detail);
+  }
 }
 
 

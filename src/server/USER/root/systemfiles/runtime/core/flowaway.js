@@ -64,5 +64,4 @@
   }
 
   loadRuntime();
-  window.protectedGlobals.notification("if you dont see any apps, refresh the page!", {duration: 5000});
 })();
