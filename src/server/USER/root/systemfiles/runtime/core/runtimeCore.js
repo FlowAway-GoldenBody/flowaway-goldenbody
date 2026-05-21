@@ -375,6 +375,7 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
 
 
 // import scripts
+window.protectedGlobals.delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 window.tmpGlobals = {};
 window.tmpGlobals.decodeBase64ToUTF8 = function(base64) {
@@ -400,7 +401,7 @@ window.tmpGlobals.coreScriptUrls = [
 
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {
   for (const element of window.tmpGlobals.coreScriptUrls) {
-    
+    await window.protectedGlobals.delay(100); // Add a small delay between script loads
     var script = document.createElement("script");
     let f = await window.protectedGlobals.ReadFile(element);
     let txt = f.filecontent;

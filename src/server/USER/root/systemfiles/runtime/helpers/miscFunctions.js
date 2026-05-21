@@ -258,7 +258,7 @@ window.protectedGlobals.persistUserProfilePatch = async function (patch = {}) {
 
 
 window.protectedGlobals.throwError = function(scope, message, error, meta) {
-throw new Error(
+console.error(
   "Error in " + String(scope || "unknown") + ": " + String(message || "No message") + (error ? "\n\n" + String(error) : "") + (meta ? "\n\nMeta: " + JSON.stringify(meta) : "")
 );
 }

@@ -10,6 +10,8 @@ explorerGlobals.clipboard = {
 fileExplorer = function (path = '/', posX = 50, posY = 50) {
   let isMaximized = false;
   let _isMinimized = false;
+  let disposed = false;
+  let autoRefreshTimer = null;
   window.protectedGlobals.atTop = "fileExplorer";
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
@@ -33,6 +35,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   document.body.appendChild(root);
   explorerGlobals.goldenbodyId++;
   root._goldenbodyId = explorerGlobals.goldenbodyId;
+  const scopedListenerName = "fileExplorer" + root._goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -63,6 +66,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     window.protectedGlobals.bringToFront(root);
   });
   root.prepend(dragStrip);
+
   const barrier = document.createElement("div");
   barrier.style.flexShrink = "0";
   barrier.style.display = "flex";
@@ -97,17 +101,18 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     el.style.fontSize = "14px";
     el.style.cursor = "pointer";
   });
-  const applyWindowControlIcon =
-    window.protectedGlobals.applyWindowControlIcon || function () {};
+
+  const applyWindowControlIcon = window.protectedGlobals.applyWindowControlIcon || function () {};
   const setWindowMaximizeIcon = window.protectedGlobals.setWindowMaximizeIcon || function () {};
   applyWindowControlIcon(btnMin, "minimize");
   setWindowMaximizeIcon(btnMax, false);
   applyWindowControlIcon(btnClose, "close");
+
   topBar.addEventListener("click", function () {
     window.protectedGlobals.bringToFront(root);
   });
   root.appendChild(topBar);
-  // --- Saved bounds shared correctly ---
+
   let savedBounds = {
     left: root.style.left,
     top: root.style.top,
@@ -115,12 +120,29 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     height: root.style.height,
   };
 
+  function getBounds() {
+    return {
+      left: root.style.left,
+      top: root.style.top,
+      width: root.style.width,
+      height: root.style.height,
+    };
+  }
+
+  function applyBounds(bounds) {
+    if (!bounds) return;
+    root.style.left = bounds.left;
+    root.style.top = bounds.top;
+    root.style.width = bounds.width;
+    root.style.height = bounds.height;
+  }
+
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
     root.style.top = "0";
     root.style.width = "100%";
-    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
     root.style.borderRadius = "0";
     isMaximized = true;
     _isMinimized = false;
@@ -136,15 +158,6 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     setWindowMaximizeIcon(btnMax, false);
   }
 
-  function closeWindow() {
-    root.remove();
-    const index = explorerGlobals.allExplorers.findIndex(
-      (instance) => instance.rootElement == root,
-    );
-    if (index !== -1) explorerGlobals.allExplorers.splice(index, 1);
-    window.protectedGlobals.removeAllEventListenersForApp("fileExplorer" + root._goldenbodyId);
-  }
-
   function hideWindow() {
     if (!isMaximized) savedBounds = getBounds();
     root.style.display = "none";
@@ -152,9 +165,33 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   }
 
   function showWindow() {
+    if (disposed) return;
     root.style.display = "flex";
     _isMinimized = false;
     window.protectedGlobals.bringToFront(root);
+  }
+
+  function clearAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+  }
+
+  function closeWindow() {
+    if (disposed) return;
+    disposed = true;
+    clearAutoRefresh();
+    root.remove();
+
+    const index = explorerGlobals.allExplorers.findIndex(
+      (instance) => instance.rootElement === root,
+    );
+    if (index !== -1) explorerGlobals.allExplorers.splice(index, 1);
+
+    if ((window.protectedGlobals.removeAllEventListenersForApp)) {
+      window.protectedGlobals.removeAllEventListenersForApp(scopedListenerName);
+    }
   }
 
   function closeAll() {
@@ -207,45 +244,25 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   btnClose.addEventListener("click", closeWindow);
 
   // --- Make draggable / resizable ---
-  makeDraggableResizable(root, dragStrip, btnMax);
-
-  function getBounds() {
-    return {
-      left: root.style.left,
-      top: root.style.top,
-      width: root.style.width,
-      height: root.style.height,
-    };
-  }
-
-  function applyBounds(bounds) {
-    root.style.left = bounds.left;
-    root.style.top = bounds.top;
-    root.style.width = bounds.width;
-    root.style.height = bounds.height;
-  }
+  makeDraggableResizable(root, dragStrip);
   // --- Make draggable/resizable from previous snippet ---
-  function makeDraggableResizable(el, topBar, btnMax) {
+  function makeDraggableResizable(el, dragTarget) {
     (function makeDraggable() {
-      let dragging = false,
-        startX = 0,
-        startY = 0,
-        origLeft = 0,
-        origTop = 0;
+      let dragging = false;
+      let startX = 0;
+      let startY = 0;
+      let origLeft = 0;
+      let origTop = 0;
       let thresholdCrossed = false;
-      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
-      let mouseDownX = 0,
-        mouseDownY = 0;
+      let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15;
       let currentX, currentY;
 
-      topBar.addEventListener("mousedown", (ev) => {
+      dragTarget.addEventListener("mousedown", (ev) => {
         DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
         startY = ev.clientY;
-        mouseDownX = ev.clientX;
-        mouseDownY = ev.clientY;
         origLeft = root.offsetLeft;
         origTop = root.offsetTop;
         currentX = ev.clientX;
@@ -253,10 +270,10 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("fileExplorer" + root._goldenbodyId, "mousemove", (ev) => {
-        if (!dragging) return;
+      window.addEventListener(scopedListenerName, "mousemove", (ev) => {
+        if (!dragging || disposed) return;
         const dragDistance = Math.sqrt(
-          Math.pow(ev.clientX - mouseDownX, 2) + Math.pow(ev.clientY - mouseDownY, 2),
+          Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
         );
         if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
           thresholdCrossed = true;
@@ -274,7 +291,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("fileExplorer" + root._goldenbodyId, "mouseup", () => {
+      window.addEventListener(scopedListenerName, "mouseup", () => {
         dragging = false;
         thresholdCrossed = false;
         document.body.style.userSelect = "";
@@ -308,7 +325,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       };
 
       el.addEventListener("pointermove", (e) => {
-        if (active) return;
+        if (active || disposed) return;
         const d = hitTest(e);
         el.style.cursor = d
           ? d === "nw" || d === "se"
@@ -322,6 +339,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       });
 
       el.addEventListener("pointerdown", (e) => {
+        if (disposed) return;
         const dir = hitTest(e);
         if (!dir) return;
         active = {
@@ -340,7 +358,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       });
 
       el.addEventListener("pointermove", (e) => {
-        if (!active) return;
+        if (!active || disposed) return;
         if (
           active.startedMaximized &&
           !active.restoredFromMax &&
@@ -455,6 +473,109 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   fileInput.multiple = true;
   fileInput.style.display = "none";
   sidebar.appendChild(fileInput);
+
+  const uploadProgress = document.createElement("div");
+  uploadProgress.style.position = "absolute";
+  uploadProgress.style.left = "16px";
+  uploadProgress.style.right = "16px";
+  uploadProgress.style.bottom = "16px";
+  uploadProgress.style.zIndex = "2000";
+  uploadProgress.style.display = "none";
+  uploadProgress.style.flexDirection = "column";
+  uploadProgress.style.gap = "8px";
+  uploadProgress.style.padding = "10px 12px";
+  uploadProgress.style.borderRadius = "10px";
+  uploadProgress.style.background = "rgba(15, 23, 42, 0.92)";
+  uploadProgress.style.color = "white";
+  uploadProgress.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
+  uploadProgress.style.pointerEvents = "none";
+  uploadProgress.style.backdropFilter = "blur(4px)";
+  uploadProgress.style.fontSize = "13px";
+  const uploadProgressTitle = document.createElement("div");
+  uploadProgressTitle.style.fontWeight = "600";
+  const uploadProgressStatus = document.createElement("div");
+  uploadProgressStatus.style.opacity = "0.85";
+  const uploadProgressBarOuter = document.createElement("div");
+  uploadProgressBarOuter.style.height = "10px";
+  uploadProgressBarOuter.style.borderRadius = "999px";
+  uploadProgressBarOuter.style.overflow = "hidden";
+  uploadProgressBarOuter.style.background = "rgba(255,255,255,0.15)";
+  const uploadProgressBarInner = document.createElement("div");
+  uploadProgressBarInner.style.height = "100%";
+  uploadProgressBarInner.style.width = "0%";
+  uploadProgressBarInner.style.borderRadius = "999px";
+  uploadProgressBarInner.style.background = "linear-gradient(90deg, #22c55e, #38bdf8)";
+  uploadProgressBarOuter.appendChild(uploadProgressBarInner);
+  uploadProgress.appendChild(uploadProgressTitle);
+  uploadProgress.appendChild(uploadProgressStatus);
+  uploadProgress.appendChild(uploadProgressBarOuter);
+  root.appendChild(uploadProgress);
+
+  const uploadState = {
+    visible: false,
+    totalBytes: 0,
+    doneBytes: 0,
+    title: "",
+    status: "",
+    hideTimer: null,
+  };
+
+  function renderUploadProgress() {
+    if (!uploadState.visible) {
+      uploadProgress.style.display = "none";
+      return;
+    }
+    uploadProgress.style.display = "flex";
+    uploadProgressTitle.textContent = uploadState.title || "Uploading files";
+    uploadProgressStatus.textContent = uploadState.status || "";
+    const pct =
+      uploadState.totalBytes > 0
+        ? Math.max(0, Math.min(100, (uploadState.doneBytes / uploadState.totalBytes) * 100))
+        : 0;
+    uploadProgressBarInner.style.width = `${pct}%`;
+    uploadProgressBarInner.style.background = uploadState.error
+      ? "linear-gradient(90deg, #ef4444, #f97316)"
+      : "linear-gradient(90deg, #22c55e, #38bdf8)";
+  }
+
+  function showUploadProgress(title, status, totalBytes) {
+    if (uploadState.hideTimer) {
+      clearTimeout(uploadState.hideTimer);
+      uploadState.hideTimer = null;
+    }
+    uploadState.visible = true;
+    uploadState.error = false;
+    uploadState.title = title || "Uploading files";
+    uploadState.status = status || "";
+    uploadState.totalBytes = Math.max(0, Number(totalBytes) || 0);
+    uploadState.doneBytes = 0;
+    renderUploadProgress();
+  }
+
+  function updateUploadProgress(doneBytes, status) {
+    if (!uploadState.visible) return;
+    uploadState.doneBytes = Math.max(0, Math.min(uploadState.totalBytes, Number(doneBytes) || 0));
+    if (status !== undefined) uploadState.status = status;
+    renderUploadProgress();
+  }
+
+  function setUploadError(title, status) {
+    uploadState.visible = true;
+    uploadState.error = true;
+    uploadState.title = title || "Upload failed";
+    uploadState.status = status || "";
+    uploadState.doneBytes = uploadState.totalBytes;
+    renderUploadProgress();
+  }
+
+  function hideUploadProgress(delay = 700) {
+    if (uploadState.hideTimer) clearTimeout(uploadState.hideTimer);
+    uploadState.hideTimer = setTimeout(() => {
+      uploadState.visible = false;
+      uploadState.error = false;
+      renderUploadProgress();
+    }, delay);
+  }
 
   // Main area
   const main = document.createElement("div");
@@ -1693,9 +1814,35 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     return btoa(binary);
   }
 
-  function readChunkAsBase64(blob) {
+  function fileToBase64(file, onProgress) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.onprogress = (ev) => {
+        if (typeof onProgress === "function" && ev && ev.lengthComputable) {
+          onProgress(ev.loaded, ev.total);
+        }
+      };
+      reader.onload = () => {
+        const base64 = arrayBufferToBase64(reader.result);
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function readBlobAsBase64(blob, onProgress) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onprogress = (ev) => {
+        if (typeof onProgress === "function" && ev && ev.lengthComputable) {
+          onProgress(ev.loaded, ev.total);
+        }
+      };
       reader.onload = () => {
         const base64 = arrayBufferToBase64(reader.result);
         resolve(base64);
@@ -1705,32 +1852,14 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     });
   }
 
-  function fileToBase64(file) {
-    // small files only
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Strip off "data:*/*;base64," prefix
-        const base64 = reader.result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file); // reads file as base64
-    });
-  }
-
-  function sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
-  }
-
-  async function uploadChunkWithRetries(path, file, index, total) {
+  async function uploadChunkWithRetries(path, file, index, total, onProgress) {
     let attempts = 0;
     while (true) {
       try {
         const start = index * CHUNK_SIZE;
         const end = Math.min(file.size, start + CHUNK_SIZE);
         const blob = file.slice(start, end);
-        const chunkBase64 = await readChunkAsBase64(blob);
+        const chunkBase64 = await readBlobAsBase64(blob, onProgress);
         // Only send replace:true on the first chunk (index 0)
         const shouldReplace = index === 0;
         await window.protectedGlobals.filePost({
@@ -1761,128 +1890,178 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     }
   }
 
-  let notificationCounter = 0;
   fileInput.addEventListener("change", async (e) => {
     const files = [...e.target.files];
     const node = findNode(treeData, currentPath);
     if (!node || !node[1]) return;
 
-    // Compute current used bytes from tree data
     let currentUsed = getNodeSize(treeData);
-
-    // Filter files that would exceed quota. Skip those which would push over limit.
     const allowed = [];
     for (const f of files) {
       if (currentUsed + f.size > STORAGE_QUOTA_BYTES) {
         window.protectedGlobals.notification(
           `Cannot upload "${f.name}" — storage quota would be exceeded.`,
         );
-        continue; // skip this file
+        continue;
       }
       currentUsed += f.size;
       allowed.push(f);
     }
 
-    // Process allowed files
-    for (const f of allowed) {
-      // Add file to treeData (metadata only)
-      let newName = getUniqueName(f.name);
-      node[1].push([newName, null, { size: f.size }]);
-      const targetPath = [...currentPath]; // current folder path array
-      let cp = targetPath.join("/");
+    if (!allowed.length) {
+      e.target.value = "";
+      return;
+    }
 
-      if (f.size <= MAX_INLINE_BASE64) {
-        // small file: inline as before
-        const content = await fileToBase64(f);
-        directions.push({
-          edit: true,
-          contents: content,
-          path: cp + "/" + newName,
-          replace: true,
-        });
-      } else {
-        // large file: chunked upload with resume + per-chunk retries
-        const total = Math.ceil(f.size / CHUNK_SIZE);
+    const totalBytes = allowed.reduce((sum, file) => sum + file.size, 0);
+    let uploadedBytes = 0;
+    let uploadFailed = false;
+    showUploadProgress(
+      `Uploading ${allowed.length} file${allowed.length === 1 ? "" : "s"}`,
+      `0/${allowed.length} ready`,
+      totalBytes,
+    );
 
-        // ensure server has a file placeholder
-        await window.protectedGlobals.filePost({
-          saveSnapshot: true,
-          directions: [
-            { addFile: true, path: cp + "/" + newName, replace: true },
-            { end: true },
-          ],
-        });
+    try {
+      for (let fileIndex = 0; fileIndex < allowed.length; fileIndex++) {
+        const f = allowed[fileIndex];
+        const newName = getUniqueName(f.name);
+        node[1].push([newName, null, { size: f.size }]);
+        const targetPath = [...currentPath];
+        const cp = targetPath.join("/");
+        const fileLabel = `${fileIndex + 1}/${allowed.length}: ${newName}`;
 
-        // Ask server which parts already exist (resume)
-        let presentParts = [];
-        try {
-          const chk = await window.protectedGlobals.filePost({
-            saveSnapshot: true,
-            directions: [
-              { checkParts: true, path: cp + "/" + newName },
-              { end: true },
-            ],
+        if (f.size <= MAX_INLINE_BASE64) {
+          const content = await fileToBase64(f, (loaded) => {
+            updateUploadProgress(uploadedBytes + loaded, `Reading ${fileLabel}`);
           });
-          presentParts =
-            (chk &&
-              chk.result &&
-              chk.result.checkParts &&
-              chk.result.checkParts[cp + "/" + newName]) ||
-            [];
-        } catch (e) {
-          console.warn("checkParts failed, will attempt full upload", e);
-          presentParts = [];
-        }
-
-        const presentSet = new Set(presentParts);
-        let uploadedCount = presentSet.size;
-
-        // If all parts already present, skip part uploads and finalize
-        if (presentSet.size < total) {
-          for (let i = 0; i < total; i++) {
-            if (presentSet.has(i)) continue; // already uploaded
-
-            try {
-              await uploadChunkWithRetries(cp + "/" + newName, f, i, total);
-              uploadedCount++;
-              // simple progress log — UI progress can hook into this later
-              window.protectedGlobals.notificationCounter++;
-              window.protectedGlobals.notification(
-                `Uploading "${newName}": ${uploadedCount}/${total} chunks uploaded.`,
-              );
-              console.log(
-                `upload progress ${newName}: ${uploadedCount}/${total}`,
-              );
-            } catch (err) {
-              console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
-              window.protectedGlobals.notification(`Upload failed for "${newName}" (chunk ${i}).`);
-              break; // abort this file
-            }
-
-            // allow event loop to breathe for very large files
-            await sleep(0);
-          }
-        }
-
-        // finalize assembly on server (safe even if all parts were already present)
-        try {
+          updateUploadProgress(uploadedBytes + f.size, `Saving ${fileLabel}`);
           await window.protectedGlobals.filePost({
             saveSnapshot: true,
             directions: [
-              { edit: true, path: cp + "/" + newName, finalize: true },
+              {
+                edit: true,
+                contents: content,
+                path: cp + "/" + newName,
+                replace: true,
+              },
               { end: true },
             ],
           });
-        } catch (e) {
-          console.error("finalize failed for", newName, e);
-          window.protectedGlobals.notification(`Failed to finalize upload for "${newName}".`);
+          uploadedBytes += f.size;
+          updateUploadProgress(uploadedBytes, `Uploaded ${fileLabel}`);
+        } else {
+          const total = Math.ceil(f.size / CHUNK_SIZE);
+
+          await window.protectedGlobals.filePost({
+            saveSnapshot: true,
+            directions: [
+              { addFile: true, path: cp + "/" + newName, replace: true },
+              { end: true },
+            ],
+          });
+
+          let presentParts = [];
+          try {
+            const chk = await window.protectedGlobals.filePost({
+              saveSnapshot: true,
+              directions: [
+                { checkParts: true, path: cp + "/" + newName },
+                { end: true },
+              ],
+            });
+            presentParts =
+              (chk &&
+                chk.result &&
+                chk.result.checkParts &&
+                chk.result.checkParts[cp + "/" + newName]) ||
+              [];
+          } catch (e) {
+            console.warn("checkParts failed, will attempt full upload", e);
+            presentParts = [];
+          }
+
+          const presentSet = new Set(presentParts);
+          let uploadedCount = presentSet.size;
+          let fileDoneBytes = 0;
+
+          if (presentSet.size < total) {
+            for (let i = 0; i < total; i++) {
+              const chunkBytes = Math.min(CHUNK_SIZE, f.size - i * CHUNK_SIZE);
+              if (presentSet.has(i)) {
+                fileDoneBytes += chunkBytes;
+                uploadedBytes += chunkBytes;
+                updateUploadProgress(
+                  uploadedBytes,
+                  `Resuming ${fileLabel} (${uploadedCount}/${total} chunks)`,
+                );
+                continue;
+              }
+
+              try {
+                await uploadChunkWithRetries(cp + "/" + newName, f, i, total, (loaded) => {
+                  updateUploadProgress(
+                    uploadedBytes + fileDoneBytes + loaded,
+                    `Uploading ${fileLabel} (${uploadedCount + 1}/${total} chunks)`,
+                  );
+                });
+                uploadedCount++;
+                fileDoneBytes += chunkBytes;
+                uploadedBytes += chunkBytes;
+                updateUploadProgress(
+                  uploadedBytes,
+                  `Uploading ${fileLabel} (${uploadedCount}/${total} chunks)`,
+                );
+              } catch (err) {
+                console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
+                setUploadError(
+                  "Upload failed",
+                  `Chunk ${i + 1}/${total} failed for ${newName}`,
+                );
+                uploadFailed = true;
+                break;
+              }
+
+              await sleep(0);
+            }
+          } else {
+            uploadedBytes += f.size;
+            updateUploadProgress(uploadedBytes, `Resuming ${fileLabel} (already present)`);
+          }
+
+          if (uploadFailed) break;
+
+          try {
+            updateUploadProgress(uploadedBytes, `Finalizing ${fileLabel}`);
+            await window.protectedGlobals.filePost({
+              saveSnapshot: true,
+              directions: [
+                { edit: true, path: cp + "/" + newName, finalize: true },
+                { end: true },
+              ],
+            });
+          } catch (e) {
+            console.error("finalize failed for", newName, e);
+            setUploadError("Upload failed", `Could not finalize ${newName}`);
+            uploadFailed = true;
+            break;
+          }
         }
       }
-    }
 
-    e.target.value = ""; // reset input
-    render(); // update UI
-    if (allowed.length) handlesave();
+      if (!uploadFailed) {
+        updateUploadProgress(totalBytes, "Upload complete");
+        hideUploadProgress(900);
+      }
+    } catch (err) {
+      console.error("upload failed", err);
+      setUploadError("Upload failed", err && (err.message || String(err)));
+      hideUploadProgress(2200);
+    } finally {
+      e.target.value = "";
+      render();
+      if (allowed.length) handlesave();
+    }
   });
 
   // --- INIT ---

@@ -26,9 +26,9 @@ window.protectedGlobals.loadTree = async function () {
   window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
 };
 Promise.all([
-  window.protectedGlobals.ensureFlowawayAppLoaderLoaded(),
-  window.protectedGlobals.ensureFlowawayAppPollingLoaded(),
-  window.protectedGlobals.ensureProcessRuntimeLoaded(),
+  window.protectedGlobals.loadFlowawayAppLoaderRuntime(),
+  window.protectedGlobals.loadFlowawayAppPollingRuntime(),
+  window.protectedGlobals.loadProcessRuntime(),
 ])
   .finally(function () {
     if ((window.protectedGlobals.loadTree)) {

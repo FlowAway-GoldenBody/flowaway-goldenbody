@@ -8,6 +8,10 @@ window.protectedGlobals.appMatchesIdentifier = function (app, identifier) {
     .filter(Boolean);
   return candidates.includes(id);
 };
+window.protectedGlobals.launchApp = async function (appId) {
+  var app = (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId));
+  window[app.functionname]();
+};
 window.protectedGlobals.getAppInstanceArrayKeys = function (app) {
   var keys = [];
   if (!app) return keys;
@@ -22,7 +26,7 @@ window.protectedGlobals.getAppInstanceArrayKeys = function (app) {
   }
   return keys;
 };
-window.protectedGlobals.ensureAppRuntimeState = function (app) {
+window.protectedGlobals.initAppRuntimeState = function (app) {
   if (!app || !app.globalvarobjectstring) return null;
   var globalName = String(app.globalvarobjectstring || "").trim();
   if (!globalName) return null;
@@ -47,7 +51,7 @@ window.protectedGlobals.ensureAppRuntimeState = function (app) {
 };
 window.protectedGlobals.getPrimaryAppInstanceArray = function (app) {
   if (!app) return [];
-  var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
+  var appGlobalObj = window.protectedGlobals.initAppRuntimeState(app);
   if (!appGlobalObj) return [];
   var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
   for (var i = 0; i < keys.length; i++) {
@@ -58,7 +62,7 @@ window.protectedGlobals.getPrimaryAppInstanceArray = function (app) {
 window.protectedGlobals.getAllAppInstanceArrays = function (app) {
   var lists = [];
   if (!app) return lists;
-  var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
+  var appGlobalObj = window.protectedGlobals.initAppRuntimeState(app);
   if (!appGlobalObj) return lists;
   var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
   for (var i = 0; i < keys.length; i++) {
@@ -69,7 +73,7 @@ window.protectedGlobals.getAllAppInstanceArrays = function (app) {
   return lists;
 };
 window.protectedGlobals.allocateAppGoldenbodyId = function (app) {
-  var appGlobalObj = window.protectedGlobals.ensureAppRuntimeState(app);
+  var appGlobalObj = window.protectedGlobals.initAppRuntimeState(app);
   if (!appGlobalObj) return null;
   appGlobalObj.goldenbodyId = Number(appGlobalObj.goldenbodyId || 0) + 1;
   return appGlobalObj.goldenbodyId;
@@ -606,7 +610,7 @@ window.protectedGlobals.initAppTools = function () {
 
     if (!app) return instance;
 
-    var appState = window.protectedGlobals.ensureAppRuntimeState(app);
+    var appState = window.protectedGlobals.initAppRuntimeState(app);
     var keys = window.protectedGlobals.getAppInstanceArrayKeys(app);
     if (!appState || !keys.length) return instance;
 
@@ -856,6 +860,7 @@ window.protectedGlobals.initAppTools = function () {
   window.protectedGlobals.apptools = existing;
 }
 window.protectedGlobals.initAppTools();
+
 window.protectedGlobals.resolveLaunchContextRoot = function () {
   var launchContext = window.protectedGlobals._launchContext;
   var launchAppId = launchContext && launchContext.appId ? String(launchContext.appId) : "";
@@ -912,7 +917,7 @@ window.protectedGlobals.loadAppsFromTree = async function () {
       try {
         const appData = await window.protectedGlobals.extractAppData(appFolder);
         if (appData) {
-          window.protectedGlobals.ensureAppRuntimeState(appData);
+          window.protectedGlobals.initAppRuntimeState(appData);
           window.protectedGlobals.apps.push(appData);
         }
       } catch (e) {
@@ -933,387 +938,162 @@ window.protectedGlobals.loadAppsFromTree = async function () {
       window.protectedGlobals.purgeButtons();
       var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
       window.dispatchEvent(appUpdatedEvent);
-    // Start polling for app changes
-    window.protectedGlobals.startAppPolling();
   } catch (e) {
     window.protectedGlobals.throwError("loadAppsFromTree", "loadAppsFromTree failed", e);
   }
 }
 window.protectedGlobals.renderAppsGrid = async function () {
-  // Load config and render pinned apps
   if (!window.protectedGlobals._startMenuConfig) await window.protectedGlobals.loadStartMenuConfig();
   await window.protectedGlobals.renderPinnedAppsGrid();
-  // Also load all app scripts
   if (!window.protectedGlobals.apps) return;
+
   for (const app of window.protectedGlobals.apps) {
     try {
-      window.protectedGlobals.ensureAppRuntimeState(app);
-      if (!app.icon) {
-        if (!app.scriptLoaded && app.jsFile) {
-          try {
-            var b64NoIcon = await window.protectedGlobals.fetchFileContentByPath(
-              `${app.path}/${app.jsFile}`,
-            );
-            var scriptTextNoIcon = window.protectedGlobals.base64ToUtf8(b64NoIcon);
-            app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptTextNoIcon);
-            try {
-              var globalvarobjectstring = app.globalvarobjectstring;
-              if (app.functionname) {
-                delete window[app.functionname];
-              }
-              if (
-                app.cmf &&
-                globalvarobjectstring &&
-                window[globalvarobjectstring] &&
-                !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
-              ) {
-                delete window[globalvarobjectstring][app.cmf];
-              }
-            } catch (e) {}
-            var beforeGlobalsNoIcon = new Set(
-              Object.getOwnPropertyNames(window),
-            );
-            var sNoIcon = document.createElement("script");
-            sNoIcon.type = "text/javascript";
-            sNoIcon.textContent = scriptTextNoIcon;
-            document.body.appendChild(sNoIcon);
-            app.scriptLoaded = true;
-            app._scriptElement = sNoIcon;
-            try {
-              app._addedGlobals = [];
-              var captureAddedNoIcon = () => {
-                var afterNoIcon = Object.getOwnPropertyNames(window);
-                var newlyNoIcon = afterNoIcon.filter(
-                  (k) =>
-                    !beforeGlobalsNoIcon.has(k) &&
-                    !(app._addedGlobals || []).includes(k),
-                );
-                if (newlyNoIcon.length)
-                  app._addedGlobals = [
-                    ...new Set([
-                      ...(app._addedGlobals || []),
-                      ...newlyNoIcon,
-                    ]),
-                  ];
-              };
-              captureAddedNoIcon();
-              setTimeout(captureAddedNoIcon, 120);
-              setTimeout(captureAddedNoIcon, 800);
-              setTimeout(captureAddedNoIcon, 2500);
-            } catch (e) {}
-          } catch (e) {
-            window.protectedGlobals.throwError(
-              "renderAppsGrid",
-              "Failed to load app script (no icon)",
-              e,
-              {                 appId: app && app.id,                 path: app && app.path               },
-            );
-          }
-        }
-        continue;
-      }
-      // Skip old rendering - handled by new renderPinnedAppsGrid/renderAllAppsGrid/renderRecentsGrid
-      // Just load the app script
+      window.protectedGlobals.initAppRuntimeState(app);
       if (!app.scriptLoaded && app.jsFile) {
+        var jsKeyOk = true;
         try {
-          var b64 = await window.protectedGlobals.fetchFileContentByPath(`${app.path}/${app.jsFile}`);
-          var scriptText = window.protectedGlobals.decodeFileTextStrict(
-            b64,
-            `${app.path}/${app.jsFile}`,
-            { allowEmpty: true },
-          );
-          if (!String(scriptText || "").trim()) {
-            window.protectedGlobals.throwError("renderAppsGrid", "App script is empty; skipping load", null, {
-              appId: app && app.id,
-              path: app && app.path,
-              jsFile: app && app.jsFile,
-            });
-            continue;
-          }
-          // Store hash for future change detection
-          app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
-          // Prefer removing globals created by previous script rather than deleting app metadata
-          try {
-            var globalvarobjectstring = app.globalvarobjectstring;
-            if (app.functionname) {
-              delete window[app.functionname];
-            }
-            if (
-              app.cmf &&
-              globalvarobjectstring &&
-              window[globalvarobjectstring] &&
-                !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
-              ) {
-                delete window[globalvarobjectstring][app.cmf];
-            }
-          } catch (e) {}
-          // snapshot globals before injection
-          var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
-          var s = document.createElement("script");
-          s.type = "text/javascript";
-          s.textContent = scriptText;
-          document.body.appendChild(s);
-          app.scriptLoaded = true;
-          app._scriptElement = s;
-          // record any globals the script introduced (best-effort)
-          try {
-            app._addedGlobals = [];
-            var captureAdded = () => {
-              var after = Object.getOwnPropertyNames(window);
-              var newly = after.filter(
-                (k) =>
-                  !beforeGlobals.has(k) &&
-                  !(app._addedGlobals || []).includes(k),
-              );
-              if (newly.length)
-                app._addedGlobals = [
-                  ...new Set([...(app._addedGlobals || []), ...newly]),
-                ];
-            };
-            // immediate capture and a few delayed captures to catch async initializers
-            captureAdded();
-            setTimeout(captureAdded, 120);
-            setTimeout(captureAdded, 800);
-            setTimeout(captureAdded, 2500);
-          } catch (e) {}
+          var appKeyB64 = await window.protectedGlobals.fetchFileContentByPath(`${app.path}/jskey.txt`);
+          var appKey = window.protectedGlobals.base64ToUtf8(appKeyB64).trim();
+          var masterKeyB64 = await window.protectedGlobals.fetchFileContentByPath("systemfiles/userprofile/jsApiKey.txt");
+          var masterKey = window.protectedGlobals.base64ToUtf8(masterKeyB64).trim();
+          jsKeyOk = !!appKey && !!masterKey && appKey === masterKey;
         } catch (e) {
-          window.protectedGlobals.flowawayCrash(
-            "Failed to load app script.",
-            `${app && app.path}/${app && app.jsFile}` + "\n" + String(e && (e.stack || e.message) || e),
-          );
+          jsKeyOk = false;
         }
+
+        if (!jsKeyOk) {
+          console.warn("Skipping app script due to missing/invalid jskey", app && app.id, app && app.path);
+          continue;
+        }
+
+        var b64 = await window.protectedGlobals.fetchFileContentByPath(`${app.path}/${app.jsFile}`);
+        var scriptText = window.protectedGlobals.base64ToUtf8(b64);
+        if (!String(scriptText || "").trim()) {
+          console.warn("App script is empty; skipping load", { appId: app && app.id, path: app && app.path, jsFile: app && app.jsFile });
+          continue;
+        }
+
+        app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
+        try {
+          var globalvarobjectstring = app.globalvarobjectstring;
+          if (app.functionname) delete window[app.functionname];
+          if (
+            app.cmf &&
+            globalvarobjectstring &&
+            window[globalvarobjectstring] &&
+            !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
+          ) {
+            delete window[globalvarobjectstring][app.cmf];
+          }
+        } catch (e) {}
+
+        var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
+        var scriptEl = document.createElement("script");
+        scriptEl.type = "text/javascript";
+        scriptEl.textContent = scriptText;
+        document.body.appendChild(scriptEl);
+        app.scriptLoaded = true;
+        app._scriptElement = scriptEl;
+
+        try {
+          app._addedGlobals = [];
+          var captureAdded = () => {
+            var after = Object.getOwnPropertyNames(window);
+            var newly = after.filter(
+              (k) => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k),
+            );
+            if (newly.length) {
+              app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
+            }
+          };
+          captureAdded();
+          setTimeout(captureAdded, 120);
+          setTimeout(captureAdded, 800);
+          setTimeout(captureAdded, 2500);
+        } catch (e) {}
       }
     } catch (e) {
       window.protectedGlobals.throwError("renderAppsGrid", "Failed while loading app", e, {
         appId: app && app.id,
         path: app && app.path,
       });
-      continue;
     }
   }
 }
-window.protectedGlobals.launchApp = async function (appId) {
-  var app = (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId));
-  window[app.functionname]();
-}
-// ===== LIVE APP POLLING =====
-window.protectedGlobals.queueAppPollingHint = function (msg) {
-  return window.protectedGlobals.FlowawayAppPolling.queueHint(msg);
-}
 
-window.protectedGlobals.collectAppPollingHint = function () {
-  return window.protectedGlobals.FlowawayAppPolling.collectHint();
-}
+window.protectedGlobals.loadFlowawayAppLoaderRuntime = async function () {
+  if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
+    return true;
+  }
 
-window.protectedGlobals.refreshAppsUiAfterChanges = function () {
-  return window.protectedGlobals.FlowawayAppPolling.refreshAppsUiAfterChanges();
-}
-
-window.protectedGlobals.scheduleAppPoll = function (reason = "unknown") {
-  return window.protectedGlobals.FlowawayAppPolling.schedulePoll(reason);
-}
-
-window.protectedGlobals.startAppPollingViaWebSocket = function () {
-  return window.protectedGlobals.FlowawayAppPolling.startViaWebSocket();
-}
-
-window.protectedGlobals.pollAppChanges = async function (forceMetadataCheck = false, targetFolders = null) {
-  return window.protectedGlobals.FlowawayAppPolling.pollAppChanges(forceMetadataCheck, targetFolders);
-}
-
-window.protectedGlobals.pollSpecificAppChanges = async function (changedFolders = []) {
-  return window.protectedGlobals.FlowawayAppPolling.pollSpecificAppChanges(changedFolders);
-}
-window.protectedGlobals.startAppPolling = function () {
-  return window.protectedGlobals.FlowawayAppPolling.start();
-}
-
-window.protectedGlobals.ensureFlowawayAppLoaderLoaded = async function () {
-  try {
-    if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
-      return true;
-    }
-
-    if (window.protectedGlobals._appLoaderSystemPromise) {
-      try {
-        await window.protectedGlobals._appLoaderSystemPromise;
-      } catch (e) {}
-      if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
-        return true;
-      }
-      delete window.protectedGlobals._appLoaderSystemPromise;
-    }
-
+  if (!window.protectedGlobals._appLoaderSystemPromise) {
     window.protectedGlobals._appLoaderSystemPromise = (async function () {
-      {
-        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appLoader.js");
-        var inlineText = window.protectedGlobals.decodeFileTextStrict(
-          b64Runtime,
-          "systemfiles/runtime/core/appLoader.js",
-          { allowEmpty: false },
-        );
-        var inlineScript = document.createElement("script");
-        inlineScript.type = "text/javascript";
-        inlineScript.textContent = inlineText;
-        document.body.appendChild(inlineScript);
-        if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
-          return true;
-        }
-      }
-
-      if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
-        return true;
-      }
-      window.protectedGlobals.flowawayCrash(
-        "App loader runtime failed to initialize.",
-        "systemfiles/runtime/core/appLoader.js loaded but AppLoaderAPIs is unavailable.",
+      var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appLoader.js");
+      var inlineText = window.protectedGlobals.decodeFileTextStrict(
+        b64Runtime,
+        "systemfiles/runtime/core/appLoader.js",
+        { allowEmpty: false },
       );
-    })();
-
-    try {
-      await window.protectedGlobals._appLoaderSystemPromise;
+      var inlineScript = document.createElement("script");
+      inlineScript.type = "text/javascript";
+      inlineScript.textContent = inlineText;
+      document.body.appendChild(inlineScript);
       return !!(window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded);
-    } catch (e) {
-      delete window.protectedGlobals._appLoaderSystemPromise;
-      window.protectedGlobals.flowawayCrash(
-        "Failed to load app loader runtime.",
-        String(e && (e.stack || e.message) || e),
-      );
-      return false;
-    }
-  } catch (e) {
-    window.protectedGlobals.flowawayCrash(
-      "Unexpected app loader runtime failure.",
-      String(e && (e.stack || e.message) || e),
-    );
-    return false;
+    })();
   }
+
+  await window.protectedGlobals._appLoaderSystemPromise;
+  return !!(window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded);
 }
-window.protectedGlobals.ensureFlowawayAppPollingLoaded = async function () {
-  try {
-    if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
-      return true;
-    }
 
-    if (window.protectedGlobals._appPollingSystemPromise) {
-      try {
-        await window.protectedGlobals._appPollingSystemPromise;
-      } catch (e) {}
-      if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
-        return true;
-      }
-      delete window.protectedGlobals._appPollingSystemPromise;
-    }
+window.protectedGlobals.loadFlowawayAppPollingRuntime = async function () {
+  if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
+    return true;
+  }
 
+  if (!window.protectedGlobals._appPollingSystemPromise) {
     window.protectedGlobals._appPollingSystemPromise = (async function () {
-      {
-        var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appPolling.js");
-        var inlineText = window.protectedGlobals.decodeFileTextStrict(
-          b64Runtime,
-          "systemfiles/runtime/core/appPolling.js",
-          { allowEmpty: false },
-        );
-        var inlineScript = document.createElement("script");
-        inlineScript.type = "text/javascript";
-        inlineScript.textContent = inlineText;
-        document.body.appendChild(inlineScript);
-        if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
-          return true;
-        }
-      }
-
-      if (window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded) {
-        return true;
-      }
-      window.protectedGlobals.flowawayCrash(
-        "App polling runtime failed to initialize.",
-        "systemfiles/runtime/core/appPolling.js loaded but FlowawayAppPolling is unavailable.",
+      var b64Runtime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/appPolling.js");
+      var inlineText = window.protectedGlobals.decodeFileTextStrict(
+        b64Runtime,
+        "systemfiles/runtime/core/appPolling.js",
+        { allowEmpty: false },
       );
-    })();
-
-    try {
-      await window.protectedGlobals._appPollingSystemPromise;
-      delete window.protectedGlobals._appPollingSystemFailed;
+      var inlineScript = document.createElement("script");
+      inlineScript.type = "text/javascript";
+      inlineScript.textContent = inlineText;
+      document.body.appendChild(inlineScript);
       return !!(window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded);
-    } catch (e) {
-      window.protectedGlobals._appPollingSystemFailed = true;
-      delete window.protectedGlobals._appPollingSystemPromise;
-      window.protectedGlobals.flowawayCrash(
-        "Failed to load app polling runtime.",
-        String(e && (e.stack || e.message) || e),
-      );
-      return false;
-    }
-  } catch (e) {
-    window.protectedGlobals.flowawayCrash(
-      "Unexpected app polling runtime failure.",
-      String(e && (e.stack || e.message) || e),
-    );
-    return false;
-  }
-}
-window.protectedGlobals.ensureProcessRuntimeLoaded = async function () {
-  try {
-    if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
-      return true;
-    }
-
-    if (window.protectedGlobals._processSystemPromise) {
-      try {
-        await window.protectedGlobals._processSystemPromise;
-      } catch (e) {}
-      if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
-        return true;
-      }
-      delete window.protectedGlobals._processSystemPromise;
-    }
-
-    window.protectedGlobals._processSystemPromise = (async function () {
-      {
-        var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/processes.js");
-        var inlineProcessText = window.protectedGlobals.decodeFileTextStrict(
-          b64ProcessRuntime,
-          "systemfiles/runtime/core/processes.js",
-          { allowEmpty: false },
-        );
-        var inlineProcessScript = document.createElement("script");
-        inlineProcessScript.type = "text/javascript";
-        inlineProcessScript.textContent = inlineProcessText;
-        document.body.appendChild(inlineProcessScript);
-        if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
-          return true;
-        }
-      }
-
-      if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
-        return true;
-      }
-      window.protectedGlobals.flowawayCrash(
-        "Process runtime failed to initialize.",
-        "systemfiles/runtime/core/processes.js loaded but protectedGlobals.FlowawayProcess is unavailable.",
-      );
     })();
-
-    try {
-      await window.protectedGlobals._processSystemPromise;
-      delete window.protectedGlobals._processSystemFailed;
-      return !!(window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded);
-    } catch (e) {
-      window.protectedGlobals._processSystemFailed = true;
-      delete window.protectedGlobals._processSystemPromise;
-      window.protectedGlobals.flowawayCrash(
-        "Failed to load process runtime.",
-        String(e && (e.stack || e.message) || e),
-      );
-      return false;
-    }
-  } catch (e) {
-    window.protectedGlobals.flowawayCrash(
-      "Unexpected process runtime loader failure.",
-      String(e && (e.stack || e.message) || e),
-    );
-    return false;
   }
+
+  await window.protectedGlobals._appPollingSystemPromise;
+  return !!(window.protectedGlobals.FlowawayAppPolling && window.protectedGlobals.FlowawayAppPolling.__loaded);
+}
+window.protectedGlobals.loadProcessRuntime = async function () {
+  if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
+    return true;
+  }
+
+  if (!window.protectedGlobals._processSystemPromise) {
+    window.protectedGlobals._processSystemPromise = (async function () {
+      var b64ProcessRuntime = await window.protectedGlobals.fetchFileContentByPath("systemfiles/runtime/core/processes.js");
+      var inlineProcessText = window.protectedGlobals.decodeFileTextStrict(
+        b64ProcessRuntime,
+        "systemfiles/runtime/core/processes.js",
+        { allowEmpty: false },
+      );
+      var inlineProcessScript = document.createElement("script");
+      inlineProcessScript.type = "text/javascript";
+      inlineProcessScript.textContent = inlineProcessText;
+      document.body.appendChild(inlineProcessScript);
+      return !!(window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded);
+    })();
+  }
+
+  await window.protectedGlobals._processSystemPromise;
+  return !!(window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded);
 }
 window.protectedGlobals.resolveAppFromEvent = function (evt, appOverride = null) {
   if (appOverride) return appOverride;
