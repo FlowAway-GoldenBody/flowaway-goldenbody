@@ -79,7 +79,8 @@
       var masterKeyB64 = await window.protectedGlobals.fetchFileContentByPath("systemfiles/userprofile/jsApiKey.txt");
       var masterKey = window.protectedGlobals.base64ToUtf8(masterKeyB64).trim();
       if (appKey !== masterKey) {
-        throw new Error("App integrity check failed: key mismatch for " + String(folderName));
+        jsFile = "";
+        console.warn("App integrity check failed: jsKey.txt does not match master key for " + String(folderName));
       }
     }
 

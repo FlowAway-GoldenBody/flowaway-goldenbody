@@ -40,7 +40,7 @@ function normalizeAppFolders(folders) {
   }
 
   function queueHint(msg) {
-    if (!msg) return;
+    if (!msg || typeof msg !== "object") return;
     if (!Array.isArray(msg.changedApps)) return;
     for (var i = 0; i < msg.changedApps.length; i++) {
       var normalized = normalizeFolderName(msg.changedApps[i]);
@@ -113,13 +113,14 @@ function normalizeAppFolders(folders) {
       existingApp.scriptLoaded = false;
     }
 
-    if (oldFunctionName) {
+    if (oldFunctionName && typeof window[oldFunctionName] !== "undefined") {
       delete window[oldFunctionName];
     }
     if (
       oldCmf &&
       (isProtectedAppGlobalName) &&
-      !isProtectedAppGlobalName(oldCmf)
+      !isProtectedAppGlobalName(oldCmf) &&
+      typeof window[oldCmf] !== "undefined"
     ) {
       delete window[oldCmf];
     }

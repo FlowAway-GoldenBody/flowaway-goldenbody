@@ -157,7 +157,7 @@ window.protectedGlobals.initAppTools = function () {
     if (document && document.body) {
       document.body.appendChild(root);
     }
-    window.protectedGlobals.bringToFront(root);
+    if (typeof window.protectedGlobals.bringToFront === "function") window.protectedGlobals.bringToFront(root);
     if (ctx.appId) window.protectedGlobals.atTop = ctx.appId;
     return root;
   };
@@ -188,7 +188,7 @@ window.protectedGlobals.initAppTools = function () {
     }
 
     function setMaximizedIcon(maximized) {
-      if (btnMax) {
+      if (btnMax && typeof window.protectedGlobals.setWindowMaximizeIcon === "function") {
         window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
       }
     }

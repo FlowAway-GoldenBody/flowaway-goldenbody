@@ -16,7 +16,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
     requestFileName: String(relPath),
   });
   if (options.text) {
-    if (res && res.filecontent) {
+    if (res && typeof res.filecontent === "string") {
       res.filecontent = window.tmpGlobals.decodeBase64ToUTF8(res.filecontent);
     }
   }
@@ -214,8 +214,8 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
     // Instead prompt for password and only send a password-based refill when provided.
     const uname = (function () {
       const u = window.protectedGlobals.getCurrentUsernameForRequests();
-      if (u && u.trim()) return u.trim();
-      if (window.protectedGlobals.data && window.protectedGlobals.data.username)         return String(window.protectedGlobals.data.username).trim();
+      if (u && typeof u === 'string' && u.trim()) return u.trim();
+      if (window.protectedGlobals.data && typeof window.protectedGlobals.data.username === 'string')         return window.protectedGlobals.data.username.trim();
       return '';
     })();
 
@@ -225,7 +225,7 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
       return;
     }
 
-    const password = pwdInput ? pwdInput.value.trim() : '';
+    const password = (pwdInput && typeof pwdInput.value === 'string') ? pwdInput.value.trim() : '';
 
     // If no password provided yet, focus the input and ask the user to enter it.
     if (!password) {
@@ -289,12 +289,12 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
 window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsernameForRequests() {
   var liveUsername = "";
   var cachedUsername = "";
-  if (window.protectedGlobals.data && window.protectedGlobals.data.username) {
-    liveUsername = String(window.protectedGlobals.data.username || "").trim();
+  if (window.protectedGlobals.data && typeof window.protectedGlobals.data.username === "string") {
+    liveUsername = window.protectedGlobals.data.username.trim();
   }
 
-  if (window.protectedGlobals._cachedUsername) {
-    cachedUsername = String(window.protectedGlobals._cachedUsername || "").trim();
+  if (typeof window.protectedGlobals._cachedUsername === "string") {
+    cachedUsername = window.protectedGlobals._cachedUsername.trim();
   }
 
   if (liveUsername) {
@@ -329,7 +329,6 @@ window.protectedGlobals.filePost = async function filePost(data) {
     window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };
   }
-
   if (!data || !data.initFE) {
     window.protectedGlobals.queueOnlyLoadTreeRefresh();
   }
@@ -428,6 +427,7 @@ document.body.style.backgroundRepeat = "no-repeat";
 
 
 // Scroll lock - ensure single binding
+window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
 if (window.protectedGlobals.systemAPIs.onScroll)
   window.removeEventListener("scroll", window.protectedGlobals.systemAPIs.onScroll);
 window.protectedGlobals.systemAPIs.onScroll = () => {
@@ -493,7 +493,7 @@ window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
 
 
 window.protectedGlobals.isProtectedAppGlobalName = function isProtectedAppGlobalName(name) {
-  if (!name) return false;
+  if (!name || typeof name !== "string") return false;
   return (
     /Globals$/.test(name) ||
     name === "apps" ||
