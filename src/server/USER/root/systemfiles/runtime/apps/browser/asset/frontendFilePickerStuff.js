@@ -1137,7 +1137,7 @@
             if (found) return found;
           } catch (e) {}
           try {
-            return frameWinArg.frameElement || null;
+            return frameWinArg.__gbframeElement || null;
           } catch (e) {
             return null;
           }

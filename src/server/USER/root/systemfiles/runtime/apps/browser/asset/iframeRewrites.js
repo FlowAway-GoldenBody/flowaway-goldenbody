@@ -240,7 +240,7 @@ async function iframePatches() {
         frameUrl = eventView.location.href || "";
       } catch (err) {
         try {
-          frameUrl = eventView.frameElement?.src || "";
+          frameUrl = eventView.__gbframeElement?.src || "";
         } catch (innerErr) {}
       }
     }
@@ -374,8 +374,8 @@ async function iframePatches() {
             frameView.location.reload();
           } catch (e) {
             try {
-              if (frameView.frameElement) {
-                frameView.frameElement.src = frameView.frameElement.src;
+              if (frameView.__gbframeElement) {
+                frameView.__gbframeElement.src = frameView.__gbframeElement.src;
               }
             } catch (innerErr) {}
           }
@@ -557,7 +557,7 @@ async function iframePatches() {
 
     // Walk up the iframe chain
     while (win && win !== topWin) {
-      const frame = win.frameElement;
+      const frame = win.__gbframeElement;
       if (!frame) break;
       const frameRect = frame.getBoundingClientRect();
       x += frameRect.left;
@@ -804,6 +804,8 @@ async function iframePatches() {
             frame.contentDocument.exitPointerLock();
             }
           });
+          frame.contentWindow.__gbframeElement = frame;
+          frame.contentWindow.Object.defineProperty(frame.contentWindow, "frameElement", {get: () => {return null}});
           let eggpatch = document.createElement("script");
           eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
           frameDoc.body.appendChild(eggpatch);
@@ -889,8 +891,8 @@ async function iframePatches() {
               eval(vfsScriptText);
             }
             // override window.open
-            frameWin.open = function (url, location) {
-              const layer1Iframe = iframe.contentWindow.frameElement;
+            frameWin.open = function (url, location, options = {newWindow: false}) {
+              const layer1Iframe = iframe.contentWindow.__gbframeElement;
               let allbrowserindex = 0;
               // console.log(layer1Iframe); // ✅ the first iframe under the main page
               for (
@@ -942,6 +944,10 @@ async function iframePatches() {
               } else if (location === "_self") {
                 frameWin.location = url;
               } else if (location === "_blank") {
+                if (options && options.newWindow) {
+                  browser(url,undefined,undefined,undefined,isMaximized);
+                  return null;
+                }
                 return window.browserGlobals.__globalAddTab(
                   url,
                   allbrowserindex,
@@ -950,6 +956,10 @@ async function iframePatches() {
               } else if (location === "_top") {
                 frameWin.location = url;
               } else {
+                if (options && options.newWindow) {
+                  browser(url,undefined,undefined,undefined,isMaximized);
+                  return null;
+                }
                 return window.browserGlobals.__globalAddTab(
                   url,
                   allbrowserindex,
