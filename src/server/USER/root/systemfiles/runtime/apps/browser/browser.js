@@ -45,6 +45,7 @@ window.browser = function (
   preloadsize = 100,
   posX = 20,
   posY = 20,
+  preMaximized = false,
 ) {
   function showConfirmDialog(title, message) {
     return new Promise((resolve) => {
@@ -1003,7 +1004,9 @@ window.browser = function (
         restoreWindow(true);
       }
     });
-
+    if (preMaximized) {
+      maximizeWindow();
+    }
     // CLOSE
     btnClose.addEventListener("click", closeWindow);
     function closeWindow() {
@@ -2241,12 +2244,13 @@ window.browser = function (
           }
 
           link.addEventListener("click", (e) => {
-            if (e.metaKey || link.target === "_blank") {
+            if (e.metaKey || link.target === "_blank" || e.shiftKey) {
               e.preventDefault();
               const url = browserGlobals.unshuffleURL(link.href);
               iframe.contentWindow.open(
                 url,
-                e.metaKey ? "_blank" : link.target || "_self",
+                (e.metaKey || e.shiftKey) ? "_blank" : link.target || "_self",
+                {newWindow: e.shiftKey}
               );
             }
           });
