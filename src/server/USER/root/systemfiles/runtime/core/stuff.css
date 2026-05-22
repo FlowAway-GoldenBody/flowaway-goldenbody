@@ -245,3 +245,232 @@
   background: rgba(74, 144, 226, 0.1);
 }
 
+/* =========================================================
+   🌞 LIGHT THEME (default)
+========================================================= */
+.app-root {
+  position: fixed;
+  top: 70px;
+  left: 70px;
+  width: 700px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.app-root * {
+  /* box-sizing: border-box; */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+.appContent {
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
+}
+
+.appTopBar {
+  background: #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 1px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: move;
+  user-select: none;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: auto;
+  z-index: 3;
+}
+
+.appTopBarTitle {
+  display: none;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appTopDragStrip {
+  height: 12px;
+  flex-shrink: 0;
+  display: flex;
+  cursor: move;
+  width: 100%;
+}
+
+.appWindowControls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.appWindowControl {
+  border: none;
+  border-radius: 3px;
+  min-width: 23px;
+  height: 18px;
+  font-size: 11px;
+  padding: 0 3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.appWindowCloseColor {
+  background: #d90429;
+  color: #fff;
+}
+
+.panel {}
+
+
+
+
+
+
+
+/* =========================================================
+   ☀️ LIGHT THEME
+========================================================= */
+
+.panel.light {
+  background: #ededf0;
+  color: black;
+}
+.app-root.light {
+  background: #eee;
+  color: #222;
+}
+
+.app-root.dark {
+  background:#1e1e1e;
+  color:#ddd;
+}
+
+/* Top draggable bar */
+.app-root.light .appTopBar {
+  background: #ccc;
+}
+
+/* Window control buttons */
+.app-root.light .btnMaxColor,
+.app-root.light .btnMinColor {
+  background: white;
+  color: #000;
+}
+
+.app-root.light .appWindowCloseColor {
+  background: #d90429;
+  color: #fff;
+}
+
+.app-root.light .misc {
+  background: white;
+  color: black;
+}
+
+.app-root.light .misc2 {
+  background: black;
+  color: #eee;
+}
+
+.app-menu.light {
+  background: white;
+  color: black;
+}
+
+/* =========================================================
+   🌙 DARK THEME
+========================================================= */
+.panel.dark {
+  background: #444;
+  color: #fff;
+}
+
+.app-root.dark .app-menu {
+  color: black;
+}
+
+.app-root.dark .btnMaxColor {
+  color: white;
+  background: black;
+}
+
+.app-root.dark .btnMinColor {
+  color: white;
+  background: black;
+}
+
+.app-root.dark .appWindowCloseColor {
+  background: #d90429;
+  color: #fff;
+}
+
+.app-root.dark .appTopBar {
+  background: #444;
+}
+
+.app-root.dark .misc {
+  background: black;
+  color: white;
+}
+
+.app-root.dark .misc2 {
+  background: #444;
+  color: white;
+}
+
+.app-menu.dark {
+  background: black;
+  color: white;
+}
+
+/* =========================================================
+   📱 Responsive
+========================================================= */
+@media (max-width: 600px) {
+  .app-root {
+    left:6px;
+    right:6px;
+    width:auto;
+    height:480px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+/* taskbar/system */
+.taskbar {}
+.taskbutton{}
+.taskbar.light {
+  background: lightgray;
+  color: black;
+}
+.taskbutton.dark {
+  background: #444;
+  color: white;
+}
+
+.taskbutton.light {
+  background: white;
+  color: black;
+}
+.taskbar.dark {
+  background: #222;
+  color: white;
+}
+
