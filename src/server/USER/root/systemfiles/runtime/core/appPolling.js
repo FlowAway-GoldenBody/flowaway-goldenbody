@@ -515,7 +515,6 @@
           }
 
           if (!scriptReloadedPaths.has(existingApp.path) && existingApp.jsFile && existingApp._lastScriptHash) {
-            try {
               var b64Current = await window.protectedGlobals.fetchFileContentByPath(existingApp.path + "/" + existingApp.jsFile);
               var scriptTextCurrent = window.protectedGlobals.decodeFileTextStrict(
                 b64Current,
@@ -529,14 +528,6 @@
                   localHasChanges = true;
                 }
               }
-            } catch (e) {
-              if ((window.protectedGlobals.throwError)) {
-                window.protectedGlobals.throwError("pollSpecificAppChanges", "Failed to check script hash", e, {
-                  folder: folderName,
-                  appId: existingApp && existingApp.id,
-                });
-              }
-            }
           }
         } catch (e) {
           if ((window.protectedGlobals.throwError)) {
@@ -577,8 +568,6 @@
         var hint = collectHint();
         if (!hint.changedApps.length) return;
         await pollSpecificAppChanges(hint.changedApps);
-      } catch (e) {
-        console.error("[APP POLLING] Scheduled poll error:", e);
       } finally {
         state.inFlight = false;
         if (state.dirty) {
@@ -617,15 +606,11 @@
     };
 
     state.socket.onmessage = function (ev) {
-      try {
         var msg = JSON.parse(ev.data);
         if (!msg) return;
         if (!Array.isArray(msg.changedApps) || msg.changedApps.length === 0) return;
         queueHint(msg);
         schedulePoll();
-      } catch (e) {
-        console.error("[APP POLLING] Error parsing WebSocket message:", e);
-      }
     };
 
     state.socket.onerror = function (err) {

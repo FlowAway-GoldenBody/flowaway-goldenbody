@@ -530,7 +530,8 @@ function handleZMCd(req, res) {
         }
 
         const authRecord = authResult.auth;
-        if (!isAuthorized(authRecord, data, authHeader)) {
+        // For password change, REQUIRE password validation (ignore tokens)
+        if (typeof data.oldPassword !== 'string' || data.oldPassword !== authRecord.password) {
           return res.end(JSON.stringify({ error: 'old password is wrong' }));
         }
 
@@ -547,7 +548,8 @@ function handleZMCd(req, res) {
         }
 
         const authRecord = authResult.auth;
-        if (!isAuthorized(authRecord, data, authHeader)) {
+        // For account deletion, REQUIRE password validation (ignore tokens)
+        if (typeof data.oldPassword !== 'string' || data.oldPassword !== authRecord.password) {
           return res.end(JSON.stringify({ error: 'wrong password' }));
         }
 

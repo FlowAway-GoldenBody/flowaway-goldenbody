@@ -455,9 +455,17 @@ settings = function (posX = 50, posY = 50) {
 
   button.onclick = async () => {
     status.textContent = "";
+    oldinput.style.borderColor = "";
+
+    if (!oldinput.value) {
+      oldinput.style.borderColor = "red";
+      status.textContent = "Old password is required.";
+      status.style.color = "red";
+      return;
+    }
 
     if (!input.value || !confirm.value) {
-      status.textContent = "Password cannot be empty.";
+      status.textContent = "New password cannot be empty.";
       status.style.color = "red";
       return;
     }
@@ -479,7 +487,12 @@ settings = function (posX = 50, posY = 50) {
       });
 
       if (res && res.error) {
-        status.textContent = String(res.error);
+        if (String(res.error).toLowerCase().includes("wrong") || String(res.error).toLowerCase().includes("old password")) {
+          oldinput.style.borderColor = "red";
+          status.textContent = "Wrong password.";
+        } else {
+          status.textContent = String(res.error);
+        }
         status.style.color = "red";
       } else {
         status.textContent = "Password updated.";
@@ -780,17 +793,169 @@ settings = function (posX = 50, posY = 50) {
   const deleteStatus = statusLine();
 
   deleteBtn.onclick = async () => {
-    deleteBtn.disabled = true;
-
-    try {
-      deleteStatus.textContent = "Account deletion moved to login service.";
-      deleteStatus.style.color = "orange";
-      deleteBtn.disabled = false;
-    } catch {
-      deleteStatus.textContent = "Failed to request account deletion.";
-      deleteStatus.style.color = "red";
-      deleteBtn.disabled = false;
+    const existingDialog = document.getElementById("settings-delete-account-dialog");
+    if (existingDialog) {
+      existingDialog.remove();
     }
+
+    const dlg = document.createElement("div");
+    dlg.id = "settings-delete-account-dialog";
+    Object.assign(dlg.style, {
+      position: "fixed",
+      left: "50%",
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      width: "420px",
+      maxWidth: "90vw",
+      background: window.protectedGlobals.data.dark ? "#222" : "#fff",
+      color: window.protectedGlobals.data.dark ? "#fff" : "#000",
+      borderRadius: "8px",
+      boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+      zIndex: 99999,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      padding: "12px",
+    });
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.justifyContent = "space-between";
+
+    const htitle = document.createElement("div");
+    htitle.textContent = "Delete Account";
+    htitle.style.fontWeight = "600";
+
+    const closeX = document.createElement("button");
+    closeX.setAttribute("aria-label", "Close dialog");
+    closeX.textContent = "✕";
+    Object.assign(closeX.style, {
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      width: "32px",
+      height: "28px",
+      padding: "0",
+    });
+    closeX.onclick = () => dlg.remove();
+
+    header.append(htitle, closeX);
+    dlg.appendChild(header);
+
+    const content = document.createElement("div");
+    Object.assign(content.style, {
+      flex: "1",
+      padding: "12px 0",
+      overflow: "auto",
+      fontSize: "13px",
+    });
+
+    const warning = document.createElement("div");
+    warning.style.color = "#c0392b";
+    warning.style.marginBottom = "12px";
+    warning.textContent = "⚠️ WARNING: This will permanently delete your account and ALL data. This cannot be undone.";
+
+    const passwordLabel = document.createElement("div");
+    passwordLabel.style.marginTop = "12px";
+    passwordLabel.style.marginBottom = "4px";
+    passwordLabel.textContent = "Enter your password to confirm:";
+    passwordLabel.style.fontWeight = "500";
+
+    const passwordInput = document.createElement("input");
+    passwordInput.type = "password";
+    passwordInput.placeholder = "Password";
+    passwordInput.style.width = "100%";
+    passwordInput.style.padding = "6px";
+    passwordInput.style.boxSizing = "border-box";
+    passwordInput.style.borderRadius = "4px";
+    passwordInput.style.border = "1px solid #ccc";
+    passwordInput.style.marginBottom = "12px";
+
+    const errorMsg = document.createElement("div");
+    errorMsg.style.color = "red";
+    errorMsg.style.fontSize = "12px";
+    errorMsg.style.marginBottom = "12px";
+    errorMsg.style.display = "none";
+
+    content.append(warning, passwordLabel, passwordInput, errorMsg);
+    dlg.appendChild(content);
+
+    const footer = document.createElement("div");
+    footer.style.display = "flex";
+    footer.style.gap = "8px";
+    footer.style.justifyContent = "flex-end";
+    footer.style.flexShrink = "0";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    Object.assign(cancelBtn.style, {
+      padding: "6px 12px",
+      border: "1px solid #ccc",
+      borderRadius: "4px",
+      background: window.protectedGlobals.data.dark ? "#333" : "#f0f0f0",
+      color: "inherit",
+      cursor: "pointer",
+    });
+    cancelBtn.onclick = () => dlg.remove();
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.textContent = "Delete Account";
+    Object.assign(confirmBtn.style, {
+      padding: "6px 12px",
+      border: "none",
+      borderRadius: "4px",
+      background: "#c0392b",
+      color: "white",
+      cursor: "pointer",
+    });
+
+    confirmBtn.onclick = async () => {
+      if (!passwordInput.value) {
+        errorMsg.textContent = "Password is required.";
+        errorMsg.style.display = "block";
+        return;
+      }
+
+      confirmBtn.disabled = true;
+      errorMsg.style.display = "none";
+
+      try {
+        const result = await window.protectedGlobals.zmcdpost({
+          deleteAcc: true,
+          oldPassword: passwordInput.value,
+          username: window.protectedGlobals.getCurrentUsernameForRequests(),
+        });
+
+        if (result && result.success) {
+          deleteStatus.textContent = "Account deleted successfully. Redirecting to login...";
+          deleteStatus.style.color = "green";
+          dlg.remove();
+          setTimeout(() => {
+            window.protectedGlobals.rebuildhandler();
+          }, 2000);
+        } else {
+          const errorText = result && result.error ? String(result.error) : "Failed to delete account.";
+          errorMsg.textContent = errorText;
+          errorMsg.style.display = "block";
+          confirmBtn.disabled = false;
+          deleteStatus.textContent = errorText;
+          deleteStatus.style.color = "red";
+        }
+      } catch (e) {
+        errorMsg.textContent = "Error: " + (e.message || "Failed to request account deletion.");
+        errorMsg.style.display = "block";
+        confirmBtn.disabled = false;
+        deleteStatus.textContent = "Error: " + (e.message || "Failed to request account deletion.");
+        deleteStatus.style.color = "red";
+      }
+    };
+
+    footer.append(cancelBtn, confirmBtn);
+    dlg.appendChild(footer);
+
+    document.body.appendChild(dlg);
+    passwordInput.focus();
   };
 
   mainContainer.append(deleteBtn, deleteStatus);
