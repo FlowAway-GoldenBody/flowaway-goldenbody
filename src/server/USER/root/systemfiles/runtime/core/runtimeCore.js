@@ -396,7 +396,7 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/runtime/helpers/appHelperFunctions.js",
   "systemfiles/runtime/core/runtimeAppRuntime.js",
   "systemfiles/runtime/core/runtimeWindowSystem.js",
-  "systemfiles/runtime/core/runtimeShell.js",
+  "systemfiles/runtime/core/startMenu.js",
 ];
 
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {

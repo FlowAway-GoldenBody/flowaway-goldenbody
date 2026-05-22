@@ -171,10 +171,6 @@ window.browserGlobals.browserCss = `
 .app-root.dark .sim-iframe {
   background: #111; /* deep dark, matches content area */
 }
-.app-root.dark {
-  background:#1e1e1e;
-  color:#ddd;
-}
 
 .app-root.dark .sim-chrome-top {
   background: linear-gradient(#2a2a2a,#1f1f1f);

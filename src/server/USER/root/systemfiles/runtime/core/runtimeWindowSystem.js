@@ -885,6 +885,11 @@ style.textContent = `
   color: #222;
 }
 
+.app-root.dark {
+  background:#1e1e1e;
+  color:#ddd;
+}
+
 /* Top draggable bar */
 .app-root.light .appTopBar {
   background: #ccc;

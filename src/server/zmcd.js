@@ -236,31 +236,6 @@ function ensureAppIntegrityKey(userPaths) {
   }
 }
 
-function ensureRuntimeFiles(userPaths) {
-  fs.mkdirSync(userPaths.userRoot, { recursive: true });
-  fs.mkdirSync(userPaths.systemfilesDir, { recursive: true });
-
-  // Copy runtime files from server template, but don't overwrite existing
-  const runtimeSourceDir = path.join(USER_TEMPLATE_PATH, 'systemfiles');
-  const copyIfNotExists = (srcDir, dstDir) => {
-    if (!fs.existsSync(srcDir)) return;
-    const items = fs.readdirSync(srcDir, { withFileTypes: true });
-    for (const it of items) {
-      const src = path.join(srcDir, it.name);
-      const dst = path.join(dstDir, it.name);
-      if (it.isDirectory()) {
-        fs.mkdirSync(dst, { recursive: true });
-        copyIfNotExists(src, dst);
-      } else if (!fs.existsSync(dst)) {
-        fs.copyFileSync(src, dst);
-      }
-    }
-  };
-
-  copyIfNotExists(runtimeSourceDir, userPaths.systemfilesDir);
-  ensureStartMenuConfig(userPaths);
-  ensureAppIntegrityKey(userPaths);
-}
 
 function syncAppKeysToUserKey(userPaths) {
   const keyPath = path.join(userPaths.userProfileDir, 'jsApiKey.txt');
@@ -424,7 +399,6 @@ function handleZMCd(req, res) {
           responseContent = 'error: user already exists';
         } else {
           fs.mkdirSync(userPaths.userDir, { recursive: true });
-          ensureRuntimeFiles(userPaths);
           const authRecord = sanitizeAuthRecord(null, userPaths.username, data.password);
           const token = issueToken(authRecord);
           writeAuthRecord(userPaths, authRecord);
@@ -437,7 +411,6 @@ function handleZMCd(req, res) {
         if (!authResult) {
           responseContent = 'error: invalid username or password';
         } else {
-          ensureRuntimeFiles(userPaths);
           const authRecord = authResult.auth;
           if (authRecord.username !== data.username || !isAuthorized(authRecord, data, authHeader)) {
             responseContent = 'error: invalid username or password';
