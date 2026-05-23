@@ -400,7 +400,6 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/runtime/core/runtimeAppRuntime.js",
   "systemfiles/runtime/core/runtimeWindowSystem.js",
   "systemfiles/runtime/helpers/initapptools.js",
-  "systemfiles/runtime/core/startMenu.js",
   "systemfiles/runtime/core/processes.js",
   "systemfiles/runtime/core/goldenbody.js",
 ];
@@ -408,11 +407,18 @@ window.tmpGlobals.coreScriptUrls = [
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {
   for (const element of window.tmpGlobals.coreScriptUrls) {
     let f = await window.protectedGlobals.ReadFile(element, { text: true, direct: true });
-    eval(f);
+    if (typeof f !== 'string') continue;
+    var script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.textContent = f;
+    document.body.appendChild(script);
+    // yield to the event loop to ensure script execution side-effects settle
+    await new Promise(function (res) { setTimeout(res, 0); });
   }
 };
 
-window.tmpGlobals.loadCoreScriptsSequentially();
+// Load core scripts sequentially by injecting script elements (avoids eval).
+window.tmpGlobals.loadCoreScriptsSequentially()
 // if u wanna keep it just remove the next line
 delete window.tmpGlobals.coreScriptUrls;
 
@@ -488,10 +494,7 @@ window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRef
 
 
 
-window.protectedGlobals.fileFetchInFlight =
-  window.protectedGlobals.fileFetchInFlight || new Map();
-window.protectedGlobals.fileFetchRecent = window.protectedGlobals.fileFetchRecent || new Map();
-window.protectedGlobals.FLOWAWAY_FILE_FETCH_CACHE_MS = 750;
+
 
 
 
