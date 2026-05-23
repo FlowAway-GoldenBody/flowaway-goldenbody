@@ -6,8 +6,6 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
   var taskbarReady = !!(window.protectedGlobals.taskbar && window.protectedGlobals.taskbar.isConnected);
 
   if (!taskbarReady) {
-    window.protectedGlobals.injectGoldenbodyScript();
-
     window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
     if (!window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer) {
       window.protectedGlobals.systemAPIs.applyTaskButtonsRetryTimer = setTimeout(

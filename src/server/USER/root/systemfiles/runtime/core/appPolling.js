@@ -87,15 +87,10 @@
 
   async function reloadAppScript(existingApp, oldFunctionName, oldCmf) {
     if (!existingApp || !existingApp.jsFile) return false;
-    var fetchFileContentByPath = window.protectedGlobals.fetchFileContentByPath;
-    var decodeFileTextStrict = window.protectedGlobals.decodeFileTextStrict;
     var hashScriptContent = window.protectedGlobals.hashScriptContent;
     var isProtectedAppGlobalName = window.protectedGlobals.isProtectedAppGlobalName;
 
-    var b64 = await fetchFileContentByPath(existingApp.path + "/" + existingApp.jsFile);
-    var scriptText = decodeFileTextStrict(b64, existingApp.path + "/" + existingApp.jsFile, {
-      allowEmpty: true,
-    });
+    var scriptText = String(await window.protectedGlobals.ReadFile(existingApp.path + "/" + existingApp.jsFile, { text: true, direct: true }) || "");
     if (!String(scriptText || "").trim()) {
       if (existingApp.scriptLoaded && existingApp._scriptElement) {
         existingApp._scriptElement.remove();
@@ -340,12 +335,7 @@
             if (scriptReloadedPaths.has(appToCheck.path)) continue;
             if (!appToCheck.jsFile || !appToCheck._lastScriptHash) continue;
 
-            var b64Current = await window.protectedGlobals.fetchFileContentByPath(appToCheck.path + "/" + appToCheck.jsFile);
-            var scriptTextCurrent = window.protectedGlobals.decodeFileTextStrict(
-              b64Current,
-              appToCheck.path + "/" + appToCheck.jsFile,
-              { allowEmpty: false },
-            );
+            var scriptTextCurrent = String(await window.protectedGlobals.ReadFile(appToCheck.path + "/" + appToCheck.jsFile, { text: true, direct: true }) || "");
             var currentHashNow = window.protectedGlobals.hashScriptContent(scriptTextCurrent);
             if (currentHashNow === appToCheck._lastScriptHash) continue;
 
@@ -515,12 +505,7 @@
           }
 
           if (!scriptReloadedPaths.has(existingApp.path) && existingApp.jsFile && existingApp._lastScriptHash) {
-              var b64Current = await window.protectedGlobals.fetchFileContentByPath(existingApp.path + "/" + existingApp.jsFile);
-              var scriptTextCurrent = window.protectedGlobals.decodeFileTextStrict(
-                b64Current,
-                existingApp.path + "/" + existingApp.jsFile,
-                { allowEmpty: false },
-              );
+              var scriptTextCurrent = String(await window.protectedGlobals.ReadFile(existingApp.path + "/" + existingApp.jsFile, { text: true, direct: true }) || "");
               var currentHashNow = window.protectedGlobals.hashScriptContent(scriptTextCurrent);
               if (currentHashNow !== existingApp._lastScriptHash) {
                 if (await reloadAppScript(existingApp, existingApp.functionname, existingApp.cmf)) {

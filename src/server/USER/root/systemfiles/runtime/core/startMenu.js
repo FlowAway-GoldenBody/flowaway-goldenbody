@@ -4,7 +4,82 @@ window.protectedGlobals.css = await window.protectedGlobals.ReadFile("systemfile
 const styleTag = window.protectedGlobals.styleTag = document.createElement("style");
 styleTag.textContent = window.protectedGlobals.css;
 document.head.appendChild(styleTag);
+window.protectedGlobals.renderAppsGrid = async function () {
+  if (!window.protectedGlobals._startMenuConfig) await window.protectedGlobals.loadStartMenuConfig();
+  await window.protectedGlobals.renderPinnedAppsGrid();
+  if (!window.protectedGlobals.apps) return;
 
+  for (const app of window.protectedGlobals.apps) {
+    try {
+      window.protectedGlobals.initAppRuntimeState(app);
+      if (!app.scriptLoaded && app.jsFile) {
+        var jsKeyOk = true;
+        try {
+          var appKey = String(await window.protectedGlobals.ReadFile(`${app.path}/jskey.txt`, { text: true, direct: true }) || "").trim();
+          var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
+          jsKeyOk = !!appKey && !!masterKey && appKey === masterKey;
+        } catch (e) {
+          jsKeyOk = false;
+        }
+
+        if (!jsKeyOk) {
+          console.warn("Skipping app script due to missing/invalid jskey", app && app.id, app && app.path);
+          continue;
+        }
+
+        var scriptText = String(await window.protectedGlobals.ReadFile(`${app.path}/${app.jsFile}`, { text: true, direct: true }) || "");
+        if (!String(scriptText || "").trim()) {
+          console.warn("App script is empty; skipping load", { appId: app && app.id, path: app && app.path, jsFile: app && app.jsFile });
+          continue;
+        }
+
+        app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
+        try {
+          var globalvarobjectstring = app.globalvarobjectstring;
+          if (app.functionname) delete window[app.functionname];
+          if (
+            app.cmf &&
+            globalvarobjectstring &&
+            window[globalvarobjectstring] &&
+            !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
+          ) {
+            delete window[globalvarobjectstring][app.cmf];
+          }
+        } catch (e) {}
+
+        var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
+        var scriptEl = document.createElement("script");
+        scriptEl.type = "text/javascript";
+        scriptEl.textContent = scriptText;
+        document.body.appendChild(scriptEl);
+        app.scriptLoaded = true;
+        app._scriptElement = scriptEl;
+
+        try {
+          app._addedGlobals = [];
+          var captureAdded = () => {
+            var after = Object.getOwnPropertyNames(window);
+            var newly = after.filter(
+              (k) => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k),
+            );
+            if (newly.length) {
+              app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
+            }
+          };
+          captureAdded();
+          setTimeout(captureAdded, 120);
+          setTimeout(captureAdded, 800);
+          setTimeout(captureAdded, 2500);
+        } catch (e) {}
+      }
+    } catch (e) {
+      window.protectedGlobals.throwError("renderAppsGrid", "Failed while loading app", e, {
+        appId: app && app.id,
+        path: app && app.path,
+      });
+    }
+  }
+};
 // ----------------- CREATE START BUTTON -----------------
 
 // ============= START MENU CONFIG SYSTEM =============
@@ -12,8 +87,7 @@ window.protectedGlobals._startMenuConfig = null;
 
 const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async function loadStartMenuConfig() {
   const configPath = 'systemfiles/userprofile/startMenu-config.json';
-  const configData = await window.protectedGlobals.fetchFileContentByPath(configPath);
-  const configText = window.protectedGlobals.base64ToUtf8(configData);
+  const configText = String(await window.protectedGlobals.ReadFile(configPath, { text: true, direct: true }) || "");
   window.protectedGlobals._startMenuConfig = JSON.parse(configText);
   return window.protectedGlobals._startMenuConfig;
 }
@@ -217,8 +291,7 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
     return window.protectedGlobals.appMatchesIdentifier(a, targetAppId);
   });
   if (appObj && appObj.globalvarobjectstring && appObj.allapparraystring) {
-    var gv = window[appObj.globalvarobjectstring];
-    if (gv && typeof gv === "object") {
+    if (window[appObj.globalvarobjectstring]) {
       var arrayKeys = [];
       if (typeof appObj.allapparraystring === "string") {
         var single = appObj.allapparraystring.trim();
@@ -236,7 +309,7 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
       }
 
       for (var keyCursor = 0; keyCursor < arrayKeys.length; keyCursor++) {
-        var arr = gv[arrayKeys[keyCursor]];
+        var arr = window[appObj.globalvarobjectstring][arrayKeys[keyCursor]];
         if (!Array.isArray(arr)) continue;
         for (var i = arr.length - 1; i >= 0; i--) {
           var inst = arr[i];
@@ -633,19 +706,7 @@ window.protectedGlobals.starthandler = () => {
   document.addEventListener("click", window.protectedGlobals.systemAPIs.onDocumentClick);
 }
 
-
-
-const injectGoldenbodyScript = window.protectedGlobals.injectGoldenbodyScript = async function injectGoldenbodyScript() {
-    let body = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/goldenbody.js");
-    var sysScript = document.createElement("script");
-    sysScript.type = "text/javascript";
-    sysScript.textContent = window.protectedGlobals.base64ToUtf8(body.filecontent);
-    document.body.appendChild(sysScript);
-    window.protectedGlobals.loaded = true;
-}
-
 setTimeout(() => {
-  injectGoldenbodyScript();
   setTimeout(() => {
     var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
     window.dispatchEvent(appUpdatedEvent);

@@ -447,7 +447,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     : menu.classList.toggle("light", true);
 
   function withInstances(handler) {
-    var instances = window.protectedGlobals.getAppInstances(app);
+    var instances = window[app.globalvarobjectstring][app.allapparraystring];
     handler(instances);
     menu.remove();
   }

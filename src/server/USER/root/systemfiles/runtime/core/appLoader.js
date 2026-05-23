@@ -33,9 +33,7 @@
     let iconFile = null;
     if (entryObjectfile) {
       var entryPath = folderPath + "/" + entryObjectfile;
-      var fetchFileContentByPath = window.protectedGlobals.fetchFileContentByPath;
-      var b64 = await fetchFileContentByPath(entryPath);
-      var entryText = window.protectedGlobals.decodeFileTextStrict(b64, entryPath, { allowEmpty: true });
+      var entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
       if (entryText && entryText.trim()) {
         var entryObj = JSON.parse(entryText);
         if (entryObj && typeof entryObj === "object") {
@@ -74,10 +72,8 @@
         throw new Error("App integrity check failed: jsKey.txt missing from " + String(folderName));
       }
       var appKeyPath = folderPath + "/" + appKeyFile.relativePath;
-      var appKeyB64 = await window.protectedGlobals.fetchFileContentByPath(appKeyPath);
-      var appKey = window.protectedGlobals.base64ToUtf8(appKeyB64).trim();
-      var masterKeyB64 = await window.protectedGlobals.fetchFileContentByPath("systemfiles/userprofile/jsApiKey.txt");
-      var masterKey = window.protectedGlobals.base64ToUtf8(masterKeyB64).trim();
+      var appKey = String(await window.protectedGlobals.ReadFile(appKeyPath, { text: true, direct: true }) || "").trim();
+      var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
       if (appKey !== masterKey) {
         jsFile = "";
         console.warn("App integrity check failed: jsKey.txt does not match master key for " + String(folderName));
@@ -87,12 +83,11 @@
     if (iconFile) {
       console.log("Found icon file for app " + folderName + ": " + iconFile); 
       var iconPath = folderPath + "/" + iconFile;
-      var iconB64 = await fetchFileContentByPath(iconPath);
-      var parsedIcon = window.protectedGlobals.base64ToUtf8(iconB64).trim();
+      var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
       icon = parsedIcon || icon;
     }
 
-    return {
+    let pkg = {
       id: functionName || folderName,
       path: folderPath,
       jsFile: jsFile,
@@ -106,6 +101,9 @@
       cmfl1: cmfl1,
       openfilecapability: openfilecapability,
     };
+    debugger
+    window.protectedGlobals.initAppRuntimeState(pkg);
+    return pkg;
   }
 
   window.protectedGlobals.AppLoaderAPIs = {
