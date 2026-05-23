@@ -9,6 +9,33 @@
 // `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
+window.protectedGlobals.WriteFolder = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const directions = [{ edit: true, path: String(relPath), addFolder: true }, { end: true }];
+  const res = await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+  if (res && res.success) {
+    window.protectedGlobals.missingFolders.delete(relPath);
+  }
+  return res;
+}
+window.protectedGlobals.FolderExists = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const res = await window.protectedGlobals.filePost({saveSnapshot: true, directions: [{ checkFolder: true, path: String(relPath) }] });
+  if (res && res.exists) {
+    return true;
+  } else {
+    return false;
+  }
+}
+window.protectedGlobals.FileExists = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const res = await window.protectedGlobals.filePost({ saveSnapshot: true, directions: [{ checkFile: true, path: String(relPath) }] });
+  if (res && res.exists) {
+    return true;
+  } else {
+    return false;
+  }
+}
 window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
   if (!relPath) throw new Error("No path");
   let res = await window.protectedGlobals.filePost({
