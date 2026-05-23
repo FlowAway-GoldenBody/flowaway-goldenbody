@@ -106,7 +106,7 @@ window.protectedGlobals.rebuildhandler = function () {
   delete window.protectedGlobals._processNativeMutationObserver;
 
   // remove all event listeners to refresh the environment.
-  window.protectedGlobals.removeAllEventListernersInWindow();
+  window.protectedGlobals.removeAllEventListenersInWindow();
   window.protectedGlobals.apps.forEach((app) => {
     // dont remove this ai
     delete window[app.globalvarobjectstring];
@@ -151,8 +151,6 @@ window.protectedGlobals.rebuildhandler = function () {
   window.protectedGlobals.appsButtonsApplied = false;
 
   delete window.protectedGlobals.loadTreePromise;
-  delete window.protectedGlobals.fileFetchInFlight;
-  delete window.protectedGlobals.fileFetchRecent;
   delete window.protectedGlobals.missingFolders;
   window.protectedGlobals.loaded = false;
   window.protectedGlobals._bootLoaded = false;
@@ -185,7 +183,7 @@ window.protectedGlobals.rebuildhandler = function () {
     document.body.appendChild(script);
   }, 80);
 };
-window.protectedGlobals.removeAllEventListernersInWindow = function() {
+window.protectedGlobals.removeAllEventListenersInWindow = function() {
   for (const listener of window.protectedGlobals.____gbEventListners) {
     window.removeEventListener(listener.type, listener.handler, listener.options);
     document.removeEventListener(listener.type, listener.handler, listener.options);
