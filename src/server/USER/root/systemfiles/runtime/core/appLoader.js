@@ -101,7 +101,6 @@
       cmfl1: cmfl1,
       openfilecapability: openfilecapability,
     };
-    debugger
     window.protectedGlobals.initAppRuntimeState(pkg);
     return pkg;
   }

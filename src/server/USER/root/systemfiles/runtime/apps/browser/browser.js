@@ -2055,7 +2055,7 @@ window.browser = function (
     );
     //render tab end----------------------------------------------------------
 
-    function addTab(url, title, resizeP = preloadsize) {
+    function addTab(url, title, resizeP = preloadsize, options = {}) {
       const id = "tab-" + ++tabCounter;
       const iframe = document.createElement("iframe");
       if (browserGlobals.profileState.lazyloading) iframe.loading = "lazy";
@@ -2376,12 +2376,13 @@ window.browser = function (
 
       if (browserGlobals.proxyurl != "") {
         iframe.src = a(url, browserGlobals.proxyurl);
-        if(!window.browserGlobals.profileState.enableURLSync) {
-        setTimeout(() => {
-          // to fix a contextmenu not showing bug, thats what i can do because after checking the devtools, idk what happened.
-          iframe.contentWindow.location.reload();
-        }, 250);
-        }
+        // oof we dont need this anymore
+        // if(!window.browserGlobals.profileState.enableURLSync) {
+        // setTimeout(() => {
+        //   // to fix a contextmenu not showing bug, thats what i can do because after checking the devtools, idk what happened.
+        //   iframe.contentWindow.location.reload();
+        // }, 250);
+        // }
       } else {
         iframe.src = url;
       }
@@ -2391,6 +2392,7 @@ window.browser = function (
       let donotm = false;
       const tab = {
         id,
+        firstNav: true,
         url,
         title,
         iframe,
@@ -2716,6 +2718,7 @@ window.browser = function (
           );
           const currentCanonical = canonicalHistoryUrl(currentUrl);
           if (currentCanonical !== previousUrl) {
+            tab.firstNav = false;
             historyRecord(tab, currentUrl);
             previousUrl = currentCanonical;
             urlInput.value = currentUrl;
