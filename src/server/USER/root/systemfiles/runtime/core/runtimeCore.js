@@ -344,6 +344,12 @@ window.protectedGlobals.posttaskbuttons = async function posttaskbuttons(data) {
   return await window.protectedGlobals.persistUserProfilePatch({ taskbuttons: data });
 };
 window.protectedGlobals.downloadPost = async function downloadPost(data) {
+  if (data.filename.length > 100) {
+    data.filename = data.filename.substring(0, 100) + data.filename.split(".").slice(-1);
+    if (data.filename.length > 130) {
+      data.filename = "downloaded_file.nametoolong";
+    }
+  }
   var res = await fetch(window.protectedGlobals.downloadserver, {
     method: "POST",
     headers: (function () {
@@ -360,6 +366,9 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
   });
   let body = await res.json();
   extractAuthTokenFromResponse(body);
+  if (res.status === 200) {
+    window.protectedGlobals.notification("Download successful! Filename: " + data.filename + ". Check your downloads folder.");
+  }
   if (res.status === 401) {
     window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };

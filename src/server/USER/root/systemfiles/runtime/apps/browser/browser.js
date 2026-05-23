@@ -2340,7 +2340,7 @@ window.browser = function (
               ) ||
               "Untitled";
             tab.title = docTitle;
-            chromeWindow.title = tab.title;
+            if (tab.iframe.style.display === "block") chromeWindow.title = tab.title;
           } else {
             tab.title = "Loading...";
           }
