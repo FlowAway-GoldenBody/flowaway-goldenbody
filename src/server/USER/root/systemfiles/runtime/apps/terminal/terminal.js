@@ -819,23 +819,9 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
     return !!(node && Array.isArray(node[1]));
   }
 
-  function decodeBase64Utf8(raw) {
-    if ((base64ToUtf8)) {
-      return base64ToUtf8(raw);
-    }
-    try {
-      return decodeURIComponent(escape(atob(raw)));
-    } catch (e) {
-      return atob(raw);
-    }
-  }
-
   async function readFileByPath(relPath) {
-    if (!(window.protectedGlobals.fetchFileContentByPath)) {
-      throw new Error("fetchFileContentByPath is unavailable");
-    }
-    const b64 = await window.protectedGlobals.fetchFileContentByPath(relPath);
-    return decodeBase64Utf8(b64);
+    if (!relPath) throw new Error("No path");
+    return String(await window.protectedGlobals.ReadFile(relPath, { text: true, direct: true }) || "");
   }
 
   function utf8ToBase64(text) {

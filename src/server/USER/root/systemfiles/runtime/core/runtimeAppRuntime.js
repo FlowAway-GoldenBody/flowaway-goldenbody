@@ -25,16 +25,10 @@ window.protectedGlobals.loadTree = async function () {
   await window.protectedGlobals.loadAppsFromTree();
   window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
 };
-Promise.all([
-  window.protectedGlobals.loadFlowawayAppLoaderRuntime(),
-  window.protectedGlobals.loadFlowawayAppPollingRuntime(),
-  window.protectedGlobals.loadProcessRuntime(),
-])
-  .finally(function () {
-    if ((window.protectedGlobals.loadTree)) {
-      window.protectedGlobals.loadTree();
-    }
-  });
+
+if ((window.protectedGlobals.loadTree)) {
+  window.protectedGlobals.loadTree();
+}
 window.protectedGlobals.onlyloadTree = window.protectedGlobals.oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 

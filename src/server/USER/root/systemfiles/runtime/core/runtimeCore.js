@@ -393,20 +393,22 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/runtime/helpers/fsFunctions.js",
   "systemfiles/runtime/helpers/cleanupfunctions.js",
   "systemfiles/runtime/helpers/miscFunctions.js",
+  "systemfiles/runtime/core/appLoader.js",
+  "systemfiles/runtime/core/appPolling.js",
+  "systemfiles/runtime/core/startMenu.js",
   "systemfiles/runtime/helpers/appHelperFunctions.js",
   "systemfiles/runtime/core/runtimeAppRuntime.js",
   "systemfiles/runtime/core/runtimeWindowSystem.js",
+  "systemfiles/runtime/helpers/initapptools.js",
   "systemfiles/runtime/core/startMenu.js",
+  "systemfiles/runtime/core/processes.js",
+  "systemfiles/runtime/core/goldenbody.js",
 ];
 
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {
   for (const element of window.tmpGlobals.coreScriptUrls) {
-    await window.protectedGlobals.delay(100); // Add a small delay between script loads
-    var script = document.createElement("script");
-    let f = await window.protectedGlobals.ReadFile(element);
-    let txt = f.filecontent;
-    script.textContent = window.tmpGlobals.decodeBase64ToUTF8(txt);
-    document.body.appendChild(script);
+    let f = await window.protectedGlobals.ReadFile(element, { text: true, direct: true });
+    eval(f);
   }
 };
 

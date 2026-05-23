@@ -1014,10 +1014,8 @@ taskManager = function (posX = 50, posY = 50) {
 
     if (!appMeta) return [];
 
-    if ((window.protectedGlobals.getAppInstances)) {
-      const list = window.protectedGlobals.getAppInstances(appMeta);
-      if (Array.isArray(list)) return list.slice();
-    }
+    const list = window[appMeta.globalvarobjectstring][appMeta.allapparraystring];
+    if (Array.isArray(list)) return list.slice();
 
     if (appMeta.globalvarobjectstring && appMeta.allapparraystring) {
       try {
