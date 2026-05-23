@@ -613,7 +613,32 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
 
   continue;
 }
-
+    if (dir.checkFolder) {
+      const folderPath = resolvePath(dir.path);
+      const folderRel = directionPathToRelative(dir.path || '');
+      assertReadAllowed(folderRel);
+      const stat = await fsp.stat(folderPath).catch(() => null);
+      if (!stat || !stat.isDirectory()) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ error: 'Folder does not exist', path: `/${folderRel}` }));
+      } else {
+        res.writeHead(200);
+        return res.end(JSON.stringify({ exists: true, path: `/${folderRel}` }));
+      }
+    }
+    if (dir.checkFile) {
+      const filePath = resolvePath(dir.path);
+      const fileRel = directionPathToRelative(dir.path || '');
+      assertReadAllowed(fileRel);
+      const stat = await fsp.stat(filePath).catch(() => null);
+      if (!stat || !stat.isFile()) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ error: 'File does not exist', path: `/${fileRel}` }));
+      } else {
+        res.writeHead(200);
+        return res.end(JSON.stringify({ exists: true, path: `/${fileRel}` }));
+      }
+    }
     if (dir.addFile) {
       const fileRel = directionPathToRelative(dir.path || '');
       assertWriteAllowed(fileRel);
