@@ -2,6 +2,7 @@ node_modules/
 
 # don't commit generated builds or env files
 src/server/zmcdfiles/
+src/server/USER/root/systemfiles/runtime/apps/zm/
 node_modules/
 dist/
 build/

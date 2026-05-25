@@ -15,7 +15,13 @@ window.protectedGlobals.rebuildhandler = function () {
   ) {
     window.protectedGlobals.FlowawayProcess.disposeAll("rebuild");
   }
-
+  window.protectedGlobals.apps.forEach((app) => {
+    try {
+    window[app.globalvarobjectstring][app.allapparraystring][0].closeAll();
+    } catch (e) {
+      console.error("Error closing app during rebuild:", e);
+    }
+  });
   // remove all iframes
   document.querySelectorAll("iframe").forEach((f) => {
     f.src = "about:blank";
