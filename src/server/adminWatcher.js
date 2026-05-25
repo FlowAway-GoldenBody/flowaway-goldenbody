@@ -188,51 +188,66 @@ function updateAllSystemApps() {
           }
 
           // Sync apps from template
-          const copyAppsIfNotExists = (srcDir, dstDir) => {
-            const items = fs.readdirSync(srcDir, { withFileTypes: true });
-            for (const it of items) {
-              const src = path.join(srcDir, it.name);
-              const dst = path.join(dstDir, it.name);
-              try {
-                if (it.isDirectory()) {
-                  if (!fs.existsSync(dst)) {
-                    fs.mkdirSync(dst, { recursive: true });
-                    copyAppsIfNotExists(src, dst);
-                  } else {
-                    copyAppsIfNotExists(src, dst);
-                  }
-                } else if (!fs.existsSync(dst)) {
-                  try { fs.copyFileSync(src, dst); } catch (e) { /* ignore */ }
-                }
-              } catch (e) { /* ignore */ }
-            }
-          };
+const copyAppsIfNotExists = (srcDir, dstDir) => {
+  const items = fs.readdirSync(srcDir, { withFileTypes: true });
 
-          const copyAppsIfSrcNewer = (srcDir, dstDir) => {
-            const items = fs.readdirSync(srcDir, { withFileTypes: true });
-            for (const it of items) {
-              const src = path.join(srcDir, it.name);
-              const dst = path.join(dstDir, it.name);
+  for (const it of items) {
+    // NEVER copy app keys
+    if (it.name === 'jsKey.txt') continue;
+
+    const src = path.join(srcDir, it.name);
+    const dst = path.join(dstDir, it.name);
+
+    try {
+      if (it.isDirectory()) {
+        if (!fs.existsSync(dst)) {
+          fs.mkdirSync(dst, { recursive: true });
+        }
+
+        copyAppsIfNotExists(src, dst);
+      } else if (!fs.existsSync(dst)) {
+        try {
+          fs.copyFileSync(src, dst);
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+};
+const copyAppsIfSrcNewer = (srcDir, dstDir) => {
+  const items = fs.readdirSync(srcDir, { withFileTypes: true });
+
+  for (const it of items) {
+    // NEVER copy app keys
+    if (it.name === 'jsKey.txt') continue;
+
+    const src = path.join(srcDir, it.name);
+    const dst = path.join(dstDir, it.name);
+
+    try {
+      if (it.isDirectory()) {
+        fs.mkdirSync(dst, { recursive: true });
+        copyAppsIfSrcNewer(src, dst);
+      } else {
+        if (!fs.existsSync(dst)) {
+          try {
+            fs.copyFileSync(src, dst);
+          } catch (e) {}
+        } else {
+          try {
+            const srcStat = fs.statSync(src);
+            const dstStat = fs.statSync(dst);
+
+            if (srcStat.mtimeMs > dstStat.mtimeMs) {
               try {
-                if (it.isDirectory()) {
-                  fs.mkdirSync(dst, { recursive: true });
-                  copyAppsIfSrcNewer(src, dst);
-                } else {
-                  if (!fs.existsSync(dst)) {
-                    try { fs.copyFileSync(src, dst); } catch (e) { /* ignore */ }
-                  } else {
-                    try {
-                      const srcStat = fs.statSync(src);
-                      const dstStat = fs.statSync(dst);
-                      if (srcStat.mtimeMs > dstStat.mtimeMs) {
-                        try { fs.copyFileSync(src, dst); } catch (e) { /* ignore */ }
-                      }
-                    } catch (e) { /* ignore */ }
-                  }
-                }
-              } catch (e) { /* ignore */ }
+                fs.copyFileSync(src, dst);
+              } catch (e) {}
             }
-          };
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+};
 
           for (const appName of systemAppDirs) {
             const templateAppPath = path.join(templateAppsPath, appName);

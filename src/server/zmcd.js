@@ -249,8 +249,81 @@ function syncAppKeysToUserKey(userPaths) {
   const appFolders = fs.readdirSync(appsDir, { withFileTypes: true });
   for (const folder of appFolders) {
     if (!folder.isDirectory() || folder.name.startsWith('.')) continue;
-    const appKeyPath = path.join(appsDir, folder.name, 'jsKey.txt');
-    fs.writeFileSync(appKeyPath, userKey);
+    const appFolderPath = path.join(appsDir, folder.name);
+
+    // Ensure any existing template key (case-insensitive jskey.txt) is replaced
+    try {
+      const items = fs.readdirSync(appFolderPath, { withFileTypes: true });
+      for (const it of items) {
+        if (!it.isFile()) continue;
+        if (it.name.toLowerCase() === 'jskey.txt') {
+          try { fs.unlinkSync(path.join(appFolderPath, it.name)); } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // Write the per-user app key using the canonical filename `jsKey.txt`
+    const appKeyPath = path.join(appFolderPath, 'jsKey.txt');
+    try {
+      fs.writeFileSync(appKeyPath, userKey);
+    } catch (e) {}
+  }
+}
+
+// Copy template systemfiles/apps into a freshly created user directory
+function copyTemplateToUser(userPaths) {
+  try {
+    const templateSystemFilesPath = path.join(USER_TEMPLATE_PATH, 'systemfiles');
+    if (!fs.existsSync(templateSystemFilesPath)) return;
+
+    const userSystemfilesPath = userPaths.systemfilesDir;
+    const userAppsPath = path.join(userSystemfilesPath, 'runtime', 'apps');
+
+    const copyFileSafe = (src, dst) => {
+      try {
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.copyFileSync(src, dst);
+      } catch (e) {}
+    };
+
+    const copyDirSkipKeys = (srcDir, dstDir) => {
+      if (!fs.existsSync(srcDir)) return;
+      fs.mkdirSync(dstDir, { recursive: true });
+      const items = fs.readdirSync(srcDir, { withFileTypes: true });
+      for (const it of items) {
+        // Skip userprofile (we handle profile separately) and skip any jskey files
+        if (it.name === 'userprofile') continue;
+        const src = path.join(srcDir, it.name);
+        const dst = path.join(dstDir, it.name);
+        try {
+          if (it.isDirectory()) {
+            copyDirSkipKeys(src, dst);
+          } else {
+            if (it.name.toLowerCase() === 'jskey.txt') continue;
+            if (!fs.existsSync(dst)) copyFileSafe(src, dst);
+          }
+        } catch (e) {}
+      }
+    };
+
+    // Copy top-level systemfiles (except userprofile)
+    copyDirSkipKeys(templateSystemFilesPath, userSystemfilesPath);
+
+    // Ensure apps folder exists and copy apps, skipping any jskey files
+    const templateAppsPath = path.join(templateSystemFilesPath, 'runtime', 'apps');
+    if (fs.existsSync(templateAppsPath)) {
+      const appEntries = fs.readdirSync(templateAppsPath, { withFileTypes: true });
+      for (const appEntry of appEntries) {
+        if (!appEntry.isDirectory() || appEntry.name.startsWith('.')) continue;
+        const srcApp = path.join(templateAppsPath, appEntry.name);
+        const dstApp = path.join(userAppsPath, appEntry.name);
+        try {
+          copyDirSkipKeys(srcApp, dstApp);
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    console.error('copyTemplateToUser error:', e && e.message ? e.message : String(e));
   }
 }
 
@@ -402,8 +475,15 @@ function handleZMCd(req, res) {
           const authRecord = sanitizeAuthRecord(null, userPaths.username, data.password);
           const token = issueToken(authRecord);
           writeAuthRecord(userPaths, authRecord);
-          const profile = ensureUserProfile(userPaths, null);
-          syncAppKeysToUserKey(userPaths);
+            const profile = ensureUserProfile(userPaths, null);
+
+            // Copy template system files/apps into the new user's directory.
+            // This is done here so new accounts get the expected files immediately
+            // and any errors are caught locally instead of crashing the server.
+            try { copyTemplateToUser(userPaths); } catch (e) { console.error('new account template copy failed', e && e.message ? e.message : String(e)); }
+
+            // Sync per-user app keys after files are present
+            try { syncAppKeysToUserKey(userPaths); } catch (e) { console.error('syncAppKeysToUserKey failed', e && e.message ? e.message : String(e)); }
           responseContent = buildLoginResponse(authRecord, profile, token);
         }
       } else {

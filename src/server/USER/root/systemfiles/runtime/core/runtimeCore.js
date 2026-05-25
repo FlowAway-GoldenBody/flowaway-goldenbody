@@ -47,6 +47,12 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
       res.filecontent = window.tmpGlobals.decodeBase64ToUTF8(res.filecontent);
     }
   }
+  if (options.buffer) {
+    if (res && typeof res.filecontent === "string") {
+      const binaryString = atob(res.filecontent);
+      res.filecontent = Uint8Array.from(binaryString, (char) => char.charCodeAt(0)).buffer;
+    }
+  }
   if (options.direct) return res.filecontent;
   return res;
 };
