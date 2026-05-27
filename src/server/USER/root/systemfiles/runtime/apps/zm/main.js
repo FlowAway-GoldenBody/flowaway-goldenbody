@@ -23,10 +23,24 @@ window.zm = function (posX, posY) {
     curMusic = null;
   }
 
+
+
+
+
+
+
+
+
+
+
+
+
   async function renderzm() {
     playMusic("/systemfiles/runtime/apps/zm/assets/main.mp3").catch((e) => {
       console.error("Failed to play music", e);
     });
+
+    // helpers
     let canvas = document.createElement("canvas");
     root.appendChild(canvas);
 
@@ -126,16 +140,21 @@ window.zm = function (posX, posY) {
     async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0) {
       const button = {
         id: nextDrawableId++,
+        type: "button",
         x,
         y,
         width,
         height,
         zIndex,
+        parent: null,
+        children: [],
+        disableAccess: false,
         img: null,
         hoverImg: null,
         imgLoaded: false,
         hoverImgLoaded: false,
         isHover: false,
+          hoverEffect: true,
         visible: true,
         onClick,
         contains(normalX, normalY) {
@@ -163,31 +182,138 @@ window.zm = function (posX, posY) {
         },
         setVisible(value) {
           this.visible = value;
+          if (this.children && this.children.length) this.children.forEach((c) => c.setVisible(value));
           renderScene();
         },
+        setDisableAccess(value) {
+          this.disableAccess = !!value;
+          if (this.disableAccess && this.isHover) this.isHover = false;
+          renderScene();
+        },
+          setHoverEffect(value) {
+            this.hoverEffect = !!value;
+            if (!this.hoverEffect && this.isHover) {
+              this.isHover = false;
+              renderScene();
+            }
+          },
         remove() {
+          if (this.children && this.children.length) this.children.slice().forEach((c) => c.remove());
           const btnIdx = buttons.indexOf(this);
-          if (btnIdx !== -1) {
-            buttons.splice(btnIdx, 1);
-          }
+          if (btnIdx !== -1) buttons.splice(btnIdx, 1);
           const drawIdx = drawables.indexOf(this);
-          if (drawIdx !== -1) {
-            drawables.splice(drawIdx, 1);
+          if (drawIdx !== -1) drawables.splice(drawIdx, 1);
+          if (this.parent && this.parent.children) {
+            const pidx = this.parent.children.indexOf(this);
+            if (pidx !== -1) this.parent.children.splice(pidx, 1);
           }
           renderScene();
+        },
+        addChild(child) {
+          if (!this.children.includes(child)) {
+            this.children.push(child);
+            child.parent = this;
+            renderScene();
+          }
+        },
+        removeChild(child) {
+          const idx = this.children.indexOf(child);
+          if (idx !== -1) {
+            this.children.splice(idx, 1);
+            child.parent = null;
+            renderScene();
+          }
         },
         setZIndex(value) {
           this.zIndex = value;
           sortDrawables();
           renderScene();
         },
+        
         bringToFront() {
           this.zIndex = getMaxZIndex() + 1;
           sortDrawables();
           renderScene();
         },
+        bringToFrontRel() {
+          if (this.parent && this.parent.children && this.parent.children.length) {
+            const siblingMax = this.parent.children.reduce((m, c) => Math.max(m, c.zIndex), -Infinity);
+            this.zIndex = siblingMax + 1;
+          } else {
+            this.zIndex = getMaxZIndex() + 1;
+          }
+          sortDrawables();
+          renderScene();
+        },
+        async setImage(path) {
+          try {
+            const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
+            const blob = new Blob([bytes], { type: "image/png" });
+            const img = new Image();
+            img.src = URL.createObjectURL(blob);
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+            });
+            this.img = img;
+            this.loaded = true;
+            renderScene();
+            return this;
+          } catch (err) {
+            console.error("image.setImage failed:", path, err);
+            throw err;
+          }
+        },
         sendToBack() {
           this.zIndex = getMinZIndex() - 1;
+          sortDrawables();
+          renderScene();
+        },
+        async setImage(path) {
+          try {
+            const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
+            const blob = new Blob([bytes], { type: "image/png" });
+            const img = new Image();
+            img.src = URL.createObjectURL(blob);
+            await new Promise((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = reject;
+            });
+            this.img = img;
+            this.imgLoaded = true;
+            renderScene();
+            return this;
+          } catch (err) {
+            console.error("setImage failed:", path, err);
+            throw err;
+          }
+        },
+        async setHoverImage(path) {
+          try {
+            const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
+            const blob = new Blob([bytes], { type: "image/png" });
+            const img = new Image();
+            img.src = URL.createObjectURL(blob);
+            await new Promise((resolve, reject) => {
+              img.onload = () => resolve();
+              img.onerror = reject;
+            });
+            this.hoverImg = img;
+            this.hoverImgLoaded = true;
+            renderScene();
+            return this;
+          } catch (err) {
+            console.error("setHoverImage failed:", path, err);
+            throw err;
+          }
+        },
+        sendToBackRel() {
+          if (this.parent && this.parent.children && this.parent.children.length) {
+            const siblingMin = this.parent.children.reduce((m, c) => Math.min(m, c.zIndex), Infinity);
+            this.zIndex = siblingMin - 1;
+          } else {
+            this.zIndex = getMinZIndex() - 1;
+          }
           sortDrawables();
           renderScene();
         },
@@ -226,11 +352,14 @@ window.zm = function (posX, posY) {
     async function drawImage(x, y, width, height, imgPath, zIndex = 0) {
       const image = {
         id: nextDrawableId++,
+        type: "image",
         x,
         y,
         width,
         height,
         zIndex,
+        parent: null,
+        children: [],
         img: null,
         loaded: false,
         visible: true,
@@ -254,6 +383,7 @@ window.zm = function (posX, posY) {
         },
         setVisible(value) {
           this.visible = value;
+          if (this.children && this.children.length) this.children.forEach((c) => c.setVisible(value));
           renderScene();
         },
         setZIndex(value) {
@@ -266,21 +396,57 @@ window.zm = function (posX, posY) {
           sortDrawables();
           renderScene();
         },
+        bringToFrontRel() {
+          if (this.parent && this.parent.children && this.parent.children.length) {
+            const siblingMax = this.parent.children.reduce((m, c) => Math.max(m, c.zIndex), -Infinity);
+            this.zIndex = siblingMax + 1;
+          } else {
+            this.zIndex = getMaxZIndex() + 1;
+          }
+          sortDrawables();
+          renderScene();
+        },
         sendToBack() {
           this.zIndex = getMinZIndex() - 1;
           sortDrawables();
           renderScene();
         },
-        remove() {
-          const index = images.indexOf(this);
-          if (index !== -1) {
-            images.splice(index, 1);
+        sendToBackRel() {
+          if (this.parent && this.parent.children && this.parent.children.length) {
+            const siblingMin = this.parent.children.reduce((m, c) => Math.min(m, c.zIndex), Infinity);
+            this.zIndex = siblingMin - 1;
+          } else {
+            this.zIndex = getMinZIndex() - 1;
           }
+          sortDrawables();
+          renderScene();
+        },
+        remove() {
+          if (this.children && this.children.length) this.children.slice().forEach((c) => c.remove());
+          const index = images.indexOf(this);
+          if (index !== -1) images.splice(index, 1);
           const drawIndex = drawables.indexOf(this);
-          if (drawIndex !== -1) {
-            drawables.splice(drawIndex, 1);
+          if (drawIndex !== -1) drawables.splice(drawIndex, 1);
+          if (this.parent && this.parent.children) {
+            const pidx = this.parent.children.indexOf(this);
+            if (pidx !== -1) this.parent.children.splice(pidx, 1);
           }
           renderScene();
+        },
+        addChild(child) {
+          if (!this.children.includes(child)) {
+            this.children.push(child);
+            child.parent = this;
+            renderScene();
+          }
+        },
+        removeChild(child) {
+          const idx = this.children.indexOf(child);
+          if (idx !== -1) {
+            this.children.splice(idx, 1);
+            child.parent = null;
+            renderScene();
+          }
         },
       };
 
@@ -310,19 +476,53 @@ window.zm = function (posX, posY) {
       return image;
     }
 
+    function buildRenderList() {
+      function isChild(d) {
+        for (const p of drawables) {
+          if (!p.children) continue;
+          if (p.children.indexOf(d) !== -1) return true;
+        }
+        return false;
+      }
+
+      const roots = drawables.filter((d) => !isChild(d)).slice();
+      roots.sort((a, b) => (a.zIndex !== b.zIndex ? a.zIndex - b.zIndex : a.id - b.id));
+      const list = [];
+      function traverse(node) {
+        list.push(node);
+        if (!node.children || !node.children.length) return;
+        const children = node.children.slice().sort((a, b) => (a.zIndex !== b.zIndex ? a.zIndex - b.zIndex : a.id - b.id));
+        for (const c of children) traverse(c);
+      }
+      for (const r of roots) traverse(r);
+      return list;
+    }
+
     function renderScene() {
       const { width, height } = resizeCanvas();
       ctx.clearRect(0, 0, width, height);
-      if (imageLoaded) {
-        ctx.drawImage(mainimg, 0, 0, width, height);
-      }
-      drawables.forEach((drawable) => drawable.render());
+      const list = buildRenderList();
+      list.forEach((drawable) => drawable.render());
     }
 
     canvas.addEventListener("pointermove", (event) => {
       const pos = deviceToUserCoords(event.clientX, event.clientY);
       let needsRender = false;
       buttons.forEach((button) => {
+        if (!button.visible || button.disableAccess) {
+          if (button.isHover) {
+            button.isHover = false;
+            needsRender = true;
+          }
+          return;
+        }
+        if (!button.hoverEffect) {
+          if (button.isHover) {
+            button.isHover = false;
+            needsRender = true;
+          }
+          return;
+        }
         const hovering = button.contains(pos.x, pos.y);
         if (hovering !== button.isHover) {
           button.isHover = hovering;
@@ -336,30 +536,180 @@ window.zm = function (posX, posY) {
 
     canvas.addEventListener("pointerdown", (event) => {
       const pos = deviceToUserCoords(event.clientX, event.clientY);
-      buttons.forEach((button) => {
-        if (button.contains(pos.x, pos.y)) {
-          button.onClick(event);
+      const list = buildRenderList();
+      // iterate from topmost to bottommost
+      for (let i = list.length - 1; i >= 0; --i) {
+        const d = list[i];
+        if (!d.visible) continue;
+        if (d.type === "button") {
+          if (d.disableAccess) continue;
+          if (d.contains(pos.x, pos.y)) {
+            d.onClick(event);
+            break;
+          }
         }
-      });
+      }
     });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    let lobby = {};
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    let mainimg = new Image();
-    let imageLoaded = false;
-    mainimg.onload = () => {
-      imageLoaded = true;
-      renderScene();
-    };
-    let bytes = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/assets/zm.png", { buffer: true, direct: true });
-    mainimg.src = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
-    mainimg.onerror = (e) => {
-      console.error("Image failed to load", e);
-    };
+    lobby.mainimg = drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/zm.png", -1);
+    function disableOtherToolbarBtns(btn) {
+      // disable all buttons in the toolbar except btn, which now it includes xdksbtn and dqcdbtn
+      if (btn === lobby.xdksbtn) {
+        if (lobby.dqcdbtn) lobby.dqcdbtn.setDisableAccess(true);
+      } else if (btn === lobby.dqcdbtn) {
+        if (lobby.xdksbtn) lobby.xdksbtn.setDisableAccess(true);
+      }
+    }
+    function enableOtherToolbarBtns(btn) {
+      // enable all buttons in the toolbar except btn
+      if (btn === lobby.xdksbtn) {
+        if (lobby.dqcdbtn) lobby.dqcdbtn.setDisableAccess(false);
+      } else if (btn === lobby.dqcdbtn) {
+        if (lobby.xdksbtn) lobby.xdksbtn.setDisableAccess(false);
+      }
+    }
+    function hideAllLobbyUI() {
+      // show all ui in lobby
+      Object.values(lobby).forEach((element) => {
+        if (element.setVisible) {
+          element.setVisible(false);
+        }
+      });
+    }
+    function showAllLobbyUI() {
+      // show all ui in lobby
+      Object.values(lobby).forEach((element) => {
+        if (element.setVisible) {
+          element.setVisible(true);
+        }
+      });
+    }
+    // xdks
+    let xdksoverlay = null;
+    async function showxdksUI() {
+      if (xdksoverlay) return;
+      disableOtherToolbarBtns(lobby.xdksbtn);
+      // Implementation for showing xdks UI
+      hideAllLobbyUI();
+      xdksoverlay = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/blackbackground.png", 1);
+      let rebuildbtn = await drawButton(0.675, 0.016, 0.107, 0.075, "/systemfiles/runtime/apps/zm/assets/xdks(fhzcd).png", "/systemfiles/runtime/apps/zm/assets/xdks(fhzcd)(hover).png", () => {
+        xdksoverlay.remove();
+        // rebuildbtn.remove();
+        showAllLobbyUI();
+        xdksoverlay = null;
+        enableOtherToolbarBtns(lobby.xdksbtn);
+      }, 2);
+      xdksoverlay.addChild(rebuildbtn);
+      // draw the start button at the middle of the x of the screen, the y is the same as rebuild, it will be wider than the rebuild one
+      let startbtn = await drawButton(0.5 - 0.125 / 2, 0.018, 0.125, 0.075, "/systemfiles/runtime/apps/zm/assets/xdks(start).png", "/systemfiles/runtime/apps/zm/assets/xdks(start)(hover).png", () => {});
+      xdksoverlay.addChild(startbtn);
+
+
+      // render game character selections
+      let baseCoordinates = {
+        x: 0,
+        y: 0.13,
+        w: 0.2,
+        h: 1-0.13
+      }
+      let dx = 0.2;
+      let clicked = [];
+      let clickedPayload = [];
+      window.test = clickedPayload; // enable debugging
+      let player1Image = null;
+      let player2Image = null;
+      for (let i = 1; i <= 5; i++) {
+        let charbtn = await drawButton(baseCoordinates.x + (i-1)*dx, baseCoordinates.y, baseCoordinates.w, baseCoordinates.h, `/systemfiles/runtime/apps/zm/assets/xdks(${i}).png`, `/systemfiles/runtime/apps/zm/assets/xdks(${i})(hover).png`, async () => {
+            // if two slots already occupied and this button is not one of them, ignore
+            if (((clicked[0] && clicked[1]) && clicked[0] !== charbtn && clicked[1] !== charbtn) || i === 5) return;
+            // disable hover visuals while toggling
+            charbtn.setHoverEffect(false);
+            const hoverPath = `/systemfiles/runtime/apps/zm/assets/xdks(${i})(hover).png`;
+            const normalPath = `/systemfiles/runtime/apps/zm/assets/xdks(${i}).png`;
+            if(!clicked[0] && `${i}-2P` !== clickedPayload[0] && `${i}-2P` !== clickedPayload[1]) {
+              debugger;
+              clicked[0] = charbtn;
+              await charbtn.setImage(hoverPath);
+              if (player1Image) player1Image.remove();
+              player1Image = await drawImage(charbtn.x+0.07, 0.15+0.689, 0.081, 0.079, "/systemfiles/runtime/apps/zm/assets/1P.png", 2);
+              xdksoverlay.addChild(player1Image);
+              clickedPayload.push(`${i}-1P`);
+            } else if (clicked[0] === charbtn) {
+              if (player1Image) {
+                player1Image.remove();
+                player1Image = null;
+                // remove i from clickedPayload if it exists
+                const index = clickedPayload.indexOf(`${i}-1P`);
+                if (index !== -1) {
+                  clickedPayload.splice(index, 1);
+                }
+              }
+              await charbtn.setImage(normalPath);
+              charbtn.setHoverEffect(true); 
+              clicked[0] = null;
+            } else if (clicked[1] === charbtn) {
+              if (player2Image) {
+                player2Image.remove();
+                player2Image = null;
+              }
+              await charbtn.setImage(normalPath);
+              charbtn.setHoverEffect(true); 
+              clicked[1] = null;
+              // remove i from clickedPayload if it exists
+              const index = clickedPayload.indexOf(`${i}-2P`);
+              if (index !== -1) {
+                clickedPayload.splice(index, 1);
+              }
+            } else if (!clicked[1] && `${i}-1P` !== clickedPayload[0] && `${i}-1P` !== clickedPayload[1]) {
+              clicked[1] = charbtn;
+              await charbtn.setImage(hoverPath);
+              if (player2Image) player2Image.remove();
+              player2Image = await drawImage(charbtn.x+0.07, 0.15+0.689, 0.081, 0.079, "/systemfiles/runtime/apps/zm/assets/2P.png", 2);
+              xdksoverlay.addChild(player2Image);
+              clickedPayload.push(`${i}-2P`);
+            }
+        });
+        xdksoverlay.addChild(charbtn);
+      }
+    }
+    lobby.xdksbtn = await drawButton(0.795,0.71,0.105,0.057,"/systemfiles/runtime/apps/zm/assets/xdks.png","/systemfiles/runtime/apps/zm/assets/xdks1.png", () => {
+      showxdksUI();
+    });
+
+
+
+
+
+
+
+    // dqcd
     let dqcdui = null;
-    drawButton(0.792,0.63,0.12,0.057,"/systemfiles/runtime/apps/zm/assets/dqcd.png","/systemfiles/runtime/apps/zm/assets/dqcd1.png", async () => {
-      if (dqcdui) return;
+    lobby.dqcdbtn = await drawButton(0.793,0.63,0.112,0.058,"/systemfiles/runtime/apps/zm/assets/dqcd.png","/systemfiles/runtime/apps/zm/assets/dqcd1.png", async () => {
+      if (dqcdui) {return;}
+      disableOtherToolbarBtns(lobby.dqcdbtn);
       dqcdui = await drawImage(0.2,0.15,0.63,0.72,"/systemfiles/runtime/apps/zm/assets/dqcdUI2.png");
+    lobby.dqcdbtn.addChild(dqcdui);
       let ht = 0.264;
       let vt = -0.142;
       let allcd = {
@@ -399,44 +749,72 @@ window.zm = function (posX, posY) {
             `/systemfiles/runtime/apps/zm/assets/cd.png`,
             `/systemfiles/runtime/apps/zm/assets/cdHover.png`
           );
-          allcd[`cd${i}`].text = await drawImage(
+          dqcdui.addChild(allcd[`cd${i}`].btn);
+          let cdlabel = allcd[`cd${i}`].text = await drawImage(
             baseX + pos.dx + 0.056,
             baseY + pos.dy + 0.034,
             0.068,
             0.05,
             `/systemfiles/runtime/apps/zm/assets/dqcd-0cd.png`
           );
-          allcd[`cd${i}`].number = await drawImage(
+          dqcdui.addChild(cdlabel);
+          cdlabel.bringToFront();
+          let num = allcd[`cd${i}`].number = await drawImage(
             baseX + pos.dx + 0.015,
             baseY + pos.dy + 0.023,
             0.03,
             0.065,
             `/systemfiles/runtime/apps/zm/assets/cd#(${i}).png`
           );
+          num.bringToFront();
+          dqcdui.addChild(num);
         }
       let closeBtn = await drawButton(0.767,0.787,0.04,0.063,"/systemfiles/runtime/apps/zm/assets/dqcdX.png","/systemfiles/runtime/apps/zm/assets/dqcdXHover.png", () => {
         dqcdui.remove();
         dqcdui = null;
-        closeBtn.remove();
-        closeBtn = null;
-        for (let i = 1; i <= 6; i++) {
-          const cd = allcd[`cd${i}`];
-          if (!cd) continue;
-          if (cd.btn) {
-            cd.btn.remove();
-            cd.btn = null;
-          }
-          if (cd.text) {
-            cd.text.remove();
-            cd.text = null;
-          }
-          if (cd.number) {
-            cd.number.remove();
-            cd.number = null;
-          }
-        }
+        enableOtherToolbarBtns(lobby.dqcdbtn);
+        // closeBtn.remove();
+        // closeBtn = null;
+        // for (let i = 1; i <= 6; i++) {
+        //   const cd = allcd[`cd${i}`];
+        //   if (!cd) continue;
+        //   if (cd.btn) {
+        //     cd.btn.remove();
+        //     cd.btn = null;
+        //   }
+        //   if (cd.text) {
+        //     cd.text.remove();
+        //     cd.text = null;
+        //   }
+        //   if (cd.number) {
+        //     cd.number.remove();
+        //     cd.number = null;
+        //   }
+        // }
       }, 1);
+      dqcdui.addChild(closeBtn);
     });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const observer = new ResizeObserver(renderScene);
     observer.observe(root);
   }

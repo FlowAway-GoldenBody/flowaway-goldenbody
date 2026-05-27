@@ -1402,6 +1402,6 @@ async function iframePatches() {
   iframeDocument.addEventListener("click", hideMenu);
   iframe.__gbPatchedDocument = iframeDocument;
   iframeWindow.patched = true;
-  window.test = recurseFrames;
+  // window.test = recurseFrames;
   recurseFrames(iframeDocument, null, iframe);
 }
