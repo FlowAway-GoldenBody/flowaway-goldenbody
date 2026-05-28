@@ -196,12 +196,56 @@ async function handleFetchfiles(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // safe response helpers (prevent double-write/write-after-end)
+  const safeWriteHead = (code, headers) => {
+    try {
+      if (res.headersSent) return;
+      res.writeHead(code, headers);
+    } catch (e) { console.warn('safeWriteHead failed', e); }
+  };
+  const safeEnd = (body) => {
+    try {
+      if (res.writableEnded) return;
+      return res.end(body);
+    } catch (e) { console.warn('safeEnd failed', e); }
+  };
+  const safeRespond = (code, body) => {
+    if (typeof code === 'number') safeWriteHead(code);
+    return safeEnd(body);
+  };
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    return res.end();
+  // Protect against accidental writes after end by overriding res.end for this request
+  try {
+    const _origEnd = res.end.bind(res);
+    res.end = function (body, ...args) {
+      try {
+        if (res.writableEnded) return;
+        return _origEnd(body, ...args);
+      } catch (e) {
+        console.warn('res.end override failed', e);
+      }
+    };
+  } catch (e) {
+    console.warn('Failed to install res.end override', e);
   }
 
+  if (req.method === 'OPTIONS') {
+    return safeRespond(204);
+  }
+
+  // Helper: safe JSON stringify that avoids crashing on circular structures
+  function safeStringify(obj) {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, function (key, value) {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) return '[Circular]';
+        seen.add(value);
+      }
+      // avoid accidentally serializing sockets or request/response objects
+      if (value && (value instanceof req.constructor || value instanceof res.constructor)) return '[Non-serializable]';
+      return value;
+    });
+  }
   // Support simple streaming download endpoint for large files.
   // console.log('fetchfiles request', req.method, req.url);
   if (req.method === 'GET' && req.url && req.url.startsWith('/download')) {
@@ -1103,7 +1147,17 @@ if (data.saveSnapshot) {
   // Apply all frontend directions to build tree
   const result = await applyDirections(userRoot, data.directions, username, userPathPermissions);
 
-  return res.end(JSON.stringify({ success: true, result, clipboard: result.clipboard }));
+  // Only return safe/serializable parts of result to avoid circular objects
+  const safePayload = {
+    success: true,
+    // prefer explicit known keys; fall back to safeStringify for unexpected content
+    result: (result && typeof result === 'object') ? {
+      ...(result.checkParts ? { checkParts: result.checkParts } : {}),
+    } : {},
+    clipboard: result && 'clipboard' in result ? result.clipboard : null
+  };
+
+  return res.end(safeStringify(safePayload));
 }
 
 // Save start menu config
@@ -1126,18 +1180,22 @@ if (data.action === 'saveStartMenuConfig' && data.configJson) {
 }
 
 
-
+      console.warn('Unknown action in directions:', dir);
       res.writeHead(400);
       res.end(JSON.stringify({ error: 'Unknown action' }));
 
     } catch (err) {
       console.error(err);
-      if (err && err.code === 'EACCES') {
-        res.writeHead(403);
-        return res.end(JSON.stringify({ error: err.message || 'permission denied' }));
-      }
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: err.message }));
+        if (res.headersSent) {
+          console.warn('Response headers already sent; cannot send error response');
+          return;
+        }
+        if (err && err.code === 'EACCES') {
+          res.writeHead(403);
+          return res.end(JSON.stringify({ error: err.message || 'permission denied' }));
+        }
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: err.message }));
     }
   });
 }
