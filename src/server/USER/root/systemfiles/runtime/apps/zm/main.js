@@ -557,10 +557,10 @@ window.zm = function (posX, posY) {
 
 
 
-    window.mainpageui = {};
+    let mainpageui = {};
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    lobby.mainimg = drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/zm.png", -1);
+    lobby.mainimg = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/zm.png", -1);
     function disableOtherToolbarBtns(btn) {
       // disable all buttons in the toolbar except btn, which now it includes xdksbtn and dqcdbtn
       if (btn === lobby.xdksbtn) {
@@ -698,7 +698,7 @@ window.zm = function (posX, posY) {
       showxdksUI();
     });
 
-
+    lobby.mainimg.addChild(lobby.xdksbtn);
 
 
 
@@ -711,7 +711,7 @@ window.zm = function (posX, posY) {
       disableOtherToolbarBtns(lobby.dqcdbtn);
       mainpageui.dqcdui = await drawImage(0.2,0.15,0.63,0.72,"/systemfiles/runtime/apps/zm/assets/dqcdui2.png");
     lobby.dqcdbtn.addChild(mainpageui.dqcdui);
-      if (options.addcd) {mainpageui.dqcdui.parent.bringToFrontRel();}
+      if (options.addcd) {mainpageui.dqcdui.parent.parent.bringToFrontRel();}
       let ht = 0.264;
       let vt = -0.142;
       let allcd = {
@@ -751,34 +751,48 @@ window.zm = function (posX, posY) {
             `/systemfiles/runtime/apps/zm/assets/cd.png`,
             `/systemfiles/runtime/apps/zm/assets/cdHover.png`
           );
-          if (options.addcd) {allcd[`cd${i}`].btn.onClick = async () => {
-            await window.protectedGlobals.WriteFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, btoa(JSON.stringify(options.payload)));
-            closeBtn.onClick();
-            rebuildbtn.onClick();
-          }}
+          if (options.addcd) {
+            allcd[`cd${i}`].btn.onClick = async () => {
+              await window.protectedGlobals.WriteFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, btoa(JSON.stringify(options.payload)));
+              closeBtn.onClick();
+              rebuildbtn.onClick();
+            }
+          }
+          else {
+            allcd[`cd${i}`].btn.onClick = async () => {
+              enterGame(await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, { text: true, direct: true }));
+              closeBtn.onClick();
+            }
+          }
           mainpageui.dqcdui.addChild(allcd[`cd${i}`].btn);
 
           // Use the raw filesystem path for FileExists/ReadFile (do not percent-encode)
           const cdJsonPath = `/systemfiles/runtime/apps/zm/data/cd#(${i}).json`;
           let cdlabel = null;
           let cdlabel2 = null;
+          // ident
           if (await window.protectedGlobals.ReadFile(cdJsonPath, { text: true, direct: true })) {
             let cdData = JSON.parse(await window.protectedGlobals.ReadFile(cdJsonPath, { text: true, direct: true }));
+            let additionalOffset1 = 0;
+            let additionalWidth = 0;
+            if (cdData.player1 === 2) {additionalOffset1 = 0.017; additionalWidth = 0.032/2 + 0.003;}
             cdlabel = allcd[`cd${i}`].text = await drawImage(
               baseX + pos.dx + 0.056,
               baseY + pos.dy + 0.034,
-              0.068,
-              0.05,
+              0.05 + additionalWidth,
+              0.045,
               `/systemfiles/runtime/apps/zm/assets/dqcdtxt(${cdData.player1}).png`, 10
             );
             allcd[`cd${i}`].btn.addChild(cdlabel);
             cdlabel.bringToFront();
+            additionalWidth = 0;
+            if (cdData.player2 === 2) {additionalWidth = 0.032/2 + 0.003;}
             if (cdData.player2) {
               cdlabel2 = allcd[`cd${i}`].text2 = await drawImage(
-                baseX + pos.dx + 0.056 + 0.073,
+                baseX + pos.dx + 0.056 + 0.053 + additionalOffset1,
                 baseY + pos.dy + 0.034,
-                0.068,
-                0.05,
+                0.05 + additionalWidth,
+                0.045,
                 `/systemfiles/runtime/apps/zm/assets/dqcdtxt(${cdData.player2}).png`, 10
               );
               allcd[`cd${i}`].btn.addChild(cdlabel2);
@@ -832,10 +846,16 @@ window.zm = function (posX, posY) {
       }, 1);
       mainpageui.dqcdui.addChild(closeBtn);
     });
+    lobby.mainimg.addChild(lobby.dqcdbtn);
 
 
 
-
+  let curminimap = null;
+  async function enterGame(zmcd) {
+    lobby.mainimg.setVisible(false);
+    eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/inGame.js", { text: true, direct: true }));
+    continueInGame(zmcd);
+  }
 
 
 
@@ -881,9 +901,6 @@ window.zm = function (posX, posY) {
     return { ok: true, content: data };
   }
 
-  function enterGame(zmcd) {
-    lobby.mainimg.setVisible(false);
-  }
 
 
 
