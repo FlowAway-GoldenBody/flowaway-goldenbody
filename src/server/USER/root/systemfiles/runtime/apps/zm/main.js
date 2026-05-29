@@ -709,7 +709,7 @@ window.zm = function (posX, posY) {
     lobby.dqcdbtn = await drawButton(0.793,0.63,0.112,0.058,"/systemfiles/runtime/apps/zm/assets/dqcd.png","/systemfiles/runtime/apps/zm/assets/dqcd1.png", async (options = {}) => {
       if (mainpageui.dqcdui) {return;}
       disableOtherToolbarBtns(lobby.dqcdbtn);
-      mainpageui.dqcdui = await drawImage(0.2,0.15,0.63,0.72,"/systemfiles/runtime/apps/zm/assets/dqcdui2.png");
+      mainpageui.dqcdui = await drawImage(0.2,0.15,0.63,0.72,"/systemfiles/runtime/apps/zm/assets/dqcdUI2.png");
     lobby.dqcdbtn.addChild(mainpageui.dqcdui);
       if (options.addcd) {mainpageui.dqcdui.parent.parent.bringToFrontRel();}
       let ht = 0.264;
@@ -756,11 +756,12 @@ window.zm = function (posX, posY) {
               await window.protectedGlobals.WriteFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, btoa(JSON.stringify(options.payload)));
               closeBtn.onClick();
               rebuildbtn.onClick();
+              enterGame(JSON.parse(await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, { text: true, direct: true })), i);
             }
           }
           else {
             allcd[`cd${i}`].btn.onClick = async () => {
-              enterGame(await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, { text: true, direct: true }));
+              enterGame(JSON.parse(await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/zm/data/cd#(${i}).json`, { text: true, direct: true })), i);
               closeBtn.onClick();
             }
           }
@@ -851,10 +852,10 @@ window.zm = function (posX, posY) {
 
 
   let curminimap = null;
-  async function enterGame(zmcd) {
+  async function enterGame(zmcd, cdIndex) {
     lobby.mainimg.setVisible(false);
-    eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/inGame.js", { text: true, direct: true }));
-    continueInGame(zmcd);
+    eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/inGame.js", { text: true, direct: true }), cdIndex);
+    continueInGame(zmcd, cdIndex);
   }
 
 
