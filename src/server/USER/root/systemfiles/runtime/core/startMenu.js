@@ -15,7 +15,7 @@ window.protectedGlobals.renderAppsGrid = async function () {
       if (!app.scriptLoaded && app.jsFile) {
         var jsKeyOk = true;
         try {
-          var appKey = String(await window.protectedGlobals.ReadFile(`${app.path}/jskey.txt`, { text: true, direct: true }) || "").trim();
+          var appKey = String(await window.protectedGlobals.ReadFile(`${app.path}/jsKey.txt`, { text: true, direct: true }) || "").trim();
           var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
           jsKeyOk = !!appKey && !!masterKey && appKey === masterKey;
         } catch (e) {
