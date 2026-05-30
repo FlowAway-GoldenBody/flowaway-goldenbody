@@ -138,7 +138,7 @@ window.zm = function (posX, posY) {
       });
     }
 
-    async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0) {
+    async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0, options = {}) {
       const button = {
         id: nextDrawableId++,
         type: "button",
@@ -158,6 +158,9 @@ window.zm = function (posX, posY) {
           hoverEffect: true,
         visible: true,
         onClick,
+        // optional hover handlers supplied via options.onhover or options.onHover
+        onHover: typeof (options && (options.onhover || options.onHover)) === 'function' ? (options.onhover || options.onHover) : null,
+        onHoverEnd: typeof (options && (options.onhoverEnd || options.onHoverEnd)) === 'function' ? (options.onhoverEnd || options.onHoverEnd) : null,
         contains(normalX, normalY) {
           return (
             normalX >= this.x &&
@@ -186,6 +189,22 @@ window.zm = function (posX, posY) {
           if (this.children && this.children.length) this.children.forEach((c) => c.setVisible(value));
           renderScene();
         },
+        setX(value) {
+          this.x = value;
+          renderScene();
+        },
+        setY(value) {
+          this.y = value;
+          renderScene();
+        },
+        setW(value) {
+          this.width = value;
+          renderScene();
+        },
+        setH(value) {
+          this.height = value;
+          renderScene();
+        },
         setDisableAccess(value) {
           this.disableAccess = !!value;
           if (this.disableAccess && this.isHover) this.isHover = false;
@@ -197,6 +216,12 @@ window.zm = function (posX, posY) {
               this.isHover = false;
               renderScene();
             }
+          },
+          setOnHover(handler) {
+            this.onHover = typeof handler === 'function' ? handler : null;
+          },
+          setOnHoverEnd(handler) {
+            this.onHoverEnd = typeof handler === 'function' ? handler : null;
           },
         remove() {
           if (this.children && this.children.length) this.children.slice().forEach((c) => c.remove());
@@ -501,6 +526,8 @@ window.zm = function (posX, posY) {
         if (!button.visible || button.disableAccess) {
           if (button.isHover) {
             button.isHover = false;
+            // call hover end handler if present
+            try { if (typeof button.onHoverEnd === 'function') button.onHoverEnd(event); } catch (e) { console.error('onHoverEnd handler failed', e); }
             needsRender = true;
           }
           return;
@@ -508,6 +535,7 @@ window.zm = function (posX, posY) {
         if (!button.hoverEffect) {
           if (button.isHover) {
             button.isHover = false;
+            try { if (typeof button.onHoverEnd === 'function') button.onHoverEnd(event); } catch (e) { console.error('onHoverEnd handler failed', e); }
             needsRender = true;
           }
           return;
@@ -515,6 +543,16 @@ window.zm = function (posX, posY) {
         const hovering = button.contains(pos.x, pos.y);
         if (hovering !== button.isHover) {
           button.isHover = hovering;
+          // call hover handlers on transition
+          try {
+            if (hovering) {
+              if (typeof button.onHover === 'function') button.onHover(event);
+              canvas.style.cursor = 'pointer';
+            } else {
+              if (typeof button.onHoverEnd === 'function') button.onHoverEnd(event);
+              canvas.style.cursor = 'default';
+            }
+          } catch (e) { console.error('hover handler failed', e); }
           needsRender = true;
         }
       });
@@ -620,6 +658,7 @@ window.zm = function (posX, posY) {
         }
         else {
           if (clickedPayload[0] && clickedPayload[1]) clickedPayload.push("2 characters zmcd");
+          if (clickedPayload[0] === clickedPayload[1]) clickedPayload.pop(); clickedPayload.pop();
           let res = await generateZMCD(clickedPayload);
           lobby.dqcdbtn.onClick({addcd: true, payload: res.content});
         }
