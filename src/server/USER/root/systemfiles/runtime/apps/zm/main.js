@@ -1,3 +1,5 @@
+window.zmGlobals = {};
+
 window.zm = function (posX, posY) {
   var root = window.protectedGlobals.apptools.createRoot("zm", posX, posY);
   var topbar = window.protectedGlobals.apptools.createtitlebar(root);
@@ -122,6 +124,33 @@ window.zm = function (posX, posY) {
     const images = [];
     const drawables = [];
     let nextDrawableId = 0;
+
+    const imageCache = new Map();
+    async function loadCachedImage(path) {
+      if (imageCache.has(path)) {
+        return imageCache.get(path);
+      }
+
+      const loadPromise = (async () => {
+        const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
+        const blob = new Blob([bytes], { type: "image/png" });
+        const img = new Image();
+        img.src = URL.createObjectURL(blob);
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        return img;
+      })();
+
+      imageCache.set(path, loadPromise);
+      try {
+        return await loadPromise;
+      } catch (err) {
+        imageCache.delete(path);
+        throw err;
+      }
+    }
 
     function getMaxZIndex() {
       return drawables.reduce((max, drawable) => Math.max(max, drawable.zIndex), 0);
@@ -271,25 +300,6 @@ window.zm = function (posX, posY) {
           sortDrawables();
           renderScene();
         },
-        async setImage(path) {
-          try {
-            const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
-            const blob = new Blob([bytes], { type: "image/png" });
-            const img = new Image();
-            img.src = URL.createObjectURL(blob);
-            await new Promise((resolve, reject) => {
-              img.onload = resolve;
-              img.onerror = reject;
-            });
-            this.img = img;
-            this.loaded = true;
-            renderScene();
-            return this;
-          } catch (err) {
-            console.error("image.setImage failed:", path, err);
-            throw err;
-          }
-        },
         sendToBack() {
           this.zIndex = getMinZIndex() - 1;
           sortDrawables();
@@ -297,15 +307,7 @@ window.zm = function (posX, posY) {
         },
         async setImage(path) {
           try {
-            const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
-            const blob = new Blob([bytes], { type: "image/png" });
-            const img = new Image();
-            img.src = URL.createObjectURL(blob);
-            await new Promise((resolve, reject) => {
-              img.onload = () => resolve();
-              img.onerror = reject;
-            });
-            this.img = img;
+            this.img = await loadCachedImage(path);
             this.imgLoaded = true;
             renderScene();
             return this;
@@ -316,15 +318,7 @@ window.zm = function (posX, posY) {
         },
         async setHoverImage(path) {
           try {
-            const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
-            const blob = new Blob([bytes], { type: "image/png" });
-            const img = new Image();
-            img.src = URL.createObjectURL(blob);
-            await new Promise((resolve, reject) => {
-              img.onload = () => resolve();
-              img.onerror = reject;
-            });
-            this.hoverImg = img;
+            this.hoverImg = await loadCachedImage(path);
             this.hoverImgLoaded = true;
             renderScene();
             return this;
@@ -346,14 +340,7 @@ window.zm = function (posX, posY) {
       };
 
       async function loadButtonImage(path, targetKey) {
-          const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
-          const blob = new Blob([bytes], { type: "image/png" });
-          const img = new Image();
-          img.src = URL.createObjectURL(blob);
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-          });
+          const img = await loadCachedImage(path);
           button[targetKey] = img;
           button[targetKey + "Loaded"] = true;
           renderScene();
@@ -473,15 +460,7 @@ window.zm = function (posX, posY) {
       };
 
       async function loadImageAsset(path) {
-          const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
-          const blob = new Blob([bytes], { type: "image/png" });
-          const img = new Image();
-          img.src = URL.createObjectURL(blob);
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-          });
-          image.img = img;
+          image.img = await loadCachedImage(path);
           image.loaded = true;
           renderScene();
       }
@@ -658,7 +637,7 @@ window.zm = function (posX, posY) {
         }
         else {
           if (clickedPayload[0] && clickedPayload[1]) clickedPayload.push("2 characters zmcd");
-          if (clickedPayload[0] === clickedPayload[1]) clickedPayload.pop(); clickedPayload.pop();
+          if (clickedPayload[0] === clickedPayload[1]) clickedPayload.pop();
           let res = await generateZMCD(clickedPayload);
           lobby.dqcdbtn.onClick({addcd: true, payload: res.content});
         }
@@ -938,6 +917,19 @@ window.zm = function (posX, posY) {
       data.player1 = parseInt(payload[0]);
     }
     data.curLevel = {overworld: 1};
+    data.bagzbsaveobject = {
+      ptdyyc: {
+        name: "ptdyyc",
+        player: 1,
+        r: 3,
+        c: 2,
+        p: 2,
+        attack: 8
+      }
+    }
+    data.bagdjsaveobject = {};
+    data.bagszsaveobject = {};
+    data.bagjssaveobject = {};
     return { ok: true, content: data };
   }
 
