@@ -126,7 +126,7 @@ async function iframePatches() {
         window.windowSwitchState.mod) ||
       "";
     var wantsCycle =
-      (e.altKey && e.key === "Tab") || (e.key === "Tab" && !!switcherMode);
+      ((e.altKey || e.ctrlKey) && e.key === "Tab") || (e.key === "Tab" && !!switcherMode);
     if (wantsCycle) {
       e.preventDefault();
       root.focus();
@@ -1103,7 +1103,7 @@ async function iframePatches() {
                   window.windowSwitchState.mod) ||
                 "";
               var wantsCycle =
-                (e.altKey && e.key === "Tab") ||
+                ((e.altKey || e.ctrlKey) && e.key === "Tab") ||
                 (e.key === "Tab" && !!switcherMode);
               if (wantsCycle) {
                 e.preventDefault();
