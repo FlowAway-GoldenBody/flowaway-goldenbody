@@ -4,6 +4,11 @@ window.zm = function (posX, posY) {
   var root = window.protectedGlobals.apptools.createRoot("zm", posX, posY);
   var topbar = window.protectedGlobals.apptools.createtitlebar(root);
 
+  var instance = window.protectedGlobals.apptools.api.createAppInstance({
+    rootElement: root,
+    title: "ZM",
+    btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
+  });
   let curMusic = null;
   async function playMusic(path) {
     curMusic?.pause();
@@ -16,6 +21,15 @@ window.zm = function (posX, posY) {
     audio.loop = true;
     audio.play();
     curMusic = audio;
+    return audio;
+  }
+
+  async function playSoundEffect(path) {
+    let bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
+    let blob = new Blob([bytes], { type: "audio/mpeg" });
+    let url = URL.createObjectURL(blob);
+    let audio = new Audio(url);
+    audio.play();
     return audio;
   }
 
@@ -167,6 +181,260 @@ window.zm = function (posX, posY) {
       });
     }
 
+    function getAbsoluteCoords(drawable) {
+      // Calculate absolute coordinates accounting for parent positioning
+      if (!drawable.parent || drawable.useAbsolute) {
+        return { x: drawable.x, y: drawable.y, width: drawable.width, height: drawable.height };
+      }
+      // Relative positioning: calculate based on parent bounds
+      const parentRect = drawable.parent.getRect();
+      const logical = getLogicalSize();
+      const parentNormX = parentRect.x / logical.width;
+      const parentNormY = 1 - (parentRect.y + parentRect.height) / logical.height;
+      const parentNormW = parentRect.width / logical.width;
+      const parentNormH = parentRect.height / logical.height;
+
+      return {
+        x: parentNormX + drawable.relx * parentNormW,
+        y: parentNormY + drawable.rely * parentNormH,
+        width: drawable.relw * parentNormW,
+        height: drawable.relh * parentNormH
+      };
+    }
+
+    function getChildrenBounds(drawable) {
+      if (!drawable.children || drawable.children.length === 0) {
+        return null;
+      }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const child of drawable.children) {
+        const childRect = child.getRect();
+        minX = Math.min(minX, childRect.x);
+        minY = Math.min(minY, childRect.y);
+        maxX = Math.max(maxX, childRect.x + childRect.width);
+        maxY = Math.max(maxY, childRect.y + childRect.height);
+      }
+      const logical = getLogicalSize();
+      return {
+        x: minX / logical.width,
+        y: 1 - maxY / logical.height,
+        width: (maxX - minX) / logical.width,
+        height: (maxY - minY) / logical.height
+      };
+    }
+
+    async function drawText(text, fontSize = 16, color = "black", font = "Arial", alignment = "left", zIndex = 0, options = {}) {
+      const textObj = {
+        id: nextDrawableId++,
+        type: "text",
+        text,
+        fontSize,
+        color,
+        font,
+        alignment,
+        zIndex,
+        parent: null,
+        useAbsolute: true,
+        x: options.x || 0,
+        y: options.y || 0,
+        relx: options.relx || 0,
+        rely: options.rely || 0,
+        relw: options.relw || 0.5,
+        relh: options.relh || 0.2,
+        width: 0,
+        height: 0,
+        visible: true,
+        contains(normalX, normalY) {
+          const coords = getAbsoluteCoords(this);
+          return (
+            normalX >= coords.x &&
+            normalX <= coords.x + coords.width &&
+            normalY >= coords.y &&
+            normalY <= coords.y + coords.height
+          );
+        },
+        getRect() {
+          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
+          return normalToCanvasRect(coords.x, coords.y, coords.width, coords.height);
+        },
+        render() {
+          if (!this.visible) return;
+          const logical = getLogicalSize();
+          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
+          ctx.font = `${this.fontSize}px ${this.font}`;
+          ctx.fillStyle = this.color;
+          ctx.textBaseline = "top";
+          ctx.textAlign = this.alignment;
+          const canvasX = coords.x * logical.width;
+          const canvasY = (1 - coords.y) * logical.height - this.fontSize;
+          ctx.fillText(this.text, canvasX, canvasY, coords.width * logical.width);
+          // Update measured dimensions
+          const metrics = ctx.measureText(this.text);
+          this.width = metrics.width / logical.width;
+          this.height = this.fontSize / logical.height;
+        },
+        setText(newText) {
+          this.text = newText;
+          renderScene();
+          return this;
+        },
+        setFont(size, family) {
+          this.fontSize = size;
+          this.font = family;
+          renderScene();
+          return this;
+        },
+        remove() {
+          if (this.children && this.children.length) this.children.slice().forEach((c) => c.remove());
+          const idx = drawables.indexOf(this);
+          if (idx !== -1) drawables.splice(idx, 1);
+          if (this.parent && this.parent.children) {
+            const pidx = this.parent.children.indexOf(this);
+            if (pidx !== -1) this.parent.children.splice(pidx, 1);
+          }
+          renderScene();
+        },
+        setColor(newColor) {
+          this.color = newColor;
+          renderScene();
+          return this;
+        },
+        setVisible(value) {
+          this.visible = value;
+          renderScene();
+        },
+        setZIndex(value) {
+          this.zIndex = value;
+          sortDrawables();
+          renderScene();
+        },
+        setRelativePos(relx, rely, relw, relh) {
+          this.relx = relx;
+          this.rely = rely;
+          this.relw = relw;
+          this.relh = relh;
+          this.useAbsolute = false;
+          renderScene();
+          return this;
+        },
+      };
+      drawables.push(textObj);
+      sortDrawables();
+      renderScene();
+      return textObj;
+    }
+
+    async function drawScaleableImage(imgPath, zIndex = 0, options = {}) {
+      const scaleable = {
+        id: nextDrawableId++,
+        type: "scaleable",
+        imgPath,
+        img: null,
+        imgLoaded: false,
+        zIndex,
+        parent: null,
+        children: [],
+        useAbsolute: true,
+        x: options.x || 0.1,
+        y: options.y || 0.1,
+        relx: options.relx || 0,
+        rely: options.rely || 0,
+        relw: options.relw || 0.5,
+        relh: options.relh || 0.5,
+        width: options.width || 0.3,
+        height: options.height || 0.3,
+        padding: options.padding || 0.02,
+        visible: true,
+        contains(normalX, normalY) {
+          const coords = getAbsoluteCoords(this);
+          return (
+            normalX >= coords.x &&
+            normalX <= coords.x + coords.width &&
+            normalY >= coords.y &&
+            normalY <= coords.y + coords.height
+          );
+        },
+        getRect() {
+          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
+          return normalToCanvasRect(coords.x, coords.y, coords.width, coords.height);
+        },
+        render() {
+          if (!this.imgLoaded || !this.visible) return;
+          const rect = this.getRect();
+          ctx.drawImage(this.img, rect.x, rect.y, rect.width, rect.height);
+        },
+        autoScale() {
+          const childBounds = getChildrenBounds(this);
+          if (childBounds) {
+            const pad = this.padding;
+            this.x = Math.max(0, childBounds.x - pad);
+            this.y = Math.max(0, childBounds.y - pad);
+            this.width = Math.min(1, childBounds.width + 2 * pad);
+            this.height = Math.min(1, childBounds.height + 2 * pad);
+          }
+          renderScene();
+          return this;
+        },
+        setVisible(value) {
+          this.visible = value;
+          if (this.children && this.children.length) this.children.forEach((c) => c.setVisible(value));
+          renderScene();
+        },
+        setZIndex(value) {
+          this.zIndex = value;
+          sortDrawables();
+          renderScene();
+        },
+        addChild(child) {
+          if (!this.children.includes(child)) {
+            this.children.push(child);
+            child.parent = this;
+            renderScene();
+          }
+          return this;
+        },
+        removeChild(child) {
+          const idx = this.children.indexOf(child);
+          if (idx !== -1) {
+            this.children.splice(idx, 1);
+            child.parent = null;
+            renderScene();
+          }
+          return this;
+        },
+        remove() {
+          if (this.children && this.children.length) this.children.slice().forEach((c) => c.remove());
+          const idx = drawables.indexOf(this);
+          if (idx !== -1) drawables.splice(idx, 1);
+          if (this.parent && this.parent.children) {
+            const pidx = this.parent.children.indexOf(this);
+            if (pidx !== -1) this.parent.children.splice(pidx, 1);
+          }
+          renderScene();
+        },
+        bringToFront() {
+          this.zIndex = getMaxZIndex() + 1;
+          sortDrawables();
+          renderScene();
+        },
+        sendToBack() {
+          this.zIndex = getMinZIndex() - 1;
+          sortDrawables();
+          renderScene();
+        },
+      };
+
+      drawables.push(scaleable);
+      sortDrawables();
+
+      const img = await loadCachedImage(imgPath);
+      scaleable.img = img;
+      scaleable.imgLoaded = true;
+      renderScene();
+
+      return scaleable;
+    }
+
     async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0, options = {}) {
       const button = {
         id: nextDrawableId++,
@@ -178,6 +446,11 @@ window.zm = function (posX, posY) {
         zIndex,
         parent: null,
         children: [],
+        useAbsolute: true,
+        relx: options.relx || 0,
+        rely: options.rely || 0,
+        relw: options.relw || width,
+        relh: options.relh || height,
         disableAccess: false,
         img: null,
         hoverImg: null,
@@ -191,15 +464,17 @@ window.zm = function (posX, posY) {
         onHover: typeof (options && (options.onhover || options.onHover)) === 'function' ? (options.onhover || options.onHover) : null,
         onHoverEnd: typeof (options && (options.onhoverEnd || options.onHoverEnd)) === 'function' ? (options.onhoverEnd || options.onHoverEnd) : null,
         contains(normalX, normalY) {
+          const coords = getAbsoluteCoords(this);
           return (
-            normalX >= this.x &&
-            normalX <= this.x + this.width &&
-            normalY >= this.y &&
-            normalY <= this.y + this.height
+            normalX >= coords.x &&
+            normalX <= coords.x + coords.width &&
+            normalY >= coords.y &&
+            normalY <= coords.y + coords.height
           );
         },
         getRect() {
-          return normalToCanvasRect(this.x, this.y, this.width, this.height);
+          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
+          return normalToCanvasRect(coords.x, coords.y, coords.width, coords.height);
         },
         render() {
           if (!this.visible) return;
@@ -278,6 +553,16 @@ window.zm = function (posX, posY) {
             child.parent = null;
             renderScene();
           }
+          return this;
+        },
+        setRelativePos(relx, rely, relw, relh) {
+          this.relx = relx;
+          this.rely = rely;
+          this.relw = relw;
+          this.relh = relh;
+          this.useAbsolute = false;
+          renderScene();
+          return this;
         },
         setZIndex(value) {
           this.zIndex = value;
@@ -358,7 +643,7 @@ window.zm = function (posX, posY) {
       return button;
     }
 
-    async function drawImage(x, y, width, height, imgPath, zIndex = 0) {
+    async function drawImage(x, y, width, height, imgPath, zIndex = 0, options = {}) {
       const image = {
         id: nextDrawableId++,
         type: "image",
@@ -369,16 +654,31 @@ window.zm = function (posX, posY) {
         zIndex,
         parent: null,
         children: [],
+        useAbsolute: true,
+        relx: options.relx || 0,
+        rely: options.rely || 0,
+        relw: options.relw || width,
+        relh: options.relh || height,
         img: null,
         loaded: false,
         visible: true,
         getRect() {
-          return normalToCanvasRect(this.x, this.y, this.width, this.height);
+          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
+          return normalToCanvasRect(coords.x, coords.y, coords.width, coords.height);
         },
         render() {
           if (!this.loaded || !this.visible) return;
           const rect = this.getRect();
           ctx.drawImage(this.img, rect.x, rect.y, rect.width, rect.height);
+        },
+        contains(normalX, normalY) {
+          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
+          return (
+            normalX >= coords.x &&
+            normalX <= coords.x + coords.width &&
+            normalY >= coords.y &&
+            normalY <= coords.y + coords.height
+          );
         },
         setPosition(newX, newY) {
           this.x = newX;
@@ -448,6 +748,7 @@ window.zm = function (posX, posY) {
             child.parent = this;
             renderScene();
           }
+          return this;
         },
         removeChild(child) {
           const idx = this.children.indexOf(child);
@@ -456,6 +757,16 @@ window.zm = function (posX, posY) {
             child.parent = null;
             renderScene();
           }
+          return this;
+        },
+        setRelativePos(relx, rely, relw, relh) {
+          this.relx = relx;
+          this.rely = rely;
+          this.relw = relw;
+          this.relh = relh;
+          this.useAbsolute = false;
+          renderScene();
+          return this;
         },
       };
 
@@ -551,6 +862,7 @@ window.zm = function (posX, posY) {
           if (d.disableAccess) continue;
           if (d.contains(pos.x, pos.y)) {
             d.onClick(event);
+            canvas.style.cursor = 'default';
             break;
           }
         }
@@ -713,6 +1025,7 @@ window.zm = function (posX, posY) {
       }
     }
     lobby.xdksbtn = await drawButton(0.795,0.71,0.105,0.057,"/systemfiles/runtime/apps/zm/assets/xdks.png","/systemfiles/runtime/apps/zm/assets/xdks1.png", () => {
+      playSoundEffect("/systemfiles/runtime/apps/zm/assets/4_SD_xz.mp3");
       showxdksUI();
     });
 
@@ -725,6 +1038,7 @@ window.zm = function (posX, posY) {
     // dqcd
     mainpageui.dqcdui = null;
     lobby.dqcdbtn = await drawButton(0.793,0.63,0.112,0.058,"/systemfiles/runtime/apps/zm/assets/dqcd.png","/systemfiles/runtime/apps/zm/assets/dqcd1.png", async (options = {}) => {
+      playSoundEffect("/systemfiles/runtime/apps/zm/assets/4_SD_xz.mp3");
       if (mainpageui.dqcdui) {return;}
       disableOtherToolbarBtns(lobby.dqcdbtn);
       mainpageui.dqcdui = await drawImage(0.2,0.15,0.63,0.72,"/systemfiles/runtime/apps/zm/assets/dqcdUI2.png");
@@ -875,7 +1189,9 @@ window.zm = function (posX, posY) {
     eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/inGame.js", { text: true, direct: true }), cdIndex);
     continueInGame(zmcd, cdIndex);
   }
-
+  (async () => {
+  eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/displayItemTooltip.js", { text: true, direct: true }));
+  })();
 
 
 
@@ -917,19 +1233,221 @@ window.zm = function (posX, posY) {
       data.player1 = parseInt(payload[0]);
     }
     data.curLevel = {overworld: 1};
-    data.bagzbsaveobject = {
-      ptdyyc: {
+    data.bagzbsaveobject = [
+      {
         name: "ptdyyc",
         player: 1,
-        r: 3,
-        c: 2,
-        p: 2,
         attack: 8
-      }
-    }
-    data.bagdjsaveobject = {};
-    data.bagszsaveobject = {};
-    data.bagjssaveobject = {};
+      },
+      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },      {
+        name: "ptdyyc",
+        player: 1,
+        attack: 8
+      },
+    ];
+    data.bagdjsaveobject = [];
+    data.bagszsaveobject = [];
+    data.bagjssaveobject = [];
     return { ok: true, content: data };
   }
 
@@ -942,11 +1460,6 @@ window.zm = function (posX, posY) {
 
 
 
-  var instance = window.protectedGlobals.apptools.api.createAppInstance({
-    rootElement: root,
-    title: "ZM",
-    btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
-  });
 
   window.protectedGlobals.apptools.api.trackInstance(instance, "zm");
   let origclose = instance.closeWindow;

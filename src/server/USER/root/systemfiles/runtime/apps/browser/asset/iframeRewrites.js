@@ -793,7 +793,9 @@ async function iframePatches() {
             "[XXXXXXXXXXXXXXX]Patching iframe:",
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
-
+          frame.contentWindow.gbextern = frame.contentWindow.gbextern || {};
+          frame.contentWindow.gbextern.exitPointerLock = frame.contentDocument.exitPointerLock.bind(frame.contentDocument);
+          frame.contentWindow.Object.defineProperty(frame.contentWindow.gbextern, "exitPointerLock", {configurable: false, enumerable: true, writable: false, value: frame.contentWindow.gbextern.exitPointerLock});
           if (frame.contentDocument.__gbCookieHookInstalled) continue;
           console.log(
             "Patching iframe:",
@@ -801,7 +803,7 @@ async function iframePatches() {
           );
           frame.contentWindow.addEventListener("keydown", function (e) {
             if (frame.contentDocument.pointerLockElement && e.key === "Escape") {
-            frame.contentDocument.exitPointerLock();
+            frame.contentWindow.gbextern.exitPointerLock();
             }
           });
           frame.contentWindow.__gbframeElement = frame;
