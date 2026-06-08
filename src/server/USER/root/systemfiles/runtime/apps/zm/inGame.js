@@ -4,7 +4,31 @@ async function continueInGame(zmcd, cdIndex) {
     let curPage = 1;
     let activeplayer = 1;
     let currentTooltipItem = null; // track which item currently has a tooltip shown
+    let zbUtils = {};
+    (async () => {
+      let scriptText = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/utils.js", { text: true, direct: true });
+      eval(scriptText);
+    })();
 
+    async function generateTooltipText(itemData) {
+        const explicitSize = 0.025;
+        const explicitFamily = "InfoFont";
+        let displayObject = zbUtils.lookupTitle(itemData.name);
+        let itemName = await drawText(
+            displayObject.result || "",
+            explicitSize,
+            displayObject.color,
+            explicitFamily,
+            "left",
+            1,
+            { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: explicitFamily }
+        );
+        itemName.setRelativePos(0.14, 0.75, 0.9, 0.2); // position text at top center of tooltip
+        instance.extern.tooltip.addChild(itemName);
+
+        zbUtils.renderStats(itemData)
+        return displayObject;
+    }
     console.log('this is used to trace the vmxxxxx files so its able to debug')
     // functions
     function clearOtherCategoryButtons(buttons, activeBtn) {
@@ -74,32 +98,28 @@ bagUI.children.splice = function(...args) {
             1 // zindex
             );
             
-            // Set up hover handlers after button creation
             itemButton.onHover = async () => {
+                try {
                 // Only show tooltip if this item doesn't already have one shown
                 if (currentTooltipItem === itemButton) return;
                 
-                // Hide previous tooltip
-                if (instance.extern.tooltip) {
-                    instance.extern.tooltip.remove();
-                    instance.extern.tooltip = null;
-                }
-                
                 currentTooltipItem = itemButton;
-                let h = itemButton.y - 0.42 + itemButton.height;
+                let info = zbUtils.lookupTitle(slot.name);
+                let h = itemButton.y - info.height + itemButton.height;
                 if (h < 0) h = 0.007099999999999995;
-                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h);
+                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h, info);
+                } finally {
+                    executinghover = false;
+                }
             };
             
             itemButton.onHoverEnd = () => {
-                // Only remove tooltip if it belongs to this item
-                if (currentTooltipItem === itemButton) {
-                    if (instance.extern.tooltip) {
-                        instance.extern.tooltip.remove();
-                        instance.extern.tooltip = null;
-                    }
-                    currentTooltipItem = null;
-                }
+                // cancel any pending tooltip load and remove any shown tooltip safely
+                try { instance.extern._tooltipToken++; } catch (e) { instance.extern._tooltipToken = (instance.extern._tooltipToken || 0) + 1; }
+                instance.extern.tooltipShowing = false;
+                currentTooltipItem = null;
+                instance.extern.tooltip.remove();
+                instance.extern.tooltip = null;
             };
             
             bagUI.addChild(itemButton);
@@ -198,16 +218,59 @@ bagUI.children.splice = function(...args) {
     });
     let bagUI = null;
     instance.extern = {};
-instance.extern.tooltip = null; // store the currently displayed tooltip so we can remove it when needed
-instance.extern.displayItemTooltip = async function(itemData, posX, posY) {
-    instance.extern.tooltip = await drawScaleableImage('/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1, { x: posX, y: posY, width: 0.2, height: 0.42 });
-    bagUI.addChild(instance.extern.tooltip);
-    let itemName = await drawText(itemData.name);
-    itemName.setRelativePos(0.5, 0.1, 0.9, 0.2); // position text at top center of tooltip
-    instance.extern.tooltip.addChild(itemName);
-    // add more item details to the tooltip as needed (e.g. stats, description, etc.)
-    return instance.extern.tooltip;
-};
+    instance.extern.tooltipShowing = false;
+    // token used to cancel stale async tooltip loads
+    instance.extern.tooltip = null; // store the currently displayed tooltip so we can remove it when needed
+    instance.extern._tooltipToken = 0;
+    instance.extern.displayItemTooltip = async function(itemData, posX, posY, info) {
+        // cancel if already showing (or allow re-show by incrementing token)
+        const myToken = ++instance.extern._tooltipToken;
+        // mark that a tooltip is pending/showing for input logic
+        instance.extern.tooltipShowing = true;
+        let createdTooltip = null;
+        try {
+            createdTooltip = await drawScaleableImage('/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1, { x: posX, y: posY, width: info.width, height: info.height });
+        } catch (e) {
+            // loading failed (e.g. image couldn't be read). Ensure state is cleaned up and do not leave a stale flag.
+            console.error('displayItemTooltip failed to load image', e);
+            // only clear tooltipShowing if no newer tooltip request was made
+            if (instance.extern._tooltipToken === myToken) instance.extern.tooltipShowing = false;
+            return null;
+        }
+
+        // if another tooltip request happened after we started, cancel this one
+        if (instance.extern._tooltipToken !== myToken) {
+            try { if (createdTooltip && typeof createdTooltip.remove === 'function') createdTooltip.remove(); } catch (e) {}
+            return null;
+        }
+
+        // attach the created tooltip
+        instance.extern.tooltip = createdTooltip;
+        try {
+            bagUI.addChild(instance.extern.tooltip);
+            // create text with explicit params and diagnostics to detect rendering issues
+            await generateTooltipText(itemData);
+        } catch (e) {
+            // if anything fails while adding children, remove tooltip and clear state
+            console.error('displayItemTooltip failed while attaching children', e);
+            try { if (instance.extern.tooltip && typeof instance.extern.tooltip.remove === 'function') instance.extern.tooltip.remove(); } catch (e2) {}
+            instance.extern.tooltip = null;
+            instance.extern.tooltipShowing = false;
+            return null;
+        }
+
+        // finally, ensure tooltipShowing is true only if this token is still current
+        if (instance.extern._tooltipToken === myToken) {
+            instance.extern.tooltipShowing = true;
+            return instance.extern.tooltip;
+        }
+
+        // otherwise clean up
+        try { if (instance.extern.tooltip && typeof instance.extern.tooltip.remove === 'function') instance.extern.tooltip.remove(); } catch (e) {}
+        instance.extern.tooltip = null;
+        instance.extern.tooltipShowing = false;
+        return null;
+    };
     let bagBtn = await drawButton(0.1377, 0.0173, 0.0685, 0.106, "/systemfiles/runtime/apps/zm/assets/inGame(ldl).png", "/systemfiles/runtime/apps/zm/assets/inGame(ldl)(hover).png", async () => {
         if (bagUI) return; // prevent multiple bagUIs from being opened
         bagUI = await drawImage(0,0,1,1,"/systemfiles/runtime/apps/zm/assets/ldlGui.png");

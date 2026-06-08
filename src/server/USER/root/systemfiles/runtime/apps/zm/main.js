@@ -166,6 +166,52 @@ window.zm = function (posX, posY) {
       }
     }
 
+    // font loading cache & helper
+    const fontCache = new Map();
+    async function loadCachedFont(path, familyName) {
+      if (fontCache.has(path)) {
+        return fontCache.get(path);
+      }
+
+      const loadPromise = (async () => {
+        const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
+        const blob = new Blob([bytes], { type: "font/ttf" });
+        const url = URL.createObjectURL(blob);
+
+        // derive a family name if not provided
+        let family = familyName;
+        if (!family) {
+          try {
+            const parts = path.split("/");
+            family = parts[parts.length - 1].replace(/\.[^.]+$/, "");
+            // make it safe for CSS
+            family = `filefont-${family.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+          } catch (e) {
+            family = `filefont-${Date.now()}`;
+          }
+        }
+
+        try {
+          const ff = new FontFace(family, `url(${url})`);
+          await ff.load();
+          document.fonts.add(ff);
+          return family;
+        } catch (err) {
+          console.error("Failed to load font", path, err);
+          // fall back to provided familyName or null
+          return familyName || null;
+        }
+      })();
+
+      fontCache.set(path, loadPromise);
+      try {
+        return await loadPromise;
+      } catch (err) {
+        fontCache.delete(path);
+        throw err;
+      }
+    }
+
     function getMaxZIndex() {
       return drawables.reduce((max, drawable) => Math.max(max, drawable.zIndex), 0);
     }
@@ -223,24 +269,35 @@ window.zm = function (posX, posY) {
       };
     }
 
-    async function drawText(text, fontSize = 16, color = "black", font = "Arial", alignment = "left", zIndex = 0, options = {}) {
+    window.drawText = async function drawText(text, fontSize = 16, color = "black", font = "Arial", alignment = "left", zIndex = 0, options = {}) {
+      const opts = options || {};
+      const requestedFamily = font || "Arial";
       const textObj = {
         id: nextDrawableId++,
         type: "text",
         text,
         fontSize,
         color,
-        font,
+        font: requestedFamily,
+        fallback: opts.fallback || "Arial",
+        // font scaling options:
+        // - if opts.relative === true or fontSize <= 1, fontSize is treated as fraction of logical height
+        // - if opts.scaleWithCanvas === true, fontSize is scaled proportionally from a base height
+        relative: !!opts.relative,
+        scaleWithCanvas: !!opts.scaleWithCanvas,
+        baseHeight: opts.baseHeight || 800,
+        minFontPx: typeof opts.minFontPx === 'number' ? opts.minFontPx : 8,
+        maxFontPx: typeof opts.maxFontPx === 'number' ? opts.maxFontPx : 512,
         alignment,
         zIndex,
         parent: null,
         useAbsolute: true,
-        x: options.x || 0,
-        y: options.y || 0,
-        relx: options.relx || 0,
-        rely: options.rely || 0,
-        relw: options.relw || 0.5,
-        relh: options.relh || 0.2,
+        x: opts.x || 0,
+        y: opts.y || 0,
+        relx: opts.relx || 0,
+        rely: opts.rely || 0,
+        relw: opts.relw || 0.5,
+        relh: opts.relh || 0.2,
         width: 0,
         height: 0,
         visible: true,
@@ -261,17 +318,31 @@ window.zm = function (posX, posY) {
           if (!this.visible) return;
           const logical = getLogicalSize();
           const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
-          ctx.font = `${this.fontSize}px ${this.font}`;
+
+          // determine effective font px size
+          let fontPx;
+          if (this.relative || this.fontSize <= 1) {
+            // treat fontSize as fraction of logical height
+            fontPx = Math.round(this.fontSize * logical.height);
+          } else if (this.scaleWithCanvas) {
+            // scale proportionally from baseHeight
+            fontPx = Math.round(this.fontSize * (logical.height / this.baseHeight));
+          } else {
+            fontPx = Math.round(this.fontSize);
+          }
+          fontPx = Math.max(this.minFontPx, Math.min(this.maxFontPx, fontPx));
+
+          ctx.font = `${fontPx}px "${this.font}", ${this.fallback}`;
           ctx.fillStyle = this.color;
           ctx.textBaseline = "top";
           ctx.textAlign = this.alignment;
           const canvasX = coords.x * logical.width;
-          const canvasY = (1 - coords.y) * logical.height - this.fontSize;
+          const canvasY = (1 - coords.y) * logical.height - fontPx;
           ctx.fillText(this.text, canvasX, canvasY, coords.width * logical.width);
           // Update measured dimensions
           const metrics = ctx.measureText(this.text);
           this.width = metrics.width / logical.width;
-          this.height = this.fontSize / logical.height;
+          this.height = fontPx / logical.height;
         },
         setText(newText) {
           this.text = newText;
@@ -318,6 +389,20 @@ window.zm = function (posX, posY) {
           return this;
         },
       };
+
+      // if a font path is provided, load it and set the family
+      if (opts.fontPath) {
+        try {
+          const family = await loadCachedFont(opts.fontPath, opts.fontFamily || null);
+          textObj.font = family || requestedFamily;
+        } catch (e) {
+          console.error("Failed to load custom font", opts.fontPath, e);
+          textObj.font = requestedFamily;
+        }
+      } else {
+        textObj.font = requestedFamily;
+      }
+
       drawables.push(textObj);
       sortDrawables();
       renderScene();
