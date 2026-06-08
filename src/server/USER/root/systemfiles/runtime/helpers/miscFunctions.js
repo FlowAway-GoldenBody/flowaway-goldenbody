@@ -166,11 +166,6 @@ window.protectedGlobals.buildPersistableUserProfile = function buildPersistableU
       : Number.isFinite(Number(runtime.brightness))
         ? Number(runtime.brightness)
         : 100,
-    volume: Number.isFinite(Number(overrides.volume))
-      ? Number(overrides.volume)
-      : Number.isFinite(Number(runtime.volume))
-        ? Number(runtime.volume)
-        : 40,
     dark: typeof overrides.dark === "boolean" ? overrides.dark : !!runtime.dark,
     autohidetaskbar:
       typeof overrides.autohidetaskbar === "boolean"

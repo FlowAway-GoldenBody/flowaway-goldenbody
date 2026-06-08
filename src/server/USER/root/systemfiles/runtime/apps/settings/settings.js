@@ -538,34 +538,6 @@ settings = function (posX = 50, posY = 50) {
     d.style.marginTop = "6px";
     return d;
   }
-  /* =========================================================
-     🔊 SOUND — VOLUME
-  ========================================================= */
-
-  mainContainer.appendChild(sectionTitle("Sound"));
-
-  const volumeLabel = document.createElement("div");
-  volumeLabel.textContent = "Volume";
-
-  const volume = document.createElement("input");
-  volume.type = "range";
-  volume.min = 0;
-  volume.max = 100;
-  volume.value = window.protectedGlobals.data.volume;
-  volume.style.width = "calc(100% - 10px)";
-
-  volume.oninput = async () => {
-    window.protectedGlobals.data.volume = volume.value;
-    await persistSettingsProfilePatch({ volume: Number(volume.value) });
-    // Optional global hook
-    window.dispatchEvent(
-      new CustomEvent("system-volume", {
-        detail: volume.value,
-      }),
-    );
-  };
-
-  mainContainer.append(volumeLabel, volume);
 
   /* ========================================================="}
      🌞 DISPLAY — BRIGHTNESS
