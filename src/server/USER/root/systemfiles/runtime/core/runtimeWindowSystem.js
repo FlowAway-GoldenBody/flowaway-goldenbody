@@ -533,7 +533,6 @@ window.protectedGlobals.systemAPIs.onKeydown = function (e) {
       return;
     }
 
-    // Keyboard shortcuts: Brightness and Volume
     // Ctrl+Alt+ArrowUp / Ctrl+Alt+ArrowDown -> brightness +/-5
     if (
       e.ctrlKey &&
@@ -543,17 +542,6 @@ window.protectedGlobals.systemAPIs.onKeydown = function (e) {
     ) {
       e.preventDefault();
       window.protectedGlobals.applyBrightnessDelta(e.key === "ArrowUp" ? 5 : -5);
-      return;
-    }
-
-    // Ctrl+Shift+ArrowUp / Ctrl+Shift+ArrowDown -> volume +/-5
-    if (
-      e.ctrlKey &&
-      e.shiftKey &&
-      (e.key === "ArrowUp" || e.key === "ArrowDown")
-    ) {
-      e.preventDefault();
-      window.protectedGlobals.applyVolumeDelta(e.key === "ArrowUp" ? 5 : -5);
       return;
     }
 
@@ -646,94 +634,43 @@ setTimeout(() => {
 setTimeout(() => {
   window.protectedGlobals.loadAppsFromTree();
 }, 200);
-var mainRecurseFrames = window.protectedGlobals.mainRecurseFrames = function mainRecurseFrames(doc) {
-  if (!doc) return null;
 
-  var frames = doc.querySelectorAll("iframe");
-
-  for (const frame of frames) {
-    const childDoc = frame.contentDocument;
-    function setAllMediaVolume(newVolume) {
-      // Ensure the volume is between 0.0 and 1.0
-      newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
-
-      // Select all audio and video elements
-      var mediaElements = childDoc.querySelectorAll("audio, video");
-
-      mediaElements.forEach((element) => {
-        element.volume = newVolume;
-      });
-    }
-    setAllMediaVolume((window.protectedGlobals.data && window.protectedGlobals.data.volume) / 100);
-    // Recurse into child document if accessible
-    if (childDoc) {
-      mainRecurseFrames(childDoc);
-    }
-  }
-
-  return null;
-}
 
 document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
-var setAllMediaVolume = window.protectedGlobals.setAllMediaVolume = function setAllMediaVolume(newVolume) {
-  // Ensure the volume is between 0.0 and 1.0
-  newVolume = Math.min(Math.max(newVolume, 0.0), 1.0);
 
-  // Select all audio and video elements
-  var mediaElements = document.querySelectorAll("audio, video");
-
-  mediaElements.forEach((element) => {
-    element.volume = newVolume;
-  });
-}
-if (window.protectedGlobals.systemAPIs.onSystemVolume)
-  window.removeEventListener(
-    "system-volume",
-    window.protectedGlobals.systemAPIs.onSystemVolume,
-  );
-window.protectedGlobals.systemAPIs.onSystemVolume = (e) => {
-  setAllMediaVolume(e.detail / 100);
-};
-window.addEventListener(
-  "system-volume",
-  window.protectedGlobals.systemAPIs.onSystemVolume,
-);
-// 1. Create a new MutationObserver instance with a callback function
-window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
-  if (mutationsList) {
-    setAllMediaVolume((window.protectedGlobals.data && window.protectedGlobals.data.volume) / 100);
-    mainRecurseFrames(document);
-    document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
-  }
-});
-var observer = window.protectedGlobals.observer;
+// // 1. Create a new MutationObserver instance with a callback function
+// window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
+//   if (mutationsList) {
+//     document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
+//   }
+// });
+// var observer = window.protectedGlobals.observer;
 
 // 2. Select the target node you want to observe (e.g., the entire document body)
-window.protectedGlobals.targetNode = document.body;
-var targetNode = window.protectedGlobals.targetNode;
+// window.protectedGlobals.targetNode = document.body;
+// var targetNode = window.protectedGlobals.targetNode;
 
 // 3. Configure the observer with an options object
-window.protectedGlobals.config = {
-  childList: true, // Observe direct children addition/removal
-  attributes: true, // Observe attribute changes
-  characterData: true, // Observe changes to text content
-  subtree: true, // Observe changes in the entire subtree (children, grandchildren, etc.)
-  attributeOldValue: true, // Record the old value of the attribute
-  characterDataOldValue: true, // Record the old value of the character data
-};
-var config = window.protectedGlobals.config;
+// window.protectedGlobals.config = {
+//   childList: true, // Observe direct children addition/removal
+//   attributes: true, // Observe attribute changes
+//   characterData: true, // Observe changes to text content
+//   subtree: true, // Observe changes in the entire subtree (children, grandchildren, etc.)
+//   attributeOldValue: true, // Record the old value of the attribute
+//   characterDataOldValue: true, // Record the old value of the character data
+// };
+// var config = window.protectedGlobals.config;
 
-// 4. Start observing the target node with the specified configuration
-if (window.protectedGlobals.systemAPIs.observer) {
-  window.protectedGlobals.systemAPIs.observer.disconnect();
-}
-window.protectedGlobals.systemAPIs.observer = observer;
-window.protectedGlobals.observer.observe(window.protectedGlobals.targetNode, window.protectedGlobals.config);
+// // 4. Start observing the target node with the specified configuration
+// if (window.protectedGlobals.systemAPIs.observer) {
+//   window.protectedGlobals.systemAPIs.observer.disconnect();
+// }
+// window.protectedGlobals.systemAPIs.observer = observer;
+// window.protectedGlobals.observer.observe(window.protectedGlobals.targetNode, window.protectedGlobals.config);
 
 // To stop observing later:
 // observer.disconnect();
 
-setAllMediaVolume(parseInt(window.protectedGlobals.data && window.protectedGlobals.data.volume) / 100);
 // helpers global
 var getStringAfterChar = window.protectedGlobals.getStringAfterChar = function getStringAfterChar(str, char) {
   var index = str.indexOf(char);

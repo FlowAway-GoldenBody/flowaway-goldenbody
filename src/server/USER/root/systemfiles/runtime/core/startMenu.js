@@ -234,20 +234,6 @@ const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = func
   window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.data.brightness}%`);
 }
 
-const applyVolumeDelta = window.protectedGlobals.applyVolumeDelta = function applyVolumeDelta(delta) {
-  window.protectedGlobals.data = window.protectedGlobals.data || {};
-  window.protectedGlobals.data.volume = Math.min(
-    100,
-    Math.max(0, (parseInt(window.protectedGlobals.data.volume) || 0) + delta),
-  );
-  window.protectedGlobals.setAllMediaVolume(window.protectedGlobals.data.volume / 100);
-  window.dispatchEvent(new CustomEvent("system-volume", { detail: window.protectedGlobals.data.volume }));
-  if ((window.protectedGlobals.persistUserProfilePatch)) {
-    window.protectedGlobals.persistUserProfilePatch({ volume: Number(window.protectedGlobals.data.volume) });
-  }
-  window.protectedGlobals.notification(`Volume: ${window.protectedGlobals.data.volume}%`);
-}
-
 const cycleFocusedWindow = window.protectedGlobals.cycleFocusedWindow = function cycleFocusedWindow(reverse, modKey = "Alt") {
   if ((window.protectedGlobals.cycleWindowFocus)) {
     window.protectedGlobals.cycleWindowFocus(!!reverse, modKey);
@@ -370,8 +356,6 @@ const renderQuickActionsGrid = window.protectedGlobals.renderQuickActionsGrid = 
     ['Close focused window', '', () => closeFocusedAppWindow()],
     ['Brightness down', '', () => applyBrightnessDelta(-5)],
     ['Brightness up', '', () => applyBrightnessDelta(5)],
-    ['Volume down', '', () => applyVolumeDelta(-5)],
-    ['Volume up', '', () => applyVolumeDelta(5)],
   ];
 
   actions.forEach(([label, description, handler]) => {
