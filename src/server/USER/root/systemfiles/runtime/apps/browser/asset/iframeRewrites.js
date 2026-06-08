@@ -893,7 +893,7 @@ async function iframePatches() {
               eval(vfsScriptText);
             }
             // override window.open
-            frameWin.open = function (url, location, options = {newWindow: false}) {
+            frameWin.open = function (url = "about:blank", location = "_blank", options = {newWindow: false}) {
               const layer1Iframe = iframe.contentWindow.__gbframeElement;
               let allbrowserindex = 0;
               // console.log(layer1Iframe); // ✅ the first iframe under the main page
