@@ -652,6 +652,7 @@ updateWiFi();
 
 // ----------------- TOGGLE START MENU -----------------
 window.protectedGlobals.starthandler = () => {
+  if (!startMenu.isConnected) document.body.appendChild(startMenu);
   startMenu.style.display =
     startMenu.style.display === "block" ? "none" : "block";
   // Auto-switch to pinned tab when opening
