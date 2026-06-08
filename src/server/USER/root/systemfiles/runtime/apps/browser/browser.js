@@ -2094,7 +2094,7 @@ window.browser = function (
           };
           iframe.contentDocument.head.appendChild(script);
         }
-        tab.iframe.contentWindow.postMessage(
+        iframe.contentWindow.postMessage(
           {
             message: "GOLDENBODY_id",
             website: window.protectedGlobals.goldenbodywebsite,
