@@ -3,7 +3,7 @@ async function continueInGame(zmcd, cdIndex) {
     let curCategory = "zb";
     let curPage = 1;
     let activeplayer = 1;
-    let tooltipshown = false; // flag to track if tooltip is currently shown
+    let currentTooltipItem = null; // track which item currently has a tooltip shown
 
     console.log('this is used to trace the vmxxxxx files so its able to debug')
     // functions
@@ -18,8 +18,19 @@ async function continueInGame(zmcd, cdIndex) {
         if (!bagUI) return;
         let existingItems = bagUI.children.filter(child => child.isItem);
         existingItems.forEach(item => item.remove());
+        // Clean up any leftover tooltip when clearing items
+        if (instance.extern.tooltip) {
+            instance.extern.tooltip.remove();
+            instance.extern.tooltip = null;
+            currentTooltipItem = null;
+        }
     }
+    let renderingBag = false;
+
     async function renderBagItems(category, pageNum = 1) {
+        if (renderingBag) return;
+        renderingBag = true;
+        try {
         // clear existing items
         let existingItems = bagUI.children.filter(child => child.isItem);
         existingItems.forEach(item => item.remove());
@@ -28,6 +39,17 @@ async function continueInGame(zmcd, cdIndex) {
         // render empty slots for the current page
         let yindex = 0;
         let startSlot = (pageNum - 1) * 25;
+        let origPush = bagUI.children.push;
+        let origSplice = bagUI.children.splice;
+bagUI.children.push = function(...args) {
+    console.log("PUSH", args);
+    return origPush.apply(this, args);
+};
+
+bagUI.children.splice = function(...args) {
+    console.trace("SPLICE", args);
+    return origSplice.apply(this, args);
+};
         for (let i = 0; i < 25; i++) {
             let slotNum = startSlot + i;
             let emptySlot = await drawImage(0.55 + (i % 5) * 0.06, 0.6421 - yindex * 0.095, 0.05, 0.07, "/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png", 0);
@@ -43,31 +65,50 @@ async function continueInGame(zmcd, cdIndex) {
             // only render items for the active player
             if (slot.player !== activeplayer) continue;
             let itemImg = "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png";
-            let item = await drawButton(0.55 + (renderedCount % 5) * 0.06, 0.6421 - yindex * 0.095, 0.05, 0.07, itemImg, undefined, 
+            
+            // Create button first without handlers
+            const itemButton = await drawButton(0.55 + (renderedCount % 5) * 0.06, 0.6421 - yindex * 0.095, 0.05, 0.07, itemImg, undefined, 
             () => {
-                // handle item click (e.g. show item details, equip item, etc.)
+                // handle item click
             }, 
-            1, // zindex
-            {onHover: () => {    
-                // handle item hover (e.g. show tooltip with item name)
-                if (tooltipshown) return; // if tooltip is already displayed, do nothing
-                tooltipshown = true;
-                let h = item.y-0.42+item.height;
-                if (h < 0) h = 0; // if tooltip would go above the screen, align it to the top of the screen instead
-                window.zmGlobals.displayItemTooltip(slot, item.x + item.width, h); // show tooltip at center of item
-            },
-            onHoverEnd: () => {
-                // handle hover out (e.g. hide tooltip)
-                tooltipshown = false;
+            1 // zindex
+            );
+            
+            // Set up hover handlers after button creation
+            itemButton.onHover = async () => {
+                // Only show tooltip if this item doesn't already have one shown
+                if (currentTooltipItem === itemButton) return;
+                
+                // Hide previous tooltip
                 if (instance.extern.tooltip) {
                     instance.extern.tooltip.remove();
                     instance.extern.tooltip = null;
                 }
-            }});
-            bagUI.addChild(item);
-            item.isItem = true; // mark as item so we can easily remove later
+                
+                currentTooltipItem = itemButton;
+                let h = itemButton.y - 0.42 + itemButton.height;
+                if (h < 0) h = 0.007099999999999995;
+                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h);
+            };
+            
+            itemButton.onHoverEnd = () => {
+                // Only remove tooltip if it belongs to this item
+                if (currentTooltipItem === itemButton) {
+                    if (instance.extern.tooltip) {
+                        instance.extern.tooltip.remove();
+                        instance.extern.tooltip = null;
+                    }
+                    currentTooltipItem = null;
+                }
+            };
+            
+            bagUI.addChild(itemButton);
+            itemButton.isItem = true; // mark as item so we can easily remove later
             renderedCount++;
             if (renderedCount % 5 === 0) yindex++; // move to next row after every 5 items
+        }
+        } finally {
+            renderingBag = false;
         }
 
     }
@@ -158,9 +199,8 @@ async function continueInGame(zmcd, cdIndex) {
     let bagUI = null;
     instance.extern = {};
 instance.extern.tooltip = null; // store the currently displayed tooltip so we can remove it when needed
-window.zmGlobals.displayItemTooltip = async function(itemData, posX, posY) {
-    if (instance.extern.tooltip) {return;} // if tooltip is already displayed, do nothing
-    instance.extern.tooltip = await drawScaleableImage('/systemfiles/runtime/apps/zm/assets/zb/itemTooltip.png', 0.1, { x: posX, y: posY, width: 0.2, height: 0.42 });
+instance.extern.displayItemTooltip = async function(itemData, posX, posY) {
+    instance.extern.tooltip = await drawScaleableImage('/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1, { x: posX, y: posY, width: 0.2, height: 0.42 });
     bagUI.addChild(instance.extern.tooltip);
     let itemName = await drawText(itemData.name);
     itemName.setRelativePos(0.5, 0.1, 0.9, 0.2); // position text at top center of tooltip
@@ -186,7 +226,6 @@ window.zmGlobals.displayItemTooltip = async function(itemData, posX, posY) {
 
         let categoryButtons = await renderBagTopBar();
         let pageButtons = await renderBagPages();
-        pageButtons[0].onClick();
         categoryButtons[0].onClick();
         let btn1enlarged = false;
         let btn2enlarged = false;
