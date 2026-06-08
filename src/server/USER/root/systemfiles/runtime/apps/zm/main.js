@@ -1,6 +1,7 @@
 window.zmGlobals = {};
-
+window.zmGlobals.allzmInstances = [];
 window.zm = function (posX, posY) {
+  if (window.protectedGlobals.data.username !== "183115428") {alert('Access Denied'); return;}
   var root = window.protectedGlobals.apptools.createRoot("zm", posX, posY);
   var topbar = window.protectedGlobals.apptools.createtitlebar(root);
 
