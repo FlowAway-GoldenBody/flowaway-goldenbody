@@ -1,5 +1,6 @@
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
+  window.protectedGlobals.____gbEventListners = [];
   if (window.protectedGlobals._bootLoaded) {
     return;
   }
