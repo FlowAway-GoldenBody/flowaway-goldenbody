@@ -146,17 +146,55 @@ window.zm = function (posX, posY) {
         return imageCache.get(path);
       }
 
-      const loadPromise = (async () => {
-        const bytes = await window.protectedGlobals.ReadFile(path, { buffer: true, direct: true });
-        const blob = new Blob([bytes], { type: "image/png" });
-        const img = new Image();
-        img.src = URL.createObjectURL(blob);
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-        return img;
-      })();
+const loadPromise = (async () => {
+  let lastError;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let objectUrl;
+
+    try {
+      const bytes = await window.protectedGlobals.ReadFile(path, {
+        buffer: true,
+        direct: true,
+      });
+
+      if (!bytes || bytes.byteLength === 0) {
+        throw new Error("File is empty");
+      }
+
+      const blob = new Blob([bytes], { type: "image/png" });
+
+      if (blob.size === 0) {
+        throw new Error("Blob is empty");
+      }
+
+      const img = new Image();
+
+      objectUrl = URL.createObjectURL(blob);
+      img.src = objectUrl;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error("Failed to load image"));
+      });
+
+      URL.revokeObjectURL(objectUrl);
+      return img;
+    } catch (err) {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+
+      lastError = err;
+
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+  }
+
+  throw lastError;
+})();
 
       imageCache.set(path, loadPromise);
       try {
@@ -270,7 +308,7 @@ window.zm = function (posX, posY) {
       };
     }
 
-    window.drawText = async function drawText(text, fontSize = 16, color = "black", font = "Arial", alignment = "left", zIndex = 0, options = {}) {
+    let drawText = async function drawText(text, fontSize = 16, color = "black", font = "Arial", alignment = "left", zIndex = 0, options = {}) {
       const opts = options || {};
       const requestedFamily = font || "Arial";
       const textObj = {
@@ -281,6 +319,7 @@ window.zm = function (posX, posY) {
         color,
         font: requestedFamily,
         fallback: opts.fallback || "Arial",
+        requireParent: !opts.noParent,
         // font scaling options:
         // - if opts.relative === true or fontSize <= 1, fontSize is treated as fraction of logical height
         // - if opts.scaleWithCanvas === true, fontSize is scaled proportionally from a base height
@@ -415,6 +454,16 @@ window.zm = function (posX, posY) {
       return textObj;
     }
 
+      // load the tip font
+  drawText(
+        "",
+        undefined,
+        "orange",
+        undefined,
+        "left",
+        0,
+        { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: "" }
+    );
     async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0, options = {}) {
       const button = {
         id: nextDrawableId++,
@@ -425,6 +474,7 @@ window.zm = function (posX, posY) {
         height,
         zIndex,
         parent: null,
+        requireParent: !(options && options.noParent),
         children: [],
         useAbsolute: true,
         relx: options.relx || 0,
@@ -523,7 +573,9 @@ window.zm = function (posX, posY) {
           if (!this.children.includes(child)) {
             this.children.push(child);
             child.parent = this;
-            renderScene();
+            setTimeout(() => {
+              renderScene();
+            }, 1);
           }
         },
         removeChild(child) {
@@ -633,6 +685,7 @@ window.zm = function (posX, posY) {
         height,
         zIndex,
         parent: null,
+        requireParent: !(options && options.noParent),
         children: [],
         useAbsolute: true,
         relx: options.relx || 0,
@@ -726,7 +779,9 @@ window.zm = function (posX, posY) {
           if (!this.children.includes(child)) {
             this.children.push(child);
             child.parent = this;
-            renderScene();
+            setTimeout(() => {
+              renderScene();
+            }, 1);
           }
           return this;
         },
@@ -769,7 +824,8 @@ window.zm = function (posX, posY) {
         return !!d.parent;
       }
 
-      const roots = drawables.filter((d) => !isChild(d)).slice();
+      // Only include root drawables that do NOT require a parent.
+      const roots = drawables.filter((d) => !isChild(d) && !d.requireParent).slice();
       roots.sort((a, b) => (a.zIndex !== b.zIndex ? a.zIndex - b.zIndex : a.id - b.id));
       const list = [];
       function traverse(node) {
@@ -782,7 +838,7 @@ window.zm = function (posX, posY) {
       return list;
     }
 
-    function renderScene() {
+    window.renderScene = function renderScene() {
       const { width, height } = resizeCanvas();
       ctx.clearRect(0, 0, width, height);
       const list = buildRenderList();
@@ -793,6 +849,15 @@ window.zm = function (posX, posY) {
       const pos = deviceToUserCoords(event.clientX, event.clientY);
       let needsRender = false;
       buttons.forEach((button) => {
+        // ignore buttons that require a parent but don't have one
+        if (button.requireParent && !button.parent) {
+          if (button.isHover) {
+            button.isHover = false;
+            try { if (typeof button.onHoverEnd === 'function') button.onHoverEnd(event); } catch (e) { console.error('onHoverEnd handler failed', e); }
+            needsRender = true;
+          }
+          return;
+        }
         if (!button.visible || button.disableAccess) {
           if (button.isHover) {
             button.isHover = false;
@@ -910,7 +975,7 @@ window.zm = function (posX, posY) {
       disableOtherToolbarBtns(lobby.xdksbtn);
       // Implementation for showing xdks UI
       hideAllLobbyUI();
-      mainpageui.xdksoverlay = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/blackbackground.png", 1);
+      mainpageui.xdksoverlay = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/blackbackground.png", 1, {noParent: true});
       rebuildbtn = await drawButton(0.675, 0.016, 0.107, 0.075, "/systemfiles/runtime/apps/zm/assets/xdks(fhzcd).png", "/systemfiles/runtime/apps/zm/assets/xdks(fhzcd)(hover).png", () => {
         mainpageui.xdksoverlay.remove();
         // rebuildbtn.remove();
@@ -1413,16 +1478,7 @@ window.zm = function (posX, posY) {
     return { ok: true, content: data };
   }
 
-  // load the tip font
-  drawText(
-        "",
-        undefined,
-        "orange",
-        undefined,
-        "left",
-        0,
-        { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: "" }
-    );
+
 
 
 
