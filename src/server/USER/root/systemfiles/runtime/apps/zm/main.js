@@ -315,6 +315,11 @@ window.zm = function (posX, posY) {
           const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
           return normalToCanvasRect(coords.x, coords.y, coords.width, coords.height);
         },
+        setPosition(x, y) {
+          this.x = x;
+          this.y = y;
+          renderScene();
+        },
         render() {
           if (!this.visible) return;
           const logical = getLogicalSize();
@@ -408,117 +413,6 @@ window.zm = function (posX, posY) {
       sortDrawables();
       renderScene();
       return textObj;
-    }
-
-    async function drawScaleableImage(imgPath, zIndex = 0, options = {}) {
-      const scaleable = {
-        id: nextDrawableId++,
-        type: "scaleable",
-        imgPath,
-        img: null,
-        imgLoaded: false,
-        zIndex,
-        parent: null,
-        children: [],
-        useAbsolute: true,
-        x: options.x || 0.1,
-        y: options.y || 0.1,
-        relx: options.relx || 0,
-        rely: options.rely || 0,
-        relw: options.relw || 0.5,
-        relh: options.relh || 0.5,
-        width: options.width || 0.3,
-        height: options.height || 0.3,
-        padding: options.padding || 0.02,
-        visible: true,
-        contains(normalX, normalY) {
-          const coords = getAbsoluteCoords(this);
-          return (
-            normalX >= coords.x &&
-            normalX <= coords.x + coords.width &&
-            normalY >= coords.y &&
-            normalY <= coords.y + coords.height
-          );
-        },
-        getRect() {
-          const coords = this.useAbsolute ? { x: this.x, y: this.y, width: this.width, height: this.height } : getAbsoluteCoords(this);
-          return normalToCanvasRect(coords.x, coords.y, coords.width, coords.height);
-        },
-        render() {
-          if (!this.imgLoaded || !this.visible) return;
-          const rect = this.getRect();
-          ctx.drawImage(this.img, rect.x, rect.y, rect.width, rect.height);
-        },
-        autoScale() {
-          const childBounds = getChildrenBounds(this);
-          if (childBounds) {
-            const pad = this.padding;
-            this.x = Math.max(0, childBounds.x - pad);
-            this.y = Math.max(0, childBounds.y - pad);
-            this.width = Math.min(1, childBounds.width + 2 * pad);
-            this.height = Math.min(1, childBounds.height + 2 * pad);
-          }
-          renderScene();
-          return this;
-        },
-        setVisible(value) {
-          this.visible = value;
-          if (this.children && this.children.length) this.children.forEach((c) => c.setVisible(value));
-          renderScene();
-        },
-        setZIndex(value) {
-          this.zIndex = value;
-          sortDrawables();
-          renderScene();
-        },
-        addChild(child) {
-          if (!this.children.includes(child)) {
-            this.children.push(child);
-            child.parent = this;
-            renderScene();
-          }
-          return this;
-        },
-        removeChild(child) {
-          const idx = this.children.indexOf(child);
-          if (idx !== -1) {
-            this.children.splice(idx, 1);
-            child.parent = null;
-            renderScene();
-          }
-          return this;
-        },
-        remove() {
-          if (this.children && this.children.length) this.children.slice().forEach((c) => c.remove());
-          const idx = drawables.indexOf(this);
-          if (idx !== -1) drawables.splice(idx, 1);
-          if (this.parent && this.parent.children) {
-            const pidx = this.parent.children.indexOf(this);
-            if (pidx !== -1) this.parent.children.splice(pidx, 1);
-          }
-          renderScene();
-        },
-        bringToFront() {
-          this.zIndex = getMaxZIndex() + 1;
-          sortDrawables();
-          renderScene();
-        },
-        sendToBack() {
-          this.zIndex = getMinZIndex() - 1;
-          sortDrawables();
-          renderScene();
-        },
-      };
-
-      drawables.push(scaleable);
-      sortDrawables();
-
-      const img = await loadCachedImage(imgPath);
-      scaleable.img = img;
-      scaleable.imgLoaded = true;
-      renderScene();
-
-      return scaleable;
     }
 
     async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0, options = {}) {
@@ -975,7 +869,7 @@ window.zm = function (posX, posY) {
     let mainpageui = {};
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    lobby.mainimg = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/zm.png", -1);
+    lobby.mainimg = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/zm.png", -1, { noParent: true });
     function disableOtherToolbarBtns(btn) {
       // disable all buttons in the toolbar except btn, which now it includes xdksbtn and dqcdbtn
       if (btn === lobby.xdksbtn) {
@@ -1130,8 +1024,14 @@ window.zm = function (posX, posY) {
       mainpageui.dqcdui = await drawImage(0.2,0.15,0.63,0.72,"/systemfiles/runtime/apps/zm/assets/dqcdUI2.png");
     lobby.dqcdbtn.addChild(mainpageui.dqcdui);
       if (options.addcd) {mainpageui.dqcdui.parent.parent.bringToFrontRel();}
-      let ht = 0.264;
-      let vt = -0.142;
+      let closeBtn = await drawButton(0.77,0.775,0.04,0.063,"/systemfiles/runtime/apps/zm/assets/dqcdX.png","/systemfiles/runtime/apps/zm/assets/dqcdXHover.png", () => {
+        mainpageui.dqcdui.remove();
+        mainpageui.dqcdui = null;
+        enableOtherToolbarBtns(lobby.dqcdbtn);
+      }, 1);
+      mainpageui.dqcdui.addChild(closeBtn);
+      let ht = 0.267;
+      let vt = -0.132;
       let allcd = {
         cd1: {},
           cd2: {},
@@ -1146,9 +1046,9 @@ window.zm = function (posX, posY) {
         // Render 6 CDs in a row, filenames: cd1.png ... cd6.png
         // ht and vt are the horizontal and vertical transformations between each CD
         const baseX = 0.245; // Adjusted base X position for the first CD
-        const baseY = 0.527; // Adjusted base Y position for the first CD
-        const cdW = 0.253;    // Width of each CD
-        const cdH = 0.125;    // Height of each CD
+        const baseY = 0.53; // Adjusted base Y position for the first CD
+        const cdW = 0.254;    // Width of each CD
+        const cdH = 0.112;    // Height of each CD
 
         const positions = [
           { dx: 0, dy: 0 },
@@ -1240,30 +1140,6 @@ window.zm = function (posX, posY) {
           num.bringToFront();
           allcd[`cd${i}`].btn.addChild(num);
         }
-      let closeBtn = await drawButton(0.767,0.787,0.04,0.063,"/systemfiles/runtime/apps/zm/assets/dqcdX.png","/systemfiles/runtime/apps/zm/assets/dqcdXHover.png", () => {
-        mainpageui.dqcdui.remove();
-        mainpageui.dqcdui = null;
-        enableOtherToolbarBtns(lobby.dqcdbtn);
-        // closeBtn.remove();
-        // closeBtn = null;
-        // for (let i = 1; i <= 6; i++) {
-        //   const cd = allcd[`cd${i}`];
-        //   if (!cd) continue;
-        //   if (cd.btn) {
-        //     cd.btn.remove();
-        //     cd.btn = null;
-        //   }
-        //   if (cd.text) {
-        //     cd.text.remove();
-        //     cd.text = null;
-        //   }
-        //   if (cd.number) {
-        //     cd.number.remove();
-        //     cd.number = null;
-        //   }
-        // }
-      }, 1);
-      mainpageui.dqcdui.addChild(closeBtn);
     });
     lobby.mainimg.addChild(lobby.dqcdbtn);
 
@@ -1323,7 +1199,7 @@ window.zm = function (posX, posY) {
       {
         name: "ptdyyc",
         player: 1,
-        attack: 8
+        attack: 8, HP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
       },
       {
         name: "ptdyyc",
@@ -1537,7 +1413,16 @@ window.zm = function (posX, posY) {
     return { ok: true, content: data };
   }
 
-
+  // load the tip font
+  drawText(
+        "",
+        undefined,
+        "orange",
+        undefined,
+        "left",
+        0,
+        { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: "" }
+    );
 
 
 

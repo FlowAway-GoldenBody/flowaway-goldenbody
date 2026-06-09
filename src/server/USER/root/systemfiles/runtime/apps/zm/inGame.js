@@ -10,23 +10,11 @@ async function continueInGame(zmcd, cdIndex) {
       eval(scriptText);
     })();
 
-    async function generateTooltipText(itemData) {
+    async function generateTooltipText(itemData, arg) {
         const explicitSize = 0.025;
         const explicitFamily = "InfoFont";
-        let displayObject = zbUtils.lookupTitle(itemData.name);
-        let itemName = await drawText(
-            displayObject.result || "",
-            explicitSize,
-            displayObject.color,
-            explicitFamily,
-            "left",
-            1,
-            { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: explicitFamily }
-        );
-        itemName.setRelativePos(0.14, 0.75, 0.9, 0.2); // position text at top center of tooltip
-        instance.extern.tooltip.addChild(itemName);
-
-        zbUtils.renderStats(itemData)
+        let displayObject = zbUtils.lookupStats(itemData.name, arg, itemData);
+        zbUtils.renderStats(itemData, displayObject, arg)
         return displayObject;
     }
     console.log('this is used to trace the vmxxxxx files so its able to debug')
@@ -104,10 +92,10 @@ bagUI.children.splice = function(...args) {
                 if (currentTooltipItem === itemButton) return;
                 
                 currentTooltipItem = itemButton;
-                let info = zbUtils.lookupTitle(slot.name);
+                let info = zbUtils.lookupStats(slot.name, itemButton, slot);
                 let h = itemButton.y - info.height + itemButton.height;
                 if (h < 0) h = 0.007099999999999995;
-                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h, info);
+                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h, info, itemButton);
                 } finally {
                     executinghover = false;
                 }
@@ -196,7 +184,7 @@ bagUI.children.splice = function(...args) {
         btn.setH(btn.height - 0.02);
     }
 
-    curminimap = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/minimap(overworld).png", 10);
+    let curminimap = await drawImage(0, 0, 1, 1, "/systemfiles/runtime/apps/zm/assets/187.jpg", 10, { noParent: true });
     let saveBtn = await drawButton(0.0013, 0.0096, 0.0675, 0.117, "/systemfiles/runtime/apps/zm/assets/saveGame.png", "/systemfiles/runtime/apps/zm/assets/saveGame(hover).png", async () => {
         let hasError = false;
         try {
@@ -222,14 +210,14 @@ bagUI.children.splice = function(...args) {
     // token used to cancel stale async tooltip loads
     instance.extern.tooltip = null; // store the currently displayed tooltip so we can remove it when needed
     instance.extern._tooltipToken = 0;
-    instance.extern.displayItemTooltip = async function(itemData, posX, posY, info) {
+    instance.extern.displayItemTooltip = async function(itemData, posX, posY, info, arg) {
         // cancel if already showing (or allow re-show by incrementing token)
         const myToken = ++instance.extern._tooltipToken;
         // mark that a tooltip is pending/showing for input logic
         instance.extern.tooltipShowing = true;
         let createdTooltip = null;
         try {
-            createdTooltip = await drawScaleableImage('/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1, { x: posX, y: posY, width: info.width, height: info.height });
+            createdTooltip = await drawImage(posX, posY, info.width, info.height, '/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1);
         } catch (e) {
             // loading failed (e.g. image couldn't be read). Ensure state is cleaned up and do not leave a stale flag.
             console.error('displayItemTooltip failed to load image', e);
@@ -249,7 +237,7 @@ bagUI.children.splice = function(...args) {
         try {
             bagUI.addChild(instance.extern.tooltip);
             // create text with explicit params and diagnostics to detect rendering issues
-            await generateTooltipText(itemData);
+            await generateTooltipText(itemData, arg);
         } catch (e) {
             // if anything fails while adding children, remove tooltip and clear state
             console.error('displayItemTooltip failed while attaching children', e);
