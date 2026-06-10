@@ -4,7 +4,7 @@ zbUtils.comparelist2 = [
     'fromWho',
     'type',
     "description"
-]
+];
 zbUtils.comparelist = [
     'level',
     'ROC',
@@ -19,7 +19,33 @@ zbUtils.comparelist = [
     "MPHeal",
     "gainHPfromEntity",
     "defense2"
-]
+];
+zbUtils.remakeNameLookup = {
+    1: "一",
+    2: "二",
+    3: "三",
+    4: "四",
+    5: "五",
+}
+
+
+
+
+
+
+
+
+zbUtils.generateCalc = (att, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, perc) => {
+    let qhstring = "";
+    if (!perc) {
+        if (displayqhlevel !== 0) qhstring = "(+" + parseInt(displayqhlevel * qhplsNum * att) + ')'
+        return parseInt(att + att * displayremakelevel * remakeplsNum) + qhstring
+    } else {
+        if (displayqhlevel !== 0) qhstring = "(+" + (parseInt(parseFloat(displayqhlevel * qhplsNum * att) * 100)) + '%' + ')';
+        return parseInt((att + att * displayremakelevel * remakeplsNum) * 100) + '%' + qhstring
+    }
+}
+
 zbUtils.lookupStats = (name, displaypos, itemObj) => {
     displaypos.X = displaypos.x;
     displaypos.Y = displaypos.y;
@@ -35,7 +61,7 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
             zbUtils.comparelist2.forEach(description => {
                 if (resultObj[description]) dy++;
             });
-            let calcH = wordMove * dy + 0.02; // 0.02 is the margin
+            let calcH = wordMove * dy + 0.04; // 0.04 is the margin
             resultObj.height = calcH;
             return resultObj;
         case 'ptdxzg':
@@ -47,7 +73,7 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
     }
 }
 
-zbUtils.getWx = (num) => {
+zbUtils.getWx = (num, channel = 0) => {
     if (num === 0) return "金";
     else if (num === 1) return "木";
     else if (num === 2) return "水";
@@ -67,10 +93,13 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     let wordMove = 0.04;
     const explicitSize = 0.025;
     const explicitFamily = "InfoFont";
-
+    let remakeString = '';
+    let qhString = '';
+    if (obj.remakeLevel) remakeString = zbUtils.remakeNameLookup[obj.remakeLevel] + '重';
+    if (obj.qhLevel) qhString = "(" + "+" + obj.qhLevel + ")"
 
     let itemName = await drawText(
-        displayobj.result || "",
+        remakeString + displayobj.result + qhString,
         explicitSize,
         displayobj.color,
         explicitFamily,
@@ -186,11 +215,15 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
 
 
 
+    let displayremakelevel = obj.remakeLevel ? obj.remakeLevel : 0;
+    let displayqhlevel = obj.qhLevel ? obj.qhLevel : 0;
+    let qhplsNum = 0.167;
+    let remakeplsNum = 0.1
 
     if (obj.HP) {
         dy++;
         let itemName = await drawText(
-            "生命: " + obj.HP,
+            "生命: " + zbUtils.generateCalc(obj.HP, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, false),
             explicitSize,
             "orange",
             explicitFamily,
@@ -204,7 +237,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.MP) {
         dy++;
         let itemName = await drawText(
-            "魔法: " + obj.MP,
+            "魔法: " + zbUtils.generateCalc(obj.MP, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, false),
             explicitSize,
             "orange",
             explicitFamily,
@@ -218,7 +251,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.attack) {
         dy++;
         let itemName = await drawText(
-            "攻击: " + obj.attack,
+            "攻击: " + zbUtils.generateCalc(obj.attack, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, false),
             explicitSize,
             "orange",
             explicitFamily,
@@ -232,7 +265,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.defense) {
         dy++;
         let itemName = await drawText(
-            "防御: " + obj.defense,
+            "防御: " + zbUtils.generateCalc(obj.defense, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, false),
             explicitSize,
             "orange",
             explicitFamily,
@@ -246,7 +279,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.CHC) {
         dy++;
         let itemName = await drawText(
-            "暴击: " + obj.CHC * 100 + '%',
+            "暴击: " + zbUtils.generateCalc(obj.CHC, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, true),
             explicitSize,
             "orange",
             explicitFamily,
@@ -260,7 +293,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.MISS) {
         dy++;
         let itemName = await drawText(
-            "闪避: " + obj.MISS * 100 + '%',
+            "闪避: " + zbUtils.generateCalc(obj.MISS, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, true),
             explicitSize,
             "orange",
             explicitFamily,
@@ -274,7 +307,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.HPHeal) {
         dy++;
         let itemName = await drawText(
-            "回血: " + obj.HPHeal,
+            "回血: " + zbUtils.generateCalc(obj.HPHeal, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, false),
             explicitSize,
             "orange",
             explicitFamily,
@@ -288,7 +321,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.MPHeal) {
         dy++;
         let itemName = await drawText(
-            "回魔: " + obj.MPHeal,
+            "回魔: " + zbUtils.generateCalc(obj.MPHeal, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, false),
             explicitSize,
             "orange",
             explicitFamily,
@@ -302,7 +335,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.gainHPfromEntity) {
         dy++;
         let itemName = await drawText(
-            "吸血: " + obj.gainHPfromEntity * 100 + '%',
+            "吸血: " + zbUtils.generateCalc(obj.gainHPfromEntity, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, true),
             explicitSize,
             "orange",
             explicitFamily,
@@ -316,7 +349,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (obj.defense2) {
         dy++;
         let itemName = await drawText(
-            "魔抗: " + obj.defense2 * 100 + '%',
+            "魔抗: " + zbUtils.generateCalc(obj.defense2, displayremakelevel, remakeplsNum, displayqhlevel, qhplsNum, true),
             explicitSize,
             "orange",
             explicitFamily,
@@ -327,12 +360,12 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
         itemName.setPosition(baseX, baseY - wordMove * dy); // position text at top center of tooltip
         instance.extern.tooltip.addChild(itemName);
     }
-    if (obj.description) {
+    if (displayobj.description) {
         dy++;
         let itemName = await drawText(
-            obj.description,
+            displayobj.description,
             explicitSize,
-            "orange",
+            "white",
             explicitFamily,
             "left",
             1,

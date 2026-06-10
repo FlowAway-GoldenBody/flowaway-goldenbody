@@ -5,16 +5,32 @@ async function continueInGame(zmcd, cdIndex) {
     let activeplayer = 1;
     let currentTooltipItem = null; // track which item currently has a tooltip shown
     let zbUtils = {};
+    let curLdlMode = 1;
+    let lhText;
+    let exposeOutside = {};
+    let ldlCache = {};
+    ldlCache.removedzbsaveobject = [];
+    ldlCache.removeddjsaveobject = [];
+    ldlCache.curzbItemsToRender = zmcd.bagzbsaveobject;
+    ldlCache.curdjItemsToRender = zmcd.bagdjsaveobject;
+    async function renderLhtext() {
+        if (lhText) {lhText.remove(); lhText = null;}
+        lhText = await drawText(zmcd.lhValue, 0.04, "white", "ThinFont", "left", 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/ThinFont.ttf", fontFamily: 'ThinFont' });
+        lhText.setPosition(0.854, 0.0227);
+    }
+    renderLhtext();
     (async () => {
       let scriptText = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/utils.js", { text: true, direct: true });
       eval(scriptText);
     })();
 
-    async function generateTooltipText(itemData, arg) {
+    async function generateTooltipText(itemData, arg, textHeight, lowh) {
         const explicitSize = 0.025;
         const explicitFamily = "InfoFont";
-        let displayObject = zbUtils.lookupStats(itemData.name, arg, itemData);
-        zbUtils.renderStats(itemData, displayObject, arg)
+        let newarg = { x: arg.x, y: arg.y }
+        let displayObject = zbUtils.lookupStats(itemData.name, newarg, itemData);
+        if (lowh) newarg.y += textHeight;
+        zbUtils.renderStats(itemData, displayObject, newarg)
         return displayObject;
     }
     console.log('this is used to trace the vmxxxxx files so its able to debug')
@@ -39,7 +55,7 @@ async function continueInGame(zmcd, cdIndex) {
     }
     let renderingBag = false;
 
-    async function renderBagItems(category, pageNum = 1) {
+    async function renderBagItems(category, pageNum = 1, itemsToRender) {
         if (renderingBag) return;
         renderingBag = true;
         try {
@@ -47,7 +63,8 @@ async function continueInGame(zmcd, cdIndex) {
         let existingItems = bagUI.children.filter(child => child.isItem);
         existingItems.forEach(item => item.remove());
         // render items for the selected category
-        let itemsToRender = zmcd[`bag${category}saveobject`] || [];
+        if (!itemsToRender) itemsToRender = Array.from(zmcd[`bag${category}saveobject`]) || [];
+        ldlCache[`cur${curCategory}ItemsToRender`] = itemsToRender;
         // render empty slots for the current page
         let yindex = 0;
         let startSlot = (pageNum - 1) * 25;
@@ -76,12 +93,49 @@ bagUI.children.splice = function(...args) {
             let slot = itemsToRender[i];
             // only render items for the active player
             if (slot.player !== activeplayer) continue;
+
             let itemImg = "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png";
-            
+
             // Create button first without handlers
             const itemButton = await drawButton(0.55 + (renderedCount % 5) * 0.06, 0.6421 - yindex * 0.095, 0.05, 0.07, itemImg, undefined, 
-            () => {
+            async () => {
                 // handle item click
+                switch(curLdlMode) {
+                    case 1:
+                        if (curCategory === 'zb') {
+                            ldlCache.removedzbsaveobject.push(itemsToRender.splice(itemsToRender.indexOf(slot), 1)[0]);
+                            if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(itemsToRender.push(ldlCache.qhlastSlotzb), 1);
+                            ldlCache.qhlastSlotzb = slot;
+                            exposeOutside.qhtableImg.children.forEach(element => {
+                                if (element.locatorID === 'containerImg') {
+                                    element.remove(); 
+                                    exposeOutside.qhtableImg.children.splice(exposeOutside.qhtableImg.children.indexOf(element), 1);
+                                }
+                            });
+                            renderBagItems(curCategory, curPage, itemsToRender);
+                            try {
+                            instance.extern.tooltip.remove();
+                            instance.extern.tooltip = null;
+                            } catch (e) {}
+                            let containerImg = await drawImage(0.3009, 0.5193, 0.0562, 0.0962, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
+                            containerImg.locatorID = 'containerImg';
+                            let itemBtn = await drawButton(0.3009, 0.5193, 0.0562, 0.0962, "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", () => {
+                                if (ldlCache.qhlastSlotzb) itemsToRender.push(ldlCache.qhlastSlotzb);
+                                itemBtn.parent.remove();
+                                ldlCache.qhlastSlotzb = null;
+                                renderBagItems(curCategory, curPage, itemsToRender);
+                            });
+                            exposeOutside.qhtableImg.addChild(containerImg);
+                            containerImg.addChild(itemBtn);
+                        }
+                        if (curCategory === 'dj') {
+                            onLdldj.push(slot);
+                            if (lastSlotdj) onLdldj.splice(onLdldj.indexOf(lastSlotdj), 1);
+                            lastSlotdj = slot;
+                            renderBagItems(curCategory, curPage);
+                        }
+                        break;
+                }
             }, 
             1 // zindex
             );
@@ -94,8 +148,12 @@ bagUI.children.splice = function(...args) {
                 currentTooltipItem = itemButton;
                 let info = zbUtils.lookupStats(slot.name, itemButton, slot);
                 let h = itemButton.y - info.height + itemButton.height;
-                if (h < 0) h = 0.007099999999999995;
-                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h, info, itemButton);
+                let tmp = h;
+                let lowh = false;
+                if (h < 0) {h = 0.007099999999999995; lowh = true}
+                if (h === 0.007099999999999995) tmp = h-tmp;
+                let textHeight = tmp;
+                await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h, info, itemButton, textHeight, lowh);
                 } finally {
                     executinghover = false;
                 }
@@ -134,7 +192,7 @@ bagUI.children.splice = function(...args) {
                 // handle page button click
                 btn.setImage(`/systemfiles/runtime/apps/zm/assets/zb(page${pageNum})(hover).png`);
                 removeBagItems();
-                renderBagItems(curCategory, pageNum);
+                renderBagItems(curCategory, pageNum, ldlCache[`cur${curCategory}ItemsToRender`]);
                 clearOtherCategoryButtons(pageButtons, btn);
                 curPage = pageNum;
             });
@@ -161,7 +219,7 @@ bagUI.children.splice = function(...args) {
                 // handle category button click
                 btn.setImage(`/systemfiles/runtime/apps/zm/assets/zb(cat)(${cat})(hover).png`);
                 clearOtherCategoryButtons(categoryButtons, btn);
-                renderBagItems(cat, curPage);
+                renderBagItems(cat, curPage, ldlCache[`cur${curCategory}ItemsToRender`]);
                 curCategory = cat;
             });
             categoryButtons.push(btn);
@@ -210,7 +268,7 @@ bagUI.children.splice = function(...args) {
     // token used to cancel stale async tooltip loads
     instance.extern.tooltip = null; // store the currently displayed tooltip so we can remove it when needed
     instance.extern._tooltipToken = 0;
-    instance.extern.displayItemTooltip = async function(itemData, posX, posY, info, arg) {
+    instance.extern.displayItemTooltip = async function(itemData, posX, posY, info, arg, textHeight, lowh) {
         // cancel if already showing (or allow re-show by incrementing token)
         const myToken = ++instance.extern._tooltipToken;
         // mark that a tooltip is pending/showing for input logic
@@ -220,7 +278,6 @@ bagUI.children.splice = function(...args) {
             createdTooltip = await drawImage(posX, posY, info.width, info.height, '/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1);
         } catch (e) {
             // loading failed (e.g. image couldn't be read). Ensure state is cleaned up and do not leave a stale flag.
-            console.error('displayItemTooltip failed to load image', e);
             // only clear tooltipShowing if no newer tooltip request was made
             if (instance.extern._tooltipToken === myToken) instance.extern.tooltipShowing = false;
             return null;
@@ -237,10 +294,9 @@ bagUI.children.splice = function(...args) {
         try {
             bagUI.addChild(instance.extern.tooltip);
             // create text with explicit params and diagnostics to detect rendering issues
-            await generateTooltipText(itemData, arg);
+            await generateTooltipText(itemData, arg, textHeight, lowh);
         } catch (e) {
             // if anything fails while adding children, remove tooltip and clear state
-            console.error('displayItemTooltip failed while attaching children', e);
             try { if (instance.extern.tooltip && typeof instance.extern.tooltip.remove === 'function') instance.extern.tooltip.remove(); } catch (e2) {}
             instance.extern.tooltip = null;
             instance.extern.tooltipShowing = false;
@@ -262,6 +318,7 @@ bagUI.children.splice = function(...args) {
     let bagBtn = await drawButton(0.1377, 0.0173, 0.0685, 0.106, "/systemfiles/runtime/apps/zm/assets/inGame(ldl).png", "/systemfiles/runtime/apps/zm/assets/inGame(ldl)(hover).png", async () => {
         if (bagUI) return; // prevent multiple bagUIs from being opened
         bagUI = await drawImage(0,0,1,1,"/systemfiles/runtime/apps/zm/assets/ldlGui.png");
+        eval(await window.protectedGlobals.ReadFile('/systemfiles/runtime/apps/zm/ldlFunction.js', { text: true, direct: true }));
         curminimap.children.forEach(child => {
             if (child.setDisableAccess) child.setDisableAccess(true);
         });
@@ -269,6 +326,8 @@ bagUI.children.splice = function(...args) {
         let closeBagBtn = await drawButton(0.91, 0.9225, 0.058, 0.04, "/systemfiles/runtime/apps/zm/assets/ldl(return).png", "/systemfiles/runtime/apps/zm/assets/ldl(return)(hover).png", () => {
             bagUI.remove();
             bagUI = null;
+            zmcd.bagzbsaveobject = ldlCache.curzbItemsToRender;
+            zmcd.bagdjsaveobject = ldlCache.curdjItemsToRender;
             curminimap.children.forEach(child => {
                 if (child.setDisableAccess) child.setDisableAccess(false);
             });

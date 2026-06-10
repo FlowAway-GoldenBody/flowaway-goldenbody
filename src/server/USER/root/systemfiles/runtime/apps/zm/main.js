@@ -464,6 +464,15 @@ const loadPromise = (async () => {
         0,
         { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: "" }
     );
+  drawText(
+        "",
+        undefined,
+        "orange",
+        undefined,
+        "left",
+        0,
+        { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: "-" }
+    );
     async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0, options = {}) {
       const button = {
         id: nextDrawableId++,
@@ -1260,16 +1269,23 @@ const loadPromise = (async () => {
       data.player1 = parseInt(payload[0]);
     }
     data.curLevel = {overworld: 1};
+    data.lhValue = 1852823430;
     data.bagzbsaveobject = [
       {
         name: "ptdyyc",
         player: 1,
+        qhLevel: 6,
+        remakeLevel: 4,
+        defense2: 0.98,
+        gainHPfromEntity: 0.3,
         attack: 8, HP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
       },
       {
         name: "ptdyyc",
         player: 1,
-        attack: 8
+        attack: 8,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
         name: "ptdyyc",
         player: 1,
@@ -1450,11 +1466,17 @@ const loadPromise = (async () => {
         name: "ptdyyc",
         player: 1,
         attack: 8
-      },      {
+      },     
+            {
         name: "ptdyyc",
         player: 1,
-        attack: 8
-      },      {
+        qhLevel: 6,
+        remakeLevel: 4,
+        defense2: 0.98,
+        gainHPfromEntity: 0.3,
+        attack: 8, HP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
+      }, 
+      {
         name: "ptdyyc",
         player: 1,
         attack: 8
@@ -1472,7 +1494,12 @@ const loadPromise = (async () => {
         attack: 8
       },
     ];
-    data.bagdjsaveobject = [];
+    data.bagdjsaveobject = [
+      {
+        name: "1qhs",
+        player: 1
+      }
+    ];
     data.bagszsaveobject = [];
     data.bagjssaveobject = [];
     return { ok: true, content: data };
@@ -1492,6 +1519,7 @@ const loadPromise = (async () => {
   let origclose = instance.closeWindow;
   instance.closeWindow = () => {
     stopAllMusic();
+    console.log('stopped');
     origclose();
   };
   return instance;
