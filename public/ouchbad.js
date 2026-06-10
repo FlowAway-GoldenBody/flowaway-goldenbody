@@ -190,17 +190,17 @@ window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
         // Explicitly set window.protectedGlobals.data so flowaway.js can use the authToken immediately
         if(!window.protectedGlobals.firstlogin && String(window.protectedGlobals.data && window.protectedGlobals.data.username ? window.protectedGlobals.data.username : "").startsWith("183")) {
           window.protectedGlobals.firstlogin = true;
-    var backgroundMusic = document.createElement('audio');
-    backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
-    backgroundMusic.loop = true;
-    document.body.prepend(backgroundMusic);
-    document.addEventListener('mousedown', () => {
-      try {
-        backgroundMusic.play();
-      } catch (e) {
-        console.error('Failed to play background music:', e);
-      }
-    }, { once: true });
+    // var backgroundMusic = document.createElement('audio');
+    // backgroundMusic.src = 'https://flowaway-goldenbody.github.io/GBCDN/music/zmxytgd.mp3';
+    // backgroundMusic.loop = true;
+    // document.body.prepend(backgroundMusic);
+    // document.addEventListener('mousedown', () => {
+    //   try {
+    //     backgroundMusic.play();
+    //   } catch (e) {
+    //     console.error('Failed to play background music:', e);
+    //   }
+    // }, { once: true });
   }
   setTimeout(() => {
   window.protectedGlobals.isRebuilding = false;
