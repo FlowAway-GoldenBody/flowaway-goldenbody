@@ -47,6 +47,175 @@ window.browser = function (
   posY = 20,
   preMaximized = false,
 ) {
+    let exposedToTabs = {};
+    function showSetSpeedDialogue(anchorPoint = null) {
+      document.getElementById("set-speed-ui")?.remove();
+
+      const panel = document.createElement("div");
+      panel.id = "set-speed-ui";
+      panel.className = "panel";
+      panel.classList.toggle("dark", browserGlobals.dark);
+      panel.classList.toggle("light", !browserGlobals.dark);
+      panel.style.cssText =
+        "position:fixed;z-index:999999;width:360px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+      let closed = false;
+
+      function cleanup() {
+        if (closed) return;
+        closed = true;
+        try {
+          panel.remove();
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointermove", onPointerMove);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerup", onPointerUp);
+        } catch (e) {}
+      }
+
+      function onOutsidePointerDown(event) {
+        if (!panel.contains(event.target)) cleanup();
+      }
+
+      const title = document.createElement("div");
+      title.style.cssText = "font-weight:600;margin-bottom:8px;cursor:grab";
+      title.textContent = "Change RAF Speed";
+      panel.appendChild(title);
+
+      const desc = document.createElement("div");
+      desc.style.cssText = "font-size:12px;color:#888;margin-bottom:8px";
+      desc.textContent = "Adjust requestAnimationFrame speed (percentage).";
+      panel.appendChild(desc);
+
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;";
+
+      const range = document.createElement("input");
+      range.type = "range";
+      range.min = "0.1";
+      range.max = "100";
+      range.step = "0.1";
+      range.value = activatedTab.RAFSpeed || '1';
+      range.style.cssText = "flex:1";
+
+      const num = document.createElement("input");
+      num.type = "number";
+      num.min = 0.1;
+      num.max = 100;
+      num.value = range.value;
+      num.style.cssText = "width:64px;padding:6px;border-radius:6px;border:1px solid #ccc";
+
+      range.addEventListener("input", () => {
+        num.value = range.value;
+      });
+      num.addEventListener("input", () => {
+        let v = Number(num.value) || 0;
+        if (v < 0.1) v = 0.1;
+        if (v > 100) v = 100;
+        range.value = String(v);
+        num.value = String(v);
+      });
+
+      row.appendChild(range);
+      row.appendChild(num);
+      panel.appendChild(row);
+
+      const hint = document.createElement("div");
+      hint.style.cssText = "font-size:12px;color:#666;margin-top:8px";
+      hint.textContent = "1 = normal speed. Lower = slower, higher = faster.";
+      panel.appendChild(hint);
+
+      const btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px";
+      const btnCancel = document.createElement("button");
+      btnCancel.textContent = "Cancel";
+      btnCancel.onclick = () => cleanup();
+      const btnApply = document.createElement("button");
+      btnApply.textContent = "Apply";
+      btnApply.style.background = "#4c8bf5";
+      btnApply.style.color = "#fff";
+      btnApply.onclick = async () => {
+        const speed = Number(range.value) || 1;
+        try {
+          activatedTab.setRAFSpeed(speed)
+        } catch (e) {}
+        cleanup();
+      };
+      btnRow.appendChild(btnCancel);
+      btnRow.appendChild(btnApply);
+      panel.appendChild(btnRow);
+
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let origLeft = 0;
+      let origTop = 0;
+      function onPointerMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        panel.style.left = origLeft + dx + "px";
+        panel.style.top = origTop + dy + "px";
+        panel.style.transform = "";
+      }
+      function onPointerUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        title.style.cursor = "grab";
+        try {
+          document.removeEventListener("pointermove", onPointerMove);
+        } catch (e) {}
+        try {
+          document.removeEventListener("pointerup", onPointerUp);
+        } catch (e) {}
+      }
+      title.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        isDragging = true;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        const r = panel.getBoundingClientRect();
+        origLeft = r.left;
+        origTop = r.top;
+        title.style.cursor = "grabbing";
+        document.addEventListener("pointermove", onPointerMove);
+        document.addEventListener("pointerup", onPointerUp);
+      });
+
+      document.body.appendChild(panel);
+
+      setTimeout(() => {
+        if (!closed) {
+          document.addEventListener("pointerdown", onOutsidePointerDown, true);
+        }
+      }, 0);
+
+      if (
+        anchorPoint &&
+        typeof anchorPoint.x === "number" &&
+        typeof anchorPoint.y === "number"
+      ) {
+        const rect = panel.getBoundingClientRect();
+        const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+        let left = anchorPoint.x - rect.width;
+        let top = anchorPoint.y;
+        left = Math.max(0, Math.min(left, Math.max(0, viewportW - rect.width)));
+        top = Math.max(0, Math.min(top, Math.max(0, viewportH - rect.height)));
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+        panel.style.transform = "";
+      } else {
+        panel.style.left = "50%";
+        panel.style.top = "50%";
+        panel.style.transform = "translate(-50%,-50%)";
+      }
+    }
   function showConfirmDialog(title, message) {
     return new Promise((resolve) => {
       document.getElementById("confirm-dialog")?.remove();
@@ -860,6 +1029,12 @@ window.browser = function (
         },
         !hasActiveTab,
       );
+      addItem(
+        "change RAF speed",
+        () => {
+          showSetSpeedDialogue();
+        }
+      )
       addItem("Delete browsing data", () => {
         clearBrowsingData();
       });
@@ -2390,7 +2565,13 @@ window.browser = function (
       root.appendChild(iframe);
       let loadedurl = url;
       let donotm = false;
+      let RAFSpeed = 1;
       const tab = {
+        RAFSpeed,
+        setRAFSpeed: (val) => {
+          tab.RAFSpeed = val;
+          exposedToTabs.recurseFrames(tab.iframe.contentDocument, undefined, tab.iframe, undefined, { speed: val })
+        },
         id,
         firstNav: true,
         url,

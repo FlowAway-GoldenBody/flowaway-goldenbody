@@ -17,6 +17,7 @@ async function continueInGame(zmcd, cdIndex) {
         if (lhText) {lhText.remove(); lhText = null;}
         lhText = await drawText(zmcd.lhValue, 0.04, "white", "ThinFont", "left", 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/ThinFont.ttf", fontFamily: 'ThinFont' });
         lhText.setPosition(0.854, 0.0227);
+        bagUI.addChild(lhText);
     }
     renderLhtext();
     (async () => {
@@ -70,15 +71,15 @@ async function continueInGame(zmcd, cdIndex) {
         let startSlot = (pageNum - 1) * 25;
         let origPush = bagUI.children.push;
         let origSplice = bagUI.children.splice;
-bagUI.children.push = function(...args) {
-    console.log("PUSH", args);
-    return origPush.apply(this, args);
-};
+// bagUI.children.push = function(...args) {
+//     console.log("PUSH", args);
+//     return origPush.apply(this, args);
+// };
 
-bagUI.children.splice = function(...args) {
-    console.trace("SPLICE", args);
-    return origSplice.apply(this, args);
-};
+// bagUI.children.splice = function(...args) {
+//     console.trace("SPLICE", args);
+//     return origSplice.apply(this, args);
+// };
         for (let i = 0; i < 25; i++) {
             let slotNum = startSlot + i;
             let emptySlot = await drawImage(0.55 + (i % 5) * 0.06, 0.6421 - yindex * 0.095, 0.05, 0.07, "/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png", 0);
@@ -104,27 +105,48 @@ bagUI.children.splice = function(...args) {
                     case 1:
                         if (curCategory === 'zb') {
                             ldlCache.removedzbsaveobject.push(itemsToRender.splice(itemsToRender.indexOf(slot), 1)[0]);
-                            if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(itemsToRender.push(ldlCache.qhlastSlotzb), 1);
+                            if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(itemsToRender.push(ldlCache.qhlastSlotzb)), 1);
                             ldlCache.qhlastSlotzb = slot;
                             exposeOutside.qhtableImg.children.forEach(element => {
                                 if (element.locatorID === 'containerImg') {
                                     element.remove(); 
-                                    exposeOutside.qhtableImg.children.splice(exposeOutside.qhtableImg.children.indexOf(element), 1);
                                 }
                             });
                             renderBagItems(curCategory, curPage, itemsToRender);
                             try {
                             instance.extern.tooltip.remove();
                             instance.extern.tooltip = null;
+                            currentTooltipItem = null;
                             } catch (e) {}
-                            let containerImg = await drawImage(0.3009, 0.5193, 0.0562, 0.0962, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
+                            let containerImg = await drawImage(0.305, 0.51, 0.05, 0.074, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
                             containerImg.locatorID = 'containerImg';
-                            let itemBtn = await drawButton(0.3009, 0.5193, 0.0562, 0.0962, "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", () => {
+                            let itemBtn = await drawButton(0.305, 0.51, 0.05, 0.074, "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", () => {
+                                if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(ldlCache.qhlastSlotzb), 1);
                                 if (ldlCache.qhlastSlotzb) itemsToRender.push(ldlCache.qhlastSlotzb);
                                 itemBtn.parent.remove();
+                                if (instance.extern.tooltip) {instance.extern.tooltip.remove(); instance.extern.tooltip = null; currentTooltipItem = null;}
                                 ldlCache.qhlastSlotzb = null;
                                 renderBagItems(curCategory, curPage, itemsToRender);
                             });
+                            itemBtn.onHover = async () => {
+                                // Only show tooltip if this item doesn't already have one shown
+                                if (currentTooltipItem === itemBtn) return;
+                                
+                                currentTooltipItem = itemBtn;
+                                let info = zbUtils.lookupStats(slot.name, itemBtn, slot);
+                                let h = itemBtn.y - info.height + itemBtn.height;
+                                let tmp = h;
+                                let lowh = false;
+                                if (h < 0) {h = 0.007099999999999995; lowh = true}
+                                if (h === 0.007099999999999995) tmp = h-tmp;
+                                let textHeight = tmp;
+                                await instance.extern.displayItemTooltip(slot, itemBtn.x + itemBtn.width, h, info, itemBtn, textHeight, lowh);
+                            };
+                            itemBtn.onHoverEnd = () => {
+                                currentTooltipItem = null;
+                                instance.extern.tooltip.remove();
+                                instance.extern.tooltip = null;
+                            };
                             exposeOutside.qhtableImg.addChild(containerImg);
                             containerImg.addChild(itemBtn);
                         }
@@ -141,7 +163,6 @@ bagUI.children.splice = function(...args) {
             );
             
             itemButton.onHover = async () => {
-                try {
                 // Only show tooltip if this item doesn't already have one shown
                 if (currentTooltipItem === itemButton) return;
                 
@@ -154,9 +175,6 @@ bagUI.children.splice = function(...args) {
                 if (h === 0.007099999999999995) tmp = h-tmp;
                 let textHeight = tmp;
                 await instance.extern.displayItemTooltip(slot, itemButton.x + itemButton.width, h, info, itemButton, textHeight, lowh);
-                } finally {
-                    executinghover = false;
-                }
             };
             
             itemButton.onHoverEnd = () => {
@@ -219,8 +237,8 @@ bagUI.children.splice = function(...args) {
                 // handle category button click
                 btn.setImage(`/systemfiles/runtime/apps/zm/assets/zb(cat)(${cat})(hover).png`);
                 clearOtherCategoryButtons(categoryButtons, btn);
-                renderBagItems(cat, curPage, ldlCache[`cur${curCategory}ItemsToRender`]);
                 curCategory = cat;
+                renderBagItems(cat, curPage, ldlCache[`cur${curCategory}ItemsToRender`]);
             });
             categoryButtons.push(btn);
             bagUI.addChild(btn);
@@ -317,6 +335,8 @@ bagUI.children.splice = function(...args) {
     };
     let bagBtn = await drawButton(0.1377, 0.0173, 0.0685, 0.106, "/systemfiles/runtime/apps/zm/assets/inGame(ldl).png", "/systemfiles/runtime/apps/zm/assets/inGame(ldl)(hover).png", async () => {
         if (bagUI) return; // prevent multiple bagUIs from being opened
+        curPage = 1;
+        curCategory = 'zb';
         bagUI = await drawImage(0,0,1,1,"/systemfiles/runtime/apps/zm/assets/ldlGui.png");
         eval(await window.protectedGlobals.ReadFile('/systemfiles/runtime/apps/zm/ldlFunction.js', { text: true, direct: true }));
         curminimap.children.forEach(child => {
@@ -326,8 +346,13 @@ bagUI.children.splice = function(...args) {
         let closeBagBtn = await drawButton(0.91, 0.9225, 0.058, 0.04, "/systemfiles/runtime/apps/zm/assets/ldl(return).png", "/systemfiles/runtime/apps/zm/assets/ldl(return)(hover).png", () => {
             bagUI.remove();
             bagUI = null;
-            zmcd.bagzbsaveobject = ldlCache.curzbItemsToRender;
-            zmcd.bagdjsaveobject = ldlCache.curdjItemsToRender;
+            zmcd.bagzbsaveobject = [...ldlCache.curzbItemsToRender, ...ldlCache.removedzbsaveobject];
+            ldlCache.removedzbsaveobject = [];
+            ldlCache.curzbItemsToRender = Array.from(zmcd.bagzbsaveobject);
+            ldlCache.qhlastSlotzb = null;
+            zmcd.bagdjsaveobject = [...ldlCache.curdjItemsToRender, ...ldlCache.removeddjsaveobject];
+            ldlCache.removeddjsaveobject = [];
+            ldlCache.curdjItemsToRender = Array.from(zmcd.bagdjsaveobject);
             curminimap.children.forEach(child => {
                 if (child.setDisableAccess) child.setDisableAccess(false);
             });

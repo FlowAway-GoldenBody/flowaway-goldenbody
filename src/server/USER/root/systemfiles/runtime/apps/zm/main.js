@@ -847,7 +847,7 @@ const loadPromise = (async () => {
       return list;
     }
 
-    window.renderScene = function renderScene() {
+    function renderScene() {
       const { width, height } = resizeCanvas();
       ctx.clearRect(0, 0, width, height);
       const list = buildRenderList();

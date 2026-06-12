@@ -756,8 +756,7 @@ async function iframePatches() {
       }
     } catch (e) {}
   }
-
-  function recurseFrames(doc, event = null, argFrame = false, observe = true) {
+  exposedToTabs.recurseFrames = (doc, event = null, argFrame = false, observe = true, RAFObject = false) => {
     if (!doc) return;
     if (observe) observeDocumentFrames(doc);
 
@@ -788,12 +787,30 @@ async function iframePatches() {
         try {
           const win = frame.contentWindow;
           const frameDoc = frame.contentDocument || win?.document;
+          frame.contentWindow.gbextern = frame.contentWindow.gbextern || {};
+          if (!win.gbextern.originalRAF) win.gbextern.originalRAF = win.requestAnimationFrame.bind(win);
           if (!win || !frameDoc) continue;
+          if (RAFObject) {
+            let speed = RAFObject.speed;
+
+            let realNow = performance.now.bind(performance);
+            let startReal = realNow();
+            let startVirtual = startReal;
+
+            function virtualNow() {
+              return startVirtual + (realNow() - startReal) * speed;
+            }
+
+            win.requestAnimationFrame = callback => {
+              return win.gbextern.originalRAF(realTime => {
+                callback(virtualNow());
+              });
+            };
+          }
           console.log(
             "[XXXXXXXXXXXXXXX]Patching iframe:",
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
-          frame.contentWindow.gbextern = frame.contentWindow.gbextern || {};
           frame.contentWindow.gbextern.exitPointerLock = frame.contentDocument.exitPointerLock.bind(frame.contentDocument);
           frame.contentWindow.Object.defineProperty(frame.contentWindow.gbextern, "exitPointerLock", {configurable: false, enumerable: true, writable: false, value: frame.contentWindow.gbextern.exitPointerLock});
           if (frame.contentDocument.__gbCookieHookInstalled) continue;
@@ -1399,7 +1416,7 @@ async function iframePatches() {
       }
     }
   }
-
+  let recurseFrames = exposedToTabs.recurseFrames;
   // Hide the menu when clicking elsewhere
   iframeDocument.addEventListener("click", hideMenu);
   iframe.__gbPatchedDocument = iframeDocument;
