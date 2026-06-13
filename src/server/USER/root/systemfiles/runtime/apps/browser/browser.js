@@ -89,7 +89,7 @@ window.browser = function (
 
       const desc = document.createElement("div");
       desc.style.cssText = "font-size:12px;color:#888;margin-bottom:8px";
-      desc.textContent = "Adjust requestAnimationFrame speed (percentage).";
+      desc.textContent = "Adjust animation speed for most games";
       panel.appendChild(desc);
 
       const row = document.createElement("div");

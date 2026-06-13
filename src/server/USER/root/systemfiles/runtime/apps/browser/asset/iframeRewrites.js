@@ -801,11 +801,27 @@ async function iframePatches() {
               return startVirtual + (realNow() - startReal) * speed;
             }
 
-            win.requestAnimationFrame = callback => {
-              return win.gbextern.originalRAF(realTime => {
-                callback(virtualNow());
-              });
-            };
+            try {
+              win.requestAnimationFrame = callback => {
+                return win.gbextern.originalRAF(realTime => {
+                  callback(virtualNow());
+                });
+              };
+            } catch (err) {
+              try {
+                Object.defineProperty(win, "requestAnimationFrame", {
+                  configurable: true,
+                  writable: true,
+                  value: function (callback) {
+                    return win.gbextern.originalRAF(function (realTime) {
+                      callback(virtualNow());
+                    });
+                  },
+                });
+              } catch (err2) {
+                console.warn("Unable to override requestAnimationFrame on iframe", err2);
+              }
+            }
           }
           console.log(
             "[XXXXXXXXXXXXXXX]Patching iframe:",
