@@ -9,6 +9,7 @@ async function continueInGame(zmcd, cdIndex) {
     let lhText;
     let exposeOutside = {};
     let ldlCache = {};
+    let categoryButtons = [];
     ldlCache.removedzbsaveobject = [];
     ldlCache.removeddjsaveobject = [];
     ldlCache.curzbItemsToRender = zmcd.bagzbsaveobject;
@@ -104,15 +105,15 @@ async function continueInGame(zmcd, cdIndex) {
                 switch(curLdlMode) {
                     case 1:
                         if (curCategory === 'zb') {
-                            ldlCache.removedzbsaveobject.push(itemsToRender.splice(itemsToRender.indexOf(slot), 1)[0]);
-                            if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(itemsToRender.push(ldlCache.qhlastSlotzb)), 1);
+                            ldlCache.removedzbsaveobject.push(ldlCache.curzbItemsToRender.splice(ldlCache.curzbItemsToRender.indexOf(slot), 1)[0]);
+                            if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(ldlCache.curzbItemsToRender.push(ldlCache.qhlastSlotzb)), 1);
                             ldlCache.qhlastSlotzb = slot;
                             exposeOutside.qhtableImg.children.forEach(element => {
                                 if (element.locatorID === 'containerImg') {
                                     element.remove(); 
                                 }
                             });
-                            renderBagItems(curCategory, curPage, itemsToRender);
+                            renderBagItems(curCategory, curPage, ldlCache.curzbItemsToRender);
                             try {
                             instance.extern.tooltip.remove();
                             instance.extern.tooltip = null;
@@ -122,11 +123,12 @@ async function continueInGame(zmcd, cdIndex) {
                             containerImg.locatorID = 'containerImg';
                             let itemBtn = await drawButton(0.305, 0.51, 0.05, 0.074, "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", () => {
                                 if (ldlCache.qhlastSlotzb) ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(ldlCache.qhlastSlotzb), 1);
-                                if (ldlCache.qhlastSlotzb) itemsToRender.push(ldlCache.qhlastSlotzb);
+                                if (ldlCache.qhlastSlotzb) ldlCache.curzbItemsToRender.push(ldlCache.qhlastSlotzb);
                                 itemBtn.parent.remove();
                                 if (instance.extern.tooltip) {instance.extern.tooltip.remove(); instance.extern.tooltip = null; currentTooltipItem = null;}
                                 ldlCache.qhlastSlotzb = null;
-                                renderBagItems(curCategory, curPage, itemsToRender);
+                                categoryButtons[0].onClick();
+                                renderBagItems(curCategory, curPage);
                             });
                             itemBtn.onHover = async () => {
                                 // Only show tooltip if this item doesn't already have one shown
@@ -151,10 +153,7 @@ async function continueInGame(zmcd, cdIndex) {
                             containerImg.addChild(itemBtn);
                         }
                         if (curCategory === 'dj') {
-                            onLdldj.push(slot);
-                            if (lastSlotdj) onLdldj.splice(onLdldj.indexOf(lastSlotdj), 1);
-                            lastSlotdj = slot;
-                            renderBagItems(curCategory, curPage);
+                            
                         }
                         break;
                 }
@@ -359,7 +358,7 @@ async function continueInGame(zmcd, cdIndex) {
         });
         bagUI.addChild(closeBagBtn);
 
-        let categoryButtons = await renderBagTopBar();
+        categoryButtons = await renderBagTopBar();
         let pageButtons = await renderBagPages();
         categoryButtons[0].onClick();
         let btn1enlarged = false;

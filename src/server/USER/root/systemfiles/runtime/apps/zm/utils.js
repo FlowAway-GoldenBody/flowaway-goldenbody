@@ -1,7 +1,7 @@
 // in JSON code name to display text
+console.log('utils active');
 zbUtils.comparelist2 = [
     'rarity',
-    'fromWho',
     'type',
     "description"
 ];
@@ -51,17 +51,23 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
     displaypos.Y = displaypos.y;
     let baseY = displaypos.Y + 0.015;
     let wordMove = 0.04;
+    function calcWidth(resultObj) {
+        let dy = 0;
+        zbUtils.comparelist.forEach(description => {
+            if (itemObj[description]) dy++;
+        });
+        zbUtils.comparelist2.forEach(description => {
+            if (resultObj[description]) dy++;
+            if (description === 'description' && resultObj[description]) { dy--; dy += resultObj[description].length }
+            if (description === 'type' && resultObj[description]) dy++;
+        });
+        let calcH = wordMove * dy + 0.04; // 0.04 is the margin
+        return calcH;
+    }
     switch(name) {
         case 'ptdyyc':
-            let resultObj = {result: "普通的月牙铲", color: "white", width: 0.18, height: 0, description: "普通的沙沙武器", fromWho: "沙僧", rarity: "普通", type: "武器"}
-            let dy = 0;
-            zbUtils.comparelist.forEach(description => {
-                if (itemObj[description]) dy++;
-            });
-            zbUtils.comparelist2.forEach(description => {
-                if (resultObj[description]) dy++;
-            });
-            let calcH = wordMove * dy + 0.04; // 0.04 is the margin
+            var resultObj = {result: "普通的月牙铲", color: "white", width: 0.18, height: 0, description: ["普通的沙沙武器"], fromWho: "沙僧", rarity: "普通", type: "武器"};
+            var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
         case 'ptdxzg':
@@ -70,6 +76,11 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
             return {result: "普通的钉耙", color: "white"};
         case 'ptdcc':
             return {result: "普通的禅杖", color: "white"};
+        case '1qhs': 
+            var resultObj = {result: '一级强化石', color: "white", width: 0.18, height: 0, description: ["可以在炼丹炉内", "用来强化装备, ", "提升装备的属性"], fromWho: null, rarity: "普通", type: "强化石"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
     }
 }
 
@@ -361,17 +372,19 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
         instance.extern.tooltip.addChild(itemName);
     }
     if (displayobj.description) {
-        dy++;
-        let itemName = await drawText(
-            displayobj.description,
-            explicitSize,
-            "white",
-            explicitFamily,
-            "left",
-            1,
-            { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: explicitFamily }
-        );
-        itemName.setPosition(baseX, baseY - wordMove * dy); // position text at top center of tooltip
-        instance.extern.tooltip.addChild(itemName);
+        for (const description of displayobj.description) {
+            dy++;
+            let itemName = await drawText(
+                description,
+                explicitSize,
+                "white",
+                explicitFamily,
+                "left",
+                1,
+                { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: explicitFamily }
+            );
+            itemName.setPosition(baseX, baseY - wordMove * dy); // position text at top center of tooltip
+            instance.extern.tooltip.addChild(itemName);
+        }
     }
 }
