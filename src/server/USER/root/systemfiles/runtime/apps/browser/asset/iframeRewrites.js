@@ -1,4 +1,3 @@
-var checkerinterval = null;
 var patchinterval = null;
 var patchwindowtimeout = null;
 var stopIframePatchWatcher = () => {
@@ -306,7 +305,9 @@ async function iframePatches() {
   }
 
   // Function to show the menu
-  function showMenu(x, y, contextData = {}) {
+  function showMenu(x, y, contextData = {}, fdoc = iframeDocument) {
+    if (iframeDocument !== fdoc) {menu.remove(); iframeDocument = fdoc; fdoc.body.appendChild(menu);}
+    if (!menu.isConnected) {fdoc.body.appendChild(menu)}
     menu.innerHTML = "";
     menu.style.display = "block";
     menu.style.width = "fit-content";
@@ -547,26 +548,11 @@ async function iframePatches() {
   //   true,
   // );
 
-  function getAbsoluteMousePosition(e) {
-    // e is the MouseEvent in any iframe
-    const topWin = iframe.contentWindow;
-    const rect = topWin.document.body.getBoundingClientRect();
-    let x = e.clientX;
-    let y = e.clientY;
-    let win = e.view;
-
-    // Walk up the iframe chain
-    while (win && win !== topWin) {
-      const frame = win.__gbframeElement;
-      if (!frame) break;
-      const frameRect = frame.getBoundingClientRect();
-      x += frameRect.left;
-      y += frameRect.top;
-      win = win.parent;
-    }
-
-    return { x, y };
-  }
+function getAbsoluteMousePosition(e) {
+  let x = e.clientX;
+  let y = e.clientY;
+  return { x, y };
+}
 
   // ----------------------------
   // 4. Listen for iframe requests/inject script
@@ -841,6 +827,9 @@ async function iframePatches() {
           });
           frame.contentWindow.__gbframeElement = frame;
           frame.contentWindow.Object.defineProperty(frame.contentWindow, "frameElement", {get: () => {return null}});
+          let ruffleScript = document.createElement('script');
+          ruffleScript.src = 'https://unpkg.com/@ruffle-rs/ruffle';
+          frameDoc.body.appendChild(ruffleScript);
           let eggpatch = document.createElement("script");
           eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
           frameDoc.body.appendChild(eggpatch);
@@ -1293,7 +1282,7 @@ async function iframePatches() {
               const { x, y } = getAbsoluteMousePosition(e, frameDoc);
               const contextData = getContextMenuData(e);
 
-              showMenu(x, y, contextData);
+              showMenu(x, y, contextData, win.document);
 
               if (contextData.linkElement && contextData.linkElement.href) {
                 console.log(
@@ -1433,6 +1422,7 @@ async function iframePatches() {
     }
   }
   let recurseFrames = exposedToTabs.recurseFrames;
+
   // Hide the menu when clicking elsewhere
   iframeDocument.addEventListener("click", hideMenu);
   iframe.__gbPatchedDocument = iframeDocument;
