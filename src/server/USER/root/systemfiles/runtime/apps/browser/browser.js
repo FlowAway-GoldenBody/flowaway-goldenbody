@@ -48,6 +48,36 @@ window.browser = function (
   preMaximized = false,
 ) {
     let exposedToTabs = {};
+    let checkerinterval = null;
+setTimeout(() => {
+  function checkFrames(root = document) {
+    if (!root?.querySelectorAll) return;
+
+    for (const frame of root.querySelectorAll("iframe")) {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow?.document;
+        if (!doc) continue;
+
+        if (!doc.__gbCookieHookInstalled) {
+          exposedToTabs.recurseFrames(doc, null, frame);
+          continue;
+        }
+
+        checkFrames(doc);
+      } catch {}
+    }
+
+    for (const host of root.querySelectorAll("*")) {
+      try {
+        if (host.shadowRoot) {
+          checkFrames(host.shadowRoot);
+        }
+      } catch {}
+    }
+  }
+
+  checkerinterval = setInterval(checkFrames, 3000);
+}, 5000);
     function showSetSpeedDialogue(anchorPoint = null) {
       document.getElementById("set-speed-ui")?.remove();
 
@@ -1186,11 +1216,11 @@ window.browser = function (
     btnClose.addEventListener("click", closeWindow);
     function closeWindow() {
       try {
-        if (renderInterval) {
           clearInterval(renderInterval);
-          renderInterval = null;
-        }
       } catch (e) {}
+      try {
+        clearInterval(checkerinterval);
+      } catch(e) {}
 
       root.remove();
 
