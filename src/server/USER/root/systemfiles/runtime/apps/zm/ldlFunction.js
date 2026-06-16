@@ -35,7 +35,7 @@ let qhbtn = await drawButton(btnCoords.x, btnCoords.y, btnCoords.w, btnCoords.h,
         let lhneeded = calcresult.lhneeded;
         if (lhneeded > zmcd.lhValue) { alert('灵魂不够'); return; }
         if (succeed.realChance == 0) return;
-        if (!qhcurzbonldl) return;
+        if (!ldlCache.qhcurzbonldl) return;
         exposeOutside.deductLh(lhneeded);
         if (succeed) {
             ldlCache.qhcurzbonldl.qhLevel += 1;

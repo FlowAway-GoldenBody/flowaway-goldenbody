@@ -56,7 +56,14 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
   if (options.direct) return res.filecontent;
   return res;
 };
-
+window.protectedGlobals.ReadFolder = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  let res = await window.protectedGlobals.filePost({
+    requestFolder: true,
+    requestFolderName: String(relPath),
+  });
+  return res.files;
+}
 window.protectedGlobals.WriteFile = async function (relPath, contents, options = {}) {
   if (!relPath) throw new Error("No path");
   // Use the saveSnapshot + directions API to perform edits

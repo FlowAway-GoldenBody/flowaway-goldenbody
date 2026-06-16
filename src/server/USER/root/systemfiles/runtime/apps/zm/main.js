@@ -676,10 +676,27 @@ const loadPromise = (async () => {
       };
 
       async function loadButtonImage(path, targetKey) {
-          const img = await loadCachedImage(path);
-          button[targetKey] = img;
-          button[targetKey + "Loaded"] = true;
-          renderScene();
+          // Try multiple times to load button images (transient network/read errors can occur)
+          const maxAttempts = 5;
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              const img = await loadCachedImage(path);
+              button[targetKey] = img;
+              button[targetKey + "Loaded"] = true;
+              renderScene();
+              return;
+            } catch (err) {
+              console.warn(`loadButtonImage attempt ${attempt} failed for ${path}`, err);
+              // clear any cached failed promise to allow fresh retry
+              try { imageCache.delete(path); } catch (e) {}
+              if (attempt < maxAttempts) {
+                // backoff before retrying
+                await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+                continue;
+              }
+              console.error(`Failed to load button image after ${maxAttempts} attempts: ${path}`, err);
+            }
+          }
       }
 
       buttons.push(button);
