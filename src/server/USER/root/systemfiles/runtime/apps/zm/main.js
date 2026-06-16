@@ -473,6 +473,9 @@ const loadPromise = (async () => {
         0,
         { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: "-" }
     );
+  drawImage(
+    0,0,0,0,"/systemfiles/runtime/apps/zm/assets/saveFailed.png"
+  );
     async function drawButton(x, y, width, height, imgPath, hoverImgPath = null, onClick = () => {}, zIndex = 0, options = {}) {
       const button = {
         id: nextDrawableId++,
@@ -1269,7 +1272,7 @@ const loadPromise = (async () => {
       data.player1 = parseInt(payload[0]);
     }
     data.curLevel = {overworld: 1};
-    data.lhValue = 1852823430;
+    data.lhValue = 11000; // 1852823430;
     data.bagzbsaveobject = [
       {
         name: "ptdyyc",
@@ -1493,11 +1496,349 @@ const loadPromise = (async () => {
         player: 1,
         attack: 8
       },
+
+
+
+
+
+
+
+
+
+
+
+
+
+      {
+        name: "ptdyyc",
+        player: 2,
+        qhLevel: 6,
+        remakeLevel: 4,
+        defense2: 0.98,
+        gainHPfromEntity: 0.3,
+        attack: 8, HP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
+      },
+      {
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      },{
+        name: "ptdyyc",
+        player: 2,
+        attack: 8,
+        qhLevel: 0,
+        remakeLevel: 1
+      }
     ];
     data.bagdjsaveobject = [
       {
         name: "1qhs",
-        player: 1
+        player: 1,
+        cnt: 8
+      },
+     {
+        name: "2qhs",
+        player: 1,
+        cnt: 5
+      },      {
+        name: "1qhs",
+        player: 2,
+        cnt: 80
+      },
+     {
+        name: "2qhs",
+        player: 2,
+        cnt: 50
       }
     ];
     data.bagszsaveobject = [];

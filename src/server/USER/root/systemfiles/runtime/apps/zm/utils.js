@@ -81,6 +81,11 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
+        case '2qhs':
+            var resultObj = {result: '二级强化石', color: "lightgreen", width: 0.18, height: 0, description: ["由3个1级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比1级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "优秀", type: "强化石"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
     }
 }
 
