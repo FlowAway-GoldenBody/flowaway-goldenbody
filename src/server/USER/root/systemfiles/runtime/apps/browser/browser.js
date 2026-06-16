@@ -13,24 +13,25 @@ window.browserGlobals.browserhelperPath =
 // this need async fn idk y
 (async () => {
   window.browserGlobals.vfstxt = await window.protectedGlobals
-    .ReadFile(window.browserGlobals.vfsScriptPath, { text: true })
-    .then((res) => (res && res.filecontent ? res.filecontent : ""))
+    .ReadFile(window.browserGlobals.vfsScriptPath, { text: true, direct: true })
+    .then((res) => (res ? res : ""))
     .catch((e) => "");
   window.browserGlobals.frontendFilePickerStuffJS =
     await window.protectedGlobals
       .ReadFile(window.browserGlobals.frontendFilePickerStuffJSPath, {
         text: true,
+        direct: true,
       })
-      .then((res) => (res && res.filecontent ? res.filecontent : ""))
+      .then((res) => (res ? res : ""))
       .catch((e) => "");
   window.browserGlobals.iframePatch = await window.protectedGlobals
-    .ReadFile(window.browserGlobals.iframePatchPath, { text: true })
-    .then((res) => (res && res.filecontent ? res.filecontent : ""))
+    .ReadFile(window.browserGlobals.iframePatchPath, { text: true, direct: true })
+    .then((res) => (res ? res : ""))
     .catch((e) => "");
   window.browserGlobals.browserhelper = await window.protectedGlobals
-    .ReadFile(window.browserGlobals.browserhelperPath, { text: true })
+    .ReadFile(window.browserGlobals.browserhelperPath, { text: true, direct: true })
     .then((res) => {
-      eval(res.filecontent);
+      eval(res || "");
     })
     .catch((e) => "");
 })();
@@ -49,6 +50,31 @@ window.browser = function (
 ) {
     let exposedToTabs = {};
     let checkerinterval = null;
+    let activatedUserscriptNames = [];
+
+    // populate activatedUserscriptNames at startup
+    (async function populateActivatedUserscripts() {
+      const basePath = "/systemfiles/runtime/apps/browser/profile/userscripts";
+      try {
+        const exists = await window.protectedGlobals.FolderExists(basePath).catch(() => false);
+        if (!exists) {
+          await window.protectedGlobals.WriteFolder(basePath).catch(() => {});
+        }
+        const entries = (await window.protectedGlobals.ReadFolder(basePath).catch(() => [])) || [];
+        for (const entry of entries) {
+          try {
+            const activePath = basePath + "/" + entry + "/active.txt";
+            const has = await window.protectedGlobals.FileExists(activePath).catch(() => false);
+            if (!has) continue;
+            const av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
+            const val = (av && typeof av === "string" ? av.trim().toLowerCase() : "");
+            if (/^t/.test(val)) {
+              activatedUserscriptNames.push(entry);
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+    })();
 setTimeout(() => {
   function checkFrames(root = document) {
     if (!root?.querySelectorAll) return;
@@ -360,6 +386,335 @@ setTimeout(() => {
     return input;
   }
 
+
+  async function showUserscriptDialogue() {
+    document.getElementById("userscript-dialog")?.remove();
+
+    const panel = document.createElement("div");
+    panel.id = "userscript-dialog";
+    panel.className = "panel";
+    panel.classList.toggle("dark", browserGlobals.dark);
+    panel.classList.toggle("light", !browserGlobals.dark);
+    panel.style.cssText =
+      "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:480px;max-height:70vh;overflow:auto;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+    const title = document.createElement("div");
+    title.style.cssText = "font-weight:600;margin-bottom:8px;";
+    title.textContent = "User Scripts";
+    panel.appendChild(title);
+
+    const desc = document.createElement("div");
+    desc.style.cssText = "font-size:12px;color:#888;margin-bottom:12px";
+    desc.textContent = "Enable or disable userscripts in your profile.";
+    panel.appendChild(desc);
+
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "Add userscript";
+    addBtn.style.cssText = "margin-bottom:12px;background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
+    addBtn.onclick = async () => {
+      const data = await (async function showAddUserscriptDialog() {
+        return new Promise((resolve) => {
+          document.getElementById("add-userscript-dialog")?.remove();
+          const dlg = document.createElement("div");
+          dlg.id = "add-userscript-dialog";
+          dlg.className = "panel";
+          dlg.classList.toggle("dark", browserGlobals.dark);
+          dlg.classList.toggle("light", !browserGlobals.dark);
+          dlg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+          const t = document.createElement("div");
+          t.style.cssText = "font-weight:600;margin-bottom:8px";
+          t.textContent = "Create Userscript";
+          dlg.appendChild(t);
+
+          const nameLabel = document.createElement("div");
+          nameLabel.style.cssText = "font-size:12px;margin-bottom:6px";
+          nameLabel.textContent = "Name";
+          dlg.appendChild(nameLabel);
+          const nameInput = document.createElement("input");
+          nameInput.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+          dlg.appendChild(nameInput);
+
+          const scriptLabel = document.createElement("div");
+          scriptLabel.style.cssText = "font-size:12px;margin-bottom:6px";
+          scriptLabel.textContent = "Script content";
+          dlg.appendChild(scriptLabel);
+          const scriptArea = document.createElement("textarea");
+          scriptArea.style.cssText = "width:100%;height:160px;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:8px;font-family:monospace;font-size:12px;";
+          dlg.appendChild(scriptArea);
+
+          const btnRow = document.createElement("div");
+          btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px";
+          const btnCancel = document.createElement("button");
+          btnCancel.textContent = "Cancel";
+          btnCancel.onclick = () => { dlg.remove(); resolve(null); };
+          const btnCreate = document.createElement("button");
+          btnCreate.textContent = "Create";
+          btnCreate.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
+          btnCreate.onclick = () => {
+            const name = String(nameInput.value || "").trim();
+            const script = String(scriptArea.value || "");
+            if (!name) return window.protectedGlobals.notification && window.protectedGlobals.notification("Name required");
+            dlg.remove();
+            resolve({ name, script });
+          };
+          btnRow.appendChild(btnCancel);
+          btnRow.appendChild(btnCreate);
+          dlg.appendChild(btnRow);
+          document.body.appendChild(dlg);
+        });
+      })();
+
+      if (data && data.name) {
+        const safeFolder = data.name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
+        const folderPath = basePath + "/" + safeFolder;
+        try {
+          const exists = await window.protectedGlobals.FolderExists(folderPath).catch(() => false);
+          if (exists) {
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Folder already exists");
+            return;
+          }
+          await window.protectedGlobals.WriteFolder(folderPath);
+          await window.protectedGlobals.WriteFile(folderPath + "/script.txt", btoa(data.script || ""));
+          await window.protectedGlobals.WriteFile(folderPath + "/name.txt", btoa(data.name));
+          await window.protectedGlobals.WriteFile(folderPath + "/active.txt", btoa("true"));
+          // mark as activated in memory
+          if (activatedUserscriptNames.indexOf(safeFolder) === -1) activatedUserscriptNames.push(safeFolder);
+          window.protectedGlobals.notification && window.protectedGlobals.notification("Created");
+          panel.remove();
+          showUserscriptDialogue();
+        } catch (e) {
+          window.protectedGlobals.notification && window.protectedGlobals.notification("Error creating userscript");
+        }
+      }
+    };
+    panel.appendChild(addBtn);
+
+    const list = document.createElement("div");
+    panel.appendChild(list);
+
+    const basePath = "/systemfiles/runtime/apps/browser/profile/userscripts";
+
+    try {
+      const exists = await window.protectedGlobals.FolderExists(basePath).catch(() => false);
+      if (!exists) {
+        await window.protectedGlobals.WriteFolder(basePath).catch(() => {});
+      }
+    } catch (e) {}
+
+    let entries = [];
+    try {
+      entries = (await window.protectedGlobals.ReadFolder(basePath)) || [];
+    } catch (e) {
+      entries = [];
+    }
+
+    if (!entries.length) {
+      const empty = document.createElement("div");
+      empty.style.cssText = "color:#666;padding:8px 0;";
+      empty.textContent = "No userscripts found. Put script folders in " + basePath;
+      list.appendChild(empty);
+    } else {
+      for (const entry of entries) {
+        // ensure it's a folder by attempting to read it
+        let sub;
+        try {
+          sub = await window.protectedGlobals.ReadFolder(basePath + "/" + entry);
+        } catch (e) {
+          sub = null;
+        }
+        if (!sub) continue;
+
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06);";
+
+        const left = document.createElement("div");
+        left.style.cssText = "display:flex;flex-direction:column;min-width:0;";
+
+        const scriptName = document.createElement("div");
+        scriptName.style.cssText = "font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+        // try to read name.txt
+        try {
+          const nv = await window.protectedGlobals.ReadFile(basePath + "/" + entry + "/name.txt", { text: true, direct: true }).catch(() => null);
+          let nameVal = nv && typeof nv === "string" ? nv.trim() : entry;
+          scriptName.textContent = nameVal || entry;
+        } catch (e) {
+          scriptName.textContent = entry;
+        }
+        left.appendChild(scriptName);
+
+        const hint = document.createElement("div");
+        hint.style.cssText = "font-size:12px;color:#666;";
+        hint.textContent = entry;
+        left.appendChild(hint);
+
+        row.appendChild(left);
+
+        const toggleWrap = document.createElement("div");
+        toggleWrap.style.cssText = "display:flex;align-items:center;gap:8px";
+        const toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.style.cssText = "width:18px;height:18px";
+
+        // ensure active.txt exists and read its value
+        try {
+          const activePath = basePath + "/" + entry + "/active.txt";
+          const has = await window.protectedGlobals.FileExists(activePath).catch(() => false);
+          if (!has) {
+            await window.protectedGlobals.WriteFile(activePath, btoa("true")).catch(() => {});
+            toggle.checked = true;
+          } else {
+            const av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
+            let val = av && typeof av === "string" ? av.trim().toLowerCase() : "true";
+            toggle.checked = /^t/.test(val) ? true : false;
+          }
+        } catch (e) {
+          toggle.checked = true;
+        }
+
+        
+        toggle.addEventListener("change", async () => {
+          try {
+            const activePath = basePath + "/" + entry + "/active.txt";
+            await window.protectedGlobals.WriteFile(activePath, toggle.checked ? btoa("true") : btoa("false"));
+            // update activatedUserscriptNames
+            const idx = activatedUserscriptNames.indexOf(entry);
+            if (toggle.checked) {
+              if (idx === -1) activatedUserscriptNames.push(entry);
+            } else {
+              if (idx !== -1) activatedUserscriptNames.splice(idx, 1);
+            }
+            try { window.protectedGlobals.notification && window.protectedGlobals.notification("Saved"); } catch (e) {}
+          } catch (e) {
+            try { window.protectedGlobals.notification && window.protectedGlobals.notification("Error saving active state"); } catch (er) {}
+          }
+        });
+
+        toggleWrap.appendChild(toggle);
+        // delete button
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.style.cssText = "background:#d94c4c;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;";
+        // edit button
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "Edit";
+        editBtn.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;";
+        editBtn.onclick = async () => {
+          // read existing values
+          const folderPath = basePath + "/" + entry;
+          let curName = entry;
+          let curScript = "";
+          try {
+            const nv = await window.protectedGlobals.ReadFile(folderPath + "/name.txt", { text: true, direct: true }).catch(() => null);
+            if (nv && typeof nv === "string") curName = nv.trim();
+          } catch (e) {}
+          try {
+            const sv = await window.protectedGlobals.ReadFile(folderPath + "/script.txt", { text: true, direct: true }).catch(() => null);
+            if (sv && typeof sv === "string") curScript = sv;
+          } catch (e) {}
+
+          // show edit dialog (same UI as create)
+          const data = await (async function showEditUserscriptDialog(name, script) {
+            return new Promise((resolve) => {
+              document.getElementById("edit-userscript-dialog")?.remove();
+              const dlg = document.createElement("div");
+              dlg.id = "edit-userscript-dialog";
+              dlg.className = "panel";
+              dlg.classList.toggle("dark", browserGlobals.dark);
+              dlg.classList.toggle("light", !browserGlobals.dark);
+              dlg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+              const t = document.createElement("div");
+              t.style.cssText = "font-weight:600;margin-bottom:8px";
+              t.textContent = "Edit Userscript";
+              dlg.appendChild(t);
+
+              const nameLabel = document.createElement("div");
+              nameLabel.style.cssText = "font-size:12px;margin-bottom:6px";
+              nameLabel.textContent = "Name";
+              dlg.appendChild(nameLabel);
+              const nameInput = document.createElement("input");
+              nameInput.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+              nameInput.value = name || "";
+              dlg.appendChild(nameInput);
+
+              const scriptLabel = document.createElement("div");
+              scriptLabel.style.cssText = "font-size:12px;margin-bottom:6px";
+              scriptLabel.textContent = "Script content";
+              dlg.appendChild(scriptLabel);
+              const scriptArea = document.createElement("textarea");
+              scriptArea.style.cssText = "width:100%;height:160px;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:8px;font-family:monospace;font-size:12px;";
+              scriptArea.value = script || "";
+              dlg.appendChild(scriptArea);
+
+              const btnRow = document.createElement("div");
+              btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px";
+              const btnCancel = document.createElement("button");
+              btnCancel.textContent = "Cancel";
+              btnCancel.onclick = () => { dlg.remove(); resolve(null); };
+              const btnSave = document.createElement("button");
+              btnSave.textContent = "Save";
+              btnSave.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
+              btnSave.onclick = () => {
+                const name = String(nameInput.value || "").trim();
+                const script = String(scriptArea.value || "");
+                if (!name) return window.protectedGlobals.notification && window.protectedGlobals.notification("Name required");
+                dlg.remove();
+                resolve({ name, script });
+              };
+              btnRow.appendChild(btnCancel);
+              btnRow.appendChild(btnSave);
+              dlg.appendChild(btnRow);
+              document.body.appendChild(dlg);
+            });
+          })(curName, curScript);
+
+          if (data && data.name) {
+            try {
+              await window.protectedGlobals.WriteFile(folderPath + "/script.txt", btoa(data.script || ""));
+              await window.protectedGlobals.WriteFile(folderPath + "/name.txt", btoa(data.name));
+              window.protectedGlobals.notification && window.protectedGlobals.notification("Saved");
+              panel.remove();
+              showUserscriptDialogue();
+            } catch (e) {
+              window.protectedGlobals.notification && window.protectedGlobals.notification("Error saving userscript");
+            }
+          }
+        };
+        delBtn.onclick = async () => {
+          const ok = await showConfirmDialog("Delete userscript", `Delete userscript '${entry}'? This cannot be undone.`);
+          if (!ok) return;
+          try {
+            await window.protectedGlobals.DeleteFile(basePath + "/" + entry);
+            // remove from activated list
+            const di = activatedUserscriptNames.indexOf(entry);
+            if (di !== -1) activatedUserscriptNames.splice(di, 1);
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted");
+            panel.remove();
+            showUserscriptDialogue();
+          } catch (e) {
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Error deleting userscript");
+          }
+        };
+
+        toggleWrap.appendChild(editBtn);
+        toggleWrap.appendChild(delBtn);
+        row.appendChild(toggleWrap);
+
+        list.appendChild(row);
+      }
+    }
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
+    const btnClose = document.createElement("button");
+    btnClose.textContent = "Close";
+    btnClose.onclick = () => panel.remove();
+    btnRow.appendChild(btnClose);
+    panel.appendChild(btnRow);
+
+    document.body.appendChild(panel);
+  }
   let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
     if (window.browserGlobals.profileReadyPromise) {
@@ -1064,7 +1419,13 @@ setTimeout(() => {
         () => {
           showSetSpeedDialogue();
         }
-      )
+      );
+      addItem(
+        "load userscript",
+        () => {
+          showUserscriptDialogue();
+        }
+      );
       addItem("Delete browsing data", () => {
         clearBrowsingData();
       });

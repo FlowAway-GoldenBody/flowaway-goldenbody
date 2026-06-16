@@ -448,7 +448,43 @@ if (data.requestFile) {
     }));
   }
 }
+if (data.requestFolder) {
+  const normalizedRequestPath = normalizeUserRelativePath(data.requestFolderName);
+  // return an array with all the file/folder names in the requested folder (non-recursive)
 
+  // normalizedRequestPath may be empty for root; use '' for permission lookup
+  const relForPerm = normalizedRequestPath || '';
+  const permission = getPermissionForRelativePath(relForPerm, userPathPermissions);
+  if (!permission.read) {
+    res.writeHead(403);
+    return res.end(JSON.stringify({ error: 'read permission denied', path: `/${relForPerm}` }));
+  }
+
+  const fullPath = path.join(userRoot, normalizedRequestPath);
+  const relativeToRoot = path.relative(userRoot, fullPath);
+  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+    return res.end(JSON.stringify({ error: 'Invalid folder path' }));
+  }
+
+  let stat;
+  try {
+    stat = await fsp.stat(fullPath);
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      return res.end(JSON.stringify({ missing: true, code: 'ENOENT', kind: 'missing', requestFolderName: data.requestFolderName }));
+    }
+    throw e;
+  }
+
+  if (!stat.isDirectory()) {
+    return res.end(JSON.stringify({ error: 'Not a directory', path: `/${relForPerm}` }));
+  }
+
+  const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
+  const names = dirents.map(d => d.name);
+  return res.end(JSON.stringify({ kind: 'folder', files: names }));
+
+}
 async function exists(p) {
   try {
     await fsp.stat(p);
