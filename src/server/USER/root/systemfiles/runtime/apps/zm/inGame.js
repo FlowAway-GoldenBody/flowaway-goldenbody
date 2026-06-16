@@ -6,9 +6,9 @@ async function continueInGame(zmcd, cdIndex) {
     let activeplayer = 1;
     let currentTooltipItem = null; // track which item currently has a tooltip shown
     let zbUtils = {};
-    let curLdlMode = 1;
     let lhText;
     let exposeOutside = {};
+    exposeOutside.curLdlMode = 1;
     let ldlCache = {};
     let categoryButtons = [];
     let qhChance = null;
@@ -105,8 +105,7 @@ async function continueInGame(zmcd, cdIndex) {
         bagUI.addChild(lhText);
     }
     (async () => {
-      let scriptText = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/utils.js", { text: true, direct: true });
-      eval(scriptText);
+      eval(window.zmGlobals.scriptText);
     })();
 
     async function generateTooltipText(itemData, arg, textHeight, lowh) {
@@ -185,7 +184,7 @@ async function continueInGame(zmcd, cdIndex) {
             const itemButton = await drawButton(0.55 + (renderedCount % 5) * 0.06, 0.6421 - yindex * 0.095, 0.05, 0.07, itemImg, undefined, 
             async () => {
                 // handle item click
-                switch(curLdlMode) {
+                switch(exposeOutside.curLdlMode) {
                     case 1:
                         let djslots = ldlCache.qhdjslots;
                         if (instance.extern.tooltip) instance.extern.tooltip.remove();
@@ -509,7 +508,7 @@ async function continueInGame(zmcd, cdIndex) {
         curCategory = 'zb';
         bagUI = await drawImage(0,0,1,1,"/systemfiles/runtime/apps/zm/assets/ldlGui.png");
         renderLhtext();
-        eval(await window.protectedGlobals.ReadFile('/systemfiles/runtime/apps/zm/ldlFunction.js', { text: true, direct: true }));
+        eval(window.zmGlobals.ldlScript);
         curminimap.children.forEach(child => {
             if (child.setDisableAccess) child.setDisableAccess(true);
         });
@@ -541,6 +540,7 @@ async function continueInGame(zmcd, cdIndex) {
             curminimap.children.forEach(child => {
                 if (child.setDisableAccess) child.setDisableAccess(false);
             });
+            zmUtils.saveBtn.onClick();
         });
         bagUI.addChild(closeBagBtn);
 

@@ -1,5 +1,12 @@
-window.zmGlobals = {};
-window.zmGlobals.allzmInstances = [];
+window.zmGlobals = window.zmGlobals || {};
+window.zmGlobals.allzmInstances = window.zmGlobals.allzmInstances || [];
+(async () => {
+  window.zmGlobals.scriptText = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/utils.js", { text: true, direct: true });
+  window.zmGlobals.cigScript = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/inGame.js", { text: true, direct: true });
+  window.zmGlobals.tooltipscript = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/displayItemTooltip.js", { text: true, direct: true });
+  window.zmGlobals.ldlScript = await window.protectedGlobals.ReadFile('/systemfiles/runtime/apps/zm/ldlFunction.js', { text: true, direct: true });
+})();
+
 window.zm = function (posX, posY) {
   if (window.protectedGlobals.data.username !== "183115428") {alert('Access Denied'); return;}
   var root = window.protectedGlobals.apptools.createRoot("zm", posX, posY);
@@ -1225,11 +1232,11 @@ const loadPromise = (async () => {
   let curminimap = null;
   async function enterGame(zmcd, cdIndex) {
     lobby.mainimg.setVisible(false);
-    eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/inGame.js", { text: true, direct: true }), cdIndex);
+    eval(window.zmGlobals.cigScript);
     continueInGame(zmcd, cdIndex);
   }
   (async () => {
-  eval(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/zm/displayItemTooltip.js", { text: true, direct: true }));
+  eval(window.zmGlobals.tooltipscript);
   })();
 
 
