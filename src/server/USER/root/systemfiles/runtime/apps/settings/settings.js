@@ -230,6 +230,7 @@ settings = function (posX = 50, posY = 50) {
   }
   // --- Make draggable/resizable from previous snippet ---
   function makeDraggableResizable(el, topBar, btnMax) {
+    let active = null;
     (function makeDraggable() {
       let dragging = false,
         startX = 0,
@@ -245,6 +246,7 @@ settings = function (posX = 50, posY = 50) {
       let currentX, currentY;
 
       topBar.addEventListener("mousedown", (ev) => {
+        if (active) return;
         DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
@@ -290,7 +292,7 @@ settings = function (posX = 50, posY = 50) {
       const BW = 8;
       const minW = 450,
         minH = 350;
-      let active = null;
+      active = null;
 
       const hitTest = (e) => {
         const r = el.getBoundingClientRect();

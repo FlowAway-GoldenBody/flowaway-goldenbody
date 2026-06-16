@@ -55,7 +55,7 @@ window.protectedGlobals.initAppTools = function () {
     function setMaximizedIcon(maximized) {
         window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
     }
-
+    let active = null;
     (function makeDraggable() {
       var dragging = false;
       var startX = 0;
@@ -74,6 +74,7 @@ window.protectedGlobals.initAppTools = function () {
       var currentY;
 
       dragTarget.addEventListener("mousedown", function (ev) {
+        if (active) return;
         var configuredThreshold = Number(window.protectedGlobals.data && window.protectedGlobals.data.DRAG_THRESHOLD);
         if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
           window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
@@ -136,7 +137,7 @@ window.protectedGlobals.initAppTools = function () {
       var BW = 8;
       var minW = 450;
       var minH = 350;
-      var active = null;
+      active = null;
 
       function hitTest(e) {
         var r = el.getBoundingClientRect();

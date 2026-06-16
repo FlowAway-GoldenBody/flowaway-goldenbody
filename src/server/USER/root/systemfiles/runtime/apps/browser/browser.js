@@ -3370,7 +3370,7 @@ setTimeout(() => {
     // drag to move window
     var currentX;
     var currentY;
-
+    let active;
     (function makeDraggable() {
       let dragging = false,
         startX = 0,
@@ -3396,6 +3396,7 @@ setTimeout(() => {
           targetel?.closest?.(".sim-tab")
         )
           return;
+        if (active) return;
         dragging = true;
         thresholdCrossed = false;
         startX = ev.clientX;
@@ -3459,7 +3460,7 @@ setTimeout(() => {
       if (!el.style.left) el.style.left = "20px";
 
       // state
-      let active = null; // {dir,sx,sy,sw,sh,sl,st}
+      active = null; // {dir,sx,sy,sw,sh,sl,st}
       let dir = "";
 
       // helper: are we on an edge?

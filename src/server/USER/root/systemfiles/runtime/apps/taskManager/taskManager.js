@@ -248,6 +248,7 @@ taskManager = function (posX = 50, posY = 50) {
   makeDraggableResizable(root, dragStrip, btnMax);
 
   function makeDraggableResizable(el, dragTarget) {
+    let active = null;
     (function makeDraggable() {
       let dragging = false;
       let startX = 0;
@@ -260,6 +261,7 @@ taskManager = function (posX = 50, posY = 50) {
       let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15;
 
       dragTarget.addEventListener("mousedown", (ev) => {
+        if (active) return;
         DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
@@ -306,7 +308,7 @@ taskManager = function (posX = 50, posY = 50) {
       const BW = 8;
       const minW = 720;
       const minH = 420;
-      let active = null;
+      active = null;
 
       function hitTest(e) {
         const r = el.getBoundingClientRect();
