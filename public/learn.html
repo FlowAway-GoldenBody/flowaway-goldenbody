@@ -197,7 +197,10 @@
                 alert('Popup blocked! Allow popups for this site to launch the homepage.');
             }
         }
-
+        let a = document.createElement('button');
+        a.textContent = 'lauch homepage';
+        a.onclick = launchHomepage;
+        document.body.appendChild(a);
         let coordinates = [];
         const expectedButtons = [0,0,0,2,2,2];
         let seqIndex = 0;
