@@ -10,13 +10,44 @@ async function continueInGame(zmcd, cdIndex) {
     let exposeOutside = {};
     exposeOutside.curLdlMode = 1;
     let ldlCache = {};
+    exposeOutside.getActivePlayer = () => {return activeplayer;};
     let categoryButtons = [];
+    exposeOutside.getCurCategory = () => {return curCategory};
+    exposeOutside.getCurPage = () => {return curPage};
     let qhChance = null;
     let lhConsumptionDisplay = null;
     exposeOutside.deductLh = (val) => {
         zmcd.lhValue -= val;
         zmcd.lhValue = parseInt(zmcd.lhValue);
         renderLhtext();
+    };
+    exposeOutside.clearLdlState = async () => {
+        zmcd.bagzbsaveobject = [...ldlCache.curzbItemsToRender, ...ldlCache.removedzbsaveobject];
+        ldlCache.removedzbsaveobject = [];
+        ldlCache.curzbItemsToRender = Array.from(zmcd.bagzbsaveobject);
+        ldlCache.qhlastSlotzb = null;
+        zmcd.bagdjsaveobject = [...ldlCache.curdjItemsToRender];
+        // merge removeddjsaveobject into zmcd.bagdjsaveobject by name+player, summing counts
+        for (const e of ldlCache.removeddjsaveobject) {
+            const addCnt = e.cnt || 1;
+            const found = zmcd.bagdjsaveobject.find(x => x.name === e.name && x.player === e.player);
+            if (found) {
+                found.cnt = (found.cnt || 0) + addCnt;
+            } else {
+                zmcd.bagdjsaveobject.push({ name: e.name, player: e.player, cnt: addCnt });
+            }
+        }
+        zmcd.bagdjsaveobject.forEach(e => {
+            if (e.cnt === 0) zmcd.bagdjsaveobject.splice(zmcd.bagdjsaveobject.indexOf(e), 1);
+        });
+        ldlCache.removeddjsaveobject = [];
+        ldlCache.curdjItemsToRender = Array.from(zmcd.bagdjsaveobject);
+        ldlCache.qhdjslots.forEach(element => {element.Item = false; element.PE = null; });
+        ldlCache.hcitemslots.forEach(element => {element.Item = false; element.PE = null; })
+        curminimap.children.forEach(child => {
+            if (child.setDisableAccess) child.setDisableAccess(false);
+        });
+        renderBagItems(curCategory, curPage, ldlCache[`cur${curCategory}ItemsToRender`]);
     }
     // // process dj sec of zmcd
     // try {
@@ -66,6 +97,11 @@ async function continueInGame(zmcd, cdIndex) {
         {x: 0.30538922155688625, y: 0.654201813151585, Item: false, PE: null},
         {x: 0.2028443113772455, y: 0.5887812524039213, Item: false, PE: null},
         {x: 0.20359281437125748, y: 0.44859433651607095, Item: false, PE: null}
+    ];
+    ldlCache.hcitemslots = [
+        {x: 0.19461077844311378, y: 0.5313713725641349, Item: false, PE: null},
+        {x: 0.2962962962962963, y: 0.6555369266362312, Item: false, PE: null},
+        {x: 0.39814814814814814, y: 0.5313713725641349, Item: false, PE: null}
     ];
     ldlCache.qhcurzbonldl = null;
     function calcqhprob(item) {
@@ -278,7 +314,7 @@ async function continueInGame(zmcd, cdIndex) {
                                         }
                                     } catch (e) {}
                                     categoryButtons[1].onClick();
-                                    renderBagItems('dj', 1, ldlCache.curdjItemsToRender);
+                                    renderBagItems(curCategory, curPage, ldlCache.curdjItemsToRender);
                                     djSlot.Item = false;
                                     djSlot.PE = null;
                                     try {
@@ -310,11 +346,66 @@ async function continueInGame(zmcd, cdIndex) {
                             };
                                 exposeOutside.qhtableImg.addChild(containerImg);
                                 containerImg.addChild(itemBtn);
-                                renderBagItems('dj', 1, ldlCache.curdjItemsToRender);
+                                renderBagItems(curCategory, curPage, ldlCache.curdjItemsToRender);
                                 break;
                             }
                         }
                         break;
+                    case 2:
+                        let itemslots = ldlCache.hcitemslots;
+                        if (instance.extern.tooltip) instance.extern.tooltip.remove();
+                        instance.extern.tooltip = null;
+                        if (curCategory === 'zb') {
+                            for (let i = 0; i < itemslots.length; i++) {
+                                if (itemslots[i].Item) continue;
+                                try {
+                                    exposeOutside.removehcReal();
+                                } catch(e) {}
+                                let slotnum = ldlCache.curzbItemsToRender.indexOf(slot);
+                                ldlCache.curzbItemsToRender.splice(slotnum, 1);
+                                ldlCache.removedzbsaveobject.push(slot);
+                                renderBagItems(curCategory, curPage, ldlCache.curzbItemsToRender);
+                                itemslots[i].Item = slot;
+                                let containerImg = await drawImage(itemslots[i].x, itemslots[i].y, 0.05, 0.074, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
+                                itemslots[i].PE = containerImg;
+                                exposeOutside.hctableImg.addChild(containerImg);
+                                let itemBtn = await drawButton(itemslots[i].x, itemslots[i].y, 0.05, 0.074, "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", async () => {
+                                    containerImg.remove();
+                                    containerImg = null;
+                                    exposeOutside.removehcPreview();
+                                    try {
+                                        instance.extern.tooltip.remove();
+                                        instance.extern.tooltip = null;
+                                    } catch (e) {}
+                                    ldlCache.curzbItemsToRender.push(slot);
+                                    ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(slot), 1);
+                                    renderBagItems(curCategory, curPage, ldlCache.curzbItemsToRender);
+                                    itemslots[i].Item = false;
+                                });
+                                itemBtn.onHover = async () => {
+                                    // Only show tooltip if this item doesn't already have one shown
+                                    if (currentTooltipItem === itemBtn) return;
+                                    
+                                    currentTooltipItem = itemBtn;
+                                    let info = zbUtils.lookupStats(slot.name, itemBtn, slot);
+                                    let h = itemBtn.y - info.height + itemBtn.height;
+                                    let tmp = h;
+                                    let lowh = false;
+                                    if (h < 0) {h = 0.007099999999999995; lowh = true}
+                                    if (h === 0.007099999999999995) tmp = h-tmp;
+                                    let textHeight = tmp;
+                                    await instance.extern.displayItemTooltip(slot, itemBtn.x + itemBtn.width, h, info, itemBtn, textHeight, lowh);
+                                };
+                                itemBtn.onHoverEnd = () => {
+                                    currentTooltipItem = null;
+                                    instance.extern.tooltip.remove();
+                                    instance.extern.tooltip = null;
+                                };
+                                containerImg.addChild(itemBtn);
+                                if (i === 2) exposeOutside.renderhcPreview(ldlCache.hcitemslots);
+                                break;
+                            }
+                        }
                 }
             }, 
             1 // zindex
@@ -462,7 +553,7 @@ async function continueInGame(zmcd, cdIndex) {
         instance.extern.tooltipShowing = true;
         let createdTooltip = null;
         try {
-            createdTooltip = await drawImage(posX, posY, info.width, info.height, '/systemfiles/runtime/apps/zm/assets/zb/itemTooltip2.png', 1.1);
+            createdTooltip = await drawImage(posX, posY, info.width, info.height, '/systemfiles/runtime/apps/zm/assets/zb/itemtooltip2.png', 1.1);
         } catch (e) {
             // loading failed (e.g. image couldn't be read). Ensure state is cleaned up and do not leave a stale flag.
             // only clear tooltipShowing if no newer tooltip request was made
@@ -516,30 +607,7 @@ async function continueInGame(zmcd, cdIndex) {
         let closeBagBtn = await drawButton(0.91, 0.9225, 0.058, 0.04, "/systemfiles/runtime/apps/zm/assets/ldl(return).png", "/systemfiles/runtime/apps/zm/assets/ldl(return)(hover).png", () => {
             bagUI.remove();
             bagUI = null;
-            zmcd.bagzbsaveobject = [...ldlCache.curzbItemsToRender, ...ldlCache.removedzbsaveobject];
-            ldlCache.removedzbsaveobject = [];
-            ldlCache.curzbItemsToRender = Array.from(zmcd.bagzbsaveobject);
-            ldlCache.qhlastSlotzb = null;
-            zmcd.bagdjsaveobject = [...ldlCache.curdjItemsToRender];
-            // merge removeddjsaveobject into zmcd.bagdjsaveobject by name+player, summing counts
-            for (const e of ldlCache.removeddjsaveobject) {
-                const addCnt = e.cnt || 1;
-                const found = zmcd.bagdjsaveobject.find(x => x.name === e.name && x.player === e.player);
-                if (found) {
-                    found.cnt = (found.cnt || 0) + addCnt;
-                } else {
-                    zmcd.bagdjsaveobject.push({ name: e.name, player: e.player, cnt: addCnt });
-                }
-            }
-            zmcd.bagdjsaveobject.forEach(e => {
-                if (e.cnt === 0) zmcd.bagdjsaveobject.splice(zmcd.bagdjsaveobject.indexOf(e), 1);
-            });
-            ldlCache.removeddjsaveobject = [];
-            ldlCache.curdjItemsToRender = Array.from(zmcd.bagdjsaveobject);
-            ldlCache.qhdjslots.forEach(element => {element.Item = false; element.PE = null; });
-            curminimap.children.forEach(child => {
-                if (child.setDisableAccess) child.setDisableAccess(false);
-            });
+            exposeOutside.clearLdlState();
             zmUtils.saveBtn.onClick();
         });
         bagUI.addChild(closeBagBtn);

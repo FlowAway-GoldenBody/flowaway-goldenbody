@@ -1308,104 +1308,271 @@ const loadPromise = (async () => {
         attack: 8, HP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
       },
       {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },            {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
         qhLevel: 7,
         remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kys",
         player: 1,
-        attack: 8
+        HP: 130,
+        MP: 70,
+        defense: 4,
+        qhLevel: 0,
+        remakeLevel: 0
       },      {
-        name: "ptdyyc",
+        name: "kys",
         player: 1,
-        attack: 8
-      },      {
-        name: "ptdyyc",
+        HP: 130,
+        MP: 70,
+        defense: 4,
+        qhLevel: 0,
+        remakeLevel: 0
+      },{
+        name: "kys",
         player: 1,
-        attack: 8
+        HP: 130,
+        MP: 70,
+        defense: 4,
+        qhLevel: 0,
+        remakeLevel: 0
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
-        name: "ptdyyc",
+        name: "kyz",
         player: 1,
-        attack: 8
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
       },      {
+        name: "kyg",
+        player: 1,
+        attack: 20,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyg",
+        player: 1,
+        attack: 20,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyg",
+        player: 1,
+        attack: 20,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyg",
+        player: 1,
+        attack: 20,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },      {
+        name: "kyz",
+        player: 1,
+        attack: 20,
+        MP: 120,
+        qhLevel: 7,
+        remakeLevel: 5
+      },     {
         name: "ptdyyc",
         player: 1,
         attack: 8
@@ -1501,7 +1668,7 @@ const loadPromise = (async () => {
         remakeLevel: 4,
         defense2: 0.98,
         gainHPfromEntity: 0.3,
-        attack: 8, HP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
+        attack: 8, MP: 1111, MP: 1111, defense: 1111, level: 15, ROC: 2.5, wx: [true, true, false, false, false], CHC: 0.11, MISS: 0.22, HPHeal: 1111, MPHeal: 1111
       }, 
       {
         name: "ptdyyc",
@@ -1560,174 +1727,177 @@ const loadPromise = (async () => {
         attack: 8,
         qhLevel: 0,
         remakeLevel: 1
-      },{
-        name: "ptdyyc",
+      },      {
+        name: "kyg",
         player: 2,
-        attack: 8,
+        attack: 20,
         qhLevel: 0,
-        remakeLevel: 1
-      },{
-        name: "ptdyyc",
+        remakeLevel: 0
+      },      {
+        name: "kyg",
         player: 2,
-        attack: 8,
+        attack: 20,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyg",
         player: 2,
-        attack: 8,
+        attack: 20,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyg",
         player: 2,
-        attack: 8,
+        attack: 20,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
-        name: "ptdyyc",
+        name: "kyz",
         player: 2,
-        attack: 8,
+        attack: 20,
+        MP: 120,
         qhLevel: 0,
-        remakeLevel: 1
-      },{
-        name: "ptdyyc",
-        player: 2,
-        attack: 8,
-        qhLevel: 0,
-        remakeLevel: 1
-      },{
-        name: "ptdyyc",
-        player: 2,
-        attack: 8,
-        qhLevel: 0,
-        remakeLevel: 1
-      },{
-        name: "ptdyyc",
-        player: 2,
-        attack: 8,
-        qhLevel: 0,
-        remakeLevel: 1
+        remakeLevel: 0
       },{
         name: "ptdyyc",
         player: 2,

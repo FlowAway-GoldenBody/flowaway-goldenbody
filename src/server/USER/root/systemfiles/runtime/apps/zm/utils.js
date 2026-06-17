@@ -61,6 +61,7 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
             if (description === 'description' && resultObj[description]) { dy--; dy += resultObj[description].length }
             if (description === 'type' && resultObj[description]) dy++;
         });
+        dy += 2;
         let calcH = wordMove * dy + 0.04; // 0.04 is the margin
         return calcH;
     }
@@ -76,13 +77,33 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
             return {result: "普通的钉耙", color: "white"};
         case 'ptdcc':
             return {result: "普通的禅杖", color: "white"};
+        case 'kyz':
+            var resultObj = {result: "枯叶杖", color: '#75FB4C', width: 0.18, height: 0, description: ["求不得, 放不下, 梧桐化成杖, ", "孤走枯苍道."], fromWho: "唐僧", rarity: "优秀", type: "武器"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
+        case 'kyg':
+            var resultObj = {result: "枯叶弓", color: '#75FB4C', width: 0.18, height: 0, description: ["一落红, 一枯叶, 落红离弦去, ", "从此两难聚."], fromWho: "沙僧", rarity: "优秀", type: "武器"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
+        case 'kys':
+            var resultObj = {result: "枯叶衫", color: '#75FB4C', width: 0.18, height: 0, description: ["落黄昏, 三更雨, 临行密密", "缝, 离愁丝丝苦."], fromWho: "悟空", rarity: "优秀", type: "防具"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
+        case 'kyl':
+            var resultObj = {result: "枯叶灵", color: '#75FB4C', width: 0.18, height: 0, description: ["复苏: 缓慢回复少许生命."], fromWho: null, rarity: "优秀", type: "法宝"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
         case '1qhs': 
             var resultObj = {result: '一级强化石', color: "white", width: 0.18, height: 0, description: ["可以在炼丹炉内", "用来强化装备, ", "提升装备的属性"], fromWho: null, rarity: "普通", type: "强化石"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
         case '2qhs':
-            var resultObj = {result: '二级强化石', color: "lightgreen", width: 0.18, height: 0, description: ["由3个1级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比1级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "优秀", type: "强化石"};
+            var resultObj = {result: '二级强化石', color: "#75FB4C", width: 0.18, height: 0, description: ["由3个1级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比1级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "优秀", type: "强化石"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
@@ -381,7 +402,7 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
             dy++;
             let itemName = await drawText(
                 description,
-                explicitSize,
+                0.0205,
                 "white",
                 explicitFamily,
                 "left",
@@ -391,5 +412,22 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
             itemName.setPosition(baseX, baseY - wordMove * dy); // position text at top center of tooltip
             instance.extern.tooltip.addChild(itemName);
         }
+    }
+    dy+=2
+    if (displayobj.color) {
+        let lhCount;
+        if (displayobj.color === 'white') lhCount = 20;
+        else if (displayobj.color === "#75FB4C") lhCount = 40;
+        let itemName = await drawText(
+            "价值: " + lhCount + '灵魂',
+            0.0205,
+            "orange",
+            explicitFamily,
+            "left",
+            1,
+            { fontPath: "/systemfiles/runtime/apps/zm/assets/infoFont.ttf", fontFamily: explicitFamily }
+        );
+        itemName.setPosition(baseX, baseY - wordMove * dy); // position text at top center of tooltip
+        instance.extern.tooltip.addChild(itemName);
     }
 }
