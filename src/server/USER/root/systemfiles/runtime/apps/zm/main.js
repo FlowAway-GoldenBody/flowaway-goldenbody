@@ -415,6 +415,7 @@ const loadPromise = (async () => {
             const pidx = this.parent.children.indexOf(this);
             if (pidx !== -1) this.parent.children.splice(pidx, 1);
           }
+          this.isConnected = false;
           renderScene();
         },
         setColor(newColor) {
@@ -586,12 +587,14 @@ const loadPromise = (async () => {
             const pidx = this.parent.children.indexOf(this);
             if (pidx !== -1) this.parent.children.splice(pidx, 1);
           }
+          this.isConnected = false;
           renderScene();
         },
         addChild(child) {
           if (!this.children.includes(child)) {
             this.children.push(child);
             child.parent = this;
+            this.isConnected = true;
             setTimeout(() => {
               renderScene();
             }, 1);
@@ -809,12 +812,14 @@ const loadPromise = (async () => {
             const pidx = this.parent.children.indexOf(this);
             if (pidx !== -1) this.parent.children.splice(pidx, 1);
           }
+          this.isConnected = false;
           renderScene();
         },
         addChild(child) {
           if (!this.children.includes(child)) {
             this.children.push(child);
             child.parent = this;
+            this.isConnected = true;
             setTimeout(() => {
               renderScene();
             }, 1);
@@ -1296,7 +1301,7 @@ const loadPromise = (async () => {
       data.player1 = parseInt(payload[0]);
     }
     data.curLevel = {overworld: 1};
-    data.lhValue = 11000; // 1852823430;
+    data.lhValue = 1852823430;
     data.bagzbsaveobject = [
       {
         name: "ptdyyc",

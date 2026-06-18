@@ -42,6 +42,9 @@ exposeOutside.renderhcPreview = async (slots) => {
     let lhtxt = await drawText('10000', 0.02, 'white', 'ThinFont', 'left', 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: 'ThinFont' });
     lhtxt.setPosition(0.36002994011976047, 0.2857104913892351);
     exposeOutside.hctableImg.addChild(lhtxt);
+    let nametxt = await drawText(zbUtils.lookupStats(item.result.name, { x: 0, y: 0 }, item.result).result, 0.02, 'white', 'ThinFont', 'left', 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: 'ThinFont' });
+    nametxt.setPosition(0.32110778443113774, 0.3444554847136677);
+    exposeOutside.hctableImg.addChild(nametxt);
 };
 exposeOutside.renderhcReal = async (slots) => {
     containerImg2 = await drawImage(0.1998502994011976, 0.2977265127510509, 0.05, 0.074, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
@@ -109,6 +112,7 @@ function disableOtherModes(mode) {
 let menuCoords = { x: 0.1402, y: 0.1821, w: 0.3757, h: 0.564 };
 let btnCoords = { x: 0.058, y: 0.0235, w: 0.045, h: 0.0345 };
 let qhbtn = await drawButton(btnCoords.x, btnCoords.y, btnCoords.w, btnCoords.h, '/systemfiles/runtime/apps/zm/assets/ldlassets/qh.png', '/systemfiles/runtime/apps/zm/assets/ldlassets/qh(hover).png', async () => {
+    if (exposeOutside.qhtableImg?.isConnected) return;
     qhbtn.setImage('/systemfiles/runtime/apps/zm/assets/ldlassets/qh(hover).png');
     qhbtn.baseImage = '/systemfiles/runtime/apps/zm/assets/ldlassets/qh.png';
     exposeOutside.qhtableImg = await drawImage(menuCoords.x, menuCoords.y, menuCoords.w, menuCoords.h, '/systemfiles/runtime/apps/zm/assets/ldlassets/qhtable.png');
@@ -156,6 +160,7 @@ qhbtn.onClick();
 let hcbtn = await drawButton(btnCoords.x + 0.08, btnCoords.y, btnCoords.w, btnCoords.h, '/systemfiles/runtime/apps/zm/assets/ldlassets/hc.png', '/systemfiles/runtime/apps/zm/assets/ldlassets/hc(hover).png', async () => {
     hcbtn.setImage('/systemfiles/runtime/apps/zm/assets/ldlassets/hc(hover).png');
     hcbtn.baseImage = '/systemfiles/runtime/apps/zm/assets/ldlassets/hc.png';
+    if (exposeOutside.hctableImg?.isConnected) return;
 exposeOutside.hctableImg = await drawImage(menuCoords.x, menuCoords.y, menuCoords.w, menuCoords.h, '/systemfiles/runtime/apps/zm/assets/ldlassets/hctable.png');
 bagUI.addChild(exposeOutside.hctableImg);
     disableOtherModes(2);
@@ -170,6 +175,7 @@ bagUI.addChild(exposeOutside.hctableImg);
         await exposeOutside.renderhcReal(ldlCache.hcitemslots);
         let category = exposeOutside.getCurCategory();
         exposeOutside.renderBagItems(category, exposeOutside.getCurPage(), ldlCache[`cur${category}ItemsToRender`])
+        zmUtils.saveBtn.onClick();
     });
     exposeOutside.hctableImg.addChild(hcproceedbtn);
 });
