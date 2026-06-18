@@ -246,10 +246,7 @@ window.browserGlobals.__localFileUrlMap =
   window.browserGlobals.__localFileUrlMap || new Map();
 window.browserGlobals.__localFilePathToBlobMap =
   window.browserGlobals.__localFilePathToBlobMap || new Map();
-window.browserGlobals.profileUserIdPath =
-  "/systemfiles/runtime/apps/browser/profile/userID.txt";
-window.browserGlobals.profileSettingsPath =
-  "/systemfiles/runtime/apps/browser/profile/settings.json";
+
 window.browserGlobals.profileState = {
   siteSettings: [],
   enableURLSync: true,
@@ -631,7 +628,7 @@ window.browserGlobals.writeBrowserUserId = async function (id) {
 
 window.browserGlobals.readIndexedDbStore = async function () {
   let raw = "";
-  raw = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true });
+  raw = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true });
   return JSON.parse(raw);
 };
 
@@ -640,7 +637,7 @@ window.browserGlobals.writeIndexedDbStore = async function (payload) {
     payload && payload.origins ? payload : { origins: {} },
   );
   await window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.indexedDbPath,
+    window.browserGlobals.localStoragePath,
     btoa(serialized),
   );
 };
