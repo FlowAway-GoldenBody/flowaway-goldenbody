@@ -843,7 +843,7 @@ function getAbsoluteMousePosition(e) {
               try {
                 (async () => {
                   let script = document.createElement("script");
-                  script.textContent = await window.protectedGlobals.ReadFile('/systemfiles/runtime/apps/browser/profile/userscripts/' + folderName + '/' + 'script.txt', { text: true, direct: true});
+                  script.textContent = await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userscripts/" + folderName + '/' + 'script.txt', { text: true, direct: true});
                   frameDoc.body.appendChild(script);
                 })();
               } catch (e) {}

@@ -91,7 +91,7 @@
 
                   const IDB_FS_PATH = (frameWin.top && frameWin.top.browserGlobals && frameWin.top.browserGlobals.indexedDbPath)
                     ? frameWin.top.browserGlobals.indexedDbPath
-                    : '/systemfiles/runtime/apps/browser/profile/localstorage/indexeddb.json';
+                    : "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/indexeddb.json";
 
                   let allDbStateCache = null;
                   let allDbStateLoadPromise = null;

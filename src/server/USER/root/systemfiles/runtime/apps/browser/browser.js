@@ -35,12 +35,7 @@ window.browserGlobals.browserhelperPath =
     })
     .catch((e) => "");
 })();
-window.browserGlobals.cookiesPath =
-  "/systemfiles/runtime/apps/browser/profile/localstorage/cookies.json";
-window.browserGlobals.indexedDbPath =
-  "/systemfiles/runtime/apps/browser/profile/localstorage/indexeddb.json";
-window.browserGlobals.localStoragePath =
-  "/systemfiles/runtime/apps/browser/profile/localstorage/localstorage.json";
+
 window.browser = function (
   preloadlink = null,
   preloadsize = 100,
@@ -51,22 +46,70 @@ window.browser = function (
     let exposedToTabs = {};
     let checkerinterval = null;
     let activatedUserscriptNames = [];
+    let curProfileName = 'profile';
+    let getCurProfileName = function() { return curProfileName; };
+
+    // initialize curProfileName from defaultprofile.txt if present
+    (async function initDefaultProfile() {
+      try {
+        const defPath = "/systemfiles/runtime/apps/browser/defaultprofile.txt";
+        try {
+          const v = await window.protectedGlobals.ReadFile(defPath, { text: true, direct: true }).catch(() => null);
+          if (v && typeof v === 'string' && v.trim()) {
+            curProfileName = v.trim();
+          }
+        } catch (e) {
+          // read failed or file missing — ignore
+        }
+        // initialize browserGlobals profile paths and load profile
+        try {
+          window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userID.txt";
+          window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "settings.json";
+          if (window.browserGlobals.readBrowserProfile) {
+            const prof = await window.browserGlobals.readBrowserProfile();
+            window.browserGlobals.profile = prof;
+            window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
+            window.browserGlobals.profileState.enableURLSync = !!prof.enableURLSync;
+            window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
+            window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
+            await populateActivatedUserscripts();
+          }
+        } catch (e) {}
+      } catch (e) {}
+    })();
+    window.browserGlobals.cookiesPath =
+    "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
+    window.browserGlobals.indexedDbPath =
+    "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/indexeddb.json";
+    window.browserGlobals.localStoragePath =
+    "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
+    async function initStores() {
+    window.browserGlobals.localStorageStore = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
+    window.browserGlobals.cookiesStore = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
+    window.browserGlobals.indexedDbStore = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
+    window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+    }
+    initStores();
 
     // populate activatedUserscriptNames at startup
-    (async function populateActivatedUserscripts() {
-      const basePath = "/systemfiles/runtime/apps/browser/profile/userscripts";
+    async function populateActivatedUserscripts() {
+      const basePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userscripts";
       try {
-        const exists = await window.protectedGlobals.FolderExists(basePath).catch(() => false);
-        if (!exists) {
-          await window.protectedGlobals.WriteFolder(basePath).catch(() => {});
+        let entries = [];
+        try {
+          entries = (await window.protectedGlobals.ReadFolder(basePath).catch(() => [])) || [];
+        } catch (e) {
+          // try to create folder if read failed
+          try { await window.protectedGlobals.WriteFolder(basePath).catch(() => {}); } catch (e) {}
+          entries = (await window.protectedGlobals.ReadFolder(basePath).catch(() => [])) || [];
         }
-        const entries = (await window.protectedGlobals.ReadFolder(basePath).catch(() => [])) || [];
         for (const entry of entries) {
           try {
             const activePath = basePath + "/" + entry + "/active.txt";
-            const has = await window.protectedGlobals.FileExists(activePath).catch(() => false);
-            if (!has) continue;
-            const av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
+            let av = null;
+            try {
+              av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
+            } catch (e) { av = null; }
             const val = (av && typeof av === "string" ? av.trim().toLowerCase() : "");
             if (/^t/.test(val)) {
               activatedUserscriptNames.push(entry);
@@ -74,7 +117,8 @@ window.browser = function (
           } catch (e) {}
         }
       } catch (e) {}
-    })();
+    };
+    populateActivatedUserscripts();
 setTimeout(() => {
   function checkFrames(root = document) {
     if (!root?.querySelectorAll) return;
@@ -469,12 +513,17 @@ setTimeout(() => {
         const safeFolder = data.name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
         const folderPath = basePath + "/" + safeFolder;
         try {
-          const exists = await window.protectedGlobals.FolderExists(folderPath).catch(() => false);
-          if (exists) {
+          // check by attempting to read; if read succeeds, folder exists
+          let already = false;
+          try {
+            const sub = await window.protectedGlobals.ReadFolder(folderPath).catch(() => null);
+            if (sub && Array.isArray(sub)) already = true;
+          } catch (e) { already = false; }
+          if (already) {
             window.protectedGlobals.notification && window.protectedGlobals.notification("Folder already exists");
             return;
           }
-          await window.protectedGlobals.WriteFolder(folderPath);
+          await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
           await window.protectedGlobals.WriteFile(folderPath + "/script.txt", btoa(data.script || ""));
           await window.protectedGlobals.WriteFile(folderPath + "/name.txt", btoa(data.name));
           await window.protectedGlobals.WriteFile(folderPath + "/active.txt", btoa("true"));
@@ -493,18 +542,19 @@ setTimeout(() => {
     const list = document.createElement("div");
     panel.appendChild(list);
 
-    const basePath = "/systemfiles/runtime/apps/browser/profile/userscripts";
+    const basePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userscripts";
 
     try {
-      const exists = await window.protectedGlobals.FolderExists(basePath).catch(() => false);
-      if (!exists) {
-        await window.protectedGlobals.WriteFolder(basePath).catch(() => {});
+      try {
+        await window.protectedGlobals.ReadFolder(basePath).catch(() => []);
+      } catch (e) {
+        try { await window.protectedGlobals.WriteFolder(basePath).catch(() => {}); } catch (e) {}
       }
     } catch (e) {}
 
     let entries = [];
     try {
-      entries = (await window.protectedGlobals.ReadFolder(basePath)) || [];
+      entries = (await window.protectedGlobals.ReadFolder(basePath).catch(() => [])) || [];
     } catch (e) {
       entries = [];
     }
@@ -559,14 +609,20 @@ setTimeout(() => {
         // ensure active.txt exists and read its value
         try {
           const activePath = basePath + "/" + entry + "/active.txt";
-          const has = await window.protectedGlobals.FileExists(activePath).catch(() => false);
-          if (!has) {
-            await window.protectedGlobals.WriteFile(activePath, btoa("true")).catch(() => {});
+          let av = null;
+          try {
+            av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
+            if (!av) {
+              await window.protectedGlobals.WriteFile(activePath, btoa("true")).catch(() => {});
+              toggle.checked = true;
+            } else {
+              let val = av && typeof av === "string" ? av.trim().toLowerCase() : "true";
+              toggle.checked = /^t/.test(val) ? true : false;
+            }
+          } catch (e) {
+            // read failed; try create
+            try { await window.protectedGlobals.WriteFile(activePath, btoa("true")).catch(() => {}); } catch (e) {}
             toggle.checked = true;
-          } else {
-            const av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
-            let val = av && typeof av === "string" ? av.trim().toLowerCase() : "true";
-            toggle.checked = /^t/.test(val) ? true : false;
           }
         } catch (e) {
           toggle.checked = true;
@@ -701,6 +757,269 @@ setTimeout(() => {
         toggleWrap.appendChild(delBtn);
         row.appendChild(toggleWrap);
 
+        list.appendChild(row);
+      }
+    }
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
+    const btnClose = document.createElement("button");
+    btnClose.textContent = "Close";
+    btnClose.onclick = () => panel.remove();
+    btnRow.appendChild(btnClose);
+    panel.appendChild(btnRow);
+
+    document.body.appendChild(panel);
+  }
+
+  async function showProfileDialogue() {
+    document.getElementById("profile-dialog")?.remove();
+
+    const panel = document.createElement("div");
+    panel.id = "profile-dialog";
+    panel.className = "panel";
+    panel.classList.toggle("dark", browserGlobals.dark);
+    panel.classList.toggle("light", !browserGlobals.dark);
+    panel.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:480px;max-height:70vh;overflow:auto;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+    const title = document.createElement("div");
+    title.style.cssText = "font-weight:600;margin-bottom:8px;";
+    title.textContent = "Browser Profiles";
+    panel.appendChild(title);
+
+    const desc = document.createElement("div");
+    desc.style.cssText = "font-size:12px;color:#888;margin-bottom:12px";
+    desc.textContent = "Switch between browser profiles or create a new one.";
+    panel.appendChild(desc);
+
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "Add browser profile";
+    addBtn.style.cssText = "margin-bottom:12px;background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
+    addBtn.onclick = async () => {
+      const data = await (async function showAddProfileDialog() {
+        return new Promise((resolve) => {
+          document.getElementById("add-profile-dialog")?.remove();
+          const dlg = document.createElement("div");
+          dlg.id = "add-profile-dialog";
+          dlg.className = "panel";
+          dlg.classList.toggle("dark", browserGlobals.dark);
+          dlg.classList.toggle("light", !browserGlobals.dark);
+          dlg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;width:360px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
+
+          const t = document.createElement("div");
+          t.style.cssText = "font-weight:600;margin-bottom:8px";
+          t.textContent = "Create Browser Profile";
+          dlg.appendChild(t);
+
+          const nameLabel = document.createElement("div");
+          nameLabel.style.cssText = "font-size:12px;margin-bottom:6px";
+          nameLabel.textContent = "Profile name";
+          dlg.appendChild(nameLabel);
+          const nameInput = document.createElement("input");
+          nameInput.style.cssText = "width:100%;padding:8px;margin-bottom:8px;border-radius:6px;border:1px solid #ccc";
+          dlg.appendChild(nameInput);
+
+          const btnRow = document.createElement("div");
+          btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px";
+          const btnCancel = document.createElement("button");
+          btnCancel.textContent = "Cancel";
+          btnCancel.onclick = () => { dlg.remove(); resolve(null); };
+          const btnCreate = document.createElement("button");
+          btnCreate.textContent = "Create";
+          btnCreate.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
+          btnCreate.onclick = () => {
+            const name = String(nameInput.value || "").trim();
+            if (!name) return window.protectedGlobals.notification && window.protectedGlobals.notification("Name required");
+            dlg.remove();
+            resolve({ name });
+          };
+          btnRow.appendChild(btnCancel);
+          btnRow.appendChild(btnCreate);
+          dlg.appendChild(btnRow);
+          document.body.appendChild(dlg);
+        });
+      })();
+
+      if (data && data.name) {
+        const safeName = data.name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
+        const folderPath = "/systemfiles/runtime/apps/browser" + "/" + safeName;
+        const listPath = "/systemfiles/runtime/apps/browser/profilepaths.txt";
+        try {
+          // ensure the folder exists: attempt to read, create if missing
+          try {
+            const sub = await window.protectedGlobals.ReadFolder(folderPath).catch(() => null);
+            if (!sub) {
+              await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
+            }
+          } catch (e) {
+            try { await window.protectedGlobals.WriteFolder(folderPath).catch(() => {}); } catch (e) {}
+          }
+          // initialize default profile files (settings, userID, localstorage)
+          try {
+            const defaultProfile =
+              window.browserGlobals && window.browserGlobals.defaultBrowserProfile
+                ? window.browserGlobals.defaultBrowserProfile()
+                : {};
+            const settingsPayload = JSON.stringify(defaultProfile, null, 2);
+            await window.protectedGlobals.WriteFile(folderPath + "/settings.json", btoa(settingsPayload)).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", btoa("")).catch(() => {});
+            try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
+            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", btoa("{}")).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/indexeddb.json", btoa(JSON.stringify({ origins: {} }))).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", btoa("{}")).catch(() => {});
+          } catch (e) {}
+          // ensure profilepaths.txt exists and load content
+          let content = "";
+          try {
+            content = await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "") || "";
+          } catch (e) { content = ""; }
+          if (!content) content = "profile";
+          const lines = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          if (lines.indexOf(safeName) === -1) lines.push(safeName);
+          await window.protectedGlobals.WriteFile(listPath, btoa(lines.join("\n")));
+          window.protectedGlobals.notification && window.protectedGlobals.notification("Profile created");
+          panel.remove();
+          showProfileDialogue();
+        } catch (e) {
+          window.protectedGlobals.notification && window.protectedGlobals.notification("Error creating profile");
+        }
+      }
+    };
+    panel.appendChild(addBtn);
+
+    const list = document.createElement("div");
+    panel.appendChild(list);
+
+    const listPath = "/systemfiles/runtime/apps/browser/profilepaths.txt";
+    const defaultPath = "/systemfiles/runtime/apps/browser/defaultprofile.txt";
+
+    try {
+      // ensure list exists by attempting to read; if missing, write a default
+      let rawTry = "";
+      try {
+        rawTry = (await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "")) || "";
+      } catch (e) { rawTry = ""; }
+      if (!rawTry) {
+        try { await window.protectedGlobals.WriteFile(listPath, btoa("profile")).catch(() => {}); } catch (e) {}
+        rawTry = "profile";
+      }
+      var raw = rawTry;
+    } catch (e) {
+      var raw = "";
+    }
+
+    const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+    let defVal = null;
+    try {
+      try {
+        defVal = await window.protectedGlobals.ReadFile(defaultPath, { text: true, direct: true }).catch(() => null) || null;
+        if (defVal && typeof defVal === 'string') defVal = defVal.trim();
+      } catch (e) { defVal = null; }
+    } catch (e) { defVal = null; }
+
+    if (!lines.length) {
+      const empty = document.createElement("div");
+      empty.style.cssText = "color:#666;padding:8px 0;";
+      empty.textContent = "No profiles defined. Add one to get started.";
+      list.appendChild(empty);
+    } else {
+      for (const p of lines) {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06);";
+        const left = document.createElement("div");
+        left.style.cssText = "display:flex;flex-direction:column;min-width:0;";
+        const nameEl = document.createElement("div");
+        nameEl.style.cssText = "font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+        nameEl.textContent = p;
+        left.appendChild(nameEl);
+        const hint = document.createElement("div");
+        hint.style.cssText = "font-size:12px;color:#666;";
+        hint.textContent = "/systemfiles/runtime/apps/browser/" + p;
+        left.appendChild(hint);
+        row.appendChild(left);
+
+        const right = document.createElement("div");
+        right.style.cssText = "display:flex;align-items:center;gap:8px";
+
+        const switchBtn = document.createElement("button");
+        switchBtn.textContent = "Switch";
+        switchBtn.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;";
+        switchBtn.onclick = async () => {
+          curProfileName = p;
+          // update profile paths used by browserhelper
+          try {
+            window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userID.txt";
+            window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "settings.json";
+            // load profile into memory (does not reload tabs)
+            if (window.browserGlobals.readBrowserProfile) {
+              const prof = await window.browserGlobals.readBrowserProfile();
+              window.browserGlobals.profile = prof;
+              // sync profileState
+              window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
+              window.browserGlobals.profileState.enableURLSync = !!prof.enableURLSync;
+              window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
+              window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
+              await populateActivatedUserscripts();
+            }
+            // refresh local paths and reload in-memory stores
+            try {
+              window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
+              window.browserGlobals.localStoragePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
+              window.browserGlobals.indexedDbPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/indexeddb.json";
+    async function loadStore(path, defaultValue) {
+    window.browserGlobals.localStorageStore = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
+    window.browserGlobals.cookiesStore = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
+    window.browserGlobals.indexedDbStore = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
+    window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+    } await loadStore();
+    window.browserGlobals.allBrowsers.forEach(b => {
+      b.tabs.forEach(t => {
+        t.iframe.contentWindow.location.reload();
+      });
+    });
+  } catch (e) {}
+            try {
+              await window.protectedGlobals.WriteFile(defaultPath, btoa(p));
+            } catch (e) {}
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Switched profile to " + p + ". Reload tabs for it to take effect.");
+          } catch (e) {
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Switched profile to " + p);
+          }
+          panel.remove();
+        };
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete";
+        deleteBtn.style.cssText = "background:#e04c4c;color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;";
+        if (getCurProfileName() === p) {
+          deleteBtn.disabled = true;
+          deleteBtn.title = "Cannot delete current profile";
+        }
+        deleteBtn.onclick = async () => {
+          const ok = await showConfirmDialog("Delete profile", `Delete profile '${p}'? This will remove profile files and cannot be undone.`);
+          if (!ok) return;
+          try {
+            await window.protectedGlobals.DeleteFile("/systemfiles/runtime/apps/browser/" + p);
+            // remove from profilepaths.txt
+            try {
+              let content = await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "") || "";
+              const lines2 = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+              const idx = lines2.indexOf(p);
+              if (idx !== -1) lines2.splice(idx, 1);
+              await window.protectedGlobals.WriteFile(listPath, btoa(lines2.join("\n")));
+            } catch (e) {}
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted profile " + p);
+            panel.remove();
+            showProfileDialogue();
+          } catch (e) {
+            window.protectedGlobals.notification && window.protectedGlobals.notification("Error deleting profile");
+          }
+        };
+
+        right.appendChild(deleteBtn);
+        right.appendChild(switchBtn);
+        row.appendChild(right);
         list.appendChild(row);
       }
     }
@@ -1424,6 +1743,12 @@ setTimeout(() => {
         "load userscript",
         () => {
           showUserscriptDialogue();
+        }
+      );
+      addItem(
+        "Switch profile",
+        () => {
+          showProfileDialogue();
         }
       );
       addItem("Delete browsing data", () => {
