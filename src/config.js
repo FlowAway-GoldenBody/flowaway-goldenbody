@@ -4,7 +4,7 @@ const os = require('os');
 const RammerheadJSMemCache = require('./classes/RammerheadJSMemCache.js');
 const RammerheadJSFileCache = require('./classes/RammerheadJSFileCache.js');
 
-const enableWorkers = os.cpus().length !== 1;
+const enableWorkers = false; // os.cpus().length !== 1; phones dont support workers well
 
 module.exports = {
     //// HOSTING CONFIGURATION ////
