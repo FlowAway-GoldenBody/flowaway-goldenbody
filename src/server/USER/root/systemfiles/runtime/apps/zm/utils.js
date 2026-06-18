@@ -78,22 +78,22 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
         case 'ptdcc':
             return {result: "普通的禅杖", color: "white"};
         case 'kyz':
-            var resultObj = {result: "枯叶杖", color: '#75FB4C', width: 0.18, height: 0, description: ["求不得, 放不下, 梧桐化成杖, ", "孤走枯苍道."], fromWho: "唐僧", rarity: "优秀", type: "武器"};
+            var resultObj = {result: "枯叶杖", color: '#01ff00', width: 0.18, height: 0, description: ["求不得, 放不下, 梧桐化成杖, ", "孤走枯苍道."], fromWho: "唐僧", rarity: "优秀", type: "武器"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
         case 'kyg':
-            var resultObj = {result: "枯叶弓", color: '#75FB4C', width: 0.18, height: 0, description: ["一落红, 一枯叶, 落红离弦去, ", "从此两难聚."], fromWho: "沙僧", rarity: "优秀", type: "武器"};
+            var resultObj = {result: "枯叶弓", color: '#01ff00', width: 0.18, height: 0, description: ["一落红, 一枯叶, 落红离弦去, ", "从此两难聚."], fromWho: "沙僧", rarity: "优秀", type: "武器"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
         case 'kys':
-            var resultObj = {result: "枯叶衫", color: '#75FB4C', width: 0.18, height: 0, description: ["落黄昏, 三更雨, 临行密密", "缝, 离愁丝丝苦."], fromWho: "悟空", rarity: "优秀", type: "防具"};
+            var resultObj = {result: "枯叶衫", color: '#01ff00', width: 0.18, height: 0, description: ["落黄昏, 三更雨, 临行密密", "缝, 离愁丝丝苦."], fromWho: "悟空", rarity: "优秀", type: "防具"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
         case 'kyl':
-            var resultObj = {result: "枯叶灵", color: '#75FB4C', width: 0.18, height: 0, description: ["复苏: 缓慢回复少许生命."], fromWho: null, rarity: "优秀", type: "法宝"};
+            var resultObj = {result: "枯叶灵", color: '#01ff00', width: 0.18, height: 0, description: ["复苏: 缓慢回复少许生命."], fromWho: null, rarity: "优秀", type: "法宝"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
@@ -103,7 +103,17 @@ zbUtils.lookupStats = (name, displaypos, itemObj) => {
             resultObj.height = calcH;
             return resultObj;
         case '2qhs':
-            var resultObj = {result: '二级强化石', color: "#75FB4C", width: 0.18, height: 0, description: ["由3个1级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比1级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "优秀", type: "强化石"};
+            var resultObj = {result: '二级强化石', color: "#01ff00", width: 0.18, height: 0, description: ["由3个1级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比1级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "优秀", type: "强化石"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
+        case '3qhs':
+            var resultObj = {result: '三级强化石', color: "blue", width: 0.18, height: 0, description: ["由3个2级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比2级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "精良", type: "强化石"};
+            var calcH = calcWidth(resultObj);
+            resultObj.height = calcH;
+            return resultObj;
+        case '4qhs':
+            var resultObj = {result: '四级强化石', color: "purple", width: 0.18, height: 0, description: ["由3个3级强化石", "合成, 可以在炼", "丹炉里用来强化", "装备, 提升装备", "的属性. 比3级", "强化石拥有更好", "的成功率."], fromWho: null, rarity: "史诗", type: "强化石"};
             var calcH = calcWidth(resultObj);
             resultObj.height = calcH;
             return resultObj;
@@ -417,7 +427,12 @@ zbUtils.renderStats = async (obj, displayobj, displaypos = {X: 0, Y: 0}) => {
     if (displayobj.color) {
         let lhCount;
         if (displayobj.color === 'white') lhCount = 20;
-        else if (displayobj.color === "#75FB4C") lhCount = 40;
+        else if (displayobj.color === "#01ff00") lhCount = 40;
+        else if (displayobj.color === 'blue') lhCount = 80;
+        else if (displayobj.color === 'purple') lhCount = 160;
+        else if (displayobj.color === 'orange') lhCount = 320;
+        else if (displayobj.color === 'gray') lhCount = 640;
+        else if (displayobj.color === 'cyan') lhCount = 1280;
         let itemName = await drawText(
             "价值: " + lhCount + '灵魂',
             0.0205,

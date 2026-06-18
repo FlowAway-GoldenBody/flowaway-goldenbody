@@ -879,6 +879,22 @@ const loadPromise = (async () => {
       return list;
     }
 
+    // Check if a drawable at a given position is blocked by other non-text elements above it
+    function isBlockedByUpperElement(drawable, clickPos, renderList) {
+      const drawableIndex = renderList.indexOf(drawable);
+      if (drawableIndex === -1) return false;
+      
+      // Check all elements above this drawable (higher indices in the list = higher z-index)
+      for (let i = renderList.length - 1; i > drawableIndex; i--) {
+        const upper = renderList[i];
+        // Only block if it's an image or button (not text), is visible, and contains the click position
+        if ((upper.type === 'image' || upper.type === 'button') && upper.visible && upper.contains(clickPos.x, clickPos.y)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     function renderScene() {
       const { width, height } = resizeCanvas();
       ctx.clearRect(0, 0, width, height);
@@ -888,6 +904,7 @@ const loadPromise = (async () => {
 
     canvas.addEventListener("pointermove", (event) => {
       const pos = deviceToUserCoords(event.clientX, event.clientY);
+      const list = buildRenderList();
       let needsRender = false;
       buttons.forEach((button) => {
         // ignore buttons that require a parent but don't have one
@@ -917,11 +934,15 @@ const loadPromise = (async () => {
           return;
         }
         const hovering = button.contains(pos.x, pos.y);
-        if (hovering !== button.isHover) {
-          button.isHover = hovering;
+        // Don't allow hover on buttons blocked by upper non-text elements
+        const isBlocked = hovering && isBlockedByUpperElement(button, pos, list);
+        const shouldHover = hovering && !isBlocked;
+        
+        if (shouldHover !== button.isHover) {
+          button.isHover = shouldHover;
           // call hover handlers on transition
           try {
-            if (hovering) {
+            if (shouldHover) {
               if (typeof button.onHover === 'function') button.onHover(event);
               canvas.style.cursor = 'pointer';
             } else {
@@ -947,6 +968,10 @@ const loadPromise = (async () => {
         if (d.type === "button") {
           if (d.disableAccess) continue;
           if (d.contains(pos.x, pos.y)) {
+            // Check if this button is blocked by other non-text elements above it
+            if (isBlockedByUpperElement(d, pos, list)) {
+              continue; // Skip this button, it's blocked
+            }
             d.onClick(event);
             canvas.style.cursor = 'default';
             break;
@@ -1053,7 +1078,6 @@ const loadPromise = (async () => {
       let dx = 0.2;
       let clicked = [];
       let clickedPayload = [];
-      window.test = clickedPayload; // enable debugging
       let player1Image = null;
       let player2Image = null;
       for (let i = 1; i <= 5; i++) {
@@ -1065,7 +1089,6 @@ const loadPromise = (async () => {
             const hoverPath = `/systemfiles/runtime/apps/zm/assets/xdks(${i})(hover).png`;
             const normalPath = `/systemfiles/runtime/apps/zm/assets/xdks(${i}).png`;
             if(!clicked[0] && `${i}-2P` !== clickedPayload[0] && `${i}-2P` !== clickedPayload[1]) {
-              debugger;
               clicked[0] = charbtn;
               await charbtn.setImage(hoverPath);
               if (player1Image) player1Image.remove();

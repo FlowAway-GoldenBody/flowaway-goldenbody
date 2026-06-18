@@ -6,6 +6,7 @@ console.log('active');
 if (!zmcd.lhValue) zmcd.lhValue = 0;
 let containerImg;
 let containerImg2;
+let gethcNameText = () => {return ''};
 function randomNumber(min, max, decimals) {
     const factor = 10 ** decimals;
     return Math.floor((Math.random() * (max - min) + min) * factor) / factor;
@@ -26,6 +27,12 @@ function getItemHC(s) {
         let wx = calcWx();
         let resultObj = {result: { name: 'kyl', player: exposeOutside.getActivePlayer(), ROC: randomNumber(0.5, 1, 1), level: 1, wx, HP: randomNumber(30, 50, 0), MP: randomNumber(30, 50, 0), attack: 10 }, putBackLocation: 'zb'};
         return resultObj;
+    } else if (s === '1qhs1qhs1qhs') {
+        return { result: { name: '2qhs', player: exposeOutside.getActivePlayer(), cnt: 1 }, putBackLocation: 'dj' }
+    } else if (s === '2qhs2qhs2qhs') {
+        return { result: { name: '3qhs', player: exposeOutside.getActivePlayer(), cnt: 1 }, putBackLocation: 'dj' }
+    } else if (s === '3qhs3qhs3qhs') {
+        return { result: { name: '4qhs', player: exposeOutside.getActivePlayer(), cnt: 1 }, putBackLocation: 'dj' }
     }
 }
 exposeOutside.renderhcPreview = async (slots) => {
@@ -33,7 +40,7 @@ exposeOutside.renderhcPreview = async (slots) => {
     let s = '';
     slots.forEach(slot => s+=slot.Item.name);
     let item = getItemHC(s);
-    let itemImg = await drawImage(0.2986526946107784, 0.4138813859152698, 0.05, 0.074, `/systemfiles/runtime/apps/zm/assets/zb/${item.result.name}.png`);
+    let itemImg = await drawImage(0.2986526946107784, 0.4138813859152698, 0.05, 0.074, `/systemfiles/runtime/apps/zm/assets/${item.putBackLocation}/${item.result.name}.png`);
     exposeOutside.hctableImg.addChild(containerImg);
     containerImg.addChild(itemImg);
     let chancetxt = await drawText('100%', 0.02, 'white', 'ThinFont', 'left', 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: 'ThinFont' });
@@ -42,17 +49,24 @@ exposeOutside.renderhcPreview = async (slots) => {
     let lhtxt = await drawText('10000', 0.02, 'white', 'ThinFont', 'left', 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: 'ThinFont' });
     lhtxt.setPosition(0.36002994011976047, 0.2857104913892351);
     exposeOutside.hctableImg.addChild(lhtxt);
+    try {
+        gethcNameText().remove();
+    } catch (e) {}
     let nametxt = await drawText(zbUtils.lookupStats(item.result.name, { x: 0, y: 0 }, item.result).result, 0.02, 'white', 'ThinFont', 'left', 1, { fontPath: "/systemfiles/runtime/apps/zm/assets/thinFont.ttf", fontFamily: 'ThinFont' });
     nametxt.setPosition(0.32110778443113774, 0.3444554847136677);
     exposeOutside.hctableImg.addChild(nametxt);
+    gethcNameText = () => {return nametxt};
 };
 exposeOutside.renderhcReal = async (slots) => {
     containerImg2 = await drawImage(0.1998502994011976, 0.2977265127510509, 0.05, 0.074, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
     let s = '';
     slots.forEach(slot => s+=slot.Item.name);
     let item = getItemHC(s);
+    if (!item?.result) return;
     let slot = item.result;
-    let itemBtn = await drawButton(0.1998502994011976, 0.2977265127510509, 0.05, 0.074, `/systemfiles/runtime/apps/zm/assets/zb/${item.result.name}.png`, `/systemfiles/runtime/apps/zm/assets/zb/${item.result.name}.png`, async () => {
+    if (zmcd.lhValue < 10000) {alert('灵魂不够'); return}
+    exposeOutside.deductLh(10000);
+    let itemBtn = await drawButton(0.1998502994011976, 0.2977265127510509, 0.05, 0.074, `/systemfiles/runtime/apps/zm/assets/${item.putBackLocation}/${item.result.name}.png`, `/systemfiles/runtime/apps/zm/assets/${item.putBackLocation}/${item.result.name}.png`, async () => {
         try {
         instance.extern.tooltip.remove();
         instance.extern.tooltip = null;
@@ -80,7 +94,19 @@ exposeOutside.renderhcReal = async (slots) => {
     };
     exposeOutside.hctableImg.addChild(containerImg2);
     containerImg2.addChild(itemBtn);
-    ldlCache[`cur${item.putBackLocation}ItemsToRender`].push(item.result);
+    if (item.putBackLocation !== 'dj') ldlCache[`cur${item.putBackLocation}ItemsToRender`].push(item.result);
+    else {
+        let added = false;
+        let a = ldlCache[`cur${item.putBackLocation}ItemsToRender`];
+        for (let i = 0; i < a.length; i++) {
+            if (a[i].name === item.result.name && a[i].player === exposeOutside.getActivePlayer()) {
+                added = true;
+                a[i].cnt++;
+                break;
+            }
+        }
+        if (!added) a.push(item.result)
+    }
     ldlCache[`removed${item.putBackLocation}saveobject`] = [];
     ldlCache.hcitemslots.forEach(e => {e.PE.remove(); e.PE = null; e.Item = null;});
     return item;
@@ -169,8 +195,6 @@ bagUI.addChild(exposeOutside.hctableImg);
         let haveItems = 0;
         ldlCache.hcitemslots.forEach(e => { if(e.Item) haveItems++; });
         if (haveItems < 3) return;
-        if (zmcd.lhValue < 10000) {alert('灵魂不够'); return}
-        exposeOutside.deductLh(10000);
         exposeOutside.removehcPreview();
         await exposeOutside.renderhcReal(ldlCache.hcitemslots);
         let category = exposeOutside.getCurCategory();

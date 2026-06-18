@@ -314,7 +314,6 @@ async function continueInGame(zmcd, cdIndex) {
                                         }
                                     } catch (e) {}
                                     categoryButtons[1].onClick();
-                                    renderBagItems(curCategory, curPage, ldlCache.curdjItemsToRender);
                                     djSlot.Item = false;
                                     djSlot.PE = null;
                                     try {
@@ -379,7 +378,7 @@ async function continueInGame(zmcd, cdIndex) {
                                     } catch (e) {}
                                     ldlCache.curzbItemsToRender.push(slot);
                                     ldlCache.removedzbsaveobject.splice(ldlCache.removedzbsaveobject.indexOf(slot), 1);
-                                    renderBagItems(curCategory, curPage, ldlCache.curzbItemsToRender);
+                                    categoryButtons[0].onClick();
                                     itemslots[i].Item = false;
                                 });
                                 itemBtn.onHover = async () => {
@@ -406,6 +405,58 @@ async function continueInGame(zmcd, cdIndex) {
                                 break;
                             }
                         }
+                            if (curCategory === 'dj') {
+                                for (let i = 0; i < itemslots.length; i++) {
+                                    if (itemslots[i].Item) continue;
+                                    slot.cnt--;
+                                    try {
+                                        exposeOutside.removehcReal();
+                                    } catch(e) {}
+                                    let slotCopy = Object.assign({}, slot);
+                                    slotCopy.cnt = 1;
+                                    ldlCache.removeddjsaveobject.push(slotCopy);
+                                    renderBagItems(curCategory, curPage, ldlCache.curdjItemsToRender);
+                                    itemslots[i].Item = slot;
+                                    let containerImg = await drawImage(itemslots[i].x, itemslots[i].y, 0.05, 0.074, '/systemfiles/runtime/apps/zm/assets/zb(emptyslot).png');
+                                    itemslots[i].PE = containerImg;
+                                    exposeOutside.hctableImg.addChild(containerImg);
+                                    let itemBtn = await drawButton(itemslots[i].x, itemslots[i].y, 0.05, 0.074, "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", "/systemfiles/runtime/apps/zm/assets/" + category + "/" + slot.name + ".png", async () => {
+                                        containerImg.remove();
+                                        containerImg = null;
+                                        exposeOutside.removehcPreview();
+                                        try {
+                                            instance.extern.tooltip.remove();
+                                            instance.extern.tooltip = null;
+                                        } catch (e) {}
+                                        slot.cnt++;                                    
+                                        ldlCache.removeddjsaveobject.splice(ldlCache.removeddjsaveobject.indexOf(slot), 1);
+                                        categoryButtons[1].onClick();
+                                        itemslots[i].Item = false;
+                                    });
+                                    itemBtn.onHover = async () => {
+                                        // Only show tooltip if this item doesn't already have one shown
+                                        if (currentTooltipItem === itemBtn) return;
+                                        
+                                        currentTooltipItem = itemBtn;
+                                        let info = zbUtils.lookupStats(slot.name, itemBtn, slot);
+                                        let h = itemBtn.y - info.height + itemBtn.height;
+                                        let tmp = h;
+                                        let lowh = false;
+                                        if (h < 0) {h = 0.007099999999999995; lowh = true}
+                                        if (h === 0.007099999999999995) tmp = h-tmp;
+                                        let textHeight = tmp;
+                                        await instance.extern.displayItemTooltip(slot, itemBtn.x + itemBtn.width, h, info, itemBtn, textHeight, lowh);
+                                    };
+                                    itemBtn.onHoverEnd = () => {
+                                        currentTooltipItem = null;
+                                        instance.extern.tooltip.remove();
+                                        instance.extern.tooltip = null;
+                                    };
+                                    containerImg.addChild(itemBtn);
+                                    if (i === 2) exposeOutside.renderhcPreview(ldlCache.hcitemslots);
+                                    break;
+                                }
+                            }
                 }
             }, 
             1 // zindex
