@@ -303,6 +303,21 @@ window.browserGlobals.sleep = function (ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
+window.browserGlobals.mutateObject = function (target, newData) {
+  if (!target || typeof target !== 'object') return;
+  for (const key of Object.keys(target)) {
+    delete target[key];
+  }
+  if (newData && typeof newData === 'object') {
+    Object.assign(target, newData);
+  }
+};
+
+// Initialize store objects as empty so they can be mutated in-place
+window.browserGlobals.cookies = {};
+window.browserGlobals.localStorageStore = {};
+window.browserGlobals.indexedDbStore = { origins: {} };
+
 window.browserGlobals.flushThrottledWrite = function (
   key,
   cooldownMs,
@@ -834,10 +849,10 @@ try {
   );
   const raw = res && res.filecontent ? res.filecontent : "";
   const decoded = window.browserGlobals.decodeMaybeBase64(raw);
-  window.browserGlobals.cookies = JSON.parse(decoded || "{}") || {};
+  const newData = JSON.parse(decoded || "{}") || {};
+  window.browserGlobals.mutateObject(window.browserGlobals.cookies, newData);
 } catch {
-  window.browserGlobals.cookies = {};
-
+  window.browserGlobals.mutateObject(window.browserGlobals.cookies, {});
 }
 }
 loadCookies();
@@ -943,9 +958,10 @@ try {
   );
   const raw = res && res.filecontent ? res.filecontent : "";
   const decoded = window.browserGlobals.decodeMaybeBase64(raw);
-  window.browserGlobals.localStorageStore = JSON.parse(decoded || "{}") || {};
+  const newData = JSON.parse(decoded || "{}") || {};
+  window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newData);
 } catch {
-  window.browserGlobals.localStorageStore = {};
+  window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, {});
 }
 }
 loadLocalStorage();
@@ -1075,14 +1091,14 @@ window.browserGlobals.processNextWrite = async function () {
   window.browserGlobals.processNextWrite();
 };
 window.browserGlobals.clearAllCookies = async function () {
-  window.browserGlobals.cookies = {};
+  window.browserGlobals.mutateObject(window.browserGlobals.cookies, {});
   await window.browserGlobals.writeFileOrdered(
     window.browserGlobals.cookiesPath,
     btoa(JSON.stringify(window.browserGlobals.cookies))
   );
 };
 window.browserGlobals.clearAllLocalStorage = async function () {
-  window.browserGlobals.localStorageStore = {};
+  window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, {});
   await window.browserGlobals.writeFileOrdered(
     window.browserGlobals.localStoragePath,
     btoa(JSON.stringify(window.browserGlobals.localStorageStore))

@@ -84,10 +84,13 @@ window.browser = function (
     window.browserGlobals.localStoragePath =
     "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
     async function initStores() {
-    window.browserGlobals.localStorageStore = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
-    window.browserGlobals.cookiesStore = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
-    window.browserGlobals.indexedDbStore = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
-    window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+      const newCookies = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
+      window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
+      const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
+      window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
+      const newIndexedDb = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
+      window.browserGlobals.mutateObject(window.browserGlobals.indexedDbStore, newIndexedDb);
+      window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
     }
     initStores();
 
@@ -967,18 +970,16 @@ setTimeout(() => {
               window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
               window.browserGlobals.localStoragePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
               window.browserGlobals.indexedDbPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/indexeddb.json";
-    async function loadStore(path, defaultValue) {
-    window.browserGlobals.localStorageStore = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
-    window.browserGlobals.cookiesStore = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
-    window.browserGlobals.indexedDbStore = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
-    window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
-    } await loadStore();
-    window.browserGlobals.allBrowsers.forEach(b => {
-      b.tabs.forEach(t => {
-        t.iframe.contentWindow.location.reload();
-      });
-    });
-  } catch (e) {}
+              // reload stores by mutating them in-place so all tabs see the same references
+              const newCookies = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
+              window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
+              const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
+              window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
+              const newIndexedDb = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
+              window.browserGlobals.mutateObject(window.browserGlobals.indexedDbStore, newIndexedDb);
+              window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+            } catch (e) {}
+            window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
             try {
               await window.protectedGlobals.WriteFile(defaultPath, btoa(p));
             } catch (e) {}
