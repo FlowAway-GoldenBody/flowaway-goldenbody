@@ -36,7 +36,7 @@ window.browserGlobals.browserhelperPath =
     .catch((e) => "");
 })();
 
-window.browser = function (
+window.browser = async function (
   preloadlink = null,
   preloadsize = 100,
   posX = 20,
@@ -47,10 +47,11 @@ window.browser = function (
     let checkerinterval = null;
     let activatedUserscriptNames = [];
     let curProfileName = 'profile';
+    let stopIframePatchWatcher = null;
     let getCurProfileName = function() { return curProfileName; };
 
     // initialize curProfileName from defaultprofile.txt if present
-    (async function initDefaultProfile() {
+    async function initDefaultProfile() {
       try {
         const defPath = "/systemfiles/runtime/apps/browser/defaultprofile.txt";
         try {
@@ -76,7 +77,8 @@ window.browser = function (
           }
         } catch (e) {}
       } catch (e) {}
-    })();
+    }
+    await initDefaultProfile();
     window.browserGlobals.cookiesPath =
     "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
     window.browserGlobals.indexedDbPath =
@@ -132,7 +134,29 @@ setTimeout(() => {
         if (!doc) continue;
 
         if (!doc.__gbCookieHookInstalled) {
-          exposedToTabs.recurseFrames(doc, null, frame);
+          let recurseFunc = null;
+          
+          // Find which top-level tab iframe (direct child of root in the main window) contains this iframe
+          for (let topFrame of document.querySelectorAll(".sim-iframe")) {
+            // Try to check if this frame is inside topFrame by walking the tree
+            topFrame = topFrame.contentWindow;
+            try {
+              let current = frame;
+              while (current) {
+                if (current === topFrame) {
+                  recurseFunc = topFrame.__gbframeElement.__gbRecurseFrames;
+                  break;
+                }
+                // Try to get parent from contentWindow
+                current = current.contentWindow?.parent;
+              }
+              if (recurseFunc) break;
+            } catch (e) {}
+          }
+          
+          if (recurseFunc) {
+            recurseFunc(doc, null, frame);
+          }
           continue;
         }
 
@@ -977,7 +1001,7 @@ setTimeout(() => {
               window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
               const newIndexedDb = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
               window.browserGlobals.mutateObject(window.browserGlobals.indexedDbStore, newIndexedDb);
-              window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+              // window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
             } catch (e) {}
             window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
             window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", btoa(p));
@@ -3220,8 +3244,10 @@ setTimeout(() => {
       }
       iframe.tabIndex = "0";
       iframe.className = "sim-iframe";
+      console.log(iframe);
       eval(browserGlobals.iframePatch);
-
+      stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
+      
       if (browserGlobals.proxyurl != "") {
         iframe.src = a(url, browserGlobals.proxyurl);
         // oof we dont need this anymore
@@ -3243,7 +3269,10 @@ setTimeout(() => {
         RAFSpeed,
         setRAFSpeed: (val) => {
           tab.RAFSpeed = val;
-          exposedToTabs.recurseFrames(tab.iframe.contentDocument, undefined, tab.iframe, undefined, { speed: val })
+          const recurseFunc = tab.iframe.__gbRecurseFrames;
+          if (recurseFunc) {
+            recurseFunc(tab.iframe.contentDocument, undefined, tab.iframe, undefined, { speed: val });
+          }
         },
         id,
         firstNav: true,
