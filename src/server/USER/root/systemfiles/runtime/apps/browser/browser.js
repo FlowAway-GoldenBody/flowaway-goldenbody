@@ -980,6 +980,7 @@ setTimeout(() => {
               window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
             } catch (e) {}
             window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
+            window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", btoa(p));
             try {
               await window.protectedGlobals.WriteFile(defaultPath, btoa(p));
             } catch (e) {}
@@ -3120,51 +3121,6 @@ setTimeout(() => {
         // let sfc = tab.iframe.contentDocument.createElement("script");
         // sfc.src = window.protectedGlobals.goldenbodywebsite + "sfc__o.js";
         // tab.iframe.contentDocument.head.prepend(sfc);
-        const hooked = new WeakSet();
-
-        function patchLink(link) {
-          if (hooked.has(link)) return;
-          hooked.add(link);
-
-          if (link.target !== "_blank") link.target = "_self";
-
-          if (
-            !link.href.includes(browserGlobals.id) &&
-            link.href.startsWith("http")
-          ) {
-            link.href = a(link.href, browserGlobals.proxyurl);
-          }
-
-          link.addEventListener("click", (e) => {
-            if (e.metaKey || link.target === "_blank" || e.shiftKey) {
-              e.preventDefault();
-              const url = browserGlobals.unshuffleURL(link.href);
-              iframe.contentWindow.open(
-                url,
-                (e.metaKey || e.shiftKey) ? "_blank" : link.target || "_self",
-                {newWindow: e.shiftKey}
-              );
-            }
-          });
-        }
-
-        // patch existing links once
-        iframe.contentDocument.querySelectorAll("a").forEach(patchLink);
-        const observer = new MutationObserver((mutations) => {
-          for (const m of mutations) {
-            m.addedNodes.forEach((node) => {
-              if (node.nodeType !== 1) return;
-
-              if (node.matches?.("a")) patchLink(node);
-              node.querySelectorAll?.("a").forEach(patchLink);
-            });
-          }
-        });
-
-        observer.observe(iframe.contentDocument, {
-          childList: true,
-          subtree: true,
-        });
       });
       iframe.addEventListener("load", function onLoad() {
         const doc = iframe.contentDocument;

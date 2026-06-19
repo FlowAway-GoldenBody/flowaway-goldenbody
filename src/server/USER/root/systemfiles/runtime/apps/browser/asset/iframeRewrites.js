@@ -830,6 +830,46 @@ function getAbsoluteMousePosition(e) {
           let ruffleScript = document.createElement('script');
           ruffleScript.src = 'https://unpkg.com/@ruffle-rs/ruffle';
           frameDoc.body.appendChild(ruffleScript);
+          
+          // Patch links to handle proxy URLs and new tab behavior
+          const hooked = new WeakSet();
+          function patchLink(link) {
+            if (hooked.has(link)) return;
+            hooked.add(link);
+            if (link.target !== "_blank") link.target = "_self";
+            if (
+              !link.href.includes(browserGlobals.id) &&
+              link.href.startsWith("http")
+            ) {
+              link.href = a(link.href, browserGlobals.proxyurl);
+            }
+            link.addEventListener("click", (e) => {
+              if (e.metaKey || link.target === "_blank" || e.shiftKey) {
+                e.preventDefault();
+                const url = browserGlobals.unshuffleURL(link.href);
+                frame.contentWindow.open(
+                  url,
+                  (e.metaKey || e.shiftKey) ? "_blank" : link.target || "_self",
+                  {newWindow: e.shiftKey}
+                );
+              }
+            });
+          }
+          frameDoc.querySelectorAll("a").forEach(patchLink);
+          const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+              m.addedNodes.forEach((node) => {
+                if (node.nodeType !== 1) return;
+                if (node.matches?.("a")) patchLink(node);
+                node.querySelectorAll?.("a").forEach(patchLink);
+              });
+            }
+          });
+          observer.observe(frameDoc, {
+            childList: true,
+            subtree: true,
+          });
+          
           let eggpatch = document.createElement("script");
           eggpatch.textContent = `console.log("%c[EggPatcher] %cWebSocket patcher initialized","color: magenta; font-weight: bold","color: white"),(()=>{class e extends WebSocket{constructor(e,o){let c=window.top.origin.split("/")[2],t=String(e);t.includes(c)&&(t=t.replace(c,window.location.host)),t.includes("egs")&&t.includes(window.location.hostname.split('.')[1])&&(t=t.replace(window.location.hostname.split('.')[1]+'.'+window.location.hostname.split('.')[2],"shellshock.io")),t.includes("ser")&&(t="wss://shellshock.io/services/"),t.includes("matchmaker")&&(t="wss://shellshock.io/matchmaker/"),console.log(\`%c[WS Connect] %cConnecting to: \${t}\`,"color: cyan; font-weight: bold","color: white"),super(t,o),this.addEventListener("open",(()=>{console.log(\`%c[WS Open] %cSuccessfully connected to \${this.url}\`,"color: green; font-weight: bold","color: white")})),this.addEventListener("error",(e=>{console.error(\`[WS Error] Connection failed to \${this.url}\`,e)}))}}window.WebSocket=e})();Object.defineProperty(window, "WebSocket",{configurable: false,enumerable: true,writable: true,value: window.WebSocket});`;
           frameDoc.body.appendChild(eggpatch);
