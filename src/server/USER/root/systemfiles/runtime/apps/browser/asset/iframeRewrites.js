@@ -1,4 +1,5 @@
 var patchinterval = null;
+console.log(iframe);
 var patchwindowtimeout = null;
 var stopIframePatchWatcher = () => {
   if (patchinterval) {
@@ -10,6 +11,7 @@ var stopIframePatchWatcher = () => {
     patchwindowtimeout = null;
   }
 };
+exposedToTabs.stopIframePatchWatcher = stopIframePatchWatcher;
 var startIframePatchWatcher = (durationMs = 2500) => {
   if (!patchinterval) {
     patchinterval = setInterval(() => {
@@ -79,6 +81,9 @@ iframe.addEventListener(
 
 async function iframePatches() {
   // Get the document inside the iframe
+  try {
+    iframe.contentWindow.test = () => {return iframe};
+  } catch {}
   let iframeDocument =
     iframe?.contentDocument || iframe?.contentWindow?.document;
   if (!iframeDocument || !iframe?.contentWindow || (iframe.contentDocument.location.href === "about:blank" && tab.firstNav && iframe.src !== "about:blank")) return;
@@ -508,46 +513,6 @@ async function iframePatches() {
     menu.style.display = "none";
   }
 
-  // // Listen for right-clicks inside the iframe
-  // if (!iframe.contentWindow.__gbContextMenuHandler) {
-  //   iframe.contentWindow.__gbContextMenuHandler = function (e) {
-  //     e.preventDefault();
-  //     e.stopPropagation();
-  //     const contextData = getContextMenuData(e);
-  //     showMenu(e.clientX, e.clientY, contextData);
-
-  //     if (contextData.linkElement && contextData.linkElement.href) {
-  //       console.log("Right-clicked on a link:", contextData.linkElement.href);
-  //     } else if (contextData.imageElement && contextData.imageElement.src) {
-  //       console.log("Right-clicked on an image:", contextData.imageElement.src);
-  //     } else if (contextData.frameUrl) {
-  //       console.log("Right-clicked inside a frame:", contextData.frameUrl);
-  //     } else {
-  //       console.log("Right-clicked on a non-link element.");
-  //     }
-  //   };
-  // }
-  // iframe.contentWindow.removeEventListener(
-  //   "contextmenu",
-  //   iframe.contentWindow.__gbContextMenuHandler,
-  //   true,
-  // );
-  // iframe.contentWindow.addEventListener(
-  //   "contextmenu",
-  //   iframe.contentWindow.__gbContextMenuHandler,
-  //   true,
-  // );
-  // iframeDocument.removeEventListener(
-  //   "contextmenu",
-  //   iframe.contentWindow.__gbContextMenuHandler,
-  //   true,
-  // );
-  // iframeDocument.addEventListener(
-  //   "contextmenu",
-  //   iframe.contentWindow.__gbContextMenuHandler,
-  //   true,
-  // );
-
 function getAbsoluteMousePosition(e) {
   let x = e.clientX;
   let y = e.clientY;
@@ -972,7 +937,7 @@ function getAbsoluteMousePosition(e) {
             }
             // override window.open
             frameWin.open = function (url = "about:blank", location = "_blank", options = {newWindow: false}) {
-              const layer1Iframe = iframe.contentWindow.__gbframeElement;
+              const layer1Iframe = frame.contentWindow.__gbframeElement;
               let allbrowserindex = 0;
               // console.log(layer1Iframe); // ✅ the first iframe under the main page
               for (
@@ -1477,6 +1442,14 @@ function getAbsoluteMousePosition(e) {
       }
     }
   }
+  // Store this tab's recurseFrames on the iframe itself so the interval uses the correct version
+  function getIframe() {return iframe;}
+  let retryInterval = setInterval(() => {
+  getIframe().__gbRecurseFrames = exposedToTabs.recurseFrames;
+  }, 50);
+  setTimeout(() => {
+    clearInterval(retryInterval);
+  }, 5000);
   let recurseFrames = exposedToTabs.recurseFrames;
 
   // Hide the menu when clicking elsewhere

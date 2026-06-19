@@ -697,7 +697,7 @@ window.browserGlobals.profile = window.browserGlobals.defaultBrowserProfile();
 window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(
   window.browserGlobals.profile,
 );
-window.browserGlobals.id = "";
+// window.browserGlobals.id = "";
 window.browserGlobals.profileReadyPromise = (async () => {
   const loadedProfile = await window.browserGlobals.readBrowserProfile();
   window.browserGlobals.profile = loadedProfile;
