@@ -56,9 +56,14 @@
       opacity: 0.85;
     }
     
-    .taskbutton.task-open::after {
+    .taskbutton.light.task-open::after {
       width: 20px;
       background-color: #000;
+    }
+    
+    .taskbutton.dark.task-open::after {
+      width: 20px;
+      background-color: #fff;
     }
     
     /* Closed/not running - no indicator */
