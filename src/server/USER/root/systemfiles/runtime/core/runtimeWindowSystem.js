@@ -58,6 +58,8 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
           window[app.globalvarobjectstring][app.cmf],
           "",
           appId,
+          false,
+          true, // pinned by default if in saved taskbuttons
         );
       }
       else {
@@ -67,6 +69,8 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
           window.protectedGlobals.cmf,
           "",
           appId,
+          false,
+          true
         );
       }
       if (btn) btn.dataset.appId = appId;
@@ -102,14 +106,17 @@ const saveTaskButtons = window.protectedGlobals.saveTaskButtons = function saveT
   buttons.splice(0, 2);
   var postdata = [];
   for (const b of buttons) {
-    if (b.dataset && b.dataset.appId) {
-      postdata.push(b.dataset.appId);
-    } else {
-      // If no dataset, try to infer id from value or textContent
-      var inferred =
-        (b.value && String(b.value).trim()) ||
-        (b.textContent && String(b.textContent).trim());
-      if (inferred) postdata.push(inferred);
+    // Only save pinned buttons
+    if (b.dataset && b.dataset.pinned === 'true') {
+      if (b.dataset.appId) {
+        postdata.push(b.dataset.appId);
+      } else {
+        // If no appId, try to infer id from value or textContent
+        var inferred =
+          (b.value && String(b.value).trim()) ||
+          (b.textContent && String(b.textContent).trim());
+        if (inferred) postdata.push(inferred);
+      }
     }
   }
   if (!silence) window.protectedGlobals.notification("taskbuttons saved!");
@@ -399,7 +406,7 @@ var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPrevie
 var commitWindowSwitchTarget = window.protectedGlobals.commitWindowSwitchTarget = function commitWindowSwitchTarget() {
   var target = windowSwitchState.pendingTarget;
   if (!target || !target.isConnected) return;
-  bringToFront(target);
+  window.protectedGlobals.bringToFront(target);
   target.focus({ preventScroll: true });
 }
 

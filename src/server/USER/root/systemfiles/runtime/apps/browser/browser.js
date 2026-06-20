@@ -43,6 +43,7 @@ window.browser = async function (
   posY = 20,
   preMaximized = false,
 ) {
+    let getRoot = () => {};
     let exposedToTabs = {};
     let checkerinterval = null;
     let activatedUserscriptNames = [];
@@ -126,8 +127,9 @@ window.browser = async function (
     populateActivatedUserscripts();
 setTimeout(() => {
   function checkFrames(root = document) {
+    // add something so the interval knows when to clear itself
     if (!root?.querySelectorAll) return;
-
+    if (!getRoot().isConnected) {clearInterval(checkerinterval); return;}
     for (const frame of root.querySelectorAll("iframe")) {
       try {
         const doc = frame.contentDocument || frame.contentWindow?.document;
@@ -1473,6 +1475,7 @@ setTimeout(() => {
   const chromeWindow = (function createChromeLikeUI() {
     // --- Create root container ---
     var root = document.createElement("div");
+    getRoot = function () { return root; };
     root.__moveTabListenerAdded = false;
     root.className = "app-root app-window-root";
     root.dataset.appId = "browser";
