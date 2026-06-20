@@ -978,9 +978,9 @@ settings = function (posX = 50, posY = 50) {
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
+      zIndex: 3000,
       resize: "both",
     });
-    window.protectedGlobals.bringToFront(dlg);
     const header = document.createElement("div");
     header.style.display = "flex";
     header.style.alignItems = "center";
@@ -990,7 +990,6 @@ settings = function (posX = 50, posY = 50) {
     header.style.background = window.protectedGlobals.data.dark ? "#111" : "#f1f1f1";
     header.style.flexShrink = "0";
     header.style.position = "relative";
-    header.onclick = () => window.protectedGlobals.bringToFront(dlg);
     const htitle = document.createElement("div");
     htitle.textContent = "About";
     htitle.style.fontWeight = "600";

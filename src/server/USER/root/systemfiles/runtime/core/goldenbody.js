@@ -1,4 +1,74 @@
 (function () {
+  function calcTop() {
+    let atTop = '';
+    let topZindex = 0;
+    for (let win of document.querySelectorAll('.app-window-root')) {
+      const z = parseInt(window.getComputedStyle(win).zIndex) || 0;
+      if (z > topZindex) {
+        topZindex = z;
+        atTop = win.dataset && win.dataset.appId ? win.dataset.appId : (win.id ? String(win.id).trim() : '');
+      }
+    }
+    for (let app of window.protectedGlobals.apps) {
+      for (let win of window[app.globalvarobjectstring]?.[app.allapparraystring] || []) {
+        if (win.rootElement.style.display !== 'none' && win.rootElement.style.zIndex == topZindex) {
+          atTop = app.functionname;
+          break;
+        }
+      }
+    }
+    return atTop;
+  }
+  var taskbuttonStyles = document.createElement('style');
+  taskbuttonStyles.textContent = `
+    .taskbutton {
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    
+    .taskbutton::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 3px;
+      background-color: #000;
+      border-radius: 2px;
+      transition: width 0.2s ease, background-color 0.2s ease;
+    }
+    
+    /* Active app - long purple line */
+    .taskbutton.task-active {
+      opacity: 1;
+      filter: brightness(1.1);
+    }
+    
+    .taskbutton.task-active::after {
+      width: 40px;
+      background-color: #9966ff;
+      height: 4px;
+    }
+    
+    /* Open but not focused - short black line */
+    .taskbutton.task-open {
+      opacity: 0.85;
+    }
+    
+    .taskbutton.task-open::after {
+      width: 20px;
+      background-color: #000;
+    }
+    
+    /* Closed/not running - no indicator */
+    .taskbutton.task-closed {}
+    
+    .taskbutton.task-closed::after {
+      width: 0;
+    }
+  `;
+  document.head.appendChild(taskbuttonStyles);
   // taskbar
   var taskbuttons;
   // Remove any existing taskbar element (cleanup from previous runs)
@@ -6,6 +76,7 @@
   if (_oldTb) _oldTb.remove();
   // Create the taskbar
   var taskbar = document.createElement("div");
+  window.protectedGlobals.taskbar = taskbar; // expose taskbar reference for other modules
   taskbar.className = 'taskbar';
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
@@ -424,9 +495,6 @@
   var iconid = 0;
   var draggedTaskButton = null;
 
-  function isFixedTaskButton(btn) {
-    return !!(btn && btn.dataset && btn.dataset.fixedTaskbar === 'true');
-  }
 
   function syncTaskButtons() {
     taskbuttons = [...taskbar.querySelectorAll("button")];
@@ -475,8 +543,10 @@
     e.preventDefault();
     syncTaskButtons();
   });
-
-  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false) {
+  function isFixedTaskButton(btn) {
+    return btn.dataset && btn.dataset.fixedTaskbar === 'true';
+  }
+  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false, pinned = false) {
     var btn = document.createElement("button");
     btn.innerText = name;
     btn.value = name;
@@ -511,6 +581,9 @@
     if (appId) {
       btn.dataset.appId = appId;
     }
+    if (pinned) {
+      btn.dataset.pinned = 'true';
+    }
     if (fixedTaskbar) {
       btn.dataset.fixedTaskbar = 'true';
     }
@@ -538,11 +611,13 @@
     setTimeout(() => {
       window.protectedGlobals.applyStyles();
     }, 100);
+  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
     return btn;
   }
   window.protectedGlobals.addTaskButton = addTaskButton;
   function removeTaskButton(btn) {
     btn.remove();
+  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
     window.protectedGlobals.saveTaskButtons();
   }
   window.protectedGlobals.removeTaskButton = removeTaskButton;
@@ -550,6 +625,180 @@
   addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
   addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true);
   window.protectedGlobals.purgeButtons();
+
+
+  // hook bringtofront and launchapp
+  let originalBringToFront = window.protectedGlobals.bringToFront;
+  window.protectedGlobals.bringToFront = function (div) {
+    console.log("bringToFront called with appId:", div);
+    if (originalBringToFront) {
+      originalBringToFront(div);
+    }
+    setTimeout(() => {
+    // Check if task button exists for this app, if not create one
+    let atTop = calcTop();
+    let exist = false;
+    for (const btn of window.protectedGlobals.taskbuttons) {
+      if (btn.dataset.appId === atTop) {
+        exist = true;
+        break;
+      }
+    }
+    if (!exist) {
+      // If no task button exists for this app, add one
+      const appInfo = window.protectedGlobals.apps.find(app => app.functionname === atTop);
+      let btn = null;
+      if (appInfo) {
+        if (appInfo.cmf) {
+          btn = window.protectedGlobals.addTaskButton(
+            appInfo.icon,
+            () => window.protectedGlobals.launchApp(atTop),
+            window[appInfo.globalvarobjectstring][appInfo.cmf],
+            "",
+            atTop,
+            false,
+          );
+        }
+        else {
+          btn = window.protectedGlobals.addTaskButton(
+            appInfo.icon,
+            () => window.protectedGlobals.launchApp(atTop),
+            window.protectedGlobals.cmf,
+            "",
+            atTop,
+            false,
+          );
+        }
+        if (btn) btn.dataset.appId = atTop;
+      } else {
+        console.warn("No app info found for appId:", atTop);
+      }
+    }
+    // Add 'task-active' class to the corresponding task button and remove from others
+    if (window.protectedGlobals.taskbuttons) {
+      for (let btn of window.protectedGlobals.taskbuttons) {
+        const btnAppId = btn.dataset && btn.dataset.appId ? btn.dataset.appId : (btn.value && String(btn.value).trim());
+        if (btnAppId === atTop) {
+          btn.classList.add('task-active');
+          btn.classList.remove('task-open', 'task-closed');
+        } else if (btn.classList.contains('task-active')) {
+          btn.classList.remove('task-active');
+          btn.classList.add('task-open');
+        }
+      }
+    }
+    }, 300);
+  };
+  // let originalLaunchApp = window.protectedGlobals.launchApp;
+  // window.protectedGlobals.launchApp = function (appId) {
+  //   console.log("launchApp called with appId:", appId);
+  //   if (originalLaunchApp) {
+  //     originalLaunchApp(appId);
+  //   }
+  //   let exist = false;
+  //   for (const btn of window.protectedGlobals.taskbuttons) {
+  //     if (btn.dataset.appId === appId) {
+  //       exist = true;
+  //       break;
+  //     }
+  //   }
+  //   if (!exist) {
+  //     // If no task button exists for this app, add one
+  //     const appInfo = window.protectedGlobals.apps.find(app => app.functionname === appId);
+  //     let btn = null;
+  //     if (appInfo) {
+  //     if (appInfo.cmf) {
+  //       btn = window.protectedGlobals.addTaskButton(
+  //         appInfo.icon,
+  //         () => window.protectedGlobals.launchApp(appId),
+  //         window[appInfo.globalvarobjectstring][appInfo.cmf],
+  //         "",
+  //         appId,
+  //         false,
+  //       );
+  //     }
+  //     else {
+  //       btn = window.protectedGlobals.addTaskButton(
+  //         appInfo.icon,
+  //         () => window.protectedGlobals.launchApp(appId),
+  //         window.protectedGlobals.cmf,
+  //         "",
+  //         appId,
+  //         false,
+  //       );
+  //     }
+  //     if (btn) btn.dataset.appId = appId;
+  //     } else {
+  //       console.warn("No app info found for appId:", appId);
+  //     }
+  //   }
+  //   // Add 'task-open' class to the corresponding task button if not already active
+  //   if (window.protectedGlobals.taskbuttons) {
+  //     for (let btn of window.protectedGlobals.taskbuttons) {
+  //       const btnAppId = btn.dataset && btn.dataset.appId ? btn.dataset.appId : (btn.value && String(btn.value).trim());
+  //       if (btnAppId === appId) {
+  //           btn.classList.remove('task-open');
+  //           btn.classList.remove('task-closed');
+  //           btn.classList.add('task-active');
+  //           btn.appactive = true; // custom property to track if app is active/open
+  //       }
+  //     }
+  //   }
+  // };
+  let appObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      if (mutation.type === 'childList') {
+        mutation.removedNodes.forEach(removedNode => {
+          if (removedNode.classList && removedNode.classList.contains('app-window-root')) {
+            // An app window was removed, find corresponding task button and mark as closed
+            setTimeout(() => {
+              for (let app of window.protectedGlobals.apps) {
+                if (window[app.globalvarobjectstring] && window[app.globalvarobjectstring]?.[app.allapparraystring]?.length == 0) {
+                  let appId = app.functionname;
+                  for (let btn of window.protectedGlobals.taskbuttons) {
+                    const btnAppId = btn.dataset.appId;
+                    if (btnAppId === appId) {
+                      btn.classList.remove('task-active', 'task-open');
+                      btn.classList.add('task-closed');
+                      btn.appactive = false;
+                      if (btn.dataset.pinned !== 'true') {
+                        removeTaskButton(btn);
+                      }
+                    }
+                  }
+                }
+              }
+            }, 500);
+          }
+        });
+      }
+      if (mutation.type === 'childList' && mutation.removedNodes.length > 0 && mutation.removedNodes[0].classList && mutation.removedNodes[0].classList.contains('app-window-root')) {
+        setTimeout(() => {
+          let atTop = calcTop();
+          for (let btn of window.protectedGlobals.taskbuttons) {
+            const btnAppId = btn.dataset && btn.dataset.appId ? btn.dataset.appId : (btn.value && String(btn.value).trim());
+            if (btnAppId === atTop) {
+              btn.classList.add('task-active');
+              btn.classList.remove('task-open', 'task-closed');
+            } else if (btn.classList.contains('task-active')) {
+              btn.classList.remove('task-active');
+              btn.classList.add('task-open');
+            }
+          }
+        }, 500);
+      }
+    });
+  });
+  appObserver.observe(document.body, { childList: true, subtree: true });
+
+
+
+
+
+
+
+
+
 
 })();
 

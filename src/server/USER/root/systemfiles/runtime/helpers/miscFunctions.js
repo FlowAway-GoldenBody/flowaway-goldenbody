@@ -394,7 +394,7 @@ window.protectedGlobals.removeOtherMenus = function (except) {
     if ((m.remove)) m.remove();
   }
 };
-window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride = null,   needRemove = true) {
+window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride = null) {
   if (!e) return;
   e.preventDefault();
 
@@ -533,9 +533,14 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   });
   menu.appendChild(newWindow);
 
-  if (needRemove) {
+    const appId = app.functionname;
+    const existingBtn = document.querySelector(
+      `button.taskbutton[data-app-id="${appId}"]`,
+    );
+
+    if (existingBtn && existingBtn.dataset && existingBtn.dataset.pinned === "true") {
     const remove = document.createElement("div");
-    remove.textContent = "Remove from taskbar";
+    remove.textContent = "Unpin from taskbar";
     remove.style.padding = "6px 10px";
     remove.style.cursor = "pointer";
     const contextMenuEvent = e;
@@ -545,37 +550,33 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
           ? contextMenuEvent.target.closest("button.taskbutton")
           : null;
       if (btn) {
-        window.protectedGlobals.removeTaskButton(btn);
+        btn.dataset.pinned = "false";
+        if (window[app.globalvarobjectstring][app.allapparraystring].length === 0) {
+          window.protectedGlobals.removeTaskButton(btn);
+        }
         window.protectedGlobals.saveTaskButtons();
         window.protectedGlobals.purgeButtons();
       }
       menu.remove();
     });
     menu.appendChild(remove);
-  } else {
-    const appId = app.functionname;
-    const existingBtn = document.querySelector(
-      `button.taskbutton[data-app-id="${appId}"]`,
-    );
-
-    if (existingBtn) {
-      const remove = document.createElement("div");
-      remove.textContent = "Remove from taskbar";
-      remove.style.padding = "6px 10px";
-      remove.style.cursor = "pointer";
-      remove.addEventListener("click", function () {
-        window.protectedGlobals.removeTaskButton(existingBtn);
-        window.protectedGlobals.saveTaskButtons();
-        window.protectedGlobals.purgeButtons();
-        menu.remove();
-      });
-      menu.appendChild(remove);
     } else {
-      const add = document.createElement("div");
-      add.textContent = "Add to taskbar";
-      add.style.padding = "6px 10px";
-      add.style.cursor = "pointer";
-      add.addEventListener("click", function () {
+    const add = document.createElement("div");
+    add.textContent = "Pin to taskbar";
+    add.style.padding = "6px 10px";
+    add.style.cursor = "pointer";
+    add.addEventListener("click", function () {
+      // we only add a task button if the button dont exist, but we need to mark it pinned anyhow
+      let taskbtnexist = false;
+      let taskbuttons = window.protectedGlobals.taskbar.querySelectorAll("button");
+      for (let btn of taskbuttons) {
+        if (btn.dataset && btn.dataset.appId === appId) {
+          taskbtnexist = true;
+          btn.dataset.pinned = "true";
+          break;
+        }
+      }
+      if (!taskbtnexist) {
         let btn;
         if(app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
@@ -584,6 +585,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
           window[app.globalvarobjectstring][app.cmf],
           "",
           appId,
+          false, true
         );
         }
         else {
@@ -593,15 +595,16 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
           window.protectedGlobals.cmf,
           "",
           appId,
+          false, true
         );
-       }
+      }
         if (btn) btn.dataset.appId = appId;
         window.protectedGlobals.saveTaskButtons();
         window.protectedGlobals.purgeButtons();
+      }
         menu.remove();
-      });
-      menu.appendChild(add);
-    }
+    });
+    menu.appendChild(add);
   }
 
   const barrier = document.createElement("hr");
@@ -703,10 +706,10 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
 };
 
 window.protectedGlobals.cmf = function (e, appOverride = null) {
-  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride, true);
+  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride);
 };
 
 window.protectedGlobals.cmfl1 = function (e, appOverride = null) {
-  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride, false);
+  window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride);
 };
 
