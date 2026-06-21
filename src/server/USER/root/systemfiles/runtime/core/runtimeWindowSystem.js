@@ -29,13 +29,6 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
 
   window.protectedGlobals.appsButtonsApplied = true;
 
-  // Clear existing dynamic task buttons (keep system buttons in the first two slots)
-  var existingTaskButtons = [
-    ...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button.taskbutton"),
-  ];
-  existingTaskButtons.splice(0, 2);
-  existingTaskButtons.forEach((btn) => btn.remove());
-
   // Prefer dynamic apps discovered in /apps
   var savedTaskButtons = Array.isArray(window.protectedGlobals.data && window.protectedGlobals.data.taskbuttons)
     ? window.protectedGlobals.data.taskbuttons

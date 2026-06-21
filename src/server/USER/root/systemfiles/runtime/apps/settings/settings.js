@@ -553,7 +553,7 @@ settings = function (posX = 50, posY = 50) {
   const brightness = document.createElement("input");
   brightness.type = "range";
   brightness.min = 0;
-  brightness.max = 100;
+  brightness.max = window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100;
   brightness.value = window.protectedGlobals.statusData.brightness;
   brightness.style.width = "calc(100% - 10px)";
 

@@ -32,6 +32,10 @@ window.protectedGlobals.resolveApptoolsContext = function (appId, rootElement) {
 
 
 window.protectedGlobals.launchApp = async function (appId) {
+  if (!window.protectedGlobals.appsButtonsApplied) {
+    window.protectedGlobals.notification("Apps are still loading, please wait a moment and try again.");
+    return;
+  }
   var app = (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId));
   window[app.functionname]();
 };

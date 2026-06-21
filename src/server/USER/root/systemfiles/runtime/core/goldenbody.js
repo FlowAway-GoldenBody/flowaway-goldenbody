@@ -1,11 +1,29 @@
 (async function () {
+  let refreshBatteryInfo = () => {
+    window.protectedGlobals.updateBattery();
+    window.protectedGlobals.statusData.batteryLevel = window.protectedGlobals.batteryLevel || NaN;
+    window.protectedGlobals.statusData.isCharging = window.protectedGlobals.batteryCharging || false;
+    window.protectedGlobals.updateStatusBar();
+  };
+  try {
+    setTimeout(refreshBatteryInfo, 1000);
+  } catch {}
+  let batteryInterval = setInterval(refreshBatteryInfo, 60000);
   // SVG Icons
   var svgIcons = {
-    wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>',
+    wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/></svg>',
     battery: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>',
     brightness: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
   };
-
+  let batteryIcons = {
+    0: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>',
+    // up to 1/5 filled black, leave some margin with the icon border so it look good
+    20: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="3" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    40: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="6" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    60: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="9" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    80: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="12" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    100: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="14" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>'
+  }
   function calcTop() {
     let atTop = '';
     let topZindex = 0;
@@ -55,12 +73,16 @@
       filter: brightness(1.1);
     }
     
-    .taskbutton.task-active::after {
+    .taskbutton.light.task-active::after {
       width: 40px;
       background-color: #9966ff;
       height: 4px;
     }
-    
+    .taskbutton.dark.task-active::after {
+      width: 40px;
+      background-color: #cc99ff;
+      height: 4px;
+  }
     /* Open but not focused - short black line */
     .taskbutton.task-open {
       opacity: 0.85;
@@ -445,7 +467,7 @@
       isCharging: false
     };
   }
-
+  else window.protectedGlobals.statusData = tempdata;
   // Apply initial brightness if not at 100%
   if (window.protectedGlobals.statusData.brightness !== 100) {
     document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
@@ -551,7 +573,7 @@
             ${svgIcons.brightness}
             <span id="brightness-value">${window.protectedGlobals.statusData.brightness}%</span>
           </div>
-          <input type="range" class="slider" id="brightness-slider" min="10" max="100" value="${window.protectedGlobals.statusData.brightness}">
+          <input type="range" class="slider" id="brightness-slider" min="10" max="${window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100}" value="${window.protectedGlobals.statusData.brightness}">
         </div>
       </div>
     `;
@@ -571,9 +593,9 @@
           if (!window.protectedGlobals.data) window.protectedGlobals.data = {};
           window.protectedGlobals.data.batterySaverEnabled = window.protectedGlobals.statusData.batterySaverEnabled;
           if (window.protectedGlobals.statusData.batterySaverEnabled) {
-            window.protectedGlobals.statusData.brightness = 50; // dim brightness when battery saver is on
+            window.protectedGlobals.statusData.brightness /= 2; // dim brightness when battery saver is on
           } else {
-            window.protectedGlobals.statusData.brightness = 100; // restore brightness when battery saver is off
+            window.protectedGlobals.statusData.brightness *= 2; // restore brightness when battery saver is off
           }
           document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
           // turn it off when battery saver is closed
@@ -605,16 +627,22 @@
   // Update status bar display
   window.protectedGlobals.updateStatusBar = function() {
     // Update WiFi icon
-    wifiItem.innerHTML = window.protectedGlobals.statusData.wifiEnabled ? svgIcons.wifi : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity="0.4"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.94 0M12 20h.01"/></svg>';
+    wifiItem.innerHTML = window.protectedGlobals.statusData.wifiEnabled ? svgIcons.wifi : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/></svg>';
     
     // Update battery icon color
     var batteryPercent = window.protectedGlobals.statusData.batteryLevel;
-    if (batteryPercent > 30) {
-      batteryItem.innerHTML = svgIcons.battery;
-    } else if (batteryPercent > 10) {
-      batteryItem.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12m5-5l5 5m-6 6l-1-1"/><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>';
+    if (batteryPercent >= 80) {
+      batteryItem.innerHTML = batteryIcons[80];
+    } else if (batteryPercent >= 60) {
+      batteryItem.innerHTML = batteryIcons[60];
+    } else if (batteryPercent >= 40) {
+      batteryItem.innerHTML = batteryIcons[40];
+    } else if (batteryPercent >= 20) {
+      batteryItem.innerHTML = batteryIcons[20];
+    } else if (batteryPercent >= 0) {
+      batteryItem.innerHTML = batteryIcons[0];
     } else {
-      batteryItem.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><text x="6" y="16" font-size="16">!</text></svg>';
+      batteryItem.innerHTML = batteryIcons[0];
     }
     
     // Update time display
@@ -875,7 +903,7 @@
     autohideEnabled = true;
     hideTaskbar();
     for(let root of document.querySelectorAll('.app-window-root')){
-      if(root.style.height === `calc(100% - 60px)`) {
+      if(root.style.height === `94%`) {
       root.style.height = '100%';
       }
     }
@@ -921,7 +949,7 @@
     _cancelRevealTimer();
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.height === `100%`) {
-      root.style.height = `calc(100% - 60px)`;
+      root.style.height = `94%`;
       }
     }
     if (_hideTimer) {

@@ -592,10 +592,12 @@ if (navigator.getBattery) {
     function updateBattery() {
       var level = Math.round(battery.level * 100);
       var charging = battery.charging ? "⚡" : "";
+      window.protectedGlobals.batteryLevel = level;
+      window.protectedGlobals.batteryCharging = battery.charging;
       document.getElementById("batteryStatus").textContent =
         `🔋 ${level}% ${charging}`;
     }
-
+    window.protectedGlobals.updateBattery = updateBattery;
     updateBattery();
     if (
       window.protectedGlobals.systemAPIs.battery &&
