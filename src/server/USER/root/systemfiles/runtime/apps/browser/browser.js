@@ -129,7 +129,9 @@ setTimeout(() => {
   function checkFrames(root = document) {
     // add something so the interval knows when to clear itself
     if (!root?.querySelectorAll) return;
+    try {
     if (!getRoot().isConnected) {clearInterval(checkerinterval); return;}
+    } catch (e) { clearInterval(checkerinterval); return; }
     for (const frame of root.querySelectorAll("iframe")) {
       try {
         const doc = frame.contentDocument || frame.contentWindow?.document;
