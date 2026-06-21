@@ -184,7 +184,7 @@ function normalizeProfile(raw) {
   const taskbuttons = Array.isArray(profile.taskbuttons)
     ? profile.taskbuttons
     : [];
-
+  console.log(!!profile.autohidetaskbar);
   return {
     schemaVersion: PROFILE_SCHEMA_VERSION,
     taskbuttons,
