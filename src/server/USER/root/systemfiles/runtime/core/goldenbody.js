@@ -1,4 +1,4 @@
-(function () {
+(async function () {
   // SVG Icons
   var svgIcons = {
     wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>',
@@ -429,15 +429,22 @@
   rightSection.className = 'taskbar-right-section';
   rightSection.id = 'taskbar-right-section';
   window.protectedGlobals.rightSection = rightSection;
-
+  let tempdata = null;
+  try {
+    tempdata = await window.protectedGlobals.ReadFile('/systemfiles/userprofile/statusData.json', { text: true, direct: true });
+    tempdata = JSON.parse(tempdata);
+    tempdata.wifiEnabled = true;
+  } catch {}
   // Initialize protectedGlobals status data
+  if (!tempdata) {
     window.protectedGlobals.statusData = {
       wifiEnabled: true, // Always start with WiFi on, don't persist
       batterySaverEnabled: (window.protectedGlobals.data && window.protectedGlobals.data.batterySaverEnabled) || false,
       brightness: (window.protectedGlobals.data && window.protectedGlobals.data.brightness) || 100,
-      batteryLevel: 85,
+      batteryLevel: window.protectedGlobals.batteryLevel || NaN,
       isCharging: false
     };
+  }
 
   // Apply initial brightness if not at 100%
   if (window.protectedGlobals.statusData.brightness !== 100) {
@@ -571,12 +578,7 @@
           document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
           // turn it off when battery saver is closed
           // persist to server if available
-          if (window.protectedGlobals.persistUserProfilePatch) {
-            window.protectedGlobals.persistUserProfilePatch({
-              batterySaverEnabled: window.protectedGlobals.statusData.batterySaverEnabled,
-              brightness: window.protectedGlobals.statusData.brightness
-            });
-          }
+          window.protectedGlobals.writeStatus();
           updateStatusBar();
         }
         window.protectedGlobals.buildStatusMenu();
@@ -594,13 +596,7 @@
         // Apply brightness filter to document
         var brightnessValue = window.protectedGlobals.statusData.brightness / 100;
         document.documentElement.style.filter = 'brightness(' + brightnessValue + ')';
-        // persist to server if available
-        if (window.protectedGlobals.persistUserProfilePatch) {
-          window.protectedGlobals.persistUserProfilePatch({
-            brightness: window.protectedGlobals.statusData.brightness,
-            batterySaverEnabled: window.protectedGlobals.statusData.batterySaverEnabled
-          });
-        }
+        window.protectedGlobals.writeStatus();
         updateStatusBar();
       });
     }
@@ -1049,13 +1045,7 @@
       if (newVal) enableAutohide(); else disableAutohide();
 
       // persist to server if available
-      if ((window.protectedGlobals.persistUserProfilePatch)) {
-        window.protectedGlobals.persistUserProfilePatch({
-          autohidetaskbar: newVal,
-          taskbarRevealEdgePx: Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealEdgePx),
-          taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealHoldDelayMs)
-        });
-      }
+      window.protectedGlobals.writeStatus();
       closeMenu();
     });
   })();

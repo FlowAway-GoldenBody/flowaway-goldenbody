@@ -70,6 +70,9 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
   if (options.buffer) {
     contents = arrayBufferToBase64(contents);
   }
+  if (options.text) {
+    contents = btoa(contents);
+  }
   const directions = [
     {
       edit: true,
@@ -558,3 +561,6 @@ window.protectedGlobals.isProtectedAppGlobalName = function isProtectedAppGlobal
   );
 };
 
+window.protectedGlobals.writeStatus = function writeStatus() {
+  window.protectedGlobals.WriteFile('/systemfiles/userprofile/statusData.json', JSON.stringify(window.protectedGlobals.statusData || {}, { text: true }));
+};
