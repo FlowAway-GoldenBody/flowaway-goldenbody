@@ -568,7 +568,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     add.addEventListener("click", function () {
       // we only add a task button if the button dont exist, but we need to mark it pinned anyhow
       let taskbtnexist = false;
-      let taskbuttons = window.protectedGlobals.taskbar.querySelectorAll("button");
+      let taskbuttons = window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button");
       for (let btn of taskbuttons) {
         if (btn.dataset && btn.dataset.appId === appId) {
           taskbtnexist = true;

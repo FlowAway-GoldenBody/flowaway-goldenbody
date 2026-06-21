@@ -228,7 +228,7 @@
               document.getElementById(deletedApp.id + "app");
             if (appElement) appElement.remove();
 
-            var taskbarBtn = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
+            var taskbarBtn = Array.from((window.protectedGlobals.taskbuttonsContainer || window.protectedGlobals.taskbar || document.getElementById("taskbar-buttons-container") || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
               return (
                 (btn.dataset && (window.protectedGlobals.appMatchesIdentifier) && window.protectedGlobals.appMatchesIdentifier(deletedApp, btn.dataset.appId)) ||
                 btn.textContent.includes(deletedApp.label)
@@ -437,7 +437,7 @@
             } catch (ee) {}
 
             try {
-              var taskbarBtnToDelete = Array.from((window.protectedGlobals.taskbar || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
+              var taskbarBtnToDelete = Array.from((window.protectedGlobals.taskbuttonsContainer || window.protectedGlobals.taskbar || document.getElementById("taskbar-buttons-container") || document.getElementById("taskbar") || document.createElement("div")).querySelectorAll("button")).find(function (btn) {
                 return (
                   (btn.dataset && (window.protectedGlobals.appMatchesIdentifier) && window.protectedGlobals.appMatchesIdentifier(existingApp, btn.dataset.appId)) ||
                   btn.textContent.includes(existingApp.label)

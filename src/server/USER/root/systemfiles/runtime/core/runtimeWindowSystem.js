@@ -31,7 +31,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
 
   // Clear existing dynamic task buttons (keep system buttons in the first two slots)
   var existingTaskButtons = [
-    ...window.protectedGlobals.taskbar.querySelectorAll("button.taskbutton"),
+    ...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button.taskbutton"),
   ];
   existingTaskButtons.splice(0, 2);
   existingTaskButtons.forEach((btn) => btn.remove());
@@ -76,12 +76,12 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       if (btn) btn.dataset.appId = appId;
     }
   }
-  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
+  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
   window.protectedGlobals.saveTaskButtons();
 }
 
 const purgeButtons = window.protectedGlobals.purgeButtons = function purgeButtons() {
-  var buttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
+  var buttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
   buttons.splice(0, 3);
   buttons.forEach((b) => {
     if (!b.dataset.appId) {
@@ -102,7 +102,7 @@ const purgeButtons = window.protectedGlobals.purgeButtons = function purgeButton
 
 const saveTaskButtons = window.protectedGlobals.saveTaskButtons = function saveTaskButtons(silence = true) {
   if (!window.protectedGlobals.appsButtonsApplied) return;
-  var buttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
+  var buttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
   buttons.splice(0, 2);
   var postdata = [];
   for (const b of buttons) {
@@ -632,6 +632,10 @@ window.protectedGlobals.applyStyles = function applyStyles() {
     button.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
     button.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
   }
+  // Update status bar theme
+  if (window.protectedGlobals.updateStatusBarTheme) {
+    window.protectedGlobals.updateStatusBarTheme();
+  }
 }
 setTimeout(() => {
   window.protectedGlobals.applyStyles();
@@ -643,12 +647,12 @@ setTimeout(() => {
 }, 200);
 
 
-document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
+document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.statusData.brightness}%)`;
 
 // // 1. Create a new MutationObserver instance with a callback function
 // window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
 //   if (mutationsList) {
-//     document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
+//     document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.statusData.brightness}%)`;
 //   }
 // });
 // var observer = window.protectedGlobals.observer;

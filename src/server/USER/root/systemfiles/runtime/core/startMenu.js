@@ -223,15 +223,15 @@ window.protectedGlobals.tabButtons.forEach(btn => {
 
 const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = function applyBrightnessDelta(delta) {
   window.protectedGlobals.data = window.protectedGlobals.data || {};
-  window.protectedGlobals.data.brightness = Math.min(
+  window.protectedGlobals.statusData.brightness = Math.min(
     100,
-    Math.max(0, (parseInt(window.protectedGlobals.data.brightness) || 0) + delta),
+    Math.max(0, (parseInt(window.protectedGlobals.statusData.brightness) || 0) + delta),
   );
-  document.documentElement.style.filter = `brightness(${window.protectedGlobals.data.brightness}%)`;
+  document.documentElement.style.filter = `brightness(${window.protectedGlobals.statusData.brightness}%)`;
   if ((window.protectedGlobals.persistUserProfilePatch)) {
-    window.protectedGlobals.persistUserProfilePatch({ brightness: Number(window.protectedGlobals.data.brightness) });
+    window.protectedGlobals.persistUserProfilePatch({ brightness: Number(window.protectedGlobals.statusData.brightness) });
   }
-  window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.data.brightness}%`);
+  window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.statusData.brightness}%`);
 }
 
 const cycleFocusedWindow = window.protectedGlobals.cycleFocusedWindow = function cycleFocusedWindow(reverse, modKey = "Alt") {
