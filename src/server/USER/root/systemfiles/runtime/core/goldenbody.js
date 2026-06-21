@@ -1181,11 +1181,12 @@
     return btn;
   }
   window.protectedGlobals.addTaskButton = addTaskButton;
-  window.protectedGlobals.removeTaskButton = function removeTaskButton(btn) {
+  function removeTaskButton(btn) {
     btn.remove();
   window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
     window.protectedGlobals.saveTaskButtons();
   };
+  window.protectedGlobals.removeTaskButton = removeTaskButton;
   window.protectedGlobals._fullscreen = _fullscreen;
   addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
   addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true);
