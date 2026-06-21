@@ -2,7 +2,9 @@
 flowaway goldenbody is an OS-like web interface built with vanilla JavaScript and a Node.js server. 
 
 ## EXAMPLE IMAGE
-![goldenbody](https://media.discordapp.net/attachments/1398365819863302267/1507804721367351336/Screenshot_2026-05-23_at_1.57.36_PM.png?ex=6a133c13&is=6a11ea93&hm=c931e4adf5c8f1a5f35285fa23025113cf94feb39bcfd6a247e3f5091e5478f7&=&format=webp&quality=lossless&width=1852&height=1204)
+![goldenbody](https://media.discordapp.net/attachments/1398365819863302267/1518319314636243075/Screenshot_2026-06-21_at_2.18.45_PM.png?ex=6a397c8d&is=6a382b0d&hm=04123aa26ae5442af76b292a79aa5483c2cd9cac52c74f95e52c720f81b8f58c&=&format=webp&quality=lossless&width=1842&height=1198)
+## EXAMPLE IMAGE 2
+![goldenbody2](https://media.discordapp.net/attachments/1398365819863302267/1518319314967597197/Screenshot_2026-06-21_at_2.17.50_PM.png?ex=6a397c8d&is=6a382b0d&hm=55d4b11453c156519270586a6b87f698a5f68e8c8df5ebf21ea86525503fa24d&=&format=webp&quality=lossless&width=1842&height=1198)
 
 ## QUICK DEV & RUN
 

@@ -1073,7 +1073,7 @@
       if (newVal) enableAutohide(); else disableAutohide();
 
       // persist to server if available
-      window.protectedGlobals.writeStatus();
+      persistUserProfilePatch({ autohidetaskbar: newVal });
       closeMenu();
     });
   })();
@@ -1137,11 +1137,15 @@
   function isFixedTaskButton(btn) {
     return btn.dataset && btn.dataset.fixedTaskbar === 'true';
   }
-  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false, pinned = false) {
+  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false, pinned = false, __startMenu = false, options = {}) {
     var btn = document.createElement("button");
-    btn.innerText = name;
+    if (!options.svg) {
+      btn.innerText = name;
+    } else {
+      btn.innerHTML = name;
+    }
     btn.value = name;
-    if (name !== "▶") {
+    if (!__startMenu) {
       btn.id = name + "-" + iconid;
       iconid++;
     } else btn.id = name;
@@ -1214,7 +1218,7 @@
   window.protectedGlobals.removeTaskButton = removeTaskButton;
   window.protectedGlobals._fullscreen = _fullscreen;
   addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
-  addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true);
+  addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { svg: true});
   window.protectedGlobals.purgeButtons();
 
 
