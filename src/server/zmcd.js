@@ -181,9 +181,9 @@ function defaultProfile() {
 function normalizeProfile(raw) {
   const defaults = defaultProfile();
   const profile = raw && typeof raw === 'object' ? raw : {};
-  const taskbuttons = Array.isArray(profile.taskbuttons) && profile.taskbuttons.length
+  const taskbuttons = Array.isArray(profile.taskbuttons)
     ? profile.taskbuttons
-    : defaults.taskbuttons;
+    : [];
 
   return {
     schemaVersion: PROFILE_SCHEMA_VERSION,

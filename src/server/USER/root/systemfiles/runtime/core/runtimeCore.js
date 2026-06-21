@@ -562,5 +562,5 @@ window.protectedGlobals.isProtectedAppGlobalName = function isProtectedAppGlobal
 };
 
 window.protectedGlobals.writeStatus = function writeStatus() {
-  window.protectedGlobals.WriteFile('/systemfiles/userprofile/statusData.json', JSON.stringify(window.protectedGlobals.statusData || {}, { text: true }));
+  window.protectedGlobals.WriteFile('/systemfiles/userprofile/statusData.json', JSON.stringify(window.protectedGlobals.statusData), { text: true });
 };

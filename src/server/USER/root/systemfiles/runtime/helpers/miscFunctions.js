@@ -428,6 +428,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   Object.assign(menu.style, {
     position: "fixed",
     left: `${e.clientX}px`,
+    top: `${e.clientY}px`,
     border: "1px solid #ccc",
     borderRadius: "4px",
     boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
