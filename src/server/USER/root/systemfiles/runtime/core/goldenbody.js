@@ -3,6 +3,7 @@
     let atTop = '';
     let topZindex = 0;
     for (let win of document.querySelectorAll('.app-window-root')) {
+      if (win.style.display === 'none') continue;
       const z = parseInt(window.getComputedStyle(win).zIndex) || 0;
       if (z > topZindex) {
         topZindex = z;
@@ -750,6 +751,9 @@
   //     }
   //   }
   // };
+  // Track previous display values to only trigger on display changes
+  const displayStyleMap = new WeakMap();
+  
   let appObserver = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
       if (mutation.type === 'childList') {
