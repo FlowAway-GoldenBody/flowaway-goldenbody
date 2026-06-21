@@ -4,7 +4,7 @@ window.protectedGlobals.rebuildhandler = function () {
     clearInterval(i);
     clearTimeout(i);
   }
-
+  window.protectedGlobals.statusData.wifiEnabled = true; // reset wifi status to default on rebuild
   // Mark rebuilding
   window.protectedGlobals.isRebuilding = true;
 
