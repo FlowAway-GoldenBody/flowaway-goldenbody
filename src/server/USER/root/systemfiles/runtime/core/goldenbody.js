@@ -903,7 +903,7 @@
     autohideEnabled = true;
     hideTaskbar();
     for(let root of document.querySelectorAll('.app-window-root')){
-      if(root.style.height === `94%`) {
+      if(root.style.height === `calc(100% - 60px)`) {
       root.style.height = '100%';
       }
     }
@@ -949,7 +949,7 @@
     _cancelRevealTimer();
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.height === `100%`) {
-      root.style.height = `94%`;
+      root.style.height = `calc(100% - 60px)`;
       }
     }
     if (_hideTimer) {
