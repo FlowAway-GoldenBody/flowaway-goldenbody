@@ -1,5 +1,19 @@
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
+  window.permGlobals = window.permGlobals || {};
+  if (!window.permGlobals.origFetch) {
+    window.permGlobals.origFetch = window.fetch;
+  }
+  window.fetch = function (...args) {
+    // this is only for people to protect their data
+    try {
+    if (!window.protectedGlobals.statusData.wifiEnabled) return Promise.resolve(new Response("WiFi is disabled", { status: 403 }));
+    else return window.permGlobals.origFetch.apply(this, args);
+    } 
+    catch (e) {
+      return window.permGlobals.origFetch.apply(this, args);
+    };
+  };
   window.protectedGlobals.____gbEventListners = [];
   if (window.protectedGlobals._bootLoaded) {
     return;

@@ -647,7 +647,7 @@ setTimeout(() => {
 }, 200);
 
 
-document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.statusData.brightness}%)`;
+document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
 
 // // 1. Create a new MutationObserver instance with a callback function
 // window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
