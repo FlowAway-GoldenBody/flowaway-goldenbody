@@ -1,4 +1,11 @@
 (function () {
+  // SVG Icons
+  var svgIcons = {
+    wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.94 0M12 20h.01"/></svg>',
+    battery: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>',
+    brightness: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+  };
+
   function calcTop() {
     let atTop = '';
     let topZindex = 0;
@@ -25,6 +32,8 @@
     .taskbutton {
       position: relative;
       transition: all 0.2s ease;
+      min-height: 40px;
+      max-height: 40px;
     }
     
     .taskbutton::after {
@@ -73,6 +82,314 @@
     .taskbutton.task-closed::after {
       width: 0;
     }
+
+    /* Status bar styles */
+    .taskbar-divider {
+      width: 1px;
+      height: 40px;
+      background-color: rgba(0, 0, 0, 0.2);
+      margin: 0 8px;
+    }
+
+    .taskbar-divider.dark {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .status-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-right: 8px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .status-item:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .status-item.dark:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .status-item svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+    }
+
+    .taskbar.light .status-item {
+      color: #000;
+    }
+
+    .taskbar.dark .status-item {
+      color: #fff;
+    }
+
+    .taskbar.light .time-display {
+      color: #000;
+    }
+
+    .taskbar.dark .time-display {
+      color: #fff;
+    }
+
+    .status-icon {
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .time-display {
+      font-size: 13px;
+      font-weight: 500;
+      min-width: 85px;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: inherit;
+    }
+
+    .status-item:has(.time-display) {
+      min-width: 85px;
+      max-width: 85px;
+      transition: all 0.2s ease;
+    }
+
+    .status-item:has(.time-display):hover {
+      min-width: 95px;
+      max-width: 95px;
+    }
+
+    .taskbar-buttons-container {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      max-width: 80%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+    }
+
+    .taskbar-buttons-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .taskbar-right-section {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      gap: 0;
+    }
+
+    .status-menu {
+      position: fixed;
+      right: 10px;
+      bottom: 70px;
+      background: rgba(240, 240, 240, 0.98);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      padding: 16px;
+      min-width: 280px;
+      z-index: 999998;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      color: #000;
+    }
+
+    .status-menu.dark {
+      background: rgba(50, 50, 50, 0.98);
+      color: #fff;
+    }
+
+    .status-menu.show {
+      display: flex;
+    }
+
+    .status-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .status-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.6;
+      margin-bottom: 4px;
+    }
+
+    .status-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .status-toggle.dark {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .status-toggle:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .status-toggle.dark:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: inherit;
+    }
+
+    .toggle-label svg,
+    .slider-label svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch {
+      width: 44px;
+      height: 24px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-switch.active {
+      background: #5ac950;
+    }
+
+    .toggle-switch-dot {
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-switch.active .toggle-switch-dot {
+      left: 22px;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-label {
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.1);
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .slider.dark {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #5ac950;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #5ac950;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .battery-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .battery-bar.dark {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .battery-fill {
+      height: 100%;
+      background: #5ac950;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+    }
+
+    .battery-fill.low {
+      background: #ff9500;
+    }
+
+    .battery-fill.critical {
+      background: #ff3b30;
+    }
+
+    .status-info {
+      font-size: 12px;
+      opacity: 0.7;
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    .status-info.dark {
+      background: rgba(255, 255, 255, 0.08);
+    }
   `;
   document.head.appendChild(taskbuttonStyles);
   // taskbar
@@ -95,9 +412,252 @@
   taskbar.style.display = "flex";
   taskbar.style.alignItems = "center";
   taskbar.style.paddingLeft = "4%"; // 50px empty space on left
+  taskbar.style.paddingRight = "1%"; // Add padding on right
   taskbar.style.boxSizing = "border-box";
   document.body.appendChild(taskbar);
   window.protectedGlobals.taskbar = taskbar;
+
+  // Create taskbuttons container
+  var taskbuttonsContainer = document.createElement('div');
+  taskbuttonsContainer.className = 'taskbar-buttons-container';
+  taskbuttonsContainer.id = 'taskbar-buttons-container';
+  window.protectedGlobals.taskbuttonsContainer = taskbuttonsContainer;
+  taskbar.appendChild(taskbuttonsContainer);
+
+  // Create right section for status bar
+  var rightSection = document.createElement('div');
+  rightSection.className = 'taskbar-right-section';
+  rightSection.id = 'taskbar-right-section';
+  window.protectedGlobals.rightSection = rightSection;
+
+  // Initialize protectedGlobals status data
+    window.protectedGlobals.statusData = {
+      wifiEnabled: true, // Always start with WiFi on, don't persist
+      batterySaverEnabled: (window.protectedGlobals.data && window.protectedGlobals.data.batterySaverEnabled) || false,
+      brightness: (window.protectedGlobals.data && window.protectedGlobals.statusData.brightness) || 100,
+      batteryLevel: 85,
+      isCharging: false
+    };
+
+  // Apply initial brightness if not at 100%
+  if (window.protectedGlobals.statusData.brightness !== 100) {
+    document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
+  }
+
+  // Create status bar on the right side
+  var statusContainer = document.createElement('div');
+  statusContainer.className = 'status-container';
+  
+  // WiFi indicator
+  var wifiItem = document.createElement('div');
+  wifiItem.className = 'status-item';
+  wifiItem.innerHTML = svgIcons.wifi;
+  wifiItem.title = 'WiFi';
+  wifiItem.addEventListener('click', function(e) {
+    e.stopPropagation();
+    window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
+    updateStatusBar();
+    if (window.protectedGlobals.buildStatusMenu) window.protectedGlobals.buildStatusMenu();
+  });
+  
+  // Battery indicator
+  var batteryItem = document.createElement('div');
+  batteryItem.className = 'status-item';
+  batteryItem.innerHTML = svgIcons.battery;
+  batteryItem.title = 'Battery';
+  
+  // Time display
+  var timeItem = document.createElement('div');
+  timeItem.className = 'status-item';
+  var timeDisplay = document.createElement('div');
+  timeDisplay.className = 'time-display';
+  timeItem.appendChild(timeDisplay);
+  timeItem.title = 'System Status';
+  timeItem.style.cursor = 'pointer';
+  timeItem.style.marginRight = '8px';
+  
+  // Brightness indicator
+  var brightnessItem = document.createElement('div');
+  brightnessItem.className = 'status-item';
+  brightnessItem.innerHTML = svgIcons.brightness;
+  brightnessItem.title = 'Brightness';
+  
+  statusContainer.appendChild(wifiItem);
+  statusContainer.appendChild(batteryItem);
+  statusContainer.appendChild(timeItem);
+  
+  // Add divider
+  var divider = document.createElement('div');
+  divider.className = 'taskbar-divider';
+  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    divider.classList.add('dark');
+  }
+  rightSection.appendChild(divider);
+  rightSection.appendChild(statusContainer);
+  taskbar.appendChild(rightSection);
+  
+  // Create status menu
+  var statusMenu = document.createElement('div');
+  statusMenu.className = 'status-menu';
+  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    statusMenu.classList.add('dark');
+  }
+  statusMenu.id = 'status-menu';
+  document.body.appendChild(statusMenu);
+  
+  // Build status menu content
+  window.protectedGlobals.buildStatusMenu = function() {
+    statusMenu.innerHTML = `
+      <div class="status-section">
+        <div class="status-section-title">CONNECTIVITY</div>
+        <div class="status-toggle" data-toggle="wifi">
+          <div class="toggle-label">
+            ${svgIcons.wifi}
+            <span>WiFi</span>
+          </div>
+          <div class="toggle-switch ${window.protectedGlobals.statusData.wifiEnabled ? 'active' : ''}">
+            <div class="toggle-switch-dot"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="status-section">
+        <div class="status-section-title">POWER</div>
+        <div class="status-toggle" data-toggle="battery-saver">
+          <div class="toggle-label">
+            ${svgIcons.battery}
+            <span>Battery Saver</span>
+          </div>
+          <div class="toggle-switch ${window.protectedGlobals.statusData.batterySaverEnabled ? 'active' : ''}">
+            <div class="toggle-switch-dot"></div>
+          </div>
+        </div>
+        <div class="status-info">
+          <span>Battery: ${window.protectedGlobals.statusData.batteryLevel}%</span>
+          <span>${window.protectedGlobals.statusData.isCharging ? '⚡ Charging' : ''}</span>
+        </div>
+      </div>
+      
+      <div class="status-section">
+        <div class="slider-container">
+          <div class="slider-label">
+            ${svgIcons.brightness}
+            <span id="brightness-value">${window.protectedGlobals.statusData.brightness}%</span>
+          </div>
+          <input type="range" class="slider" id="brightness-slider" min="10" max="100" value="${window.protectedGlobals.statusData.brightness}">
+        </div>
+      </div>
+    `;
+    
+    // Add event listeners to toggles
+    var toggles = statusMenu.querySelectorAll('.status-toggle');
+    toggles.forEach(function(toggle) {
+      toggle.addEventListener('click', function(e) {
+        // prevent this click from bubbling to document click handler which would close the menu
+        if (e && e.stopPropagation) e.stopPropagation();
+        var toggleType = this.dataset.toggle;
+        if (toggleType === 'wifi') {
+          window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
+          updateStatusBar();
+        } else if (toggleType === 'battery-saver') {
+          window.protectedGlobals.statusData.batterySaverEnabled = !window.protectedGlobals.statusData.batterySaverEnabled;
+          if (!window.protectedGlobals.data) window.protectedGlobals.data = {};
+          window.protectedGlobals.data.batterySaverEnabled = window.protectedGlobals.statusData.batterySaverEnabled;
+          // persist to server if available
+          if (window.protectedGlobals.persistUserProfilePatch) {
+            window.protectedGlobals.persistUserProfilePatch({
+              batterySaverEnabled: window.protectedGlobals.statusData.batterySaverEnabled,
+              brightness: window.protectedGlobals.statusData.brightness
+            });
+          }
+          updateStatusBar();
+        }
+        window.protectedGlobals.buildStatusMenu();
+      });
+    });
+    
+    // Brightness slider
+    var brightnessSlider = statusMenu.querySelector('#brightness-slider');
+    if (brightnessSlider) {
+      // prevent pointerdown clicks on the slider from bubbling and closing the menu
+      brightnessSlider.addEventListener('pointerdown', function(e) { if (e && e.stopPropagation) e.stopPropagation(); });
+      brightnessSlider.addEventListener('input', function(e) {
+        window.protectedGlobals.statusData.brightness = Number(e.target.value);
+        statusMenu.querySelector('#brightness-value').textContent = window.protectedGlobals.statusData.brightness + '%';
+        // Apply brightness filter to document
+        var brightnessValue = window.protectedGlobals.statusData.brightness / 100;
+        document.documentElement.style.filter = 'brightness(' + brightnessValue + ')';
+        // persist to server if available
+        if (window.protectedGlobals.persistUserProfilePatch) {
+          window.protectedGlobals.persistUserProfilePatch({
+            brightness: window.protectedGlobals.statusData.brightness,
+            batterySaverEnabled: window.protectedGlobals.statusData.batterySaverEnabled
+          });
+        }
+        updateStatusBar();
+      });
+    }
+  };
+  
+  // Update status bar display
+  window.protectedGlobals.updateStatusBar = function() {
+    // Update WiFi icon
+    wifiItem.innerHTML = window.protectedGlobals.statusData.wifiEnabled ? svgIcons.wifi : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity="0.4"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.94 0M12 20h.01"/></svg>';
+    
+    // Update battery icon color
+    var batteryPercent = window.protectedGlobals.statusData.batteryLevel;
+    if (batteryPercent > 30) {
+      batteryItem.innerHTML = svgIcons.battery;
+    } else if (batteryPercent > 10) {
+      batteryItem.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12m5-5l5 5m-6 6l-1-1"/><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>';
+    } else {
+      batteryItem.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><text x="6" y="16" font-size="16">!</text></svg>';
+    }
+    
+    // Update time display
+    var now = new Date();
+    var hours = String(now.getHours()).padStart(2, '0');
+    var mins = String(now.getMinutes()).padStart(2, '0');
+    var ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+    timeDisplay.textContent = hours + ':' + mins + ' ' + ampm;
+  };
+  
+  // Bind updateStatusBar to the local scope reference
+  var updateStatusBar = window.protectedGlobals.updateStatusBar;
+  
+  // Update time every minute
+  setInterval(updateStatusBar, 60000);
+  updateStatusBar();
+  
+  // Initialize status bar theme
+  
+  // Time click handler - toggle status menu
+  timeItem.addEventListener('click', function(e) {
+    e.stopPropagation();
+    statusMenu.classList.toggle('show');
+    if (statusMenu.classList.contains('show')) {
+      window.protectedGlobals.buildStatusMenu();
+    }
+  });
+  
+  // Close menu when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!statusMenu.contains(e.target) && !timeItem.contains(e.target)) {
+      statusMenu.classList.remove('show');
+    }
+  });
+  
+  // Update status bar theme when switching between light/dark
+  window.protectedGlobals.updateStatusBarTheme = function() {
+    if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+      statusMenu.classList.add('dark');
+      divider.classList.add('dark');
+    } else {
+      statusMenu.classList.remove('dark');
+      divider.classList.remove('dark');
+    }
+  };
+  // window.protectedGlobals.updateStatusBarTheme();
 
   // Autohide support (reveals only from bottom-edge hold)
   var autohideEnabled = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
@@ -503,7 +1063,7 @@
 
 
   function syncTaskButtons() {
-    taskbuttons = [...taskbar.querySelectorAll("button")];
+    taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
     window.protectedGlobals.taskbuttons = taskbuttons;
     window.protectedGlobals.saveTaskButtons(true);
   }
@@ -541,7 +1101,7 @@
 
     const rect = target.getBoundingClientRect();
     const insertBefore = e.clientX < rect.left + rect.width / 2;
-    taskbar.insertBefore(draggedTaskButton, insertBefore ? target : target.nextSibling);
+    window.protectedGlobals.taskbuttonsContainer.insertBefore(draggedTaskButton, insertBefore ? target : target.nextSibling);
   });
 
   taskbar.addEventListener("drop", (e) => {
@@ -613,20 +1173,19 @@
       }
     }
     setupTaskButtonDrag(btn);
-    taskbar.appendChild(btn);
+    window.protectedGlobals.taskbuttonsContainer.appendChild(btn);
     setTimeout(() => {
       window.protectedGlobals.applyStyles();
     }, 100);
-  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
+  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
     return btn;
   }
   window.protectedGlobals.addTaskButton = addTaskButton;
-  function removeTaskButton(btn) {
+  window.protectedGlobals.removeTaskButton = function removeTaskButton(btn) {
     btn.remove();
-  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbar.querySelectorAll("button")];
+  window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
     window.protectedGlobals.saveTaskButtons();
-  }
-  window.protectedGlobals.removeTaskButton = removeTaskButton;
+  };
   window.protectedGlobals._fullscreen = _fullscreen;
   addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
   addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true);

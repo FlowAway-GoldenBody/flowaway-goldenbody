@@ -554,13 +554,13 @@ settings = function (posX = 50, posY = 50) {
   brightness.type = "range";
   brightness.min = 0;
   brightness.max = 100;
-  brightness.value = window.protectedGlobals.data.brightness;
+  brightness.value = window.protectedGlobals.statusData.brightness;
   brightness.style.width = "calc(100% - 10px)";
 
   brightness.oninput = async () => {
     // Simple global brightness effect
     document.documentElement.style.filter = `brightness(${brightness.value}%)`;
-    window.protectedGlobals.data.brightness = brightness.value;
+    window.protectedGlobals.statusData.brightness = brightness.value;
     await persistSettingsProfilePatch({ brightness: Number(brightness.value) });
   };
 
