@@ -225,7 +225,7 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
       padding: 16px;
       min-width: 280px;
-      z-index: 2147483647;
+      z-index: 100000;
       display: none;
       flex-direction: column;
       gap: 12px;
@@ -427,7 +427,7 @@
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
-  taskbar.style.zIndex = 2147483640; // very high z-index to ensure it stays on top of app content but below modals/menus
+  taskbar.style.zIndex = 100000; // very high z-index to ensure it stays on top of app content but below modals/menus
   taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
@@ -1014,7 +1014,7 @@
   (function attachTaskbarContextMenu() {
     var cm = document.createElement('div');
     cm.style.position = 'fixed';
-    cm.style.zIndex = 2147483647; // above taskbar but below modals/overlays
+    cm.style.zIndex = 100001; // above taskbar but below modals/overlays
     cm.style.background = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
     cm.style.color = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'white' : 'black';
     cm.style.padding = '8px';

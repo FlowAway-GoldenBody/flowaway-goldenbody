@@ -281,7 +281,7 @@ window.protectedGlobals.showModal = function(title, body, level) {
       position: "fixed",
       top: "14px",
       right: "14px",
-      zIndex: "2147483646",
+      zIndex: "100000",
       display: "flex",
       flexDirection: "column",
       gap: "10px",
@@ -432,7 +432,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     border: "1px solid #ccc",
     borderRadius: "4px",
     boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-    zIndex: 2147483647, // maximum z-index to ensure it appears on top
+    zIndex: 100001, // maximum z-index to ensure it appears on top
     padding: "4px 0",
     minWidth: "160px",
     fontSize: "13px",
@@ -551,6 +551,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         contextMenuEvent &&         contextMenuEvent.target &&         contextMenuEvent.target.closest
           ? contextMenuEvent.target.closest("button.taskbutton")
           : null;
+      if (!btn) btn = window.protectedGlobals.taskbuttons.find((b) => b.dataset && b.dataset.appId === appId);
       if (btn) {
         btn.dataset.pinned = "false";
         if (window[app.globalvarobjectstring][app.allapparraystring].length === 0) {

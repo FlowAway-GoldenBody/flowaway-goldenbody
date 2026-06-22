@@ -165,7 +165,7 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
     color: window.protectedGlobals.data && window.protectedGlobals.data.dark ? "#fff" : "#000",
     borderRadius: "8px",
     boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
-    zIndex: 99999,
+    zIndex: 100002,
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",

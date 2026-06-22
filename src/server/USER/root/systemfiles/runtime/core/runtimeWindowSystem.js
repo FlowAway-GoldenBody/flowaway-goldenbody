@@ -236,7 +236,7 @@ var prepareWindowSwitchPreview = window.protectedGlobals.prepareWindowSwitchPrev
   Object.assign(root.style, {
     position: "fixed",
     inset: "0",
-    zIndex: "2147483646",
+    zIndex: "100000",
     display: "none",
     alignItems: "center",
     justifyContent: "center",

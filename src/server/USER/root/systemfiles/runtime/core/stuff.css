@@ -206,7 +206,7 @@
 /* Context Menu */
 .app-context-menu {
   position: fixed;
-  z-index: 9999;
+  z-index: 100001;
   background: #2a2a2a;
   color: white;
   border-radius: 6px;
