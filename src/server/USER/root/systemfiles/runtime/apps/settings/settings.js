@@ -12,7 +12,11 @@ function persistSettingsProfilePatch(patch) {
 
 settings = function (posX = 50, posY = 50) {
   window.protectedGlobals.startMenu.style.display = "none";
-
+  if (posX == 50 && posY == 50) {
+    let pos = window.protectedGlobals.getNextWindowXY();
+    posX = pos.x;
+    posY = pos.y;
+  }
   let isMaximized = false;
   let _isMinimized = false;
   window.protectedGlobals.atTop = "settings";

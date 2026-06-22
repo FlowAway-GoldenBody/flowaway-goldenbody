@@ -8,6 +8,11 @@ explorerGlobals.clipboard = {
 };
 
 fileExplorer = function (path = '/', posX = 50, posY = 50) {
+  if (posX == 50 && posY == 50) {
+    let pos = window.protectedGlobals.getNextWindowXY();
+    posX = pos.x;
+    posY = pos.y;
+  }
   let isMaximized = false;
   let _isMinimized = false;
   let disposed = false;

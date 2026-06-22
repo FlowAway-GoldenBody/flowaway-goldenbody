@@ -53,6 +53,11 @@ window.browser = async function (
   posY = 20,
   preMaximized = false,
 ) {
+    if (posX == 20 && posY == 20) {
+      let pos = window.protectedGlobals.getNextWindowXY();
+      posX = pos.x;
+      posY = pos.y;
+    }
     let getRoot = () => {};
     let exposedToTabs = {};
     let checkerinterval = null;

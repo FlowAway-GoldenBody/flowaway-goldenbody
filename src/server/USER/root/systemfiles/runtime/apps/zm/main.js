@@ -7,7 +7,12 @@ window.zmGlobals.allzmInstances = window.zmGlobals.allzmInstances || [];
   window.zmGlobals.ldlScript = await window.protectedGlobals.ReadFile('/systemfiles/runtime/apps/zm/ldlFunction.js', { text: true, direct: true });
 })();
 
-window.zm = function (posX, posY) {
+window.zm = function (posX = 50, posY = 50) {
+  if (posX == 50 && posY == 50) {
+    let pos = window.protectedGlobals.getNextWindowXY();
+    posX = pos.x;
+    posY = pos.y;
+  }
   if (window.protectedGlobals.data.username !== "183115428") {alert('Access Denied'); return;}
   var root = window.protectedGlobals.apptools.createRoot("zm", posX, posY);
   var topbar = window.protectedGlobals.apptools.createtitlebar(root);
