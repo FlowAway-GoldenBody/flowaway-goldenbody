@@ -191,7 +191,7 @@ async function iframePatches() {
   menu.style.fontFamily = "sans-serif";
   menu.style.fontSize = "14px";
   menu.style.display = "none";
-  menu.style.zIndex = "2147483646"; // maximum z-index to ensure it appears on top
+  menu.style.zIndex = "2147483647"; // maximum z-index to ensure it appears on top
   menu.style.transform = "scale(1)";
   iframeDocument.body.appendChild(menu);
 

@@ -222,13 +222,11 @@ if (cluster.isMaster) {
             // Use an explicit env var or the configured bindingAddress instead of hardcoding localhost.
             const targetHost = process.env.RAMMERHEAD_PROXY_TARGET_HOST || config.bindingAddress || '';
             const targetPort = process.env.RAMMERHEAD_PROXY_TARGET_PORT || config.port || 80;
-
             // Preserve incoming headers, but ensure Host header points to the actual target when appropriate.
             const headers = { ...req.headers };
             if (!headers.host || headers.host.includes('localhost') || headers.host.includes('127.0.0.1')) {
                 headers.host = `${targetHost}:${targetPort}`;
             }
-
             const options = {
                 hostname: targetHost,
                 port: Number(targetPort),

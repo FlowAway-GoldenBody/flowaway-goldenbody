@@ -2081,7 +2081,9 @@ const loadPromise = (async () => {
   window.protectedGlobals.apptools.api.trackInstance(instance, "zm");
   let origclose = instance.closeWindow;
   instance.closeWindow = () => {
+    try {
     stopAllMusic();
+    } catch {}
     console.log('stopped');
     origclose();
   };

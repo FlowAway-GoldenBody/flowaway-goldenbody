@@ -487,6 +487,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         }
       }
     });
+    window.protectedGlobals.bringToFront(null);
   });
   menu.appendChild(hideAll);
 
