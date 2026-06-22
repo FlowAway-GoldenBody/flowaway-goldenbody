@@ -432,7 +432,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     border: "1px solid #ccc",
     borderRadius: "4px",
     boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-    zIndex: 9999999,
+    zIndex: 2147483647, // maximum z-index to ensure it appears on top
     padding: "4px 0",
     minWidth: "160px",
     fontSize: "13px",

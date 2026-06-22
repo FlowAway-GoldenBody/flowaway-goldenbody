@@ -225,7 +225,7 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
       padding: 16px;
       min-width: 280px;
-      z-index: 999998;
+      z-index: 2147483647;
       display: none;
       flex-direction: column;
       gap: 12px;
