@@ -1,4 +1,9 @@
-window.yourApp = function (posX, posY) {
+window.yourApp = function (posX = 50, posY = 50) {
+  if (posX == 50 && posY == 50) {
+    let pos = window.protectedGlobals.getNextWindowXY();
+    posX = pos.x;
+    posY = pos.y;
+  }
   var root = window.protectedGlobals.apptools.createRoot('yourApp', posX, posY);
   var topbar = window.protectedGlobals.apptools.createtitlebar(root);
 

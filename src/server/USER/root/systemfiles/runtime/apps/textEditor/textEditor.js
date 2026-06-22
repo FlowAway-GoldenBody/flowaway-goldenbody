@@ -123,6 +123,11 @@ textEditor = function (path, posX = 50, posY = 50) {
   let _isMinimized = false;
   window.protectedGlobals.atTop = "textEditor";
   const root = document.createElement("div");
+  if (posX == 50 && posY == 50) {
+    let pos = window.protectedGlobals.getNextWindowXY();
+    posX = pos.x;
+    posY = pos.y;
+  }
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
     position: "fixed",

@@ -1355,6 +1355,21 @@
       if (mutation.type === 'childList') {
         mutation.removedNodes.forEach(removedNode => {
           if (removedNode.classList && removedNode.classList.contains('app-window-root')) {
+            let closedApps = 0;
+            let headlessApps = 0;
+            for (let app of window.protectedGlobals.apps) {
+              if (window[app.globalvarobjectstring] && window[app.globalvarobjectstring]?.[app.allapparraystring]?.length == 0) {
+                closedApps++;
+              } else if (!app.icon) {
+                headlessApps++;
+              }
+            }
+ 
+            if (closedApps + headlessApps === window.protectedGlobals.apps.length) {
+              // reset ztop to 1
+              window.protectedGlobals.zTop = 1;
+              window.protectedGlobals.resetWindowXY();
+            }
             // An app window was removed, find corresponding task button and mark as closed
             setTimeout(() => {
               for (let app of window.protectedGlobals.apps) {

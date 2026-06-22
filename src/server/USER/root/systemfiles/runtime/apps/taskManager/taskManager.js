@@ -19,7 +19,11 @@ taskManager = function (posX = 50, posY = 50) {
   try {
     window.protectedGlobals.atTop = "taskManager";
   } catch (e) {}
-
+  if (posX == 50 && posY == 50) {
+    let pos = window.protectedGlobals.getNextWindowXY();
+    posX = pos.x;
+    posY = pos.y;
+  }
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
