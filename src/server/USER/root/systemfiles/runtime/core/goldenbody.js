@@ -9,6 +9,7 @@
     setTimeout(refreshBatteryInfo, 1000);
   } catch {}
   let batteryInterval = setInterval(refreshBatteryInfo, 60000);
+  let timeInterval = setInterval(window.protectedGlobals.updateTime, 15000);
   // SVG Icons
   var svgIcons = {
     wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/></svg>',
@@ -176,21 +177,21 @@
     .time-display {
       font-size: 13px;
       font-weight: 500;
-      min-width: 85px;
+      min-width: 70px;
       text-align: center;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       color: inherit;
     }
 
     .status-item:has(.time-display) {
-      min-width: 85px;
-      max-width: 85px;
+      min-width: 70px;
+      max-width: 70px;
       transition: all 0.2s ease;
     }
 
     .status-item:has(.time-display):hover {
-      min-width: 95px;
-      max-width: 95px;
+      min-width: 80px;
+      max-width: 80px;
     }
 
     .taskbar-buttons-container {
@@ -426,7 +427,7 @@
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
-  taskbar.style.zIndex = 999999; // very high z-index to ensure it stays on top of app content but below modals/menus
+  taskbar.style.zIndex = 2147483640; // very high z-index to ensure it stays on top of app content but below modals/menus
   taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
@@ -648,11 +649,15 @@
     }
     
     // Update time display
+    function updateTime() {
     var now = new Date();
     var hours = String(now.getHours()).padStart(2, '0');
     var mins = String(now.getMinutes()).padStart(2, '0');
     var ampm = now.getHours() >= 12 ? 'PM' : 'AM';
     timeDisplay.textContent = hours + ':' + mins + ' ' + ampm;
+    }
+    updateTime();
+    window.protectedGlobals.updateTime = updateTime; // expose updateTime for external calls if needed
   };
   
   // Bind updateStatusBar to the local scope reference
@@ -1009,7 +1014,7 @@
   (function attachTaskbarContextMenu() {
     var cm = document.createElement('div');
     cm.style.position = 'fixed';
-    cm.style.zIndex = 1000000; // above taskbar but below modals/overlays
+    cm.style.zIndex = 2147483647; // above taskbar but below modals/overlays
     cm.style.background = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
     cm.style.color = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'white' : 'black';
     cm.style.padding = '8px';
