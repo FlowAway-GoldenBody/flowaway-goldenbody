@@ -132,7 +132,7 @@ if (existingStartMenu) existingStartMenu.remove();
 const startMenu = window.protectedGlobals.startMenu = document.createElement("div");
 startMenu.id = "startMenu";
 startMenu.className = "startMenu";
-startMenu.style.zIndex = 2147483647; // maximum z-index to ensure it appears on top of everything
+startMenu.style.zIndex = 100000; // maximum z-index to ensure it appears on top of everything
 startMenu.innerHTML = `
 
 <h3 style="margin:0 0 10px 0; font-size:18px;">Start</h3>
