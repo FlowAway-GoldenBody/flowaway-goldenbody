@@ -848,7 +848,6 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       div.style.padding = "6px";
       div.style.borderBottom = "1px solid #eee";
       div.style.cursor = "pointer";
-      div.draggable = true;
       if (item[0].endsWith(".smh")) {div.addEventListener('dblclick', () => evalJsApp(item[2].path));}
       // Highlight selected
       if (selectedItems.includes(item)) div.style.background = "#d0e6ff";
