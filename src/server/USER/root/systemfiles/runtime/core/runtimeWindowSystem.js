@@ -610,7 +610,7 @@ window.protectedGlobals.applyStyles = function applyStyles() {
     }
     r.dispatchEvent(new CustomEvent("styleapplied", {}));
   }
-
+  window.dispatchEvent(new CustomEvent("styleapplied", {}));
   // if(window.protectedGlobals.data.dark) {
   //   document.body.style.background = "#444";
   //   document.body.style.color = "white";
