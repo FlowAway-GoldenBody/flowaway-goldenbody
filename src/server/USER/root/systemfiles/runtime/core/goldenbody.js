@@ -86,14 +86,12 @@
     }
     
     .taskbutton.light.task-active::after {
-      width: 40px;
+      width: 25px;
       background-color: #9966ff;
-      height: 4px;
     }
     .taskbutton.dark.task-active::after {
-      width: 40px;
+      width: 25px;
       background-color: #cc99ff;
-      height: 4px;
   }
     /* Open but not focused - short black line */
     .taskbutton.task-open {
@@ -101,12 +99,12 @@
     }
     
     .taskbutton.light.task-open::after {
-      width: 20px;
+      width: 15px;
       background-color: #000;
     }
     
     .taskbutton.dark.task-open::after {
-      width: 20px;
+      width: 15px;
       background-color: #fff;
     }
     
@@ -474,7 +472,7 @@
     window.protectedGlobals.statusData = {
       wifiEnabled: true, // Always start with WiFi on, don't persist
       batterySaverEnabled: (window.protectedGlobals.data && window.protectedGlobals.data.batterySaverEnabled) || false,
-      brightness: (window.protectedGlobals.data && window.protectedGlobals.data.brightness) || 100,
+      brightness: 100,
       batteryLevel: window.protectedGlobals.batteryLevel || NaN,
       isCharging: false
     };
@@ -1160,10 +1158,18 @@
   }
   function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false, pinned = false, __startMenu = false, options = {}) {
     var btn = document.createElement("button");
-    if (!options.svg) {
+    if (!options.svg && !options.png) {
       btn.innerText = name;
-    } else {
-      btn.innerHTML = name;
+    } else if (options.png) {
+      // the image base64 string is passed in options.pngContent
+      var img = document.createElement("img");
+      img.src = "data:image/[FORMAT];base64," + options.pngContent;
+      img.style.width = "55%";
+      img.style.height = "45%";
+      btn.appendChild(img);
+    }
+    else if (options.svg) {
+      btn.innerHTML = options.svgContent;
     }
     btn.value = name;
     if (!__startMenu) {
@@ -1239,7 +1245,7 @@
   window.protectedGlobals.removeTaskButton = removeTaskButton;
   window.protectedGlobals._fullscreen = _fullscreen;
   addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
-  addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { svg: true});
+  addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true);
   window.protectedGlobals.purgeButtons();
 
 
@@ -1267,22 +1273,22 @@
       if (appInfo) {
         if (appInfo.cmf) {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.icon,
+            appInfo.nonTextIcon ? appInfo.functionname : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window[appInfo.globalvarobjectstring][appInfo.cmf],
             "",
             atTop,
-            false,
+            false, false, false, { svg: appInfo.svgEnabled, svgContent: appInfo.icon, png: appInfo.pngEnabled, pngContent: appInfo.icon }
           );
         }
         else {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.icon,
+            appInfo.nonTextIcon ? appInfo.functionname : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window.protectedGlobals.cmf,
             "",
             atTop,
-            false,
+            false, false, false, { svg: appInfo.svgEnabled, svgContent: appInfo.icon, png: appInfo.pngEnabled, pngContent: appInfo.icon }
           );
         }
         if (btn) btn.dataset.appId = atTop;
