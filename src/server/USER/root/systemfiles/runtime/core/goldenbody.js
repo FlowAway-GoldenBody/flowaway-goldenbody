@@ -1,4 +1,8 @@
 (async function () {
+  let fullScreenLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-light.png", { direct: true });
+  let fullScreenDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-dark.png", { direct: true });
+  let startMenuLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-light.png", { direct: true });
+  let startMenuDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-dark.png", { direct: true });
   let refreshBatteryInfo = () => {
     window.protectedGlobals.updateBattery();
     window.protectedGlobals.statusData.batteryLevel = window.protectedGlobals.batteryLevel || NaN;
@@ -1162,11 +1166,11 @@
       btn.innerText = name;
     } else if (options.png) {
       // the image base64 string is passed in options.pngContent
-      var img = document.createElement("img");
-      img.src = "data:image/[FORMAT];base64," + options.pngContent;
-      img.style.width = "55%";
-      img.style.height = "45%";
-      btn.appendChild(img);
+      btn.img = document.createElement("img");
+      btn.img.src = "data:image/[FORMAT];base64," + options.pngContent;
+      btn.img.style.width = "55%";
+      btn.img.style.height = "45%";
+      btn.appendChild(btn.img);
     }
     else if (options.svg) {
       btn.innerHTML = options.svgContent;
@@ -1175,7 +1179,7 @@
     if (!__startMenu) {
       btn.id = name + "-" + iconid;
       iconid++;
-    } else btn.id = name;
+    } else { btn.img.startMenu = true; btn.id = name; }
     btn.style.padding = "3px";
     btn.style.marginRight = "5px";
     btn.style.border = "none";
@@ -1244,8 +1248,28 @@
   };
   window.protectedGlobals.removeTaskButton = removeTaskButton;
   window.protectedGlobals._fullscreen = _fullscreen;
-  addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true);
-  addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true);
+  let fullscreenbtn;
+  let startbtn;
+  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenDarkImage });
+    startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuDarkImage });
+  } else {
+    fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenLightImage });
+    startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuLightImage });
+  }
+  let updateTaskbarCoreButtonTheme = () => {
+    if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+      fullscreenbtn.img.src = "data:image/png;base64," + fullScreenDarkImage;
+      startbtn.img.src = "data:image/png;base64," + startMenuDarkImage;
+    } else {
+      fullscreenbtn.img.src = "data:image/png;base64," + fullScreenLightImage;
+      startbtn.img.src = "data:image/png;base64," + startMenuLightImage;
+    }
+  }
+  updateTaskbarCoreButtonTheme();
+  window.addEventListener('styleapplied', () => {
+    updateTaskbarCoreButtonTheme();
+  });
   window.protectedGlobals.purgeButtons();
 
 

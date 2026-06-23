@@ -660,12 +660,14 @@ window.protectedGlobals.starthandler = () => {
     if (contextMenuRoot) {
       return;
     }
+    try {
     if (
       !startMenu.contains(e.target) &&
-      e.target !== document.getElementById("▶")
+      e.target !== document.getElementById("▶") && e.target !== document.getElementById("▶").img
     ) {
       startMenu.style.display = "none";
     }
+    } catch (e) {}
   };
   document.addEventListener("click", window.protectedGlobals.systemAPIs.onDocumentClick);
 }
