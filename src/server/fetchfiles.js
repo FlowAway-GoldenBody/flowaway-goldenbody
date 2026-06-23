@@ -160,12 +160,11 @@ async function buildUserFileTree(rootPath) {
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-
+      // stat both files and directories so we can attach modification times
+      const stats = await fsp.stat(fullPath);
       if (entry.isDirectory()) {
-        nodes.push([entry.name, await walk(fullPath)]);
+        nodes.push([entry.name, await walk(fullPath), { mtime: stats.mtimeMs, mtimeMs: stats.mtimeMs }]);
       } else {
-        const stats = await fsp.stat(fullPath);
-
         // READ FILE AS BUFFER
         // const buffer = await fsp.readFile(fullPath);
 
@@ -174,6 +173,8 @@ async function buildUserFileTree(rootPath) {
           null,
           {
             size: stats.size,
+            mtime: stats.mtimeMs,
+            mtimeMs: stats.mtimeMs,
             // content: buffer.toString('base64'), // ✅ base64 content
           }
         ]);
@@ -183,7 +184,9 @@ async function buildUserFileTree(rootPath) {
     return nodes;
   }
 
-  return ['root', await walk(rootPath)];
+  const rootStat = await fsp.stat(rootPath).catch(() => null);
+  const rootMeta = rootStat ? { mtime: rootStat.mtimeMs, mtimeMs: rootStat.mtimeMs } : {};
+  return ['root', await walk(rootPath), rootMeta];
 }
 
 
