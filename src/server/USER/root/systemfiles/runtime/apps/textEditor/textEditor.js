@@ -351,7 +351,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       let thresholdCrossed = false;
       let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15; // pixels required to trigger drag behavior
 
-      topBar.addEventListener("mousedown", (ev) => {
+      topBar.addEventListener("pointerdown", (ev) => {
         if (active) return;
         DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
@@ -363,8 +363,9 @@ textEditor = function (path, posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("textEditor" + root._goldenbodyId, "mousemove", (ev) => {
+      window.addEventListener("textEditor" + root._goldenbodyId, "pointermove", (ev) => {
         if (!dragging) return;
+        if (active) return;
         const dragDistance = Math.sqrt(Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2));
         if (!thresholdCrossed && dragDistance >= DRAG_THRESHOLD) {
           thresholdCrossed = true;
@@ -382,7 +383,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("textEditor" + root._goldenbodyId, "mouseup", () => {
+      window.addEventListener("textEditor" + root._goldenbodyId, "pointerup", () => {
         dragging = false;
         thresholdCrossed = false;
         document.body.style.userSelect = "";

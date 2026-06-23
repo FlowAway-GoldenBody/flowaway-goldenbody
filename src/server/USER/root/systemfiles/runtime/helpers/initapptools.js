@@ -73,7 +73,7 @@ window.protectedGlobals.initAppTools = function () {
       var currentX;
       var currentY;
 
-      dragTarget.addEventListener("mousedown", function (ev) {
+      dragTarget.addEventListener("pointerdown", function (ev) {
         if (active) return;
         var configuredThreshold = Number(window.protectedGlobals.data && window.protectedGlobals.data.DRAG_THRESHOLD);
         if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
@@ -90,8 +90,9 @@ window.protectedGlobals.initAppTools = function () {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener("mousemove", function (ev) {
+      window.addEventListener("pointermove", function (ev) {
         if (!dragging) return;
+        if (active) return;
         var dragDistance = Math.sqrt(
           Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
         );
@@ -124,7 +125,7 @@ window.protectedGlobals.initAppTools = function () {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener("mouseup", function () {
+      window.addEventListener("pointerup", function () {
         if (!dragging) return;
         dragging = false;
         thresholdCrossed = false;

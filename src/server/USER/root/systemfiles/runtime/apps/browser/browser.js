@@ -4080,7 +4080,7 @@ setTimeout(() => {
         targetel = ev.target;
       });
 
-      top.addEventListener("mousedown", (ev) => {
+      top.addEventListener("pointerdown", (ev) => {
         if (
           ev.target?.closest?.(".sim-tab") ||
           ev.target === newTabBtn ||
@@ -4103,10 +4103,10 @@ setTimeout(() => {
 
       window.addEventListener(
         "browser" + root._goldenbodyId,
-        "mousemove",
+        "pointermove",
         (ev) => {
           if (!dragging) return;
-
+          if (active) return; // Don't move window while resizing
           // Calculate distance dragged from initial mousedown
           const dragDistance = Math.sqrt(
             Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
@@ -4133,7 +4133,7 @@ setTimeout(() => {
         },
       );
 
-      window.addEventListener("browser" + root._goldenbodyId, "mouseup", () => {
+      window.addEventListener("browser" + root._goldenbodyId, "pointerup", () => {
         dragging = false;
         thresholdCrossed = false;
         document.body.style.userSelect = "";
