@@ -359,11 +359,17 @@ var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPrevie
 
     var icon = document.createElement("div");
     var iconApp = findAppByIdentifier(appId);
-    var iconValue = (iconApp && iconApp.icon) || "🗔";
-    if (iconValue && iconValue.trim().startsWith("<")) {
+    var iconValue = iconApp.icon;
+    if (iconApp.svgEnabled) {
       icon.innerHTML = iconValue;
-    } else {
+    } else if (!iconApp.nonTextIcon) {
       icon.textContent = iconValue;
+    } else if (iconApp.pngEnabled) {
+      let img = document.createElement("img");
+      img.src = "data:image/png;base64," + iconValue;
+      img.style.maxWidth = "28px";
+      img.style.maxHeight = "28px";
+      icon.appendChild(img);
     }
     Object.assign(icon.style, {
       width: "28px",

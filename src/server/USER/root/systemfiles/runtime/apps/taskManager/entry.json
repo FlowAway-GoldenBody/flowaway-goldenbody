@@ -4,7 +4,10 @@
   "globalvarobjectstring": "taskManagerGlobals",
   "usejs": true,
   "jsFile": "taskManager.js",
-  "iconFile": "icon.txt",
+  "iconFile": "icon.png",
+  "pngEnabled": true,
+  "nonTextIcon": true,
+  "svgEnabled": false,
   "allapparraystring": "allTaskManagers",
   "openfilecapability": []
 }
