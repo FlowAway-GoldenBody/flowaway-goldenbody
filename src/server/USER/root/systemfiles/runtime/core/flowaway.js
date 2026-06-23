@@ -1,6 +1,82 @@
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
   window.permGlobals = window.permGlobals || {};
+  window.protectedGlobals.timerSpeed = 1;
+// (() => {
+//   const timers = [];
+//   let nextId = 1;
+
+//   window.setInterval = (cb, interval) => {
+//     const id = nextId++;
+
+//     const tick = () => {
+//       if (timers.includes(id)) { return; }
+//       try {
+//         cb();
+//       } catch (e) {
+//         console.trace(e);
+//       }
+//       setTimeout(
+//         tick,
+//         interval * window.protectedGlobals.timerSpeed
+//       )
+//     };
+//       setTimeout(
+//         tick,
+//         interval * window.protectedGlobals.timerSpeed
+//       )
+
+//     return id;
+//   };
+
+//   window.clearInterval = (id) => {
+//     if (!(timers.indexOf(id) > -1)) { timers.push(id); console.log("interval id cleared: " + String(id)); }
+//     else {
+//       console.log("interval id not found or already cleared: " + String(id));
+//     }
+//   };
+// })();
+// we want dynamic timer speed adjustment, so we will override setInterval and clearInterval to allow for that
+(() => {
+  const nativeSetTimeout = window.setTimeout;
+  const cancelled = new Set();
+  let nextId = 1;
+
+  window.setInterval = (cb, interval) => {
+    const id = nextId++;
+
+    const tick = () => {
+      if (cancelled.has(id)) { cancelled.delete(id); return; }
+
+      try {
+        cb();
+      } catch (err) {
+        console.trace(err);
+      }
+
+      if (!cancelled.has(id)) {
+        const speed =
+          Number(window.protectedGlobals?.timerSpeed) || 1;
+
+        nativeSetTimeout(tick, interval * speed);
+      }
+    };
+
+    const speed =
+      Number(window.protectedGlobals?.timerSpeed) || 1;
+
+    nativeSetTimeout(tick, interval * speed);
+
+    return id;
+  };
+
+  window.clearInterval = (id, options) => {
+    cancelled.add(id);
+    if (!options || !options.nolog) {
+      console.log("Interval cleared: " + String(id));
+    }
+  };
+})();
   if (!window.permGlobals.origFetch) {
     window.permGlobals.origFetch = window.fetch;
   }

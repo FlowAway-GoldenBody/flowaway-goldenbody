@@ -1,9 +1,9 @@
 // required functions for the system cleanup
 window.protectedGlobals.rebuildhandler = function () {
   for (let i = 0; i < 10000; i++) {
-    clearInterval(i);
-    clearTimeout(i);
+    clearInterval(i, { nolog: true });
   }
+  window.protectedGlobals.goldenbody.clearSystemInterval();
   window.protectedGlobals.statusData.wifiEnabled = true; // reset wifi status to default on rebuild
   // Mark rebuilding
   window.protectedGlobals.isRebuilding = true;
