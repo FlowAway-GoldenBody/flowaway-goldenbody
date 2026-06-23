@@ -185,8 +185,7 @@ taskManager = function (posX = 50, posY = 50) {
 
   function clearAutoRefresh() {
     if (autoRefreshTimer) {
-      clearInterval(autoRefreshTimer);
-      autoRefreshTimer = null;
+      autoRefreshTimer = false;
     }
   }
 
@@ -1345,8 +1344,11 @@ taskManager = function (posX = 50, posY = 50) {
       return;
     }
 
-    autoRefreshTimer = setInterval(() => {
+    autoRefreshTimer = true;
+    setTimeout(() => {
       refreshSnapshot(false);
+      if (autoRefreshTimer)
+      setTimeout(refreshSnapshot, 1000 * window.protectedGlobals.timerSpeed);
     }, sec * 1000);
     setStatus("Auto-refresh every " + sec + "s enabled.");
   }

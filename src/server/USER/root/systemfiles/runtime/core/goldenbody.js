@@ -4,12 +4,23 @@
     window.protectedGlobals.statusData.batteryLevel = window.protectedGlobals.batteryLevel || NaN;
     window.protectedGlobals.statusData.isCharging = window.protectedGlobals.batteryCharging || false;
     window.protectedGlobals.updateStatusBar();
+    if (!batteryInterval) return;
+    setTimeout(refreshBatteryInfo, 1000 * window.protectedGlobals.timerSpeed);
   };
-  try {
-    setTimeout(refreshBatteryInfo, 1000);
-  } catch {}
-  let batteryInterval = setInterval(refreshBatteryInfo, 60000);
-  let timeInterval = setInterval(window.protectedGlobals.updateTime, 15000);
+  setTimeout(refreshBatteryInfo, 1000);
+  let batteryInterval = true;
+  let timeInterval = true;
+  window.protectedGlobals.goldenbody = {};
+  window.protectedGlobals.goldenbody.clearSystemInterval = () => {
+    batteryInterval = false;
+    timeInterval = false;
+  }
+  function updateTime() {
+    window.protectedGlobals.updateTime();
+    if (!timeInterval) return;
+    setTimeout(updateTime, 15000);
+  }
+  setTimeout(updateTime, 1000);
   // SVG Icons
   var svgIcons = {
     wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/></svg>',
@@ -470,6 +481,7 @@
   }
   else window.protectedGlobals.statusData = tempdata;
   // Apply initial brightness if not at 100%
+  if (window.protectedGlobals.statusData.batterySaverEnabled) window.protectedGlobals.timerSpeed = 2;
   if (window.protectedGlobals.statusData.brightness !== 100) {
     document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
   }
@@ -597,8 +609,10 @@
           window.protectedGlobals.data.batterySaverEnabled = window.protectedGlobals.statusData.batterySaverEnabled;
           if (window.protectedGlobals.statusData.batterySaverEnabled) {
             window.protectedGlobals.statusData.brightness /= 2; // dim brightness when battery saver is on
+            window.protectedGlobals.timerSpeed = 2;
           } else {
             window.protectedGlobals.statusData.brightness *= 2; // restore brightness when battery saver is off
+            window.protectedGlobals.timerSpeed = 1;
           }
           document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
           // turn it off when battery saver is closed
