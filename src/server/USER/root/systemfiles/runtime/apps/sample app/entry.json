@@ -4,8 +4,11 @@
   "globalvarobjectstring": "yourAppGlobals",
   "allapparraystring": "allYourAppInstances",
   "usejs": true,
+  "iconFile": "icon.png",
+  "pngEnabled": true,
+  "nonTextIcon": true,
+  "svgEnabled": false,
   "jsFile": "apptemplate.js",
-  "iconFile": "icon.txt",
   "openfilecapability": [],
   "cmf": "shell",
   "cmfl1": "shell1"

@@ -46,24 +46,28 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       
       if (app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.icon,
+          app.nonTextIcon ? app.functionname : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window[app.globalvarobjectstring][app.cmf],
           "",
           appId,
           false,
           true, // pinned by default if in saved taskbuttons
+          false,
+          { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
         );
       }
       else {
         btn = window.protectedGlobals.addTaskButton(
-          app.icon,
+          app.nonTextIcon ? app.functionname : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
           appId,
           false,
-          true
+          true,
+          false,
+          { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
         );
       }
       if (btn) btn.dataset.appId = appId;
@@ -639,9 +643,9 @@ setTimeout(() => {
   window.protectedGlobals.loadAppsFromTree();
 }, 200);
 
-
-document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.data.brightness}%)`;
-
+setTimeout(() => {
+document.documentElement.style.filter = `brightness(${window.protectedGlobals.statusData && window.protectedGlobals.statusData.brightness}%)`;
+}, 1000);
 // // 1. Create a new MutationObserver instance with a callback function
 // window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
 //   if (mutationsList) {

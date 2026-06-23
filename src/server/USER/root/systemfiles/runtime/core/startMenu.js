@@ -153,7 +153,6 @@ startMenu.innerHTML = `
 
     <div class="statusBar">
     <div class="statusLeft">
-        <span id="wifiStatus">📶</span>
         <button id="signOutBtn" style="margin-left:8px;padding:6px 8px;border-radius:6px;border:none;background:#e53e3e;color:white;font-weight:600;">Sign Out</button>
     </div>
 
@@ -425,13 +424,13 @@ const createAppTile = window.protectedGlobals.createAppTile = function createApp
   div.style.padding = '10px';
   div.style.borderRadius = '6px';
   div.style.textAlign = 'center';
+  div.style.minHeight = '35px';
+  div.style.maxHeight = '35px';
   div.style.cursor = 'pointer';
   if (draggable) {
     div.draggable = true;
   }
-  div.innerHTML = `${app.icon}<br><span style="font-size:11px;">${app.label}</span>`;
-
-  // Drag events for reordering pinned apps
+div.innerHTML = ` ${app.pngEnabled ? `<img src="data:image/[FORMAT];base64,${app.icon}" style="width:25%;height:50%;margin-bottom:4px;">` : app.svgEnabled ? `<svg style="margin-bottom:6px;">${app.icon}</svg>` : app.icon} <br> <span style="font-size:11px;">${app.label}</span> `;  // Drag events for reordering pinned apps
   if (draggable) {
     div.addEventListener('dragstart', (e) => {
       div.classList.add('dragging');
@@ -628,28 +627,6 @@ if (navigator.getBattery) {
   });
 } else {
   document.getElementById("batteryStatus").textContent = "🔋 N/A";
-}
-const updateWiFi = window.protectedGlobals.updateWiFi = function updateWiFi() {
-  var wifi = document.getElementById("wifiStatus");
-  if (navigator.onLine) {
-    wifi.textContent = "🛜";
-    wifi.title = "Online";
-  } else {
-    wifi.textContent = "❌🛜";
-    wifi.title = "Offline";
-  }
-}
-
-updateWiFi();
-{
-  if (window.protectedGlobals.systemAPIs.onOnline)
-    window.removeEventListener("online", window.protectedGlobals.systemAPIs.onOnline);
-  if (window.protectedGlobals.systemAPIs.onOffline)
-    window.removeEventListener("offline", window.protectedGlobals.systemAPIs.onOffline);
-  window.protectedGlobals.systemAPIs.onOnline = updateWiFi;
-  window.protectedGlobals.systemAPIs.onOffline = updateWiFi;
-  window.addEventListener("online", window.protectedGlobals.systemAPIs.onOnline);
-  window.addEventListener("offline", window.protectedGlobals.systemAPIs.onOffline);
 }
 
 // ----------------- TOGGLE START MENU -----------------

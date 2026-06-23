@@ -50,7 +50,7 @@
             return f.name.toLowerCase().endsWith(".js");
           })?.relativePath || "";
           iconFile = entryObj.iconFile || files.find(function (f) {
-            return f.name.toLowerCase().endsWith(".png") || f.name.toLowerCase().endsWith(".jpg") || f.name.toLowerCase().endsWith(".jpeg") || f.name.toLowerCase().endsWith(".svg");
+            return f.name.toLowerCase().endsWith(".png") || f.name.toLowerCase().endsWith(".svg");
           })?.relativePath || "";
         } else {
           throw new Error("entry.json is not a valid object for " + String(folderName));
@@ -83,8 +83,16 @@
     if (iconFile) {
       console.log("Found icon file for app " + folderName + ": " + iconFile); 
       var iconPath = folderPath + "/" + iconFile;
-      var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
-      icon = parsedIcon || icon;
+      if (!entryObj.nonTextIcon) {
+        var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
+        icon = parsedIcon || icon;
+      } else if (entryObj.svgEnabled) {
+        var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
+        icon = parsedIcon || icon;
+      } else if (entryObj.pngEnabled) {
+        var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { direct: true }) || "").trim();
+        icon = parsedIcon || icon;
+      }
     }
 
     let pkg = {
@@ -99,6 +107,9 @@
       globalvarobjectstring: globalvarobjectstring,
       cmf: cmf,
       cmfl1: cmfl1,
+      svgEnabled: !!entryObj.svgEnabled,
+      pngEnabled: !!entryObj.pngEnabled,
+      nonTextIcon: !!entryObj.nonTextIcon,
       openfilecapability: openfilecapability,
     };
     window.protectedGlobals.initAppRuntimeState(pkg);
