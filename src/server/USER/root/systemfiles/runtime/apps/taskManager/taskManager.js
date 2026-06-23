@@ -263,7 +263,7 @@ taskManager = function (posX = 50, posY = 50) {
       let thresholdCrossed = false;
       let DRAG_THRESHOLD = window.protectedGlobals.data.DRAG_THRESHOLD || 15;
 
-      dragTarget.addEventListener("mousedown", (ev) => {
+      dragTarget.addEventListener("pointerdown", (ev) => {
         if (active) return;
         DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
@@ -277,8 +277,9 @@ taskManager = function (posX = 50, posY = 50) {
         document.body.style.userSelect = "none";
       });
 
-      window.addEventListener(scopedListenerName, "mousemove", (ev) => {
+      window.addEventListener(scopedListenerName, "pointermove", (ev) => {
         if (!dragging || disposed) return;
+        if (active) return;
         const dragDistance = Math.sqrt(
           Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
         );
@@ -300,7 +301,7 @@ taskManager = function (posX = 50, posY = 50) {
         root.style.top = Math.max(0, origTop + dy) + "px";
       });
 
-      window.addEventListener(scopedListenerName, "mouseup", () => {
+      window.addEventListener(scopedListenerName, "pointerup", () => {
         dragging = false;
         thresholdCrossed = false;
         document.body.style.userSelect = "";
