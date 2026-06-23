@@ -4,8 +4,11 @@
   "globalvarobjectstring": "textEditorGlobals",
   "allapparraystring": "allTextEditors",
   "usejs": true,
+  "iconFile": "icon.png",
+  "pngEnabled": true,
+  "nonTextIcon": true,
+  "svgEnabled": false,
   "jsFile": "textEditor.js",
-  "iconFile": "icon.txt",
   "openfilecapability": [
     "*"
   ]
