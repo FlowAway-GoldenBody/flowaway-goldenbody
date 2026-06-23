@@ -424,6 +424,10 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   const username = window.protectedGlobals.data.username;
   let currentPath = ["root"];
   let treeData = window.protectedGlobals.treeData;
+  // UI state: sort and display modes
+  let sortMode = "name"; // name | size | date
+  let sortOrder = "asc"; // asc | desc
+  let displayMode = "list"; // list | tiles
 
   function getCurrentFolderPath() {
     return currentPath.slice(1).join("/") + (currentPath.length > 1 ? "/" : "");
@@ -599,6 +603,52 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
 
   const breadcrumbs = document.createElement("div");
   topbar.appendChild(breadcrumbs);
+  // Controls: sort and view mode
+  const controls = document.createElement("div");
+  controls.style.display = "inline-flex";
+  controls.style.gap = "8px";
+  controls.style.float = "right";
+  controls.style.alignItems = "center";
+
+  const sortSelect = document.createElement("select");
+  [
+    { v: "name", t: "Sort: Name" },
+    { v: "size", t: "Sort: Size" },
+    { v: "date", t: "Sort: Date" },
+  ].forEach((opt) => {
+    const o = document.createElement("option");
+    o.value = opt.v;
+    o.textContent = opt.t;
+    sortSelect.appendChild(o);
+  });
+  sortSelect.value = sortMode;
+  sortSelect.onchange = () => {
+    sortMode = sortSelect.value;
+    render();
+  };
+
+  const sortOrderBtn = document.createElement("button");
+  sortOrderBtn.textContent = "↑";
+  sortOrderBtn.title = "Toggle sort order";
+  sortOrderBtn.onclick = () => {
+    sortOrder = sortOrder === "asc" ? "desc" : "asc";
+    sortOrderBtn.textContent = sortOrder === "asc" ? "↑" : "↓";
+    render();
+  };
+
+  const viewToggle = document.createElement("button");
+  viewToggle.textContent = "▦";
+  viewToggle.title = "Toggle view (list / tiles)";
+  viewToggle.onclick = () => {
+    displayMode = displayMode === "list" ? "tiles" : "list";
+    viewToggle.textContent = displayMode === "list" ? "▦" : "▦";
+    render();
+  };
+
+  controls.appendChild(sortSelect);
+  controls.appendChild(sortOrderBtn);
+  controls.appendChild(viewToggle);
+  topbar.appendChild(controls);
 
   const fileArea = document.createElement("div");
   fileArea.style.flex = "1";
@@ -633,6 +683,16 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     window.protectedGlobals.treeData = data.tree;
     treeData = window.protectedGlobals.treeData;
     window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
+    // Ensure nodes have date metadata (mtime) so client can sort by date
+    function ensureDates(node) {
+      if (!node || !Array.isArray(node[1])) return;
+      for (const child of node[1]) {
+        // Ensure metadata object exists (do NOT fabricate mtime; server should provide it)
+        if (!child[2] || typeof child[2] !== 'object') child[2] = child[2] || {};
+        if (Array.isArray(child[1])) ensureDates(child);
+      }
+    }
+    try { ensureDates(window.protectedGlobals.treeData); } catch(e){}
     // Restore clipboard from server
     if (data.clipboard && Array.isArray(data.clipboard)) {
       explorerGlobals.clipboard = data.clipboard;
@@ -690,6 +750,16 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     if (bytes < 1024 ** 2) return (bytes / 1024).toFixed(1) + " KB";
     if (bytes < 1024 ** 3) return (bytes / 1024 ** 2).toFixed(1) + " MB";
     return (bytes / 1024 ** 3).toFixed(1) + " GB";
+  }
+
+  function formatDate(ts) {
+    if (!ts) return "";
+    try {
+      const d = new Date(Number(ts));
+      return d.toLocaleString();
+    } catch (e) {
+      return String(ts);
+    }
   }
 
   function renderBreadcrumbs() {
@@ -834,91 +904,160 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     fileArea.innerHTML = "";
     const node = findNode(treeData, currentPath);
     if (!node || !node[1]) return;
+    const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
 
-    node[1].forEach((item, index) => {
-      if (item[0] == ".DS_Store" || item[0].startsWith(".temp")) return;
-      const isFolder = Array.isArray(item[1]);
-      const div = document.createElement("div");
+    if (displayMode === "tiles") {
+      const grid = document.createElement("div");
+      grid.style.display = "flex";
+      grid.style.flexWrap = "wrap";
+      grid.style.gap = "12px";
+      grid.style.alignItems = "flex-start";
+      grid.style.padding = "6px";
 
-      // Metadata
-      div.dataset.index = index;
-      div.dataset.isFolder = isFolder;
-      div.dataset.fsItem = "true";
-      div.style.display = "flex";
-      div.style.alignItems = "center";
-      div.style.padding = "6px";
-      div.style.borderBottom = "1px solid #eee";
-      div.style.cursor = "pointer";
-      if (item[0].endsWith(".smh")) {div.addEventListener('dblclick', () => evalJsApp(item[2].path));}
-      // Highlight selected
-      if (selectedItems.includes(item)) div.style.background = "#d0e6ff";
+      items.forEach((item, index) => {
+        const isFolder = Array.isArray(item[1]);
+        const tile = document.createElement("div");
+        tile.dataset.index = index;
+        tile.dataset.fsItem = "true";
+        tile.style.width = "140px";
+        tile.style.minHeight = "140px";
+        tile.style.display = "flex";
+        tile.style.flexDirection = "column";
+        tile.style.alignItems = "center";
+        tile.style.justifyContent = "flex-start";
+        tile.style.padding = "10px";
+        tile.style.border = "1px solid #eee";
+        tile.style.borderRadius = "8px";
+        tile.style.cursor = "pointer";
+        if (selectedItems.includes(item)) tile.style.background = "#d0e6ff";
 
-      // Click selection
-      div.onclick = (e) => handleSelection(e, item, node[1], index);
+        tile.onclick = (e) => handleSelection(e, item, items, index);
+        tile.ondblclick = () => { selectedItems = []; if (isFolder) { currentPath.push(item[0]); render(); } };
+        tile.oncontextmenu = (e) => { e.preventDefault(); selectedItem = item; showContextMenu(e.clientX, e.clientY, isFolder); };
 
-      // Double-click folder open (or file open in text editor)
-      div.ondblclick = () => {
-        selectedItems = [];
-        if (isFolder) {
-          currentPath.push(item[0]);
-          render();
-        }
-      };
+        const icon = document.createElement("div");
+        icon.textContent = isFolder ? "📁" : "📄";
+        icon.style.fontSize = "36px";
+        icon.style.marginBottom = "8px";
+        tile.appendChild(icon);
 
-      // Context menu
-      div.oncontextmenu = (e) => {
-        e.preventDefault();
-        selectedItem = item;
-        showContextMenu(e.clientX, e.clientY, isFolder);
-      };
+        const name = document.createElement("div");
+        name.textContent = item[0];
+        name.style.textAlign = "center";
+        name.style.wordBreak = "break-word";
+        name.style.marginBottom = "6px";
+        tile.appendChild(name);
 
-      // Drag start
-      div.ondragstart = (e) => {
-        dragItems = [...(selectedItems.length ? selectedItems : [item])];
+        const size = document.createElement("div");
+        size.textContent = formatSize(isFolder ? getNodeSize(item) : item[2]?.size);
+        size.style.fontSize = "12px";
+        size.style.opacity = "0.8";
+        tile.appendChild(size);
 
-        // Serialize for cross-window / iframe
-        const dragData = dragItems.map((it) => ({
-          name: it[0],
-          isFolder: Array.isArray(it[1]),
-          path: getItemPath(it),
-        }));
-        e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+        const date = document.createElement("div");
+        date.textContent = formatDate(item[2]?.mtime || item[2]?.modified || item[2]?.date || item[2]?.mtimeMs);
+        date.style.fontSize = "12px";
+        date.style.opacity = "0.8";
+        tile.appendChild(date);
 
-        // Optional drag image
-        const dragIcon = document.createElement("div");
-        dragIcon.textContent = `${dragData.length} item(s)`;
-        dragIcon.style.padding = "4px 8px";
-        dragIcon.style.background = "#d0e6ff";
-        dragIcon.style.border = "1px solid #aaa";
-        document.body.appendChild(dragIcon);
-        e.dataTransfer.setDragImage(dragIcon, -10, -10);
-        setTimeout(() => document.body.removeChild(dragIcon), 0);
-      };
+        grid.appendChild(tile);
+      });
 
-      // Icon
-      const icon = document.createElement("div");
-      icon.textContent = isFolder ? "📁" : "📄";
-      icon.style.width = "30px";
-      div.appendChild(icon);
+      fileArea.appendChild(grid);
+    } else {
+      items.forEach((item, index) => {
+        const isFolder = Array.isArray(item[1]);
+        const div = document.createElement("div");
 
-      // Name
-      const nameDiv = document.createElement("div");
-      nameDiv.textContent = item[0];
-      nameDiv.style.flex = "1";
-      div.appendChild(nameDiv);
+        // Metadata
+        div.dataset.index = index;
+        div.dataset.isFolder = isFolder;
+        div.dataset.fsItem = "true";
+        div.style.display = "flex";
+        div.style.alignItems = "center";
+        div.style.padding = "6px";
+        div.style.borderBottom = "1px solid #eee";
+        div.style.cursor = "pointer";
+        if (item[0].endsWith(".smh")) {div.addEventListener('dblclick', () => evalJsApp(item[2].path));}
+        // Highlight selected
+        if (selectedItems.includes(item)) div.style.background = "#d0e6ff";
 
-      // Size
-      const sizeDiv = document.createElement("div");
-      sizeDiv.textContent = formatSize(
-        isFolder ? getNodeSize(item) : item[2]?.size,
-      );
-      sizeDiv.style.width = "100px";
-      sizeDiv.style.textAlign = "right";
-      sizeDiv.style.color = "#555";
-      div.appendChild(sizeDiv);
+        // Click selection
+        div.onclick = (e) => handleSelection(e, item, items, index);
 
-      fileArea.appendChild(div);
-    });
+        // Double-click folder open (or file open in text editor)
+        div.ondblclick = () => {
+          selectedItems = [];
+          if (isFolder) {
+            currentPath.push(item[0]);
+            render();
+          }
+        };
+
+        // Context menu
+        div.oncontextmenu = (e) => {
+          e.preventDefault();
+          selectedItem = item;
+          showContextMenu(e.clientX, e.clientY, isFolder);
+        };
+
+        // Drag start
+        div.ondragstart = (e) => {
+          dragItems = [...(selectedItems.length ? selectedItems : [item])];
+
+          // Serialize for cross-window / iframe
+          const dragData = dragItems.map((it) => ({
+            name: it[0],
+            isFolder: Array.isArray(it[1]),
+            path: getItemPath(it),
+          }));
+          e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+
+          // Optional drag image
+          const dragIcon = document.createElement("div");
+          dragIcon.textContent = `${dragData.length} item(s)`;
+          dragIcon.style.padding = "4px 8px";
+          dragIcon.style.background = "#d0e6ff";
+          dragIcon.style.border = "1px solid #aaa";
+          document.body.appendChild(dragIcon);
+          e.dataTransfer.setDragImage(dragIcon, -10, -10);
+          setTimeout(() => document.body.removeChild(dragIcon), 0);
+        };
+
+        // Icon
+        const icon = document.createElement("div");
+        icon.textContent = isFolder ? "📁" : "📄";
+        icon.style.width = "30px";
+        div.appendChild(icon);
+
+        // Name
+        const nameDiv = document.createElement("div");
+        nameDiv.textContent = item[0];
+        nameDiv.style.flex = "1";
+        div.appendChild(nameDiv);
+
+        // Size
+        const sizeDiv = document.createElement("div");
+        sizeDiv.textContent = formatSize(
+          isFolder ? getNodeSize(item) : item[2]?.size,
+        );
+        sizeDiv.style.width = "100px";
+        sizeDiv.style.textAlign = "right";
+        sizeDiv.style.color = "#555";
+        div.appendChild(sizeDiv);
+
+        // Date
+        const dateDiv = document.createElement("div");
+        dateDiv.textContent = formatDate(item[2]?.mtime || item[2]?.modified || item[2]?.date || item[2]?.mtimeMs);
+        dateDiv.style.width = "180px";
+        dateDiv.style.textAlign = "right";
+        dateDiv.style.color = "#555";
+        dateDiv.style.paddingLeft = "12px";
+        div.appendChild(dateDiv);
+
+        fileArea.appendChild(div);
+      });
+    }
     fileArea.appendChild(document.createElement("br"));
     fileArea.appendChild(document.createElement("br"));
     fileArea.appendChild(document.createElement("br"));
@@ -991,15 +1130,32 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   // --- SORT HELPERS ---
   function sortChildren(node) {
     if (!node || !Array.isArray(node[1])) return;
-    // Sort: folders first, then files; both alphabetically case-insensitive
+    // Sort children according to sortMode/sortOrder
     node[1].sort((a, b) => {
       const aIsFolder = Array.isArray(a[1]);
       const bIsFolder = Array.isArray(b[1]);
+      // Keep folders first
       if (aIsFolder && !bIsFolder) return -1;
       if (!aIsFolder && bIsFolder) return 1;
-      const na = (Array.isArray(a) ? a[0] : String(a)).toLowerCase();
-      const nb = (Array.isArray(b) ? b[0] : String(b)).toLowerCase();
-      return na < nb ? -1 : na > nb ? 1 : 0;
+
+      const getKey = (item) => {
+        if (sortMode === "name") return String(item[0] || "").toLowerCase();
+        if (sortMode === "size") {
+          return Number(item[1] === null ? (item[2] && item[2].size) || 0 : getNodeSize(item)) || 0;
+        }
+        if (sortMode === "date") {
+          // Accept multiple date keys
+          const meta = item[2] || {};
+          return Number(meta.mtime || meta.modified || meta.date || meta.mtimeMs || 0) || 0;
+        }
+        return String(item[0] || "").toLowerCase();
+      };
+
+      const ka = getKey(a);
+      const kb = getKey(b);
+      if (ka < kb) return sortOrder === "asc" ? -1 : 1;
+      if (ka > kb) return sortOrder === "asc" ? 1 : -1;
+      return 0;
     });
     // Recurse into folders to ensure deep sort
     for (const child of node[1]) {
@@ -1102,6 +1258,76 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     requestAnimationFrame(() => input.focus());
   }
   // --- CREATE FOLDER ---
+  // --- PROPERTIES DIALOG ---
+  function showProperties(item) {
+    if (!item) return;
+    const isFolder = Array.isArray(item[1]);
+    const meta = item[2] || {};
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:absolute;inset:0;background:rgba(0,0,0,0.35);z-index:9500;display:flex;align-items:center;justify-content:center;";
+
+    const box = document.createElement("div");
+    box.className = "misc";
+    box.style.cssText = "padding:18px 20px;border-radius:8px;min-width:320px;max-width:520px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.35);";
+    // adapt background/text for dark theme
+    if (window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+      box.style.background = "#0b0b0b";
+      box.style.color = "#e6eef8";
+    } else {
+      box.style.background = "white";
+      box.style.color = "#111";
+    }
+
+    const title = document.createElement("div");
+    title.textContent = "Properties";
+    title.style.fontSize = "16px";
+    title.style.fontWeight = "700";
+
+    const rows = [];
+    const addRow = (label, value) => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.gap = "12px";
+      const lab = document.createElement("div"); lab.textContent = label; lab.style.opacity = "0.85";
+      const val = document.createElement("div"); val.textContent = value; val.style.opacity = "0.9"; val.style.textAlign = "right";
+      row.appendChild(lab);
+      row.appendChild(val);
+      box.appendChild(row);
+      rows.push(row);
+    };
+
+    addRow("Name", item[0]);
+    addRow("Type", isFolder ? "Folder" : "File");
+    addRow("Size", isFolder ? formatSize(getNodeSize(item)) : formatSize(meta.size));
+    addRow("Modified", formatDate(meta.mtime || meta.modified || meta.date || meta.mtimeMs));
+    addRow("Path", getItemPath(item) || getFullPathFromNode(item));
+
+    const btnRow = document.createElement("div");
+    btnRow.style.display = "flex";
+    btnRow.style.justifyContent = "flex-end";
+
+    const ok = document.createElement("button");
+    ok.textContent = "OK";
+    ok.style.padding = "6px 12px";
+    ok.onclick = () => { if (root.contains(overlay)) root.removeChild(overlay); };
+
+    btnRow.appendChild(ok);
+    box.prepend(title);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+
+    // Close when clicking outside the box
+    overlay.addEventListener("pointerdown", (e) => {
+      if (e.target === overlay) {
+        if (root.contains(overlay)) root.removeChild(overlay);
+      }
+    });
+
+    // Append to root (not body)
+    root.appendChild(overlay);
+    requestAnimationFrame(() => ok.focus());
+  }
   function getUniqueName(nameOrBase, ext = "", existingChildren) {
     // Accept optional `existingChildren` array (e.g. node[1]) to check uniqueness
     const node = Array.isArray(existingChildren)
@@ -1566,6 +1792,13 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       });
     }
 
+      // Properties menu item for single selection
+      if (!isBlank && selectedItem && selectedItems.length <= 1) {
+        addItem("Properties", () => {
+          try { showProperties(selectedItem); } catch (e) { console.error(e); }
+        });
+      }
+
     // Copy / Cut (works for multi-select)
     if (!isBlank && selectedItems.length) {
       addItem("Copy", () => handlecopy("copy"));
@@ -1713,6 +1946,14 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
 
             submenu.style.left = left + "px";
             submenu.style.top = top + "px";
+            submenu.onclick = (e) => {
+              setTimeout(() => {
+                if (submenu) {
+                  submenu.remove();
+                  submenu = null;
+                }
+              }, 10);
+            };
           } catch (e) {}
         });
       });
@@ -1720,15 +1961,14 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       document.addEventListener(
         "pointerdown",
         (e) => {
-          setTimeout(() => {
-            if (submenu) {
-              root.removeChild(submenu);
-              submenu = null;
-            }
-          }, 1000);
+          if (submenu && !submenu.contains(e.target)) {
+            submenu.remove();
+            submenu = null;
+          }
         },
         { capture: true, once: true },
       );
+
       contextMenu.appendChild(openWithParent);
     }
 
