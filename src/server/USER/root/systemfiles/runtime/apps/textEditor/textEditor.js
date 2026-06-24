@@ -22,6 +22,48 @@ textEditorGlobals.__textEditorStyle.textContent = `
 `;
 document.head.appendChild(textEditorGlobals.__textEditorStyle);
 
+const ICONS = {
+  refresh: `
+    <path d="M21 2v6h-6"/>
+    <path d="M20.49 13A8.5 8.5 0 1 1 18 5.3L21 8"/>
+  `,
+  save: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M18 18a4 4 0 0 0 .3-8A6 6 0 0 0 6.7 8.2 4.5 4.5 0 0 0 7 18h11z"/> <path d="M12 9v6"/> <path d="M9.5 12.5 12 15l2.5-2.5"/> </svg>`,
+  folder: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /> </svg>`,
+  file: `
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <path d="M14 2v6h6"/>
+  `,
+  chev: `
+    <path d="m9 18 6-6-6-6"/>
+  `,
+  list: `
+    <path d="M8 6h13"/>
+    <path d="M8 12h13"/>
+    <path d="M8 18h13"/>
+    <path d="M3 6h.01"/>
+    <path d="M3 12h.01"/>
+    <path d="M3 18h.01"/>
+  `,
+};
+
+function makeIcon(type, size = 16) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", size);
+  svg.setAttribute("height", size);
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.verticalAlign = "middle";
+  svg.style.flexShrink = "0";
+  svg.style.display = "block";
+  svg.innerHTML = ICONS[type] || "";
+  return svg;
+}
+
 function normalizeTextEditorSettings(value) {
   const base = {
     fontSize: 14,
@@ -524,34 +566,35 @@ textEditor = function (path, posX = 50, posY = 50) {
   titleLabel.textContent = visibleName;
   Object.assign(titleLabel.style, { fontWeight: "600", fontSize: "14px" });
 
-  const newBtn = document.createElement("button");
-  newBtn.textContent = "New";
-  newBtn.title = "New file";
-  newBtn.style.padding = "6px 10px";
-  newBtn.style.cursor = "pointer";
+  const createToolbarButton = (label, iconType, title, onClick, disabled = false) => {
+    const btn = document.createElement("button");
+    btn.title = title;
+    btn.disabled = disabled;
+    btn.style.display = "inline-flex";
+    btn.style.alignItems = "center";
+    btn.style.gap = "6px";
+    btn.style.padding = "6px 10px";
+    btn.style.cursor = disabled ? "default" : "pointer";
+    btn.style.border = "1px solid rgba(0,0,0,0.08)";
+    btn.style.borderRadius = "8px";
+    btn.style.background = "transparent";
+    btn.style.color = "inherit";
+    btn.appendChild(makeIcon(iconType, 14));
+    const labelEl = document.createElement("span");
+    labelEl.textContent = label;
+    btn.appendChild(labelEl);
+    if (onClick) btn.addEventListener("click", onClick);
+    return btn;
+  };
 
-  const openBtn = document.createElement("button");
-  openBtn.textContent = "Open...";
-  openBtn.title = "Open local file";
-  openBtn.style.padding = "6px 10px";
-  openBtn.style.cursor = "pointer";
+  const newBtn = createToolbarButton("New", "file", "New file", null);
+  const openBtn = createToolbarButton("Open", "folder", "Open local file", null);
 
   const spacer = document.createElement("div");
   spacer.style.flex = "1";
 
-  const revertBtn = document.createElement("button");
-  revertBtn.textContent = "Revert";
-  revertBtn.disabled = true;
-  revertBtn.title = "Revert to last saved";
-  revertBtn.style.padding = "6px 10px";
-  revertBtn.style.cursor = "pointer";
-
-  const saveBtn = document.createElement("button");
-  saveBtn.textContent = "Save";
-  saveBtn.disabled = true;
-  saveBtn.title = "Save (Ctrl/Cmd+S)";
-  saveBtn.style.padding = "6px 10px";
-  saveBtn.style.cursor = "pointer";
+  const revertBtn = createToolbarButton("Revert", "refresh", "Revert to last saved", null, true);
+  const saveBtn = createToolbarButton("Save", "save", "Save (Ctrl/Cmd+S)", null, true);
 
   toolbar.appendChild(titleLabel);
   toolbar.appendChild(newBtn);
@@ -561,11 +604,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   toolbar.appendChild(saveBtn);
 
   // Editor Settings button (opens a small panel; Cancel / Apply; click outside closes)
-  const editorSettingsBtn = document.createElement("button");
-  editorSettingsBtn.textContent = "Editor Settings";
-  editorSettingsBtn.title = "Text editor settings";
-  editorSettingsBtn.style.padding = "6px 10px";
-  editorSettingsBtn.style.cursor = "pointer";
+  const editorSettingsBtn = createToolbarButton("Settings", "list", "Text editor settings", null);
   toolbar.appendChild(editorSettingsBtn);
 
   editorSettingsBtn.addEventListener("click", async () => {
@@ -942,41 +981,51 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (!node || !node[1]) return;
 
       node[1].forEach((item) => {
-        const div = document.createElement("div");
-        div.textContent = (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
-        div.style.padding = "6px";
-        div.style.cursor = "pointer";
-        div.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
+        const row = document.createElement("div");
+        row.dataset.pickerItem = "true";
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "8px";
+        row.style.padding = "6px";
+        row.style.cursor = "pointer";
+        row.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
         if (pickerSelection.indexOf(item) !== -1) {
-          div.style.background = getPickerSelectionColor();
+          row.style.background = getPickerSelectionColor();
         }
-        div.onclick = (e) => {
+
+        const icon = makeIcon(Array.isArray(item[1]) ? "folder" : "file", 14);
+        const label = document.createElement("span");
+        label.textContent = item[0];
+        row.appendChild(icon);
+        row.appendChild(label);
+
+        row.onclick = (e) => {
           const isToggle = e.ctrlKey || e.metaKey;
           if (!isToggle) {
             pickerSelection = [item];
             fileArea
-              .querySelectorAll("div")
+              .querySelectorAll("[data-picker-item]")
               .forEach((d) => (d.style.background = ""));
-            div.style.background = getPickerSelectionColor();
+            row.style.background = getPickerSelectionColor();
           } else {
             const idx = pickerSelection.indexOf(item);
             if (idx >= 0) {
               pickerSelection.splice(idx, 1);
-              div.style.background = "";
+              row.style.background = "";
             } else {
               pickerSelection.push(item);
-              div.style.background = getPickerSelectionColor();
+              row.style.background = getPickerSelectionColor();
             }
           }
         };
 
         if (Array.isArray(item[1])) {
-          div.ondblclick = () => {
+          row.ondblclick = () => {
             pickerCurrentPath.push(item[0]);
             renderPicker();
           };
         }
-        fileArea.appendChild(div);
+        fileArea.appendChild(row);
       });
     }
 
@@ -1174,41 +1223,51 @@ textEditor = function (path, posX = 50, posY = 50) {
       if (!node || !node[1]) return;
 
       node[1].forEach((item) => {
-        const div = document.createElement("div");
-        div.textContent = (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
-        div.style.padding = "6px";
-        div.style.cursor = "pointer";
-        div.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
+        const row = document.createElement("div");
+        row.dataset.pickerItem = "true";
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "8px";
+        row.style.padding = "6px";
+        row.style.cursor = "pointer";
+        row.style.color = window.protectedGlobals.data.dark ? "#e6eef8" : "#0f1724";
         if (pickerSelection.indexOf(item) !== -1) {
-          div.style.background = getPickerSelectionColor();
+          row.style.background = getPickerSelectionColor();
         }
-        div.onclick = (e) => {
+
+        const icon = makeIcon(Array.isArray(item[1]) ? "folder" : "file", 14);
+        const label = document.createElement("span");
+        label.textContent = item[0];
+        row.appendChild(icon);
+        row.appendChild(label);
+
+        row.onclick = (e) => {
           const isToggle = e.ctrlKey || e.metaKey;
           if (!isToggle) {
             pickerSelection = [item];
             fileArea
-              .querySelectorAll("div")
+              .querySelectorAll("[data-picker-item]")
               .forEach((d) => (d.style.background = ""));
-            div.style.background = getPickerSelectionColor();
+            row.style.background = getPickerSelectionColor();
           } else {
             const idx = pickerSelection.indexOf(item);
             if (idx >= 0) {
               pickerSelection.splice(idx, 1);
-              div.style.background = "";
+              row.style.background = "";
             } else {
               pickerSelection.push(item);
-              div.style.background = getPickerSelectionColor();
+              row.style.background = getPickerSelectionColor();
             }
           }
         };
 
         if (Array.isArray(item[1])) {
-          div.ondblclick = () => {
+          row.ondblclick = () => {
             pickerCurrentPath.push(item[0]);
             renderPicker();
           };
         }
-        fileArea.appendChild(div);
+        fileArea.appendChild(row);
       });
     }
 
