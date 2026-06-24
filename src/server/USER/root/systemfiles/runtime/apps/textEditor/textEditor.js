@@ -28,7 +28,7 @@ window.textEditorGlobals.ICONS = {
     <path d="M20.49 13A8.5 8.5 0 1 1 18 5.3L21 8"/>
   `,
   save: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M18 18a4 4 0 0 0 .3-8A6 6 0 0 0 6.7 8.2 4.5 4.5 0 0 0 7 18h11z"/> <path d="M12 9v6"/> <path d="M9.5 12.5 12 15l2.5-2.5"/> </svg>`,
-  folder: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /> </svg>`,
+  folder: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-6"> <!-- folder body --> <path d="M3 7a2.5 2.5 0 0 1 2.5-2.5h4.2c.6 0 1.2.2 1.6.6l1.2 1.1c.2.2.5.3.8.3h5.2A2.5 2.5 0 0 1 21 9v8.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5V7Z" fill="#FDCB22" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round" /> <!-- subtle fold highlight (not a cut, just visual depth) --> <path d="M3 11.2H21" stroke="#000000" stroke-opacity="0.35" stroke-width="1" stroke-linecap="round" /> </svg>`,
   file: `
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
     <path d="M14 2v6h6"/>
@@ -1472,7 +1472,10 @@ textEditor = function (path, posX = 50, posY = 50) {
               ],
             });
             saveBtn.textContent = "Saved!!!";
-            setTimeout(() => (saveBtn.textContent = "Save"), 1200);
+            setTimeout(() => {
+              saveBtn.textContent = "Save";     
+              saveBtn.prepend(makeIcon('save', 14));
+            }, 1200);
           } catch (e) {
             saveBtn.textContent = "Save failed!!!";
             setTimeout(() => (saveBtn.textContent = "Save"), 1500);
