@@ -472,7 +472,7 @@ fileExplorer = async function (path = '/', posX = 50, posY = 50) {
 
   // Sidebar
   sidebar = document.createElement("div");
-  sidebar.style.width = "180px";
+  sidebar.style.width = "185px";
   sidebar.style.background = "#1e293b";
   sidebar.style.color = "white";
   sidebar.style.padding = "10px";
