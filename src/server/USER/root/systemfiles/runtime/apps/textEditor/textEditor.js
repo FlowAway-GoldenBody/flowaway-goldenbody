@@ -22,7 +22,7 @@ textEditorGlobals.__textEditorStyle.textContent = `
 `;
 document.head.appendChild(textEditorGlobals.__textEditorStyle);
 
-const ICONS = {
+window.editorGlobals.ICONS = {
   refresh: `
     <path d="M21 2v6h-6"/>
     <path d="M20.49 13A8.5 8.5 0 1 1 18 5.3L21 8"/>
@@ -46,7 +46,8 @@ const ICONS = {
   `,
 };
 
-function makeIcon(type, size = 16) {
+window.editorGlobals.makeIcon = function(type, size = 16) {
+  const ICONS = window.editorGlobals.ICONS;
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("width", size);
@@ -64,7 +65,7 @@ function makeIcon(type, size = 16) {
   return svg;
 }
 
-function normalizeTextEditorSettings(value) {
+window.editorGlobals.normalizeTextEditorSettings = function(value) {
   const base = {
     fontSize: 14,
     tabSize: 2,
@@ -86,7 +87,7 @@ function normalizeTextEditorSettings(value) {
   };
 }
 
-function decodeMaybeBase64Text(raw) {
+window.editorGlobals.decodeMaybeBase64Text = function(raw) {
   const text = String(raw || "").trim();
   if (!text) return "";
   const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(text) && text.length % 4 === 0;
@@ -98,7 +99,7 @@ function decodeMaybeBase64Text(raw) {
   }
 }
 
-async function loadTextEditorSettings(forceRefresh = false) {
+window.editorGlobals.loadTextEditorSettings = async function loadTextEditorSettings(forceRefresh = false) {
   if (!forceRefresh && textEditorGlobals.settingsLoadPromise) {
     return textEditorGlobals.settingsLoadPromise;
   }
@@ -128,7 +129,7 @@ async function loadTextEditorSettings(forceRefresh = false) {
   return textEditorGlobals.settingsLoadPromise;
 }
 
-async function saveTextEditorSettings(settings) {
+window.editorGlobals.saveTextEditorSettings = async function saveTextEditorSettings(settings) {
   const normalized = normalizeTextEditorSettings(settings);
   textEditorGlobals.editorSettings = normalized;
   textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
@@ -137,11 +138,18 @@ async function saveTextEditorSettings(settings) {
     await window.protectedGlobals.WriteFile(textEditorGlobals.settingsPath, content);
 }
 
-function getTextEditorSettings() {
+window.editorGlobals.getTextEditorSettings = function getTextEditorSettings() {
   return normalizeTextEditorSettings(textEditorGlobals.editorSettings);
 }
 
 textEditor = function (path, posX = 50, posY = 50) {
+  let getTextEditorSettings = window.editorGlobals.getTextEditorSettings;
+  let saveTextEditorSettings = window.editorGlobals.saveTextEditorSettings;
+  let loadTextEditorSettings = window.editorGlobals.loadTextEditorSettings;
+  let decodeMaybeBase64Text = window.editorGlobals.decodeMaybeBase64Text;
+  let normalizeTextEditorSettings = window.editorGlobals.normalizeTextEditorSettings;
+  let makeIcon = window.editorGlobals.makeIcon;
+  let ICONS = window.editorGlobals.ICONS;
   let hasFileOpen = false;
   let editorName;
 
