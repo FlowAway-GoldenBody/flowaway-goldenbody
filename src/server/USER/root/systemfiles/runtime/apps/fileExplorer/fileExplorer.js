@@ -7,7 +7,7 @@ explorerGlobals.clipboard = {
   path: null, // full path string
 };
 
-fileExplorer = function (path = '/', posX = 50, posY = 50) {
+fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();
     posX = pos.x;
@@ -425,22 +425,53 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   let currentPath = ["root"];
   let treeData = window.protectedGlobals.treeData;
   // UI state: sort and display modes
-  let sortMode = "name"; // name | size | date
-  let sortOrder = "asc"; // asc | desc
-  let displayMode = "list"; // list | tiles
+  let profile = {};
+  try {
+    profile = JSON.parse(await window.protectedGlobals.ReadFile("/systemfiles/runtime/apps/fileExplorer/profileData/profile.json", { text: true, direct: true }));
+  } catch (e) {}
+    
+  if (!profile.sortMode || !profile.sortOrder || !profile.displayMode) {
+    profile = {
+      sortMode: "name", // name | size | date
+      sortOrder: "asc", // asc | desc
+      displayMode: "list", // list | tiles
+    };
+    window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/fileExplorer/profileData/profile.json", JSON.stringify(profile), { text: true });
+  }
 
   function getCurrentFolderPath() {
     return currentPath.slice(1).join("/") + (currentPath.length > 1 ? "/" : "");
   }
 
   // --- ELEMENTS ---
+  let isDark = !!(window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  let sidebar = null;
+  let topbar = null;
+  let breadcrumbs = null;
+  let controls = null;
+  let sortSelect = null;
+  let sortOrderBtn = null;
+  let viewToggle = null;
+  let fileArea = null;
+  let contextMenu = null;
+  let storageDiv = null;
+  let refreshBtn = null;
+  let uploadBtn = null;
+  let homeBtn = null;
+  let saveBtn = null;
+  let trashBtn = null;
+  let emptyTrashBtn = null;
+  let createFolderBtn = null;
+  let createFileBtn = null;
   const container = document.createElement("div");
   container.style.display = "flex";
   container.style.height = "100%";
+  root.style.color = isDark ? "#e6eef8" : "#111";
+  root.style.background = isDark ? "#0f172a" : "#ffffff";
   root.appendChild(container);
 
   // Sidebar
-  const sidebar = document.createElement("div");
+  sidebar = document.createElement("div");
   sidebar.style.width = "180px";
   sidebar.style.background = "#1e293b";
   sidebar.style.color = "white";
@@ -453,31 +484,136 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   text.textContent = window.protectedGlobals.data.username;
   sidebar.appendChild(text);
   sidebar.appendChild(document.createElement("br"));
-  const refreshBtn = document.createElement("button");
-  refreshBtn.textContent = "🔄 Refresh";
+  refreshBtn = document.createElement("button");
+  // helper to create simple SVG icons (uses currentColor for strokes)
+const ICONS = {
+  refresh: `
+    <path d="M21 2v6h-6"/>
+    <path d="M20.49 13A8.5 8.5 0 1 1 18 5.3L21 8"/>
+  `,
+
+  upload: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /> </svg>`,
+
+  home: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /> </svg>`,
+
+  save: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <!-- Cloud --> <path d="M18 18a4 4 0 0 0 .3-8A6 6 0 0 0 6.7 8.2 4.5 4.5 0 0 0 7 18h11z"/> <!-- Download arrow --> <path d="M12 9v6"/> <path d="M9.5 12.5 12 15l2.5-2.5"/> </svg>`,
+
+  trash: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /> </svg>`,
+
+  folder: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /> </svg>`,
+
+  file: `
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <path d="M14 2v6h6"/>
+  `,
+
+  chev: `
+    <path d="m9 18 6-6-6-6"/>
+  `,
+
+  list: `
+    <path d="M8 6h13"/>
+    <path d="M8 12h13"/>
+    <path d="M8 18h13"/>
+    <path d="M3 6h.01"/>
+    <path d="M3 12h.01"/>
+    <path d="M3 18h.01"/>
+  `,
+
+  grid: `
+    <rect x="3" y="3" width="7" height="7" rx="1"/>
+    <rect x="14" y="3" width="7" height="7" rx="1"/>
+    <rect x="3" y="14" width="7" height="7" rx="1"/>
+    <rect x="14" y="14" width="7" height="7" rx="1"/>
+  `,
+
+  warning: `
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+    <path d="M12 9v4"/>
+    <path d="M12 17h.01"/>
+  `
+};
+
+function makeIcon(type, size = 16) {
+  const ns = "http://www.w3.org/2000/svg";
+
+  const svg = document.createElementNS(ns, "svg");
+
+  svg.setAttribute("width", size);
+  svg.setAttribute("height", size);
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  svg.style.verticalAlign = "middle";
+  svg.style.flexShrink = "0";
+  svg.style.display = "block";
+
+  svg.innerHTML = ICONS[type] || "";
+
+  return svg;
+}
+
+  function styleSidebarButton(btn) {
+    if (!btn) return;
+    btn.style.color = isDark ? "#f8fafc" : "#111";
+    btn.style.background = isDark ? "rgba(255,255,255,0.08)" : "#f8fafc";
+    btn.style.border = isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid #d1d5db";
+    btn.style.borderRadius = "8px";
+    btn.style.padding = "8px 10px";
+    btn.style.textAlign = "left";
+    btn.style.display = "inline-flex";
+    btn.style.alignItems = "center";
+    btn.style.justifyContent = "flex-start";
+    btn.style.gap = "8px";
+    btn.style.lineHeight = "1";
+  }
+
+  refreshBtn.innerHTML = '';
+  refreshBtn.appendChild(makeIcon('refresh',16));
+  refreshBtn.appendChild(document.createTextNode('Refresh'));
+  styleSidebarButton(refreshBtn);
   sidebar.appendChild(refreshBtn);
 
-  const uploadBtn = document.createElement("button");
-  uploadBtn.textContent = "⬆ Upload";
+  uploadBtn = document.createElement("button");
+  uploadBtn.innerHTML = '';
+  uploadBtn.appendChild(makeIcon('upload',16));
+  uploadBtn.appendChild(document.createTextNode('Upload'));
+  styleSidebarButton(uploadBtn);
   sidebar.appendChild(uploadBtn);
 
-  const homeBtn = document.createElement("button");
-  homeBtn.textContent = "🏠 Home";
+  homeBtn = document.createElement("button");
+  homeBtn.innerHTML = '';
+  homeBtn.appendChild(makeIcon('home',16));
+  homeBtn.appendChild(document.createTextNode('Home'));
+  styleSidebarButton(homeBtn);
   sidebar.appendChild(homeBtn);
 
-  const saveBtn = document.createElement("button");
-  saveBtn.textContent = "💾 Save";
+  saveBtn = document.createElement("button");
+  saveBtn.innerHTML = '';
+  saveBtn.appendChild(makeIcon('save',16));
+  saveBtn.appendChild(document.createTextNode('Save'));
+  styleSidebarButton(saveBtn);
   sidebar.appendChild(saveBtn);
 
-  const trashBtn = document.createElement("button");
-  trashBtn.textContent = "🗑 Trash";
+  trashBtn = document.createElement("button");
+  trashBtn.innerHTML = '';
+  trashBtn.appendChild(makeIcon('trash',16));
+  trashBtn.appendChild(document.createTextNode('Trash'));
+  styleSidebarButton(trashBtn);
   sidebar.appendChild(trashBtn);
 
-  const emptyTrashBtn = document.createElement("button");
-  emptyTrashBtn.textContent = "🔥 Empty Trash";
+  emptyTrashBtn = document.createElement("button");
+  emptyTrashBtn.innerHTML = '';
+  emptyTrashBtn.appendChild(makeIcon('trash',16));
+  emptyTrashBtn.appendChild(document.createTextNode('Empty Trash'));
   emptyTrashBtn.style.display = "none";
   emptyTrashBtn.style.background = "#7f1b1b";
   emptyTrashBtn.style.color = "white";
+  styleSidebarButton(emptyTrashBtn);
   sidebar.appendChild(emptyTrashBtn);
 
   const fileInput = document.createElement("input");
@@ -589,6 +725,55 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     }, delay);
   }
 
+  function applyExplorerTheme() {
+    isDark = !!(window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark);
+    root.style.color = isDark ? "#e6eef8" : "#111";
+    root.style.background = isDark ? "#0f172a" : "#ffffff";
+    if (sidebar) {
+      sidebar.style.background = isDark ? "#1e293b" : "#f8fafc";
+      sidebar.style.color = isDark ? "#f8fafc" : "#111";
+    }
+    if (topbar) {
+      topbar.style.background = isDark ? "#0f172a" : "#ffffff";
+      topbar.style.color = isDark ? "#e6eef8" : "#111";
+      topbar.style.borderBottom = isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #ddd";
+    }
+    if (breadcrumbs) {
+      breadcrumbs.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (controls) {
+      controls.style.background = isDark ? "rgba(255,255,255,0.04)" : "#f3f4f6";
+      controls.style.boxShadow = isDark ? "none" : "inset 0 1px 0 rgba(255,255,255,0.6)";
+    }
+    if (sortSelect) {
+      sortSelect.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+      sortSelect.style.background = isDark ? "#111827" : "transparent";
+      sortSelect.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (sortOrderBtn) {
+      sortOrderBtn.style.background = isDark ? "#111827" : "transparent";
+      sortOrderBtn.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (viewToggle) {
+      viewToggle.style.background = isDark ? "#111827" : "transparent";
+      viewToggle.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (fileArea) {
+      fileArea.style.background = isDark ? "#0f172a" : "#ffffff";
+      fileArea.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (storageDiv) {
+      storageDiv.style.color = isDark ? "#cbd5e1" : "#334155";
+    }
+    if (contextMenu) {
+      contextMenu.style.border = isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #ccc";
+      contextMenu.style.background = isDark ? "#0b0b0b" : "white";
+      contextMenu.style.color = isDark ? "#e6eef8" : "#111";
+      contextMenu.style.boxShadow = isDark ? "0 8px 30px rgba(0,0,0,0.6)" : "0 8px 20px rgba(0,0,0,0.08)";
+    }
+    [refreshBtn, uploadBtn, homeBtn, saveBtn, trashBtn, emptyTrashBtn, createFolderBtn, createFileBtn].forEach(styleSidebarButton);
+  }
+
   // Main area
   const main = document.createElement("div");
   main.style.flex = "1";
@@ -596,21 +781,28 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   main.style.flexDirection = "column";
   container.appendChild(main);
 
-  const topbar = document.createElement("div");
+  topbar = document.createElement("div");
   topbar.style.padding = "8px";
-  topbar.style.borderBottom = "1px solid #ddd";
+  topbar.style.borderBottom = isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #ddd";
+  topbar.style.background = isDark ? "#0f172a" : "#ffffff";
+  topbar.style.color = isDark ? "#e6eef8" : "#111";
   main.appendChild(topbar);
 
-  const breadcrumbs = document.createElement("div");
+  breadcrumbs = document.createElement("div");
+  breadcrumbs.style.color = isDark ? "#e6eef8" : "#111";
   topbar.appendChild(breadcrumbs);
   // Controls: sort and view mode
-  const controls = document.createElement("div");
+  controls = document.createElement("div");
   controls.style.display = "inline-flex";
   controls.style.gap = "8px";
   controls.style.float = "right";
   controls.style.alignItems = "center";
+  controls.style.background = window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(255,255,255,0.04)' : '#f3f4f6';
+  controls.style.padding = '6px';
+  controls.style.borderRadius = '10px';
+  controls.style.boxShadow = window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.6)';
 
-  const sortSelect = document.createElement("select");
+  sortSelect = document.createElement("select");
   [
     { v: "name", t: "Sort: Name" },
     { v: "size", t: "Sort: Size" },
@@ -621,27 +813,64 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     o.textContent = opt.t;
     sortSelect.appendChild(o);
   });
-  sortSelect.value = sortMode;
+  sortSelect.value = profile.sortMode;
   sortSelect.onchange = () => {
-    sortMode = sortSelect.value;
+    profile.sortMode = sortSelect.value;
+    window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/fileExplorer/profileData/profile.json", JSON.stringify(profile), { text: true });
     render();
   };
+  // modern select styling
+  sortSelect.style.padding = '6px 8px';
+  sortSelect.style.border = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)';
+  sortSelect.style.borderRadius = '6px';
+  sortSelect.style.background = isDark ? '#111827' : 'transparent';
+  sortSelect.style.color = isDark ? '#e6eef8' : '#111';
+  sortSelect.style.fontSize = '13px';
 
-  const sortOrderBtn = document.createElement("button");
-  sortOrderBtn.textContent = "↑";
+  sortOrderBtn = document.createElement("button");
+  sortOrderBtn.textContent = profile.sortOrder === "asc" ? "↑" : "↓";
   sortOrderBtn.title = "Toggle sort order";
   sortOrderBtn.onclick = () => {
-    sortOrder = sortOrder === "asc" ? "desc" : "asc";
-    sortOrderBtn.textContent = sortOrder === "asc" ? "↑" : "↓";
+    profile.sortOrder = profile.sortOrder === "asc" ? "desc" : "asc";
+    sortOrderBtn.textContent = profile.sortOrder === "asc" ? "↑" : "↓";
+    window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/fileExplorer/profileData/profile.json", JSON.stringify(profile), { text: true });
     render();
   };
+  sortOrderBtn.style.border = 'none';
+  sortOrderBtn.style.padding = '6px 8px';
+  sortOrderBtn.style.borderRadius = '6px';
+  sortOrderBtn.style.background = isDark ? '#111827' : 'transparent';
+  sortOrderBtn.style.color = isDark ? '#e6eef8' : '#111';
+  sortOrderBtn.style.cursor = 'pointer';
 
-  const viewToggle = document.createElement("button");
-  viewToggle.textContent = "▦";
+  viewToggle = document.createElement("button");
   viewToggle.title = "Toggle view (list / tiles)";
+  // style the toggle as a modern pill button
+  viewToggle.style.border = 'none';
+  viewToggle.style.padding = '6px 8px';
+  viewToggle.style.borderRadius = '8px';
+  viewToggle.style.background = isDark ? '#111827' : 'transparent';
+  viewToggle.style.color = isDark ? '#e6eef8' : '#111';
+  viewToggle.style.cursor = 'pointer';
+  viewToggle.style.display = 'inline-flex';
+  viewToggle.style.alignItems = 'center';
+  viewToggle.style.justifyContent = 'center';
+
+  function updateViewToggleIcon() {
+    viewToggle.innerHTML = '';
+    // show the icon representing the current mode
+    const iconType = profile.displayMode === 'list' ? 'list' : 'grid';
+    const icon = makeIcon(iconType, 14);
+    // make the icon inherit color from button
+    icon.style.color = '';
+    viewToggle.appendChild(icon);
+    viewToggle.title = profile.displayMode === 'list' ? 'List view' : 'Tiles view';
+  }
+  updateViewToggleIcon();
   viewToggle.onclick = () => {
-    displayMode = displayMode === "list" ? "tiles" : "list";
-    viewToggle.textContent = displayMode === "list" ? "▦" : "▦";
+    profile.displayMode = profile.displayMode === "list" ? "tiles" : "list";
+    updateViewToggleIcon();
+    window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/fileExplorer/profileData/profile.json", JSON.stringify(profile), { text: true });
     render();
   };
 
@@ -650,19 +879,29 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   controls.appendChild(viewToggle);
   topbar.appendChild(controls);
 
-  const fileArea = document.createElement("div");
+  fileArea = document.createElement("div");
   fileArea.style.flex = "1";
   fileArea.style.overflowY = "auto";
   fileArea.style.padding = "8px";
+  fileArea.style.background = isDark ? "#0f172a" : "#ffffff";
+  fileArea.style.color = isDark ? "#e6eef8" : "#111";
   main.appendChild(fileArea);
   fileArea.tabIndex = "1";
 
-  const contextMenu = document.createElement("div");
+  contextMenu = document.createElement("div");
   contextMenu.style.position = "absolute";
   contextMenu.className = "misc";
-  contextMenu.style.border = "1px solid #ccc";
+  // adapt appearance for dark/light themes
+  contextMenu.style.border = isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid #ccc";
+  contextMenu.style.background = isDark ? "#0b0b0b" : "white";
+  contextMenu.style.color = isDark ? "#e6eef8" : "#111";
   contextMenu.style.display = "none";
   contextMenu.style.zIndex = "1000";
+  contextMenu.style.borderRadius = "10px";
+  contextMenu.style.padding = "4px";
+  contextMenu.style.minWidth = "220px";
+  contextMenu.style.maxWidth = "260px";
+  contextMenu.style.boxShadow = isDark ? "0 8px 30px rgba(0,0,0,0.6)" : "0 8px 20px rgba(0,0,0,0.08)";
   root.appendChild(contextMenu);
 
   fileArea.oncontextmenu = (e) => {
@@ -687,8 +926,17 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     function ensureDates(node) {
       if (!node || !Array.isArray(node[1])) return;
       for (const child of node[1]) {
-        // Ensure metadata object exists (do NOT fabricate mtime; server should provide it)
+        // Ensure metadata object exists
         if (!child[2] || typeof child[2] !== 'object') child[2] = child[2] || {};
+        // If size missing or falsy, default to 0
+        try { child[2].size = Number(child[2].size) || 0; } catch (e) { child[2].size = 0; }
+        // If mtime missing, set to current time (fallback)
+        if (!child[2].mtime && !child[2].modified && !child[2].date && !child[2].mtimeMs) {
+          child[2].mtime = Date.now();
+          child[2].mtimeMs = child[2].mtime;
+        } else if (child[2].mtimeMs && !child[2].mtime) {
+          child[2].mtime = child[2].mtimeMs;
+        }
         if (Array.isArray(child[1])) ensureDates(child);
       }
     }
@@ -826,7 +1074,9 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     rows.forEach((row) => {
       const idx = Number(row.dataset.index);
       const rowItem = items?.[idx];
-      row.style.background = rowItem && selectedItems.includes(rowItem) ? "#d0e6ff" : "";
+      row.style.background = rowItem && selectedItems.includes(rowItem)
+        ? (isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff")
+        : "";
     });
   }
 
@@ -906,7 +1156,7 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     if (!node || !node[1]) return;
     const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
 
-    if (displayMode === "tiles") {
+    if (profile.displayMode === "tiles") {
       const grid = document.createElement("div");
       grid.style.display = "flex";
       grid.style.flexWrap = "wrap";
@@ -926,19 +1176,21 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         tile.style.alignItems = "center";
         tile.style.justifyContent = "flex-start";
         tile.style.padding = "10px";
-        tile.style.border = "1px solid #eee";
+        tile.style.border = isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #eee";
         tile.style.borderRadius = "8px";
         tile.style.cursor = "pointer";
-        if (selectedItems.includes(item)) tile.style.background = "#d0e6ff";
+        tile.style.color = isDark ? "#e6eef8" : "#111";
+        tile.style.background = isDark ? "rgba(255,255,255,0.02)" : "transparent";
+        if (selectedItems.includes(item)) tile.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
 
         tile.onclick = (e) => handleSelection(e, item, items, index);
         tile.ondblclick = () => { selectedItems = []; if (isFolder) { currentPath.push(item[0]); render(); } };
         tile.oncontextmenu = (e) => { e.preventDefault(); selectedItem = item; showContextMenu(e.clientX, e.clientY, isFolder); };
 
         const icon = document.createElement("div");
-        icon.textContent = isFolder ? "📁" : "📄";
         icon.style.fontSize = "36px";
         icon.style.marginBottom = "8px";
+        icon.appendChild(makeIcon(isFolder ? 'folder' : 'file', 36));
         tile.appendChild(icon);
 
         const name = document.createElement("div");
@@ -976,11 +1228,12 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         div.style.display = "flex";
         div.style.alignItems = "center";
         div.style.padding = "6px";
-        div.style.borderBottom = "1px solid #eee";
+        div.style.borderBottom = isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #eee";
         div.style.cursor = "pointer";
+        div.style.color = isDark ? "#e6eef8" : "#111";
         if (item[0].endsWith(".smh")) {div.addEventListener('dblclick', () => evalJsApp(item[2].path));}
         // Highlight selected
-        if (selectedItems.includes(item)) div.style.background = "#d0e6ff";
+        if (selectedItems.includes(item)) div.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
 
         // Click selection
         div.onclick = (e) => handleSelection(e, item, items, index);
@@ -1026,8 +1279,8 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
 
         // Icon
         const icon = document.createElement("div");
-        icon.textContent = isFolder ? "📁" : "📄";
         icon.style.width = "30px";
+        icon.appendChild(makeIcon(isFolder ? 'folder' : 'file', 20));
         div.appendChild(icon);
 
         // Name
@@ -1139,11 +1392,11 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       if (!aIsFolder && bIsFolder) return 1;
 
       const getKey = (item) => {
-        if (sortMode === "name") return String(item[0] || "").toLowerCase();
-        if (sortMode === "size") {
+        if (profile.sortMode === "name") return String(item[0] || "").toLowerCase();
+        if (profile.sortMode === "size") {
           return Number(item[1] === null ? (item[2] && item[2].size) || 0 : getNodeSize(item)) || 0;
         }
-        if (sortMode === "date") {
+        if (profile.sortMode === "date") {
           // Accept multiple date keys
           const meta = item[2] || {};
           return Number(meta.mtime || meta.modified || meta.date || meta.mtimeMs || 0) || 0;
@@ -1153,8 +1406,8 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
 
       const ka = getKey(a);
       const kb = getKey(b);
-      if (ka < kb) return sortOrder === "asc" ? -1 : 1;
-      if (ka > kb) return sortOrder === "asc" ? 1 : -1;
+      if (ka < kb) return profile.sortOrder === "asc" ? -1 : 1;
+      if (ka > kb) return profile.sortOrder === "asc" ? 1 : -1;
       return 0;
     });
     // Recurse into folders to ensure deep sort
@@ -1199,8 +1452,12 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       "padding:24px 28px;border-radius:10px;min-width:320px;max-width:420px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);";
 
     const title = document.createElement("div");
-    title.textContent = "⚠️ Permanently Delete";
-    title.style.cssText = "font-size:17px;font-weight:700;color:#c0392b;";
+    title.style.cssText = "display:flex;gap:8px;align-items:center;font-size:17px;font-weight:700;color:#c0392b;";
+    const warnIcon = makeIcon('warning',18);
+    const titleText = document.createElement('span');
+    titleText.textContent = 'Permanently Delete';
+    title.appendChild(warnIcon);
+    title.appendChild(titleText);
 
     const desc = document.createElement("div");
     desc.style.fontSize = "13px";
@@ -1423,22 +1680,26 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
   }
 
   // --- ADD BUTTONS ---
-  const createFolderBtn = document.createElement("button");
+  createFolderBtn = document.createElement("button");
   createFolderBtn.textContent = "+ Folder";
   createFolderBtn.onclick = createFolder;
+  styleSidebarButton(createFolderBtn);
   sidebar.appendChild(createFolderBtn);
 
-  const createFileBtn = document.createElement("button");
+  createFileBtn = document.createElement("button");
   createFileBtn.textContent = "+ File";
   createFileBtn.onclick = createFile;
+  styleSidebarButton(createFileBtn);
   sidebar.appendChild(createFileBtn);
+
   // Storage usage display
-  const storageDiv = document.createElement("div");
+  storageDiv = document.createElement("div");
   storageDiv.style.marginTop = "8px";
   storageDiv.style.fontSize = "13px";
-  storageDiv.style.color = "#cbd5e1";
+  storageDiv.style.color = isDark ? "#cbd5e1" : "#334155";
   storageDiv.textContent = "Storage used: —";
   sidebar.appendChild(storageDiv);
+  applyExplorerTheme();
   // Client-side quota (bytes). Prefer server-provided `window.protectedGlobals.data.maxSpace` (GB) if available.
   const maxSpaceGb = Number(window.protectedGlobals.data.maxSpace);
   const STORAGE_QUOTA_BYTES =
@@ -1569,18 +1830,28 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     const addItem = (label, action, disabled = false) => {
       const div = document.createElement("div");
       div.textContent = label;
-      div.style.padding = "6px 10px";
+      div.style.padding = "4px 8px";
       div.style.cursor = disabled ? "not-allowed" : "pointer";
-      div.className = "misc";
-      if (!disabled) {
-        div.onmouseenter = () => {
-          div.className = "misc2";
-        };
-        div.onmouseleave = () => (div.className = "misc");
-        div.onclick = () => {
+      div.style.userSelect = "none";
+      div.style.borderRadius = "7px";
+      div.style.margin = "1px 1px";
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.justifyContent = "space-between";
+      div.style.minHeight = "24px";
+      div.style.background = "transparent";
+      div.style.color = "inherit";
+      div.style.fontSize = "92%";
+      if (disabled) {
+        div.style.opacity = "0.55";
+      } else {
+        const hoverBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+        div.addEventListener('mouseenter', () => (div.style.background = hoverBg));
+        div.addEventListener('mouseleave', () => (div.style.background = 'transparent'));
+        div.addEventListener('click', () => {
           hideContextMenu();
-          action();
-        };
+          try { action(); } catch(e) { console.error(e); }
+        });
       }
 
       contextMenu.appendChild(div);
@@ -1811,10 +2082,28 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     // "Open with" submenu for files (always show Text Editor option)
     if (!isFolder && !isBlank) {
       const openWithParent = document.createElement("div");
-      openWithParent.textContent = "Open with ‎▶";
-      openWithParent.style.padding = "6px 10px";
+      openWithParent.style.display = "flex";
+      openWithParent.style.alignItems = "center";
+      openWithParent.style.justifyContent = "space-between";
+      const openLabel = document.createElement('span');
+      openLabel.textContent = 'Open with';
+      openLabel.style.marginRight = '8px';
+      openLabel.style.fontSize = '92%';
+      openWithParent.appendChild(openLabel);
+      openWithParent.appendChild(makeIcon('chev',12));
+      openWithParent.style.padding = "4px 8px";
+      openWithParent.style.margin = "1px 1px";
+      openWithParent.style.borderRadius = "7px";
+      openWithParent.style.minHeight = "24px";
       openWithParent.style.cursor = "pointer";
-      openWithParent.className = "misc";
+      openWithParent.style.background = "transparent";
+      openWithParent.style.color = "inherit";
+      openWithParent.addEventListener('mouseenter', () => {
+        openWithParent.style.background = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+      });
+      openWithParent.addEventListener('mouseleave', () => {
+        openWithParent.style.background = 'transparent';
+      });
 
       let submenu;
       openWithParent.addEventListener("mouseenter", () => {
@@ -1822,9 +2111,14 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         // Create submenu positioned to the right of the main menu
         submenu = document.createElement("div");
         submenu.style.position = "absolute";
-        submenu.style.border = "1px solid #ccc";
-        submenu.style.background = window.protectedGlobals.data.dark ? "black" : "white";
+        submenu.style.border = isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)";
+        submenu.style.background = isDark ? "#111827" : "#ffffff";
+        submenu.style.color = isDark ? "#e6eef8" : "#111";
         submenu.style.zIndex = 2000;
+        submenu.style.borderRadius = "10px";
+        submenu.style.boxShadow = isDark ? "0 12px 32px rgba(0,0,0,0.55)" : "0 10px 24px rgba(0,0,0,0.12)";
+        submenu.style.padding = "6px";
+        submenu.style.minWidth = "170px";
         const toOpen = selectedItems.length ? selectedItems.slice() : [selectedItem];
         const selectedExtensions = toOpen
           .filter((node) => node && !Array.isArray(node[1]))
@@ -1881,18 +2175,28 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
         if (!apps.length) {
           const emptyItem = document.createElement("div");
           emptyItem.textContent = "No apps available";
-          emptyItem.style.padding = "6px 10px";
+          emptyItem.style.padding = "8px 10px";
           emptyItem.style.opacity = "0.7";
           emptyItem.style.cursor = "default";
-          emptyItem.className = "misc";
+          emptyItem.style.borderRadius = "8px";
+          emptyItem.style.fontSize = "92%";
           submenu.appendChild(emptyItem);
         } else {
           for (const app of apps) {
             const appItem = document.createElement("div");
             appItem.textContent = app.label;
-            appItem.style.padding = "6px 10px";
+            appItem.style.padding = "8px 10px";
             appItem.style.cursor = "pointer";
-            appItem.className = "misc";
+            appItem.style.borderRadius = "8px";
+            appItem.style.margin = "2px 0";
+            appItem.style.fontSize = "92%";
+            appItem.style.background = "transparent";
+            appItem.addEventListener('mouseenter', () => {
+              appItem.style.background = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+            });
+            appItem.addEventListener('mouseleave', () => {
+              appItem.style.background = 'transparent';
+            });
             appItem.onclick = async () => {
               try {
                 hideContextMenu();
@@ -2031,8 +2335,14 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
     // if (response.explorerGlobals.clipboard && Array.isArray(response.explorerGlobals.clipboard)) {
     //   explorerGlobals.clipboard = response.explorerGlobals.clipboard;
     // }
-    saveBtn.textContent = "💾 Saved!";
-    setTimeout(() => (saveBtn.textContent = "💾 Save"), 1000);
+    saveBtn.innerHTML = '';
+    saveBtn.appendChild(makeIcon('save',16));
+    saveBtn.appendChild(document.createTextNode('Saved!'));
+    setTimeout(() => {
+      saveBtn.innerHTML = '';
+      saveBtn.appendChild(makeIcon('save',16));
+      saveBtn.appendChild(document.createTextNode('Save'));
+    }, 1000);
   };
 
   // Autosave on change with debounce
@@ -2310,6 +2620,16 @@ fileExplorer = function (path = '/', posX = 50, posY = 50) {
       if (allowed.length) handlesave();
     }
   });
+
+  const handleStyleApplied = () => {
+    applyExplorerTheme();
+    try {
+      render();
+    } catch (e) {
+      console.warn("fileExplorer styleapplied refresh failed", e);
+    }
+  };
+  root.addEventListener("styleapplied", handleStyleApplied);
 
   // --- INIT ---
   onlyloadTree();
