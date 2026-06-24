@@ -708,6 +708,7 @@ function getAbsoluteMousePosition(e) {
     } catch (e) {}
   }
   exposedToTabs.recurseFrames = (doc, event = null, argFrame = false, observe = true, RAFObject = false) => {
+    if (!root) debugger;
     if (!doc) return;
     if (observe) observeDocumentFrames(doc);
 

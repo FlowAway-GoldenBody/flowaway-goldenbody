@@ -841,7 +841,8 @@ function makeFileHandle(file) {
           clearInterval(i);
           resolve();
         }
-      }, 10);
+        setTimeout(() => {clearInterval(i)}, 60000); // safety timeout
+      }, 50);
     });
   }
 
