@@ -2,7 +2,7 @@
         // 1. Make treeData global
         // ----------------------------
         let sentreqframe = null;
-
+         console.log('active');
         window.protectedGlobals.onlyloadTree();
 
         let fullPath;
@@ -95,6 +95,30 @@
           };
 
           return mimeMap[ext] || "application/octet-stream";
+        }
+
+        function createPickerItemIcon(type, size = 16) {
+          const ns = "http://www.w3.org/2000/svg";
+          const svg = document.createElementNS(ns, "svg");
+          svg.setAttribute("width", size);
+          svg.setAttribute("height", size);
+          svg.setAttribute("viewBox", "0 0 24 24");
+          svg.setAttribute("fill", "none");
+          svg.setAttribute("stroke", "currentColor");
+          svg.setAttribute("stroke-width", "1.8");
+          svg.setAttribute("stroke-linecap", "round");
+          svg.setAttribute("stroke-linejoin", "round");
+          svg.style.flexShrink = "0";
+          svg.style.display = "block";
+          svg.style.verticalAlign = "middle";
+
+          const iconMarkup = {
+            folder: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-6"> <!-- folder body --> <path d="M3 7a2.5 2.5 0 0 1 2.5-2.5h4.2c.6 0 1.2.2 1.6.6l1.2 1.1c.2.2.5.3.8.3h5.2A2.5 2.5 0 0 1 21 9v8.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5V7Z" fill="#FDCB22" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round" /> <!-- subtle fold highlight (not a cut, just visual depth) --> <path d="M3 11.2H21" stroke="#000000" stroke-opacity="0.35" stroke-width="1" stroke-linecap="round" /> </svg>`,
+            file: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />`,
+          };
+
+          svg.innerHTML = iconMarkup[type] || iconMarkup.file;
+          return svg;
         }
 
         function deliverVfsPayload(targetFrame, payload) {
@@ -507,7 +531,19 @@
 
           // Create overlay if it doesn't exist
           if (!pickerOverlay) {
-            const theme = getPickerTheme();
+            let theme = getPickerTheme();
+          root.addEventListener('styleapplied', () => {
+            theme = getPickerTheme();
+            // pickerBox.style.borderBottom = `1px solid ${theme.border}`;
+            breadcrumbDiv.style.borderBottom = `1px solid ${theme.border}`;
+            titleBar.style.borderBottom = `1px solid ${theme.border}`;
+            stylePickerDialogBox(pickerBox, theme);
+            fileArea.style.background = theme.panelBg;
+            btnBar.style.borderTop = `1px solid ${theme.border}`;
+            stylePickerButton(btnCancel, theme, false);
+            stylePickerButton(btnOpen, theme, true);
+            render();
+          });
             pickerOverlay = document.createElement("div");
             document.body.appendChild(pickerOverlay);
 
@@ -580,12 +616,18 @@
               if (!node || !node[1]) return;
 
               node[1].forEach((item) => {
+                const isFolder = Array.isArray(item[1]);
                 const div = document.createElement("div");
-                div.textContent =
-                  (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
                 div.style.padding = "6px 10px";
                 div.style.cursor = "pointer";
                 div.style.borderBottom = `1px solid ${theme.border}`;
+                div.style.display = "flex";
+                div.style.alignItems = "center";
+                div.style.gap = "8px";
+                div.appendChild(createPickerItemIcon(isFolder ? "folder" : "file", 16));
+                const label = document.createElement("span");
+                label.textContent = item[0];
+                div.appendChild(label);
                 div.onclick = (e) => {
                   const isToggle = e.ctrlKey || e.metaKey;
 
@@ -719,8 +761,22 @@
           if (!window.protectedGlobals.treeData) {
             window.protectedGlobals.onlyloadTree();
           }
-
-          const theme = getPickerTheme();
+          root.addEventListener('styleapplied', () => {
+            theme = getPickerTheme();
+            box.style.borderBottom = `1px solid ${theme.border}`;
+            breadcrumb.style.borderBottom = `1px solid ${theme.border}`;
+            titleBar.style.borderBottom = `1px solid ${theme.border}`;
+            stylePickerDialogBox(box, theme);
+            fileArea.style.background = theme.panelBg;
+            btnBar.style.borderTop = `1px solid ${theme.border}`;
+            stylePickerButton(btnCancel, theme, false);
+            stylePickerButton(btnSave, theme, true);
+            nameInput.style.background = theme.inputBg;
+            nameInput.style.color = theme.inputText;
+            nameInput.style.border = `1px solid ${theme.border}`;
+            render();
+          });
+          let theme = getPickerTheme();
 
           const savePickerTree = JSON.parse(
             JSON.stringify(window.protectedGlobals.treeData || {}),
@@ -812,12 +868,18 @@
             }
             if (!node || !node[1]) return;
             node[1].forEach((item) => {
+              const isFolder = Array.isArray(item[1]);
               const div = document.createElement("div");
-              div.textContent =
-                (Array.isArray(item[1]) ? "📁 " : "📄 ") + item[0];
               div.style.padding = "6px";
               div.style.cursor = "pointer";
               div.style.borderBottom = `1px solid ${theme.border}`;
+              div.style.display = "flex";
+              div.style.alignItems = "center";
+              div.style.gap = "8px";
+              div.appendChild(createPickerItemIcon(isFolder ? "folder" : "file", 16));
+              const label = document.createElement("span");
+              label.textContent = item[0];
+              div.appendChild(label);
               div.onclick = (e) => {
                 const isToggle = e.ctrlKey || e.metaKey;
                 if (!isToggle) {
@@ -906,8 +968,22 @@
             window.protectedGlobals.onlyloadTree();
           }
 
-          const theme = getPickerTheme();
-
+          let theme = getPickerTheme();
+          console.log(root)
+          root.addEventListener('styleapplied', () => {
+            theme = getPickerTheme();
+            box.style.borderBottom = `1px solid ${theme.border}`;
+            breadcrumb.style.borderBottom = `1px solid ${theme.border}`;
+            titleBar.style.borderBottom = `1px solid ${theme.border}`;
+            stylePickerDialogBox(box, theme);
+            fileArea.style.background = theme.panelBg;
+            infoRow.style.borderBottom = `1px solid ${theme.border}`;
+            infoRow.style.color = theme.muted;
+            btnBar.style.borderTop = `1px solid ${theme.border}`;
+            stylePickerButton(btnCancel, theme, false);
+            stylePickerButton(btnOpen, theme, true);
+            render();
+          });
           const dirPickerTree = JSON.parse(
             JSON.stringify(window.protectedGlobals.treeData || {}),
           );
@@ -993,10 +1069,16 @@
                 ? currentBasePath + "/" + item[0]
                 : item[0];
               const div = document.createElement("div");
-              div.textContent = (isFolder ? "📁 " : "📄 ") + item[0];
               div.style.padding = "6px";
               div.style.cursor = "pointer";
               div.style.borderBottom = `1px solid ${theme.border}`;
+              div.style.display = "flex";
+              div.style.alignItems = "center";
+              div.style.gap = "8px";
+              div.appendChild(createPickerItemIcon(isFolder ? "folder" : "file", 16));
+              const label = document.createElement("span");
+              label.textContent = item[0];
+              div.appendChild(label);
               div.onclick = (e) => {
                 // Only allow selecting folders
                 if (isFolder) {
