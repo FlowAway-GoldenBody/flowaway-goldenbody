@@ -11,6 +11,11 @@ window.browserGlobals.iframePatchPath =
 window.browserGlobals.browserhelperPath =
   "/systemfiles/runtime/apps/browser/asset/browserhelper.js";
 window.browserGlobals.pid = '';
+window.browserGlobals.fetchId = async function () {
+  if (window.protectedGlobals.statusData.wifiEnabled) {
+    window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+  }
+};
 window.addEventListener("wifi-toggle", (e) => {
   let enabled = e.detail.enabled;
   if (!enabled) {
@@ -3647,6 +3652,12 @@ setTimeout(() => {
               if (browserGlobals.profileState.enableURLSync) {
                 openUrlInActiveTab(currentUrl);
               }
+            if (window.browserGlobals.id == "") {
+              window.browserGlobals.fetchId();
+              setTimeout(() => {
+                tab.iframe.contentWindow.location.reload();
+              }, 250);
+            }
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";
