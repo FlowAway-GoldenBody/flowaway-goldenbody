@@ -1,4 +1,5 @@
 var patchinterval = null;
+let patchedTab = Object.assign({}, activatedTab);
 console.log(iframe);
 var patchwindowtimeout = null;
 var stopIframePatchWatcher = () => {
@@ -15,7 +16,7 @@ exposedToTabs.stopIframePatchWatcher = stopIframePatchWatcher;
 var startIframePatchWatcher = (durationMs = 2500) => {
   if (!patchinterval) {
     patchinterval = setInterval(() => {
-      if (!activatedTab.iframe || !activatedTab.iframe.isConnected) {
+      if (!patchedTab.iframe || !patchedTab.iframe.isConnected) {
         stopIframePatchWatcher();
         return;
       }
@@ -38,19 +39,19 @@ var tryPatchNow = () => {
 
 var ensurePatchedSoon = (durationMs = 2500) => {
   tryPatchNow();
-  if (activatedTab.iframe.__gbPatchedDocument) return;
+  if (patchedTab.iframe.__gbPatchedDocument) return;
   startIframePatchWatcher(durationMs);
 };
 
 var attachNavigationArm = () => {
   try {
-    const win = activatedTab.iframe.contentWindow;
+    const win = patchedTab.iframe.contentWindow;
     if (!win || win.__gbPatchArmAttached) return;
     win.__gbPatchArmAttached = true;
     win.addEventListener(
       "beforeunload",
       () => {
-        activatedTab.iframe.__gbPatchedDocument = null;
+        patchedTab.iframe.__gbPatchedDocument = null;
         startIframePatchWatcher(2000);
       },
       { once: true },
@@ -60,18 +61,18 @@ var attachNavigationArm = () => {
 
 ensurePatchedSoon(3000);
 attachNavigationArm();
-activatedTab.iframe.addEventListener("load", () => {
-  activatedTab.iframe.__gbPatchedDocument = null;
+patchedTab.iframe.addEventListener("load", () => {
+  patchedTab.iframe.__gbPatchedDocument = null;
   ensurePatchedSoon(3000);
   attachNavigationArm();
 });
-activatedTab.iframe.addEventListener("pointerenter", () => {
+patchedTab.iframe.addEventListener("pointerenter", () => {
   ensurePatchedSoon(1200);
 });
-activatedTab.iframe.addEventListener("focus", () => {
+patchedTab.iframe.addEventListener("focus", () => {
   ensurePatchedSoon(1200);
 });
-activatedTab.iframe.addEventListener(
+patchedTab.iframe.addEventListener(
   "contextmenu",
   () => {
     ensurePatchedSoon(1200);
@@ -82,13 +83,13 @@ activatedTab.iframe.addEventListener(
 async function iframePatches() {
   // Get the document inside the iframe
   try {
-    activatedTab.iframe.contentWindow.test = () => {return activatedTab.iframe};
+    patchedTab.iframe.contentWindow.test = () => {return patchedTab.iframe};
   } catch {}
   let iframeDocument =
-    activatedTab.iframe?.contentDocument || activatedTab.iframe?.contentWindow?.document;
-  if (!iframeDocument || !activatedTab.iframe?.contentWindow || (activatedTab.iframe.contentDocument.location.href === "about:blank" && tab.firstNav && activatedTab.iframe.src !== "about:blank")) return;
-  if (activatedTab.iframe.__gbPatchedDocument === iframeDocument) return;
-  const iframeWindow = activatedTab.iframe.contentWindow;
+    patchedTab.iframe?.contentDocument || patchedTab.iframe?.contentWindow?.document;
+  if (!iframeDocument || !patchedTab.iframe?.contentWindow || (patchedTab.iframe.contentDocument.location.href === "about:blank" && tab.firstNav && patchedTab.iframe.src !== "about:blank")) return;
+  if (patchedTab.iframe.__gbPatchedDocument === iframeDocument) return;
+  const iframeWindow = patchedTab.iframe.contentWindow;
   if (iframeWindow.patched) return;
   let eggpatch2 = document.createElement("script");
   eggpatch2.textContent = `
@@ -111,7 +112,7 @@ async function iframePatches() {
               URLShim.prototype = nativeURL.prototype;
               window.URL = URLShim;
           `;
-  activatedTab.iframe.contentDocument.body.appendChild(eggpatch2);
+  patchedTab.iframe.contentDocument.body.appendChild(eggpatch2);
   if (iframeWindow.__gbBrowserShortcutHandler) {
     iframeWindow.removeEventListener(
       "keydown",
@@ -213,7 +214,7 @@ async function iframePatches() {
     try {
       const parsed = new URL(
         normalized,
-        activatedTab.iframe.contentWindow?.location?.href || undefined,
+        patchedTab.iframe.contentWindow?.location?.href || undefined,
       );
       const name = decodeURIComponent(
         (parsed.pathname || "").split("/").pop() || "",
@@ -236,7 +237,7 @@ async function iframePatches() {
       : null;
     const eventView =
       (e && e.view) || clickedElement?.ownerDocument?.defaultView || null;
-    const isSubFrame = !!(eventView && eventView !== activatedTab.iframe.contentWindow);
+    const isSubFrame = !!(eventView && eventView !== patchedTab.iframe.contentWindow);
 
     let frameUrl = "";
     if (isSubFrame) {
@@ -287,11 +288,11 @@ async function iframePatches() {
     addContextMenuItem(
       "inspect\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0Ctrl+Shift+I",
       () => {
-        const win = activatedTab.iframe.contentWindow;
-        const doc = activatedTab.iframe.contentDocument;
+        const win = patchedTab.iframe.contentWindow;
+        const doc = patchedTab.iframe.contentDocument;
         if (!win) return;
         if (!win.eruda) {
-          activatedTab.iframe.contentWindow._goldenbodyIns = true;
+          patchedTab.iframe.contentWindow._goldenbodyIns = true;
 
           const script = doc.createElement("script");
           script.src = window.browserGlobals.erudaCDN;
@@ -451,12 +452,12 @@ async function iframePatches() {
       reload.onmouseleave = () => (reload.style.background = "none");
       reload.onclick = () => {
         let tmp = browserGlobals.unshuffleURL(
-          activatedTab.iframe.contentWindow.location.href,
+          patchedTab.iframe.contentWindow.location.href,
         );
         if (looksLikeLocalFilePath(tmp)) {
           openUrlInActiveTab(tmp);
         } else {
-          activatedTab.iframe.contentWindow.location.reload();
+          patchedTab.iframe.contentWindow.location.reload();
         }
         hideMenu();
       };
@@ -708,7 +709,7 @@ function getAbsoluteMousePosition(e) {
     } catch (e) {}
   }
   exposedToTabs.recurseFrames = (doc, event = null, argFrame = false, observe = true, RAFObject = false) => {
-    if (!root) { let info = window.browserGlobals.findWindowById(assignedId); debugger; tab = activatedTab; tabs = info.tabs; root = info.rootElement; }
+    if (!root) { let info = window.browserGlobals.findWindowById(assignedId); debugger; tab = patchedTab; tabs = info.tabs; root = info.rootElement; }
     if (!doc) return;
     if (observe) observeDocumentFrames(doc);
 
@@ -856,7 +857,7 @@ function getAbsoluteMousePosition(e) {
             };
           } catch (e) {}
           let tmpinterval = setInterval(() => {
-            if (!activatedTab.iframe.isConnected) clearInterval(tmpinterval);
+            if (!patchedTab.iframe.isConnected) clearInterval(tmpinterval);
             try {
               if (!win.eruda) {
                 const script = document.createElement("script");
@@ -1120,7 +1121,7 @@ function getAbsoluteMousePosition(e) {
                 key === "w" ||
                 key === "t" ||
                 key === "n" ||
-                ((key === "arrowleft" || key === "arrowright") && !!e.altKey);
+                (!(key === "arrowleft" || key === "arrowright") && !!e.altKey);
               if (isCtrlLike && isBrowserShortcutKey) {
                 e.preventDefault();
                 if ((e.stopPropagation)) {
@@ -1244,36 +1245,6 @@ function getAbsoluteMousePosition(e) {
 
           win.removeEventListener("keydown", handleReload);
           win.addEventListener("keydown", handleReload);
-          if (!win.handleArrows) {
-            win.handleArrows = function (e) {
-              if (document.activeElement !== frame) return;
-              if (e.ctrlKey && e.altKey) {
-                e.preventDefault();
-                if (e.key === "ArrowRight") {
-                  for (let i = 0; i < tabs.length; i++) {
-                    if (tabs[i].id === activatedTab.id) {
-                      activateTab(tabs[i + 1].id);
-                      break;
-                    }
-                  }
-                } else if (e.key === "ArrowLeft") {
-                  let lastindex = 0;
-                  for (let i = 0; i < tabs.length; i++) {
-                    let currentIndex = i;
-                    if (tabs[i].id === activatedTab.id) {
-                      activateTab(tabs[lastindex].id);
-                      break;
-                    }
-                    lastindex = currentIndex;
-                  }
-                }
-              }
-            };
-          }
-          // dead code
-          // frameDoc.addEventListener("keydown", function () {
-          //   document.activeElement.focus();
-          // });
           frameDoc.addEventListener("click", hideMenu);
           if (!frame.contentWindow.onpointerup) {
             frame.contentWindow.onpointerup = function (ev) {
@@ -1330,13 +1301,13 @@ function getAbsoluteMousePosition(e) {
             };
           }
 
-          const mwin = activatedTab.iframe.contentWindow;
+          const mwin = patchedTab.iframe.contentWindow;
           win.tabIndex = "0";
           if (!win.suberudaKeyHandler) {
             win.erudaKeyHandler = function (e) {
               if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
                 if (!win.eruda) {
-                  activatedTab.iframe.contentWindow._goldenbodyIns = true;
+                  patchedTab.iframe.contentWindow._goldenbodyIns = true;
 
                   const script = doc.createElement("script");
                   script.src = window.browserGlobals.erudaCDN;
@@ -1385,14 +1356,6 @@ function getAbsoluteMousePosition(e) {
             };
           }
           function attatch() {
-            frame.contentWindow.removeEventListener(
-              "keydown",
-              frame.contentWindow.handleArrows,
-            );
-            frame.contentWindow.addEventListener(
-              "keydown",
-              frame.contentWindow.handleArrows,
-            );
             frame.contentWindow.removeEventListener(
               "pointerup",
               frame.contentWindow.onpointerup,
@@ -1444,7 +1407,7 @@ function getAbsoluteMousePosition(e) {
     }
   }
   // Store this tab's recurseFrames on the iframe itself so the interval uses the correct version
-  function getIframe() {return activatedTab.iframe;}
+  function getIframe() {return patchedTab.iframe;}
   let retryInterval = setInterval(() => {
   getIframe().__gbRecurseFrames = exposedToTabs.recurseFrames;
   }, 50);
@@ -1455,7 +1418,7 @@ function getAbsoluteMousePosition(e) {
 
   // Hide the menu when clicking elsewhere
   iframeDocument.addEventListener("click", hideMenu);
-  activatedTab.iframe.__gbPatchedDocument = iframeDocument;
+  patchedTab.iframe.__gbPatchedDocument = iframeDocument;
   iframeWindow.patched = true;
   // window.test = recurseFrames;
   recurseFrames(iframeDocument, null, iframe);
