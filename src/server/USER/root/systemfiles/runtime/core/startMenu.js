@@ -324,8 +324,8 @@ const ensureBrightnessOverlay = function ensureBrightnessOverlay() {
   overlay.style.pointerEvents = "auto";
   overlay.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;font-weight:700;letter-spacing:0.01em;">
-      <span data-role="brightness-label">100%</span>
       <span style="opacity:0.72;">Brightness</span>
+      <span data-role="brightness-label">100%</span>
     </div>
     <input data-role="brightness-slider" type="range" min="0" max="100" value="100" style="width:100%;margin-top:8px;cursor:pointer;">
   `;
@@ -368,7 +368,6 @@ const ensureBrightnessOverlay = function ensureBrightnessOverlay() {
 
   updateBrightnessOverlayTheme();
   updateBrightnessOverlayValue(getBrightnessValue());
-  showBrightnessOverlay();
   return overlay;
 };
 
@@ -773,7 +772,9 @@ if (navigator.getBattery) {
         `🔋 ${level}% ${charging}`;
     }
     window.protectedGlobals.updateBattery = updateBattery;
-    updateBattery();
+    setTimeout(() => {
+      updateBattery();
+    }, 1000);
     if (
       window.protectedGlobals.systemAPIs.battery &&
       window.protectedGlobals.systemAPIs.battery.ref
