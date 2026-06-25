@@ -220,18 +220,194 @@ window.protectedGlobals.tabButtons.forEach(btn => {
   });
 });
 
-const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = function applyBrightnessDelta(delta) {
-  window.protectedGlobals.data = window.protectedGlobals.data || {};
-  window.protectedGlobals.statusData.brightness = Math.min(
-    100,
-    Math.max(0, (parseInt(window.protectedGlobals.statusData.brightness) || 0) + delta),
-  );
-  document.documentElement.style.filter = `brightness(${window.protectedGlobals.statusData.brightness}%)`;
-  if ((window.protectedGlobals.persistUserProfilePatch)) {
-    window.protectedGlobals.persistUserProfilePatch({ brightness: Number(window.protectedGlobals.statusData.brightness) });
+const getBrightnessValue = function getBrightnessValue() {
+  window.protectedGlobals.statusData = window.protectedGlobals.statusData || {};
+  const raw = parseInt(window.protectedGlobals.statusData.brightness, 10);
+  if (Number.isNaN(raw)) return 100;
+  return Math.min(100, Math.max(0, raw));
+};
+
+const getBrightnessMax = function getBrightnessMax() {
+  window.protectedGlobals.statusData = window.protectedGlobals.statusData || {};
+  return !!window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100;
+};
+
+const updateBrightnessOverlayTheme = function updateBrightnessOverlayTheme() {
+  const overlay = window.protectedGlobals.brightnessOverlayEl;
+  if (!overlay) return;
+  const isDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  const theme = {
+    bg: isDark ? "rgba(25, 28, 34, 0.96)" : "rgba(255, 255, 255, 0.96)",
+    border: isDark ? "1px solid rgba(255,255,255,0.16)" : "1px solid rgba(0,0,0,0.12)",
+    color: isDark ? "#f7f7f7" : "#202124",
+    accent: isDark ? "#63b3ed" : "#2563eb",
+    track: isDark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)",
+    shadow: isDark ? "0 12px 28px rgba(0,0,0,0.35)" : "0 12px 28px rgba(0,0,0,0.16)",
+  };
+
+  overlay.style.background = theme.bg;
+  overlay.style.border = theme.border;
+  overlay.style.color = theme.color;
+  overlay.style.boxShadow = theme.shadow;
+  const slider = window.protectedGlobals.brightnessOverlaySlider;
+  if (slider) {
+    slider.style.accentColor = theme.accent;
   }
-  window.protectedGlobals.notification(`Brightness: ${window.protectedGlobals.statusData.brightness}%`);
-}
+};
+
+const updateBrightnessOverlayValue = function updateBrightnessOverlayValue(value) {
+  const overlay = window.protectedGlobals.brightnessOverlayEl;
+  if (!overlay) return;
+  const max = getBrightnessMax();
+  const percent = Math.min(max, Math.max(0, parseInt(value, 10) || 0));
+  const label = window.protectedGlobals.brightnessOverlayLabel;
+  const slider = window.protectedGlobals.brightnessOverlaySlider;
+  if (label) label.textContent = `${percent}%`;
+  if (slider) {
+    slider.max = max;
+    slider.value = percent;
+  }
+};
+let brightnessOverlayHideTimer = null;
+const showBrightnessOverlay = function showBrightnessOverlay() {
+  const overlay = window.protectedGlobals.brightnessOverlayEl || ensureBrightnessOverlay();
+  if (!overlay.isConnected) {
+    document.body.appendChild(overlay);
+  }
+  if (!overlay) return;
+  overlay.style.display = "block";
+  overlay.style.opacity = "1";
+  overlay.style.pointerEvents = "auto";
+  if (brightnessOverlayHideTimer) clearTimeout(brightnessOverlayHideTimer);
+  brightnessOverlayHideTimer = setTimeout(() => {
+    if (overlay && overlay.style.display !== "none") {
+      overlay.style.display = "none";
+    }
+  }, 5000);
+};
+
+const syncBrightnessOverlayControls = function syncBrightnessOverlayControls(options) {
+  const slider = window.protectedGlobals.brightnessOverlaySlider;
+  const max = getBrightnessMax();
+  const currentValue = getBrightnessValue();
+  const clampedValue = Math.min(currentValue, max);
+  window.protectedGlobals.statusData = window.protectedGlobals.statusData || {};
+  window.protectedGlobals.statusData.brightness = clampedValue;
+  document.documentElement.style.filter = `brightness(${clampedValue}%)`;
+  updateBrightnessOverlayValue(clampedValue);
+  if (slider) {
+    slider.max = max;
+    slider.value = clampedValue;
+  }
+  if (options && options.persist && window.protectedGlobals.persistUserProfilePatch) {
+    window.protectedGlobals.persistUserProfilePatch({ brightness: Number(clampedValue) });
+  }
+  if (options && options.showOverlay) {
+    showBrightnessOverlay();
+  }
+};
+let overlay;
+const ensureBrightnessOverlay = function ensureBrightnessOverlay() {
+  if (window.protectedGlobals.brightnessOverlayEl) return window.protectedGlobals.brightnessOverlayEl;
+  let overlay = document.createElement("div");
+  overlay.setAttribute("role", "status");
+  overlay.style.position = "fixed";
+  overlay.style.top = "16px";
+  overlay.style.right = "16px";
+  overlay.style.zIndex = "100003";
+  overlay.style.display = "none";
+  overlay.style.padding = "10px 12px";
+  overlay.style.borderRadius = "12px";
+  overlay.style.backdropFilter = "blur(12px)";
+  overlay.style.width = "220px";
+  overlay.style.maxWidth = "calc(100vw - 32px)";
+  overlay.style.pointerEvents = "auto";
+  overlay.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;font-weight:700;letter-spacing:0.01em;">
+      <span data-role="brightness-label">100%</span>
+      <span style="opacity:0.72;">Brightness</span>
+    </div>
+    <input data-role="brightness-slider" type="range" min="0" max="100" value="100" style="width:100%;margin-top:8px;cursor:pointer;">
+  `;
+  document.body.appendChild(overlay);
+  window.protectedGlobals.brightnessOverlayEl = overlay;
+  window.protectedGlobals.brightnessOverlayLabel = overlay.querySelector('[data-role="brightness-label"]');
+  window.protectedGlobals.brightnessOverlaySlider = overlay.querySelector('[data-role="brightness-slider"]');
+
+  const slider = window.protectedGlobals.brightnessOverlaySlider;
+  if (slider) {
+    slider.addEventListener("input", (e) => {
+      const nextValue = Math.min(getBrightnessMax(), Math.max(0, parseInt(e.target.value, 10) || 0));
+      window.protectedGlobals.statusData = window.protectedGlobals.statusData || {};
+      window.protectedGlobals.statusData.brightness = nextValue;
+      document.documentElement.style.filter = `brightness(${nextValue}%)`;
+      updateBrightnessOverlayValue(nextValue);
+      window.dispatchEvent(new CustomEvent("brightness-state-updated", {
+        detail: {
+          batterySaverEnabled: !!window.protectedGlobals.statusData.batterySaverEnabled,
+          brightness: nextValue,
+        },
+      }));
+      if (brightnessOverlayHideTimer) clearTimeout(brightnessOverlayHideTimer);
+      brightnessOverlayHideTimer = setTimeout(() => {
+        if (overlay && overlay.style.display !== "none") {
+          overlay.style.display = "none";
+        }
+      }, 5000);
+    });
+    slider.addEventListener("pointerdown", () => {
+      updateBrightnessOverlayValue(getBrightnessValue());
+    });
+    slider.addEventListener("change", () => {
+      updateBrightnessOverlayValue(getBrightnessValue());
+    });
+    slider.addEventListener("pointerup", () => {
+      updateBrightnessOverlayValue(getBrightnessValue());
+    });
+  }
+
+  updateBrightnessOverlayTheme();
+  updateBrightnessOverlayValue(getBrightnessValue());
+  showBrightnessOverlay();
+  return overlay;
+};
+
+const applyBrightnessValue = function applyBrightnessValue(value, persist = true, showOverlay = false) {
+  const clamped = Math.min(getBrightnessMax(), Math.max(0, parseInt(value, 10) || 0));
+  window.protectedGlobals.statusData = window.protectedGlobals.statusData || {};
+  window.protectedGlobals.statusData.brightness = clamped;
+  document.documentElement.style.filter = `brightness(${clamped}%)`;
+  updateBrightnessOverlayValue(clamped);
+  if (persist && window.protectedGlobals.persistUserProfilePatch) {
+    window.protectedGlobals.persistUserProfilePatch({ brightness: Number(clamped) });
+  }
+  window.dispatchEvent(new CustomEvent("brightness-state-updated", {
+    detail: {
+      batterySaverEnabled: !!window.protectedGlobals.statusData.batterySaverEnabled,
+      brightness: clamped,
+    },
+  }));
+  if (showOverlay) {
+    showBrightnessOverlay();
+  }
+};
+
+const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = function applyBrightnessDelta(delta) {
+  window.protectedGlobals.statusData = window.protectedGlobals.statusData || {};
+  const currentBrightness = getBrightnessValue();
+  const maxBrightness = getBrightnessMax();
+  if ((delta > 0 && currentBrightness >= maxBrightness && window.protectedGlobals.statusData.batterySaverEnabled) || (currentBrightness === 100 && delta > 0)) return;
+  applyBrightnessValue(currentBrightness + delta > maxBrightness ? maxBrightness : currentBrightness + delta, true, true);
+};
+
+window.addEventListener("styleapplied", () => {
+  updateBrightnessOverlayTheme();
+  syncBrightnessOverlayControls();
+});
+window.addEventListener("brightness-state-updated", () => {
+  syncBrightnessOverlayControls();
+});
+ensureBrightnessOverlay();
 
 const cycleFocusedWindow = window.protectedGlobals.cycleFocusedWindow = function cycleFocusedWindow(reverse, modKey = "Alt") {
   if ((window.protectedGlobals.cycleWindowFocus)) {

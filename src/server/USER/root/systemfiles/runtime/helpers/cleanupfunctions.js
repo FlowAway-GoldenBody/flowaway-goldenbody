@@ -3,6 +3,9 @@ window.protectedGlobals.rebuildhandler = function () {
   for (let i = 0; i < 10000; i++) {
     clearInterval(i, { nolog: true });
   }
+  delete window.protectedGlobals.brightnessOverlayEl;
+  delete window.protectedGlobals.brightnessOverlayLabel;
+  delete window.protectedGlobals.brightnessOverlaySlider;
   window.protectedGlobals.goldenbody.clearSystemInterval();
   window.protectedGlobals.statusData.wifiEnabled = true; // reset wifi status to default on rebuild
   // Mark rebuilding

@@ -549,6 +549,28 @@
   }
   statusMenu.id = 'status-menu';
   document.body.appendChild(statusMenu);
+
+  var syncBrightnessStatusMenu = function syncBrightnessStatusMenu() {
+    if (!statusMenu || !statusMenu.isConnected) return;
+    var slider = statusMenu.querySelector('#brightness-slider');
+    var valueLabel = statusMenu.querySelector('#brightness-value');
+    if (!slider && !valueLabel) return;
+
+    var max = !!window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100;
+    var current = Number(window.protectedGlobals.statusData.brightness) || 0;
+    var clamped = Math.min(max, Math.max(0, current));
+
+    window.protectedGlobals.statusData.brightness = clamped;
+    if (slider) {
+      slider.max = max;
+      slider.value = clamped;
+    }
+    if (valueLabel) {
+      valueLabel.textContent = clamped + '%';
+    }
+  };
+
+  window.addEventListener('brightness-state-updated', syncBrightnessStatusMenu);
   
   // Build status menu content
   window.protectedGlobals.buildStatusMenu = function() {
@@ -617,6 +639,7 @@
             window.protectedGlobals.timerSpeed = 1;
           }
           document.documentElement.style.filter = 'brightness(' + (window.protectedGlobals.statusData.brightness / 100) + ')';
+          window.dispatchEvent(new CustomEvent('brightness-state-updated', { detail: { batterySaverEnabled: window.protectedGlobals.statusData.batterySaverEnabled, brightness: window.protectedGlobals.statusData.brightness } }));
           // turn it off when battery saver is closed
           // persist to server if available
           window.protectedGlobals.writeStatus();
@@ -637,6 +660,7 @@
         // Apply brightness filter to document
         var brightnessValue = window.protectedGlobals.statusData.brightness / 100;
         document.documentElement.style.filter = 'brightness(' + brightnessValue + ')';
+        window.dispatchEvent(new CustomEvent('brightness-state-updated', { detail: { batterySaverEnabled: window.protectedGlobals.statusData.batterySaverEnabled, brightness: window.protectedGlobals.statusData.brightness } }));
         window.protectedGlobals.writeStatus();
         updateStatusBar();
       });
