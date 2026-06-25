@@ -45,7 +45,14 @@ window.addEventListener("wifi-toggle", (e) => {
     })
     .catch((e) => "");
 })();
-
+window.browserGlobals.findWindowById = function(id) {
+  // Implementation for finding window by ID
+  window.browserGlobals.allBrowsers.forEach(b => {
+    if (b.rootElement._goldenbodyId === id) {
+      return b;
+    }
+  });
+};
 window.browser = async function (
   preloadlink = null,
   preloadsize = 100,
@@ -58,6 +65,7 @@ window.browser = async function (
       posX = pos.x;
       posY = pos.y;
     }
+    let assignedId = window.browserGlobals.allocateBrowserGoldenbodyId();
     let getRoot = () => {};
     let exposedToTabs = {};
     let checkerinterval = null;
@@ -1508,7 +1516,7 @@ setTimeout(() => {
       overflow: "hidden",
     });
     window.protectedGlobals.bringToFront(root);
-    root._goldenbodyId = window.browserGlobals.allocateBrowserGoldenbodyId();
+    root._goldenbodyId = assignedId;
     window.browserGlobals.goldenbodyOrderId++;
     root._goldenbodyOrderId = window.browserGlobals.goldenbodyOrderId;
     root.tabIndex = "0";
@@ -3267,6 +3275,7 @@ setTimeout(() => {
       iframe.tabIndex = "0";
       iframe.className = "sim-iframe";
       console.log(iframe);
+      let tab = { iframe };
       eval(browserGlobals.iframePatch);
       stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
       
@@ -3287,7 +3296,7 @@ setTimeout(() => {
       let loadedurl = url;
       let donotm = false;
       let RAFSpeed = 1;
-      const tab = {
+      tab = {
         RAFSpeed,
         setRAFSpeed: (val) => {
           tab.RAFSpeed = val;
