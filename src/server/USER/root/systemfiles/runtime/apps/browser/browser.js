@@ -2732,9 +2732,11 @@ setTimeout(() => {
               browserGlobals.draggedtab.url,
               "",
               browserGlobals.draggedtab.resizeP,
+              { forceRender: true },
             );
             browserGlobals.dragstartwindow.closeTab(
               browserGlobals.draggedtab.id,
+              { forceRender: true },
             );
             resetTabDragState();
             return;
@@ -2805,8 +2807,8 @@ setTimeout(() => {
       }
       renderTabs();
     }, 10000);
-    function renderTabs() {
-      if (browserGlobals.tabisDragging || nativeTabDrag) return;
+    function renderTabs(forceRender = false) {
+      if (!forceRender && (browserGlobals.tabisDragging || nativeTabDrag)) return;
       var ids = 0;
       while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
       leftGroup.appendChild(newTabBtn);
@@ -3354,8 +3356,8 @@ setTimeout(() => {
       tab.title = "Loading...";
 
       tabs.push(tab);
-      activateTab(id);
-      renderTabs();
+      activateTab(id, !!options.forceRender);
+      renderTabs(!!options.forceRender);
       const onDocumentKeyup = function (e) {
         try {
           if (!root.contains(document.activeElement)) return;
@@ -3556,7 +3558,7 @@ setTimeout(() => {
       }
     }
 
-    function activateTab(id) {
+    function activateTab(id, forceRender = false) {
       try {
         clearInterval(checkInterval);
       } catch (a) {}
@@ -3670,10 +3672,11 @@ setTimeout(() => {
           console.error(e);
         }
       }, 250 * browserGlobals.nhjd);
-      renderTabs();
+      renderTabs(forceRender);
     }
 
-    function closeTab(id) {
+    function closeTab(id, options = {}) {
+      const forceRender = !!options.forceRender;
       const idx = tabs.findIndex((t) => t.id === id);
       if (idx === -1) return;
 
@@ -3705,10 +3708,10 @@ setTimeout(() => {
       tabs.splice(idx, 1);
 
       if (removingActive) {
-        if (tabs.length) activateTab(tabs[Math.max(0, idx - 1)].id);
+        if (tabs.length) activateTab(tabs[Math.max(0, idx - 1)].id, forceRender);
         else closeWindow(); //addTab('goldenbody://newtab/', 'New Tab');
       } else {
-        renderTabs();
+        renderTabs(forceRender);
       }
     }
     if (!preloadlink) addTab("goldenbody://newtab/", "New Tab");
