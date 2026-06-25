@@ -149,7 +149,7 @@ window.browser = async function (
     };
     populateActivatedUserscripts();
 setTimeout(() => {
-  function checkFrames(root = document) {
+  function checkFrames(root = activatedTab.iframe.contentDocument) {
     // add something so the interval knows when to clear itself
     if (!root?.querySelectorAll) return;
     try {
@@ -161,31 +161,7 @@ setTimeout(() => {
         if (!doc) continue;
 
         if (!doc.__gbCookieHookInstalled) {
-          let recurseFunc = null;
-          let t = document.querySelectorAll(".sim-iframe");
-          // Find which top-level tab iframe (direct child of root in the main window) contains this iframe
-          for (let topFrame of t) {
-            // Try to check if this frame is inside topFrame by walking the tree
-            topFrame = topFrame.contentWindow;
-            try {
-              let current = frame.contentWindow;
-              while (current) {
-                if (current === topFrame) {
-                  recurseFunc = topFrame.__gbframeElement.__gbRecurseFrames;
-                  break;
-                }
-                // Try to get parent from contentWindow
-                current = current?.parent;
-                if (current === window) break; // reached top without finding topFrame, stop searching
-              }
-              if (recurseFunc) break;
-            } catch (e) {}
-          }
-          
-          if (recurseFunc) {
-            recurseFunc(doc, null, frame);
-          }
-          continue;
+          exposedToTabs.recurseFrames(doc, undefined, frame, undefined, undefined);
         }
 
         checkFrames(doc);
