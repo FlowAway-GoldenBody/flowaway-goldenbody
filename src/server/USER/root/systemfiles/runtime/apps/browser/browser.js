@@ -3223,21 +3223,21 @@ setTimeout(() => {
       });
       const titleInterval = setInterval(() => {
         try {
-          if (!iframe || !iframe.contentDocument) {
+          if (!tab.iframe || !tab.iframe.contentDocument) {
             clearInterval(titleInterval);
-            console.warn("Interval cleared: iframe is gone");
+            console.warn("Interval cleared: tab.iframe is gone");
             return;
           }
           tab.url = browserGlobals.unshuffleURL(
-            iframe.contentWindow.location.href,
+            tab.iframe.contentWindow.location.href,
           );
-          if (iframe.contentDocument.readyState === "complete" && !tab.donotm) {
+          if (tab.iframe.contentDocument.readyState === "complete" && !tab.donotm) {
             const docTitle =
-              iframe.contentDocument.title ||
-              iframe.contentDocument.querySelector("title")?.childNodes[0]
+              tab.iframe.contentDocument.title ||
+              tab.iframe.contentDocument.querySelector("title")?.childNodes[0]
                 ?.nodeValue ||
               window.browserGlobals.unshuffleURL(
-                iframe.contentWindow.location.href,
+                tab.iframe.contentWindow.location.href,
               ) ||
               "Untitled";
             tab.title = docTitle;
@@ -3275,6 +3275,7 @@ setTimeout(() => {
       iframe.className = "sim-iframe";
       console.log(iframe);
       let tab = { iframe };
+      activatedTab = tab;
       eval(browserGlobals.iframePatch);
       stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
       
