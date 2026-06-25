@@ -162,7 +162,6 @@ setTimeout(() => {
 
         if (!doc.__gbCookieHookInstalled) {
           let recurseFunc = null;
-          if (frame.__gbframeElement.parentElement === root) return;
           let t = document.querySelectorAll(".sim-iframe");
           // Find which top-level tab iframe (direct child of root in the main window) contains this iframe
           for (let topFrame of t) {
