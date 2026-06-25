@@ -149,7 +149,7 @@ window.browser = async function (
     };
     populateActivatedUserscripts();
 setTimeout(() => {
-  function checkFrames(root = activatedTab.iframe.contentDocument) {
+  function checkFrames(root = document) {
     // add something so the interval knows when to clear itself
     if (!root?.querySelectorAll) return;
     try {
@@ -161,7 +161,31 @@ setTimeout(() => {
         if (!doc) continue;
 
         if (!doc.__gbCookieHookInstalled) {
-          exposedToTabs.recurseFrames(doc, undefined, frame, undefined, undefined);
+          let recurseFunc = null;
+          let t = document.querySelectorAll(".sim-iframe");
+          // Find which top-level tab iframe (direct child of root in the main window) contains this iframe
+          for (let topFrame of t) {
+            // Try to check if this frame is inside topFrame by walking the tree
+            topFrame = topFrame.contentWindow;
+            try {
+              let current = frame.contentWindow;
+              while (current) {
+                if (current === topFrame) {
+                  recurseFunc = topFrame.__gbframeElement.__gbRecurseFrames;
+                  break;
+                }
+                // Try to get parent from contentWindow
+                current = current?.parent;
+                if (current === window) break; // reached top without finding topFrame, stop searching
+              }
+              if (recurseFunc) break;
+            } catch (e) {}
+          }
+          
+          if (recurseFunc) {
+            recurseFunc(doc, null, frame);
+          }
+          continue;
         }
 
         checkFrames(doc);
@@ -3250,7 +3274,7 @@ setTimeout(() => {
       iframe.tabIndex = "0";
       iframe.className = "sim-iframe";
       console.log(iframe);
-      let tab = { iframe };
+      let tab = { iframe, firstNav: true, id };
       activatedTab = tab;
       eval(browserGlobals.iframePatch);
       stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
@@ -3298,13 +3322,6 @@ setTimeout(() => {
         },
       };
       tab.history.currentCanonical = canonicalHistoryUrl(url);
-      const onIframeKeydown = function (e) {
-        if (runBrowserCtrlShortcut(e)) {
-          root.focus();
-        }
-      };
-      tab.iframe.contentWindow.addEventListener("keydown", onIframeKeydown);
-      tab.__onIframeKeydown = onIframeKeydown;
       tab.__stopIframePatchWatcher = stopIframePatchWatcher;
 
       if (preloadsize !== 100) {
@@ -3663,14 +3680,6 @@ setTimeout(() => {
       const removingActive = tabs[idx].id === activeTabId;
       try {
         tabs[idx].__stopIframePatchWatcher?.();
-      } catch (e) {}
-      try {
-        if (tabs[idx].__onIframeKeydown) {
-          tabs[idx].iframe.contentWindow.removeEventListener(
-            "keydown",
-            tabs[idx].__onIframeKeydown,
-          );
-        }
       } catch (e) {}
       try {
         if (tabs[idx].__onRootKeydown) {
