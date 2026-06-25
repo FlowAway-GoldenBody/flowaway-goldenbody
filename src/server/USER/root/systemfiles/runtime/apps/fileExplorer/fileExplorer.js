@@ -1185,7 +1185,7 @@ function makeIcon(type, size = 16) {
 
         tile.onclick = (e) => handleSelection(e, item, items, index);
         tile.ondblclick = () => { selectedItems = []; if (isFolder) { currentPath.push(item[0]); render(); } };
-        tile.oncontextmenu = (e) => { e.preventDefault(); selectedItem = item; showContextMenu(e.clientX, e.clientY, isFolder); };
+        tile.oncontextmenu = (e) => { e.preventDefault(); handleSelection(e, item, items, index); showContextMenu(e.clientX, e.clientY, isFolder); };
 
         const icon = document.createElement("div");
         icon.style.fontSize = "36px";
