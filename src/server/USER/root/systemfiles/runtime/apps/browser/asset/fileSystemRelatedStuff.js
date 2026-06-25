@@ -41,12 +41,52 @@
                     }
                   }
 
+                  function ensureListeners(target) {
+                    if (!target) return target;
+                    if (target._listeners) return target;
+                    target._listeners = {};
+                    target.addEventListener = function (type, handler) {
+                      if (!type || !handler) return;
+                      const listeners = this._listeners[type] || [];
+                      if (listeners.indexOf(handler) === -1) {
+                        listeners.push(handler);
+                      }
+                      this._listeners[type] = listeners;
+                    };
+                    target.removeEventListener = function (type, handler) {
+                      if (!type || !handler) return;
+                      const listeners = this._listeners[type];
+                      if (!listeners) return;
+                      this._listeners[type] = listeners.filter(function (entry) {
+                        return entry !== handler;
+                      });
+                    };
+                    target.dispatchEvent = function (event) {
+                      const type = event && event.type ? event.type : null;
+                      if (!type) return true;
+                      if (event && event.target !== this) {
+                        event.target = this;
+                      }
+                      emitEvent(this, type, event);
+                      return true;
+                    };
+                    return target;
+                  }
+
                   function emitEvent(target, eventName, payload) {
+                    if (!target) return;
+                    const listeners = ensureListeners(target)._listeners[eventName] || [];
+                    for (const listener of listeners.slice()) {
+                      try {
+                        listener.call(target, payload);
+                      } catch (e) {}
+                    }
                     const handler = target['on' + eventName];
-                    if (!handler) return;
-                    try {
-                      handler(payload);
-                    } catch (e) {}
+                    if (handler) {
+                      try {
+                        handler.call(target, payload);
+                      } catch (e) {}
+                    }
                   }
 
                   function dispatchAsync(target, eventName, payload) {
@@ -169,30 +209,44 @@
                     queuePersistAllDbState();
                   }
 
-                  function makeRequest(run) {
+                  function makeRequest(run, requestOptions) {
                     const request = {
                       result: undefined,
                       error: null,
+                      readyState: 'pending',
+                      source: null,
+                      transaction: null,
                       onsuccess: null,
                       onerror: null,
+                      onblocked: null,
+                      onupgradeneeded: null,
                     };
+                    ensureListeners(request);
+                    if (requestOptions && requestOptions.source) request.source = requestOptions.source;
+                    if (requestOptions && requestOptions.transaction) request.transaction = requestOptions.transaction;
+
                     Promise.resolve()
-                      .then(run)
+                      .then(function () {
+                        return run();
+                      })
                       .then(function (result) {
                         request.result = result;
+                        request.readyState = 'done';
                         dispatchAsync(request, 'success', { target: request, type: 'success' });
                       })
                       .catch(function (error) {
                         request.error = error;
+                        request.readyState = 'done';
                         dispatchAsync(request, 'error', { target: request, type: 'error' });
                       });
                     return request;
                   }
 
                   function getStoreMeta(state, storeName) {
+                    if (!state || !state.stores) state = { stores: {} };
                     const store = state.stores[storeName];
                     if (!store) {
-                      throw new DOMException('frameWin.Object store not found', 'NotFoundError');
+                      throw new DOMException('Object store not found', 'NotFoundError');
                     }
                     return store;
                   }
@@ -239,8 +293,101 @@
                     return JSON.stringify(key);
                   }
 
+                  function getStoreRows(store) {
+                    const data = store.data || {};
+                    return frameWin.Object.keys(data).map(function (recordKey) {
+                      const row = data[recordKey];
+                      return {
+                        key: cloneValue(row && row.key),
+                        primaryKey: cloneValue(row && row.key),
+                        value: cloneValue(row && row.value),
+                        recordKey: recordKey,
+                      };
+                    });
+                  }
+
+                  function createCursorLike(rows, store, storeName, dbState, dbName, mode, direction) {
+                    let index = -1;
+                    const cursor = {
+                      direction: direction || 'next',
+                      key: undefined,
+                      primaryKey: undefined,
+                      value: undefined,
+                      update: function (value) {
+                        return makeRequest(function () {
+                          if (mode === 'readonly') {
+                            throw new DOMException('Transaction is readonly', 'ReadOnlyError');
+                          }
+                          const current = rows[index];
+                          if (!current) return undefined;
+                          store.data[current.recordKey] = {
+                            key: cloneValue(current.key),
+                            value: cloneValue(value),
+                          };
+                          persistDbState(dbName, dbState);
+                          return cloneValue(current.key);
+                        });
+                      },
+                      delete: function () {
+                        return makeRequest(function () {
+                          if (mode === 'readonly') {
+                            throw new DOMException('Transaction is readonly', 'ReadOnlyError');
+                          }
+                          const current = rows[index];
+                          if (!current) return undefined;
+                          delete store.data[current.recordKey];
+                          persistDbState(dbName, dbState);
+                          return undefined;
+                        });
+                      },
+                      advance: function (count) {
+                        const step = Number(count || 1);
+                        if (index < 0 && step <= 0) {
+                          index = 0;
+                        } else {
+                          index += step;
+                        }
+                        if (index < rows.length) {
+                          const current = rows[index];
+                          cursor.key = current.key;
+                          cursor.primaryKey = current.primaryKey;
+                          cursor.value = current.value;
+                        } else {
+                          cursor.key = undefined;
+                          cursor.primaryKey = undefined;
+                          cursor.value = undefined;
+                        }
+                        return undefined;
+                      },
+                      continue: function (key) {
+                        if (key !== undefined) {
+                          const target = rows.findIndex(function (row) {
+                            return frameWin.JSON.stringify(row.key) === frameWin.JSON.stringify(key);
+                          });
+                          index = target >= 0 ? target : rows.length;
+                        } else {
+                          index += 1;
+                        }
+                        if (index < rows.length) {
+                          const current = rows[index];
+                          cursor.key = current.key;
+                          cursor.primaryKey = current.primaryKey;
+                          cursor.value = current.value;
+                        } else {
+                          cursor.key = undefined;
+                          cursor.primaryKey = undefined;
+                          cursor.value = undefined;
+                        }
+                        return undefined;
+                      },
+                    };
+                    cursor.advance(1);
+                    return cursor;
+                  }
+
                   function createIDBIndex(dbState, dbName, storeName, indexName) {
                     return {
+                      name: indexName,
                       get: function (queryValue) {
                         return makeRequest(function () {
                           const store = getStoreMeta(dbState, storeName);
@@ -248,16 +395,100 @@
                           if (!index) {
                             throw new DOMException('Index not found', 'NotFoundError');
                           }
-                          const data = store.data || {};
-                          const keys = frameWin.Object.keys(data);
-                          for (const key of keys) {
-                            const row = data[key];
+                          const rows = getStoreRows(store);
+                          for (const row of rows) {
                             const value = row && row.value;
                             if (value && value[index.keyPath] === queryValue) {
                               return cloneValue(value);
                             }
                           }
                           return undefined;
+                        });
+                      },
+                      getKey: function (queryValue) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const index = store.indexes && store.indexes[indexName];
+                          if (!index) {
+                            throw new DOMException('Index not found', 'NotFoundError');
+                          }
+                          const rows = getStoreRows(store);
+                          for (const row of rows) {
+                            const value = row && row.value;
+                            if (value && value[index.keyPath] === queryValue) {
+                              return cloneValue(row.key);
+                            }
+                          }
+                          return undefined;
+                        });
+                      },
+                      getAll: function (queryValue) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const index = store.indexes && store.indexes[indexName];
+                          if (!index) {
+                            throw new DOMException('Index not found', 'NotFoundError');
+                          }
+                          return getStoreRows(store)
+                            .filter(function (row) {
+                              const value = row && row.value;
+                              return value && (queryValue === undefined || value[index.keyPath] === queryValue);
+                            })
+                            .map(function (row) {
+                              return cloneValue(row.value);
+                            });
+                        });
+                      },
+                      getAllKeys: function (queryValue) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const index = store.indexes && store.indexes[indexName];
+                          if (!index) {
+                            throw new DOMException('Index not found', 'NotFoundError');
+                          }
+                          return getStoreRows(store)
+                            .filter(function (row) {
+                              const value = row && row.value;
+                              return value && (queryValue === undefined || value[index.keyPath] === queryValue);
+                            })
+                            .map(function (row) {
+                              return cloneValue(row.key);
+                            });
+                        });
+                      },
+                      count: function (queryValue) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const index = store.indexes && store.indexes[indexName];
+                          if (!index) {
+                            throw new DOMException('Index not found', 'NotFoundError');
+                          }
+                          return getStoreRows(store).filter(function (row) {
+                            const value = row && row.value;
+                            return value && (queryValue === undefined || value[index.keyPath] === queryValue);
+                          }).length;
+                        });
+                      },
+                      openCursor: function (query, direction) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const index = store.indexes && store.indexes[indexName];
+                          if (!index) {
+                            throw new DOMException('Index not found', 'NotFoundError');
+                          }
+                          const rows = getStoreRows(store);
+                          return createCursorLike(rows, store, storeName, dbState, dbName, 'readonly', direction);
+                        });
+                      },
+                      openKeyCursor: function (query, direction) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const index = store.indexes && store.indexes[indexName];
+                          if (!index) {
+                            throw new DOMException('Index not found', 'NotFoundError');
+                          }
+                          const rows = getStoreRows(store);
+                          return createCursorLike(rows, store, storeName, dbState, dbName, 'readonly', direction);
                         });
                       },
                     };
@@ -305,12 +536,27 @@
                           return row ? cloneValue(row.value) : undefined;
                         });
                       },
+                      getKey: function (key) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const recordKey = keyToRecordKey(key);
+                          const row = (store.data || {})[recordKey];
+                          return row ? cloneValue(row.key) : undefined;
+                        });
+                      },
                       getAll: function () {
                         return makeRequest(function () {
                           const store = getStoreMeta(dbState, storeName);
-                          const data = store.data || {};
-                          return frameWin.Object.keys(data).map(function (k) {
-                            return cloneValue(data[k].value);
+                          return getStoreRows(store).map(function (row) {
+                            return cloneValue(row.value);
+                          });
+                        });
+                      },
+                      getAllKeys: function () {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          return getStoreRows(store).map(function (row) {
+                            return cloneValue(row.key);
                           });
                         });
                       },
@@ -342,7 +588,21 @@
                       count: function () {
                         return makeRequest(function () {
                           const store = getStoreMeta(dbState, storeName);
-                          return frameWin.Object.keys(store.data || {}).length;
+                          return getStoreRows(store).length;
+                        });
+                      },
+                      openCursor: function (query, direction) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const rows = getStoreRows(store);
+                          return createCursorLike(rows, store, storeName, dbState, dbName, mode, direction);
+                        });
+                      },
+                      openKeyCursor: function (query, direction) {
+                        return makeRequest(function () {
+                          const store = getStoreMeta(dbState, storeName);
+                          const rows = getStoreRows(store);
+                          return createCursorLike(rows, store, storeName, dbState, dbName, mode, direction);
                         });
                       },
                       createIndex: function (name, keyPath, options) {
@@ -357,6 +617,17 @@
                         };
                         persistDbState(dbName, dbState);
                         return createIDBIndex(dbState, dbName, storeName, name);
+                      },
+                      deleteIndex: function (name) {
+                        if (mode === 'readonly') {
+                          throw new DOMException('Transaction is readonly', 'ReadOnlyError');
+                        }
+                        const store = getStoreMeta(dbState, storeName);
+                        if (store.indexes) {
+                          delete store.indexes[name];
+                          persistDbState(dbName, dbState);
+                        }
+                        return undefined;
                       },
                       index: function (name) {
                         return createIDBIndex(dbState, dbName, storeName, name);
@@ -381,10 +652,18 @@
                       abort: function () {
                         dispatchAsync(tx, 'abort', { target: tx, type: 'abort' });
                       },
+                      commit: function () {
+                        dispatchAsync(tx, 'complete', { target: tx, type: 'complete' });
+                      },
                     };
+                    ensureListeners(tx);
+                    tx.done = new Promise(function (resolve) {
+                      tx._doneResolve = resolve;
+                    });
 
                     Promise.resolve().then(function () {
                       dispatchAsync(tx, 'complete', { target: tx, type: 'complete' });
+                      if (tx._doneResolve) tx._doneResolve(tx);
                     });
 
                     return tx;
@@ -403,7 +682,7 @@
                       createObjectStore: function (name, options) {
                         const storeName = String(name);
                         if (dbState.stores[storeName]) {
-                          throw new DOMException('frameWin.Object store already exists', 'ConstraintError');
+                          throw new DOMException('Object store already exists', 'ConstraintError');
                         }
                         dbState.stores[storeName] = {
                           name: storeName,
@@ -419,7 +698,7 @@
                       deleteObjectStore: function (name) {
                         const storeName = String(name);
                         if (!dbState.stores[storeName]) {
-                          throw new DOMException('frameWin.Object store not found', 'NotFoundError');
+                          throw new DOMException('Object store not found', 'NotFoundError');
                         }
                         delete dbState.stores[storeName];
                         persistDbState(dbName, dbState);
@@ -434,10 +713,12 @@
                     const request = {
                       result: undefined,
                       error: null,
+                      readyState: 'pending',
                       onsuccess: null,
                       onerror: null,
                       onupgradeneeded: null,
                     };
+                    ensureListeners(request);
 
                     Promise.resolve().then(async function () {
                       try {
@@ -480,9 +761,11 @@
                           });
                         }
 
+                        request.readyState = 'done';
                         dispatchAsync(request, 'success', { target: request, type: 'success' });
                       } catch (error) {
                         request.error = error;
+                        request.readyState = 'done';
                         dispatchAsync(request, 'error', { target: request, type: 'error' });
                       }
                     });
@@ -498,19 +781,23 @@
                       const request = {
                         result: undefined,
                         error: null,
+                        readyState: 'pending',
                         onsuccess: null,
                         onerror: null,
                         onblocked: null,
                       };
+                      ensureListeners(request);
                       Promise.resolve().then(async function () {
                         try {
                           const allState = await loadAllDbState();
                           const bucket = getOriginBucket(allState);
                           delete bucket[String(name)];
                           queuePersistAllDbState();
+                          request.readyState = 'done';
                           dispatchAsync(request, 'success', { target: request, type: 'success' });
                         } catch (error) {
                           request.error = error;
+                          request.readyState = 'done';
                           dispatchAsync(request, 'error', { target: request, type: 'error' });
                         }
                       });

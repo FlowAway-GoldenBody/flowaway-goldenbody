@@ -558,16 +558,35 @@ settings = function (posX = 50, posY = 50) {
   const brightness = document.createElement("input");
   brightness.type = "range";
   brightness.min = 0;
-  brightness.max = window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100;
-  brightness.value = window.protectedGlobals.statusData.brightness;
   brightness.style.width = "calc(100% - 10px)";
 
-  brightness.oninput = async () => {
-    // Simple global brightness effect
-    document.documentElement.style.filter = `brightness(${brightness.value}%)`;
-    window.protectedGlobals.statusData.brightness = brightness.value;
-    await persistSettingsProfilePatch({ brightness: Number(brightness.value) });
+  const syncBrightnessSlider = () => {
+    const max = !!window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100;
+    const current = Number(window.protectedGlobals.statusData.brightness) || 0;
+    const clamped = Math.min(max, Math.max(0, current));
+    brightness.max = max;
+    brightness.value = clamped;
+    window.protectedGlobals.statusData.brightness = clamped;
+    document.documentElement.style.filter = `brightness(${clamped}%)`;
   };
+
+  brightness.oninput = async () => {
+    const nextValue = Math.min(!!window.protectedGlobals.statusData.batterySaverEnabled ? 50 : 100, Math.max(0, Number(brightness.value) || 0));
+    document.documentElement.style.filter = `brightness(${nextValue}%)`;
+    window.protectedGlobals.statusData.brightness = nextValue;
+    brightness.value = nextValue;
+    window.dispatchEvent(new CustomEvent("brightness-state-updated", {
+      detail: {
+        batterySaverEnabled: !!window.protectedGlobals.statusData.batterySaverEnabled,
+        brightness: nextValue,
+      },
+    }));
+    await persistSettingsProfilePatch({ brightness: Number(nextValue) });
+  };
+
+  window.addEventListener("brightness-state-updated", syncBrightnessSlider);
+  window.addEventListener("styleapplied", syncBrightnessSlider);
+  syncBrightnessSlider();
 
   mainContainer.append(brightLabel, brightness);
   /* =========================================================
