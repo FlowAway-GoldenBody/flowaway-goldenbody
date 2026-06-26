@@ -110,8 +110,6 @@ window.browser = async function (
     await initDefaultProfile();
     window.browserGlobals.cookiesPath =
     "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
-    window.browserGlobals.indexedDbPath =
-    "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/indexeddb.json";
     window.browserGlobals.localStoragePath =
     "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
     async function initStores() {
@@ -119,8 +117,6 @@ window.browser = async function (
       window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
       const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
       window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
-      const newIndexedDb = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
-      window.browserGlobals.mutateObject(window.browserGlobals.indexedDbStore, newIndexedDb);
       window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
     }
     initStores();
@@ -925,7 +921,6 @@ setTimeout(() => {
             await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", btoa("")).catch(() => {});
             try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", btoa("{}")).catch(() => {});
-            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/indexeddb.json", btoa(JSON.stringify({ origins: {} }))).catch(() => {});
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", btoa("{}")).catch(() => {});
           } catch (e) {}
           // ensure profilepaths.txt exists and load content
@@ -1026,15 +1021,11 @@ setTimeout(() => {
             try {
               window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
               window.browserGlobals.localStoragePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
-              window.browserGlobals.indexedDbPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/indexeddb.json";
               // reload stores by mutating them in-place so all tabs see the same references
               const newCookies = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
               window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
               const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
               window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
-              const newIndexedDb = await window.protectedGlobals.ReadFile(window.browserGlobals.indexedDbPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : { origins: {} }).catch(() => ({ origins: {} }));
-              window.browserGlobals.mutateObject(window.browserGlobals.indexedDbStore, newIndexedDb);
-              // window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
             } catch (e) {}
             window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
             window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", btoa(p));
@@ -1345,8 +1336,6 @@ setTimeout(() => {
 
     const siteDataTabCookies = document.createElement("button");
     siteDataTabCookies.textContent = "Cookies";
-    const siteDataTabIndexedDb = document.createElement("button");
-    siteDataTabIndexedDb.textContent = "IndexedDB";
     const siteDataTabLocalStorage = document.createElement("button");
     siteDataTabLocalStorage.textContent = "LocalStorage";
 
@@ -1372,19 +1361,14 @@ setTimeout(() => {
     let activeSiteDataTab = "cookies";
     function renderSiteDataTab() {
       const isCookies = activeSiteDataTab === "cookies";
-      const isIndexedDb = activeSiteDataTab === "indexeddb";
       const isLocalStorage = activeSiteDataTab === "localstorage";
       setSiteDataTabVisual(siteDataTabCookies, isCookies);
-      setSiteDataTabVisual(siteDataTabIndexedDb, isIndexedDb);
       setSiteDataTabVisual(siteDataTabLocalStorage, isLocalStorage);
       if (isCookies) {
         siteDataDesc.textContent = "Delete cookies only for this site.";
         siteDataClearBtn.textContent = "Clear site cookies";
-      } else if (isIndexedDb) {
-        siteDataDesc.textContent =
-          "Delete IndexedDB databases only for this site.";
-        siteDataClearBtn.textContent = "Clear site IndexedDB";
-      } else {
+      }
+      else {
         siteDataDesc.textContent =
           "Delete localStorage data only for this site.";
         siteDataClearBtn.textContent = "Clear site localStorage";
@@ -1393,10 +1377,6 @@ setTimeout(() => {
 
     siteDataTabCookies.onclick = () => {
       activeSiteDataTab = "cookies";
-      renderSiteDataTab();
-    };
-    siteDataTabIndexedDb.onclick = () => {
-      activeSiteDataTab = "indexeddb";
       renderSiteDataTab();
     };
     siteDataTabLocalStorage.onclick = () => {
@@ -1428,19 +1408,10 @@ setTimeout(() => {
         );
         return;
       }
-
-      const shouldClearIndexedDb = await showConfirmDialog(
-        "Clear site IndexedDB",
-        `This will remove IndexedDB for ${website}. Continue?`,
-      );
-      if (!shouldClearIndexedDb) return;
-      await window.browserGlobals.clearIndexedDbForSite(website);
-      window.protectedGlobals.notification("indexeddb cleared for this site");
     };
 
     siteDataTabs.append(
       siteDataTabCookies,
-      siteDataTabIndexedDb,
       siteDataTabLocalStorage,
     );
     siteDataSec.append(siteDataTabs, siteDataDesc, siteDataClearBtn);
@@ -2577,7 +2548,6 @@ setTimeout(() => {
       window.browserGlobals.profileState.lazyloading = true;
       window.browserGlobals.profileState.siteZoom = {};
       await window.browserGlobals.clearAllCookies();
-      await window.browserGlobals.clearAllIndexedDb();
       await window.browserGlobals.clearAllLocalStorage();
       window.protectedGlobals.notification(
         "site data cleared! please close all browser windows!",

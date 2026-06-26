@@ -316,7 +316,6 @@ window.browserGlobals.mutateObject = function (target, newData) {
 // Initialize store objects as empty so they can be mutated in-place
 window.browserGlobals.cookies = {};
 window.browserGlobals.localStorageStore = {};
-window.browserGlobals.indexedDbStore = { origins: {} };
 
 window.browserGlobals.flushThrottledWrite = function (
   key,
@@ -641,35 +640,7 @@ window.browserGlobals.writeBrowserUserId = async function (id) {
   }
 };
 
-window.browserGlobals.readIndexedDbStore = async function () {
-  let raw = "";
-  raw = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true });
-  return JSON.parse(raw);
-};
 
-window.browserGlobals.writeIndexedDbStore = async function (payload) {
-  const serialized = JSON.stringify(
-    payload && payload.origins ? payload : { origins: {} },
-  );
-  await window.browserGlobals.writeFileOrdered(
-    window.browserGlobals.localStoragePath,
-    btoa(serialized),
-  );
-};
-
-window.browserGlobals.clearIndexedDbForSite = async function (site) {
-  if (!site) return;
-  const store = await window.browserGlobals.readIndexedDbStore();
-  if (!store.origins) {
-    store.origins = {};
-  }
-  delete store.origins[site];
-  await window.browserGlobals.writeIndexedDbStore(store);
-};
-
-window.browserGlobals.clearAllIndexedDb = async function () {
-  await window.browserGlobals.writeIndexedDbStore({ origins: {} });
-};
 
 window.browserGlobals.requestNewBrowserSessionId = async function () {
   const candidates = ["/server/newsession", "/newsession"];
