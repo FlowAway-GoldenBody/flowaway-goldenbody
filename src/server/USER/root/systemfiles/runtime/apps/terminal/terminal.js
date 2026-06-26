@@ -2,8 +2,8 @@
 // how it works is you reference the path of the app you want to run, the 2nd arg is the command, and the rest is from the app itself.
 
 window.terminalGlobals = {};
-terminalGlobals.allTerminals = [];
-terminalGlobals.goldenbodyId = 0;
+window.terminalGlobals.allTerminals = [];
+window.terminalGlobals.goldenbodyId = 0;
 
 window.protectedGlobals.__terminalCustomCommands =
   window.protectedGlobals.__terminalCustomCommands && typeof window.protectedGlobals.__terminalCustomCommands === "object"
@@ -260,8 +260,8 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   root.dataset.appId = "terminal";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
-  terminalGlobals.goldenbodyId++;
-  root._goldenbodyId = terminalGlobals.goldenbodyId;
+  window.terminalGlobals.goldenbodyId++;
+  root._goldenbodyId = window.terminalGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -346,12 +346,12 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   function closeWindow() {
     root.remove();
     let index = false;
-    for (let i = 0; i < terminalGlobals.allTerminals.length; i++) {
-      if (terminalGlobals.allTerminals[i].rootElement == root) {
+    for (let i = 0; i < window.terminalGlobals.allTerminals.length; i++) {
+      if (window.terminalGlobals.allTerminals[i].rootElement == root) {
         index = i;
       }
     }
-    if (index !== false) terminalGlobals.allTerminals.splice(index, 1);
+    if (index !== false) window.terminalGlobals.allTerminals.splice(index, 1);
     window.protectedGlobals.removeAllEventListenersForApp("terminal" + root._goldenbodyId);
   }
 
@@ -368,16 +368,16 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...terminalGlobals.allTerminals]) {
+    for (const instance of [...window.terminalGlobals.allTerminals]) {
       if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
-    terminalGlobals.allTerminals = [];
+    window.terminalGlobals.allTerminals = [];
   }
 
   function hideAll() {
-    for (const instance of terminalGlobals.allTerminals) {
+    for (const instance of window.terminalGlobals.allTerminals) {
       if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
@@ -385,10 +385,10 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   function showAll() {
-    terminalGlobals.allTerminals.sort(
+    window.terminalGlobals.allTerminals.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of terminalGlobals.allTerminals) {
+    for (const instance of window.terminalGlobals.allTerminals) {
       if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
@@ -396,7 +396,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   function newWindow() {
-    terminal(50, 50);
+    window.terminal(50, 50);
   }
 
   function maximizeWindow() {
@@ -1737,7 +1737,7 @@ terminal = function (argPath = '', posX = 50, posY = 50) {
     try { input.focus(); } catch (e) {}
   }, 0);
 
-  terminalGlobals.allTerminals.push({
+  window.terminalGlobals.allTerminals.push({
     rootElement: root,
     btnMax,
     _isMinimized,

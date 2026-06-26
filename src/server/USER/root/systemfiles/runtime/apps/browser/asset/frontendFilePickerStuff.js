@@ -390,7 +390,7 @@
         let pickerTree = null;
 
         function getPickerTheme() {
-          if (browserGlobals.dark) {
+          if (window.browserGlobals.dark) {
             return {
               panelBg: "#1f1f1f",
               panelText: "#e8e8e8",

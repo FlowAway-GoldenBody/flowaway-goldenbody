@@ -91,7 +91,7 @@ window.browser = async function (
         } catch (e) {
           // read failed or file missing — ignore
         }
-        // initialize browserGlobals profile paths and load profile
+        // initialize window.browserGlobals profile paths and load profile
         try {
           window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userID.txt";
           window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "settings.json";
@@ -210,8 +210,8 @@ setTimeout(() => {
       const panel = document.createElement("div");
       panel.id = "set-speed-ui";
       panel.className = "panel";
-      panel.classList.toggle("dark", browserGlobals.dark);
-      panel.classList.toggle("light", !browserGlobals.dark);
+      panel.classList.toggle("dark", window.browserGlobals.dark);
+      panel.classList.toggle("light", !window.browserGlobals.dark);
       panel.style.cssText =
         "position:fixed;z-index:999999;width:360px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
@@ -379,8 +379,8 @@ setTimeout(() => {
       const dialog = document.createElement("div");
       dialog.id = "confirm-dialog";
       dialog.className = "panel";
-      dialog.classList.toggle("dark", browserGlobals.dark);
-      dialog.classList.toggle("light", !browserGlobals.dark);
+      dialog.classList.toggle("dark", window.browserGlobals.dark);
+      dialog.classList.toggle("light", !window.browserGlobals.dark);
       dialog.style.cssText =
         "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
 
@@ -422,7 +422,7 @@ setTimeout(() => {
       dialog.appendChild(titleEl);
 
       const msgEl = document.createElement("div");
-      msgEl.style.cssText = `font-size:14px;color:#${browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+      msgEl.style.cssText = `font-size:14px;color:#${window.browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
       msgEl.textContent = message;
       dialog.appendChild(msgEl);
 
@@ -493,8 +493,8 @@ setTimeout(() => {
     const panel = document.createElement("div");
     panel.id = "userscript-dialog";
     panel.className = "panel";
-    panel.classList.toggle("dark", browserGlobals.dark);
-    panel.classList.toggle("light", !browserGlobals.dark);
+    panel.classList.toggle("dark", window.browserGlobals.dark);
+    panel.classList.toggle("light", !window.browserGlobals.dark);
     panel.style.cssText =
       "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:480px;max-height:70vh;overflow:auto;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
@@ -518,8 +518,8 @@ setTimeout(() => {
           const dlg = document.createElement("div");
           dlg.id = "add-userscript-dialog";
           dlg.className = "panel";
-          dlg.classList.toggle("dark", browserGlobals.dark);
-          dlg.classList.toggle("light", !browserGlobals.dark);
+          dlg.classList.toggle("dark", window.browserGlobals.dark);
+          dlg.classList.toggle("light", !window.browserGlobals.dark);
           dlg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
           const t = document.createElement("div");
@@ -732,8 +732,8 @@ setTimeout(() => {
               const dlg = document.createElement("div");
               dlg.id = "edit-userscript-dialog";
               dlg.className = "panel";
-              dlg.classList.toggle("dark", browserGlobals.dark);
-              dlg.classList.toggle("light", !browserGlobals.dark);
+              dlg.classList.toggle("dark", window.browserGlobals.dark);
+              dlg.classList.toggle("light", !window.browserGlobals.dark);
               dlg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
               const t = document.createElement("div");
@@ -834,8 +834,8 @@ setTimeout(() => {
     const panel = document.createElement("div");
     panel.id = "profile-dialog";
     panel.className = "panel";
-    panel.classList.toggle("dark", browserGlobals.dark);
-    panel.classList.toggle("light", !browserGlobals.dark);
+    panel.classList.toggle("dark", window.browserGlobals.dark);
+    panel.classList.toggle("light", !window.browserGlobals.dark);
     panel.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:480px;max-height:70vh;overflow:auto;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
     const title = document.createElement("div");
@@ -858,8 +858,8 @@ setTimeout(() => {
           const dlg = document.createElement("div");
           dlg.id = "add-profile-dialog";
           dlg.className = "panel";
-          dlg.classList.toggle("dark", browserGlobals.dark);
-          dlg.classList.toggle("light", !browserGlobals.dark);
+          dlg.classList.toggle("dark", window.browserGlobals.dark);
+          dlg.classList.toggle("light", !window.browserGlobals.dark);
           dlg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000000;width:360px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
           const t = document.createElement("div");
@@ -1021,11 +1021,13 @@ setTimeout(() => {
             try {
               window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
               window.browserGlobals.localStoragePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
+              window.browserGlobals.updateIndexedDbStore(getCurProfileName());
               // reload stores by mutating them in-place so all tabs see the same references
               const newCookies = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
               window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
               const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
               window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
+              window.browserGlobals.updateIndexedDbStore(getCurProfileName());
             } catch (e) {}
             window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
             window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", btoa(p));
@@ -1102,10 +1104,10 @@ setTimeout(() => {
       );
 
     const currentUrl = window.browserGlobals.mainWebsite(
-      browserGlobals.unshuffleURL(iframe.src),
+      window.browserGlobals.unshuffleURL(iframe.src),
     );
     const profile =
-      browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
+      window.browserGlobals.profile || window.browserGlobals.defaultBrowserProfile();
     const list = Array.isArray(profile.siteSettings)
       ? profile.siteSettings
       : [];
@@ -1122,11 +1124,11 @@ setTimeout(() => {
     profile.siteSettings = list;
     profile.enableURLSync = !!content.enableURLSync;
     profile.lazyloading = !!content.lazyloading;
-    browserGlobals.profile = profile;
-    browserGlobals.profileState.siteSettings = profile.siteSettings;
-    browserGlobals.profileState.enableURLSync = profile.enableURLSync;
-    browserGlobals.profileState.lazyloading = profile.lazyloading;
-    browserGlobals.profileState.siteZoom =
+    window.browserGlobals.profile = profile;
+    window.browserGlobals.profileState.siteSettings = profile.siteSettings;
+    window.browserGlobals.profileState.enableURLSync = profile.enableURLSync;
+    window.browserGlobals.profileState.lazyloading = profile.lazyloading;
+    window.browserGlobals.profileState.siteZoom =
       profile.siteZoom && typeof profile.siteZoom === "object"
         ? profile.siteZoom
         : {};
@@ -1135,7 +1137,7 @@ setTimeout(() => {
     iframe.sandbox = content.newSandbox;
   }
   function createPermInput(iframe, url) {
-    url = browserGlobals.mainWebsite(url);
+    url = window.browserGlobals.mainWebsite(url);
 
     let sandbox = `
     allow-forms
@@ -1171,8 +1173,8 @@ setTimeout(() => {
     const panel = document.createElement("div");
     panel.id = "perm-ui";
     panel.className = "panel";
-    panel.classList.toggle("dark", browserGlobals.dark);
-    panel.classList.toggle("light", !browserGlobals.dark);
+    panel.classList.toggle("dark", window.browserGlobals.dark);
+    panel.classList.toggle("light", !window.browserGlobals.dark);
     panel.style.cssText = `
     position:fixed;
     z-index:999999;
@@ -1252,8 +1254,8 @@ setTimeout(() => {
     // ===============================
     // FULLSCREEN
     // ===============================
-    let website = browserGlobals.mainWebsite(
-      browserGlobals.unshuffleURL(iframe.src),
+    let website = window.browserGlobals.mainWebsite(
+      window.browserGlobals.unshuffleURL(iframe.src),
     );
     let secure = website.startsWith("https://")
       ? "Connection to this site is Secure"
@@ -1262,7 +1264,7 @@ setTimeout(() => {
       secure = "You are viewing a secure official goldenbody webpage";
     section(website);
     section(secure);
-    if (!browserGlobals.profileState.enableURLSync)
+    if (!window.browserGlobals.profileState.enableURLSync)
       section(
         "Only user-initiated navigations get new permissions. To disable this, open sync perms below.",
       );
@@ -1271,7 +1273,7 @@ setTimeout(() => {
     let syncperms = checkbox(
       syncpermsSec,
       "sync perms",
-      browserGlobals.profileState.enableURLSync,
+      window.browserGlobals.profileState.enableURLSync,
     );
     const info = document.createElement("div");
     info.style.cssText = `
@@ -1286,7 +1288,7 @@ setTimeout(() => {
     let lazyloading = checkbox(
       lazyloadingsect,
       "Lazy Loading",
-      browserGlobals.profileState.lazyloading,
+      window.browserGlobals.profileState.lazyloading,
     );
 
     // ===============================
@@ -1338,7 +1340,8 @@ setTimeout(() => {
     siteDataTabCookies.textContent = "Cookies";
     const siteDataTabLocalStorage = document.createElement("button");
     siteDataTabLocalStorage.textContent = "LocalStorage";
-
+    const siteDataTabIndexedDb = document.createElement("button");
+    siteDataTabIndexedDb.textContent = "IndexedDB";
     const siteDataDesc = document.createElement("div");
     siteDataDesc.style.fontSize = "12px";
     siteDataDesc.style.opacity = "0.9";
@@ -1362,11 +1365,16 @@ setTimeout(() => {
     function renderSiteDataTab() {
       const isCookies = activeSiteDataTab === "cookies";
       const isLocalStorage = activeSiteDataTab === "localstorage";
+      const isIndexedDb = activeSiteDataTab === "indexeddb";
       setSiteDataTabVisual(siteDataTabCookies, isCookies);
       setSiteDataTabVisual(siteDataTabLocalStorage, isLocalStorage);
+      setSiteDataTabVisual(siteDataClearBtn, true);
       if (isCookies) {
         siteDataDesc.textContent = "Delete cookies only for this site.";
         siteDataClearBtn.textContent = "Clear site cookies";
+      } else if (isIndexedDb) {
+        siteDataDesc.textContent = "Delete IndexedDB data only for this site.";
+        siteDataClearBtn.textContent = "Clear site IndexedDB";
       }
       else {
         siteDataDesc.textContent =
@@ -1383,7 +1391,10 @@ setTimeout(() => {
       activeSiteDataTab = "localstorage";
       renderSiteDataTab();
     };
-
+    siteDataTabIndexedDb.onclick = () => {
+      activeSiteDataTab = "indexeddb";
+      renderSiteDataTab();
+    };
     siteDataClearBtn.onclick = async () => {
       if (activeSiteDataTab === "cookies") {
         const shouldClearCookies = await showConfirmDialog(
@@ -1408,11 +1419,25 @@ setTimeout(() => {
         );
         return;
       }
+      
+      if (activeSiteDataTab === "indexeddb") {
+        const shouldClearIndexedDb = await showConfirmDialog(
+          "Clear site IndexedDB",
+          `This will remove IndexedDB for ${website}. Continue?`,
+        );
+        if (!shouldClearIndexedDb) return;
+        await window.browserGlobals.clearIndexedDbForSite(website);
+        window.protectedGlobals.notification(
+          "indexeddb cleared for this site",
+        );
+        return;
+      }
     };
 
     siteDataTabs.append(
       siteDataTabCookies,
       siteDataTabLocalStorage,
+      siteDataTabIndexedDb,
     );
     siteDataSec.append(siteDataTabs, siteDataDesc, siteDataClearBtn);
     renderSiteDataTab();
@@ -1674,9 +1699,9 @@ setTimeout(() => {
       menu.style.padding = "6px 0";
       menu.style.borderRadius = "8px";
       menu.style.boxShadow = "0 10px 30px rgba(0,0,0,0.35)";
-      menu.style.background = browserGlobals.dark ? "#1f1f1f" : "#ffffff";
-      menu.style.color = browserGlobals.dark ? "#f5f5f5" : "#222";
-      menu.style.border = browserGlobals.dark
+      menu.style.background = window.browserGlobals.dark ? "#1f1f1f" : "#ffffff";
+      menu.style.color = window.browserGlobals.dark ? "#f5f5f5" : "#222";
+      menu.style.border = window.browserGlobals.dark
         ? "1px solid #444"
         : "1px solid #d0d0d0";
       const closeMenu = () => {
@@ -1694,7 +1719,7 @@ setTimeout(() => {
         item.style.opacity = disabled ? "0.45" : "1";
         item.addEventListener("mouseenter", () => {
           if (!disabled)
-            item.style.background = browserGlobals.dark ? "#333" : "#eef4ff";
+            item.style.background = window.browserGlobals.dark ? "#333" : "#eef4ff";
         });
         item.addEventListener("mouseleave", () => {
           item.style.background = "transparent";
@@ -1729,7 +1754,7 @@ setTimeout(() => {
             activeTab.iframe &&
             activeTab.iframe.contentWindow
           ) {
-            let tmp = browserGlobals.unshuffleURL(activeTab.iframe.src);
+            let tmp = window.browserGlobals.unshuffleURL(activeTab.iframe.src);
             if (looksLikeLocalFilePath(tmp)) {
               openUrlInActiveTab(tmp);
             } else {
@@ -1933,7 +1958,7 @@ setTimeout(() => {
     btnClose.addEventListener("click", closeWindow);
     function closeWindow() {
       try {
-          clearInterval(renderInterval);
+        clearInterval(renderInterval);
       } catch (e) {}
       try {
         clearInterval(checkerinterval);
@@ -1941,7 +1966,7 @@ setTimeout(() => {
 
       root.remove();
 
-      // Remove from browserGlobals.allBrowsers
+      // Remove from window.browserGlobals.allBrowsers
       const index = window.browserGlobals.allBrowsers.indexOf(chromeWindow);
       if (index !== -1) {
         window.browserGlobals.allBrowsers.splice(index, 1);
@@ -2071,8 +2096,8 @@ setTimeout(() => {
       const panel = document.createElement("div");
       panel.id = "download-ui";
       panel.className = "panel";
-      panel.classList.toggle("dark", browserGlobals.dark);
-      panel.classList.toggle("light", !browserGlobals.dark);
+      panel.classList.toggle("dark", window.browserGlobals.dark);
+      panel.classList.toggle("light", !window.browserGlobals.dark);
       panel.style.cssText =
         "position:fixed;z-index:999999;width:420px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
@@ -2123,7 +2148,7 @@ setTimeout(() => {
       try {
         input.value =
           activatedTab && activatedTab.iframe && activatedTab.iframe.src
-            ? browserGlobals.unshuffleURL(activatedTab.iframe.src)
+            ? window.browserGlobals.unshuffleURL(activatedTab.iframe.src)
             : "";
       } catch (e) {}
       panel.appendChild(input);
@@ -2292,8 +2317,8 @@ setTimeout(() => {
       const panel = document.createElement("div");
       panel.id = "theme-ui";
       panel.className = "panel";
-      panel.classList.toggle("dark", browserGlobals.dark);
-      panel.classList.toggle("light", !browserGlobals.dark);
+      panel.classList.toggle("dark", window.browserGlobals.dark);
+      panel.classList.toggle("light", !window.browserGlobals.dark);
       panel.style.cssText =
         "position:fixed;z-index:999999;width:320px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px;font-family:system-ui;font-size:13px;";
 
@@ -2331,11 +2356,11 @@ setTimeout(() => {
       }
 
       const currentMode =
-        browserGlobals.profile && browserGlobals.profile.themeMode
-          ? browserGlobals.profile.themeMode
+        window.browserGlobals.profile && window.browserGlobals.profile.themeMode
+          ? window.browserGlobals.profile.themeMode
           : "auto";
       const manualDark = !!(
-        browserGlobals.profile && browserGlobals.profile.dark
+        window.browserGlobals.profile && window.browserGlobals.profile.dark
       );
 
       form.appendChild(
@@ -2373,34 +2398,34 @@ setTimeout(() => {
             panel.querySelectorAll('input[name="gb-theme-mode"]'),
           ).find((i) => i.checked)?.value || "auto";
         try {
-          browserGlobals.profile = browserGlobals.profile || {};
+          window.browserGlobals.profile = window.browserGlobals.profile || {};
           if (chosen === "auto") {
-            browserGlobals.profile.themeMode = "auto";
+            window.browserGlobals.profile.themeMode = "auto";
           } else {
-            browserGlobals.profile.themeMode = "manual";
-            browserGlobals.profile.dark = chosen === "dark";
+            window.browserGlobals.profile.themeMode = "manual";
+            window.browserGlobals.profile.dark = chosen === "dark";
           }
           await window.browserGlobals.writeBrowserProfile(
-            browserGlobals.profile,
+            window.browserGlobals.profile,
             { force: true },
           );
         } catch (e) {}
         // update effective dark
         try {
           if (
-            browserGlobals.profile &&
-            browserGlobals.profile.themeMode === "auto"
+            window.browserGlobals.profile &&
+            window.browserGlobals.profile.themeMode === "auto"
           ) {
-            browserGlobals.dark = !!(
+            window.browserGlobals.dark = !!(
               window.protectedGlobals.data && window.protectedGlobals.data.dark
             );
           } else {
-            browserGlobals.dark = !!(
-              browserGlobals.profile && browserGlobals.profile.dark
+            window.browserGlobals.dark = !!(
+              window.browserGlobals.profile && window.browserGlobals.profile.dark
             );
           }
         } catch (e) {
-          browserGlobals.dark = !!(
+          window.browserGlobals.dark = !!(
             window.protectedGlobals.data && window.protectedGlobals.data.dark
           );
         }
@@ -2413,12 +2438,12 @@ setTimeout(() => {
           );
           for (const rr of allRoots) {
             if (
-              browserGlobals.profile &&
-              browserGlobals.profile.themeMode === "manual"
+              window.browserGlobals.profile &&
+              window.browserGlobals.profile.themeMode === "manual"
             ) {
               rr.dataset.themeManual = "true";
-              rr.classList.toggle("dark", browserGlobals.dark);
-              rr.classList.toggle("light", !browserGlobals.dark);
+              rr.classList.toggle("dark", window.browserGlobals.dark);
+              rr.classList.toggle("light", !window.browserGlobals.dark);
             } else {
               try {
                 delete rr.dataset.themeManual;
@@ -2427,8 +2452,8 @@ setTimeout(() => {
               }
               // Ensure the root reflects the effective (global) theme immediately
               try {
-                rr.classList.toggle("dark", !!browserGlobals.dark);
-                rr.classList.toggle("light", !browserGlobals.dark);
+                rr.classList.toggle("dark", !!window.browserGlobals.dark);
+                rr.classList.toggle("light", !window.browserGlobals.dark);
               } catch (e) {}
             }
           }
@@ -2437,7 +2462,7 @@ setTimeout(() => {
         // Dispatch styleapplied to notify apps
         try {
           allRoots = [];
-          browserGlobals.allBrowsers.forEach((b) => {
+          window.browserGlobals.allBrowsers.forEach((b) => {
             try {
               const r = b.rootElement;
               if (r) allRoots.push(r);
@@ -2627,7 +2652,7 @@ setTimeout(() => {
     tabsRow.style.overflowY = "hidden";
     leftGroup.style.flex = "1 1 auto";
     leftGroup.style.minWidth = "0";
-    browserGlobals.tabisDragging = false;
+    window.browserGlobals.tabisDragging = false;
 
     let dragid = "";
     let dragindex = 0;
@@ -2635,9 +2660,9 @@ setTimeout(() => {
     let dragoverReordered = false;
     let crossWindowTransferHandled = false;
     const resetTabDragState = () => {
-      browserGlobals.tabisDragging = false;
+      window.browserGlobals.tabisDragging = false;
       dragMoved = false;
-      browserGlobals.draggedtab = null;
+      window.browserGlobals.draggedtab = null;
       dragid = "";
       dragindex = 0;
       nativeTabDrag = false;
@@ -2651,8 +2676,8 @@ setTimeout(() => {
           ? document.elementFromPoint(ev.clientX, ev.clientY)
           : null);
       if (!eventTarget && !notontab) return;
-      if (!browserGlobals.tabisDragging) return;
-      if (!browserGlobals.dragstartwindow || !browserGlobals.draggedtab) {
+      if (!window.browserGlobals.tabisDragging) return;
+      if (!window.browserGlobals.dragstartwindow || !window.browserGlobals.draggedtab) {
         resetTabDragState();
         return;
       }
@@ -2666,7 +2691,7 @@ setTimeout(() => {
         let tabbarHit = false;
         let targetBrowser = null;
 
-        for (const b of browserGlobals.allBrowsers) {
+        for (const b of window.browserGlobals.allBrowsers) {
           if (
             b.rootElement.querySelector(".sim-chrome-top").contains(eventTarget)
           ) {
@@ -2683,14 +2708,14 @@ setTimeout(() => {
           // Detect which window the cursor is over
           let targetBrowser = null;
 
-          for (const b of browserGlobals.allBrowsers) {
+          for (const b of window.browserGlobals.allBrowsers) {
             if (b.rootElement.contains(dropTarget)) {
               targetBrowser = b;
               break;
             }
           }
           // If dropped in the same window: do nothing
-          if (targetBrowser === browserGlobals.dragstartwindow) {
+          if (targetBrowser === window.browserGlobals.dragstartwindow) {
             // reset drag state
             resetTabDragState();
             return;
@@ -2704,13 +2729,13 @@ setTimeout(() => {
             }
             crossWindowTransferHandled = true;
             targetBrowser.addTab(
-              browserGlobals.draggedtab.url,
+              window.browserGlobals.draggedtab.url,
               "",
-              browserGlobals.draggedtab.resizeP,
+              window.browserGlobals.draggedtab.resizeP,
               { forceRender: true },
             );
-            browserGlobals.dragstartwindow.closeTab(
-              browserGlobals.draggedtab.id,
+            window.browserGlobals.dragstartwindow.closeTab(
+              window.browserGlobals.draggedtab.id,
               { forceRender: true },
             );
             resetTabDragState();
@@ -2729,13 +2754,13 @@ setTimeout(() => {
         }
         crossWindowTransferHandled = true;
         browser(
-          browserGlobals.dragstartwindow.tabs[dragindex].url,
-          browserGlobals.draggedtab.resizeP,
+          window.browserGlobals.dragstartwindow.tabs[dragindex].url,
+          window.browserGlobals.draggedtab.resizeP,
           ev.clientX - 100,
           ev.clientY - 20,
         ); // your custom function
         // console.log(root);
-        browserGlobals.dragstartwindow.closeTab(browserGlobals.draggedtab.id);
+        window.browserGlobals.dragstartwindow.closeTab(window.browserGlobals.draggedtab.id);
       }
 
       resetTabDragState();
@@ -2776,14 +2801,14 @@ setTimeout(() => {
     window.addEventListener("message", messageHandler);
     window.addEventListener("pointerup", onpointerupAnywhere);
     renderInterval = setInterval(() => {
-      if (!browserGlobals.allBrowsers.some((b) => b.rootElement === root)) {
+      if (!window.browserGlobals.allBrowsers.some((b) => b.rootElement === root)) {
         clearInterval(renderInterval);
         console.warn("interval cleared, root missing!");
       }
       renderTabs();
     }, 10000);
     function renderTabs(forceRender = false) {
-      if (!forceRender && (browserGlobals.tabisDragging || nativeTabDrag)) return;
+      if (!forceRender && (window.browserGlobals.tabisDragging || nativeTabDrag)) return;
       var ids = 0;
       while (tabsRow.firstChild) tabsRow.removeChild(tabsRow.firstChild);
       leftGroup.appendChild(newTabBtn);
@@ -2842,14 +2867,14 @@ setTimeout(() => {
           window.protectedGlobals.bringToFront(root);
         });
         el.addEventListener("dragstart", (ev) => {
-          browserGlobals.dragstartwindow = chromeWindow;
-          browserGlobals.tabisDragging = true;
+          window.browserGlobals.dragstartwindow = chromeWindow;
+          window.browserGlobals.tabisDragging = true;
           nativeTabDrag = true;
           dragoverReordered = false;
           dragMoved = false;
           dragindex = countChild(tabsRow, el);
           console.log("dragindex:", dragindex);
-          browserGlobals.draggedtab = tabs[dragindex];
+          window.browserGlobals.draggedtab = tabs[dragindex];
           dragid = el.id;
           try {
             if (ev.dataTransfer) {
@@ -2862,8 +2887,8 @@ setTimeout(() => {
         el.addEventListener("dragover", (e) => {
           if (
             !(
-              browserGlobals.tabisDragging &&
-              browserGlobals.dragstartwindow === chromeWindow
+              window.browserGlobals.tabisDragging &&
+              window.browserGlobals.dragstartwindow === chromeWindow
             )
           )
             return;
@@ -2890,7 +2915,7 @@ setTimeout(() => {
         });
 
         el.addEventListener("dragend", (e) => {
-          if (!browserGlobals.tabisDragging) return;
+          if (!window.browserGlobals.tabisDragging) return;
           onpointerupAnywhere({
             clientX: e.clientX,
             clientY: e.clientY,
@@ -2901,7 +2926,7 @@ setTimeout(() => {
         });
 
         el.addEventListener("pointermove", () => {
-          if (browserGlobals.tabisDragging) dragMoved = true;
+          if (window.browserGlobals.tabisDragging) dragMoved = true;
         });
 
         el.addEventListener("pointerup", (e) => {
@@ -2909,9 +2934,9 @@ setTimeout(() => {
             return;
           }
           if (
-            browserGlobals.tabisDragging &&
+            window.browserGlobals.tabisDragging &&
             dragMoved &&
-            browserGlobals.dragstartwindow === chromeWindow
+            window.browserGlobals.dragstartwindow === chromeWindow
           ) {
             const draggedelement = root.querySelector(`#${dragid}`);
             if (!draggedelement || draggedelement === el) return;
@@ -2935,9 +2960,9 @@ setTimeout(() => {
             );
           }
           if (
-            browserGlobals.tabisDragging &&
+            window.browserGlobals.tabisDragging &&
             dragMoved &&
-            browserGlobals.dragstartwindow !== chromeWindow
+            window.browserGlobals.dragstartwindow !== chromeWindow
           ) {
             onpointerupAnywhere(e);
           }
@@ -2970,7 +2995,7 @@ setTimeout(() => {
         } else if (
           e.data.__goldenbodynewWindow__ &&
           root ===
-            browserGlobals.allBrowsers[e.data.allbrowserindex].rootElement
+            window.browserGlobals.allBrowsers[e.data.allbrowserindex].rootElement
         ) {
           addTab(e.data.url, "New Tab");
         }
@@ -2981,7 +3006,7 @@ setTimeout(() => {
     function addTab(url, title, resizeP = preloadsize, options = {}) {
       const id = "tab-" + ++tabCounter;
       const iframe = document.createElement("iframe");
-      if (browserGlobals.profileState.lazyloading) iframe.loading = "lazy";
+      if (window.browserGlobals.profileState.lazyloading) iframe.loading = "lazy";
       iframe.onload = () => {
         try {
           // Try to access its document
@@ -3021,8 +3046,8 @@ setTimeout(() => {
           {
             message: "GOLDENBODY_id",
             website: window.protectedGlobals.goldenbodywebsite,
-            value: browserGlobals.id,
-            dark: browserGlobals.dark,
+            value: window.browserGlobals.id,
+            dark: window.browserGlobals.dark,
           },
           "*",
         );
@@ -3034,12 +3059,12 @@ setTimeout(() => {
                 ? tab.iframe.contentWindow.location.href
                 : tab.url || "",
             );
-            const unshuffled = browserGlobals.unshuffleURL(current);
+            const unshuffled = window.browserGlobals.unshuffleURL(current);
             try {
               const u = new URL(unshuffled);
               return (u.protocol + "//" + u.host).toLowerCase();
             } catch (e) {
-              return browserGlobals.mainWebsite(unshuffled).toLowerCase();
+              return window.browserGlobals.mainWebsite(unshuffled).toLowerCase();
             }
           } catch (e) {
             return "";
@@ -3144,7 +3169,7 @@ setTimeout(() => {
           tab.__onResizeKeydown,
         );
         if (!tab.iframe.style.display === "none")
-          urlInput.value = browserGlobals.unshuffleURL(
+          urlInput.value = window.browserGlobals.unshuffleURL(
             iframe.contentWindow.location.href,
           );
         applyZoomToTab(tab);
@@ -3205,7 +3230,7 @@ setTimeout(() => {
             console.warn("Interval cleared: tab.iframe is gone");
             return;
           }
-          tab.url = browserGlobals.unshuffleURL(
+          tab.url = window.browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
           if (tab.iframe.contentDocument.readyState === "complete" && !tab.donotm) {
@@ -3227,16 +3252,16 @@ setTimeout(() => {
         }
         if (previousTabTitle !== tab.title) renderTabs();
         previousTabTitle = tab.title;
-      }, 1000 * browserGlobals.nhjd);
+      }, 1000 * window.browserGlobals.nhjd);
 
       createPermInput(iframe, url);
-      if (browserGlobals.profileReadyPromise) {
-        browserGlobals.profileReadyPromise
+      if (window.browserGlobals.profileReadyPromise) {
+        window.browserGlobals.profileReadyPromise
           .then(() => {
             try {
               createPermInput(
                 iframe,
-                browserGlobals.unshuffleURL(
+                window.browserGlobals.unshuffleURL(
                   iframe.contentWindow.location.href || url,
                 ),
               );
@@ -3253,11 +3278,11 @@ setTimeout(() => {
       console.log(iframe);
       let tab = { iframe, firstNav: true, id };
       activatedTab = tab;
-      eval(browserGlobals.iframePatch);
+      eval(window.browserGlobals.iframePatch);
       stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
       
-      if (browserGlobals.proxyurl != "") {
-        iframe.src = a(url, browserGlobals.proxyurl);
+      if (window.browserGlobals.proxyurl != "") {
+        iframe.src = a(url, window.browserGlobals.proxyurl);
         // oof we dont need this anymore
         // if(!window.browserGlobals.profileState.enableURLSync) {
         // setTimeout(() => {
@@ -3313,7 +3338,7 @@ setTimeout(() => {
           tab.iframe.style.display === "block"
         ) {
           e.preventDefault();
-          let tmp = browserGlobals.unshuffleURL(
+          let tmp = window.browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
           if (looksLikeLocalFilePath(tmp)) {
@@ -3498,7 +3523,7 @@ setTimeout(() => {
         try {
           cleanupLocalFileNav(tab);
           const localPath = normalizeLocalFilePath(targetUrl);
-          let blobUrl = browserGlobals.__localFilePathToBlobMap.get(localPath);
+          let blobUrl = window.browserGlobals.__localFilePathToBlobMap.get(localPath);
           if (!blobUrl) {
             const localNav = await resolveLocalFileNavigation(localPath);
             blobUrl = localNav.iframeSrc;
@@ -3526,7 +3551,7 @@ setTimeout(() => {
       try {
         tab.iframe.contentWindow.location.href = a(
           targetUrl,
-          browserGlobals.proxyurl,
+          window.browserGlobals.proxyurl,
         );
       } catch (e) {
         tab.history.suppressNextRecord = false;
@@ -3554,7 +3579,7 @@ setTimeout(() => {
         if (reloadBtn.dataset.mode === "stop") {
           tab.iframe.contentWindow.stop();
         } else {
-          let tmp = browserGlobals.unshuffleURL(
+          let tmp = window.browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
           if (looksLikeLocalFilePath(tmp)) {
@@ -3566,20 +3591,20 @@ setTimeout(() => {
       };
       sitesettingsbtn.onclick = () => {
         openPermissionsUI(
-          browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
+          window.browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
           tab.iframe,
           sitesettingsbtn.getBoundingClientRect(),
         );
       };
       activeTabId = id;
-      urlInput.value = browserGlobals.unshuffleURL(
+      urlInput.value = window.browserGlobals.unshuffleURL(
         tab.iframe.contentWindow.location.href,
       );
       let previousUrl = canonicalHistoryUrl(
-        browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
+        window.browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
       );
       let previousTabTitle = tab.title;
-      let previousUrlMain = browserGlobals.unshuffleURL(
+      let previousUrlMain = window.browserGlobals.unshuffleURL(
         tab.iframe.contentWindow.location.href,
       );
 
@@ -3587,7 +3612,7 @@ setTimeout(() => {
       checkInterval = setInterval(() => {
         try {
           if (
-            browserGlobals.allBrowsers.length == 0 ||
+            window.browserGlobals.allBrowsers.length == 0 ||
             !tab.iframe.contentDocument
           ) {
             clearInterval(checkInterval);
@@ -3597,7 +3622,7 @@ setTimeout(() => {
         }
         try {
           title = tab.iframe.contentDocument.title || "Untitled";
-          const currentUrl = browserGlobals.unshuffleURL(
+          const currentUrl = window.browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
           const currentCanonical = canonicalHistoryUrl(currentUrl);
@@ -3614,12 +3639,12 @@ setTimeout(() => {
               currentUrl.startsWith("goldenbody://"))
           ) {
             if (
-              browserGlobals.mainWebsite(currentUrl) !==
-                browserGlobals.mainWebsite(previousUrlMain) &&
+              window.browserGlobals.mainWebsite(currentUrl) !==
+                window.browserGlobals.mainWebsite(previousUrlMain) &&
               currentUrl !== "about:blank" &&
               previousUrl !== ""
             )
-              if (browserGlobals.profileState.enableURLSync) {
+              if (window.browserGlobals.profileState.enableURLSync) {
                 openUrlInActiveTab(currentUrl);
               }
             if (window.browserGlobals.id == "") {
@@ -3652,7 +3677,7 @@ setTimeout(() => {
         } catch (e) {
           console.error(e);
         }
-      }, 250 * browserGlobals.nhjd);
+      }, 250 * window.browserGlobals.nhjd);
       renderTabs(forceRender);
     }
 
@@ -3858,8 +3883,8 @@ setTimeout(() => {
 
       blobUrl = base64ToBlobUrl(base64, mime);
       try {
-        browserGlobals.__localFileUrlMap.set(blobUrl, normalizedPath);
-        browserGlobals.__localFilePathToBlobMap.set(normalizedPath, blobUrl);
+        window.browserGlobals.__localFileUrlMap.set(blobUrl, normalizedPath);
+        window.browserGlobals.__localFilePathToBlobMap.set(normalizedPath, blobUrl);
       } catch (e) {}
       return {
         iframeSrc: blobUrl,
@@ -3873,15 +3898,15 @@ setTimeout(() => {
     function cleanupLocalFileNav(tab) {
       try {
         if (tab && tab.__localFileNav && tab.__localFileNav.blobUrl) {
-          const mappedPath = browserGlobals.__localFileUrlMap.get(
+          const mappedPath = window.browserGlobals.__localFileUrlMap.get(
             tab.__localFileNav.blobUrl,
           );
           try {
-            browserGlobals.__localFileUrlMap.delete(tab.__localFileNav.blobUrl);
+            window.browserGlobals.__localFileUrlMap.delete(tab.__localFileNav.blobUrl);
           } catch (e) {}
           try {
             if (mappedPath) {
-              browserGlobals.__localFilePathToBlobMap.delete(mappedPath);
+              window.browserGlobals.__localFilePathToBlobMap.delete(mappedPath);
             }
           } catch (e) {}
           URL.revokeObjectURL(tab.__localFileNav.blobUrl);
@@ -3949,7 +3974,7 @@ setTimeout(() => {
         let script = document.createElement("script");
         script.textContent = scriptcontent;
         tab.iframe.contentDocument.body.appendChild(script);
-        urlInput.value = browserGlobals.unshuffleURL(
+        urlInput.value = window.browserGlobals.unshuffleURL(
           tab.iframe.contentWindow.location.href,
         );
         return;
@@ -3961,7 +3986,7 @@ setTimeout(() => {
       } catch (e) {
         // Edge case: allow relative entries in the URL bar.
         try {
-          const currentBase = browserGlobals.unshuffleURL(
+          const currentBase = window.browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );
           url = new URL(candidate, currentBase).href;
@@ -4003,7 +4028,7 @@ setTimeout(() => {
       if (tabs[tabIndex].iframe) {
         createPermInput(tab.iframe, url);
         try {
-          tabs[tabIndex].iframe.src = a(url, browserGlobals.proxyurl);
+          tabs[tabIndex].iframe.src = a(url, window.browserGlobals.proxyurl);
         } catch (e) {
           tab.history.stack = prevHistorySnapshot.stack;
           tab.history.index = prevHistorySnapshot.index;
@@ -4332,25 +4357,25 @@ setTimeout(() => {
     };
   })();
   chromeWindow.closeAll = function () {
-    for (const instance of [...browserGlobals.allBrowsers]) {
+    for (const instance of [...window.browserGlobals.allBrowsers]) {
       if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
-    browserGlobals.allBrowsers = [];
+    window.browserGlobals.allBrowsers = [];
   };
   chromeWindow.hideAll = function () {
-    for (const instance of browserGlobals.allBrowsers) {
+    for (const instance of window.browserGlobals.allBrowsers) {
       if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
     }
   };
   chromeWindow.showAll = function () {
-    browserGlobals.allBrowsers.sort(
+    window.browserGlobals.allBrowsers.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of browserGlobals.allBrowsers) {
+    for (const instance of window.browserGlobals.allBrowsers) {
       if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
@@ -4363,7 +4388,7 @@ setTimeout(() => {
   chromeWindow.hideall = chromeWindow.hideAll;
   chromeWindow.closeall = chromeWindow.closeAll;
   chromeWindow.newwindow = chromeWindow.newWindow;
-  browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
+  window.browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
   window.protectedGlobals.applyStyles();
 
   function a(url, proxyurl) {
@@ -4399,7 +4424,7 @@ setTimeout(() => {
           "singlesdaylosesingle.html"
         );
       }
-      return proxylink + browserGlobals.id + "/" + url;
+      return proxylink + window.browserGlobals.id + "/" + url;
     }
     // same with this
     function encodeScramjet(url, proxylink) {

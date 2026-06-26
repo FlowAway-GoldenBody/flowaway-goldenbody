@@ -145,17 +145,17 @@ async function iframePatches() {
       window.protectedGlobals.atTop == "browser"
     ) {
       let allIds = [];
-      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+      for (let i = 0; i < window.browserGlobals.allBrowsers.length; i++) {
         allIds.push(
-          browserGlobals.allBrowsers[i].rootElement._goldenbodyOrderId,
+          window.browserGlobals.allBrowsers[i].rootElement._goldenbodyOrderId,
         );
       }
       let maxId = Math.max(...allIds);
-      for (let i = 0; i < browserGlobals.allBrowsers.length; i++) {
+      for (let i = 0; i < window.browserGlobals.allBrowsers.length; i++) {
         if (
-          browserGlobals.allBrowsers[i].rootElement._goldenbodyOrderId == maxId
+          window.browserGlobals.allBrowsers[i].rootElement._goldenbodyOrderId == maxId
         ) {
-          const closingRoot = browserGlobals.allBrowsers[i].rootElement;
+          const closingRoot = window.browserGlobals.allBrowsers[i].rootElement;
           closingRoot.remove();
           window.protectedGlobals.removeAllEventListenersForApp(
             closingRoot.dataset.appId + closingRoot._goldenbodyId,
@@ -202,8 +202,8 @@ async function iframePatches() {
   function normalizeContextMenuUrl(url) {
     if (!url || typeof url !== "string") return "";
     try {
-      console.log(browserGlobals.unshuffleURL(url));
-      return browserGlobals.unshuffleURL(url);
+      console.log(window.browserGlobals.unshuffleURL(url));
+      return window.browserGlobals.unshuffleURL(url);
     } catch (e) {
       return url;
     }
@@ -334,7 +334,7 @@ async function iframePatches() {
           addTab(linkUrl, "New Tab");
         });
         addContextMenuItem("Open link in new windowㅤㅤㅤㅤㅤ", () => {
-          browser(linkUrl);
+          window.browser(linkUrl);
         });
         addContextMenuItem("Copy link address", async () => {
           await navigator.clipboard.writeText(linkUrl);
@@ -353,7 +353,7 @@ async function iframePatches() {
           addTab(imageUrl, "Image");
         });
         addContextMenuItem("Open image in new window", () => {
-          browser(imageUrl);
+          window.browser(imageUrl);
         });
         addContextMenuItem("Copy image address", async () => {
           await navigator.clipboard.writeText(imageUrl);
@@ -372,7 +372,7 @@ async function iframePatches() {
           addTab(normalizedFrameUrl, "Frame");
         });
         addContextMenuItem("Open frame in new window", () => {
-          browser(normalizedFrameUrl);
+          window.browser(normalizedFrameUrl);
         });
         addContextMenuItem("Copy frame URL", async () => {
           await navigator.clipboard.writeText(normalizedFrameUrl);
@@ -452,7 +452,7 @@ async function iframePatches() {
       reload.onmouseenter = () => (reload.style.background = "#444");
       reload.onmouseleave = () => (reload.style.background = "none");
       reload.onclick = () => {
-        let tmp = browserGlobals.unshuffleURL(
+        let tmp = window.browserGlobals.unshuffleURL(
           patchedTab.iframe.contentWindow.location.href,
         );
         if (looksLikeLocalFilePath(tmp)) {
@@ -806,15 +806,15 @@ function getAbsoluteMousePosition(e) {
             hooked.add(link);
             if (link.target !== "_blank") link.target = "_self";
             if (
-              !link.href.includes(browserGlobals.id) &&
+              !link.href.includes(window.browserGlobals.id) &&
               link.href.startsWith("http")
             ) {
-              link.href = a(link.href, browserGlobals.proxyurl);
+              link.href = a(link.href, window.browserGlobals.proxyurl);
             }
             link.addEventListener("click", (e) => {
               if (e.metaKey || link.target === "_blank" || e.shiftKey) {
                 e.preventDefault();
-                const url = browserGlobals.unshuffleURL(link.href);
+                const url = window.browserGlobals.unshuffleURL(link.href);
                 frame.contentWindow.open(
                   url,
                   (e.metaKey || e.shiftKey) ? "_blank" : link.target || "_self",
@@ -873,7 +873,6 @@ function getAbsoluteMousePosition(e) {
               clearInterval(tmpinterval);
             }
           }, 1000);
-
           let themeOverride = document.createElement("script");
           themeOverride.textContent = `
           (function(){
@@ -934,9 +933,10 @@ function getAbsoluteMousePosition(e) {
               frameDocCurrent.__gbCookieHookInstalled
             )
               return;
-            let vfsScriptText = browserGlobals.vfstxt;
+            let vfsScriptText = window.browserGlobals.vfstxt;
             if (vfsScriptText || !frameWin.__gbCookieHookInstalled) {
               eval(vfsScriptText);
+              eval(window.browserGlobals.indexedDBPatch);
             }
             // override window.open
             frameWin.open = function (url = "about:blank", location = "_blank", options = {newWindow: false}) {
@@ -993,7 +993,7 @@ function getAbsoluteMousePosition(e) {
                 frameWin.location = url;
               } else if (location === "_blank") {
                 if (options && options.newWindow) {
-                  browser(url,undefined,undefined,undefined,isMaximized);
+                  window.browser(url,undefined,undefined,undefined,isMaximized);
                   return null;
                 }
                 return window.browserGlobals.__globalAddTab(
@@ -1005,7 +1005,7 @@ function getAbsoluteMousePosition(e) {
                 frameWin.location = url;
               } else {
                 if (options && options.newWindow) {
-                  browser(url,undefined,undefined,undefined,isMaximized);
+                  window.browser(url,undefined,undefined,undefined,isMaximized);
                   return null;
                 }
                 return window.browserGlobals.__globalAddTab(

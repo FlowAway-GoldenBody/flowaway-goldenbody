@@ -1,8 +1,8 @@
 window.taskManagerGlobals = window.taskManagerGlobals || {};
-taskManagerGlobals.allTaskManagers = Array.isArray(taskManagerGlobals.allTaskManagers)
-  ? taskManagerGlobals.allTaskManagers
+window.taskManagerGlobals.allTaskManagers = Array.isArray(window.taskManagerGlobals.allTaskManagers)
+  ? window.taskManagerGlobals.allTaskManagers
   : [];
-taskManagerGlobals.goldenbodyId = Number(taskManagerGlobals.goldenbodyId ?? 0);
+window.taskManagerGlobals.goldenbodyId = Number(window.taskManagerGlobals.goldenbodyId ?? 0);
 
 taskManager = function (posX = 50, posY = 50) {
   if (window.protectedGlobals.startMenu) {
@@ -45,8 +45,8 @@ taskManager = function (posX = 50, posY = 50) {
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
 
-  taskManagerGlobals.goldenbodyId++;
-  root._goldenbodyId = taskManagerGlobals.goldenbodyId;
+  window.taskManagerGlobals.goldenbodyId++;
+  root._goldenbodyId = window.taskManagerGlobals.goldenbodyId;
   const scopedListenerName = "taskManager" + root._goldenbodyId;
 
   var topBar = false;
@@ -195,10 +195,10 @@ taskManager = function (posX = 50, posY = 50) {
     clearAutoRefresh();
     root.remove();
 
-    const index = taskManagerGlobals.allTaskManagers.findIndex(
+    const index = window.taskManagerGlobals.allTaskManagers.findIndex(
       (instance) => instance.rootElement === root,
     );
-    if (index !== -1) taskManagerGlobals.allTaskManagers.splice(index, 1);
+    if (index !== -1) window.taskManagerGlobals.allTaskManagers.splice(index, 1);
 
     if ((window.protectedGlobals.removeAllEventListenersForApp)) {
       window.protectedGlobals.removeAllEventListenersForApp(scopedListenerName);
@@ -206,16 +206,16 @@ taskManager = function (posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...taskManagerGlobals.allTaskManagers]) {
+    for (const instance of [...window.taskManagerGlobals.allTaskManagers]) {
       if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
-    taskManagerGlobals.allTaskManagers = [];
+    window.taskManagerGlobals.allTaskManagers = [];
   }
 
   function hideAll() {
-    for (const instance of taskManagerGlobals.allTaskManagers) {
+    for (const instance of window.taskManagerGlobals.allTaskManagers) {
       if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
@@ -223,10 +223,10 @@ taskManager = function (posX = 50, posY = 50) {
   }
 
   function showAll() {
-    taskManagerGlobals.allTaskManagers.sort(
+    window.taskManagerGlobals.allTaskManagers.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of taskManagerGlobals.allTaskManagers) {
+    for (const instance of window.taskManagerGlobals.allTaskManagers) {
       if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
@@ -1362,7 +1362,7 @@ taskManager = function (posX = 50, posY = 50) {
     refreshSnapshot(false);
   });
 
-  taskManagerGlobals.allTaskManagers.push({
+  window.taskManagerGlobals.allTaskManagers.push({
     rootElement: root,
     btnMax,
     _isMinimized,

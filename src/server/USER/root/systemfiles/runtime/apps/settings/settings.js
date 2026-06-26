@@ -1,7 +1,7 @@
 //settings global vars
 window.settingsGlobals = {};
-settingsGlobals.allSettings = [];
-settingsGlobals.goldenbodyId = 0;
+window.settingsGlobals.allSettings = [];
+window.settingsGlobals.goldenbodyId = 0;
 
 function persistSettingsProfilePatch(patch) {
   if ((window.protectedGlobals.persistUserProfilePatch)) {
@@ -40,8 +40,8 @@ settings = function (posX = 50, posY = 50) {
   root.dataset.appId = "settings";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
-  settingsGlobals.goldenbodyId++;
-  root.goldenbodyId = settingsGlobals.goldenbodyId;
+  window.settingsGlobals.goldenbodyId++;
+  root.goldenbodyId = window.settingsGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -146,10 +146,10 @@ settings = function (posX = 50, posY = 50) {
 
   function closeWindow() {
     root.remove();
-    const index = settingsGlobals.allSettings.findIndex(
+    const index = window.settingsGlobals.allSettings.findIndex(
       (instance) => instance.rootElement == root,
     );
-    if (index !== -1) settingsGlobals.allSettings.splice(index, 1);
+    if (index !== -1) window.settingsGlobals.allSettings.splice(index, 1);
     window.protectedGlobals.removeAllEventListenersForApp("settings" + root.goldenbodyId);
   }
 
@@ -166,16 +166,16 @@ settings = function (posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...settingsGlobals.allSettings]) {
+    for (const instance of [...window.settingsGlobals.allSettings]) {
       if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
-    settingsGlobals.allSettings = [];
+    window.settingsGlobals.allSettings = [];
   }
 
   function hideAll() {
-    for (const instance of settingsGlobals.allSettings) {
+    for (const instance of window.settingsGlobals.allSettings) {
       if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
@@ -183,10 +183,10 @@ settings = function (posX = 50, posY = 50) {
   }
 
   function showAll() {
-    settingsGlobals.allSettings.sort(
+    window.settingsGlobals.allSettings.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of settingsGlobals.allSettings) {
+    for (const instance of window.settingsGlobals.allSettings) {
       if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
@@ -1105,7 +1105,7 @@ settings = function (posX = 50, posY = 50) {
 
   aboutBtn.addEventListener("click", showAboutDialog);
 
-  settingsGlobals.allSettings.push({
+  window.settingsGlobals.allSettings.push({
     rootElement: root,
     btnMax,
     _isMinimized,
@@ -1123,7 +1123,7 @@ settings = function (posX = 50, posY = 50) {
     hideall: hideAll,
     closeall: closeAll,
     newwindow: newWindow,
-    goldenbodyId: settingsGlobals.goldenbodyId,
+    goldenbodyId: window.settingsGlobals.goldenbodyId,
   });
   window.protectedGlobals.applyStyles();
 
@@ -1145,7 +1145,7 @@ settings = function (posX = 50, posY = 50) {
     hideall: hideAll,
     closeall: closeAll,
     newwindow: newWindow,
-    goldenbodyId: settingsGlobals.goldenbodyId,
+    goldenbodyId: window.settingsGlobals.goldenbodyId,
   };
 };
 
