@@ -2275,7 +2275,7 @@ function makeIcon(type, size = 16) {
 
       contextMenu.appendChild(openWithParent);
     }
-
+    if (contextMenu.children.length === 0) {contextMenu.style.display = "none"; return;} // don't show empty menu
     contextMenu.style.left = x + "px";
     contextMenu.style.top = y + "px";
     contextMenu.style.display = "block";
