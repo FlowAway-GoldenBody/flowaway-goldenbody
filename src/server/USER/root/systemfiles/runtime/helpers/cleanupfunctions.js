@@ -21,9 +21,7 @@ window.protectedGlobals.rebuildhandler = function () {
   window.protectedGlobals.apps.forEach((app) => {
     try {
     window[app.globalvarobjectstring][app.allapparraystring][0].closeAll();
-    } catch (e) {
-      console.error("Error closing app during rebuild:", e);
-    }
+    } catch (e) {}
   });
   // remove all iframes
   document.querySelectorAll("iframe").forEach((f) => {

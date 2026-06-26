@@ -228,6 +228,7 @@ async function iframePatches() {
   }
 
   function getContextMenuData(e) {
+    if (patchedTab !== activatedTab) patchedTab = activatedTab; // a hack to fix a constant scope issue i dont get why
     const clickedElement = e && e.target ? e.target : null;
     const linkElement = clickedElement?.closest
       ? clickedElement.closest("a[href]")
