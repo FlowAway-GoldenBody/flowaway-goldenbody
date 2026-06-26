@@ -473,9 +473,7 @@ window.tmpGlobals.loadCoreScriptsSequentially = async function() {
 (async function() {
 await window.tmpGlobals.loadCoreScriptsSequentially();
 for (const script of window.tmpGlobals.scriptContents) {
-  setTimeout(() => {
     document.head.appendChild(script);
-  }, 50);
 }
 })();
 // if u wanna keep it just remove the next line
