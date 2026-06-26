@@ -1,8 +1,8 @@
 //explorer global vars
 window.explorerGlobals = {};
-explorerGlobals.allExplorers = [];
-explorerGlobals.goldenbodyId = 0;
-explorerGlobals.clipboard = {
+window.explorerGlobals.allExplorers = [];
+window.explorerGlobals.goldenbodyId = 0;
+window.explorerGlobals.clipboard = {
   item: null, // tree node reference
   path: null, // full path string
 };
@@ -38,8 +38,8 @@ fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   root.dataset.appId = "fileExplorer";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
-  explorerGlobals.goldenbodyId++;
-  root._goldenbodyId = explorerGlobals.goldenbodyId;
+  window.explorerGlobals.goldenbodyId++;
+  root._goldenbodyId = window.explorerGlobals.goldenbodyId;
   const scopedListenerName = "fileExplorer" + root._goldenbodyId;
 
   // --- Top bar ---
@@ -189,10 +189,10 @@ fileExplorer = async function (path = '/', posX = 50, posY = 50) {
     clearAutoRefresh();
     root.remove();
 
-    const index = explorerGlobals.allExplorers.findIndex(
+    const index = window.explorerGlobals.allExplorers.findIndex(
       (instance) => instance.rootElement === root,
     );
-    if (index !== -1) explorerGlobals.allExplorers.splice(index, 1);
+    if (index !== -1) window.explorerGlobals.allExplorers.splice(index, 1);
 
     if ((window.protectedGlobals.removeAllEventListenersForApp)) {
       window.protectedGlobals.removeAllEventListenersForApp(scopedListenerName);
@@ -200,16 +200,16 @@ fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...explorerGlobals.allExplorers]) {
+    for (const instance of [...window.explorerGlobals.allExplorers]) {
       if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
-    explorerGlobals.allExplorers = [];
+    window.explorerGlobals.allExplorers = [];
   }
 
   function hideAll() {
-    for (const instance of explorerGlobals.allExplorers) {
+    for (const instance of window.explorerGlobals.allExplorers) {
       if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
@@ -217,10 +217,10 @@ fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   }
 
   function showAll() {
-    explorerGlobals.allExplorers.sort(
+    window.explorerGlobals.allExplorers.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of explorerGlobals.allExplorers) {
+    for (const instance of window.explorerGlobals.allExplorers) {
       if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
@@ -943,7 +943,7 @@ function makeIcon(type, size = 16) {
     try { ensureDates(window.protectedGlobals.treeData); } catch(e){}
     // Restore clipboard from server
     if (data.clipboard && Array.isArray(data.clipboard)) {
-      explorerGlobals.clipboard = data.clipboard;
+      window.explorerGlobals.clipboard = data.clipboard;
     }
     // If a startup `path` was provided to fileExplorer(posX,posY,path),
     // try to resolve it to an existing folder in `treeData` and set
@@ -1748,7 +1748,7 @@ function makeIcon(type, size = 16) {
       // Quota check: sum total size of clipboard items
       let currentUsed = getNodeSize(treeData);
       let clipboardTotal = 0;
-      for (const item of explorerGlobals.clipboard) {
+      for (const item of window.explorerGlobals.clipboard) {
         clipboardTotal += getNodeSize(item.node);
       }
       if (currentUsed + clipboardTotal > STORAGE_QUOTA_BYTES) {
@@ -1756,7 +1756,7 @@ function makeIcon(type, size = 16) {
         return;
       }
 
-      for (const item of explorerGlobals.clipboard) {
+      for (const item of window.explorerGlobals.clipboard) {
         const sourceFullPath = getFullPathFromNode(item.node, []); // e.g., "FolderA"
         const targetFullPath = targetPath.join("/"); // e.g., "FolderA/Sub"
 
@@ -1794,7 +1794,7 @@ function makeIcon(type, size = 16) {
     if ((e.ctrlKey && e.key.toLowerCase() === "c") || e == "copy") {
       if (e && (e.preventDefault)) e.preventDefault();
       if (e && (e.stopPropagation)) e.stopPropagation();
-      explorerGlobals.clipboard = selectedItems.map((item) => ({
+      window.explorerGlobals.clipboard = selectedItems.map((item) => ({
         node: item,
         path: getCurrentFolderPath() + item[0],
         name: item[0],
@@ -1804,13 +1804,13 @@ function makeIcon(type, size = 16) {
       const targetPath = [...currentPath]; // current folder path array
       let predirections = [];
       targetPath.splice(0, 1);
-      for (let i = 0; i < explorerGlobals.clipboard.length; i++) {
+      for (let i = 0; i < window.explorerGlobals.clipboard.length; i++) {
         if (targetPath.length !== 0)
           predirections.push({
             path:
-              targetPath.join("/") + "/" + explorerGlobals.clipboard[i].name,
+              targetPath.join("/") + "/" + window.explorerGlobals.clipboard[i].name,
           });
-        else predirections.push({ path: explorerGlobals.clipboard[i].name });
+        else predirections.push({ path: window.explorerGlobals.clipboard[i].name });
       }
       directions.push({ copy: true, directions: predirections });
     }
@@ -1923,12 +1923,12 @@ function makeIcon(type, size = 16) {
             // slice(1) removes "root" if treeData is the root node
             removeNodeFromTree(treeData, deletePath);
 
-            // If explorerGlobals.clipboard is an array, remove any entries that reference this deleted path.
-            if (!Array.isArray(explorerGlobals.clipboard))
-              explorerGlobals.clipboard = [];
+            // If window.explorerGlobals.clipboard is an array, remove any entries that reference this deleted path.
+            if (!Array.isArray(window.explorerGlobals.clipboard))
+              window.explorerGlobals.clipboard = [];
             const rel = deletePath.join("/");
             const isFolder = Array.isArray(item[1]);
-            explorerGlobals.clipboard = explorerGlobals.clipboard.filter(
+            window.explorerGlobals.clipboard = window.explorerGlobals.clipboard.filter(
               (c) => {
                 if (!c || typeof c.path !== "string") return true;
                 if (isFolder) {
@@ -1998,13 +1998,13 @@ function makeIcon(type, size = 16) {
             if (child) child[0] = newName;
           }
 
-          // Update local explorerGlobals.clipboard entries that reference this path (files or nested inside folders)
+          // Update local window.explorerGlobals.clipboard entries that reference this path (files or nested inside folders)
           try {
             const oldRel = [...currentPath.slice(1), oldName].join("/");
             const newRel = [...currentPath.slice(1), newName].join("/");
-            if (!Array.isArray(explorerGlobals.clipboard))
-              explorerGlobals.clipboard = [];
-            explorerGlobals.clipboard = explorerGlobals.clipboard.map((c) => {
+            if (!Array.isArray(window.explorerGlobals.clipboard))
+              window.explorerGlobals.clipboard = [];
+            window.explorerGlobals.clipboard = window.explorerGlobals.clipboard.map((c) => {
               if (!c || typeof c.path !== "string") return c;
               if (c.path === oldRel) {
                 const updated = { ...c, path: newRel };
@@ -2075,7 +2075,7 @@ function makeIcon(type, size = 16) {
       addItem("Copy", () => handlecopy("copy"));
     }
 
-    if (isBlank && explorerGlobals.clipboard.length) {
+    if (isBlank && window.explorerGlobals.clipboard.length) {
       addItem("Paste", () => handlepaste("cmp"));
     }
 
@@ -2331,9 +2331,9 @@ function makeIcon(type, size = 16) {
       directions: directions,
     });
     directions = [];
-    // // Restore explorerGlobals.clipboard from server response (keep existing if not returned)
-    // if (response.explorerGlobals.clipboard && Array.isArray(response.explorerGlobals.clipboard)) {
-    //   explorerGlobals.clipboard = response.explorerGlobals.clipboard;
+    // // Restore window.explorerGlobals.clipboard from server response (keep existing if not returned)
+    // if (response.window.explorerGlobals.clipboard && Array.isArray(response.window.explorerGlobals.clipboard)) {
+    //   window.explorerGlobals.clipboard = response.window.explorerGlobals.clipboard;
     // }
     saveBtn.innerHTML = '';
     saveBtn.appendChild(makeIcon('save',16));
@@ -2634,7 +2634,7 @@ function makeIcon(type, size = 16) {
   // --- INIT ---
   onlyloadTree();
 
-  explorerGlobals.allExplorers.push({
+  window.explorerGlobals.allExplorers.push({
     rootElement: root,
     btnMax,
     _isMinimized,
@@ -2652,7 +2652,7 @@ function makeIcon(type, size = 16) {
     hideall: hideAll,
     closeall: closeAll,
     newwindow: newWindow,
-    goldenbodyId: explorerGlobals.goldenbodyId,
+    goldenbodyId: window.explorerGlobals.goldenbodyId,
   });
   window.protectedGlobals.applyStyles();
 
@@ -2674,7 +2674,7 @@ function makeIcon(type, size = 16) {
     hideall: hideAll,
     closeall: closeAll,
     newwindow: newWindow,
-    goldenbodyId: explorerGlobals.goldenbodyId,
+    goldenbodyId: window.explorerGlobals.goldenbodyId,
   };
 };
 

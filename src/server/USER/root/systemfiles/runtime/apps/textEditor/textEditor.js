@@ -1,16 +1,16 @@
 //textEditor global vars
 window.textEditorGlobals = {};
-textEditorGlobals.allTextEditors = [];
-textEditorGlobals.goldenbodyId = 0;
-textEditorGlobals.settingsPath = "/systemfiles/runtime/apps/textEditor/data/settings.json";
-textEditorGlobals.editorSettings = {
+window.textEditorGlobals.allTextEditors = [];
+window.textEditorGlobals.goldenbodyId = 0;
+window.textEditorGlobals.settingsPath = "/systemfiles/runtime/apps/textEditor/data/settings.json";
+window.textEditorGlobals.editorSettings = {
   fontSize: 14,
   tabSize: 2,
   autosave: false,
 };
-textEditorGlobals.settingsLoadPromise = null;
-textEditorGlobals.__textEditorStyle = document.createElement("style");
-textEditorGlobals.__textEditorStyle.textContent = `
+window.textEditorGlobals.settingsLoadPromise = null;
+window.textEditorGlobals.__textEditorStyle = document.createElement("style");
+window.textEditorGlobals.__textEditorStyle.textContent = `
 .texteditor-topbar.dark{
   background: #111;
   color: #eee;
@@ -20,7 +20,7 @@ textEditorGlobals.__textEditorStyle.textContent = `
   color: #000;
 }
 `;
-document.head.appendChild(textEditorGlobals.__textEditorStyle);
+document.head.appendChild(window.textEditorGlobals.__textEditorStyle);
 
 window.textEditorGlobals.ICONS = {
   refresh: `
@@ -100,41 +100,41 @@ window.textEditorGlobals.decodeMaybeBase64Text = function(raw) {
 }
 
 window.textEditorGlobals.loadTextEditorSettings = async function loadTextEditorSettings(forceRefresh = false) {
-  if (!forceRefresh && textEditorGlobals.settingsLoadPromise) {
-    return textEditorGlobals.settingsLoadPromise;
+  if (!forceRefresh && window.textEditorGlobals.settingsLoadPromise) {
+    return window.textEditorGlobals.settingsLoadPromise;
   }
 
-  textEditorGlobals.settingsLoadPromise = (async () => {
+  window.textEditorGlobals.settingsLoadPromise = (async () => {
     try {
       let raw = "";
-      const res = await window.protectedGlobals.ReadFile(textEditorGlobals.settingsPath);
+      const res = await window.protectedGlobals.ReadFile(window.textEditorGlobals.settingsPath);
       if (res && !res.missing) {
         if (typeof res.filecontent === "string") raw = window.textEditorGlobals.decodeMaybeBase64Text(res.filecontent);
         else if (typeof res === "string") raw = window.textEditorGlobals.decodeMaybeBase64Text(res);
       }
       if (raw) {
-        textEditorGlobals.editorSettings = window.textEditorGlobals.normalizeTextEditorSettings(JSON.parse(raw));
+        window.textEditorGlobals.editorSettings = window.textEditorGlobals.normalizeTextEditorSettings(JSON.parse(raw));
       }
     } catch (e) {
-      textEditorGlobals.editorSettings = window.textEditorGlobals.normalizeTextEditorSettings(textEditorGlobals.editorSettings);
+      window.textEditorGlobals.editorSettings = window.textEditorGlobals.normalizeTextEditorSettings(window.textEditorGlobals.editorSettings);
     }
-    return textEditorGlobals.editorSettings;
+    return window.textEditorGlobals.editorSettings;
   })();
 
-  return textEditorGlobals.settingsLoadPromise;
+  return window.textEditorGlobals.settingsLoadPromise;
 }
 
 window.textEditorGlobals.saveTextEditorSettings = async function saveTextEditorSettings(settings) {
   const normalized = window.textEditorGlobals.normalizeTextEditorSettings(settings);
-  textEditorGlobals.editorSettings = normalized;
-  textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
+  window.textEditorGlobals.editorSettings = normalized;
+  window.textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
   const content = btoa(JSON.stringify(normalized, null, 2));
 
-    await window.protectedGlobals.WriteFile(textEditorGlobals.settingsPath, content);
+    await window.protectedGlobals.WriteFile(window.textEditorGlobals.settingsPath, content);
 }
 
 window.textEditorGlobals.getTextEditorSettings = function getTextEditorSettings() {
-  return window.textEditorGlobals.normalizeTextEditorSettings(textEditorGlobals.editorSettings);
+  return window.textEditorGlobals.normalizeTextEditorSettings(window.textEditorGlobals.editorSettings);
 }
 
 textEditor = function (path, posX = 50, posY = 50) {
@@ -180,8 +180,8 @@ textEditor = function (path, posX = 50, posY = 50) {
   root.dataset.appId = "textEditor";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
-  textEditorGlobals.goldenbodyId++;
-  root._goldenbodyId = textEditorGlobals.goldenbodyId;
+  window.textEditorGlobals.goldenbodyId++;
+  root._goldenbodyId = window.textEditorGlobals.goldenbodyId;
 
   // --- Top bar ---
   var topBar = false;
@@ -286,10 +286,10 @@ textEditor = function (path, posX = 50, posY = 50) {
 
   function closeWindow() {
     root.remove();
-    const index = textEditorGlobals.allTextEditors.findIndex(
+    const index = window.textEditorGlobals.allTextEditors.findIndex(
       (instance) => instance.rootElement == root,
     );
-    if (index !== -1) textEditorGlobals.allTextEditors.splice(index, 1);
+    if (index !== -1) window.textEditorGlobals.allTextEditors.splice(index, 1);
     window.protectedGlobals.removeAllEventListenersForApp("textEditor" + root._goldenbodyId);
   }
 
@@ -306,16 +306,16 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
 
   function closeAll() {
-    for (const instance of [...textEditorGlobals.allTextEditors]) {
+    for (const instance of [...window.textEditorGlobals.allTextEditors]) {
       if (instance && (instance.closeWindow)) {
         instance.closeWindow();
       }
     }
-    textEditorGlobals.allTextEditors = [];
+    window.textEditorGlobals.allTextEditors = [];
   }
 
   function hideAll() {
-    for (const instance of textEditorGlobals.allTextEditors) {
+    for (const instance of window.textEditorGlobals.allTextEditors) {
       if (instance && (instance.hideWindow)) {
         instance.hideWindow();
       }
@@ -323,10 +323,10 @@ textEditor = function (path, posX = 50, posY = 50) {
   }
 
   function showAll() {
-    textEditorGlobals.allTextEditors.sort(
+    window.textEditorGlobals.allTextEditors.sort(
       (a, b) => a.rootElement.style.zIndex - b.rootElement.style.zIndex,
     );
-    for (const instance of textEditorGlobals.allTextEditors) {
+    for (const instance of window.textEditorGlobals.allTextEditors) {
       if (instance && (instance.showWindow)) {
         instance.showWindow();
       }
@@ -727,7 +727,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       }
 
       // apply locally
-      textEditorGlobals.editorSettings = normalized;
+      window.textEditorGlobals.editorSettings = normalized;
       window.editorSettings = normalized;
       try {
         // update this editor's textarea
@@ -736,8 +736,8 @@ textEditor = function (path, posX = 50, posY = 50) {
 
       // keep parity with other open editors if available
       try {
-        if (Array.isArray(textEditorGlobals.allTextEditors)) {
-          for (const inst of textEditorGlobals.allTextEditors) {
+        if (Array.isArray(window.textEditorGlobals.allTextEditors)) {
+          for (const inst of window.textEditorGlobals.allTextEditors) {
             try {
               if (inst && inst.rootElement) {
                 const ta =
@@ -844,7 +844,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     .then((settings) => {
       try {
         const normalized = normalizeTextEditorSettings(settings);
-        textEditorGlobals.editorSettings = normalized;
+        window.textEditorGlobals.editorSettings = normalized;
         textarea.style.fontSize = (normalized.fontSize || 14) + "px";
       } catch (e) {}
     })
@@ -1092,7 +1092,7 @@ textEditor = function (path, posX = 50, posY = 50) {
   // wire New/Open actions
   newBtn.addEventListener("click", async () => {
     // Use the Save As picker to choose a new file path (keeps UX consistent)
-    editorName = `Untitled-${textEditorGlobals.goldenbodyId}`;
+    editorName = `Untitled-${window.textEditorGlobals.goldenbodyId}`;
     if (path) {
       editorName = path.split("/").pop() || editorName;
     }
@@ -1106,7 +1106,7 @@ textEditor = function (path, posX = 50, posY = 50) {
     }
     path = chosen;
     titleLabel.textContent = editorName;
-    storageKey = `textEditor:${textEditorGlobals.goldenbodyId}:${editorName}:content`;
+    storageKey = `textEditor:${window.textEditorGlobals.goldenbodyId}:${editorName}:content`;
     textarea.value = "";
     updateStatus();
     // Immediately save the empty/new file to the server
@@ -1323,7 +1323,7 @@ textEditor = function (path, posX = 50, posY = 50) {
       textarea.value = b64DecodeUnicode(res.filecontent);
       editorName = path.split("/").pop() || editorName;
       titleLabel.textContent = editorName;
-      storageKey = `textEditor:${textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
+      storageKey = `textEditor:${window.textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
       updateStatus();
       returnObject.title = titleLabel.textContent;
     }
@@ -1367,7 +1367,7 @@ textEditor = function (path, posX = 50, posY = 50) {
         path = fullPath || picked[0];
         editorName = path.split("/").pop() || editorName;
         titleLabel.textContent = editorName;
-        storageKey = `textEditor:${textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
+        storageKey = `textEditor:${window.textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
         updateStatus();
       } catch (e) {
         console.warn("Failed to fetch picked file", e);
@@ -1587,12 +1587,12 @@ textEditor = function (path, posX = 50, posY = 50) {
     hideall: hideAll,
     closeall: closeAll,
     newwindow: newWindow,
-    goldenbodyId: textEditorGlobals.goldenbodyId,
+    goldenbodyId: window.textEditorGlobals.goldenbodyId,
     title: titleLabel.textContent,
     textarea,
   };
 
-  textEditorGlobals.allTextEditors.push(returnObject);
+  window.textEditorGlobals.allTextEditors.push(returnObject);
 
   window.protectedGlobals.applyStyles();
 
