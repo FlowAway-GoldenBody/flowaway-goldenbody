@@ -49,11 +49,6 @@ window.addEventListener("wifi-toggle", (e) => {
       eval(res || "");
     })
     .catch((e) => "");
-  window.browserGlobals.indexedDBhelper = await window.protectedGlobals
-    .ReadFile("/systemfiles/runtime/apps/browser/asset/browserhelper-indexedDB.js", { text: true, direct: true })
-    .then((res) => {
-      eval(res || "");
-    });
   window.browserGlobals.indexedDBPatch = await window.protectedGlobals
     .ReadFile("/systemfiles/runtime/apps/browser/asset/indexedDB.js", { text: true, direct: true });
 })();
