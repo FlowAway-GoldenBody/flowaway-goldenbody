@@ -131,6 +131,7 @@ window.browser = async function (
 
     // populate activatedUserscriptNames at startup
     async function populateActivatedUserscripts() {
+      activatedUserscriptNames = [];
       const basePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userscripts";
       try {
         let entries = [];
