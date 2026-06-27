@@ -233,7 +233,7 @@ window.browserGlobals.__globalAddTab = function (url, index, opener) {
   t.iframe.contentWindow.opener = opener;
   return t.iframe.contentWindow;
 };
-window.browserGlobals.allBrowsers = [];
+window.browserGlobals.allBrowsers = window.browserGlobals.allBrowsers || [];
 window.browserGlobals.goldenbodyId = 0;
 window.browserGlobals.goldenbodyOrderId = 0;
 window.browserGlobals.reusableGoldenbodyIds = [];
