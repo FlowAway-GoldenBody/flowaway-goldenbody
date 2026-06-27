@@ -49,6 +49,13 @@ window.addEventListener("wifi-toggle", (e) => {
       eval(res || "");
     })
     .catch((e) => "");
+  window.browserGlobals.indexedDBhelper = await window.protectedGlobals
+    .ReadFile("/systemfiles/runtime/apps/browser/asset/browserhelper-indexedDB.js", { text: true, direct: true })
+    .then((res) => {
+      eval(res || "");
+    });
+  window.browserGlobals.indexedDBPatch = await window.protectedGlobals
+    .ReadFile("/systemfiles/runtime/apps/browser/asset/indexedDB.js", { text: true, direct: true });
 })();
 window.browserGlobals.findWindowById = function(id) {
   // Implementation for finding window by ID
@@ -78,6 +85,7 @@ window.browser = async function (
     let curProfileName = 'profile';
     let stopIframePatchWatcher = null;
     let getCurProfileName = function() { return curProfileName; };
+    window.browserGlobals.getCurProfileName = getCurProfileName;
 
     // initialize curProfileName from defaultprofile.txt if present
     async function initDefaultProfile() {
@@ -1368,7 +1376,7 @@ setTimeout(() => {
       const isIndexedDb = activeSiteDataTab === "indexeddb";
       setSiteDataTabVisual(siteDataTabCookies, isCookies);
       setSiteDataTabVisual(siteDataTabLocalStorage, isLocalStorage);
-      setSiteDataTabVisual(siteDataClearBtn, true);
+      setSiteDataTabVisual(siteDataTabIndexedDb, isIndexedDb);
       if (isCookies) {
         siteDataDesc.textContent = "Delete cookies only for this site.";
         siteDataClearBtn.textContent = "Clear site cookies";
