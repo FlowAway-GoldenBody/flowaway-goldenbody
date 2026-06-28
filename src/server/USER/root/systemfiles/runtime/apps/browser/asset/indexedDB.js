@@ -1,120 +1,273 @@
-Object.defineProperty(frameWin, 'indexedDB', {
+console.log('indexedDB patch loaded');
+Object.defineProperty(frameWin, "indexedDB", {
   value: {
     open(name, version) {
-        let eventListeners = [];
-        let request = { 
-            onupgradeneeded: null, 
-            onsuccess: null, 
-            onerror: null,
-            readyState: 'pending',
-            addEventListener: function(event, callback) {
-                eventListeners.push({ event, callback });
-            },
-            removeEventListener: function(event, callback) {
-                eventListeners = eventListeners.filter(listener => !(listener.event === event && listener.callback === callback));
-            },
-            dispatchEvent: function(event) {
-                for (const listener of eventListeners) {
-                    if (listener.event === event.type) {
-                        listener.callback(event);
-                    }
+        let metadata = null;
+      // =========================================================
+      // REQUEST OBJECT (REAL EVENTTARGET + legacy handlers)
+      // =========================================================
+      class IDBRequest extends EventTarget {
+        constructor() {
+          super();
+
+          this.result = null;
+          this.error = null;
+          this.readyState = "pending";
+
+          // legacy handlers (Eaglercraft sometimes uses these)
+          this.onupgradeneeded = null;
+          this.onsuccess = null;
+          this.onerror = null;
+
+          // listener registry (for debugging / compatibility)
+          this._listeners = new Map();
+        }
+
+        addEventListener(type, cb) {
+          super.addEventListener(type, cb);
+
+          if (!this._listeners.has(type)) {
+            this._listeners.set(type, new Set());
+          }
+          this._listeners.get(type).add(cb);
+        }
+
+        removeEventListener(type, cb) {
+          super.removeEventListener(type, cb);
+          this._listeners.get(type)?.delete(cb);
+        }
+
+        dispatchEvent(event) {
+          const type = event.type;
+
+          // 1. EventTarget path
+          super.dispatchEvent(event);
+
+          // 2. legacy on* handlers (IndexedDB style)
+          const handler = this["on" + type];
+          if (typeof handler === "function") {
+            handler.call(this, event);
+          }
+
+          return true;
+        }
+      }
+
+      const request = new IDBRequest();
+
+    const emit = (type, extra = {}) => {
+        if (type === 'upgradeneeded') {
+            setTimeout(async () => {
+            if (db._schemaDirty) {
+            const writePromise = (async () => {
+                await window.protectedGlobals.WriteFile(
+                `${basePath}/metadata.json`,
+                JSON.stringify({
+                    version,
+                    stores: Object.keys(db.stores)
+                }),
+                { text: true, direct: true }
+                );
+
+                for (const name of Object.keys(db.stores)) {
+                await window.protectedGlobals.WriteFile(
+                    `${basePath}/${name}/.store`,
+                    "{}",
+                    { text: true, direct: true }
+                );
                 }
-            },
-        };
-        setTimeout(async () => {
-            let metadata = await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/browser/${window.browserGlobals.getCurProfileName()}/localstorage/indexedDB/${window.browserGlobals.mainWebsite(frameWin.location.href)}/${name}/metadata.json`, { text: true, direct: true });
-            let content = await window.protectedGlobals.ReadFolder(`/systemfiles/runtime/apps/browser/${window.browserGlobals.getCurProfileName()}/localstorage/indexedDB/${window.browserGlobals.mainWebsite(frameWin.location.href)}/${name}`);
-            if (!content) {
-                if (request.onupgradeneeded) {
-                    request.onupgradeneeded({ target: request });
-                }
-                eventListeners.forEach(listener => {
-                    if (listener.event === 'upgradeneeded') {
-                        listener.callback({ target: request });
-                    }
-                });
-                eventListeners.forEach(listener => {
-                    if (listener.event === 'success') {
-                        listener.callback({ target: request });
-                    }
-                });
-                if (request.onsuccess) {
-                    request.onsuccess({ target: request });
-                }
-            } else if (version > metadata.version) {
-                if (request.onupgradeneeded) {
-                    request.onupgradeneeded({ target: request });
-                }
-                eventListeners.forEach(listener => {
-                    if (listener.event === 'upgradeneeded') {
-                        listener.callback({ target: request });
-                    }
-                });
-                eventListeners.forEach(listener => {
-                    if (listener.event === 'success') {
-                        listener.callback({ target: request });
-                    }
-                });
-                if (request.onsuccess) {
-                    request.onsuccess({ target: request });
-                }
+            })();
+
+            db._schemaWritePromise = writePromise;
+            db._schemaDirty = false;
             }
-            else {
-                if (request.onsuccess) {
-                    request.onsuccess({ target: request });
-                }
-                eventListeners.forEach(listener => {
-                    if (listener.event === 'success') {
-                        listener.callback({ target: request });
-                    }
-                });
+        }, 100);
+        }
+        const event = new Event(type);
+
+        Object.defineProperty(event, "target", {
+          value: request
+        });
+
+        Object.defineProperty(event, "result", {
+          value: request.result
+        });
+
+        Object.assign(event, extra);
+
+        request.dispatchEvent(event);
+    };
+
+      // =========================================================
+      // PATH ROOT
+      // =========================================================
+      let url = new URL(window.browserGlobals.unshuffleURL(frameWin.location.href)).hostname;
+      const basePath =
+        `/systemfiles/runtime/apps/browser/` +
+        `${window.browserGlobals.getCurProfileName()}/localstorage/indexedDB/` +
+        `${url}/${name}`;
+
+      // =========================================================
+      // DB CORE
+      // =========================================================
+      const db = {
+        name,
+        version,
+        stores: {},
+
+        objectStoreNames: {
+          _set: new Set(),
+          contains(n) {
+            return this._set.has(n);
+          }
+        },
+
+        createObjectStore(storeName, options = {}) {
+          if (this.stores[storeName]) {
+            throw new Error("Object store exists: " + storeName);
+          }
+
+          const store = {
+            name: storeName,
+            keyPath: options.keyPath || null,
+            data: {},
+
+            put(value, key) {
+              if (this.keyPath) {
+                key = value[this.keyPath];
+              }
+
+              this.data[key] = value;
+
+              queueWrite(async () => {
+                await window.protectedGlobals.WriteFile(
+                  `${basePath}/${storeName}/${key}.json`,
+                  JSON.stringify(value),
+                  { text: true, direct: true }
+                );
+              });
+            },
+
+            get(key) {
+              return this.data[key] ?? null;
+            },
+
+            delete(key) {
+              delete this.data[key];
+
+              queueWrite(async () => {
+                await window.protectedGlobals.DeleteFile(
+                  `${basePath}/${storeName}/${key}.json`
+                );
+              });
+            },
+
+            clear() {
+              this.data = {};
+
+              queueWrite(async () => {
+                await window.protectedGlobals.DeleteFolder(
+                  `${basePath}/${storeName}`
+                );
+              });
             }
-            request.result = {};
-            for (let i = 0; i < content.length; i++) {
-                content[i] = content[i].replace(/\.json$/, '');
-            }
-            request.result.objectStoreNames = [...content];
-            request.result.objectStoreNames.contains = function(name) {
-                return content.includes(name);
-            };
-            request.result.createObjectStore = function(name, options = {}) {
-                if (content.includes(name)) {
-                    throw new Error(`Object store ${name} already exists`);
-                }
-                content.push(name);
-                request.result.objectStoreNames = [...content];
-                request.result.objectStoreNames.contains = function(name) {
-                    return content.includes(name);
-                };
-                let keyPath = options.keyPath || null;
-                let autoIncrement = options.autoIncrement || false;
-                request.result[name] = {
-                    keyPath,
-                    autoIncrement,
-                    data: {},
-                    put: function(value, key) {
-                        if (keyPath) {
-                            key = value[keyPath];
-                        }
-                        request.result[name].data[key] = value;
-                    },
-                    get: function(key) {
-                        return request.result[name].data[key];
-                    },
-                    delete: function(key) {
-                        delete request.result[name].data[key];
-                    },
-                    clear: function() {
-                        request.result[name].data = {};
-                    }
-                };
-            };
-            request.readyState = 'done';
-        }, 0);
-        return request;
+          };
+
+          this.stores[storeName] = store;
+          this.objectStoreNames._set.add(storeName);
+          db._schemaDirty = true;
+          return store;
+        },
+
+        transaction(names) {
+          if (!Array.isArray(names)) names = [names];
+
+          return {
+            objectStore: (n) => db.stores[n],
+            commit: async () => flushQueue(),
+            abort: () => {}
+          };
+        }
+      };
+
+      // =========================================================
+      // WRITE QUEUE
+      // =========================================================
+      const queueWrite = (fn) => {
+        writeQueue.push(fn);
+        flushQueue();
+      };
+
+      const writeQueue = [];
+      let flushing = false;
+
+      const flushQueue = async () => {
+        if (flushing) return;
+        flushing = true;
+
+        while (writeQueue.length) {
+          try {
+            await writeQueue.shift()();
+          } catch (e) {
+            console.error("VFS write error:", e);
+          }
+        }
+
+        flushing = false;
+      };
+
+      // =========================================================
+      // OPEN LOGIC
+      // =========================================================
+      setTimeout(async () => {
+        let exists = false;
+
+        try {
+            debugger;
+          const raw = await window.protectedGlobals.ReadFile(
+            `${basePath}/metadata.json`,
+            { text: true, direct: true }
+          );
+          if (!raw) await window.protectedGlobals.WriteFile(
+            `${basePath}/metadata.json`,
+            JSON.stringify({ version }),
+            { text: true, direct: true }
+          );
+          metadata = JSON.parse(raw);
+        } catch {}
+
+        try {
+          const folder = await window.protectedGlobals.ReadFolder(basePath);
+          exists = folder && folder.length > 0;
+        } catch {}
+
+        const oldVersion = metadata?.version ?? 0;
+        const needsUpgrade = !exists || version > oldVersion;
+
+        request.result = db;
+        request.readyState = "done";
+
+        // IMPORTANT: IndexedDB behavior
+        if (needsUpgrade) {
+          emit("upgradeneeded", {
+            oldVersion,
+            newVersion: version
+          });
+        }
+
+        // wait for upgrade work to finish
+        await flushQueue();
+        emit("success");
+      }, 0);
+
+      return request;
     },
-    deleteDatabase(name) {},
-    databases() {},
-    cmp(first, second) {}
-  },
-})
+
+    deleteDatabase() {},
+    databases() { return []; },
+
+    cmp(a, b) {
+      return a === b ? 0 : a > b ? 1 : -1;
+    }
+  }
+});
