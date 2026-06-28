@@ -1,273 +1,396 @@
-console.log('indexedDB patch loaded');
-Object.defineProperty(frameWin, "indexedDB", {
-  value: {
-    open(name, version) {
-        let metadata = null;
-      // =========================================================
-      // REQUEST OBJECT (REAL EVENTTARGET + legacy handlers)
-      // =========================================================
-      class IDBRequest extends EventTarget {
-        constructor() {
-          super();
+// console.log('indexedDB patch loaded');
+// Object.defineProperty(frameWin, "indexedDB", {
+//   value: {
+//     open(name, version) {
+//       const hydrateStores = async () => {
+//         try {
+//           const stores = await window.protectedGlobals.ReadFolder(basePath);
 
-          this.result = null;
-          this.error = null;
-          this.readyState = "pending";
+//           for (const storeName of stores) {
+//             const storePath = `${basePath}/${storeName}`;
+//             if (storeName.includes("metadata.json")) continue;
+//             const files = await window.protectedGlobals.ReadFolder(storePath);
 
-          // legacy handlers (Eaglercraft sometimes uses these)
-          this.onupgradeneeded = null;
-          this.onsuccess = null;
-          this.onerror = null;
+//             if (!db.stores[storeName]) {
+//               // create empty store if not exists yet
+//               db.createObjectStore(storeName);
+//             }
 
-          // listener registry (for debugging / compatibility)
-          this._listeners = new Map();
-        }
+//             const store = db.stores[storeName];
 
-        addEventListener(type, cb) {
-          super.addEventListener(type, cb);
+//             for (const file of files) {
+//               if (file === ".store") continue;
 
-          if (!this._listeners.has(type)) {
-            this._listeners.set(type, new Set());
-          }
-          this._listeners.get(type).add(cb);
-        }
+//               const key = file.replace(".json", "");
 
-        removeEventListener(type, cb) {
-          super.removeEventListener(type, cb);
-          this._listeners.get(type)?.delete(cb);
-        }
+//               try {
+//                 const raw = await window.protectedGlobals.ReadFile(`${storePath}/${file}`, { text: true, direct: true });
 
-        dispatchEvent(event) {
-          const type = event.type;
+//                 try {
+//                   store.data[key] = JSON.parse(raw);
+//                 } catch {
+//                   // fallback for binary
+//                   const bin = atob(raw);
+//                   const arr = new Uint8Array([...bin].map(c => c.charCodeAt(0)));
+//                   store.data[key] = arr.buffer;
+//                 }
+//               } catch (e) {
+//                 console.warn("Failed to hydrate key:", key, e);
+//               }
+//             }
+//           }
+//         } catch (e) {
+//           console.warn("No stores to hydrate:", e);
+//         }
+//       };
+//         let metadata = null;
+//       // =========================================================
+//       // REQUEST OBJECT (REAL EVENTTARGET + legacy handlers)
+//       // =========================================================
+//       class IDBRequest extends EventTarget {
+//         constructor() {
+//           super();
 
-          // 1. EventTarget path
-          super.dispatchEvent(event);
+//           this.result = null;
+//           this.error = null;
+//           this.readyState = "pending";
 
-          // 2. legacy on* handlers (IndexedDB style)
-          const handler = this["on" + type];
-          if (typeof handler === "function") {
-            handler.call(this, event);
-          }
+//           // legacy handlers (Eaglercraft sometimes uses these)
+//           this.onupgradeneeded = null;
+//           this.onsuccess = null;
+//           this.onerror = null;
 
-          return true;
-        }
-      }
+//           // listener registry (for debugging / compatibility)
+//           this._listeners = new Map();
+//         }
 
-      const request = new IDBRequest();
+//         addEventListener(type, cb) {
+//           super.addEventListener(type, cb);
 
-    const emit = (type, extra = {}) => {
-        if (type === 'upgradeneeded') {
-            setTimeout(async () => {
-            if (db._schemaDirty) {
-            const writePromise = (async () => {
-                await window.protectedGlobals.WriteFile(
-                `${basePath}/metadata.json`,
-                JSON.stringify({
-                    version,
-                    stores: Object.keys(db.stores)
-                }),
-                { text: true, direct: true }
-                );
+//           if (!this._listeners.has(type)) {
+//             this._listeners.set(type, new Set());
+//           }
+//           this._listeners.get(type).add(cb);
+//         }
 
-                for (const name of Object.keys(db.stores)) {
-                await window.protectedGlobals.WriteFile(
-                    `${basePath}/${name}/.store`,
-                    "{}",
-                    { text: true, direct: true }
-                );
-                }
-            })();
+//         removeEventListener(type, cb) {
+//           super.removeEventListener(type, cb);
+//           this._listeners.get(type)?.delete(cb);
+//         }
 
-            db._schemaWritePromise = writePromise;
-            db._schemaDirty = false;
-            }
-        }, 100);
-        }
-        const event = new Event(type);
+//         dispatchEvent(event) {
+//           const type = event.type;
 
-        Object.defineProperty(event, "target", {
-          value: request
-        });
+//           // 1. EventTarget path
+//           super.dispatchEvent(event);
 
-        Object.defineProperty(event, "result", {
-          value: request.result
-        });
+//           // 2. legacy on* handlers (IndexedDB style)
+//           const handler = this["on" + type];
+//           if (typeof handler === "function") {
+//             handler.call(this, event);
+//           }
 
-        Object.assign(event, extra);
+//           return true;
+//         }
+//       }
 
-        request.dispatchEvent(event);
-    };
+//       const request = new IDBRequest();
 
-      // =========================================================
-      // PATH ROOT
-      // =========================================================
-      let url = new URL(window.browserGlobals.unshuffleURL(frameWin.location.href)).hostname;
-      const basePath =
-        `/systemfiles/runtime/apps/browser/` +
-        `${window.browserGlobals.getCurProfileName()}/localstorage/indexedDB/` +
-        `${url}/${name}`;
+//     const emit = (type, extra = {}) => {
+//         if (type === 'upgradeneeded') {
+//             setTimeout(async () => {
+//             if (db._schemaDirty) {
+//             const writePromise = (async () => {
+//                 await window.protectedGlobals.WriteFile(
+//                 `${basePath}/metadata.json`,
+//                 JSON.stringify({
+//                     version,
+//                     stores: Object.keys(db.stores)
+//                 }),
+//                 { text: true, direct: true }
+//                 );
 
-      // =========================================================
-      // DB CORE
-      // =========================================================
-      const db = {
-        name,
-        version,
-        stores: {},
+//                 for (const name of Object.keys(db.stores)) {
+//                 await window.protectedGlobals.WriteFile(
+//                     `${basePath}/${name}/.store`,
+//                     "{}",
+//                     { text: true, direct: true }
+//                 );
+//                 }
+//             })();
 
-        objectStoreNames: {
-          _set: new Set(),
-          contains(n) {
-            return this._set.has(n);
-          }
-        },
+//             db._schemaWritePromise = writePromise;
+//             db._schemaDirty = false;
+//             }
+//         }, 100);
+//         }
+//         const event = new Event(type);
 
-        createObjectStore(storeName, options = {}) {
-          if (this.stores[storeName]) {
-            throw new Error("Object store exists: " + storeName);
-          }
+//         Object.defineProperty(event, "target", {
+//           value: request
+//         });
 
-          const store = {
-            name: storeName,
-            keyPath: options.keyPath || null,
-            data: {},
+//         Object.defineProperty(event, "result", {
+//           value: request.result
+//         });
 
-            put(value, key) {
-              if (this.keyPath) {
-                key = value[this.keyPath];
-              }
+//         Object.assign(event, extra);
 
-              this.data[key] = value;
+//         request.dispatchEvent(event);
+//     };
 
-              queueWrite(async () => {
-                await window.protectedGlobals.WriteFile(
-                  `${basePath}/${storeName}/${key}.json`,
-                  JSON.stringify(value),
-                  { text: true, direct: true }
-                );
-              });
-            },
+//       // =========================================================
+//       // PATH ROOT
+//       // =========================================================
+//       let url = new URL(window.browserGlobals.unshuffleURL(frameWin.location.href)).hostname;
+//       const basePath =
+//         `/systemfiles/runtime/apps/browser/` +
+//         `${window.browserGlobals.getCurProfileName()}/localstorage/indexedDB/` +
+//         `${url}/${name}`;
 
-            get(key) {
-              return this.data[key] ?? null;
-            },
+//       // =========================================================
+//       // DB CORE
+//       // =========================================================
+//       const db = {
+//         name,
+//         version,
+//         stores: {},
 
-            delete(key) {
-              delete this.data[key];
+//         objectStoreNames: {
+//           _set: new Set(),
+//           contains(n) {
+//             return this._set.has(n);
+//           }
+//         },
 
-              queueWrite(async () => {
-                await window.protectedGlobals.DeleteFile(
-                  `${basePath}/${storeName}/${key}.json`
-                );
-              });
-            },
+//         close() {
+//           // no-op for now
+//         },
+//         createObjectStore(storeName, options = {}) {
+//           if (this.stores[storeName]) {
+//             throw new Error("Object store exists: " + storeName);
+//           }
 
-            clear() {
-              this.data = {};
+//           const store = {
+//             name: storeName,
+//             keyPath: options.keyPath || null,
+//             data: {},
 
-              queueWrite(async () => {
-                await window.protectedGlobals.DeleteFolder(
-                  `${basePath}/${storeName}`
-                );
-              });
-            }
-          };
+//           put(value, key) {
+//             if (this.keyPath) {
+//               key = value[this.keyPath];
+//             }
 
-          this.stores[storeName] = store;
-          this.objectStoreNames._set.add(storeName);
-          db._schemaDirty = true;
-          return store;
-        },
+//             const request = new IDBRequest();
 
-        transaction(names) {
-          if (!Array.isArray(names)) names = [names];
+//             setTimeout(() => {
+//               try {
+//                 this.data[key] = value;
 
-          return {
-            objectStore: (n) => db.stores[n],
-            commit: async () => flushQueue(),
-            abort: () => {}
-          };
-        }
-      };
+//                 queueWrite(async () => {
+//                   const encoded =
+//                     value instanceof ArrayBuffer
+//                       ? btoa(String.fromCharCode(...new Uint8Array(value)))
+//                       : JSON.stringify(value);
 
-      // =========================================================
-      // WRITE QUEUE
-      // =========================================================
-      const queueWrite = (fn) => {
-        writeQueue.push(fn);
-        flushQueue();
-      };
+//                   await window.protectedGlobals.WriteFile(
+//                     `${basePath}/${storeName}/${key}.json`,
+//                     encoded,
+//                     { text: true, direct: true }
+//                   );
+//                 });
 
-      const writeQueue = [];
-      let flushing = false;
+//                 request.result = key;
+//                 request.readyState = "done";
 
-      const flushQueue = async () => {
-        if (flushing) return;
-        flushing = true;
+//                 request.dispatchEvent(new Event("success"));
+//               } catch (err) {
+//                 request.error = err;
+//                 request.dispatchEvent(new Event("error"));
+//               }
+//             }, 0);
 
-        while (writeQueue.length) {
-          try {
-            await writeQueue.shift()();
-          } catch (e) {
-            console.error("VFS write error:", e);
-          }
-        }
+//             return request;
+//           },
 
-        flushing = false;
-      };
+//           get(key) {
+//             const request = new IDBRequest();
 
-      // =========================================================
-      // OPEN LOGIC
-      // =========================================================
-      setTimeout(async () => {
-        let exists = false;
+//             setTimeout(() => {
+//               try {
+//                 request.result = this.data[key] ?? undefined;
+//                 request.readyState = "done";
+//                 request.dispatchEvent(new Event("success"));
+//               } catch (err) {
+//                 request.error = err;
+//                 request.dispatchEvent(new Event("error"));
+//               }
+//             }, 0);
 
-        try {
-            debugger;
-          const raw = await window.protectedGlobals.ReadFile(
-            `${basePath}/metadata.json`,
-            { text: true, direct: true }
-          );
-          if (!raw) await window.protectedGlobals.WriteFile(
-            `${basePath}/metadata.json`,
-            JSON.stringify({ version }),
-            { text: true, direct: true }
-          );
-          metadata = JSON.parse(raw);
-        } catch {}
+//             return request;
+//           },
 
-        try {
-          const folder = await window.protectedGlobals.ReadFolder(basePath);
-          exists = folder && folder.length > 0;
-        } catch {}
+//           delete(key) {
+//             const request = new IDBRequest();
 
-        const oldVersion = metadata?.version ?? 0;
-        const needsUpgrade = !exists || version > oldVersion;
+//             setTimeout(() => {
+//               try {
+//                 delete this.data[key];
 
-        request.result = db;
-        request.readyState = "done";
+//                 queueWrite(async () => {
+//                   await window.protectedGlobals.DeleteFile(
+//                     `${basePath}/${storeName}/${key}.json`
+//                   );
+//                 });
 
-        // IMPORTANT: IndexedDB behavior
-        if (needsUpgrade) {
-          emit("upgradeneeded", {
-            oldVersion,
-            newVersion: version
-          });
-        }
+//                 request.result = undefined;
+//                 request.readyState = "done";
 
-        // wait for upgrade work to finish
-        await flushQueue();
-        emit("success");
-      }, 0);
+//                 request.dispatchEvent(new Event("success"));
+//               } catch (err) {
+//                 request.error = err;
+//                 request.dispatchEvent(new Event("error"));
+//               }
+//             }, 0);
 
-      return request;
-    },
+//             return request;
+//           },
 
-    deleteDatabase() {},
-    databases() { return []; },
+//           clear() {
+//             const request = new IDBRequest();
 
-    cmp(a, b) {
-      return a === b ? 0 : a > b ? 1 : -1;
-    }
-  }
-});
+//             setTimeout(() => {
+//               try {
+//                 this.data = {};
+
+//                 queueWrite(async () => {
+//                   await window.protectedGlobals.DeleteFolder(
+//                     `${basePath}/${storeName}`
+//                   );
+//                 });
+
+//                 request.result = undefined;
+//                 request.readyState = "done";
+
+//                 request.dispatchEvent(new Event("success"));
+//               } catch (err) {
+//                 request.error = err;
+//                 request.dispatchEvent(new Event("error"));
+//               }
+//             }, 0);
+
+//             return request;
+//           }
+//           };
+
+//           this.stores[storeName] = store;
+//           this.objectStoreNames._set.add(storeName);
+//           db._schemaDirty = true;
+//           return store;
+//         },
+
+//         transaction(names) {
+//           if (!Array.isArray(names)) names = [names];
+
+//           class IDBTransaction extends EventTarget {
+//             objectStore(name) {
+//               const store = db.stores[name];
+//               if (!store) throw new Error("Missing store: " + name);
+//               return store;
+//             }
+
+//             async commit() {
+//               await flushQueue();
+//               this.dispatchEvent(new Event("complete"));
+//             }
+
+//             abort() {
+//               this.dispatchEvent(new Event("abort"));
+//             }
+//           }
+
+//           return new IDBTransaction();
+//         }
+//       };
+
+//       // =========================================================
+//       // WRITE QUEUE
+//       // =========================================================
+//       const queueWrite = (fn) => {
+//         writeQueue.push(fn);
+//         flushQueue();
+//       };
+
+//       const writeQueue = [];
+//       let flushing = false;
+
+//       const flushQueue = async () => {
+//         if (flushing) return;
+//         flushing = true;
+
+//         while (writeQueue.length) {
+//           try {
+//             await writeQueue.shift()();
+//           } catch (e) {
+//             console.error("VFS write error:", e);
+//           }
+//         }
+
+//         flushing = false;
+//       };
+
+//       // =========================================================
+//       // OPEN LOGIC
+//       // =========================================================
+//       setTimeout(async () => {
+//         let exists = false;
+
+//         try {
+//             debugger;
+//           const raw = await window.protectedGlobals.ReadFile(
+//             `${basePath}/metadata.json`,
+//             { text: true, direct: true }
+//           );
+//           if (!raw) await window.protectedGlobals.WriteFile(
+//             `${basePath}/metadata.json`,
+//             JSON.stringify({ version }),
+//             { text: true, direct: true }
+//           );
+//           metadata = JSON.parse(raw);
+//         } catch {}
+
+//         try {
+//           const folder = await window.protectedGlobals.ReadFolder(basePath);
+//           exists = folder && folder.length > 0;
+//         } catch {}
+
+//         const oldVersion = metadata?.version ?? 0;
+//         const needsUpgrade = !exists || version > oldVersion;
+
+//         // IMPORTANT: IndexedDB behavior
+//         if (needsUpgrade) {
+//           emit("upgradeneeded", {
+//             oldVersion,
+//             newVersion: version
+//           });
+//         }
+
+//         // wait for upgrade work to finish
+//         await flushQueue();
+//         await hydrateStores();
+//         request.result = db;
+//         request.readyState = "done";
+//         emit("success");
+//       }, 0);
+
+//       return request;
+//     },
+
+//     deleteDatabase() {},
+//     databases() { return []; },
+
+//     cmp(a, b) {
+//       return a === b ? 0 : a > b ? 1 : -1;
+//     }
+//   }
+// });
