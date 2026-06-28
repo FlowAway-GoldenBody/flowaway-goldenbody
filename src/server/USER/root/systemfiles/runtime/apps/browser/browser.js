@@ -922,7 +922,7 @@ setTimeout(() => {
                 : {};
             const settingsPayload = JSON.stringify(defaultProfile, null, 2);
             await window.protectedGlobals.WriteFile(folderPath + "/settings.json", btoa(settingsPayload)).catch(() => {});
-            await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", btoa("")).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", btoa(await window.browserGlobals.requestNewBrowserSessionId())).catch(() => {});
             try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", btoa("{}")).catch(() => {});
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", btoa("{}")).catch(() => {});
@@ -1025,13 +1025,11 @@ setTimeout(() => {
             try {
               window.browserGlobals.cookiesPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/cookies.json";
               window.browserGlobals.localStoragePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "localstorage/localstorage.json";
-              window.browserGlobals.updateIndexedDbStore(getCurProfileName());
               // reload stores by mutating them in-place so all tabs see the same references
               const newCookies = await window.protectedGlobals.ReadFile(window.browserGlobals.cookiesPath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
               window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
               const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
               window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
-              window.browserGlobals.updateIndexedDbStore(getCurProfileName());
             } catch (e) {}
             window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
             window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", btoa(p));
