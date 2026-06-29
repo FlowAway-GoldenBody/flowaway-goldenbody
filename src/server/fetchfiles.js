@@ -451,6 +451,13 @@ if (data.requestFile) {
     }));
   }
 }
+if (data.deleteFolder) {
+  const normalizedRequestPath = normalizeUserRelativePath(data.requestFolderName);
+  if (!normalizedRequestPath) {
+    return res.end(JSON.stringify({ error: 'Invalid folder path' }));
+  }
+  fsp.rm(path.join(userRoot, normalizedRequestPath), { recursive: true, force: true })
+}
 if (data.requestFolder) {
   const normalizedRequestPath = normalizeUserRelativePath(data.requestFolderName);
   // return an array with all the file/folder names in the requested folder (non-recursive)
