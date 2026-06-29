@@ -90,7 +90,11 @@ window.protectedGlobals.DeleteFile = async function (relPath) {
   const directions = [{ delete: true, path: String(relPath) }, { end: true }];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
-
+window.protectedGlobals.DeleteFolder = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const directions = [{ deleteFolder: true, path: String(relPath) }, { end: true }];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+}
 window.protectedGlobals.RenameFile = async function (relPath, newName) {
   if (!relPath) throw new Error("No path");
   if (!newName) throw new Error("No new name");
