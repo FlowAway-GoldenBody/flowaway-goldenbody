@@ -22,7 +22,20 @@ Object.defineProperty(frameWin, "indexedDB", {
               if (file === ".store") continue;
 
               const key = file.replace(".json", "");
+              const raw = await window.protectedGlobals.ReadFile(
+                `${storePath}/${file}`,
+                { text: true, direct: true }
+              );
 
+              let parsed;
+              try {
+                parsed = JSON.parse(raw);
+              } catch {
+                // fallback if it's not JSON
+                parsed = raw;
+              }
+
+              this.data[key] = parsed;              
               try {
                 const raw = await window.protectedGlobals.ReadFile(`${storePath}/${file}`, { text: true, direct: true });
 
@@ -173,14 +186,20 @@ Object.defineProperty(frameWin, "indexedDB", {
 
           const store = {
             name: storeName,
-            keyPath: options.keyPath || null,
+            keyPath: options.keyPath ?? null,
+            autoIncrement: options.autoIncrement ?? false,
+
             data: {},
             getAll() {
               const request = new IDBRequest();
 
               setTimeout(() => {
                 try {
-                  request.result = Object.values(this.data);
+                  request.result = Object.entries(this.data).map(([key, value]) => ({
+                    key,
+                    value
+                  }));
+
                   request.readyState = "done";
                   request.dispatchEvent(new Event("success"));
                 } catch (err) {
@@ -191,55 +210,70 @@ Object.defineProperty(frameWin, "indexedDB", {
 
               return request;
             },
-          put(value, key) {
-            if (this.keyPath) {
-              key = value[this.keyPath];
-            }
-            if (key === undefined || key === null) {
-              key = crypto.randomUUID();
-            }
-            const request = new IDBRequest();
+            put(value, key) {
+              const request = new IDBRequest();
 
-            setTimeout(() => {
-              try {
-                this.data[key] = value;
+              setTimeout(() => {
+                try {
+                  let finalKey = key;
 
-                queueWrite(async () => {
-                  const encoded =
-                    value instanceof ArrayBuffer
-                      ? btoa(String.fromCharCode(...new Uint8Array(value)))
-                      : JSON.stringify(value);
+                  // keyPath fallback
+                  if (finalKey === undefined && this.keyPath) {
+                    finalKey = value?.[this.keyPath];
+                  }
 
-                  await window.protectedGlobals.WriteFile(
-                    `${basePath}/${storeName}/${key}.json`,
-                    encoded,
-                    { text: true, direct: true }
-                  );
-                });
+                  // autoIncrement fallback
+                  if (finalKey === undefined || finalKey === null) {
+                    if (true) { // placeholder
+                      finalKey = crypto.randomUUID();
+                    } else {
+                      throw new DOMException(
+                        "No key specified and object store does not use autoIncrement.",
+                        "DataError"
+                      );
+                    }
+                  }
 
-                request.result = key;
-                request.readyState = "done";
+                  // store in memory
+                  this.data[finalKey] = value;
 
-                request.dispatchEvent(new Event("success"));
-              } catch (err) {
-                request.error = err;
-                request.dispatchEvent(new Event("error"));
-              }
-            }, 0);
+                  queueWrite(async () => {
+                    const encoded =
+                      value instanceof ArrayBuffer
+                        ? btoa(String.fromCharCode(...new Uint8Array(value)))
+                        : JSON.stringify(value);
 
-            return request;
-          },
+                    await window.protectedGlobals.WriteFile(
+                      `${basePath}/${storeName}/${finalKey}.json`,
+                      encoded,
+                      { text: true, direct: true }
+                    );
+                  });
+
+                  request.result = finalKey;
+                  request.readyState = "done";
+                  request.dispatchEvent(new Event("success"));
+                } catch (err) {
+                  request.error = err;
+                  request.readyState = "done";
+                  request.dispatchEvent(new Event("error"));
+                }
+              }, 0);
+
+              return request;
+            },
 
           get(key) {
             const request = new IDBRequest();
 
             setTimeout(() => {
               try {
-                request.result = this.data[key] ?? undefined;
+                request.result = this.data[key];  // <-- this is the correct place
                 request.readyState = "done";
                 request.dispatchEvent(new Event("success"));
               } catch (err) {
                 request.error = err;
+                request.readyState = "done";
                 request.dispatchEvent(new Event("error"));
               }
             }, 0);
@@ -295,13 +329,12 @@ Object.defineProperty(frameWin, "indexedDB", {
                 request.dispatchEvent(new Event("error"));
               }
             }, 0);
-
+            debugger;
             return request;
           }
           };
 
           this.stores[storeName] = store;
-          debugger;
           this.objectStoreNames._set.add(storeName);
           db._schemaDirty = true;
           return store;

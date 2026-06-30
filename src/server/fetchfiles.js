@@ -451,13 +451,7 @@ if (data.requestFile) {
     }));
   }
 }
-if (data.deleteFolder) {
-  const normalizedRequestPath = normalizeUserRelativePath(data.requestFolderName);
-  if (!normalizedRequestPath) {
-    return res.end(JSON.stringify({ error: 'Invalid folder path' }));
-  }
-  fsp.rm(path.join(userRoot, normalizedRequestPath), { recursive: true, force: true })
-}
+
 if (data.requestFolder) {
   const normalizedRequestPath = normalizeUserRelativePath(data.requestFolderName);
   // return an array with all the file/folder names in the requested folder (non-recursive)
@@ -701,6 +695,16 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
     await fsp.mkdir(folderPath, { recursive: true });
   }
 
+  continue;
+}
+if (dir.deleteFolder) {
+  const folderRel = directionPathToRelative(dir.path || "");
+  assertWriteAllowed(folderRel);
+  const normalizedRequestPath = normalizeUserRelativePath(dir.path);
+  if (!normalizedRequestPath) {
+    return res.end(JSON.stringify({ error: 'Invalid folder path' }));
+  }
+  fsp.rm(path.join(userRoot, normalizedRequestPath), { recursive: true, force: true });
   continue;
 }
     if (dir.checkFolder) {
