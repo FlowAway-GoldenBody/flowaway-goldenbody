@@ -1428,7 +1428,7 @@ setTimeout(() => {
           `This will remove IndexedDB for ${website}. Continue?`,
         );
         if (!shouldClearIndexedDb) return;
-        await window.browserGlobals.clearIndexedDbForSite(website);
+        await window.protectedGlobals.DeleteFolder("/systemfiles/runtime/apps/browser/" + getCurProfileName() + "/localstorage/indexedDB/" + new URL(website).hostname);
         window.protectedGlobals.notification(
           "indexeddb cleared for this site",
         );
