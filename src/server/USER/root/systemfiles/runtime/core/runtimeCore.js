@@ -38,23 +38,45 @@ window.protectedGlobals.FileExists = async function (relPath) {
 }
 window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
   if (!relPath) throw new Error("No path");
-  let res = await window.protectedGlobals.filePost({
-    requestFile: true,
-    requestFileName: String(relPath),
-  });
-  if (options.text) {
-    if (res && typeof res.filecontent === "string") {
-      res.filecontent = window.tmpGlobals.decodeBase64ToUTF8(res.filecontent);
-    }
+
+  let chunkIndex = 0;
+  let chunks = [];
+  let meta = null;
+
+  while (true) {
+    const res = await window.protectedGlobals.filePost({
+      requestFile: true,
+      requestFileName: String(relPath),
+      chunkIndex,
+    });
+
+    if (!res) break;
+
+    meta = res;
+    chunks.push(res.filecontent);
+
+    if (res.isLastChunk) break;
+
+    chunkIndex++;
   }
+
+  // reconstruct full file
+  let fullBase64 = chunks.join("");
+
   if (options.buffer) {
-    if (res && typeof res.filecontent === "string") {
-      const binaryString = atob(res.filecontent);
-      res.filecontent = Uint8Array.from(binaryString, (char) => char.charCodeAt(0)).buffer;
-    }
+    const binary = atob(fullBase64);
+    return Uint8Array.from(binary, c => c.charCodeAt(0)).buffer;
   }
-  if (options.direct) return res.filecontent;
-  return res;
+
+  if (options.text) {
+    return window.tmpGlobals.decodeBase64ToUTF8(fullBase64);
+  }
+  if (options.direct) return fullBase64;
+
+  return {
+    ...meta,
+    filecontent: fullBase64
+  };
 };
 window.protectedGlobals.ReadFolder = async function (relPath) {
   if (!relPath) throw new Error("No path");

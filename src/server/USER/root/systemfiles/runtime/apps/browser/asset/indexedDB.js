@@ -2,6 +2,71 @@ console.log('indexedDB patch loaded');
 Object.defineProperty(frameWin, "indexedDB", {
   value: {
     open(name, version) {
+      function base64ToArrayBuffer(base64) {
+        const bin = atob(base64);
+        const bytes = new Uint8Array(bin.length);
+
+        for (let i = 0; i < bin.length; i++) {
+          bytes[i] = bin.charCodeAt(i);
+        }
+
+        return bytes.buffer;
+      }
+      function arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 0x8000; // 32KB chunks (safe for large buffers)
+        let binary = "";
+
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+
+        return btoa(binary);
+      }
+      function deserialize(value) {
+        // 1. detect encoded binary
+        if (value && value.__type === "bytes") {
+          return base64ToArrayBuffer(value.data);
+        }
+
+        // 2. arrays
+        if (Array.isArray(value)) {
+          return value.map(deserialize);
+        }
+
+        // 3. objects
+        if (value && typeof value === "object") {
+          const out = {};
+          for (const k in value) {
+            out[k] = deserialize(value[k]);
+          }
+          return out;
+        }
+
+        return value;
+      }
+      function serialize(value) {
+        if (value instanceof frameWin.ArrayBuffer) {
+          return {
+            __type: "bytes",
+            data: arrayBufferToBase64(value)
+          };
+        }
+
+        if (Array.isArray(value)) {
+          return value.map(serialize);
+        }
+
+        if (value && typeof value === "object") {
+          const out = {};
+          for (const k in value) {
+            out[k] = serialize(value[k]);
+          }
+          return out;
+        }
+
+        return value;
+      }
       const hydrateStores = async () => {
         try {
           const stores = await window.protectedGlobals.ReadFolder(basePath);
@@ -252,9 +317,9 @@ Object.defineProperty(frameWin, "indexedDB", {
                   // 4. persist to file
                   queueWrite(async () => {
                     const encoded =
-                      value instanceof ArrayBuffer
+                      value instanceof frameWin.ArrayBuffer
                         ? btoa(String.fromCharCode(...new Uint8Array(value)))
-                        : JSON.stringify(value);
+                        : JSON.stringify(serialize(value));
 
                     await window.protectedGlobals.WriteFile(
                       `${basePath}/${storeName}/${finalKey}.json`,
@@ -297,7 +362,8 @@ Object.defineProperty(frameWin, "indexedDB", {
 
                     let value;
                     try {
-                      value = JSON.parse(raw);
+                      const parsed = JSON.parse(raw);
+                      const value = deserialize(parsed);
                     } catch {
                       value = raw;
                     }

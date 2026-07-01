@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs-extra');
 const path = require('path');
 const fsp = require('fs/promises');
+
 async function walkDir(dir, base = dir) {
   const entries = await fsp.readdir(dir, { withFileTypes: true });
   const files = [];
