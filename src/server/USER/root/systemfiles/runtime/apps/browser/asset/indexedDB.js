@@ -11,9 +11,10 @@ Object.defineProperty(frameWin, "indexedDB", {
             if (storeName.includes("metadata.json")) continue;
             const files = await window.protectedGlobals.ReadFolder(storePath);
 
+            const options = metadata.stores?.[storeName] ?? {};
+
             if (!db.stores[storeName]) {
-              // create empty store if not exists yet
-              db.createObjectStore(storeName);
+                db.createObjectStore(storeName, options);
             }
 
             const store = db.stores[storeName];
@@ -35,7 +36,6 @@ Object.defineProperty(frameWin, "indexedDB", {
                 parsed = raw;
               }
 
-              this.data[key] = parsed;              
               try {
                 const raw = await window.protectedGlobals.ReadFile(`${storePath}/${file}`, { text: true, direct: true });
 
@@ -53,6 +53,7 @@ Object.defineProperty(frameWin, "indexedDB", {
             }
           }
         } catch (e) {
+          
           console.warn("No stores to hydrate:", e);
         }
       };
@@ -106,7 +107,6 @@ Object.defineProperty(frameWin, "indexedDB", {
           return true;
         }
       }
-
       const request = new IDBRequest();
 
     const emit = (type, extra = {}) => {
@@ -118,7 +118,15 @@ Object.defineProperty(frameWin, "indexedDB", {
                 `${basePath}/metadata.json`,
                 JSON.stringify({
                     version,
-                    stores: Object.keys(db.stores)
+                    stores: Object.fromEntries(
+                      Object.entries(db.stores).map(([name, store]) => [
+                          name,
+                          {
+                              keyPath: store.keyPath,
+                              autoIncrement: store.autoIncrement
+                          }
+                      ])
+                  )
                 }),
                 { text: true, direct: true }
                 );
@@ -217,26 +225,31 @@ Object.defineProperty(frameWin, "indexedDB", {
                 try {
                   let finalKey = key;
 
-                  // keyPath fallback
+                  // 1. explicit key wins
                   if (finalKey === undefined && this.keyPath) {
-                    finalKey = value?.[this.keyPath];
+                    if (Array.isArray(this.keyPath)) {
+                      finalKey = this.keyPath.map(k => value?.[k]).join("|");
+                    } else {
+                      finalKey = value?.[this.keyPath];
+                    }
                   }
 
-                  // autoIncrement fallback
+                  // 2. ONLY autoIncrement fallback if allowed
                   if (finalKey === undefined || finalKey === null) {
-                    if (true) { // placeholder
-                      finalKey = crypto.randomUUID();
+                    if (this.autoIncrement) {
+                      finalKey = crypto.randomUUID(); // or counter
                     } else {
+                      
                       throw new DOMException(
                         "No key specified and object store does not use autoIncrement.",
                         "DataError"
                       );
                     }
                   }
-
-                  // store in memory
+                  // 3. store in memory
                   this.data[finalKey] = value;
 
+                  // 4. persist to file
                   queueWrite(async () => {
                     const encoded =
                       value instanceof ArrayBuffer
@@ -253,6 +266,7 @@ Object.defineProperty(frameWin, "indexedDB", {
                   request.result = finalKey;
                   request.readyState = "done";
                   request.dispatchEvent(new Event("success"));
+
                 } catch (err) {
                   request.error = err;
                   request.readyState = "done";
@@ -263,23 +277,48 @@ Object.defineProperty(frameWin, "indexedDB", {
               return request;
             },
 
-          get(key) {
-            const request = new IDBRequest();
+            get(key) {
+              const request = new IDBRequest();
 
-            setTimeout(() => {
-              try {
-                request.result = this.data[key];  // <-- this is the correct place
-                request.readyState = "done";
-                request.dispatchEvent(new Event("success"));
-              } catch (err) {
-                request.error = err;
-                request.readyState = "done";
-                request.dispatchEvent(new Event("error"));
-              }
-            }, 0);
+              setTimeout(async () => {
+                try {
+                  // 1. fast path (memory)
+                  
+                  if (this.data[key] !== undefined) {
+                    request.result = this.data[key];
+                  } else {
+                    // 2. slow path (disk fallback)
+                    const filePath = `${basePath}/${storeName}/${key}.json`;
 
-            return request;
-          },
+                    const raw = await window.protectedGlobals.ReadFile(
+                      filePath,
+                      { text: true, direct: true }
+                    );
+
+                    let value;
+                    try {
+                      value = JSON.parse(raw);
+                    } catch {
+                      value = raw;
+                    }
+
+                    // cache it
+                    this.data[key] = value;
+
+                    request.result = value;
+                  }
+
+                  request.readyState = "done";
+                  request.dispatchEvent(new Event("success"));
+
+                } catch (err) {
+                  request.error = err;
+                  request.dispatchEvent(new Event("error"));
+                }
+              }, 0);
+
+              return request;
+            },
 
           delete(key) {
             const request = new IDBRequest();
@@ -329,11 +368,10 @@ Object.defineProperty(frameWin, "indexedDB", {
                 request.dispatchEvent(new Event("error"));
               }
             }, 0);
-            debugger;
+            
             return request;
           }
           };
-
           this.stores[storeName] = store;
           this.objectStoreNames._set.add(storeName);
           db._schemaDirty = true;
