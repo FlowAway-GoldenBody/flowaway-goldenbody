@@ -7,7 +7,7 @@ window.explorerGlobals.clipboard = {
   path: null, // full path string
 };
 
-fileExplorer = async function (path = '/', posX = 50, posY = 50) {
+window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();
     posX = pos.x;
@@ -772,6 +772,23 @@ function makeIcon(type, size = 16) {
       contextMenu.style.boxShadow = isDark ? "0 8px 30px rgba(0,0,0,0.6)" : "0 8px 20px rgba(0,0,0,0.08)";
     }
     [refreshBtn, uploadBtn, homeBtn, saveBtn, trashBtn, emptyTrashBtn, createFolderBtn, createFileBtn].forEach(styleSidebarButton);
+    // Apply theme to search inputs if they exist
+    if (currentDirSearchInput) {
+      currentDirSearchInput.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+      currentDirSearchInput.style.background = isDark ? "#111827" : "transparent";
+      currentDirSearchInput.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (globalSearchInput) {
+      globalSearchInput.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+      globalSearchInput.style.background = isDark ? "#111827" : "transparent";
+      globalSearchInput.style.color = isDark ? "#e6eef8" : "#111";
+    }
+    if (autocompleteHints) {
+      autocompleteHints.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+      autocompleteHints.style.background = isDark ? "#111827" : "white";
+      autocompleteHints.style.color = isDark ? "#e6eef8" : "#111";
+      autocompleteHints.style.boxShadow = isDark ? "0 8px 30px rgba(0,0,0,0.6)" : "0 8px 20px rgba(0,0,0,0.08)";
+    }
   }
 
   // Main area
@@ -877,6 +894,243 @@ function makeIcon(type, size = 16) {
   controls.appendChild(sortSelect);
   controls.appendChild(sortOrderBtn);
   controls.appendChild(viewToggle);
+
+  // --- SEARCH BARS ---
+  // Create search container positioned on the left
+  const searchContainer = document.createElement("div");
+  searchContainer.style.display = "inline-flex";
+  searchContainer.style.gap = "8px";
+  searchContainer.style.alignItems = "center";
+  searchContainer.style.flex = "1";
+  searchContainer.style.marginRight = "16px";
+
+  // SEARCH 1: Current directory search
+  const currentDirSearchContainer = document.createElement("div");
+  currentDirSearchContainer.style.position = "relative";
+  currentDirSearchContainer.style.flex = "1";
+  currentDirSearchContainer.style.maxWidth = "250px";
+
+  const currentDirSearchInput = document.createElement("input");
+  currentDirSearchInput.type = "text";
+  currentDirSearchInput.placeholder = "Search in folder...";
+  currentDirSearchInput.style.width = "100%";
+  currentDirSearchInput.style.padding = "6px 8px";
+  currentDirSearchInput.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+  currentDirSearchInput.style.borderRadius = "6px";
+  currentDirSearchInput.style.background = isDark ? "#111827" : "transparent";
+  currentDirSearchInput.style.color = isDark ? "#e6eef8" : "#111";
+  currentDirSearchInput.style.fontSize = "13px";
+  currentDirSearchContainer.appendChild(currentDirSearchInput);
+
+  // SEARCH 2: Global search with autocomplete
+  const globalSearchContainer = document.createElement("div");
+  globalSearchContainer.style.position = "relative";
+  globalSearchContainer.style.flex = "1";
+  globalSearchContainer.style.maxWidth = "250px";
+
+  const globalSearchInput = document.createElement("input");
+  globalSearchInput.type = "text";
+  globalSearchInput.placeholder = "Find files...";
+  globalSearchInput.style.width = "100%";
+  globalSearchInput.style.padding = "6px 8px";
+  globalSearchInput.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+  globalSearchInput.style.borderRadius = "6px";
+  globalSearchInput.style.background = isDark ? "#111827" : "transparent";
+  globalSearchInput.style.color = isDark ? "#e6eef8" : "#111";
+  globalSearchInput.style.fontSize = "13px";
+  globalSearchContainer.appendChild(globalSearchInput);
+
+  // Autocomplete hints dropdown for global search
+  const autocompleteHints = document.createElement("div");
+  autocompleteHints.style.position = "absolute";
+  autocompleteHints.style.top = "100%";
+  autocompleteHints.style.left = "0";
+  autocompleteHints.style.right = "0";
+  autocompleteHints.style.marginTop = "2px";
+  autocompleteHints.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
+  autocompleteHints.style.borderRadius = "6px";
+  autocompleteHints.style.background = isDark ? "#111827" : "white";
+  autocompleteHints.style.color = isDark ? "#e6eef8" : "#111";
+  autocompleteHints.style.maxHeight = "200px";
+  autocompleteHints.style.overflowY = "auto";
+  autocompleteHints.style.display = "none";
+  autocompleteHints.style.zIndex = "1001";
+  autocompleteHints.style.boxShadow = isDark ? "0 8px 30px rgba(0,0,0,0.6)" : "0 8px 20px rgba(0,0,0,0.08)";
+  globalSearchContainer.appendChild(autocompleteHints);
+
+  // Helper function to search tree recursively
+  function searchTreeForNodes(query, node = treeData, path = ["root"], results = []) {
+    if (!node || !node[1]) return results;
+    
+    const queryLower = query.toLowerCase();
+    for (const child of node[1]) {
+      const nameLower = (child[0] || "").toLowerCase();
+      if (nameLower.includes(queryLower)) {
+        results.push({
+          name: child[0],
+          path: path.slice(1).join("/") + (path.length > 1 ? "/" : "") + child[0],
+          fullPath: [...path, child[0]],
+          isFolder: Array.isArray(child[1]),
+          node: child,
+        });
+      }
+      if (Array.isArray(child[1])) {
+        searchTreeForNodes(query, child, [...path, child[0]], results);
+      }
+    }
+    return results;
+  }
+
+  // Sort search results by relevance
+  function sortByRelevance(results, query) {
+    const queryLower = query.toLowerCase();
+    return results.sort((a, b) => {
+      // Exact match first
+      if (a.name.toLowerCase() === queryLower) return -1;
+      if (b.name.toLowerCase() === queryLower) return 1;
+      // Starts with query
+      if (a.name.toLowerCase().startsWith(queryLower)) return -1;
+      if (b.name.toLowerCase().startsWith(queryLower)) return 1;
+      // Contains query
+      const aIdx = a.name.toLowerCase().indexOf(queryLower);
+      const bIdx = b.name.toLowerCase().indexOf(queryLower);
+      return aIdx - bIdx;
+    });
+  }
+
+  // Handle current directory search
+  currentDirSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const query = currentDirSearchInput.value.trim();
+      if (!query) return;
+      
+      const node = findNode(treeData, currentPath);
+      if (!node || !node[1]) return;
+      
+      const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+      const queryLower = query.toLowerCase();
+      const matching = items.filter(item => item[0].toLowerCase().includes(queryLower));
+      
+      selectedItems = matching;
+      lastSelectedIndex = matching.length - 1;
+      refreshSelectionUI(items);
+      currentDirSearchInput.value = "";
+    }
+  });
+
+  // Handle global search with autocomplete
+  let globalSearchTimeout;
+  globalSearchInput.addEventListener("input", (e) => {
+    clearTimeout(globalSearchTimeout);
+    const query = e.target.value.trim();
+    
+    if (!query) {
+      autocompleteHints.style.display = "none";
+      autocompleteHints.innerHTML = "";
+      return;
+    }
+
+    globalSearchTimeout = setTimeout(() => {
+      const results = searchTreeForNodes(query);
+      const sortedResults = sortByRelevance(results, query);
+      
+      autocompleteHints.innerHTML = "";
+      
+      if (sortedResults.length === 0) {
+        const empty = document.createElement("div");
+        empty.textContent = "No results found";
+        empty.style.padding = "8px 10px";
+        empty.style.opacity = "0.6";
+        empty.style.cursor = "default";
+        autocompleteHints.appendChild(empty);
+        autocompleteHints.style.display = "block";
+        return;
+      }
+      
+      sortedResults.slice(0, 15).forEach((result, index) => {
+        const hint = document.createElement("div");
+        hint.style.padding = "8px 10px";
+        hint.style.cursor = "pointer";
+        hint.style.borderBottom = index < sortedResults.length - 1 ? (isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)") : "none";
+        hint.style.background = "transparent";
+        hint.style.fontSize = "13px";
+        
+        const hintText = document.createElement("div");
+        hintText.textContent = result.name;
+        hintText.style.fontWeight = "500";
+        hint.appendChild(hintText);
+        
+        const hintPath = document.createElement("div");
+        hintPath.textContent = result.path;
+        hintPath.style.fontSize = "11px";
+        hintPath.style.opacity = "0.6";
+        hint.appendChild(hintPath);
+        
+        hint.addEventListener("mouseenter", () => {
+          hint.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)";
+        });
+        hint.addEventListener("mouseleave", () => {
+          hint.style.background = "transparent";
+        });
+        
+        hint.addEventListener("click", () => {
+          // Navigate to the item
+          if (result.isFolder) {
+            // Go to the parent of the folder and select it
+            currentPath = result.fullPath.slice(0, -1);
+          } else {
+            // Go to the file's parent and select it
+            currentPath = result.fullPath.slice(0, -1);
+          }
+          selectedItems = [result.node];
+          lastSelectedIndex = 0;
+          globalSearchInput.value = "";
+          autocompleteHints.style.display = "none";
+          render();
+        });
+        
+        autocompleteHints.appendChild(hint);
+      });
+      
+      autocompleteHints.style.display = "block";
+    }, 150);
+  });
+
+  // Handle Enter key on global search
+  globalSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const query = globalSearchInput.value.trim();
+      if (!query) return;
+      
+      const results = searchTreeForNodes(query);
+      const sortedResults = sortByRelevance(results, query);
+      
+      if (sortedResults.length > 0) {
+        const first = sortedResults[0];
+        if (first.isFolder) {
+          currentPath = first.fullPath.slice(0, -1);
+        } else {
+          currentPath = first.fullPath.slice(0, -1);
+        }
+        selectedItems = [first.node];
+        lastSelectedIndex = 0;
+        globalSearchInput.value = "";
+        autocompleteHints.style.display = "none";
+        render();
+      }
+    }
+  });
+
+  // Close autocomplete when clicking outside
+  document.addEventListener("pointerdown", (e) => {
+    if (!globalSearchContainer.contains(e.target)) {
+      autocompleteHints.style.display = "none";
+    }
+  }, true);
+
+  searchContainer.appendChild(currentDirSearchContainer);
+  searchContainer.appendChild(globalSearchContainer);
+  topbar.appendChild(searchContainer);
   topbar.appendChild(controls);
 
   fileArea = document.createElement("div");
@@ -1111,7 +1365,7 @@ function makeIcon(type, size = 16) {
       // Single click
       selectedItems = [item];
       lastSelectedIndex = index;
-    }
+    } 
 
     selectedItem = item;
     refreshSelectionUI(items);
@@ -1184,8 +1438,8 @@ function makeIcon(type, size = 16) {
         if (selectedItems.includes(item)) tile.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
 
         tile.onclick = (e) => handleSelection(e, item, items, index);
-        tile.ondblclick = () => { selectedItems = []; if (isFolder) { currentPath.push(item[0]); render(); } };
-        tile.oncontextmenu = (e) => { e.preventDefault(); handleSelection(e, item, items, index); showContextMenu(e.clientX, e.clientY, isFolder); };
+        tile.ondblclick = () => { if (isFolder) { selectedItems = []; currentPath.push(item[0]); render(); } };
+        tile.oncontextmenu = (e) => { e.preventDefault(); if (selectedItems.length == 0) { handleSelection(e, item, items, index); } showContextMenu(e.clientX, e.clientY, isFolder); };
 
         const icon = document.createElement("div");
         icon.style.fontSize = "36px";
@@ -1240,8 +1494,8 @@ function makeIcon(type, size = 16) {
 
         // Double-click folder open (or file open in text editor)
         div.ondblclick = () => {
-          selectedItems = [];
           if (isFolder) {
+            selectedItems = [];
             currentPath.push(item[0]);
             render();
           }
@@ -1250,6 +1504,9 @@ function makeIcon(type, size = 16) {
         // Context menu
         div.oncontextmenu = (e) => {
           e.preventDefault();
+          if (selectedItems.length == 0) {
+            handleSelection(e, item, items, index);
+          }
           selectedItem = item;
           showContextMenu(e.clientX, e.clientY, isFolder);
         };
@@ -1817,16 +2074,57 @@ function makeIcon(type, size = 16) {
   };
   root.addEventListener("keydown", handlepaste);
   root.addEventListener("keydown", handlecopy);
+
+  // --- SELECT ALL (Ctrl+A) ---
+  let handleSelectAll = (e) => {
+    if (!e || !e.target || !root.contains(e.target)) return;
+    if (e.repeat) return;
+    if (e.ctrlKey && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      e.stopPropagation();
+      const node = findNode(treeData, currentPath);
+      if (!node || !node[1]) return;
+      const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+      selectedItems = items.slice();
+      lastSelectedIndex = items.length - 1;
+      refreshSelectionUI(items);
+    }
+  };
+  root.addEventListener("keydown", handleSelectAll);
+
   // --- CONTEXT MENU ---
   function showContextMenu(clientX, clientY, isFolder, isBlank = false) {
     contextMenu.innerHTML = "";
     const containerRect = container.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    
     let x = clientX - containerRect.left;
     let y = clientY - containerRect.top;
 
-    // Prevent menu from going outside container
-    x = Math.min(x, containerRect.width - contextMenu.offsetWidth) + 5;
-    y = Math.min(y, containerRect.height - contextMenu.offsetHeight) + 30;
+    // Wait for context menu to render before checking its size
+    requestAnimationFrame(() => {
+      const menuWidth = contextMenu.offsetWidth || 260;
+      const menuHeight = contextMenu.offsetHeight || 400;
+      const containerWidth = containerRect.width;
+      const containerHeight = containerRect.height;
+
+      // Adjust X position if menu would overflow to the right
+      if (x + menuWidth > containerWidth) {
+        x = Math.max(0, containerWidth - menuWidth - 5);
+      }
+
+      // Adjust Y position if menu would overflow to the bottom
+      if (y + menuHeight > containerHeight) {
+        y = Math.max(0, containerHeight - menuHeight - 5);
+      }
+
+      // Ensure minimum padding from edges
+      x = Math.max(5, x);
+      y = Math.max(5, y);
+
+      contextMenu.style.left = x + "px";
+      contextMenu.style.top = y + "px";
+    });
     const addItem = (label, action, disabled = false) => {
       const div = document.createElement("div");
       div.textContent = label;
@@ -1861,6 +2159,26 @@ function makeIcon(type, size = 16) {
     // MULTI-SELECT LOGIC
     // ──────────────
     const isMulti = selectedItems.length > 1;
+
+    // Blank area menu items (Select All, New File, New Folder)
+    if (isBlank) {
+      addItem("Select All", () => {
+        const node = findNode(treeData, currentPath);
+        if (!node || !node[1]) return;
+        const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+        selectedItems = items.slice();
+        lastSelectedIndex = items.length - 1;
+        refreshSelectionUI(items);
+      });
+
+      addItem("New File", () => {
+        createFile();
+      });
+
+      addItem("New Folder", () => {
+        createFolder();
+      });
+    }
 
     // Delete (works for single or multi)
     // ──────────────────────────────
