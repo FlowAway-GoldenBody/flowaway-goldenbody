@@ -799,21 +799,32 @@ function makeIcon(type, size = 16) {
   container.appendChild(main);
 
   topbar = document.createElement("div");
+  topbar.style.display = "flex";
+  topbar.style.flexDirection = "column";
+  topbar.style.gap = "8px";
   topbar.style.padding = "8px";
   topbar.style.borderBottom = isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #ddd";
   topbar.style.background = isDark ? "#0f172a" : "#ffffff";
   topbar.style.color = isDark ? "#e6eef8" : "#111";
   main.appendChild(topbar);
 
+  const topbarRow = document.createElement("div");
+  topbarRow.style.display = "flex";
+  topbarRow.style.flexWrap = "wrap";
+  topbarRow.style.alignItems = "center";
+  topbarRow.style.justifyContent = "space-between";
+  topbarRow.style.gap = "8px";
+  topbar.appendChild(topbarRow);
+
   breadcrumbs = document.createElement("div");
   breadcrumbs.style.color = isDark ? "#e6eef8" : "#111";
-  topbar.appendChild(breadcrumbs);
+  topbarRow.appendChild(breadcrumbs);
   // Controls: sort and view mode
   controls = document.createElement("div");
   controls.style.display = "inline-flex";
   controls.style.gap = "8px";
-  controls.style.float = "right";
   controls.style.alignItems = "center";
+  controls.style.flex = "0 0 auto";
   controls.style.background = window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(255,255,255,0.04)' : '#f3f4f6';
   controls.style.padding = '6px';
   controls.style.borderRadius = '10px';
@@ -898,22 +909,25 @@ function makeIcon(type, size = 16) {
   // --- SEARCH BARS ---
   // Create search container positioned on the left
   const searchContainer = document.createElement("div");
-  searchContainer.style.display = "inline-flex";
+  searchContainer.style.display = "flex";
+  searchContainer.style.flexWrap = "wrap";
   searchContainer.style.gap = "8px";
   searchContainer.style.alignItems = "center";
-  searchContainer.style.flex = "1";
+  searchContainer.style.flex = "1 1 320px";
+  searchContainer.style.minWidth = "260px";
   searchContainer.style.marginRight = "16px";
 
   // SEARCH 1: Current directory search
   const currentDirSearchContainer = document.createElement("div");
   currentDirSearchContainer.style.position = "relative";
-  currentDirSearchContainer.style.flex = "1";
-  currentDirSearchContainer.style.maxWidth = "250px";
+  currentDirSearchContainer.style.flex = "1 1 220px";
+  currentDirSearchContainer.style.minWidth = "180px";
 
   const currentDirSearchInput = document.createElement("input");
   currentDirSearchInput.type = "text";
   currentDirSearchInput.placeholder = "Search in folder...";
   currentDirSearchInput.style.width = "100%";
+  currentDirSearchInput.style.marginTop = "3px";
   currentDirSearchInput.style.padding = "6px 8px";
   currentDirSearchInput.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
   currentDirSearchInput.style.borderRadius = "6px";
@@ -925,13 +939,14 @@ function makeIcon(type, size = 16) {
   // SEARCH 2: Global search with autocomplete
   const globalSearchContainer = document.createElement("div");
   globalSearchContainer.style.position = "relative";
-  globalSearchContainer.style.flex = "1";
-  globalSearchContainer.style.maxWidth = "250px";
+  globalSearchContainer.style.flex = "1 1 220px";
+  globalSearchContainer.style.minWidth = "180px";
 
   const globalSearchInput = document.createElement("input");
   globalSearchInput.type = "text";
   globalSearchInput.placeholder = "Find files...";
   globalSearchInput.style.width = "100%";
+  globalSearchInput.style.marginTop = "3px";
   globalSearchInput.style.padding = "6px 8px";
   globalSearchInput.style.border = isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.08)";
   globalSearchInput.style.borderRadius = "6px";
@@ -1130,8 +1145,16 @@ function makeIcon(type, size = 16) {
 
   searchContainer.appendChild(currentDirSearchContainer);
   searchContainer.appendChild(globalSearchContainer);
-  topbar.appendChild(searchContainer);
-  topbar.appendChild(controls);
+
+  const searchRow = document.createElement("div");
+  searchRow.style.display = "flex";
+  searchRow.style.flexWrap = "wrap";
+  searchRow.style.gap = "8px";
+  searchRow.style.alignItems = "center";
+  searchRow.style.justifyContent = "space-between";
+  topbar.appendChild(searchRow);
+  searchRow.appendChild(searchContainer);
+  searchRow.appendChild(controls);
 
   fileArea = document.createElement("div");
   fileArea.style.flex = "1";
