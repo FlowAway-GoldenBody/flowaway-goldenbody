@@ -378,32 +378,37 @@ async function handleFetchfiles(req, res) {
       // 2️⃣ REQUEST FILE (supports chunked download for large files)
 if (data.requestFile) {
   const normalizedRequestPath = normalizeUserRelativePath(data.requestFileName);
+  const jsonResponse = (payload, status = 200) => {
+    res.setHeader('Content-Type', 'application/json');
+    if (status && status !== 200) res.writeHead(status);
+    return res.end(JSON.stringify(payload));
+  };
+
   if (!normalizedRequestPath) {
-    return res.end(JSON.stringify({ error: 'Invalid file path' }));
+    return jsonResponse({ error: 'Invalid file path' });
   }
 
   const permission = getPermissionForRelativePath(normalizedRequestPath, userPathPermissions);
   if (!permission.read) {
-    res.writeHead(403);
-    return res.end(JSON.stringify({ error: 'read permission denied', path: `/${normalizedRequestPath}` }));
+    return jsonResponse({ error: 'read permission denied', path: `/${normalizedRequestPath}` }, 403);
   }
 
   const fullPath = path.join(userRoot, normalizedRequestPath);
   const relativeToRoot = path.relative(userRoot, fullPath);
   if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
-    return res.end(JSON.stringify({ error: 'Invalid file path' }));
+    return jsonResponse({ error: 'Invalid file path' });
   }
   let stat;
   try {
     stat = await fsp.stat(fullPath);
   } catch (e) {
     if (e && e.code === 'ENOENT') {
-      return res.end(JSON.stringify({
+      return jsonResponse({
         missing: true,
         code: 'ENOENT',
         kind: 'missing',
         requestFileName: data.requestFileName
-      }));
+      });
     }
     throw e;
   }

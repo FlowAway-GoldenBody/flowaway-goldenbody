@@ -24,8 +24,8 @@ Object.defineProperty(frameWin, "indexedDB", {
         return btoa(binary);
       }
       function deserialize(value) {
-        // 1. detect encoded binary
-        if (value && value.__type === "bytes") {
+        // 1. detect encoded binary (legacy or current format)
+        if (value && (value.__type === "bytes" || value.__bytes === true)) {
           return base64ToArrayBuffer(value.data);
         }
 
@@ -102,16 +102,16 @@ Object.defineProperty(frameWin, "indexedDB", {
               }
 
               try {
+                store.data[key] = deserialize(parsed);
+              } catch (e) {
                 try {
-                  store.data[key] = JSON.parse(raw);
-                } catch {
-                  // fallback for binary
+                  // fallback for raw binary stored as base64 text
                   const bin = atob(raw);
                   const arr = new Uint8Array([...bin].map(c => c.charCodeAt(0)));
                   store.data[key] = arr.buffer;
+                } catch (innerErr) {
+                  console.warn("Failed to hydrate key:", key, e, innerErr);
                 }
-              } catch (e) {
-                console.warn("Failed to hydrate key:", key, e);
               }
             }
           }

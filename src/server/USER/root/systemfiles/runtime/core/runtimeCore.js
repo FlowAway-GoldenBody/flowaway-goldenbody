@@ -68,6 +68,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (contentType.includes("application/json")) {
         const json = await response.json();
+        if (json && json.missing) return undefined;
         return json;
       }
 
@@ -119,6 +120,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
     });
 
     if (!res) break;
+    if (res.missing) return undefined;
 
     meta = res;
     chunks.push(res.filecontent);
