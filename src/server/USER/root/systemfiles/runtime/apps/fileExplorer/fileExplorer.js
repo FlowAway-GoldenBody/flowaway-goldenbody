@@ -611,8 +611,6 @@ function makeIcon(type, size = 16) {
   emptyTrashBtn.appendChild(makeIcon('trash',16));
   emptyTrashBtn.appendChild(document.createTextNode('Empty Trash'));
   emptyTrashBtn.style.display = "none";
-  emptyTrashBtn.style.background = "#7f1b1b";
-  emptyTrashBtn.style.color = "white";
   styleSidebarButton(emptyTrashBtn);
   sidebar.appendChild(emptyTrashBtn);
 
@@ -1097,11 +1095,13 @@ function makeIcon(type, size = 16) {
             // Go to the file's parent and select it
             currentPath = result.fullPath.slice(0, -1);
           }
+          setTimeout(() => {
           selectedItems = [result.node];
+          render({ scroll: true });
+          }, 50);
           lastSelectedIndex = 0;
           globalSearchInput.value = "";
           autocompleteHints.style.display = "none";
-          render();
         });
         
         autocompleteHints.appendChild(hint);
@@ -1458,7 +1458,10 @@ function makeIcon(type, size = 16) {
         tile.style.cursor = "pointer";
         tile.style.color = isDark ? "#e6eef8" : "#111";
         tile.style.background = isDark ? "rgba(255,255,255,0.02)" : "transparent";
-        if (selectedItems.includes(item)) tile.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
+        if (selectedItems.includes(item)) {
+          tile.setAttribute('data-selected', 'true');
+          tile.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
+        }
 
         tile.onclick = (e) => handleSelection(e, item, items, index);
         tile.ondblclick = () => { if (isFolder) { selectedItems = []; currentPath.push(item[0]); render(); } };
@@ -1510,7 +1513,10 @@ function makeIcon(type, size = 16) {
         div.style.color = isDark ? "#e6eef8" : "#111";
         if (item[0].endsWith(".smh")) {div.addEventListener('dblclick', () => evalJsApp(item[2].path));}
         // Highlight selected
-        if (selectedItems.includes(item)) div.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
+        if (selectedItems.includes(item)) {
+          div.setAttribute('data-selected', 'true');
+          div.style.background = isDark ? "rgba(59,130,246,0.24)" : "#d0e6ff";
+        }
 
         // Click selection
         div.onclick = (e) => handleSelection(e, item, items, index);
@@ -1630,7 +1636,7 @@ function makeIcon(type, size = 16) {
       }
 
       dragItems = [];
-      render();
+      render({ scroll: true });
     };
   }
 
@@ -1705,7 +1711,18 @@ function makeIcon(type, size = 16) {
     }
   }
 
-  function render() {
+  function scrollToSelected() {
+    const selectedElement = fileArea.querySelector('[data-selected="true"]');
+    if (selectedElement) {
+      const elementTop = selectedElement.offsetTop;
+      const elementHeight = selectedElement.offsetHeight;
+      const containerHeight = fileArea.clientHeight;
+      const scrollPosition = elementTop - (containerHeight / 2) + (elementHeight / 2);
+      fileArea.scrollTop = Math.max(0, scrollPosition);
+    }
+  }
+
+  function render(options = {}) {
     // Always keep treeData sorted before rendering so the UI is alphabetical
     sortTree();
     window.protectedGlobals.annotateTreeWithPaths(treeData);
@@ -1713,9 +1730,10 @@ function makeIcon(type, size = 16) {
     renderFiles();
     updateStorageDisplay();
     hideContextMenu();
+    if (options.scroll) scrollToSelected();
     // Show Empty Trash button only when inside .trash
     const inTrash = currentPath.length >= 2 && currentPath[1] === ".trash";
-    emptyTrashBtn.style.display = inTrash ? "" : "none";
+    emptyTrashBtn.style.display = inTrash ? "flex" : "none";
   }
 
   // ──────────────────────────────
