@@ -200,6 +200,7 @@ async function handleFetchfiles(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Expose-Headers', 'X-File-Size,X-Chunk-Index,X-Is-Last-Chunk,X-Total-Chunks');
   // safe response helpers (prevent double-write/write-after-end)
   const safeWriteHead = (code, headers) => {
     try {
@@ -415,6 +416,28 @@ if (data.requestFile) {
     const end = Math.min(start + chunkSize, fileSize);
     const isLastChunk = end >= fileSize;
     
+    // If the client requested raw transfer for buffer/text, send raw bytes directly.
+    if (data.buffer || data.text) {
+      const streamBuffer = fileSize <= chunkSize
+        ? await fsp.readFile(fullPath)
+        : await (async function readChunkStream(fp, s, e) {
+          return new Promise((resolve, reject) => {
+            const parts = [];
+            const rs = fs.createReadStream(fp, { start: s, end: e - 1 });
+            rs.on('data', (c) => parts.push(c));
+            rs.on('end', () => resolve(Buffer.concat(parts)));
+            rs.on('error', (err) => reject(err));
+          });
+        })(fullPath, start, end);
+
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('X-File-Size', String(fileSize));
+      res.setHeader('X-Chunk-Index', String(chunkIndex));
+      res.setHeader('X-Is-Last-Chunk', isLastChunk ? '1' : '0');
+      res.setHeader('X-Total-Chunks', String(Math.ceil(fileSize / chunkSize)));
+      return res.end(streamBuffer);
+    }
+
     // For small files, send whole file as base64
     if (fileSize <= chunkSize) {
       const buffer = await fsp.readFile(fullPath);

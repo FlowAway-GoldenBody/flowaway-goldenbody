@@ -102,8 +102,6 @@ Object.defineProperty(frameWin, "indexedDB", {
               }
 
               try {
-                const raw = await window.protectedGlobals.ReadFile(`${storePath}/${file}`, { text: true, direct: true });
-
                 try {
                   store.data[key] = JSON.parse(raw);
                 } catch {

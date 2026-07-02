@@ -39,6 +39,74 @@ window.protectedGlobals.FileExists = async function (relPath) {
 window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
   if (!relPath) throw new Error("No path");
 
+  const useRawTransfer = !!options.buffer || !!options.text;
+
+  if (useRawTransfer) {
+    const headers = { "Content-Type": "application/json" };
+    if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
+      headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
+    }
+
+    let chunkIndex = 0;
+    const chunks = [];
+    let meta = null;
+
+    while (true) {
+      const response = await fetch(window.protectedGlobals.SERVER, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          username: window.protectedGlobals.getCurrentUsernameForRequests(),
+          requestFile: true,
+          requestFileName: String(relPath),
+          chunkIndex,
+          buffer: !!options.buffer,
+          text: !!options.text,
+        }),
+      });
+
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (contentType.includes("application/json")) {
+        const json = await response.json();
+        return json;
+      }
+
+      const rawChunk = await response.arrayBuffer();
+      chunks.push(rawChunk);
+
+      meta = {
+        fileSize: Number(response.headers.get("x-file-size") || "0"),
+        chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
+        isLastChunk: response.headers.get("x-is-last-chunk") === "1",
+        totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
+      };
+
+      if (meta.isLastChunk) break;
+      chunkIndex++;
+    }
+
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+    const fullBuffer = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fullBuffer.set(new Uint8Array(chunk), offset);
+      offset += chunk.byteLength;
+    }
+
+    if (options.buffer) {
+      return fullBuffer.buffer;
+    }
+
+    if (options.text) {
+      return new TextDecoder().decode(fullBuffer);
+    }
+
+    return {
+      ...meta,
+      filecontent: fullBuffer.buffer,
+    };
+  }
+
   let chunkIndex = 0;
   let chunks = [];
   let meta = null;
