@@ -1547,7 +1547,7 @@ function makeIcon(type, size = 16) {
       row.style.justifyContent = "space-between";
       row.style.gap = "12px";
       const lab = document.createElement("div"); lab.textContent = label; lab.style.opacity = "0.85";
-      const val = document.createElement("div"); val.textContent = value; val.style.opacity = "0.9"; val.style.textAlign = "right";
+      const val = document.createElement("div"); val.textContent = value; val.style.opacity = "0.9"; val.style.textAlign = "right"; val.style.wordBreak = "break-word";
       row.appendChild(lab);
       row.appendChild(val);
       box.appendChild(row);
