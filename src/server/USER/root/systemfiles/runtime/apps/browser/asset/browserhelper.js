@@ -231,6 +231,7 @@ window.browserGlobals.__globalAddTab = function (url, index, opener) {
     }
   }
   t.iframe.contentWindow.opener = opener;
+  t.iframe.contentWindow.origin = new URL(window.browserGlobals.mainWebsite(window.browserGlobals.unshuffleURL(opener.location.href))).hostname;
   return t.iframe.contentWindow;
 };
 window.browserGlobals.allBrowsers = window.browserGlobals.allBrowsers || [];

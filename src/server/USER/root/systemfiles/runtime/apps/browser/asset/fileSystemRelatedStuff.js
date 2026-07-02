@@ -415,6 +415,7 @@ function makeFileHandle(file) {
 
   // 📂 showOpenFilePicker
   frameWin.showOpenFilePicker = async () => {
+    frameWin.gbextern.exitFullscreen();
     pickerMode = 'picker';
     allFilesReceived = false;
     pickerCancelled = false;
@@ -458,6 +459,7 @@ frameWin.addEventListener('message', e => {
 });
 
 frameWin.showSaveFilePicker = async (options = {}) => {
+  frameWin.gbextern.exitFullscreen();
   return new Promise((resolve, reject) => {
     pendingSaveResolvers.push({ resolve, reject });
     window.browserGlobals.showSaveFilePicker(frameWin, {
@@ -500,6 +502,7 @@ frameWin.showSaveFilePicker = async (options = {}) => {
   });
 
   frameWin.showDirectoryPicker = async (options) => {
+    frameWin.gbextern.exitFullscreen();
     return new Promise((resolve, reject) => {
       pendingDirectoryRejectors.push(reject);
       pendingDirectoryResolvers.push((path, treeNode) => {
@@ -682,7 +685,7 @@ FileSystemFileHandle.prototype.getFile = async function () {
     'click',
     e => {
       const input = e.target;
-      if (!(input instanceof frameWin.HTMLInputElement)) return;
+      if (!(input.tagName === 'INPUT')) return;
       if (input.type !== 'file') return;
 
       e.preventDefault();

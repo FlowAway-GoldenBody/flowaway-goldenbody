@@ -347,7 +347,7 @@ setTimeout(() => {
         document.addEventListener("pointerup", onPointerUp);
       });
 
-      document.body.appendChild(panel);
+      getRoot().appendChild(panel);
 
       setTimeout(() => {
         if (!closed) {
@@ -453,7 +453,7 @@ setTimeout(() => {
       btnRow.appendChild(btnConfirm);
       dialog.appendChild(btnRow);
 
-      document.body.appendChild(dialog);
+      getRoot().appendChild(dialog);
 
       setTimeout(() => {
         if (!resolved) {
@@ -565,7 +565,7 @@ setTimeout(() => {
           btnRow.appendChild(btnCancel);
           btnRow.appendChild(btnCreate);
           dlg.appendChild(btnRow);
-          document.body.appendChild(dlg);
+          getRoot().appendChild(dlg);
         });
       })();
 
@@ -781,7 +781,7 @@ setTimeout(() => {
               btnRow.appendChild(btnCancel);
               btnRow.appendChild(btnSave);
               dlg.appendChild(btnRow);
-              document.body.appendChild(dlg);
+              getRoot().appendChild(dlg);
             });
           })(curName, curScript);
 
@@ -829,7 +829,7 @@ setTimeout(() => {
     btnRow.appendChild(btnClose);
     panel.appendChild(btnRow);
 
-    document.body.appendChild(panel);
+    getRoot().appendChild(panel);
   }
 
   async function showProfileDialogue() {
@@ -896,7 +896,7 @@ setTimeout(() => {
           btnRow.appendChild(btnCancel);
           btnRow.appendChild(btnCreate);
           dlg.appendChild(btnRow);
-          document.body.appendChild(dlg);
+          getRoot().appendChild(dlg);
         });
       })();
 
@@ -1086,7 +1086,7 @@ setTimeout(() => {
     btnRow.appendChild(btnClose);
     panel.appendChild(btnRow);
 
-    document.body.appendChild(panel);
+    getRoot().appendChild(panel);
   }
   let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
@@ -1199,7 +1199,7 @@ setTimeout(() => {
       panel.style.transform = "translate(-50%,-50%)";
     }
 
-    document.body.appendChild(panel);
+    getRoot().appendChild(panel);
 
     let closed = false;
     function closePermissionsPanel() {
@@ -1712,7 +1712,7 @@ setTimeout(() => {
         window.removeEventListener("keydown", onEsc);
       };
 
-      const addItem = (label, handler, disabled = false) => {
+      const addItem = (label, handler, disabled = false, options = {}) => {
         const item = document.createElement("div");
         item.textContent = label;
         item.style.padding = "7px 12px";
@@ -1730,7 +1730,7 @@ setTimeout(() => {
           e.preventDefault();
           e.stopPropagation();
           if (disabled) return;
-          closeMenu();
+          if (options.noRemove !== true) closeMenu();
           handler();
         });
         menu.appendChild(item);
@@ -1772,6 +1772,7 @@ setTimeout(() => {
           dispatchShortcutToActiveBrowserTab({ key: "+", ctrlKey: true });
         },
         !hasActiveTab,
+        { noRemove: true }
       );
       addItem(
         "Zoom out",
@@ -1779,6 +1780,7 @@ setTimeout(() => {
           dispatchShortcutToActiveBrowserTab({ key: "-", ctrlKey: true });
         },
         !hasActiveTab,
+        { noRemove: true }
       );
       addItem(
         "Open DevTools",
@@ -1818,7 +1820,7 @@ setTimeout(() => {
       const rect = anchorEl.getBoundingClientRect();
       menu.style.left = `${Math.min(window.innerWidth - 240, rect.right - 220)}px`;
       menu.style.top = `${Math.min(window.innerHeight - 260, rect.bottom + 6)}px`;
-      document.body.appendChild(menu);
+      getRoot().appendChild(menu);
 
       const onEsc = (e) => {
         if (e.key === "Escape") closeMenu();
@@ -2247,7 +2249,7 @@ setTimeout(() => {
         document.addEventListener("pointerup", onPointerUp);
       });
 
-      document.body.appendChild(panel);
+      getRoot().appendChild(panel);
 
       setTimeout(() => {
         if (!closed) {
@@ -2519,7 +2521,7 @@ setTimeout(() => {
         document.addEventListener("pointerup", onPointerUpTheme);
       });
 
-      document.body.appendChild(panel);
+      getRoot().appendChild(panel);
 
       setTimeout(() => {
         if (!closed) {

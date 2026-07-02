@@ -91,28 +91,28 @@ async function iframePatches() {
   if (patchedTab.iframe.__gbPatchedDocument === iframeDocument) return;
   const iframeWindow = patchedTab.iframe.contentWindow;
   if (iframeWindow.patched) return;
-  let eggpatch2 = document.createElement("script");
-  eggpatch2.textContent = `
-              let nativeURL = window.URL;
-              function URLShim(url = '', base) {
-                let normalizedUrl = url == null ? '' : String(url);
-                const hasBase = arguments.length > 1;
+  // let eggpatch2 = document.createElement("script");
+  // eggpatch2.textContent = `
+  //             let nativeURL = window.URL;
+  //             function URLShim(url = '', base) {
+  //               let normalizedUrl = url == null ? '' : String(url);
+  //               const hasBase = arguments.length > 1;
 
-                if (hasBase) {
-                  const normalizedBase = base == null ? '' : String(base);
-                  return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
-                }
-                else {
-                normalizedUrl = window.location.href;
-                }
-                return new nativeURL(normalizedUrl || window.location.href);
-              }
+  //               if (hasBase) {
+  //                 const normalizedBase = base == null ? '' : String(base);
+  //                 return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
+  //               }
+  //               else {
+  //               normalizedUrl = window.location.href;
+  //               }
+  //               return new nativeURL(normalizedUrl || window.location.href);
+  //             }
 
-              Object.setPrototypeOf(URLShim, nativeURL);
-              URLShim.prototype = nativeURL.prototype;
-              window.URL = URLShim;
-          `;
-  patchedTab.iframe.contentDocument.body.appendChild(eggpatch2);
+  //             Object.setPrototypeOf(URLShim, nativeURL);
+  //             URLShim.prototype = nativeURL.prototype;
+  //             window.URL = URLShim;
+  //         `;
+  // patchedTab.iframe.contentDocument.body.appendChild(eggpatch2);
   if (iframeWindow.__gbBrowserShortcutHandler) {
     iframeWindow.removeEventListener(
       "keydown",
@@ -465,12 +465,18 @@ async function iframePatches() {
       menu.appendChild(reload);
     }
 
-    removeNodeItem = addContextMenuItem("Remove element", () => {
+    let removeNodeItem = addContextMenuItem("Remove element", () => {
       if (contextData.target == iframeDocument.body) {
         window.protectedGlobals.notification("Cannot remove <body> element");
         return;
       }
       contextData.target.remove();
+    });
+    let storeNodeItem = addContextMenuItem("Store element as global variable", () => {
+      patchedTab.iframe.contentWindow.elementTemp = patchedTab.iframe.contentWindow.elementTemp || [];
+      patchedTab.iframe.contentWindow.elementTemp.push(contextData.target);
+      patchedTab.iframe.contentWindow.console.log(contextData.target);
+      window.protectedGlobals.notification(`Element stored as global variable: elementTemp[${patchedTab.iframe.contentWindow.elementTemp.length - 1}]`);
     });
     addInspectContextMenuItem();
     
@@ -782,6 +788,7 @@ function getAbsoluteMousePosition(e) {
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
           frame.contentWindow.gbextern.exitPointerLock = frame.contentDocument.exitPointerLock.bind(frame.contentDocument);
+          frame.contentWindow.gbextern.exitFullscreen = frame.contentDocument.exitFullscreen.bind(frame.contentDocument);
           frame.contentWindow.Object.defineProperty(frame.contentWindow.gbextern, "exitPointerLock", {configurable: false, enumerable: true, writable: false, value: frame.contentWindow.gbextern.exitPointerLock});
           if (frame.contentDocument.__gbCookieHookInstalled) continue;
           console.log(
@@ -789,8 +796,9 @@ function getAbsoluteMousePosition(e) {
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
           frame.contentWindow.addEventListener("keydown", function (e) {
-            if (frame.contentDocument.pointerLockElement && e.key === "Escape") {
+            if ((frame.contentDocument.pointerLockElement || frame.contentDocument.fullscreenElement) && e.key === "Escape") {
             frame.contentWindow.gbextern.exitPointerLock();
+            frame.contentWindow.gbextern.exitFullscreen();
             }
           });
           frame.contentWindow.__gbframeElement = frame;
