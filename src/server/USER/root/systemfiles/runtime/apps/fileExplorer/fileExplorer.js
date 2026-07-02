@@ -2324,12 +2324,18 @@ function makeIcon(type, size = 16) {
   const AUTOSAVE_DELAY = 800; // ms
 
   let handlesave = async (e) => {
+    let saveFailed = false;
+    try {
     // console.log(directions);
     directions.push({ end: true });
+    saveBtn.innerHTML = '';
+    saveBtn.appendChild(makeIcon('save',16));
+    saveBtn.appendChild(document.createTextNode('Saving...'));
     const response = await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: directions,
     });
+    } catch (e) {saveFailed = true;}
     directions = [];
     // // Restore window.explorerGlobals.clipboard from server response (keep existing if not returned)
     // if (response.window.explorerGlobals.clipboard && Array.isArray(response.window.explorerGlobals.clipboard)) {
@@ -2337,7 +2343,7 @@ function makeIcon(type, size = 16) {
     // }
     saveBtn.innerHTML = '';
     saveBtn.appendChild(makeIcon('save',16));
-    saveBtn.appendChild(document.createTextNode('Saved!'));
+    saveBtn.appendChild(document.createTextNode(saveFailed ? 'Save Failed!' : 'Saved!'));
     setTimeout(() => {
       saveBtn.innerHTML = '';
       saveBtn.appendChild(makeIcon('save',16));
