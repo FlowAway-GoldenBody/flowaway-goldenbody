@@ -50,8 +50,9 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
     let chunkIndex = 0;
     const chunks = [];
     let meta = null;
-
-    while (true) {
+    let anti_numtots = 0;
+    while (anti_numtots < 500) {
+      anti_numtots++;
       let response;
       try {
         response = await fetch(window.protectedGlobals.SERVER, {

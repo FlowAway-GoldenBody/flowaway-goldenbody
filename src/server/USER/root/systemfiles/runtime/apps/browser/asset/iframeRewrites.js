@@ -91,28 +91,28 @@ async function iframePatches() {
   if (patchedTab.iframe.__gbPatchedDocument === iframeDocument) return;
   const iframeWindow = patchedTab.iframe.contentWindow;
   if (iframeWindow.patched) return;
-  // let eggpatch2 = document.createElement("script");
-  // eggpatch2.textContent = `
-  //             let nativeURL = window.URL;
-  //             function URLShim(url = '', base) {
-  //               let normalizedUrl = url == null ? '' : String(url);
-  //               const hasBase = arguments.length > 1;
+  let eggpatch2 = document.createElement("script");
+  eggpatch2.textContent = `
+              let nativeURL = window.URL;
+              function URLShim(url = '', base) {
+                let normalizedUrl = url == null ? '' : String(url);
+                const hasBase = arguments.length > 1;
 
-  //               if (hasBase) {
-  //                 const normalizedBase = base == null ? '' : String(base);
-  //                 return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
-  //               }
-  //               else {
-  //               normalizedUrl = window.location.href;
-  //               }
-  //               return new nativeURL(normalizedUrl || window.location.href);
-  //             }
+                if (hasBase) {
+                  const normalizedBase = base == null ? '' : String(base);
+                  return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
+                }
+                else {
+                normalizedUrl = window.location.href;
+                }
+                return new nativeURL(normalizedUrl || window.location.href);
+              }
 
-  //             Object.setPrototypeOf(URLShim, nativeURL);
-  //             URLShim.prototype = nativeURL.prototype;
-  //             window.URL = URLShim;
-  //         `;
-  // patchedTab.iframe.contentDocument.body.appendChild(eggpatch2);
+              Object.setPrototypeOf(URLShim, nativeURL);
+              URLShim.prototype = nativeURL.prototype;
+              window.URL = URLShim;
+          `;
+  patchedTab.iframe.contentDocument.body.appendChild(eggpatch2);
   if (iframeWindow.__gbBrowserShortcutHandler) {
     iframeWindow.removeEventListener(
       "keydown",

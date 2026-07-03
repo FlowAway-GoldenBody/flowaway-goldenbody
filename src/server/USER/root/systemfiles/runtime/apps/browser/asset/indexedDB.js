@@ -125,9 +125,10 @@ Object.defineProperty(frameWin, "indexedDB", {
       // REQUEST OBJECT (REAL EVENTTARGET + legacy handlers)
       // =========================================================
       class IDBRequest extends EventTarget {
-        constructor() {
+        constructor(transaction = null) {
           super();
 
+          this.transaction = transaction;
           this.result = null;
           this.error = null;
           this.readyState = "pending";
@@ -261,12 +262,17 @@ Object.defineProperty(frameWin, "indexedDB", {
             autoIncrement: options.autoIncrement ?? false,
 
             data: {},
-            getAll() {
-              const request = new IDBRequest();
+            getAll(transaction = null) {
+              const request = new IDBRequest(transaction);
+              transaction?._requestStarted?.(request);
 
-              setTimeout(() => {
+              const run = async () => {
                 try {
-                  request.result = Object.entries(this.data).map(([key, value]) => ({
+                  const entries = transaction
+                    ? transaction._getVisibleEntries(storeName)
+                    : Object.entries(this.data);
+
+                  request.result = entries.map(([key, value]) => ({
                     key,
                     value
                   }));
@@ -275,16 +281,56 @@ Object.defineProperty(frameWin, "indexedDB", {
                   request.dispatchEvent(new Event("success"));
                 } catch (err) {
                   request.error = err;
+                  request.readyState = "done";
                   request.dispatchEvent(new Event("error"));
+                } finally {
+                  transaction?._requestFinished?.(request);
                 }
-              }, 0);
+              };
+
+              if (transaction) {
+                transaction._enqueueOperation(run);
+              } else {
+                setTimeout(run, 0);
+              }
 
               return request;
             },
-            put(value, key) {
-              const request = new IDBRequest();
+            getAllKeys(transaction = null) {
+              const request = new IDBRequest(transaction);
+              transaction?._requestStarted?.(request);
 
-              setTimeout(() => {
+              const run = async () => {
+                try {
+                  const entries = transaction
+                    ? transaction._getVisibleEntries(storeName)
+                    : Object.entries(this.data);
+
+                  request.result = entries.map(([key]) => key);
+                  request.readyState = "done";
+                  request.dispatchEvent(new Event("success"));
+                } catch (err) {
+                  request.error = err;
+                  request.readyState = "done";
+                  request.dispatchEvent(new Event("error"));
+                } finally {
+                  transaction?._requestFinished?.(request);
+                }
+              };
+
+              if (transaction) {
+                transaction._enqueueOperation(run);
+              } else {
+                setTimeout(run, 0);
+              }
+
+              return request;
+            },
+            put(value, key, transaction = null) {
+              const request = new IDBRequest(transaction);
+              transaction?._requestStarted?.(request);
+
+              const run = async () => {
                 try {
                   let finalKey = key;
 
@@ -309,11 +355,17 @@ Object.defineProperty(frameWin, "indexedDB", {
                       );
                     }
                   }
-                  // 3. store in memory
-                  this.data[finalKey] = value;
 
-                  // 4. persist to file
-                  queueWrite(async () => {
+                  if (transaction) {
+                    transaction._stagePut(storeName, finalKey, value);
+                  } else {
+                    this.data[finalKey] = value;
+                  }
+
+                  request.result = finalKey;
+                  request.readyState = "done";
+
+                  void queueWrite(async () => {
                     const encoded =
                       value instanceof frameWin.ArrayBuffer
                         ? btoa(String.fromCharCode(...new Uint8Array(value)))
@@ -324,33 +376,41 @@ Object.defineProperty(frameWin, "indexedDB", {
                       encoded,
                       { text: true, direct: true }
                     );
-                  });
-
-                  request.result = finalKey;
-                  request.readyState = "done";
+                  }, transaction);
                   request.dispatchEvent(new Event("success"));
-
                 } catch (err) {
                   request.error = err;
                   request.readyState = "done";
                   request.dispatchEvent(new Event("error"));
+                } finally {
+                  transaction?._requestFinished?.(request);
                 }
-              }, 0);
+              };
+
+              if (transaction) {
+                transaction._enqueueOperation(run);
+              } else {
+                setTimeout(run, 0);
+              }
 
               return request;
             },
 
-            get(key) {
-              const request = new IDBRequest();
+            get(key, transaction = null) {
+              const request = new IDBRequest(transaction);
+              transaction?._requestStarted?.(request);
 
-              setTimeout(async () => {
+              const run = async () => {
                 try {
-                  // 1. fast path (memory)
-                  
-                  if (this.data[key] !== undefined) {
-                    request.result = this.data[key];
+                  let value;
+
+                  if (transaction) {
+                    value = transaction._getVisibleValue(storeName, key);
                   } else {
-                    // 2. slow path (disk fallback)
+                    value = this.data[key];
+                  }
+
+                  if (value === undefined) {
                     const filePath = `${basePath}/${storeName}/${key}.json`;
 
                     const raw = await window.protectedGlobals.ReadFile(
@@ -358,44 +418,56 @@ Object.defineProperty(frameWin, "indexedDB", {
                       { text: true, direct: true }
                     );
 
-                    let value;
                     try {
-                      const parsed = JSON.parse(raw);
-                      const value = deserialize(parsed);
+                      value = deserialize(JSON.parse(raw));
                     } catch {
                       value = raw;
                     }
 
-                    // cache it
-                    this.data[key] = value;
-
-                    request.result = value;
+                    if (!transaction) {
+                      this.data[key] = value;
+                    }
                   }
 
+                  request.result = value;
                   request.readyState = "done";
                   request.dispatchEvent(new Event("success"));
 
                 } catch (err) {
                   request.error = err;
+                  request.readyState = "done";
                   request.dispatchEvent(new Event("error"));
+                } finally {
+                  transaction?._requestFinished?.(request);
                 }
-              }, 0);
+              };
+
+              if (transaction) {
+                transaction._enqueueOperation(run);
+              } else {
+                setTimeout(run, 0);
+              }
 
               return request;
             },
 
-          delete(key) {
-            const request = new IDBRequest();
+          delete(key, transaction = null) {
+            const request = new IDBRequest(transaction);
+            transaction?._requestStarted?.(request);
 
-            setTimeout(() => {
+            const run = async () => {
               try {
-                delete this.data[key];
+                if (transaction) {
+                  transaction._stageDelete(storeName, key);
+                } else {
+                  delete this.data[key];
+                }
 
-                queueWrite(async () => {
+                void queueWrite(async () => {
                   await window.protectedGlobals.DeleteFile(
                     `${basePath}/${storeName}/${key}.json`
                   );
-                });
+                }, transaction);
 
                 request.result = undefined;
                 request.readyState = "done";
@@ -403,25 +475,39 @@ Object.defineProperty(frameWin, "indexedDB", {
                 request.dispatchEvent(new Event("success"));
               } catch (err) {
                 request.error = err;
+                request.readyState = "done";
                 request.dispatchEvent(new Event("error"));
+              } finally {
+                transaction?._requestFinished?.(request);
               }
-            }, 0);
+            };
+
+            if (transaction) {
+              transaction._enqueueOperation(run);
+            } else {
+              setTimeout(run, 0);
+            }
 
             return request;
           },
 
-          clear() {
-            const request = new IDBRequest();
+          clear(transaction = null) {
+            const request = new IDBRequest(transaction);
+            transaction?._requestStarted?.(request);
 
-            setTimeout(() => {
+            const run = async () => {
               try {
-                this.data = {};
+                if (transaction) {
+                  transaction._stageClear(storeName);
+                } else {
+                  this.data = {};
+                }
 
-                queueWrite(async () => {
+                void queueWrite(async () => {
                   await window.protectedGlobals.DeleteFolder(
                     `${basePath}/${storeName}`
                   );
-                });
+                }, transaction);
 
                 request.result = undefined;
                 request.readyState = "done";
@@ -429,9 +515,18 @@ Object.defineProperty(frameWin, "indexedDB", {
                 request.dispatchEvent(new Event("success"));
               } catch (err) {
                 request.error = err;
+                request.readyState = "done";
                 request.dispatchEvent(new Event("error"));
+              } finally {
+                transaction?._requestFinished?.(request);
               }
-            }, 0);
+            };
+
+            if (transaction) {
+              transaction._enqueueOperation(run);
+            } else {
+              setTimeout(run, 0);
+            }
             
             return request;
           }
@@ -447,18 +542,231 @@ Object.defineProperty(frameWin, "indexedDB", {
           if (!Array.isArray(names)) names = [names];
 
           class IDBTransaction extends EventTarget {
+            constructor() {
+              super();
+              this.mode = "readonly";
+              this.db = db;
+              this.error = null;
+              this.onabort = null;
+              this.oncomplete = null;
+              this.onerror = null;
+              this._listeners = new Map();
+              this._pendingRequests = 0;
+              this._aborted = false;
+              this._completeDispatched = false;
+              this._finalized = false;
+              this._storeViews = new Map();
+              this._queue = Promise.resolve();
+            }
+
+            addEventListener(type, cb) {
+              super.addEventListener(type, cb);
+
+              if (!this._listeners.has(type)) {
+                this._listeners.set(type, new Set());
+              }
+              this._listeners.get(type).add(cb);
+            }
+
+            removeEventListener(type, cb) {
+              super.removeEventListener(type, cb);
+              this._listeners.get(type)?.delete(cb);
+            }
+
+            dispatchEvent(event) {
+              const type = event.type;
+              super.dispatchEvent(event);
+
+              const handler = this["on" + type];
+              if (typeof handler === "function") {
+                handler.call(this, event);
+              }
+
+              return true;
+            }
+
             objectStore(name) {
               const store = db.stores[name];
               if (!store) throw new Error("Missing store: " + name);
-              return store;
+
+              return {
+                name: store.name,
+                keyPath: store.keyPath,
+                autoIncrement: store.autoIncrement,
+                getAll: () => store.getAll(this),
+                getAllKeys: () => store.getAllKeys(this),
+                put: (value, key) => store.put(value, key, this),
+                get: (key) => store.get(key, this),
+                delete: (key) => store.delete(key, this),
+                clear: () => store.clear(this)
+              };
+            }
+
+            _enqueueOperation(fn) {
+              const run = async () => {
+                try {
+                  await fn();
+                } catch (err) {
+                  console.error("IDB transaction operation failed:", err);
+                }
+              };
+
+              const scheduled = new Promise((resolve) => {
+                setTimeout(() => {
+                  run().finally(resolve);
+                }, 0);
+              });
+
+              this._queue = this._queue.then(() => scheduled, () => scheduled);
+              return this._queue;
+            }
+
+            _requestStarted(request) {
+              if (this._aborted || this._completeDispatched) return;
+              this._pendingRequests += 1;
+              request.transaction = this;
+            }
+
+            _requestFinished(request) {
+              if (this._completeDispatched || this._aborted) return;
+              this._pendingRequests = Math.max(0, this._pendingRequests - 1);
+              this._maybeComplete();
+            }
+
+            _writeStarted() {}
+
+            _writeFinished() {}
+
+            _getStoreView(storeName) {
+              let view = this._storeViews.get(storeName);
+              if (!view) {
+                const store = db.stores[storeName];
+                view = {
+                  snapshot: store ? { ...store.data } : {},
+                  pending: new Map(),
+                  deleted: new Set(),
+                  cleared: false
+                };
+                this._storeViews.set(storeName, view);
+              }
+              return view;
+            }
+
+            _getVisibleValue(storeName, key) {
+              const view = this._getStoreView(storeName);
+              if (view.cleared || view.deleted.has(key)) return undefined;
+              if (view.pending.has(key)) return view.pending.get(key);
+              return view.snapshot[key];
+            }
+
+            _getVisibleEntries(storeName) {
+              const view = this._getStoreView(storeName);
+              if (view.cleared) return [];
+
+              const entries = [];
+              const seen = new Set();
+
+              for (const [key, value] of Object.entries(view.snapshot)) {
+                if (view.deleted.has(key)) continue;
+                if (view.pending.has(key)) {
+                  entries.push([key, view.pending.get(key)]);
+                  seen.add(key);
+                } else {
+                  entries.push([key, value]);
+                  seen.add(key);
+                }
+              }
+
+              for (const [key, value] of view.pending.entries()) {
+                if (!seen.has(key)) entries.push([key, value]);
+              }
+
+              return entries;
+            }
+
+            _stagePut(storeName, key, value) {
+              const view = this._getStoreView(storeName);
+              view.cleared = false;
+              view.deleted.delete(key);
+              view.pending.set(key, value);
+            }
+
+            _stageDelete(storeName, key) {
+              const view = this._getStoreView(storeName);
+              view.cleared = false;
+              view.pending.delete(key);
+              view.deleted.add(key);
+            }
+
+            _stageClear(storeName) {
+              const view = this._getStoreView(storeName);
+              view.cleared = true;
+              view.pending.clear();
+              view.deleted.clear();
+            }
+
+            _commitPendingChanges() {
+              if (this._finalized || this._aborted) return;
+              this._finalized = true;
+
+              for (const [storeName, view] of this._storeViews.entries()) {
+                const store = db.stores[storeName];
+                if (!store) continue;
+
+                if (view.cleared) {
+                  store.data = {};
+                  void queueWrite(async () => {
+                    await window.protectedGlobals.DeleteFolder(`${basePath}/${storeName}`);
+                  }, this);
+                  continue;
+                }
+
+                for (const key of view.deleted) {
+                  delete store.data[key];
+                  void queueWrite(async () => {
+                    await window.protectedGlobals.DeleteFile(`${basePath}/${storeName}/${key}.json`);
+                  }, this);
+                }
+
+                for (const [key, value] of view.pending.entries()) {
+                  store.data[key] = value;
+                  void queueWrite(async () => {
+                    const encoded =
+                      value instanceof frameWin.ArrayBuffer
+                        ? btoa(String.fromCharCode(...new Uint8Array(value)))
+                        : JSON.stringify(serialize(value));
+
+                    await window.protectedGlobals.WriteFile(
+                      `${basePath}/${storeName}/${key}.json`,
+                      encoded,
+                      { text: true, direct: true }
+                    );
+                  }, this);
+                }
+              }
+            }
+
+            _maybeComplete() {
+              if (this._aborted || this._completeDispatched) return;
+              if (this._pendingRequests === 0) {
+                this._completeDispatched = true;
+                this._commitPendingChanges();
+                setTimeout(() => {
+                  this.dispatchEvent(new Event("complete"));
+                }, 0);
+              }
             }
 
             async commit() {
-              await flushQueue();
-              this.dispatchEvent(new Event("complete"));
+              if (this._aborted || this._completeDispatched || this._finalized) return;
+              this._commitPendingChanges();
+              this._maybeComplete();
             }
 
-            abort() {
+            abort(reason) {
+              if (this._aborted || this._completeDispatched) return;
+              this._aborted = true;
+              this.error = reason ?? null;
               this.dispatchEvent(new Event("abort"));
             }
           }
@@ -470,9 +778,25 @@ Object.defineProperty(frameWin, "indexedDB", {
       // =========================================================
       // WRITE QUEUE
       // =========================================================
-      const queueWrite = (fn) => {
-        writeQueue.push(fn);
-        flushQueue();
+      const queueWrite = (fn, transaction = null) => {
+        const promise = new Promise((resolve, reject) => {
+          const run = async () => {
+            if (transaction) transaction._writeStarted();
+            try {
+              await fn();
+              resolve();
+            } catch (err) {
+              reject(err);
+            } finally {
+              if (transaction) transaction._writeFinished();
+            }
+          };
+
+          writeQueue.push(run);
+          flushQueue();
+        });
+
+        return promise;
       };
 
       const writeQueue = [];

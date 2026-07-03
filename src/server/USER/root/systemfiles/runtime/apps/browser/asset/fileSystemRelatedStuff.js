@@ -32,7 +32,9 @@
           function FileSystemDirectoryHandle() { FileSystemHandle.call(this); }
           FileSystemDirectoryHandle.prototype = frameWin.Object.create(FileSystemHandle.prototype);
           FileSystemDirectoryHandle.prototype.constructor = FileSystemDirectoryHandle;
-
+          frameWin.FileSystemHandle = FileSystemHandle;
+          frameWin.FileSystemFileHandle = FileSystemFileHandle;
+          frameWin.FileSystemDirectoryHandle = FileSystemDirectoryHandle;
           // Polyfill common methods on prototypes so returned handles behave like
           // native FileSystemHandle objects.
 
