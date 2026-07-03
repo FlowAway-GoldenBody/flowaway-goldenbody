@@ -52,19 +52,26 @@ window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
     let meta = null;
 
     while (true) {
-      const response = await fetch(window.protectedGlobals.SERVER, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          username: window.protectedGlobals.getCurrentUsernameForRequests(),
-          requestFile: true,
-          requestFileName: String(relPath),
-          chunkIndex,
-          buffer: !!options.buffer,
-          text: !!options.text,
-        }),
-      });
-
+      let response;
+      try {
+        response = await fetch(window.protectedGlobals.SERVER, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            username: window.protectedGlobals.getCurrentUsernameForRequests(),
+            requestFile: true,
+            requestFileName: String(relPath),
+            chunkIndex,
+            buffer: !!options.buffer,
+            text: !!options.text,
+          }),
+        });
+      } finally {
+        if (response.status === 401) {
+          window.protectedGlobals.showSessionExpiredDialog();
+          return;
+        }
+      }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (contentType.includes("application/json")) {
         const json = await response.json();
