@@ -415,7 +415,7 @@ function makeFileHandle(file) {
 
   // 📂 showOpenFilePicker
   frameWin.showOpenFilePicker = async () => {
-    frameWin.gbextern.exitFullscreen();
+    try { frameWin.gbextern.exitFullscreen(); } catch(e) {}
     pickerMode = 'picker';
     allFilesReceived = false;
     pickerCancelled = false;
@@ -459,7 +459,9 @@ frameWin.addEventListener('message', e => {
 });
 
 frameWin.showSaveFilePicker = async (options = {}) => {
+  try {
   frameWin.gbextern.exitFullscreen();
+  } catch(e) {}
   return new Promise((resolve, reject) => {
     pendingSaveResolvers.push({ resolve, reject });
     window.browserGlobals.showSaveFilePicker(frameWin, {
@@ -502,7 +504,7 @@ frameWin.showSaveFilePicker = async (options = {}) => {
   });
 
   frameWin.showDirectoryPicker = async (options) => {
-    frameWin.gbextern.exitFullscreen();
+    try { frameWin.gbextern.exitFullscreen(); } catch(e) {}
     return new Promise((resolve, reject) => {
       pendingDirectoryRejectors.push(reject);
       pendingDirectoryResolvers.push((path, treeNode) => {
