@@ -171,6 +171,13 @@ stream.write = async (chunk) => {
             try { return !!(other && (other.path || other.name) && (this.path === other.path || this.name === other.name)); } catch (e) { return false; }
           };
 
+          FileSystemDirectoryHandle.prototype[Symbol.asyncIterator] = async function* () {
+            if (typeof this.entries !== 'function') return;
+            for await (const entry of this.entries()) {
+              yield entry;
+            }
+          };
+
 function makeFileHandle(file) {
   const h = new FileSystemFileHandle();
 
@@ -193,7 +200,19 @@ function makeFileHandle(file) {
           (function installFSObserverShim() {
             const NativeFSObserver = frameWin.FileSystemObserver;
             function isSyntheticHandle(h) {
-              return !!(h && (h.path || h.name) && (h.getFile));
+              if (!h || typeof h !== 'object') return false;
+              if (h instanceof FileSystemHandle || h instanceof FileSystemFileHandle || h instanceof FileSystemDirectoryHandle) return true;
+
+              const kind = h.kind;
+              if (kind === 'file' || kind === 'directory') return true;
+
+              return !!(h.path || h.name) && (
+                typeof h.getFile === 'function' ||
+                typeof h.createWritable === 'function' ||
+                typeof h.entries === 'function' ||
+                typeof h.getDirectoryHandle === 'function' ||
+                typeof h.getFileHandle === 'function'
+              );
             }
 
             class FileSystemObserverShim {
@@ -578,7 +597,7 @@ yield [name, dirHandle];
               this._treeNode[1].push(newNode);
               child = newNode;
             } else {
-              throw new DOMException('A directory with the name "' + name + '" was not found.', 'NotFoundError');
+              // throw new DOMException('A directory with the name "' + name + '" was not found.', 'NotFoundError');
             }
           }
           if (!Array.isArray(child[1])) {
@@ -615,7 +634,7 @@ yield [name, dirHandle];
               fileHandle.path = this.path + '/' + name;
               return fileHandle;
             }
-            throw new DOMException('A file with the name "' + name + '" was not found.', 'NotFoundError');
+            // throw new DOMException('A file with the name "' + name + '" was not found.', 'NotFoundError');
           }
           if (Array.isArray(child[1])) {
             throw new DOMException('"' + name + '" is not a file', 'TypeMismatchError');
