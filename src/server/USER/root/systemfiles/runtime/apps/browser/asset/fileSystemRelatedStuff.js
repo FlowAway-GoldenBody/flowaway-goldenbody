@@ -106,22 +106,18 @@ FileSystemFileHandle.prototype.createWritable = async function () {
         buffer = new Uint8Array(chunk).buffer;
       }
 
-      // Return a promise that resolves when the request is sent
-        window.browserGlobals.handleVfsSaveFile(frameWin, {
-          __VFS__: true,
-          kind: 'saveFile',
-          path,
-          name,
-          buffer,
-        });
-return Promise.resolve();
+      return window.browserGlobals.handleVfsSaveFile(frameWin, {
+        __VFS__: true,
+        kind: 'saveFile',
+        path,
+        name,
+        buffer,
+      });
     },
 
     async close() {
       closed = true;
-      // Give a small delay to ensure previous writes are processed
-      await new Promise(r => setTimeout(r, 10));
-      window.browserGlobals.handleVfsSaveFile(frameWin, {
+      return window.browserGlobals.handleVfsSaveFile(frameWin, {
         __VFS__: true,
         kind: 'saveFile',
         path,
@@ -132,7 +128,7 @@ return Promise.resolve();
 
     async abort(reason) {
       closed = true;
-      window.browserGlobals.handleVfsSaveFile(frameWin, {
+      return window.browserGlobals.handleVfsSaveFile(frameWin, {
         __VFS__: true,
         kind: 'saveFileAbort',
         path,
@@ -160,16 +156,12 @@ stream.write = async (chunk) => {
   }
 
   // IMPORTANT: return a promise that represents processing
-  await new Promise((resolve) => {
-    window.browserGlobals.handleVfsSaveFile(frameWin, {
-      __VFS__: true,
-      kind: 'saveFile',
-      path,
-      name,
-      buffer,
-    });
-
-    resolve();
+  await window.browserGlobals.handleVfsSaveFile(frameWin, {
+    __VFS__: true,
+    kind: 'saveFile',
+    path,
+    name,
+    buffer,
   });
 }
   stream.close = async function () {
