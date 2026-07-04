@@ -1304,7 +1304,12 @@
 
 window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
   if (!data || data.__VFS__ !== true) return Promise.resolve();
-  if (data.kind !== "saveFile" && data.kind !== "saveFileAbort") {
+  if (
+    data.kind !== "saveFile" &&
+    data.kind !== "saveFileAbort" &&
+    data.kind !== "createFile" &&
+    data.kind !== "createDirectory"
+  ) {
     return Promise.resolve();
   }
 
@@ -1370,6 +1375,44 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
         return;
       }
 
+      if (data.kind === "createDirectory") {
+        await window.protectedGlobals.filePost({
+          saveSnapshot: true,
+          directions: [
+            { addFolder: true, path: fullPath },
+            { end: true },
+          ],
+        });
+        deliverVfsPayload(entry.source, {
+          __VFS__: true,
+          kind: "saved",
+          path: incomingPath,
+          ok: true,
+          createdType: "directory",
+        });
+        delete rootRef.__pendingSaves[fullPath];
+        return;
+      }
+
+      if (data.kind === "createFile") {
+        await window.protectedGlobals.filePost({
+          saveSnapshot: true,
+          directions: [
+            { addFile: true, path: fullPath, replace: true },
+            { end: true },
+          ],
+        });
+        deliverVfsPayload(entry.source, {
+          __VFS__: true,
+          kind: "saved",
+          path: incomingPath,
+          ok: true,
+          createdType: "file",
+        });
+        delete rootRef.__pendingSaves[fullPath];
+        return;
+      }
+
       if (entry.finalizing) return;
 
       let chunk = null;
@@ -1389,7 +1432,7 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
         }
       }
 
-      if (chunk && chunk.byteLength > 0) {
+      if (chunk && chunk.byteLength >= 0) {
         entry.chunks.push(chunk);
       } else if (data.buffer || data.base64) {
         console.warn("Skipped invalid chunk", data);
@@ -1400,9 +1443,6 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
       entry.finalizing = true;
 
       const validChunks = entry.chunks.filter((c) => c && c.byteLength > 0);
-      if (validChunks.length === 0) {
-        throw new Error("No valid chunks received");
-      }
 
       const totalBytes = validChunks.reduce((sum, c) => sum + c.byteLength, 0);
 

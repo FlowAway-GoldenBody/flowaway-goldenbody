@@ -38,6 +38,39 @@
           // Polyfill common methods on prototypes so returned handles behave like
           // native FileSystemHandle objects.
 
+          function normalizeEntryPath(targetPath) {
+            if (typeof targetPath !== 'string') return '';
+            return normalizeVfsPath(targetPath);
+          }
+
+          async function persistEntryCreation(targetPath, kind) {
+            const resolvedPath = normalizeEntryPath(targetPath);
+            if (!resolvedPath) {
+              throw new DOMException('A path is required to create a filesystem entry.', 'TypeError');
+            }
+
+            await window.browserGlobals.handleVfsSaveFile(frameWin, {
+              __VFS__: true,
+              kind: kind === 'directory' ? 'createDirectory' : 'createFile',
+              path: resolvedPath,
+            });
+          }
+
+          function ensureTreeChild(parentHandle, name, kind) {
+            if (!parentHandle || !parentHandle._treeNode || !Array.isArray(parentHandle._treeNode[1])) {
+              return null;
+            }
+
+            const existingChild = parentHandle._treeNode[1].find((child) => child && child[0] === name);
+            if (existingChild) {
+              return existingChild;
+            }
+
+            const createdChild = kind === 'directory' ? [name, []] : [name, null];
+            parentHandle._treeNode[1].push(createdChild);
+            return createdChild;
+          }
+
 FileSystemFileHandle.prototype.getFile = async function () {
   return this._file;
 };
@@ -218,38 +251,38 @@ stream.write = async (chunk) => {
             }
 
             const segments = name.split('/').filter((part) => part !== '');
-            let current = this;
-            let currentPath = this.path || '';
-
-            for (const segment of segments) {
-              if (!current._treeNode || !Array.isArray(current._treeNode[1])) {
-                throw new DOMException(this.name + ' is not a directory', 'NotADirectoryError');
-              }
-
-              let child = current._treeNode[1].find((c) => c[0] === segment);
-              if (!child) {
-                if (options && options.create) {
-                  child = [segment, []];
-                  current._treeNode[1].push(child);
-                } else {
-                  throw new DOMException('A directory with the name "' + segment + '" was not found.', 'NotFoundError');
-                }
-              }
-
-              if (!Array.isArray(child[1])) {
-                throw new DOMException('"' + segment + '" is not a directory', 'TypeMismatchError');
-              }
-
-              const dirHandle = new FileSystemDirectoryHandle();
-              dirHandle.name = segment;
-              dirHandle.kind = 'directory';
-              dirHandle.path = currentPath ? currentPath + '/' + segment : segment;
-              dirHandle._treeNode = child;
-              current = dirHandle;
-              currentPath = dirHandle.path;
+            if (segments.length > 1) {
+              const parentPath = segments.slice(0, -1).join('/');
+              const childName = segments[segments.length - 1];
+              const parentHandle = await this.getDirectoryHandle(parentPath, options);
+              return parentHandle.getDirectoryHandle(childName, options);
             }
 
-            return current;
+            if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
+              throw new DOMException(this.name + ' is not a directory', 'NotADirectoryError');
+            }
+
+            let child = this._treeNode[1].find((c) => c[0] === name);
+            if (!child) {
+              if (options && options.create) {
+                const createdPath = this.path ? this.path + '/' + name : name;
+                await persistEntryCreation(createdPath, 'directory');
+                child = ensureTreeChild(this, name, 'directory');
+              } else {
+                throw new DOMException('A directory with the name "' + name + '" was not found.', 'NotFoundError');
+              }
+            }
+
+            if (!child || !Array.isArray(child[1])) {
+              throw new DOMException('"' + name + '" is not a directory', 'TypeMismatchError');
+            }
+
+            const dirHandle = new FileSystemDirectoryHandle();
+            dirHandle.name = name;
+            dirHandle.kind = 'directory';
+            dirHandle.path = this.path ? this.path + '/' + name : name;
+            dirHandle._treeNode = child;
+            return dirHandle;
           };
 
           FileSystemDirectoryHandle.prototype.getFileHandle = async function (name, options = {}) {
@@ -269,19 +302,32 @@ stream.write = async (chunk) => {
               throw new DOMException('' + this.name + ' is not a directory', 'NotADirectoryError');
             }
 
-            const child = this._treeNode[1].find((c) => c[0] === name);
+            let child = this._treeNode[1].find((c) => c[0] === name);
             if (!child) {
               if (options && options.create) {
+                const createdPath = this.path ? this.path + '/' + name : name;
+                await persistEntryCreation(createdPath, 'file');
+                child = ensureTreeChild(this, name, 'file');
                 const fileHandle = new FileSystemFileHandle();
                 fileHandle.name = name;
                 fileHandle.kind = 'file';
                 fileHandle.path = this.path ? this.path + '/' + name : name;
+                fileHandle._file = new File([], name, { type: 'application/octet-stream' });
+                fileHandle._createdEmpty = true;
+                if (fileHandle._file) {
+                  try {
+                    fileHandle._file.fullPath = normalizeVfsPath(fileHandle.path);
+                    fileHandle._file.handle = fileHandle;
+                    fileHandle._file.fileHandle = fileHandle;
+                  } catch (e) {}
+                }
                 return fileHandle;
+              } else {
+                throw new DOMException('A file with the name "' + name + '" was not found.', 'NotFoundError');
               }
-              throw new DOMException('A file with the name "' + name + '" was not found.', 'NotFoundError');
             }
 
-            if (Array.isArray(child[1])) {
+            if (!child || Array.isArray(child[1])) {
               throw new DOMException('"' + name + '" is not a file', 'TypeMismatchError');
             }
 
@@ -468,7 +514,7 @@ function makeFileHandle(file) {
             const combinedBuffer = new Uint8Array(totalBytes);
             let offset = 0;
             for (const chunk of validChunks) {
-              if (chunk && chunk.byteLength > 0) {
+              if (chunk && chunk.byteLength >= 0) {
                 combinedBuffer.set(new Uint8Array(chunk), offset);
                 offset += chunk.byteLength;
               }
@@ -700,6 +746,16 @@ frameWin.addEventListener('message', e => {
 FileSystemFileHandle.prototype.getFile = async function () {
   if (this._file) return this._file;
   if (this._pendingFilePromise) return this._pendingFilePromise;
+  if (this._createdEmpty) {
+    const emptyFile = new File([], this.name || 'untitled', { type: 'application/octet-stream' });
+    try {
+      emptyFile.fullPath = normalizeVfsPath(this.path || this.name || '');
+      emptyFile.handle = this;
+      emptyFile.fileHandle = this;
+    } catch (e) {}
+    this._file = emptyFile;
+    return emptyFile;
+  }
 
   if (!this.path) {
     throw new Error('File not available');

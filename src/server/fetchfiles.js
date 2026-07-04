@@ -685,33 +685,28 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
 
   for (const dir of directions) {
  if (dir.addFolder) {
-  // console.log(dir.path)
-  // dir.path may be either the parent folder (where to create) OR
-  // a full target path that already includes the new folder name.
-  // Normalize: if dir.name provided, treat dir.path as parent; otherwise
-  // try to derive name from path.
-  let parentPath = resolvePath(dir.path || 'root');
+  let parentPath;
   let folderPath;
+
   if (dir.name && dir.name.length) {
+    parentPath = resolvePath(dir.path || 'root');
     folderPath = path.join(parentPath, dir.name);
   } else {
-    // If no explicit name, assume dir.path includes the new name
-    // e.g. 'root/a/newFolder' -> parent = 'root/a' name = 'newFolder'
-    const parts = (dir.path || '').split('/').filter(Boolean);
-    if (parts.length > 1) {
-      const name = parts.pop();
-      parentPath = resolvePath('root/' + parts.join('/'));
-      folderPath = path.join(parentPath, name);
+    const requestedPath = typeof dir.path === 'string' ? dir.path : '';
+    const normalizedRequestedPath = normalizeUserRelativePath(requestedPath);
+    if (normalizedRequestedPath) {
+      folderPath = resolvePath(requestedPath);
+      parentPath = path.dirname(folderPath);
     } else {
-      // fallback: create under parentPath with a timestamped name
+      parentPath = resolvePath('root');
       folderPath = path.join(parentPath, `new-folder-${Date.now()}`);
     }
   }
 
-  const parentRel = directionPathToRelative(dir.path || 'root');
+  const parentRel = normalizeUserRelativePath(path.relative(rootPath, parentPath || rootPath).replace(/\\/g, '/'));
   assertWriteAllowed(parentRel);
 
-  await ensureDir(parentPath);
+  await ensureDir(parentPath || rootPath);
 
   // If an entry exists at the target path, ensure it's a directory.
   if (await exists(folderPath)) {
