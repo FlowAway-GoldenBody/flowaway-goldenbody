@@ -1,0 +1,13 @@
+{
+  "functionname": "packageInstaller",
+  "label": "App Installer",
+  "usejs": true,
+  "jsFile": "script.js",
+  "iconFile": "icon.png",
+  "pngEnabled": true,
+  "nonTextIcon": true,
+  "svgEnabled": false,
+  "globalvarobjectstring": "packageInstallerGlobals",
+  "allapparraystring": "allPackageInstallers",
+  "openfilecapability": [".zip"]
+}
