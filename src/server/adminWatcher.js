@@ -47,40 +47,6 @@ function writeJsonPretty(filePath, value) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
-// Create zip archives for each app folder in the template `apps` directory
-async function createZipsForApps() {
-  try {
-    const projectRoot = path.resolve(__dirname, '../../');
-    const appsDir = path.join(USER_TEMPLATE_PATH, 'systemfiles', 'runtime', 'apps');
-    const outBase = path.join(projectRoot, 'public', 'appstoreapps');
-
-    if (!fs.existsSync(appsDir)) {
-      console.log('No apps directory found at', appsDir);
-      return;
-    }
-
-    if (!fs.existsSync(outBase)) fs.mkdirSync(outBase, { recursive: true });
-
-    const entries = fs.readdirSync(appsDir, { withFileTypes: true });
-    const appDirs = entries.filter(e => e.isDirectory()).map(d => d.name);
-
-    for (const name of appDirs) {
-      const appPath = path.join(appsDir, name);
-      const appOutDir = path.join(outBase, name);
-      if (!fs.existsSync(appOutDir)) fs.mkdirSync(appOutDir, { recursive: true });
-
-      const zip = new AdmZip();
-      zip.addLocalFolder(appPath, name);
-      const outPath = path.join(appOutDir, `${name}.zip`);
-      console.log(`Creating zip for app ${name} at ${outPath}...`);
-      zip.writeZip(outPath);
-      console.log(`Wrote ${outPath}`);
-    }
-  } catch (err) {
-    console.error('Error creating zips:', err);
-  }
-}
-
 function updateAllSystemApps() {
   try {
     const directoryPath = path.resolve(__dirname, './zmcdfiles');
@@ -278,4 +244,3 @@ const copyAppsIfSrcNewer = (srcDir, dstDir) => {
   }
 }
 updateAllSystemApps();
-createZipsForApps();

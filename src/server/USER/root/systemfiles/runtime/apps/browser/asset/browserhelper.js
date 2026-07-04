@@ -742,11 +742,6 @@ window.browserGlobals.unshuffleURL = function (url) {
   if (!url) return "";
   if (url === window.protectedGlobals.goldenbodywebsite + "flowerfeast.html") {
     return "goldenbody://newtab/";
-  } else if (
-    url ===
-    window.protectedGlobals.goldenbodywebsite + "singlesdaylosesingle.html"
-  ) {
-    return "goldenbody://app-store/";
   }
 
   try {

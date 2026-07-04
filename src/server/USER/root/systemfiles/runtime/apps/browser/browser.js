@@ -2017,7 +2017,7 @@ setTimeout(() => {
     urlInput.className = "sim-url-input";
     urlInput.type = "text";
     urlInput.placeholder =
-      "Enter URL (e.g. https://example.com, goldenbody://newtab/, goldenbody://app-store/)";
+      "Enter URL (e.g. https://example.com, goldenbody://newtab/, or file:///path/to/file.html)";
     urlInput.autocapitalize = "off";
     urlInput.autocomplete = "off";
     urlInput.spellcheck = false;
@@ -4419,14 +4419,6 @@ setTimeout(() => {
       }
       if (str === "goldenbody://newtab/" || str === "goldenbody://newtab") {
         return window.protectedGlobals.goldenbodywebsite + "flowerfeast.html";
-      } else if (
-        str === "goldenbody://app-store/" ||
-        str === "goldenbody://app-store"
-      ) {
-        return (
-          window.protectedGlobals.goldenbodywebsite +
-          "singlesdaylosesingle.html"
-        );
       }
       return proxylink + window.browserGlobals.id + "/" + url;
     }
