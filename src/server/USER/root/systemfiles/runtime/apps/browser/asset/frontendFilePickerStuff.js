@@ -1238,51 +1238,68 @@
         window.browserGlobals.requestFileForFrame = async function (frameWinArg, request = {}) {
           sentreqframe = resolveRequestFrame(frameWinArg);
           const targetWindow = sentreqframe && sentreqframe.contentWindow;
-          if (!targetWindow) return;
+          if (!targetWindow) {
+            throw new Error('Could not resolve target frame for file request');
+          }
 
           const requestedPath = request.path;
           const requestedName = request.name || (requestedPath ? requestedPath.split("/").pop() : "file");
-          const fileResult = await fetchFileContent(username, requestedPath);
 
-          let fileBuffer = null;
-          if (typeof fileResult === "string") {
-            fileBuffer = base64ToArrayBuffer(fileResult);
-          } else if (fileResult && fileResult.totalChunks && fileResult.totalChunks > 1) {
-            const chunks = [];
-            for (let i = 0; i < fileResult.totalChunks; i++) {
-              if (i === 0) {
-                chunks.push(base64ToArrayBuffer(fileResult.filecontent));
-                continue;
+          try {
+            const fileResult = await fetchFileContent(username, requestedPath);
+
+            let fileBuffer = null;
+            if (typeof fileResult === "string") {
+              fileBuffer = base64ToArrayBuffer(fileResult);
+            } else if (fileResult && fileResult.totalChunks && fileResult.totalChunks > 1) {
+              const chunks = [];
+              for (let i = 0; i < fileResult.totalChunks; i++) {
+                if (i === 0) {
+                  chunks.push(base64ToArrayBuffer(fileResult.filecontent));
+                  continue;
+                }
+                const chunkData = await window.protectedGlobals.filePost({
+                  requestFile: true,
+                  requestFileName: requestedPath,
+                  chunkIndex: i,
+                  username,
+                });
+                chunks.push(base64ToArrayBuffer(chunkData.filecontent));
               }
-              const chunkData = await window.protectedGlobals.filePost({
-                requestFile: true,
-                requestFileName: requestedPath,
-                chunkIndex: i,
-                username,
-              });
-              chunks.push(base64ToArrayBuffer(chunkData.filecontent));
+              const totalBytes = chunks.reduce((sum, chunk) => sum + (chunk ? chunk.byteLength : 0), 0);
+              const merged = new Uint8Array(totalBytes);
+              let offset = 0;
+              for (const chunk of chunks) {
+                const view = new Uint8Array(chunk);
+                merged.set(view, offset);
+                offset += view.byteLength;
+              }
+              fileBuffer = merged.buffer;
+            } else {
+              fileBuffer = fileResult;
             }
-            const totalBytes = chunks.reduce((sum, chunk) => sum + (chunk ? chunk.byteLength : 0), 0);
-            const merged = new Uint8Array(totalBytes);
-            let offset = 0;
-            for (const chunk of chunks) {
-              const view = new Uint8Array(chunk);
-              merged.set(view, offset);
-              offset += view.byteLength;
-            }
-            fileBuffer = merged.buffer;
-          } else {
-            fileBuffer = fileResult;
-          }
 
-          deliverVfsPayload(targetWindow, {
-            __VFS__: true,
-            kind: "fileData",
-            path: requestedPath,
-            name: requestedName,
-            type: getMimeType(requestedName),
-            buffer: fileBuffer,
-          });
+            if (fileBuffer == null) {
+              throw new Error('No file data received from fetchFileContent');
+            }
+
+            deliverVfsPayload(targetWindow, {
+              __VFS__: true,
+              kind: "fileData",
+              path: requestedPath,
+              name: requestedName,
+              type: getMimeType(requestedName),
+              buffer: fileBuffer,
+            });
+          } catch (err) {
+            deliverVfsPayload(targetWindow, {
+              __VFS__: true,
+              kind: "fileError",
+              path: requestedPath,
+              message: err ? String(err.message || err) : 'Unknown file request error',
+            });
+            throw err;
+          }
         };
 
 window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {

@@ -178,6 +178,120 @@ stream.write = async (chunk) => {
             }
           };
 
+          FileSystemDirectoryHandle.prototype.entries = async function* () {
+            if (!this._treeNode || !Array.isArray(this._treeNode[1])) return;
+            for (const child of this._treeNode[1]) {
+              const name = child[0];
+              const isFolder = Array.isArray(child[1]);
+              if (isFolder) {
+                const dirHandle = new FileSystemDirectoryHandle();
+                dirHandle.name = name;
+                dirHandle.kind = 'directory';
+                dirHandle.path = this.path ? this.path + '/' + name : name;
+                dirHandle._treeNode = child;
+                yield [name, dirHandle];
+              } else {
+                const fileHandle = new FileSystemFileHandle();
+                fileHandle.name = name;
+                fileHandle.kind = 'file';
+                fileHandle.path = this.path ? this.path + '/' + name : name;
+                yield [name, fileHandle];
+              }
+            }
+          };
+
+          FileSystemDirectoryHandle.prototype.values = async function* () {
+            for await (const [, handle] of this.entries()) {
+              yield handle;
+            }
+          };
+
+          FileSystemDirectoryHandle.prototype.keys = async function* () {
+            for await (const [name] of this.entries()) {
+              yield name;
+            }
+          };
+
+          FileSystemDirectoryHandle.prototype.getDirectoryHandle = async function (name, options = {}) {
+            if (typeof name !== 'string') {
+              throw new DOMException('The name must be a string', 'TypeError');
+            }
+
+            const segments = name.split('/').filter((part) => part !== '');
+            let current = this;
+            let currentPath = this.path || '';
+
+            for (const segment of segments) {
+              if (!current._treeNode || !Array.isArray(current._treeNode[1])) {
+                throw new DOMException(this.name + ' is not a directory', 'NotADirectoryError');
+              }
+
+              let child = current._treeNode[1].find((c) => c[0] === segment);
+              if (!child) {
+                if (options && options.create) {
+                  child = [segment, []];
+                  current._treeNode[1].push(child);
+                } else {
+                  throw new DOMException('A directory with the name "' + segment + '" was not found.', 'NotFoundError');
+                }
+              }
+
+              if (!Array.isArray(child[1])) {
+                throw new DOMException('"' + segment + '" is not a directory', 'TypeMismatchError');
+              }
+
+              const dirHandle = new FileSystemDirectoryHandle();
+              dirHandle.name = segment;
+              dirHandle.kind = 'directory';
+              dirHandle.path = currentPath ? currentPath + '/' + segment : segment;
+              dirHandle._treeNode = child;
+              current = dirHandle;
+              currentPath = dirHandle.path;
+            }
+
+            return current;
+          };
+
+          FileSystemDirectoryHandle.prototype.getFileHandle = async function (name, options = {}) {
+            if (typeof name !== 'string') {
+              throw new DOMException('The name must be a string', 'TypeError');
+            }
+
+            const segments = name.split('/').filter((part) => part !== '');
+            if (segments.length > 1) {
+              const parentPath = segments.slice(0, -1).join('/');
+              const childName = segments[segments.length - 1];
+              const parentHandle = await this.getDirectoryHandle(parentPath, options);
+              return parentHandle.getFileHandle(childName, options);
+            }
+
+            if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
+              throw new DOMException('' + this.name + ' is not a directory', 'NotADirectoryError');
+            }
+
+            const child = this._treeNode[1].find((c) => c[0] === name);
+            if (!child) {
+              if (options && options.create) {
+                const fileHandle = new FileSystemFileHandle();
+                fileHandle.name = name;
+                fileHandle.kind = 'file';
+                fileHandle.path = this.path ? this.path + '/' + name : name;
+                return fileHandle;
+              }
+              throw new DOMException('A file with the name "' + name + '" was not found.', 'NotFoundError');
+            }
+
+            if (Array.isArray(child[1])) {
+              throw new DOMException('"' + name + '" is not a file', 'TypeMismatchError');
+            }
+
+            const fileHandle = new FileSystemFileHandle();
+            fileHandle.name = name;
+            fileHandle.kind = 'file';
+            fileHandle.path = this.path ? this.path + '/' + name : name;
+            return fileHandle;
+          };
+
 function makeFileHandle(file) {
   const h = new FileSystemFileHandle();
 
@@ -301,8 +415,8 @@ function makeFileHandle(file) {
           clearInterval(i);
           resolve();
         }
-        setTimeout(() => {clearInterval(i)}, 60000); // safety timeout
       }, 50);
+      setTimeout(() => {clearInterval(i)}, 60000); // safety timeout
     });
   }
 
@@ -535,116 +649,9 @@ frameWin.showSaveFilePicker = async (options = {}) => {
         h.path = path;
         h._treeNode = treeNode; // store for entries() iteration
         
-        // entries() method to iterate over directory contents
-        h.entries = async function* () {
-          if (!this._treeNode || !Array.isArray(this._treeNode[1])) return;
-          for (const child of this._treeNode[1]) {
-            const name = child[0];
-            const isFolder = Array.isArray(child[1]);
-            if (isFolder) {
-const dirHandle = new FileSystemDirectoryHandle();
-dirHandle.name = name;
-dirHandle.kind = 'directory';
-dirHandle.path = (this.path ? this.path + '/' : '') + name;
-dirHandle._treeNode = child;
 
-// attach ALL directory methods
-dirHandle.entries = this.entries;
-dirHandle.values = this.values;
-dirHandle.keys = this.keys;
-dirHandle.getDirectoryHandle = this.getDirectoryHandle;
-dirHandle.getFileHandle = this.getFileHandle;
-dirHandle.isSameEntry = this.isSameEntry;
 
-yield [name, dirHandle];
 
-            } else {
-              const fileHandle = new FileSystemFileHandle();
-              fileHandle.name = name;
-              fileHandle.kind = 'file';
-              fileHandle.path = (this.path ? this.path + '/' : '') + name;
-              yield [name, fileHandle];
-            }
-          }
-        };
-
-        // values() method
-        h.values = async function* () {
-          for await (const [, handle] of this.entries()) {
-            yield handle;
-          }
-        };
-
-        // keys() method
-        h.keys = async function* () {
-          for await (const [name] of this.entries()) {
-            yield name;
-          }
-        };
-
-        // getDirectoryHandle(name) method
-        h.getDirectoryHandle = async function(name, options = {}) {
-          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
-            throw new DOMException(this.name + ' is not a directory', 'NotADirectoryError');
-          }
-          let child = this._treeNode[1].find(c => c[0] === name);
-          if (!child) {
-            if (options && options.create) {
-              // Create a new in-memory directory node so subsequent operations
-              // (entries, getFileHandle, etc.) can operate on it.
-              const newNode = [name, []];
-              if (!Array.isArray(this._treeNode[1])) this._treeNode[1] = [];
-              this._treeNode[1].push(newNode);
-              child = newNode;
-            } else {
-              // throw new DOMException('A directory with the name "' + name + '" was not found.', 'NotFoundError');
-            }
-          }
-          if (!Array.isArray(child[1])) {
-            throw new DOMException('"' + name + '" is not a directory', 'TypeMismatchError');
-          }
-          const dirHandle = new FileSystemDirectoryHandle();
-          dirHandle.name = name;
-          dirHandle.kind = 'directory';
-          dirHandle.path = this.path + '/' + name;
-          dirHandle._treeNode = child;
-          dirHandle.entries = this.entries;
-          dirHandle.values = this.values;
-          dirHandle.keys = this.keys;
-          dirHandle.getDirectoryHandle = this.getDirectoryHandle;
-          dirHandle.getFileHandle = this.getFileHandle;
-          dirHandle.isSameEntry = this.isSameEntry;
-          return dirHandle;
-        };
-
-        // getFileHandle(name) method
-        h.getFileHandle = async function(name, options = {}) {
-          if (!this._treeNode || !Array.isArray(this._treeNode[1])) {
-            throw new DOMException('' + this.name + ' is not a directory', 'NotADirectoryError');
-          }
-          const child = this._treeNode[1].find(c => c[0] === name);
-          if (!child) {
-            // Allow creation of new files when requested. We don't mutate the
-            // host tree here; instead return a handle pointing at the intended
-            // path so \`createWritable()\` will route writes through the VFS.
-            if (options && options.create) {
-              const fileHandle = new FileSystemFileHandle();
-              fileHandle.name = name;
-              fileHandle.kind = 'file';
-              fileHandle.path = this.path + '/' + name;
-              return fileHandle;
-            }
-            // throw new DOMException('A file with the name "' + name + '" was not found.', 'NotFoundError');
-          }
-          if (Array.isArray(child[1])) {
-            throw new DOMException('"' + name + '" is not a file', 'TypeMismatchError');
-          }
-          const fileHandle = new FileSystemFileHandle();
-          fileHandle.name = name;
-          fileHandle.kind = 'file';
-          fileHandle.path = this.path + '/' + name;
-          return fileHandle;
-        };
 
         resolve(h);
       });
@@ -658,8 +665,8 @@ frameWin.addEventListener('message', e => {
   if (!d || d.__VFS__ !== true) return;
 
   if (d.kind === 'fileData') {
-    const req = pendingFileRequests.get(d.path);
-    if (!req) return;
+    const pending = pendingFileRequests.get(d.path);
+    if (!pending || pending.length === 0) return;
 
     pendingFileRequests.delete(d.path);
 
@@ -670,36 +677,74 @@ frameWin.addEventListener('message', e => {
     );
 
     file.fullPath = normalizeVfsPath(d.path);
-    req.resolve(file);
+    for (const req of pending) {
+      try { req.resolve(file); } catch (e) {}
+    }
+    return;
+  }
+
+  if (d.kind === 'fileError') {
+    const pending = pendingFileRequests.get(d.path);
+    if (!pending || pending.length === 0) return;
+
+    pendingFileRequests.delete(d.path);
+    const error = new Error(d.message || 'File request failed');
+    for (const req of pending) {
+      try { req.reject(error); } catch (e) {}
+    }
+    return;
   }
 });
 
 // ---- now override getFile ----
 FileSystemFileHandle.prototype.getFile = async function () {
   if (this._file) return this._file;
+  if (this._pendingFilePromise) return this._pendingFilePromise;
 
   if (!this.path) {
     throw new Error('File not available');
   }
 
-  const file = await new Promise((resolve, reject) => {
-    pendingFileRequests.set(this.path, { resolve, reject });
+  const pendingPromise = new Promise((resolve, reject) => {
+    const pathKey = this.path;
+    const pending = pendingFileRequests.get(pathKey) || [];
+    const requestEntry = { resolve, reject };
+    pending.push(requestEntry);
+    pendingFileRequests.set(pathKey, pending);
+
     window.browserGlobals.requestFileForFrame(frameWin, {
-      path: this.path,
+      path: pathKey,
       name: this.name,
+    }).catch(err => {
+      const active = pendingFileRequests.get(pathKey);
+      if (!active || active.length === 0) return;
+      const idx = active.indexOf(requestEntry);
+      if (idx !== -1) active.splice(idx, 1);
+      if (active.length === 0) pendingFileRequests.delete(pathKey);
+      reject(err);
     });
 
     setTimeout(() => {
-      if (pendingFileRequests.has(this.path)) {
-        pendingFileRequests.delete(this.path);
-        
-        reject(new Error('File request timed out'));
-      }
+      const active = pendingFileRequests.get(pathKey);
+      if (!active || active.length === 0) return;
+      const idx = active.indexOf(requestEntry);
+      if (idx !== -1) active.splice(idx, 1);
+      if (active.length === 0) pendingFileRequests.delete(pathKey);
+      reject(new Error('File request timed out'));
     }, 30000);
   });
 
-  this._file = file;
-  return file;
+  this._pendingFilePromise = pendingPromise;
+
+  try {
+    const file = await pendingPromise;
+    this._file = file;
+    return file;
+  } finally {
+    if (this._pendingFilePromise === pendingPromise) {
+      this._pendingFilePromise = null;
+    }
+  }
 };
 
 
