@@ -422,17 +422,49 @@ function makeFileHandle(file) {
   function injectIntoActiveInput() {
     if (!activeInput) return;
 
+    const targetInput = activeInput;
     const dt = new DataTransfer();
     for (const file of injectedFiles) {
       dt.items.add(file);
     }
 
-    frameWin.Object.defineProperty(activeInput, 'files', {
-      configurable: true,
-      get: () => dt.files
-    });
+    const filesList = dt.files;
+    try {
+      frameWin.Object.defineProperty(targetInput, 'files', {
+        configurable: true,
+        enumerable: true,
+        get: () => filesList
+      });
+    } catch (e) {}
 
-    activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+    try {
+      const fileName = filesList && filesList.length ? filesList[0].name : '';
+      frameWin.Object.defineProperty(targetInput, 'value', {
+        configurable: true,
+        enumerable: true,
+        get: () => fileName ? `C:\\fakepath\\${fileName}` : ''
+      });
+    } catch (e) {}
+
+    try {
+      targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (e) {}
+
+    try {
+      targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (e) {}
+
+    try {
+      if (typeof targetInput.oninput === 'function') {
+        targetInput.oninput(new Event('input', { bubbles: true }));
+      }
+    } catch (e) {}
+
+    try {
+      if (typeof targetInput.onchange === 'function') {
+        targetInput.onchange(new Event('change', { bubbles: true }));
+      }
+    } catch (e) {}
 
     // cleanup
     injectedFiles = [];
@@ -801,15 +833,17 @@ FileSystemFileHandle.prototype.getFile = async function () {
   frameWin.document.addEventListener(
     'click',
     e => {
-      const input = e.target;
-      if (!(input.tagName === 'INPUT')) return;
-      if (input.type !== 'file') return;
+      const path = e.composedPath ? e.composedPath() : [];
+      const input = path.find(node => node && node.tagName === 'INPUT' && node.type === 'file') ||
+        (e.target && e.target.tagName === 'INPUT' && e.target.type === 'file' ? e.target : null);
+      if (!input) return;
 
       e.preventDefault();
       e.stopImmediatePropagation();
 
       activeInput = input;
-      pickerMode = 'input';      allFilesReceived = false;
+      pickerMode = 'input';
+      allFilesReceived = false;
       pickerCancelled = false;
       injectedFiles = [];
 
@@ -819,12 +853,14 @@ FileSystemFileHandle.prototype.getFile = async function () {
           await window.browserGlobals.showOpenFilePicker(frameWin);
           await waitUntilFiles();
         } catch (err) {
-          // User cancelled or error occurred
-          activeInput = null;
-          pickerMode = null;
-          injectedFiles = [];
+          if (activeInput === input) {
+            activeInput = null;
+            pickerMode = null;
+            injectedFiles = [];
+          }
         }
-      })();    },
+      })();
+    },
     true
   );
 })();
