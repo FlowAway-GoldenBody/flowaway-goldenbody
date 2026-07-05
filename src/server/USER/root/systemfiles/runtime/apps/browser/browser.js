@@ -74,6 +74,7 @@ window.browser = async function (
       posX = pos.x;
       posY = pos.y;
     }
+    if (!window.browserGlobals.allocateBrowserGoldenbodyId) window.protectedGlobals.notification("There's a problem with the browser app. Please restart the runtime and try again.");
     let assignedId = window.browserGlobals.allocateBrowserGoldenbodyId();
     let getRoot = () => {};
     let exposedToTabs = {};
@@ -103,6 +104,7 @@ window.browser = async function (
           if (window.browserGlobals.readBrowserProfile) {
             const prof = await window.browserGlobals.readBrowserProfile();
             window.browserGlobals.profile = prof;
+            window.browserGlobals.dark = prof.themeMode === "manual" ? !!prof.dark : window.protectedGlobals.data.dark;
             window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
             window.browserGlobals.profileState.enableURLSync = !!prof.enableURLSync;
             window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
@@ -1016,7 +1018,36 @@ setTimeout(() => {
             if (window.browserGlobals.readBrowserProfile) {
               const prof = await window.browserGlobals.readBrowserProfile();
               window.browserGlobals.profile = prof;
+              window.browserGlobals.dark = prof.themeMode === "manual" ? !!prof.dark : window.protectedGlobals.data.dark;
               // sync profileState
+              // If manual, pin theme on all browser roots so `window.protectedGlobals.applyStyles` won't
+              // override them. If auto, remove the pin so `window.protectedGlobals.applyStyles` manages them.
+              try {
+                const allRoots = document.querySelectorAll(
+                  '.app-window-root[data-app-id="browser"]',
+                );
+                for (const rr of allRoots) {
+                  if (
+                    window.browserGlobals.profile &&
+                    window.browserGlobals.profile.themeMode === "manual"
+                  ) {
+                    rr.dataset.themeManual = "true";
+                    rr.classList.toggle("dark", window.browserGlobals.dark);
+                    rr.classList.toggle("light", !window.browserGlobals.dark);
+                  } else {
+                    try {
+                      delete rr.dataset.themeManual;
+                    } catch (e) {
+                      rr.dataset.themeManual = "false";
+                    }
+                    // Ensure the root reflects the effective (global) theme immediately
+                    try {
+                      rr.classList.toggle("dark", !!window.browserGlobals.dark);
+                      rr.classList.toggle("light", !window.browserGlobals.dark);
+                    } catch (e) {}
+                  }
+                }
+              } catch (e) {}
               window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
               window.browserGlobals.profileState.enableURLSync = !!prof.enableURLSync;
               window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
@@ -2665,6 +2696,7 @@ setTimeout(() => {
     let nativeTabDrag = false;
     let dragoverReordered = false;
     let crossWindowTransferHandled = false;
+    let dragMoved = false;
     const resetTabDragState = () => {
       window.browserGlobals.tabisDragging = false;
       dragMoved = false;
@@ -2734,11 +2766,15 @@ setTimeout(() => {
               return;
             }
             crossWindowTransferHandled = true;
+            let fileUrl = false;
+            if (window.browserGlobals.draggedtab.url.startsWith("file://")) {
+              fileUrl = true;
+            }
             targetBrowser.addTab(
               window.browserGlobals.draggedtab.url,
               "",
               window.browserGlobals.draggedtab.resizeP,
-              { forceRender: true },
+              { forceRender: true, fileUrl },
             );
             window.browserGlobals.dragstartwindow.closeTab(
               window.browserGlobals.draggedtab.id,
@@ -3399,7 +3435,11 @@ setTimeout(() => {
         onDocumentKeyup,
       );
       tab.__onDocumentKeyup = onDocumentKeyup;
-
+      if (options.fileUrl) {
+        setTimeout(() => {
+          openUrlInActiveTab(normalizePreloadLink(url));
+        }, 10);
+      }
       return id;
     }
     window.addEventListener(

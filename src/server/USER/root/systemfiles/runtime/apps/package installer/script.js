@@ -2,7 +2,7 @@
 
 window.packageInstallerGlobals = window.packageInstallerGlobals || {};
 window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._jsZipLoader || (function () {
-  if (window.JSZip) {
+  if (window.fflate) {
     return Promise.resolve();
   }
 
@@ -11,13 +11,13 @@ window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._js
   }
 
   const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  script.src = 'https://cdn.jsdelivr.net/npm/fflate@0.9.1/umd/index.min.js';
   script.crossOrigin = 'anonymous';
   script.async = true;
 
   const promise = new Promise((resolve, reject) => {
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load JSZip from CDN'));
+    script.onerror = () => reject(new Error('Failed to load zip library from CDN'));
   });
 
   window.packageInstallerGlobals._jsZipLoader = promise;
@@ -27,9 +27,72 @@ window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._js
 
 window.packageInstallerGlobals.ensureJSZipLoaded = window.packageInstallerGlobals.ensureJSZipLoaded || async function () {
   await window.packageInstallerGlobals._jsZipLoader;
-  if (typeof JSZip === 'undefined') {
-    throw new Error('JSZip library not available after loading CDN script');
+  if (typeof window.fflate === 'undefined') {
+    throw new Error('Zip library not available after loading CDN script');
   }
+};
+
+window.packageInstallerGlobals.parseZipData = window.packageInstallerGlobals.parseZipData || async function (zipDataBytes) {
+  await window.packageInstallerGlobals.ensureJSZipLoaded();
+
+  if (!(zipDataBytes instanceof Uint8Array)) {
+    if (zipDataBytes instanceof ArrayBuffer) {
+      zipDataBytes = new Uint8Array(zipDataBytes);
+    } else if (ArrayBuffer.isView(zipDataBytes)) {
+      zipDataBytes = new Uint8Array(zipDataBytes.buffer, zipDataBytes.byteOffset, zipDataBytes.byteLength);
+    } else {
+      throw new Error('Invalid zip data type');
+    }
+  }
+
+  const unzipResult = await new Promise((resolve, reject) => {
+    try {
+      window.fflate.unzip(zipDataBytes, (error, data) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(data);
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+  const files = {};
+  for (const [rawPath, content] of Object.entries(unzipResult || {})) {
+    const normalizedPath = String(rawPath).replace(/\\/g, '/');
+    const isDir = normalizedPath.endsWith('/');
+    const bytes = content instanceof Uint8Array ? content : new Uint8Array(content || []);
+
+    files[normalizedPath] = {
+      dir: isDir,
+      _data: bytes,
+      async: async (type) => {
+        if (isDir) {
+          return new ArrayBuffer(0);
+        }
+        if (type === 'string' || type === 'text') {
+          return new TextDecoder('utf-8').decode(bytes);
+        }
+        if (type === 'uint8array') {
+          return bytes;
+        }
+        if (type === 'arraybuffer') {
+          return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        }
+        return bytes;
+      },
+      asText: async () => new TextDecoder('utf-8').decode(bytes),
+      asUint8Array: async () => bytes,
+      asArrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    };
+  }
+
+  return {
+    files,
+    file: (path) => files[path] || null,
+  };
 };
 
 window.packageInstallerGlobals.getMasterJsApiKey = window.packageInstallerGlobals.getMasterJsApiKey || async function () {
@@ -89,7 +152,7 @@ window.packageInstallerGlobals.sanitizeFolderName = window.packageInstallerGloba
   return safeName || 'app-package';
 };
 
-window.packageInstallerGlobals.readZipEntryText = window.packageInstallerGlobals.readZipEntryText || async function (entryFile, timeoutMs = 10000) {
+window.packageInstallerGlobals.readZipEntryText = window.packageInstallerGlobals.readZipEntryText || async function (entryFile, timeoutMs = 1500) {
   if (!entryFile) {
     throw new Error('Zip entry is not provided');
   }
@@ -100,10 +163,56 @@ window.packageInstallerGlobals.readZipEntryText = window.packageInstallerGlobals
     { type: 'arraybuffer' },
   ];
 
+  const normalizeTextResult = (result) => {
+    if (result instanceof ArrayBuffer || (typeof Buffer !== 'undefined' && result instanceof Buffer)) {
+      const buf = result instanceof ArrayBuffer ? new Uint8Array(result) : new Uint8Array(result.buffer || result);
+      return new TextDecoder('utf-8').decode(buf);
+    }
+    if (result instanceof Uint8Array) {
+      return new TextDecoder('utf-8').decode(result);
+    }
+    if (ArrayBuffer.isView(result)) {
+      return new TextDecoder('utf-8').decode(result);
+    }
+    if (typeof result === 'string') {
+      return result;
+    }
+    if (result && typeof result === 'object' && typeof result.toString === 'function') {
+      return String(result);
+    }
+    return '';
+  };
+
+  const extractPayloadFromData = () => {
+    const data = entryFile && entryFile._data;
+    if (!data) {
+      return '';
+    }
+
+    const candidates = [
+      data.uncompressedContent,
+      data.compressedContent,
+      data.content,
+      data.buffer,
+      data.binary,
+      data._data,
+      data,
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      const normalized = normalizeTextResult(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return '';
+  };
+
   let lastError = null;
   for (const attempt of attempts) {
     try {
-      // Try to obtain a promise in multiple ways to handle different JSZip builds
       let promise = null;
 
       try {
@@ -117,18 +226,24 @@ window.packageInstallerGlobals.readZipEntryText = window.packageInstallerGlobals
         // ignored
       }
 
-      // Legacy alternatives
-      if (!promise && typeof entryFile.asText === 'function') {
+      if (!promise && typeof entryFile.asText === 'function' && attempt.type === 'string') {
         try { promise = entryFile.asText(); } catch (e) { /* swallow */ }
+      }
+
+      if (!promise && typeof entryFile.asUint8Array === 'function' && attempt.type === 'uint8array') {
+        try { promise = entryFile.asUint8Array(); } catch (e) { /* swallow */ }
+      }
+
+      if (!promise && typeof entryFile.asArrayBuffer === 'function' && attempt.type === 'arraybuffer') {
+        try { promise = entryFile.asArrayBuffer(); } catch (e) { /* swallow */ }
       }
 
       if (!promise && typeof entryFile.nodeStream === 'function') {
         try {
-          // nodeStream produces a stream; convert to buffer
           const stream = entryFile.nodeStream();
           promise = new Promise((resolve, reject) => {
             const chunks = [];
-            stream.on('data', c => chunks.push(c));
+            stream.on('data', (c) => chunks.push(c));
             stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
             stream.on('error', reject);
           });
@@ -136,36 +251,31 @@ window.packageInstallerGlobals.readZipEntryText = window.packageInstallerGlobals
       }
 
       if (!promise) {
+        const fallbackText = extractPayloadFromData();
+        if (fallbackText) {
+          return fallbackText;
+        }
         throw new Error('No readable method found on zip entry');
       }
 
-      console.log('packageInstaller: reading zip entry using', attempt.type, 'method', !!promise);
-
       const result = await Promise.race([
         promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Zip entry read timed out')), timeoutMs)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Zip entry read timed out')), Math.max(500, timeoutMs))),
       ]);
 
-      if (result instanceof ArrayBuffer || (typeof Buffer !== 'undefined' && result instanceof Buffer)) {
-        const buf = result instanceof ArrayBuffer ? new Uint8Array(result) : new Uint8Array(result.buffer || result);
-        return new TextDecoder('utf-8').decode(buf);
-      }
-      if (result instanceof Uint8Array) {
-        return new TextDecoder('utf-8').decode(result);
-      }
-      if (ArrayBuffer.isView(result)) {
-        return new TextDecoder('utf-8').decode(result);
-      }
-      if (typeof result === 'string') {
-        return result;
-      }
-      if (result && typeof result === 'object' && typeof result.toString === 'function') {
-        return String(result);
+      const normalized = normalizeTextResult(result);
+      if (normalized) {
+        return normalized;
       }
     } catch (error) {
       console.warn('packageInstaller: read attempt failed', error && error.message);
       lastError = error;
     }
+  }
+
+  const fallbackText = extractPayloadFromData();
+  if (fallbackText) {
+    return fallbackText;
   }
 
   throw lastError || new Error('Unable to read zip entry text');
@@ -180,7 +290,16 @@ window.packageInstallerGlobals.getPackageMetadata = window.packageInstallerGloba
   }
 
   const entryFile = (typeof zipData.file === 'function' ? zipData.file(entryJsonPath) : null) || zipData.files[entryJsonPath];
-  if (!entryFile || typeof entryFile.async !== 'function') {
+  const canReadEntry = !!entryFile && (
+    typeof entryFile.async === 'function' ||
+    typeof entryFile.asText === 'function' ||
+    typeof entryFile.asUint8Array === 'function' ||
+    typeof entryFile.asArrayBuffer === 'function' ||
+    typeof entryFile.nodeStream === 'function' ||
+    !!entryFile._data
+  );
+
+  if (!canReadEntry) {
     throw new Error('Unable to read entry.json from package');
   }
 
@@ -436,9 +555,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       const arrayBuffer = await file.arrayBuffer();
       const zipData = new Uint8Array(arrayBuffer);
       
-      await window.packageInstallerGlobals.ensureJSZipLoaded();
-      const zip = new JSZip();
-      const unzippedFiles = await zip.loadAsync(zipData);
+      const unzippedFiles = await window.packageInstallerGlobals.parseZipData(zipData);
       
       const packageMetadata = await window.packageInstallerGlobals.getPackageMetadata(unzippedFiles);
       showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);
@@ -695,9 +812,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
         throw new Error('Failed to read file from path');
       }
       
-      await window.packageInstallerGlobals.ensureJSZipLoaded();
-      const zip = new JSZip();
-      const unzippedFiles = await zip.loadAsync(zipBytes);
+      const unzippedFiles = await window.packageInstallerGlobals.parseZipData(zipBytes);
       
       const packageMetadata = await window.packageInstallerGlobals.getPackageMetadata(unzippedFiles);
       showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);

@@ -809,13 +809,22 @@ FileSystemFileHandle.prototype.getFile = async function () {
       e.stopImmediatePropagation();
 
       activeInput = input;
-      pickerMode = 'input';
+      pickerMode = 'input';      allFilesReceived = false;
+      pickerCancelled = false;
+      injectedFiles = [];
 
-      window.browserGlobals.showOpenFilePicker(frameWin, {
-        allowMultiple: input.multiple,
-        allowDirectory: input.hasAttribute('webkitdirectory')
-      });
-    },
+      // Trigger the file picker for the input element
+      (async () => {
+        try {
+          await window.browserGlobals.showOpenFilePicker(frameWin);
+          await waitUntilFiles();
+        } catch (err) {
+          // User cancelled or error occurred
+          activeInput = null;
+          pickerMode = null;
+          injectedFiles = [];
+        }
+      })();    },
     true
   );
 })();
