@@ -7,9 +7,6 @@ window.taskManagerGlobals.allTaskManagers = Array.isArray(window.taskManagerGlob
 window.taskManagerGlobals.goldenbodyId = Number(window.taskManagerGlobals.goldenbodyId ?? 0);
 
 window.taskManager = function (posX = 50, posY = 50) {
-  if (window.protectedGlobals.startMenu) {
-    window.protectedGlobals.startMenu.style.display = "none";
-  }
 
   let isMaximized = false;
   let _isMinimized = false;

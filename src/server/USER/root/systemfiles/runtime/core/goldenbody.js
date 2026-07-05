@@ -587,7 +587,8 @@
           </div>
         </div>
       </div>
-      
+
+
       <div class="status-section">
         <div class="status-section-title">POWER</div>
         <div class="status-toggle" data-toggle="battery-saver">
@@ -599,13 +600,21 @@
             <div class="toggle-switch-dot"></div>
           </div>
         </div>
+        <div class="status-toggle" data-toggle="theme">
+          <div class="toggle-label">
+            <span>Dark Mode</span>
+          </div>
+          <div class="toggle-switch ${window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'active' : ''}">
+            <div class="toggle-switch-dot"></div>
+        </div>
+        </div>
         <div class="status-info">
           <span>Battery: ${window.protectedGlobals.statusData.batteryLevel}%</span>
           <span>${window.protectedGlobals.statusData.isCharging ? '⚡ Charging' : ''}</span>
         </div>
       </div>
       
-      <div class="status-section">
+        <div class="status-section">
         <div class="slider-container">
           <div class="slider-label">
             ${svgIcons.brightness}
@@ -619,7 +628,7 @@
     // Add event listeners to toggles
     var toggles = statusMenu.querySelectorAll('.status-toggle');
     toggles.forEach(function(toggle) {
-      toggle.addEventListener('click', function(e) {
+      toggle.addEventListener('click', async function(e) {
         // prevent this click from bubbling to document click handler which would close the menu
         if (e && e.stopPropagation) e.stopPropagation();
         var toggleType = this.dataset.toggle;
@@ -627,7 +636,18 @@
           window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
           window.dispatchEvent(new CustomEvent('wifi-toggle', { detail: { enabled: window.protectedGlobals.statusData.wifiEnabled } }));
           updateStatusBar();
-        } else if (toggleType === 'battery-saver') {
+        } 
+        else if (toggleType === 'theme') {
+          window.protectedGlobals.data.dark = !window.protectedGlobals.data.dark;
+
+          // Apply theme immediately
+          window.protectedGlobals.applyStyles();
+
+          // Persist to backend (optional but recommended)
+          await window.protectedGlobals.persistUserProfilePatch({ dark: !!window.protectedGlobals.data.dark });
+          updateStatusBar();
+        }
+        else if (toggleType === 'battery-saver') {
           window.protectedGlobals.statusData.batterySaverEnabled = !window.protectedGlobals.statusData.batterySaverEnabled;
           if (!window.protectedGlobals.data) window.protectedGlobals.data = {};
           window.protectedGlobals.data.batterySaverEnabled = window.protectedGlobals.statusData.batterySaverEnabled;

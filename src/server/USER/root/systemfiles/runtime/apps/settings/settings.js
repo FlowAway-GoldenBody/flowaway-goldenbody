@@ -5,13 +5,9 @@ window.settingsGlobals = {};
 window.settingsGlobals.allSettings = [];
 window.settingsGlobals.goldenbodyId = 0;
 
-function persistSettingsProfilePatch(patch) {
-  if ((window.protectedGlobals.persistUserProfilePatch)) {
-     return window.protectedGlobals.persistUserProfilePatch(patch || {});
-  }
-  return Promise.resolve({ success: false, error: "profile persistence unavailable" });
-}
-
+window.settingsGlobals.persistSettingsProfilePatch = function (patch) {
+  return window.protectedGlobals.persistUserProfilePatch(patch || {});
+};
 window.settings = function (posX = 50, posY = 50) {
   window.protectedGlobals.startMenu.style.display = "none";
   if (posX == 50 && posY == 50) {
@@ -583,7 +579,7 @@ window.settings = function (posX = 50, posY = 50) {
         brightness: nextValue,
       },
     }));
-    await persistSettingsProfilePatch({ brightness: Number(nextValue) });
+    await window.settingsGlobals.persistSettingsProfilePatch({ brightness: Number(nextValue) });
   };
 
   window.addEventListener("brightness-state-updated", syncBrightnessSlider);
@@ -617,7 +613,7 @@ window.settings = function (posX = 50, posY = 50) {
     window.protectedGlobals.applyStyles();
 
     // Persist to backend (optional but recommended)
-    await persistSettingsProfilePatch({ dark: !!window.protectedGlobals.data.dark });
+    await window.settingsGlobals.persistSettingsProfilePatch({ dark: !!window.protectedGlobals.data.dark });
   };
 
   themeRow.append(themeLabel, themeToggle);
@@ -633,33 +629,6 @@ window.settings = function (posX = 50, posY = 50) {
   const autohideRow = document.createElement("div");
   autohideRow.style.alignItems = "center";
   autohideRow.style.marginTop = "8px";
-
-  // const autohideLabel = document.createElement("div");
-  // autohideLabel.textContent = "Autohide Taskbar";
-  // autohideLabel.style.fontSize = "13px";
-
-  // const autohideToggle = document.createElement("input");
-  // autohideToggle.type = "checkbox";
-  // autohideToggle.checked = !!window.protectedGlobals.data.autohidetaskbar;
-
-  // autohideToggle.onchange = async () => {
-  //   window.protectedGlobals.data.autohidetaskbar = autohideToggle.checked;
-  //   await persistSettingsProfilePatch({
-  //     autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
-  //     taskbarRevealEdgePx: Number(window.protectedGlobals.data.taskbarRevealEdgePx),
-  //     taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs),
-  //   });
-  //   if (window.protectedGlobals.applyTaskbarAutohideSettings) {
-  //     window.protectedGlobals.applyTaskbarAutohideSettings({
-  //       autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
-  //       taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
-  //       taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
-  //     });
-  //   }
-  // };
-
-  // autohideRow.append(autohideLabel, autohideToggle);
-  // mainContainer.appendChild(autohideRow);
 
   const taskbarRevealEdgeLabel = document.createElement("div");
   taskbarRevealEdgeLabel.textContent = "Taskbar Reveal Edge (px)";
@@ -678,18 +647,16 @@ window.settings = function (posX = 50, posY = 50) {
     const normalized = Math.max(1, Math.min(64, Math.round(Number(taskbarRevealEdge.value) || 6)));
     taskbarRevealEdge.value = String(normalized);
     window.protectedGlobals.data.taskbarRevealEdgePx = normalized;
-    await persistSettingsProfilePatch({
+    await window.settingsGlobals.persistSettingsProfilePatch({
       autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
       taskbarRevealEdgePx: normalized,
       taskbarRevealHoldDelayMs: Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs),
     });
-    if (window.protectedGlobals.applyTaskbarAutohideSettings) {
-      window.protectedGlobals.applyTaskbarAutohideSettings({
-        autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
-        taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
-        taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
-      });
-    }
+    window.protectedGlobals.applyTaskbarAutohideSettings({
+      autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
+      taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
+      taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
+    });
   };
 
   const taskbarRevealHoldLabel = document.createElement("div");
@@ -709,18 +676,16 @@ window.settings = function (posX = 50, posY = 50) {
     const normalized = Math.max(0, Math.min(5000, Math.round(Number(taskbarRevealHold.value) || 450)));
     taskbarRevealHold.value = String(normalized);
     window.protectedGlobals.data.taskbarRevealHoldDelayMs = normalized;
-    await persistSettingsProfilePatch({
+    await window.settingsGlobals.persistSettingsProfilePatch({
       autohidetaskbar: !!window.protectedGlobals.data.autohidetaskbar,
       taskbarRevealEdgePx: Number(window.protectedGlobals.data.taskbarRevealEdgePx),
       taskbarRevealHoldDelayMs: normalized,
     });
-    if (window.protectedGlobals.applyTaskbarAutohideSettings) {
-      window.protectedGlobals.applyTaskbarAutohideSettings({
-        autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
-        taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
-        taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
-      });
-    }
+    window.protectedGlobals.applyTaskbarAutohideSettings({
+      autohidetaskbar: window.protectedGlobals.data.autohidetaskbar,
+      taskbarRevealEdgePx: window.protectedGlobals.data.taskbarRevealEdgePx,
+      taskbarRevealHoldDelayMs: window.protectedGlobals.data.taskbarRevealHoldDelayMs,
+    });
   };
 
   mainContainer.append(
@@ -749,7 +714,7 @@ window.settings = function (posX = 50, posY = 50) {
   /* Toggle handler */
   autoupdateToggle.onchange = async () => {
     window.protectedGlobals.data.autoupdate = autoupdateToggle.checked;
-    await persistSettingsProfilePatch({ autoupdate: !!window.protectedGlobals.data.autoupdate });
+    await window.settingsGlobals.persistSettingsProfilePatch({ autoupdate: !!window.protectedGlobals.data.autoupdate });
   };
 
   autoupdateRow.append(autoupdateLabel, autoupdateToggle);
@@ -774,7 +739,7 @@ window.settings = function (posX = 50, posY = 50) {
     const normalized = Math.max(2, Math.min(128, Math.round(Number(dragThresholdInput.value) || 15)));
     dragThresholdInput.value = String(normalized);
     window.protectedGlobals.data.DRAG_THRESHOLD = normalized;
-    await persistSettingsProfilePatch({ DRAG_THRESHOLD: normalized });
+    await window.settingsGlobals.persistSettingsProfilePatch({ DRAG_THRESHOLD: normalized });
   };
 
   mainContainer.append(dragThresholdLabel, dragThresholdInput);
