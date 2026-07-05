@@ -435,7 +435,6 @@
   if (_oldTb) _oldTb.remove();
   // Create the taskbar
   var taskbar = document.createElement("div");
-  window.protectedGlobals.taskbar = taskbar; // expose taskbar reference for other modules
   taskbar.className = 'taskbar';
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
@@ -447,7 +446,7 @@
   taskbar.style.height = "60px";
   taskbar.style.display = "flex";
   taskbar.style.alignItems = "center";
-  taskbar.style.paddingLeft = "4%"; // 50px empty space on left
+  taskbar.style.paddingLeft = "3.1%"; // 50px empty space on left
   taskbar.style.paddingRight = "1%"; // Add padding on right
   taskbar.style.boxSizing = "border-box";
   document.body.appendChild(taskbar);
@@ -730,9 +729,11 @@
     if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
       statusMenu.classList.add('dark');
       divider.classList.add('dark');
+      divider1.classList.add('dark');
     } else {
       statusMenu.classList.remove('dark');
       divider.classList.remove('dark');
+      divider1.classList.remove('dark');
     }
   };
   // window.protectedGlobals.updateStatusBarTheme();
@@ -1205,9 +1206,11 @@
       iconid++;
     } else { btn.img.startMenu = true; btn.id = name; }
     btn.style.padding = "3px";
-    btn.style.marginRight = "5px";
+    btn.style.marginRight = "2.5px";
+    btn.style.marginLeft = "2.5px";
     btn.style.border = "none";
     btn.className = 'taskbutton';
+    btn.style.minWidth = '4vw';
     var isDarkTaskbarTheme = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
     btn.classList.toggle('dark', isDarkTaskbarTheme);
     btn.classList.toggle('light', !isDarkTaskbarTheme);
@@ -1281,6 +1284,12 @@
     fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenLightImage });
     startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuLightImage });
   }
+  let divider1 = document.createElement('div');
+  divider1.className = 'taskbar-divider';
+  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    divider1.classList.add('dark');
+  }
+  window.protectedGlobals.taskbuttonsContainer.appendChild(divider1);
   let updateTaskbarCoreButtonTheme = () => {
     if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
       fullscreenbtn.img.src = "data:image/png;base64," + fullScreenDarkImage;

@@ -65,12 +65,20 @@ window.packageInstallerGlobals.getPackageMetadata = window.packageInstallerGloba
     throw new Error('Package is missing entry.json');
   }
 
-  const entryFile = zipData.files[entryJsonPath];
+  const entryFile = (typeof zipData.file === 'function' ? zipData.file(entryJsonPath) : null) || zipData.files[entryJsonPath];
+  if (!entryFile || typeof entryFile.async !== 'function') {
+    throw new Error('Unable to read entry.json from package');
+  }
+
   let rawText = '';
   try {
-    rawText = await entryFile.async('string');
+    const result = await Promise.race([
+      entryFile.async('string'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('entry.json read timed out')), 10000)),
+    ]);
+    rawText = String(result || '');
   } catch (error) {
-    throw new Error('Unable to read entry.json from package');
+    throw new Error(`Unable to read entry.json from package: ${error.message}`);
   }
 
   let entryData;
@@ -369,8 +377,19 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     let currentPath = '';
     let selectedFile = null;
     
+    function normalizeDirPath(dirPath) {
+      if (!dirPath || dirPath === '/') return '';
+      return dirPath;
+    }
+
+    function buildItemPath(dirPath, name) {
+      if (!dirPath) return `/${name}`;
+      return `${dirPath}/${name}`;
+    }
+
     async function loadFiles(dirPath) {
       try {
+        dirPath = normalizeDirPath(dirPath);
         currentPath = dirPath;
         currentPathSpan.textContent = dirPath || '(Root)';
         statusDiv.textContent = 'Loading...';
@@ -379,17 +398,16 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
         selectBtn.disabled = true;
         selectBtn.style.opacity = '0.5';
         
-        const entries = await window.protectedGlobals.ReadFolder(dirPath || '/');
+        await window.protectedGlobals.onlyloadTree();
+        const treeNode = window.protectedGlobals.findNodeByPath(dirPath);
+        const entries = Array.isArray(treeNode && treeNode[1]) ? treeNode[1].map((node) => ({
+          name: String(node && node[0] ? node[0] : ''),
+          node,
+        })) : [];
         const files = Array.isArray(entries) ? entries : [];
-        
-        if (files.length === 0) {
-          fileListDiv.innerHTML = '<div style="padding: 15px; color: #999; text-align: center;">No items found</div>';
-          statusDiv.textContent = '';
-          return;
-        }
-        
-        // Add back button if not in root
-        if (dirPath && dirPath !== '/') {
+
+        const showBackButton = Boolean(dirPath);
+        if (showBackButton) {
           const backBtn = document.createElement('div');
           backBtn.style.cssText = `
             padding: 10px 15px;
@@ -406,26 +424,26 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
           backBtn.addEventListener('mouseout', () => backBtn.style.backgroundColor = 'var(--panel-bg)');
           backBtn.addEventListener('click', () => {
             const parentPath = dirPath.split('/').filter(p => p).slice(0, -1).join('/');
-            loadFiles(parentPath || '/');
+            loadFiles(parentPath ? `/${parentPath}` : '');
           });
           fileListDiv.appendChild(backBtn);
         }
+
+        if (files.length === 0) {
+          const emptyText = document.createElement('div');
+          emptyText.style.cssText = 'padding: 15px; color: #999; text-align: center;';
+          emptyText.textContent = 'No items found';
+          fileListDiv.appendChild(emptyText);
+          statusDiv.textContent = '';
+          return;
+        }
         
         for (const entry of files) {
+          const entryNode = entry?.node;
           const name = typeof entry === 'string' ? entry : String(entry?.name || entry?.path || entry);
           const normalizedName = name || '';
           const isZip = normalizedName.toLowerCase().endsWith('.zip');
-          let isFolder = false;
-          
-          if (!isZip) {
-            try {
-              const maybeFolderPath = (dirPath && dirPath !== '/' ? dirPath + '/' : '/') + normalizedName;
-              const nested = await window.protectedGlobals.ReadFolder(maybeFolderPath);
-              isFolder = Array.isArray(nested);
-            } catch (e) {
-              isFolder = false;
-            }
-          }
+          const isFolder = Array.isArray(entryNode && entryNode[1]);
           
           const fileRow = document.createElement('div');
           fileRow.style.cssText = `
@@ -447,22 +465,22 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
             fileRow.addEventListener('mouseover', () => fileRow.style.backgroundColor = 'var(--row-hover)');
             fileRow.addEventListener('mouseout', () => fileRow.style.backgroundColor = 'var(--panel-bg)');
             fileRow.addEventListener('click', () => {
-              const nextPath = (dirPath && dirPath !== '/' ? dirPath + '/' : '/') + normalizedName;
+              const nextPath = buildItemPath(dirPath, normalizedName);
               loadFiles(nextPath);
             });
             fileRow.addEventListener('dblclick', () => {
-              const nextPath = (dirPath && dirPath !== '/' ? dirPath + '/' : '/') + normalizedName;
+              const nextPath = buildItemPath(dirPath, normalizedName);
               loadFiles(nextPath);
             });
           } else if (isZip) {
             fileRow.addEventListener('mouseover', () => fileRow.style.backgroundColor = 'var(--row-hover)');
-            fileRow.addEventListener('mouseout', () => fileRow.style.backgroundColor = selectedFile?.path === ((dirPath && dirPath !== '/' ? dirPath + '/' : '/') + normalizedName) ? 'var(--row-selected)' : 'var(--panel-bg)');
+            fileRow.addEventListener('mouseout', () => fileRow.style.backgroundColor = selectedFile?.path === buildItemPath(dirPath, normalizedName) ? 'var(--row-selected)' : 'var(--panel-bg)');
             fileRow.addEventListener('click', () => {
               document.querySelectorAll('#fileList > div').forEach(el => {
                 el.style.backgroundColor = 'var(--panel-bg)';
               });
               fileRow.style.backgroundColor = 'var(--row-selected)';
-              const fullPath = (dirPath && dirPath !== '/' ? dirPath + '/' : '/') + normalizedName;
+              const fullPath = buildItemPath(dirPath, normalizedName);
               selectedFile = { name: normalizedName, path: fullPath };
               if (selectBtn) {
                 selectBtn.disabled = false;
@@ -475,7 +493,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
                 el.style.backgroundColor = 'var(--panel-bg)';
               });
               fileRow.style.backgroundColor = 'var(--row-selected)';
-              const fullPath = (dirPath && dirPath !== '/' ? dirPath + '/' : '/') + normalizedName;
+              const fullPath = buildItemPath(dirPath, normalizedName);
               selectedFile = { name: normalizedName, path: fullPath };
               if (selectBtn) {
                 selectBtn.disabled = false;
