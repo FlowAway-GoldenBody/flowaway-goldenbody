@@ -387,14 +387,9 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
   async function installPackage(zipData, folderName, statusDiv, packageMetadata) {
     const baseFolder = `/systemfiles/runtime/apps/${folderName}`;
     const exists = await window.protectedGlobals.FolderExists(baseFolder).catch(() => false);
-    if (exists) {
-      window.protectedGlobals.notification({
-        title: 'Installation Failed',
-        message: `A folder named "${folderName}" already exists in /systemfiles/runtime/apps`,
-        type: 'error'
-      });
-      throw new Error(`Folder "${folderName}" already exists`);
-    }
+
+    // If an app folder exists, we won't delete it; we'll overwrite only files present in the package
+    // to preserve any other files the app may have created.
 
     statusDiv.textContent = 'Extracting and installing files...';
 
@@ -444,10 +439,13 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     statusDiv.style.color = '#107c10';
   }
 
-  function showConfirmationDialog(container, zipData, folderName, packageMetadata) {
+  async function showConfirmationDialog(container, zipData, folderName, packageMetadata) {
     const requiresJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.usejs === true);
+    const baseFolder = `/systemfiles/runtime/apps/${folderName}`;
+    const exists = await window.protectedGlobals.FolderExists(baseFolder).catch(() => false);
 
-    if (!requiresJsApi) {
+    // If no special confirmation is required, proceed immediately
+    if (!requiresJsApi && !exists) {
       container.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 15px;">
           <h3>Installing Package</h3>
@@ -468,26 +466,45 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       return;
     }
 
+    // Build confirmation UI when either JS API is requested or app already exists
+    const securityWarningHtml = requiresJsApi ? `
+      <div style="background-color: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px; border-radius: 4px;">
+        <strong style="color: var(--text-color);">⚠️ Security Warning</strong>
+        <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-color);">
+          This app wants JS access. By continuing, you understand that malicious JS enabled apps can run malware on your account and steal personal information from you. Only install packages from trusted sources.
+        </p>
+      </div>
+    ` : '';
+
+    const replaceWarningHtml = exists ? `
+      <div style="background-color: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px; border-radius: 4px;">
+        <strong style="color: var(--text-color);">⚠️ Replace Existing App</strong>
+        <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-color);">
+          An app named "${escapeHtml(folderName)}" already exists. Files included in this package will be overwritten, but other files/folders already present in the app folder will be preserved.
+        </p>
+      </div>
+    ` : '';
+
     const html = `
       <div style="display: flex; flex-direction: column; gap: 15px;">
         <h3>Confirm Installation</h3>
-        
-        <div style="background-color: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px; border-radius: 4px;">
-          <strong style="color: var(--text-color);">⚠️ Security Warning</strong>
-          <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-color);">
-            By continuing, you understand that malicious apps can run malware on your account and steal personal information from you. Only install packages from trusted sources.
-          </p>
-        </div>
-        
+        ${securityWarningHtml}
+        ${replaceWarningHtml}
+
         <div style="background-color: var(--panel-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--panel-border);">
           <p style="margin: 0; font-size: 14px; color: var(--text-color);"><strong>Package:</strong> ${escapeHtml(folderName)}</p>
         </div>
-        
-        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; color: var(--text-color);">
+
+        ${requiresJsApi ? `<label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; color: var(--text-color);">
           <input type="checkbox" id="confirmCheckbox" style="cursor: pointer;">
-          <span>I understand the risks and want to continue</span>
-        </label>
-        
+          <span>I understand the security risks and want to continue</span>
+        </label>` : ''}
+
+        ${exists ? `<label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; color: var(--text-color);">
+          <input type="checkbox" id="replaceCheckbox" style="cursor: pointer;">
+          <span>Yes — I understand that files in this package will overwrite existing files</span>
+        </label>` : ''}
+
         <div style="display: flex; gap: 10px;">
           <button id="cancelBtn" style="
             padding: 8px 16px;
@@ -498,7 +515,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
             cursor: pointer;
             font-size: 14px;
           ">Cancel</button>
-          
+
           <button id="continueBtn" disabled style="
             padding: 8px 16px;
             background-color: #0078d4;
@@ -510,36 +527,43 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
             opacity: 0.5;
           ">Continue</button>
         </div>
-        
+
         <div id="installStatus" style="font-size: 14px; color: var(--muted-color); min-height: 20px;"></div>
       </div>
     `;
-    
+
     container.innerHTML = html;
-    
-    const checkbox = container.querySelector('#confirmCheckbox');
+
+    const confirmCheckbox = container.querySelector('#confirmCheckbox');
+    const replaceCheckbox = container.querySelector('#replaceCheckbox');
     const continueBtn = container.querySelector('#continueBtn');
     const cancelBtn = container.querySelector('#cancelBtn');
     const statusDiv = container.querySelector('#installStatus');
-    
-    checkbox.addEventListener('change', () => {
-      continueBtn.disabled = !checkbox.checked;
-      continueBtn.style.opacity = checkbox.checked ? '1' : '0.5';
-      continueBtn.style.cursor = checkbox.checked ? 'pointer' : 'not-allowed';
-    });
-    
+
+    function updateContinueState() {
+      const confirmOk = !requiresJsApi || (confirmCheckbox && confirmCheckbox.checked);
+      const replaceOk = !exists || (replaceCheckbox && replaceCheckbox.checked);
+      const ok = confirmOk && replaceOk;
+      continueBtn.disabled = !ok;
+      continueBtn.style.opacity = ok ? '1' : '0.5';
+      continueBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
+    }
+
+    if (confirmCheckbox) confirmCheckbox.addEventListener('change', updateContinueState);
+    if (replaceCheckbox) replaceCheckbox.addEventListener('change', updateContinueState);
+
     cancelBtn.addEventListener('click', () => {
       container.innerHTML = '';
       showUploadInterface(container);
     });
-    
+
     continueBtn.addEventListener('click', async () => {
       try {
         continueBtn.disabled = true;
         statusDiv.textContent = 'Installing...';
-        
+
         await installPackage(zipData, folderName, statusDiv, packageMetadata);
-        
+
         continueBtn.style.display = 'none';
         cancelBtn.textContent = 'Close';
       } catch (error) {
@@ -558,7 +582,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       const unzippedFiles = await window.packageInstallerGlobals.parseZipData(zipData);
       
       const packageMetadata = await window.packageInstallerGlobals.getPackageMetadata(unzippedFiles);
-      showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);
+      await showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);
     } catch (error) {
       const statusEl = container.querySelector('#status');
       if (statusEl) {
@@ -815,7 +839,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       const unzippedFiles = await window.packageInstallerGlobals.parseZipData(zipBytes);
       
       const packageMetadata = await window.packageInstallerGlobals.getPackageMetadata(unzippedFiles);
-      showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);
+      await showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);
     } catch (error) {
       container.querySelector('#status').textContent = `Error: ${error.message}`;
       container.querySelector('#status').style.color = '#d13438';

@@ -4373,13 +4373,6 @@ setTimeout(() => {
         isMaximized = !!v;
       },
 
-      get isMinimized() {
-        return isMinimized;
-      },
-      set isMinimized(v) {
-        isMinimized = !!v;
-      },
-
       addAndOpen: function (url) {
         const id = addTab(url);
         activateTab(id);
@@ -4391,14 +4384,12 @@ setTimeout(() => {
 
       showWindow: function () {
         root.style.display = "block";
-        isMinimized = false;
         window.protectedGlobals.bringToFront(root);
       },
 
       hideWindow: function () {
         if (!isMaximized) this.savedBounds = getBounds();
         root.style.display = "none";
-        isMinimized = true;
       },
     };
   })();
