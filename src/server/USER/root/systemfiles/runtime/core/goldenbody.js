@@ -1150,7 +1150,6 @@
   //fullscreen
   function _fullscreen() {
     document.documentElement.requestFullscreen();
-    _isfullscreen = true;
   }
   var iconid = 0;
   var draggedTaskButton = null;
