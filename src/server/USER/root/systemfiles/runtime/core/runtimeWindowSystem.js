@@ -1,3 +1,4 @@
+"use strict";
 (function () {
 window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
   if (window.protectedGlobals.appsButtonsApplied) return;

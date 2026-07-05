@@ -1,3 +1,5 @@
+"use strict";
+
 //explorer global vars
 window.explorerGlobals = {};
 window.explorerGlobals.allExplorers = [];

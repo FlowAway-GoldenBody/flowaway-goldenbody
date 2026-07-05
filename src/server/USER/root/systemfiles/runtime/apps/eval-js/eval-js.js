@@ -1,6 +1,8 @@
+"use strict";
+
 // Minimal Eval JS app - injects/evaluates JS from a given file path
 window.evalJsAppGlobals = {};
-evalJsApp = function (path, posX = 50, posY = 50) {
+window.evalJsApp = function (path, posX = 50, posY = 50) {
   // create a hidden root so the app system can track this instance
   const root = document.createElement("div");
   root.className = "app-root app-window-root eval-js";

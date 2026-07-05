@@ -1,3 +1,5 @@
+"use strict";
+
 //textEditor global vars
 window.textEditorGlobals = {};
 window.textEditorGlobals.allTextEditors = [];
@@ -137,7 +139,7 @@ window.textEditorGlobals.getTextEditorSettings = function getTextEditorSettings(
   return window.textEditorGlobals.normalizeTextEditorSettings(window.textEditorGlobals.editorSettings);
 }
 
-textEditor = function (path, posX = 50, posY = 50) {
+window.textEditor = function (path, posX = 50, posY = 50) {
   let getTextEditorSettings = window.textEditorGlobals.getTextEditorSettings;
   let saveTextEditorSettings = window.textEditorGlobals.saveTextEditorSettings;
   let loadTextEditorSettings = window.textEditorGlobals.loadTextEditorSettings;
@@ -1106,7 +1108,6 @@ textEditor = function (path, posX = 50, posY = 50) {
     }
     path = chosen;
     titleLabel.textContent = editorName;
-    storageKey = `textEditor:${window.textEditorGlobals.goldenbodyId}:${editorName}:content`;
     textarea.value = "";
     updateStatus();
     // Immediately save the empty/new file to the server
@@ -1323,7 +1324,6 @@ textEditor = function (path, posX = 50, posY = 50) {
       textarea.value = b64DecodeUnicode(res.filecontent);
       editorName = path.split("/").pop() || editorName;
       titleLabel.textContent = editorName;
-      storageKey = `textEditor:${window.textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
       updateStatus();
       returnObject.title = titleLabel.textContent;
     }
@@ -1367,7 +1367,6 @@ textEditor = function (path, posX = 50, posY = 50) {
         path = fullPath || picked[0];
         editorName = path.split("/").pop() || editorName;
         titleLabel.textContent = editorName;
-        storageKey = `textEditor:${window.textEditorGlobals.goldenbodyId}:${editorName || "untitled"}:content`;
         updateStatus();
       } catch (e) {
         console.warn("Failed to fetch picked file", e);
@@ -1559,10 +1558,6 @@ textEditor = function (path, posX = 50, posY = 50) {
           }
         }
       }
-
-      const saved = localStorage.getItem(storageKey);
-      if (saved !== null) textarea.value = saved;
-      else if (typeof text === "string") textarea.value = text || "";
     } catch (e) {}
     updateStatus();
   });

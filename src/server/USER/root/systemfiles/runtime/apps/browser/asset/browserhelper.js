@@ -1,3 +1,4 @@
+"use strict";
 window.browserGlobals._writeQueue = [];
 window.browserGlobals._writing = false;
 window.browserGlobals._lastWriteTime = 0;

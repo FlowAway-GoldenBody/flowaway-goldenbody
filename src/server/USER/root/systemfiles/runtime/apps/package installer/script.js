@@ -1,3 +1,5 @@
+"use strict";
+
 window.packageInstallerGlobals = window.packageInstallerGlobals || {};
 window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._jsZipLoader || (function () {
   if (window.JSZip) {
@@ -57,6 +59,88 @@ window.packageInstallerGlobals.sanitizeFolderName = window.packageInstallerGloba
   return safeName || 'app-package';
 };
 
+window.packageInstallerGlobals.readZipEntryText = window.packageInstallerGlobals.readZipEntryText || async function (entryFile, timeoutMs = 10000) {
+  if (!entryFile) {
+    throw new Error('Zip entry is not provided');
+  }
+
+  const attempts = [
+    { type: 'string' },
+    { type: 'uint8array' },
+    { type: 'arraybuffer' },
+  ];
+
+  let lastError = null;
+  for (const attempt of attempts) {
+    try {
+      // Try to obtain a promise in multiple ways to handle different JSZip builds
+      let promise = null;
+
+      try {
+        if (typeof entryFile.async === 'function') {
+          try { promise = entryFile.async(attempt.type); } catch (e) { /* swallow */ }
+          if (!promise) {
+            try { promise = entryFile.async.call(entryFile, attempt.type); } catch (e) { /* swallow */ }
+          }
+        }
+      } catch (e) {
+        // ignored
+      }
+
+      // Legacy alternatives
+      if (!promise && typeof entryFile.asText === 'function') {
+        try { promise = entryFile.asText(); } catch (e) { /* swallow */ }
+      }
+
+      if (!promise && typeof entryFile.nodeStream === 'function') {
+        try {
+          // nodeStream produces a stream; convert to buffer
+          const stream = entryFile.nodeStream();
+          promise = new Promise((resolve, reject) => {
+            const chunks = [];
+            stream.on('data', c => chunks.push(c));
+            stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+            stream.on('error', reject);
+          });
+        } catch (e) { /* swallow */ }
+      }
+
+      if (!promise) {
+        throw new Error('No readable method found on zip entry');
+      }
+
+      console.log('packageInstaller: reading zip entry using', attempt.type, 'method', !!promise);
+
+      const result = await Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Zip entry read timed out')), timeoutMs)),
+      ]);
+
+      if (result instanceof ArrayBuffer || (typeof Buffer !== 'undefined' && result instanceof Buffer)) {
+        const buf = result instanceof ArrayBuffer ? new Uint8Array(result) : new Uint8Array(result.buffer || result);
+        return new TextDecoder('utf-8').decode(buf);
+      }
+      if (result instanceof Uint8Array) {
+        return new TextDecoder('utf-8').decode(result);
+      }
+      if (ArrayBuffer.isView(result)) {
+        return new TextDecoder('utf-8').decode(result);
+      }
+      if (typeof result === 'string') {
+        return result;
+      }
+      if (result && typeof result === 'object' && typeof result.toString === 'function') {
+        return String(result);
+      }
+    } catch (error) {
+      console.warn('packageInstaller: read attempt failed', error && error.message);
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Unable to read zip entry text');
+};
+
 window.packageInstallerGlobals.getPackageMetadata = window.packageInstallerGlobals.getPackageMetadata || async function (zipData) {
   const archiveFiles = Object.keys(zipData.files || {}).filter((entryPath) => !zipData.files[entryPath].dir);
   const entryJsonPath = archiveFiles.find((entryPath) => String(entryPath).split('/').pop().toLowerCase() === 'entry.json');
@@ -72,11 +156,7 @@ window.packageInstallerGlobals.getPackageMetadata = window.packageInstallerGloba
 
   let rawText = '';
   try {
-    const result = await Promise.race([
-      entryFile.async('string'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('entry.json read timed out')), 10000)),
-    ]);
-    rawText = String(result || '');
+    rawText = await window.packageInstallerGlobals.readZipEntryText(entryFile, 10000);
   } catch (error) {
     throw new Error(`Unable to read entry.json from package: ${error.message}`);
   }

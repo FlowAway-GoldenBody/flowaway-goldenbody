@@ -1,3 +1,5 @@
+"use strict";
+
 //settings global vars
 window.settingsGlobals = {};
 window.settingsGlobals.allSettings = [];
@@ -10,7 +12,7 @@ function persistSettingsProfilePatch(patch) {
   return Promise.resolve({ success: false, error: "profile persistence unavailable" });
 }
 
-settings = function (posX = 50, posY = 50) {
+window.settings = function (posX = 50, posY = 50) {
   window.protectedGlobals.startMenu.style.display = "none";
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();

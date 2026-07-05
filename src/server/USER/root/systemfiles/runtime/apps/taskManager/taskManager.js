@@ -1,10 +1,12 @@
+"use strict";
+
 window.taskManagerGlobals = window.taskManagerGlobals || {};
 window.taskManagerGlobals.allTaskManagers = Array.isArray(window.taskManagerGlobals.allTaskManagers)
   ? window.taskManagerGlobals.allTaskManagers
   : [];
 window.taskManagerGlobals.goldenbodyId = Number(window.taskManagerGlobals.goldenbodyId ?? 0);
 
-taskManager = function (posX = 50, posY = 50) {
+window.taskManager = function (posX = 50, posY = 50) {
   if (window.protectedGlobals.startMenu) {
     window.protectedGlobals.startMenu.style.display = "none";
   }

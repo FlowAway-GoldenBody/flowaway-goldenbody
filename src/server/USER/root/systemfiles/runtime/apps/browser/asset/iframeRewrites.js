@@ -1,3 +1,4 @@
+"use strict";
 var patchinterval = null;
 let patchedTab = Object.assign({}, activatedTab);
 console.log(iframe);

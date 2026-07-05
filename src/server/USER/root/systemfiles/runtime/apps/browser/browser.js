@@ -1,3 +1,5 @@
+"use strict";
+
 //browser global vars
 window.browserGlobals = window.browserGlobals || {};
 window.browserGlobals.nhjd = 1;
@@ -3625,7 +3627,7 @@ setTimeout(() => {
           clearInterval(checkInterval);
         }
         try {
-          title = tab.iframe.contentDocument.title || "Untitled";
+          let title = tab.iframe.contentDocument.title || "Untitled";
           const currentUrl = window.browserGlobals.unshuffleURL(
             tab.iframe.contentWindow.location.href,
           );

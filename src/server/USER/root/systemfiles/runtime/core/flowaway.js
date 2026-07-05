@@ -1,3 +1,4 @@
+"use strict";
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
   window.permGlobals = window.permGlobals || {};

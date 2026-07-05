@@ -1,3 +1,4 @@
+"use strict";
 // Preserve protected runtime data if already set (e.g., from ouchbad.js account creation), otherwise initialize
 // absolutely no hardcoded app names allowed! all apps should be installed and theres no way to predict their name and structure in advance, so we must not bake in any assumptions here. we will rely on dynamic detection and labeling based on heuristics instead.
 // i mean by no if(appId === 'browser') or similar checks anywhere in the core (flowaway.js/goldenbody.js). its not allowed!

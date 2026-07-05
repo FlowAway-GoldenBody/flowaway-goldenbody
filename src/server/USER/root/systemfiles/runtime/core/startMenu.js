@@ -1,3 +1,4 @@
+"use strict";
 // global const/let is banned in non (()=>{})() wrappers
 (async function () {
 window.protectedGlobals.css = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/stuff.css", {text: true, direct: true});

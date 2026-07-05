@@ -1,3 +1,4 @@
+"use strict";
 window.protectedGlobals.initAppTools = function () {
   var existing = window.protectedGlobals.apptools || {};
   existing.api = existing.api || {};

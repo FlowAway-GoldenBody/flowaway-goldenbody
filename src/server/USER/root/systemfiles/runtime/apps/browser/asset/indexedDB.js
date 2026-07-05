@@ -1,3 +1,5 @@
+"use strict";
+
 console.log('indexedDB patch loaded');
 Object.defineProperty(frameWin, "indexedDB", {
   value: {

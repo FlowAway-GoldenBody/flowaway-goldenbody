@@ -1,3 +1,5 @@
+"use strict";
+
 window.yourApp = function (posX = 50, posY = 50) {
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();

@@ -1,3 +1,4 @@
+"use strict";
 (() => {
   console.log('VFS injector active');
   frameWin.vfsloaded = true;

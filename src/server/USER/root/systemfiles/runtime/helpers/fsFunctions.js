@@ -1,3 +1,4 @@
+"use strict";
 // required functions for user file system
 window.protectedGlobals.findNodeByPath = function (relPath) {
   var parts = relPath.split("/");

@@ -1,3 +1,4 @@
+"use strict";
 const unsafeWindow = window;
 
 const GM_addElement = (parent, tag, props) => {

@@ -1,3 +1,4 @@
+"use strict";
 window.protectedGlobals.appMatchesIdentifier = function (app, identifier) {
   if (!app || !identifier) return false;
   var id = String(identifier).trim();

@@ -1,3 +1,5 @@
+"use strict";
+
 // this app is a place holder
 // how it works is you reference the path of the app you want to run, the 2nd arg is the command, and the rest is from the app itself.
 
@@ -229,7 +231,7 @@ if (!window.protectedGlobals.__terminalProcessCommandsRegistered && (window.prot
   window.protectedGlobals.__terminalProcessCommandsRegistered = true;
 }
 
-terminal = function (argPath = '', posX = 50, posY = 50) {
+window.terminal = function (argPath = '', posX = 50, posY = 50) {
   window.protectedGlobals.notification("Terminal is in beta. Type 'help' for available commands.");
   window.protectedGlobals.startMenu.style.display = "none";
   let isMaximized = false;

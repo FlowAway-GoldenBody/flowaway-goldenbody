@@ -1,3 +1,4 @@
+"use strict";
 (async function () {
   let fullScreenLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-light.png", { direct: true });
   let fullScreenDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-dark.png", { direct: true });

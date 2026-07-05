@@ -1,3 +1,4 @@
+"use strict";
 // required variables.
 window.protectedGlobals.windowControlSvgs = {
   minimize:

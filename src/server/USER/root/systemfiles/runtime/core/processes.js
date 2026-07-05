@@ -1,3 +1,4 @@
+"use strict";
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
   if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {

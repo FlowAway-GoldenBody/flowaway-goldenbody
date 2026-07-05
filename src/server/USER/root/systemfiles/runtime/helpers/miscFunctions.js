@@ -1,3 +1,4 @@
+"use strict";
 window.protectedGlobals.applyWindowControlIcon = function (button, iconName, options = {}) {
   if (!button) return;
   var svg = window.protectedGlobals.windowControlSvgs[iconName] || "";

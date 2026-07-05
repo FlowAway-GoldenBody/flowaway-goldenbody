@@ -1,3 +1,4 @@
+"use strict";
 (function () {
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
