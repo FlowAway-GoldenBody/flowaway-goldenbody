@@ -1230,7 +1230,7 @@
     btn.style.marginLeft = "2.5px";
     btn.style.border = "none";
     btn.className = 'taskbutton';
-    btn.style.minWidth = '4vw';
+    btn.style.minWidth = '50px';
     var isDarkTaskbarTheme = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
     btn.classList.toggle('dark', isDarkTaskbarTheme);
     btn.classList.toggle('light', !isDarkTaskbarTheme);

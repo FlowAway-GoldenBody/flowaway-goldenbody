@@ -50,6 +50,36 @@ window.packageInstallerGlobals.ensureFolderExists = window.packageInstallerGloba
   }
 };
 
+window.packageInstallerGlobals.readBinaryFile = window.packageInstallerGlobals.readBinaryFile || async function (filePath) {
+  const payload = await window.protectedGlobals.ReadFile(filePath, { buffer: true, direct: true });
+
+  if (payload instanceof ArrayBuffer) {
+    return new Uint8Array(payload);
+  }
+
+  if (payload instanceof Uint8Array) {
+    return payload;
+  }
+
+  if (ArrayBuffer.isView(payload)) {
+    return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+  }
+
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(payload)) {
+    return new Uint8Array(payload);
+  }
+
+  if (payload && typeof payload.arrayBuffer === 'function') {
+    return new Uint8Array(await payload.arrayBuffer());
+  }
+
+  if (typeof payload === 'string') {
+    return new TextEncoder().encode(payload);
+  }
+
+  throw new Error('Unsupported binary payload returned from ReadFile');
+};
+
 window.packageInstallerGlobals.sanitizeFolderName = window.packageInstallerGlobals.sanitizeFolderName || function (value) {
   const baseName = String(value || '').trim();
   const safeName = baseName
@@ -283,9 +313,12 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       await window.protectedGlobals.WriteFile(fullPath, fileContent, { buffer: true });
     }
 
-    const masterKey = await window.packageInstallerGlobals.getMasterJsApiKey();
-    if (masterKey) {
-      await window.protectedGlobals.WriteFile(`${baseFolder}/jsKey.txt`, masterKey, { text: true });
+    const useJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.usejs === true);
+    if (useJsApi) {
+      const masterKey = await window.packageInstallerGlobals.getMasterJsApiKey();
+      if (masterKey) {
+        await window.protectedGlobals.WriteFile(`${baseFolder}/jsKey.txt`, masterKey, { text: true });
+      }
     }
 
     statusDiv.textContent = 'Installation complete!';
@@ -293,6 +326,29 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
   }
 
   function showConfirmationDialog(container, zipData, folderName, packageMetadata) {
+    const requiresJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.usejs === true);
+
+    if (!requiresJsApi) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+          <h3>Installing Package</h3>
+          <div style="background-color: var(--panel-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--panel-border);">
+            <p style="margin: 0; font-size: 14px; color: var(--text-color);"><strong>Package:</strong> ${escapeHtml(folderName)}</p>
+            <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--muted-color);">This package does not request JS API access, so it will install without writing a JS key.</p>
+          </div>
+          <div id="installStatus" style="font-size: 14px; color: var(--muted-color); min-height: 20px;">Installing...</div>
+        </div>
+      `;
+
+      const statusDiv = container.querySelector('#installStatus');
+      installPackage(zipData, folderName, statusDiv, packageMetadata)
+        .catch((error) => {
+          statusDiv.textContent = `Installation error: ${error.message}`;
+          statusDiv.style.color = '#d13438';
+        });
+      return;
+    }
+
     const html = `
       <div style="display: flex; flex-direction: column; gap: 15px;">
         <h3>Confirm Installation</h3>
@@ -582,8 +638,8 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
               }
               statusDiv.textContent = 'Reading file...';
               try {
-                const fileContent = await window.protectedGlobals.ReadFile(fullPath, { buffer: true });
-                const file = new File([fileContent], normalizedName, { type: 'application/zip' });
+                const fileBytes = await window.packageInstallerGlobals.readBinaryFile(fullPath);
+                const file = new File([fileBytes], normalizedName, { type: 'application/zip' });
                 await processUploadedFile(file, container);
               } catch (error) {
                 statusDiv.textContent = `Error: ${error.message}`;
@@ -609,8 +665,8 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       if (selectedFile) {
         try {
           statusDiv.textContent = 'Reading file...';
-          const fileContent = await window.protectedGlobals.ReadFile(selectedFile.path, { buffer: true });
-          const file = new File([fileContent], selectedFile.name, { type: 'application/zip' });
+          const fileBytes = await window.packageInstallerGlobals.readBinaryFile(selectedFile.path);
+          const file = new File([fileBytes], selectedFile.name, { type: 'application/zip' });
           await processUploadedFile(file, container);
         } catch (error) {
           statusDiv.textContent = `Error: ${error.message}`;
@@ -634,15 +690,14 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       `;
       container.innerHTML = html;
       
-      const arrayBuffer = await window.protectedGlobals.ReadFile(path, { buffer: true });
-      if (!arrayBuffer) {
+      const zipBytes = await window.packageInstallerGlobals.readBinaryFile(path);
+      if (!zipBytes || !zipBytes.length) {
         throw new Error('Failed to read file from path');
       }
-      const zipData = new Uint8Array(arrayBuffer);
       
       await window.packageInstallerGlobals.ensureJSZipLoaded();
       const zip = new JSZip();
-      const unzippedFiles = await zip.loadAsync(zipData);
+      const unzippedFiles = await zip.loadAsync(zipBytes);
       
       const packageMetadata = await window.packageInstallerGlobals.getPackageMetadata(unzippedFiles);
       showConfirmationDialog(container, unzippedFiles, packageMetadata.folderName, packageMetadata);
