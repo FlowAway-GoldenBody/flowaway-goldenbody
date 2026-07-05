@@ -11,7 +11,7 @@ window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._js
   }
 
   const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/fflate@0.9.1/umd/index.min.js';
+  script.src = 'https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.min.js';
   script.crossOrigin = 'anonymous';
   script.async = true;
 

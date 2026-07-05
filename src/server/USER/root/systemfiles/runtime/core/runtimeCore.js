@@ -168,6 +168,16 @@ window.protectedGlobals.ReadFolder = async function (relPath) {
 window.protectedGlobals.WriteFile = async function (relPath, contents, options = {}) {
   if (!relPath) throw new Error("No path");
   // Use the saveSnapshot + directions API to perform edits
+  function arrayBufferToBase64(buffer) {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const slice = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, slice);
+    }
+    return btoa(binary);
+  }
   if (options.buffer) {
     contents = arrayBufferToBase64(contents);
   }
