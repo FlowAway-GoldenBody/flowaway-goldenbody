@@ -8,6 +8,7 @@ window.settingsGlobals.goldenbodyId = 0;
 window.settingsGlobals.persistSettingsProfilePatch = function (patch) {
   return window.protectedGlobals.persistUserProfilePatch(patch || {});
 };
+window.protectedGlobals.systemapps = ["settings", "packageInstaller", "fileExplorer", "terminal", "textEditor", "browser", "taskManager"];
 window.settings = function (posX = 50, posY = 50) {
   window.protectedGlobals.startMenu.style.display = "none";
   if (posX == 50 && posY == 50) {
@@ -249,6 +250,7 @@ window.settings = function (posX = 50, posY = 50) {
 
       topBar.addEventListener("pointerdown", (ev) => {
         if (active) return;
+        let DRAG_THRESHOLD = 15;
         DRAG_THRESHOLD = Number(window.protectedGlobals.data.DRAG_THRESHOLD) || DRAG_THRESHOLD;
         dragging = true;
         thresholdCrossed = false;
@@ -399,17 +401,32 @@ window.settings = function (posX = 50, posY = 50) {
     root.tabIndex = "0";
   }
 
-  // Assuming you already have a root container like:
-  // const root = document.getElementById("root");
-
   // Make mainContainer fill the root and add padding
+  const contentWrapper = document.createElement("div");
+  contentWrapper.style.display = "flex";
+  contentWrapper.style.flex = "1";
+  contentWrapper.style.padding = "12px 15px 15px 15px";
+  contentWrapper.style.gap = "16px";
+  contentWrapper.style.minHeight = "0";
+  root.appendChild(contentWrapper);
+
   let mainContainer = document.createElement("div");
-  mainContainer.style.width = "calc(100% - 50%)";
+  mainContainer.style.flex = "1";
+  mainContainer.style.minWidth = "0";
   mainContainer.style.height = "100%";
-  mainContainer.style.boxSizing = "border-box"; // ensures padding is included
-  mainContainer.style.margin = "0 15px"; // top/bottom 0, left/right 8px
-  mainContainer.style.overflowY = "auto"; // optional: adds scroll if content overflows
-  root.appendChild(mainContainer);
+  mainContainer.style.boxSizing = "border-box";
+  mainContainer.style.overflowY = "auto";
+
+  const rightPanel = document.createElement("div");
+  rightPanel.style.width = "50%";
+  rightPanel.style.maxWidth = "50%";
+  rightPanel.style.height = "100%";
+  rightPanel.style.boxSizing = "border-box";
+  rightPanel.style.overflowY = "auto";
+  rightPanel.style.borderLeft = "1px solid rgba(255,255,255,0.08)";
+  rightPanel.style.paddingLeft = "14px";
+
+  contentWrapper.append(mainContainer, rightPanel);
 
   const title = document.createElement("div");
   title.textContent = "Account Settings";
@@ -528,6 +545,27 @@ window.settings = function (posX = 50, posY = 50) {
   );
   mainContainer.append(title, section);
 
+  const appListHeader = document.createElement("div");
+  appListHeader.textContent = "App Settings";
+  appListHeader.style.fontSize = "16px";
+  appListHeader.style.fontWeight = "700";
+  appListHeader.style.marginBottom = "12px";
+
+  const appListDesc = document.createElement("div");
+  appListDesc.textContent = "Installed app folders from /systemfiles/runtime/apps.";
+  appListDesc.style.fontSize = "12px";
+  appListDesc.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
+  appListDesc.style.marginBottom = "12px";
+
+  const appListContainer = document.createElement("div");
+  appListContainer.style.display = "flex";
+  appListContainer.style.flexDirection = "column";
+  appListContainer.style.gap = "8px";
+
+  rightPanel.append(appListHeader, appListDesc, appListContainer);
+  window.settingsGlobals.appListContainer = appListContainer;
+  refreshAppList().catch(() => {});
+
   function sectionTitle(text) {
     const d = document.createElement("div");
     d.textContent = text;
@@ -542,6 +580,225 @@ window.settings = function (posX = 50, posY = 50) {
     d.style.fontSize = "12px";
     d.style.marginTop = "6px";
     return d;
+  }
+
+  async function loadInstalledApps() {
+    const appsRoot = "/systemfiles/runtime/apps";
+    const entries = (await window.protectedGlobals.ReadFolder(appsRoot).catch(() => [])) || [];
+    if (!Array.isArray(entries)) return [];
+
+    const validApps = [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== "string") continue;
+      if (entry.startsWith(".")) continue;
+
+      try {
+        const entryJson = await window.protectedGlobals.ReadFile(
+          `${appsRoot}/${entry}/entry.json`,
+          { text: true, direct: true },
+        );
+        if (entryJson) {
+          validApps.push(entry);
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+
+    return validApps;
+  }
+
+  async function readAppMetadata(appFolderName) {
+    const appPath = `/systemfiles/runtime/apps/${appFolderName}`;
+    const entryPath = `${appPath}/entry.json`;
+    const meta = { name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionname: appFolderName };
+    let entryText = null;
+    try {
+      entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
+    } catch (e) {
+      entryText = null;
+    }
+    if (entryText) {
+      try {
+        const data = JSON.parse(entryText);
+        if (data && typeof data === "object") {
+          meta.label = data.label || appFolderName;
+          meta.functionname = data.functionname || appFolderName;
+          let iconFile = data.iconFile;
+          if (!iconFile) {
+            if (data.icon) iconFile = data.icon;
+          }
+          if (iconFile) {
+            const iconPath = `${appPath}/${iconFile}`;
+            try {
+              if (data.pngEnabled) {
+                const raw = await window.protectedGlobals.ReadFile(iconPath, { direct: true });
+                if (raw) {
+                  meta.icon = `data:image/png;base64,${String(raw).trim()}`;
+                  meta.iconType = "img";
+                }
+              } else if (data.svgEnabled) {
+                const svgText = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
+                if (svgText) {
+                  meta.icon = svgText.trim();
+                  meta.iconType = "svg";
+                }
+              } else if (data.nonTextIcon) {
+                const raw = await window.protectedGlobals.ReadFile(iconPath, { direct: true });
+                if (raw) {
+                  meta.icon = String(raw).trim();
+                  meta.iconType = iconFile.toLowerCase().endsWith(".png") ? "img" : iconFile.toLowerCase().endsWith(".svg") ? "svg" : "text";
+                }
+              } else {
+                const textIcon = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
+                if (textIcon) {
+                  meta.icon = String(textIcon).trim();
+                  meta.iconType = "text";
+                }
+              }
+            } catch (e) {
+              meta.icon = null;
+              meta.iconType = "text";
+            }
+          }
+        }
+      } catch (e) {
+        // ignore invalid entry.json
+      }
+    }
+    return meta;
+  }
+
+  function createAppItem(appMeta, refreshList) {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.alignItems = "center";
+    row.style.justifyContent = "space-between";
+    row.style.padding = "8px 10px";
+    row.style.marginBottom = "8px";
+    row.style.border = "1px solid rgba(255,255,255,0.08)";
+    row.style.borderRadius = "8px";
+    row.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.03)" : "#f6f6f6";
+
+    const left = document.createElement("div");
+    left.style.display = "flex";
+    left.style.alignItems = "center";
+    left.style.gap = "10px";
+    left.style.minWidth = "0";
+
+    const iconWrapper = document.createElement("div");
+    iconWrapper.style.width = "36px";
+    iconWrapper.style.height = "36px";
+    iconWrapper.style.display = "grid";
+    iconWrapper.style.placeItems = "center";
+    iconWrapper.style.borderRadius = "10px";
+    iconWrapper.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+    iconWrapper.style.overflow = "hidden";
+    iconWrapper.style.flexShrink = "0";
+
+    if (appMeta.iconType === "img" && appMeta.icon) {
+      const img = document.createElement("img");
+      img.src = appMeta.icon;
+      img.style.maxWidth = "100%";
+      img.style.maxHeight = "100%";
+      img.style.display = "block";
+      iconWrapper.appendChild(img);
+    } else if (appMeta.iconType === "svg" && appMeta.icon) {
+      iconWrapper.innerHTML = appMeta.icon;
+      const svg = iconWrapper.querySelector("svg");
+      if (svg) {
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+      }
+    } else if (appMeta.icon) {
+      const text = document.createElement("div");
+      text.textContent = appMeta.icon[0] || appMeta.label[0] || "A";
+      text.style.fontSize = "16px";
+      text.style.fontWeight = "700";
+      iconWrapper.appendChild(text);
+    } else {
+      const text = document.createElement("div");
+      text.textContent = appMeta.label[0] ? appMeta.label[0].toUpperCase() : "A";
+      text.style.fontSize = "16px";
+      text.style.fontWeight = "700";
+      iconWrapper.appendChild(text);
+    }
+
+    const label = document.createElement("div");
+    label.style.whiteSpace = "nowrap";
+    label.style.overflow = "hidden";
+    label.style.textOverflow = "ellipsis";
+    label.style.fontSize = "14px";
+    label.style.fontWeight = "600";
+    label.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+    label.textContent = appMeta.label;
+
+    left.append(iconWrapper, label);
+
+    const right = document.createElement("div");
+    right.style.display = "flex";
+    right.style.alignItems = "center";
+    right.style.gap = "8px";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
+    deleteBtn.style.background = "#c0392b";
+    deleteBtn.style.color = "white";
+    deleteBtn.style.border = "none";
+    deleteBtn.style.padding = "6px 10px";
+    deleteBtn.style.borderRadius = "6px";
+    deleteBtn.style.cursor = "pointer";
+    deleteBtn.style.whiteSpace = "nowrap";
+
+    deleteBtn.addEventListener("click", async () => {
+      if (window.protectedGlobals.systemapps.includes(appMeta.functionname)) { alert("Cannot delete system app!"); return; }
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = "Deleting...";
+      try {
+        await window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${appMeta.name}`);
+        await refreshAppList();
+      } catch (err) {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = "Delete";
+        alert(`Failed to delete app folder: ${err.message || err}`);
+      }
+    });
+
+    right.append(deleteBtn);
+    row.append(left, right);
+
+    return row;
+  }
+
+  async function refreshAppList() {
+    if (!window.settingsGlobals.appListContainer) return;
+    const container = window.settingsGlobals.appListContainer;
+    container.innerHTML = "";
+    const loading = document.createElement("div");
+    loading.textContent = "Loading apps...";
+    loading.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
+    container.appendChild(loading);
+    try {
+      const apps = await loadInstalledApps();
+      container.innerHTML = "";
+      if (!apps.length) {
+        const empty = document.createElement("div");
+        empty.textContent = "No installed apps found.";
+        empty.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
+        container.appendChild(empty);
+        return;
+      }
+      for (const appName of apps) {
+        const meta = await readAppMetadata(appName);
+        container.appendChild(createAppItem(meta, refreshAppList));
+      }
+    } catch (e) {
+      container.innerHTML = "";
+      const error = document.createElement("div");
+      error.textContent = `Unable to load apps: ${e.message || e}`;
+      error.style.color = "red";
+      container.appendChild(error);
+    }
   }
 
   /* ========================================================="}

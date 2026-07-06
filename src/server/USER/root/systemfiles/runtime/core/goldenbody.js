@@ -1246,6 +1246,7 @@
     btn.addEventListener("click", () => {
       console.log("Task clicked:", btn.value);
       onclickFunc();
+      if (name == '⤢' || name == "▶") return;
       var aid = (btn.dataset && btn.dataset.appId) ? btn.dataset.appId : (btn.value && String(btn.value).trim());
       if (aid && (window.protectedGlobals.addToRecents)) {
         window.protectedGlobals.addToRecents(aid);

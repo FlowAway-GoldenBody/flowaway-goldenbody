@@ -391,7 +391,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     // If an app folder exists, we won't delete it; we'll overwrite only files present in the package
     // to preserve any other files the app may have created.
 
-    statusDiv.textContent = 'Extracting and installing files...';
+    statusDiv.textContent = 'Installing, please wait...';
 
     await window.packageInstallerGlobals.ensureFolderExists(baseFolder);
     const createdFolders = new Set([baseFolder]);
@@ -560,11 +560,19 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     continueBtn.addEventListener('click', async () => {
       try {
         continueBtn.disabled = true;
+        continueBtn.style.opacity = '0.5';
+        continueBtn.style.cursor = 'not-allowed';
+        cancelBtn.disabled = true;
+        cancelBtn.style.opacity = '0.5';
+        cancelBtn.style.cursor = 'not-allowed';
         statusDiv.textContent = 'Installing...';
 
         await installPackage(zipData, folderName, statusDiv, packageMetadata);
 
         continueBtn.style.display = 'none';
+        cancelBtn.disabled = false;
+        cancelBtn.style.opacity = '1';
+        cancelBtn.style.cursor = 'pointer';
         cancelBtn.textContent = 'Close';
       } catch (error) {
         statusDiv.textContent = `Installation error: ${error.message}`;
@@ -777,7 +785,8 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
                 selectBtn.style.opacity = '1';
                 selectBtn.style.cursor = 'pointer';
               }
-              statusDiv.textContent = 'Reading file...';
+              statusDiv.style.color = 'var(--muted-color)';
+              statusDiv.textContent = 'Staging App...';
               try {
                 const fileBytes = await window.packageInstallerGlobals.readBinaryFile(fullPath);
                 const file = new File([fileBytes], normalizedName, { type: 'application/zip' });

@@ -360,19 +360,6 @@ window.alert = function (message) {
   window.protectedGlobals.showModal("Alert", String(message || ""), "info");
 };
 
-window.confirm = function (message) {
-  window.protectedGlobals.showModal("Confirm", String(message || ""), "info");
-  return false;
-};
-
-window.prompt = function (message, defaultValue) {
-  var text = String(message || "");
-  if (typeof defaultValue !== "undefined" && defaultValue !== null) {
-    text += "\nDefault: " + String(defaultValue);
-  }
-  window.protectedGlobals.showModal("Prompt", text, "info");
-  return null;
-};
 
 window.protectedGlobals.flowawayCrash = function(message, detail) {
   if (window.protectedGlobals.notification && typeof window.protectedGlobals.notification === "function") {
