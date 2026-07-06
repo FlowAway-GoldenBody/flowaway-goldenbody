@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs-extra');
 const path = require('path');
 const fsp = require('fs/promises');
+const AdmZip = require('adm-zip');
 
 async function walkDir(dir, base = dir) {
   const entries = await fsp.readdir(dir, { withFileTypes: true });
@@ -113,6 +114,18 @@ function normalizePermissionEntries(entries) {
     });
   }
   return out;
+}
+
+function sanitizeZipEntryPath(entryName) {
+  if (typeof entryName !== 'string') return '';
+  const repaired = entryName.replace(/\\/g, '/').trim();
+  if (!repaired) return '';
+  const normalized = path.posix.normalize(repaired);
+  if (!normalized || normalized === '.' || normalized.startsWith('/')) return '';
+  if (normalized === '..' || normalized.includes('/../') || normalized.includes('../')) return '';
+  const parts = normalized.split('/').filter(Boolean);
+  if (!parts.length) return '';
+  return parts.join('/');
 }
 
 function getPermissionForRelativePath(relPath, permissionEntries) {
@@ -1217,6 +1230,85 @@ function removeNodeFromTree(node, pathParts) {
   }
   return false;
 }
+if (data.unzip) {
+  try {
+    const zipRelPath = normalizeUserRelativePath(data.path);
+    if (!zipRelPath) {
+      return res.end(JSON.stringify({ error: 'Invalid zip path' }));
+    }
+
+    const zipFullPath = path.join(userRoot, zipRelPath);
+    const zipRelativeToRoot = path.relative(userRoot, zipFullPath);
+    if (zipRelativeToRoot.startsWith('..') || path.isAbsolute(zipRelativeToRoot)) {
+      return res.end(JSON.stringify({ error: 'Invalid zip path' }));
+    }
+
+    const zipSourcePerm = getPermissionForRelativePath(zipRelPath, userPathPermissions);
+    if (!zipSourcePerm.read) {
+      res.writeHead(403);
+      return res.end(JSON.stringify({ error: 'read permission denied', path: `/${zipRelPath}` }));
+    }
+
+    let zipStat;
+    try {
+      zipStat = await fsp.stat(zipFullPath);
+    } catch (e) {
+      if (e && e.code === 'ENOENT') {
+        return res.end(JSON.stringify({ missing: true, code: 'ENOENT', kind: 'missing', path: data.path }));
+      }
+      throw e;
+    }
+
+    if (!zipStat.isFile()) {
+      return res.end(JSON.stringify({ error: 'Zip path is not a file' }));
+    }
+
+    const destinationRelPath = normalizeUserRelativePath(data.destinationFolder || path.posix.dirname(zipRelPath));
+    if (destinationRelPath === '') {
+      const destinationPerm = getPermissionForRelativePath('', userPathPermissions);
+      if (!destinationPerm.write) {
+        res.writeHead(403);
+        return res.end(JSON.stringify({ error: 'write permission denied', path: '/' }));
+      }
+    } else {
+      const destinationPerm = getPermissionForRelativePath(destinationRelPath, userPathPermissions);
+      if (!destinationPerm.write) {
+        res.writeHead(403);
+        return res.end(JSON.stringify({ error: 'write permission denied', path: `/${destinationRelPath}` }));
+      }
+    }
+
+    const destinationFullPath = path.join(userRoot, destinationRelPath || '');
+    await fsp.mkdir(destinationFullPath, { recursive: true });
+
+    const zip = new AdmZip(zipFullPath);
+    const extractedFiles = [];
+
+    for (const entry of zip.getEntries() || []) {
+      const entryName = sanitizeZipEntryPath(entry && entry.entryName);
+      if (!entryName) continue;
+      if (entry && (entry.isDirectory || (entry.header && entry.header.isDir) || entry.entryName.endsWith('/'))) {
+        continue;
+      }
+
+      const outputPath = path.join(destinationFullPath, ...entryName.split('/'));
+      const outputRel = normalizeUserRelativePath(path.relative(userRoot, outputPath).replace(/\\/g, '/'));
+      if (!outputRel) continue;
+
+      await fsp.mkdir(path.dirname(outputPath), { recursive: true });
+      const buffer = entry.getData ? entry.getData() : Buffer.from('');
+      await fsp.writeFile(outputPath, buffer);
+      extractedFiles.push(outputRel);
+    }
+
+    return res.end(JSON.stringify({ success: true, path: `/${zipRelPath}`, destinationFolder: `/${destinationRelPath || ''}`, extractedFiles }));
+  } catch (err) {
+    console.error('unzip error', err);
+    res.writeHead(500);
+    return res.end(JSON.stringify({ error: err && err.message ? err.message : 'Failed to unzip file' }));
+  }
+}
+
 if (data.saveSnapshot) {
   // Apply all frontend directions to build tree
   const result = await applyDirections(userRoot, data.directions, username, userPathPermissions);

@@ -1259,7 +1259,7 @@ function makeIcon(type, size = 16) {
 
     render();
   };
-
+  root.addEventListener("loadtree", onlyloadTree);
   function findNode(node, path) {
     let current = node;
     for (let i = 1; i < path.length; i++) {

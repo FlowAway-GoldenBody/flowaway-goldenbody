@@ -10,6 +10,15 @@
 // `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
+
+window.protectedGlobals.unzip = async function (path, destinationFolder) {
+  if (!destinationFolder) {
+    destinationFolder = path.split("/").slice(0, -1).join("/"); // default to the folder containing the zip file
+  }
+  if (!path) throw new Error("No path");
+  const res = await window.protectedGlobals.filePost({ unzip: true, path: String(path), destinationFolder });
+  return res;
+};
 window.protectedGlobals.WriteFolder = async function (relPath) {
   if (!relPath) throw new Error("No path");
   const directions = [{ edit: true, path: String(relPath), addFolder: true }, { end: true }];

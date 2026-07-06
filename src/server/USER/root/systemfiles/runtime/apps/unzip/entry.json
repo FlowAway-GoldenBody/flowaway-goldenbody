@@ -1,0 +1,11 @@
+{
+  "functionname": "unzip",
+  "label": "Unzip",
+  "globalvarobjectstring": "nothing",
+  "allapparraystring": "nothing",
+  "usejs": true,
+  "jsFile": "script.js",
+  "openfilecapability": [
+    ".zip"
+  ]
+}

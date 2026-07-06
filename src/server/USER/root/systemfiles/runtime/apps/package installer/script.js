@@ -609,7 +609,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     const html = `
       <div style="display: flex; flex-direction: column; gap: 15px; height: 100%;">
         <div>
-          <h3 style="margin: 0 0 5px 0;">Select Package</h3>
+          <h3 style="margin: 0 0 5px 0;">Select Package (.zip files only)</h3>
           <div id="breadcrumb" style="font-size: 12px; color: var(--muted-color); margin-bottom: 10px;">
             <span id="currentPath" style="word-break: break-all;"></span>
           </div>
