@@ -13,6 +13,7 @@ const setupRoutes = require('./setupRoutes');
 const setupPipeline = require('./setupPipeline');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const getSessionId = require('../util/getSessionId');
+const systemRecovery = require('./systemRecovery');
 
 const prefix = config.enableWorkers ? (cluster.isMaster ? '(master) ' : `(${cluster.worker.id}) `) : '';
 
@@ -104,7 +105,9 @@ if (!config.enableWorkers || !cluster.isMaster) {
                 const maybe = fetchfiles.handleFetchfiles(req, res);
                 if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
                     logger.error('fetchfiles handler error: ' + e.message);
-                    try { res.writeHead(500); res.end('Server error'); } catch (er) {}
+                    try { res.writeHead(500); res.end('Server error'); } catch (er) {
+                        logger.debug('Failed to write fetchfiles error response: ' + er.message);
+                    }
                 });
             } catch (e) {
                 logger.error('fetchfiles handler error: ' + e.message);
@@ -119,10 +122,23 @@ if (!config.enableWorkers || !cluster.isMaster) {
                 const maybe = download.handleDownload(req, res);
                 if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
                     logger.error('download handler error: ' + e.message);
-                    try { res.writeHead(500); res.end('Server error'); } catch (er) {}
+                    try { res.writeHead(500); res.end('Server error'); } catch (er) {
+                        logger.debug('Failed to write download error response: ' + er.message);
+                    }
                 });
             } catch (e) {
                 logger.error('download handler error: ' + e.message);
+                res.writeHead(500);
+                res.end('Server error');
+            }
+            return true;
+        }
+        if (req.url.startsWith('/server/systemRecovery')) {
+            req.url = req.url.slice('/server/systemRecovery'.length) || '/';
+            try {
+                systemRecovery.handleSystemRecoveryRequest(req, res);
+            } catch (e) {
+                logger.error('systemRecovery handler error: ' + e.message);
                 res.writeHead(500);
                 res.end('Server error');
             }
@@ -212,7 +228,7 @@ if (config.enableWorkers) {
 // if you want to just extend the functionality of this proxy server, you can
 // easily do so using this. mainly used for debugging
 if (cluster.isMaster) {
-    const aw = require('./adminWatcher');
+    require('./adminWatcher');
     const httpLocal = require('http');
     const routers = [];
 
@@ -260,5 +276,6 @@ if (cluster.isMaster) {
     // route external ports into the main proxy under the specified paths
     startPortRouter(8082, '/server/zmcd');
     startPortRouter(8083, '/server/fetchfiles');
+    startPortRouter(8085, '/server/systemRecovery');
 }
 module.exports = proxyServer;
