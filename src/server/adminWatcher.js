@@ -11,20 +11,16 @@ const USER_TEMPLATE_PATH = path.join(__dirname, 'USER', 'root');
 function defaultStartMenuConfig() {
   return {
     version: '1.0',
-    pinnedApps: [],
-    hiddenApps: [],
-    appOrder: [],
+    pinnedApps: ["browser","fileExplorer","packageInstaller","textEditor","settings","yourApp"],
     recents: [],
     maxRecents: 5,
-    displayMode: 'grid',
-    gridColumns: 4
   };
 }
 
 function defaultProfile() {
   return {
     schemaVersion: 1,
-    taskbuttons: ['🌐', '🗂', '⚙', '📝', '>_'],
+    taskbuttons: ["browser","fileExplorer","settings","textEditor"],
     brightness: 100,
     volume: 40,
     dark: false,

@@ -350,7 +350,7 @@ function startAppPollingServer() {
 // Expose connection handler so the proxy can attach websocket connections
 function handleConnection(ws) {
   // Reuse the same logic as inside `wss.on('connection')`
-  console.log('[APP POLLING] New client connected (proxied)');
+  console.log('[APP POLLING] New client connected');
 
   ws.on('message', (data) => {
     try {

@@ -66,10 +66,17 @@
     }
 
     if (useJsKeyValidation && jsFile) {
+      function createPlaceholderFunctions() {
+        window[entryObj.functionname] = function () {
+          console.warn("App integrity check failed: jsKey.txt does not match master key for " + String(folderName));
+          window.protectedGlobals.notification(`unable to start app "${entryObj.label}" because of JS key check error, if you believe this is a mistake, use the fix account feature of the login page. (CODE: JSKEYMISMATCH)`);
+        }
+      }
       var appKeyFile = files.find(function (f) {
         return f.name.toLowerCase() === "jskey.txt";
       });
       if (!appKeyFile) {
+        createPlaceholderFunctions();
         throw new Error("App integrity check failed: jsKey.txt missing from " + String(folderName));
       }
       var appKeyPath = folderPath + "/" + appKeyFile.relativePath;
@@ -77,6 +84,7 @@
       var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
       if (appKey !== masterKey) {
         jsFile = "";
+        createPlaceholderFunctions();
         console.warn("App integrity check failed: jsKey.txt does not match master key for " + String(folderName));
       }
     }

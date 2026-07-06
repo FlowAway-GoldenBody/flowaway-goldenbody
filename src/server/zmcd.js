@@ -167,7 +167,7 @@ function normalizeTaskbarRevealHoldDelayMs(value) {
 function defaultProfile() {
   return {
     schemaVersion: PROFILE_SCHEMA_VERSION,
-    taskbuttons: ['🌐', '🗂', '⚙', '📝', '>_'],
+    taskbuttons: ["browser","fileExplorer","settings","textEditor"],
     brightness: 100,
     volume: 40,
     dark: false,
@@ -205,13 +205,9 @@ function normalizeProfile(raw) {
 function defaultStartMenuConfig() {
   return {
     version: '1.0',
-    pinnedApps: [],
-    hiddenApps: [],
-    appOrder: [],
+    pinnedApps: ["browser","fileExplorer","packageInstaller","textEditor","settings","yourApp"],
     recents: [],
     maxRecents: 5,
-    displayMode: 'grid',
-    gridColumns: 4,
   };
 }
 

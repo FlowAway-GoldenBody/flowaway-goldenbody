@@ -125,6 +125,68 @@ window.browser = async function (
       const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
       window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
       window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
+      if (!window.browserGlobals.id) {(async () => {
+  const loadedProfile = await window.browserGlobals.readBrowserProfile();
+  window.browserGlobals.profile = loadedProfile;
+  window.browserGlobals.profileState =
+    window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
+  // Determine effective browser theme setting
+  try {
+    const pm =
+      window.browserGlobals.profile && window.browserGlobals.profile.themeMode
+        ? window.browserGlobals.profile.themeMode
+        : "auto";
+    if (pm === "auto") {
+      window.browserGlobals.dark = !!(
+        window.protectedGlobals.data && window.protectedGlobals.data.dark
+      );
+    } else {
+      window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
+    }
+  } catch (e) {
+    window.browserGlobals.dark = !!(
+      window.protectedGlobals.data && window.protectedGlobals.data.dark
+    );
+  }
+
+  const idRead = await window.browserGlobals.readProfileTextFileMeta(
+    window.browserGlobals.profileUserIdPath,
+    {
+      attempts: 5,
+      retryDelayMs: 150,
+    },
+  );
+  const persistedId = String(idRead.text || "").trim();
+  if (persistedId) {
+    window.browserGlobals.id = persistedId;
+    return;
+  }
+
+  if (idRead.error) {
+    return;
+  }
+
+  // One more confirmation pass before generating/writing a new session id.
+  // This avoids replacing an existing id when the first read was transiently empty.
+  const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(
+    window.browserGlobals.profileUserIdPath,
+    {
+      attempts: 6,
+      retryDelayMs: 220,
+    },
+  );
+  const confirmedId = String(idReadConfirm.text || "").trim();
+  if (confirmedId) {
+    window.browserGlobals.id = confirmedId;
+    return;
+  }
+  if (idReadConfirm.error) {
+    return;
+  }
+  const id = await window.browserGlobals.requestNewBrowserSessionId();
+  window.browserGlobals.id = id;
+  await window.browserGlobals.writeBrowserUserId(id);
+})()}
     }
     initStores();
 
@@ -994,7 +1056,11 @@ setTimeout(() => {
         left.style.cssText = "display:flex;flex-direction:column;min-width:0;";
         const nameEl = document.createElement("div");
         nameEl.style.cssText = "font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
-        nameEl.textContent = p;
+        if (getCurProfileName() === p) {
+          nameEl.textContent = p + " (current)";
+        } else {
+          nameEl.textContent = p;
+        }
         left.appendChild(nameEl);
         const hint = document.createElement("div");
         hint.style.cssText = "font-size:12px;color:#666;";

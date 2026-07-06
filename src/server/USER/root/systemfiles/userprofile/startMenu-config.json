@@ -1,10 +1,6 @@
 {
   "version": "1.0",
-  "pinnedApps": [],
-  "hiddenApps": [],
-  "appOrder": [],
+  "pinnedApps": ["browser","fileExplorer","packageInstaller","textEditor","settings","yourApp"],
   "recents": [],
-  "maxRecents": 5,
-  "displayMode": "grid",
-  "gridColumns": 4
+  "maxRecents": 5
 }
