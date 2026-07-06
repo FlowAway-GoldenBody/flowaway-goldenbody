@@ -6,6 +6,14 @@
   "usejs": true,
   "jsFile": "browser.js",
   "iconFile": "icon.png",
+  "appPollingIgnore": {
+    "doNotIgnore": [
+      "/browser.js",
+      "/icon.png",
+      "/entry.json"
+    ],
+    "ignore": ["*"]
+  },
   "pngEnabled": true,
   "nonTextIcon": true,
   "svgEnabled": false,

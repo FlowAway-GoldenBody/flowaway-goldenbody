@@ -18,10 +18,80 @@ function getCurrentAppFolders(appsPath) {
   return new Set(entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => e.name));
 }
 
-function getChangedAppFolder(filename) {
+function normalizeAppPath(value) {
+  if (value == null) return '';
+  const normalized = String(value).replace(/\\/g, '/').trim();
+  if (!normalized || normalized === '/') return '';
+  return normalized.replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function matchesAppPathPattern(pattern, relativePath) {
+  const normalizedPattern = normalizeAppPath(pattern);
+  const normalizedPath = normalizeAppPath(relativePath);
+
+  if (!normalizedPattern) return false;
+  if (normalizedPattern === '*' || normalizedPattern === '**') return true;
+
+  const escaped = normalizedPattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\\\*/g, '.*');
+  const regex = new RegExp(`^${escaped}$`);
+  return regex.test(normalizedPath);
+}
+
+function getAppPollingIgnoreConfig(username, appName) {
+  if (!username || !appName) return null;
+
+  const appPath = path.join(getUserAppsPath(username), appName);
+  const entryPath = path.join(appPath, 'entry.json');
+
+  try {
+    if (!fs.existsSync(entryPath)) return null;
+    const entry = JSON.parse(fs.readFileSync(entryPath, 'utf8'));
+    if (!entry || typeof entry !== 'object') return null;
+    const config = entry.appPollingIgnore;
+    return config && typeof config === 'object' ? config : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function shouldIgnoreAppFileChange(username, filename) {
+  if (!username || !filename) return false;
+
+  const normalized = String(filename).replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  if (!normalized || normalized.startsWith('.') || normalized.includes('node_modules')) return false;
+
+  const segments = normalized.split('/').filter(Boolean);
+  if (segments.length < 2) return false;
+
+  const appName = segments[0];
+  const relativePath = `/${segments.slice(1).join('/')}`;
+  const config = getAppPollingIgnoreConfig(username, appName);
+  if (!config) return false;
+
+  const doNotIgnore = Array.isArray(config.doNotIgnore) ? config.doNotIgnore : [];
+  const ignore = Array.isArray(config.ignore) ? config.ignore : [];
+
+  if (doNotIgnore.some((pattern) => matchesAppPathPattern(pattern, relativePath))) {
+    return false;
+  }
+
+  if (ignore.some((pattern) => matchesAppPathPattern(pattern, relativePath))) {
+    return true;
+  }
+
+  return false;
+}
+
+function getChangedAppFolder(filename, username) {
   if (!filename) return null;
   const normalized = String(filename).replace(/\\/g, '/').replace(/^\/+/, '').trim();
   if (!normalized || normalized.startsWith('.') || normalized.includes('node_modules')) return null;
+
+  if (username && shouldIgnoreAppFileChange(username, normalized)) {
+    return null;
+  }
 
   const firstSegment = normalized.split('/').filter(Boolean)[0] || '';
   if (!firstSegment || firstSegment.startsWith('.')) return null;
@@ -97,7 +167,19 @@ function ensureUserWatcher(username) {
 
     try {
       state.watcher = fs.watch(appsPath, { recursive: true }, (eventType, filename) => {
-        const changedApp = getChangedAppFolder(filename);
+        // normalize filename for checks
+        const rawFilename = filename || '';
+        // If the change matches the app's appPollingIgnore rules, ignore it entirely
+        try {
+          if (shouldIgnoreAppFileChange(username, rawFilename)) {
+            console.log(`[APP POLLING] Ignored change in ${username}/apps per appPollingIgnore: ${rawFilename}`);
+            return;
+          }
+        } catch (e) {
+          // If ignore check fails, fall back to normal handling
+        }
+
+        const changedApp = getChangedAppFolder(filename, username);
         console.log(`[APP POLLING] Detected change in ${username}/apps: ${filename || '(unknown)'}`);
         if (changedApp) {
           try {
@@ -307,4 +389,10 @@ function handleConnection(ws) {
   });
 }
 
-module.exports = { startAppPollingServer, handleConnection, cleanupUserWatcher };
+module.exports = {
+  startAppPollingServer,
+  handleConnection,
+  cleanupUserWatcher,
+  shouldIgnoreAppFileChange,
+  getChangedAppFolder,
+};
