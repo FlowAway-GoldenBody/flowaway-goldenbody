@@ -218,6 +218,14 @@
       scrollbar-width: none;
     }
 
+    .taskbar-left-section {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      max-width: 20%;
+      min-width: 100px;
+    }
+    
     .taskbar-buttons-container::-webkit-scrollbar {
       display: none;
     }
@@ -452,6 +460,12 @@
   taskbar.style.boxSizing = "border-box";
   document.body.appendChild(taskbar);
   window.protectedGlobals.taskbar = taskbar;
+  
+  let leftSection = document.createElement('div');
+  leftSection.className = 'taskbar-left-section';
+  leftSection.id = 'taskbar-left-section';
+  window.protectedGlobals.leftSection = leftSection;
+  taskbar.appendChild(leftSection);
 
   // Create taskbuttons container
   var taskbuttonsContainer = document.createElement('div');
@@ -1281,7 +1295,11 @@
       }
     }
     setupTaskButtonDrag(btn);
-    window.protectedGlobals.taskbuttonsContainer.appendChild(btn);
+    if (!options.nonApp) {
+      window.protectedGlobals.taskbuttonsContainer.appendChild(btn);
+    } else {
+      window.protectedGlobals.leftSection.appendChild(btn);
+    }
     setTimeout(() => {
       window.protectedGlobals.applyStyles();
     }, 100);
@@ -1299,18 +1317,18 @@
   let fullscreenbtn;
   let startbtn;
   if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
-    fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenDarkImage });
-    startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuDarkImage });
+    fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenDarkImage, nonApp: true });
+    startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuDarkImage, nonApp: true });
   } else {
-    fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenLightImage });
-    startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuLightImage });
+    fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenLightImage, nonApp: true });
+    startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuLightImage, nonApp: true });
   }
   let divider1 = document.createElement('div');
   divider1.className = 'taskbar-divider';
   if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
     divider1.classList.add('dark');
   }
-  window.protectedGlobals.taskbuttonsContainer.appendChild(divider1);
+  window.protectedGlobals.leftSection.appendChild(divider1);
   let updateTaskbarCoreButtonTheme = () => {
     if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
       fullscreenbtn.img.src = "data:image/png;base64," + fullScreenDarkImage;

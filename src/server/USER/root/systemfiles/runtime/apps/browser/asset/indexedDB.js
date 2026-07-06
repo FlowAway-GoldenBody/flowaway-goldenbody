@@ -533,6 +533,7 @@ Object.defineProperty(frameWin, "indexedDB", {
             return request;
           }
           };
+          if (!options.keyPath) debugger;
           this.stores[storeName] = store;
           this.objectStoreNames._set.add(storeName);
           db._schemaDirty = true;
