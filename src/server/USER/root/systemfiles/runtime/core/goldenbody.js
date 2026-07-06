@@ -1387,7 +1387,7 @@
         }
       }
     }
-    }, 300);
+    }, 30);
   };
   // let originalLaunchApp = window.protectedGlobals.launchApp;
   // window.protectedGlobals.launchApp = function (appId) {
