@@ -58,7 +58,6 @@ test('resetSystemApp restores the backed-up user app instead of the sample app',
 
   fs.mkdirSync(path.join(userAppsRoot, 'custom-app'), { recursive: true });
   fs.mkdirSync(path.join(sampleAppsRoot, 'custom-app'), { recursive: true });
-  fs.mkdirSync(brokenAppsRoot, { recursive: true });
 
   fs.writeFileSync(path.join(userAppsRoot, 'custom-app', 'entry.json'), JSON.stringify({ functionname: 'customapp', label: 'Custom App' }));
   fs.writeFileSync(path.join(sampleAppsRoot, 'custom-app', 'entry.json'), JSON.stringify({ functionname: 'customapp', label: 'Custom App' }));

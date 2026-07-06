@@ -99,6 +99,10 @@ function defaultSystemPathPermissions() {
       path: '/systemfiles/userprofile',
       perm: { read: true, write: true },
     },
+    {
+      path: '/systemfiles/background',
+      perm: { read: true, write: true },
+    }
   ];
 }
 

@@ -97,6 +97,29 @@ function getRecoveryPaths(options = {}) {
   };
 }
 
+function getVersionedBackupPath(basePath) {
+  if (!fs.existsSync(basePath)) return basePath;
+  const timestamp = Date.now();
+  let versionedPath = `${basePath}-${timestamp}`;
+  let counter = 0;
+  while (fs.existsSync(versionedPath)) {
+    counter++;
+    versionedPath = `${basePath}-${timestamp}-${counter}`;
+  }
+  return versionedPath;
+}
+
+function findLatestVersionedBackup(basePath) {
+  if (fs.existsSync(basePath)) return basePath;
+  const dir = path.dirname(basePath);
+  const basename = path.basename(basePath);
+  if (!fs.existsSync(dir)) return null;
+  const entries = fs.readdirSync(dir).filter((name) => name.startsWith(`${basename}-`));
+  if (!entries.length) return null;
+  entries.sort().reverse();
+  return path.join(dir, entries[0]);
+}
+
 function ensureBrokenAppsBackup(options = {}) {
   const { userRoot, appsRoot, sampleAppsRoot, brokenAppsRoot, sampleRoot } = getRecoveryPaths(options);
   const sourceAppsRoot = appsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'apps');
@@ -104,14 +127,14 @@ function ensureBrokenAppsBackup(options = {}) {
 
   if (!sourceAppsRoot || !fs.existsSync(sourceAppsRoot)) return [];
 
-  fs.mkdirSync(targetBrokenAppsRoot, { recursive: true });
+  const versionedBrokenAppsRoot = getVersionedBackupPath(targetBrokenAppsRoot);
+  fs.mkdirSync(versionedBrokenAppsRoot, { recursive: true });
   const definitions = collectSystemAppDefinitions(sourceAppsRoot);
   const targetDefinitions = [];
   const requestedApp = options.appIdentifier;
 
   const backupDefinition = (definition) => {
-    const backupAppDir = path.join(targetBrokenAppsRoot, definition.folderName);
-    fs.rmSync(backupAppDir, { recursive: true, force: true });
+    const backupAppDir = path.join(versionedBrokenAppsRoot, definition.folderName);
     copyDirRecursive(definition.appDirPath, backupAppDir);
     targetDefinitions.push(definition);
   };
@@ -182,7 +205,8 @@ function getNonSystemRecoveryCatalog(options = {}) {
 function ensureBrokenSystemBackup(options = {}) {
   const { userRoot } = getRecoveryPaths(options);
   const brokenSystemRoot = path.join(userRoot, 'systemfiles', 'runtime', 'brokenSystem');
-  fs.mkdirSync(brokenSystemRoot, { recursive: true });
+  const versionedBrokenSystemRoot = getVersionedBackupPath(brokenSystemRoot);
+  fs.mkdirSync(versionedBrokenSystemRoot, { recursive: true });
 
   const userCoreDirs = [
     path.join(userRoot, 'systemfiles', 'runtime', 'core'),
@@ -197,13 +221,13 @@ function ensureBrokenSystemBackup(options = {}) {
   const helpersSource = userHelpersDirs.find((dir) => fs.existsSync(dir));
 
   if (coreSource) {
-    copyDirRecursive(coreSource, path.join(brokenSystemRoot, 'core'));
+    copyDirRecursive(coreSource, path.join(versionedBrokenSystemRoot, 'core'));
   }
   if (helpersSource) {
-    copyDirRecursive(helpersSource, path.join(brokenSystemRoot, 'helpers'));
+    copyDirRecursive(helpersSource, path.join(versionedBrokenSystemRoot, 'helpers'));
   }
 
-  return brokenSystemRoot;
+  return versionedBrokenSystemRoot;
 }
 
 function repairSystemFiles(options = {}) {
@@ -329,9 +353,18 @@ function resetSystemApp(options = {}) {
 
   const targetAppDir = path.join(targetAppsRoot, match.folderName);
   const backupAppDir = path.join(backupRoot, match.folderName);
+  const latestBackupRoot = findLatestVersionedBackup(backupRoot);
+  const latestBackupAppDir = latestBackupRoot ? path.join(latestBackupRoot, match.folderName) : null;
   fs.mkdirSync(path.dirname(targetAppDir), { recursive: true });
 
-  if (!fs.existsSync(backupAppDir)) {
+  let sourceBackupDir = null;
+  if (fs.existsSync(backupAppDir)) {
+    sourceBackupDir = backupAppDir;
+  } else if (latestBackupAppDir && fs.existsSync(latestBackupAppDir)) {
+    sourceBackupDir = latestBackupAppDir;
+  }
+
+  if (!sourceBackupDir) {
     ensureBrokenAppsBackup({
       userRoot,
       appsRoot: targetAppsRoot,
@@ -339,11 +372,12 @@ function resetSystemApp(options = {}) {
       brokenAppsRoot: backupRoot,
       appIdentifier: match.id,
     });
+    sourceBackupDir = latestBackupAppDir || backupAppDir;
   }
 
   fs.rmSync(targetAppDir, { recursive: true, force: true });
-  if (fs.existsSync(backupAppDir)) {
-    copyDirRecursive(backupAppDir, targetAppDir);
+  if (sourceBackupDir && fs.existsSync(sourceBackupDir)) {
+    copyDirRecursive(sourceBackupDir, targetAppDir);
   } else if (fallbackAppsRoot && fs.existsSync(path.join(fallbackAppsRoot, match.folderName))) {
     copyDirRecursive(path.join(fallbackAppsRoot, match.folderName), targetAppDir);
   } else {

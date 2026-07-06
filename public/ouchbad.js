@@ -72,9 +72,9 @@ window.protectedGlobals.firstlogin = false;
     <div id="zmc-msg" style="margin-top:10px;font-size:14px;text-align:center"></div>
 
     <div style="margin-top:18px;width:100%;padding-top:12px;border-top:1px solid #333;">
-      <h3 style="margin:0 0 8px;text-align:center">Account recovery</h3>
-      <input id="recovery-user" placeholder="Recovery username" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
-      <input id="recovery-pass" type="password" placeholder="Recovery password" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
+      <h3 style="margin:0 0 8px;text-align:center">Account Repair</h3>
+      <input id="recovery-user" placeholder="username" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
+      <input id="recovery-pass" type="password" placeholder="password" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
       <select id="recovery-app-select" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;display:block">
         <option value="" disabled selected>Enter recovery credentials to load system apps</option>
       </select>
@@ -325,17 +325,17 @@ window.protectedGlobals.firstlogin = false;
   };
 
   document.getElementById('recovery-reset').onclick = async () => {
-    recoveryMsg.textContent = 'Loading available apps...';
-    recoveryMsg.style.color = '#ffd166';
-    await ensureRecoveryCatalog(true);
     if (!recoveryAppSelect.value) {
       recoveryMsg.textContent = 'No system app selected';
       recoveryMsg.style.color = 'red';
       return;
     }
-    const result = await sendRecoveryRequest('resetSystemApp', { appIdentifier: recoveryAppSelect.value });
+    const selectedAppId = recoveryAppSelect.value;
+    recoveryMsg.textContent = 'Resetting system app...';
+    recoveryMsg.style.color = '#ffd166';
+    const result = await sendRecoveryRequest('resetSystemApp', { appIdentifier: selectedAppId });
     if (result && result.success) {
-      recoveryMsg.textContent = `${result.app && result.app.label ? result.app.label : recoveryAppSelect.value} was reset.`;
+      recoveryMsg.textContent = `${result.app && result.app.label ? result.app.label : selectedAppId} was reset.`;
       recoveryMsg.style.color = 'lime';
     } else {
       recoveryMsg.textContent = result && result.error ? result.error : 'Failed to reset system app';
@@ -344,17 +344,17 @@ window.protectedGlobals.firstlogin = false;
   };
 
   document.getElementById('recovery-delete-app').onclick = async () => {
-    recoveryMsg.textContent = 'Deleting selected app...';
-    recoveryMsg.style.color = '#ffd166';
-    await ensureRecoveryCatalog(true);
     if (!recoveryDeleteAppSelect.value) {
       recoveryMsg.textContent = 'No non-system app selected';
       recoveryMsg.style.color = 'red';
       return;
     }
-    const result = await sendRecoveryRequest('deleteUserApp', { appIdentifier: recoveryDeleteAppSelect.value });
+    const selectedAppId = recoveryDeleteAppSelect.value;
+    recoveryMsg.textContent = 'Deleting selected app...';
+    recoveryMsg.style.color = '#ffd166';
+    const result = await sendRecoveryRequest('deleteUserApp', { appIdentifier: selectedAppId });
     if (result && result.success) {
-      recoveryMsg.textContent = `${result.app && result.app.label ? result.app.label : recoveryDeleteAppSelect.value} was deleted.`;
+      recoveryMsg.textContent = `${result.app && result.app.label ? result.app.label : selectedAppId} was deleted.`;
       recoveryMsg.style.color = 'lime';
       await ensureRecoveryCatalog(true);
     } else {
