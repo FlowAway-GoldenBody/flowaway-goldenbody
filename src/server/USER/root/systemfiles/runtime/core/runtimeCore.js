@@ -598,8 +598,15 @@ delete window.tmpGlobals.coreScriptUrls;
 
 
 // this is not required, just a image
-document.body.style.backgroundImage =
-  "url(https://flowaway-goldenbody.github.io/GBCDN/cloudwithtemples.png)";
+document.documentElement.style.height = "100%";
+
+document.body.style.margin = "0";
+document.body.style.height = "100vh";
+window.protectedGlobals.setBodyBackground = async function () {
+  let backgroundImageBase64 = await window.protectedGlobals.ReadFile("systemfiles/background/background.png", { direct: true });
+  document.body.style.backgroundImage = `url(data:image/png;base64,${backgroundImageBase64})`;
+};
+window.protectedGlobals.setBodyBackground();
 document.body.style.backgroundSize = "cover";
 document.body.style.backgroundPosition = "center";
 document.body.style.backgroundRepeat = "no-repeat";

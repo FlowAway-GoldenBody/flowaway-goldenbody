@@ -2016,7 +2016,6 @@ setTimeout(() => {
       );
       window.browserGlobals.releaseBrowserGoldenbodyId(root);
       root = null;
-      _browserCalled = false;
     }
 
     const tabsRow = document.createElement("div");

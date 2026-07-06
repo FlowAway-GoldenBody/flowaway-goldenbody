@@ -331,7 +331,6 @@ window.packageInstallerGlobals.getPackageMetadata = window.packageInstallerGloba
     entryData,
   };
 };
-
 window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();
@@ -835,7 +834,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       const html = `
         <div style="display: flex; flex-direction: column; gap: 15px;">
           <h3>Install App Package</h3>
-          <p id="status" style="font-size: 14px; color: #666;">Reading file from path...</p>
+          <p id="status" style="font-size: 14px; color: #666;">Staging App...</p>
         </div>
       `;
       container.innerHTML = html;

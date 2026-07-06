@@ -669,8 +669,39 @@ window.settings = function (posX = 50, posY = 50) {
     return meta;
   }
 
+  function applyAppRowTheme(row, label, iconWrapper, deleteBtn) {
+    const dark = !!window.protectedGlobals.data.dark;
+    if (row) {
+      row.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+      row.style.background = dark ? "rgba(255,255,255,0.03)" : "#f6f6f6";
+    }
+    if (label) {
+      label.style.color = dark ? "#fff" : "#111";
+    }
+    if (iconWrapper) {
+      iconWrapper.style.background = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+    }
+    if (deleteBtn) {
+      deleteBtn.style.background = "#c0392b";
+      deleteBtn.style.color = "white";
+    }
+  }
+
+  function syncAppRowsTheme() {
+    const container = window.settingsGlobals.appListContainer;
+    if (!container) return;
+    const rows = Array.from(container.children || []).filter((child) => child instanceof HTMLElement && child.dataset.appRow === "true");
+    rows.forEach((row) => {
+      const label = row.querySelector("[data-app-row-label='true']");
+      const iconWrapper = row.querySelector("[data-app-row-icon='true']");
+      const deleteBtn = row.querySelector("[data-app-row-delete='true']");
+      applyAppRowTheme(row, label, iconWrapper, deleteBtn);
+    });
+  }
+
   function createAppItem(appMeta, refreshList) {
     const row = document.createElement("div");
+    row.dataset.appRow = "true";
     row.style.display = "flex";
     row.style.alignItems = "center";
     row.style.justifyContent = "space-between";
@@ -687,6 +718,7 @@ window.settings = function (posX = 50, posY = 50) {
     left.style.minWidth = "0";
 
     const iconWrapper = document.createElement("div");
+    iconWrapper.dataset.appRowIcon = "true";
     iconWrapper.style.width = "36px";
     iconWrapper.style.height = "36px";
     iconWrapper.style.display = "grid";
@@ -725,6 +757,7 @@ window.settings = function (posX = 50, posY = 50) {
     }
 
     const label = document.createElement("div");
+    label.dataset.appRowLabel = "true";
     label.style.whiteSpace = "nowrap";
     label.style.overflow = "hidden";
     label.style.textOverflow = "ellipsis";
@@ -741,6 +774,7 @@ window.settings = function (posX = 50, posY = 50) {
     right.style.gap = "8px";
 
     const deleteBtn = document.createElement("button");
+    deleteBtn.dataset.appRowDelete = "true";
     deleteBtn.textContent = "Delete";
     deleteBtn.style.background = "#c0392b";
     deleteBtn.style.color = "white";
@@ -749,6 +783,8 @@ window.settings = function (posX = 50, posY = 50) {
     deleteBtn.style.borderRadius = "6px";
     deleteBtn.style.cursor = "pointer";
     deleteBtn.style.whiteSpace = "nowrap";
+
+    applyAppRowTheme(row, label, iconWrapper, deleteBtn);
 
     deleteBtn.addEventListener("click", async () => {
       if (window.protectedGlobals.systemapps.includes(appMeta.functionname)) { alert("Cannot delete system app!"); return; }
@@ -769,6 +805,8 @@ window.settings = function (posX = 50, posY = 50) {
 
     return row;
   }
+
+  root.addEventListener("styleapplied", syncAppRowsTheme);
 
   async function refreshAppList() {
     if (!window.settingsGlobals.appListContainer) return;
