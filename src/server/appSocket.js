@@ -32,6 +32,11 @@ function matchesAppPathPattern(pattern, relativePath) {
   if (!normalizedPattern) return false;
   if (normalizedPattern === '*' || normalizedPattern === '**') return true;
 
+  // Support folder patterns as well as file paths.
+  if (normalizedPattern === normalizedPath || normalizedPath.startsWith(`${normalizedPattern}/`)) {
+    return true;
+  }
+
   const escaped = normalizedPattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\\\*/g, '.*');

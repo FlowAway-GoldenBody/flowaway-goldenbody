@@ -1333,9 +1333,17 @@
     if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
       fullscreenbtn.img.src = "data:image/png;base64," + fullScreenDarkImage;
       startbtn.img.src = "data:image/png;base64," + startMenuDarkImage;
+      fullscreenbtn.classList.add('dark');
+      startbtn.classList.add('dark');
+      fullscreenbtn.classList.remove('light');
+      startbtn.classList.remove('light');
     } else {
       fullscreenbtn.img.src = "data:image/png;base64," + fullScreenLightImage;
       startbtn.img.src = "data:image/png;base64," + startMenuLightImage;
+      fullscreenbtn.classList.remove('dark');
+      startbtn.classList.remove('dark');
+      fullscreenbtn.classList.add('light');
+      startbtn.classList.add('light');
     }
   }
   updateTaskbarCoreButtonTheme();
