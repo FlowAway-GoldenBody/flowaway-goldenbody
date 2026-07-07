@@ -223,7 +223,7 @@
       align-items: center;
       gap: 0;
       max-width: 20%;
-      min-width: 100px;
+      min-width: 147px;
     }
     
     .taskbar-buttons-container::-webkit-scrollbar {
@@ -455,7 +455,7 @@
   taskbar.style.height = "60px";
   taskbar.style.display = "flex";
   taskbar.style.alignItems = "center";
-  taskbar.style.paddingLeft = "3.1%"; // 50px empty space on left
+  taskbar.style.paddingLeft = "3%"; // 50px empty space on left
   taskbar.style.paddingRight = "1%"; // Add padding on right
   taskbar.style.boxSizing = "border-box";
   document.body.appendChild(taskbar);
