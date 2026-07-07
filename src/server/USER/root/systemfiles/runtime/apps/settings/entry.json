@@ -4,7 +4,10 @@
   "globalvarobjectstring": "settingsGlobals",
   "allapparraystring": "allSettings",
   "usejs": true,
+  "pngEnabled": true,
+  "svgEnabled": false,
+  "nonTextIcon": true,
   "jsFile": "settings.js",
-  "iconFile": "icon.txt",
+  "iconFile": "image.png",
   "openfilecapability": []
 }
