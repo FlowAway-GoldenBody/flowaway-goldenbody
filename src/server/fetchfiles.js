@@ -128,6 +128,17 @@ function sanitizeZipEntryPath(entryName) {
   return parts.join('/');
 }
 
+async function writeEditPayload(filePath, buffer, { replace = true } = {}) {
+  const content = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer));
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+
+  if (replace) {
+    await fsp.writeFile(filePath, content);
+  } else {
+    await fsp.appendFile(filePath, content);
+  }
+}
+
 function getPermissionForRelativePath(relPath, permissionEntries) {
   const normalizedRel = normalizeUserRelativePath(relPath);
   const normalizedTarget = normalizePermissionPath(normalizedRel ? `/${normalizedRel}` : '/');
@@ -996,6 +1007,8 @@ if (dir.deleteFolder) {
       const filePath = resolvePath(destRel);
       // console.log(filePath)
 
+      const shouldReplace = dir.replace !== false;
+
       // If caller requests replace:true, remove existing file and any temp parts
       if (dir.replace) {
         // console.log(dir.path)
@@ -1134,7 +1147,7 @@ if (dir.deleteFolder) {
           return ai - bi;
         });
 
-        const writeStream = fs.createWriteStream(filePath, { flags: 'w' });
+        const writeStream = fs.createWriteStream(filePath, { flags: shouldReplace ? 'w' : 'a' });
         for (const p of parts) {
           const pth = path.join(userTempDir, p);
           const buffer = await fsp.readFile(pth);
@@ -1172,14 +1185,14 @@ if (dir.deleteFolder) {
         }
 
         const currentUsed = await getDirSizeBytes(rootPath);
-        const delta = newSize - oldSize;
+        const delta = shouldReplace ? newSize - oldSize : newSize;
         const quota = await getUserQuotaBytes(rootPath);
         if (delta > 0 && currentUsed + delta > quota) {
           throw new Error(`Storage quota exceeded: cannot write ${path.basename(filePath)} (${delta} additional bytes)`);
         }
 
         // console.log(filePath, buffer.length);
-        await fsp.writeFile(filePath, buffer);
+        await writeEditPayload(filePath, buffer, { replace: shouldReplace });
         continue;
       }
 
@@ -1374,4 +1387,4 @@ function startServer(port = 8083, host = '0.0.0.0') {
   return server;
 }
 
-module.exports = { handleFetchfiles, startServer };
+module.exports = { handleFetchfiles, startServer, writeEditPayload };
