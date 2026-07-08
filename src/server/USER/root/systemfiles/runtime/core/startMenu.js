@@ -12,66 +12,8 @@ window.protectedGlobals.renderAppsGrid = async function () {
 
   for (const app of window.protectedGlobals.apps) {
     try {
-      window.protectedGlobals.initAppRuntimeState(app);
-      if (!app.scriptLoaded && app.jsFile) {
-        var jsKeyOk = true;
-        try {
-          var appKey = String(await window.protectedGlobals.ReadFile(`${app.path}/jsKey.txt`, { text: true, direct: true }) || "").trim();
-          var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
-          jsKeyOk = !!appKey && !!masterKey && appKey === masterKey;
-        } catch (e) {
-          jsKeyOk = false;
-        }
-
-        if (!jsKeyOk) {
-          console.warn("Skipping app script due to missing/invalid jskey", app && app.id, app && app.path);
-          continue;
-        }
-
-        var scriptText = String(await window.protectedGlobals.ReadFile(`${app.path}/${app.jsFile}`, { text: true, direct: true }) || "");
-        if (!String(scriptText || "").trim()) {
-          console.warn("App script is empty; skipping load", { appId: app && app.id, path: app && app.path, jsFile: app && app.jsFile });
-          continue;
-        }
-
-        app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
-        try {
-          var globalVarObjectString = app.globalVarObjectString;
-          if (app.functionName) delete window[app.functionName];
-          if (
-            app.cmf &&
-            globalVarObjectString &&
-            window[globalVarObjectString] &&
-            !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
-          ) {
-            delete window[globalVarObjectString][app.cmf];
-          }
-        } catch (e) {}
-
-        var beforeGlobals = new Set(Object.getOwnPropertyNames(window));
-        var scriptEl = document.createElement("script");
-        scriptEl.type = "text/javascript";
-        scriptEl.textContent = scriptText;
-        document.body.appendChild(scriptEl);
-        app.scriptLoaded = true;
-        app._scriptElement = scriptEl;
-
-        try {
-          app._addedGlobals = [];
-          var captureAdded = () => {
-            var after = Object.getOwnPropertyNames(window);
-            var newly = after.filter(
-              (k) => !beforeGlobals.has(k) && !(app._addedGlobals || []).includes(k),
-            );
-            if (newly.length) {
-              app._addedGlobals = [...new Set([...(app._addedGlobals || []), ...newly])];
-            }
-          };
-          captureAdded();
-          setTimeout(captureAdded, 120);
-          setTimeout(captureAdded, 800);
-          setTimeout(captureAdded, 2500);
-        } catch (e) {}
+      if (app.requestAdminPerm) {
+        window.protectedGlobals.initAppRuntimeState(app);
       }
     } catch (e) {
       window.protectedGlobals.throwError("renderAppsGrid", "Failed while loading app", e, {

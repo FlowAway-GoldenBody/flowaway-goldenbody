@@ -1,0 +1,9 @@
+{
+  "functionName": "nothing",
+  "label": "SUS",
+  "globalVarObjectString": "susglobals",
+  "allAppArrayString": "allsus",
+  "jsFile": "script.js",
+  "iconFile": "icon.txt",
+  "openfileCapability": []
+}

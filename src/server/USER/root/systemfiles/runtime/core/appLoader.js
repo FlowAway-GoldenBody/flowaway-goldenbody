@@ -14,6 +14,53 @@
 
 
 
+  async function loadAppScript(pkg) {
+    if (!pkg || !pkg.jsFile || pkg.scriptLoaded || !pkg.requestAdminPerm) return false;
+
+    var jsKeyOk = true;
+    try {
+      var appKey = String(await window.protectedGlobals.ReadFile(`${pkg.path}/jsKey.txt`, { text: true, direct: true }) || "").trim();
+      var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
+      jsKeyOk = !!appKey && !!masterKey && appKey === masterKey;
+    } catch (e) {
+      jsKeyOk = false;
+    }
+
+    if (!jsKeyOk) {
+      console.warn("Skipping app script due to missing/invalid jskey", pkg && pkg.id, pkg && pkg.path);
+      return false;
+    }
+
+    var scriptText = String(await window.protectedGlobals.ReadFile(`${pkg.path}/${pkg.jsFile}`, { text: true, direct: true }) || "");
+    if (!String(scriptText || "").trim()) {
+      console.warn("App script is empty; skipping load", { appId: pkg && pkg.id, path: pkg && pkg.path, jsFile: pkg && pkg.jsFile });
+      return false;
+    }
+
+    pkg._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
+    try {
+      var globalVarObjectString = pkg.globalVarObjectString;
+      if (pkg.functionName) delete window[pkg.functionName];
+      if (
+        pkg.cmf &&
+        globalVarObjectString &&
+        window[globalVarObjectString] &&
+        !window.protectedGlobals.isProtectedAppGlobalName(pkg.cmf)
+      ) {
+        delete window[globalVarObjectString][pkg.cmf];
+      }
+    } catch (e) {}
+
+    var scriptEl = document.createElement("script");
+    scriptEl.type = "text/javascript";
+    scriptEl.textContent = scriptText;
+    document.body.appendChild(scriptEl);
+    pkg.scriptLoaded = true;
+    pkg._scriptElement = scriptEl;
+    return true;
+  }
+
+
 
 
 
@@ -96,9 +143,9 @@
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
     let verify = await getVerification(folderPath + '/jsKey.txt');
-    iconFile = entryObj.iconFile || "";
+    iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
-
+    openfileCapability = entryObj.openfileCapability || [];
 
     if (verify) {
       functionName = entryObj.functionName;
@@ -110,13 +157,13 @@
     } else if (entryObj.requestAdminPerm) {
       createPlaceholderFunction();
     } else {
-      entryObj.globalVarObjectString = globalVarObjectString;
-      entryObj.allAppArrayString = allAppArrayString;
-      entryObj.functionName = functionName;
       globalVarObjectString = generateNamespace();
       allAppArrayString = generateNamespace();
       functionName = generateNamespace();
-      openfileCapability = entryObj.openfileCapability || [];
+      entryObj.globalVarObjectString = globalVarObjectString;
+      entryObj.allAppArrayString = allAppArrayString;
+      entryObj.functionName = functionName;
+      jsFile = entryObj.jsFile || "";
       createIframeContainerAppFunction(entryObj);
     }
 
@@ -126,7 +173,7 @@
 
 
     console.log("Found icon file for app " + folderName + ": " + iconFile); 
-    if (!entryObj.headless) {
+    if (!entryObj.headless || !iconFile) {
       var iconPath = folderPath + "/" + iconFile;
       if (!entryObj.nonTextIcon) {
         var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
@@ -152,6 +199,7 @@
       icon: icon,
       scriptLoaded: false,
       globalVarObjectString: globalVarObjectString,
+      requestAdminPerm: entryObj.requestAdminPerm,
       cmf: cmf,
       cmfl1: cmfl1,
       svgEnabled: !!entryObj.svgEnabled,
@@ -160,6 +208,7 @@
       openfileCapability: openfileCapability,
     };
     window.protectedGlobals.initAppRuntimeState(pkg);
+    await loadAppScript(pkg);
     return pkg;
   }
 
