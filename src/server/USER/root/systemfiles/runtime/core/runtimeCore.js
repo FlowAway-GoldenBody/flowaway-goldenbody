@@ -579,7 +579,6 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/runtime/core/runtimeWindowSystem.js",
   "systemfiles/runtime/core/appLoader.js",
   "systemfiles/runtime/helpers/initapptools.js",
-  "systemfiles/runtime/core/appPolling.js",
   "systemfiles/runtime/helpers/cleanupfunctions.js",
   "systemfiles/runtime/core/startMenu.js",
   "systemfiles/runtime/core/processes.js",
@@ -682,7 +681,46 @@ window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRef
 };
 
 
+window.protectedGlobals.deleteApp = async function (obj) {
+  window.protectedGlobals.apps.forEach(element => {
+    if (element.functionName == obj.functionName) {
+      window[element.globalVarObjectString][element.allAppArrayString].forEach(e => {
+        e.rootElement.remove();
+      });
+      window.protectedGlobals.renderAppsGrid();
+      window.protectedGlobals.taskbuttons.forEach(b => {
+        if (b.dataset.appId === element.functionName) b.remove();
+      });
+      window.protectedGlobals.apps.splice(window.protectedGlobals.apps.indexOf(element), 1);
+    }
+  });
+}
 
+window.protectedGlobals.installApp = async function (folderName) {
+  var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
+  var systemfilesNode = rootChildren.find(
+    (c) => c[0] === "systemfiles" && Array.isArray(c[1]),
+  );
+  var runtimeNode =
+    systemfilesNode && Array.isArray(systemfilesNode[1])
+      ? systemfilesNode[1].find((c) => c[0] === "runtime" && Array.isArray(c[1]))
+      : null;
+  var appsNode =
+    runtimeNode && Array.isArray(runtimeNode[1])
+      ? runtimeNode[1].find((c) => c[0] === "apps" && Array.isArray(c[1]))
+      : null;
+  if (!appsNode) return;
+  var appFolders = window.protectedGlobals.dedupefiles(appsNode[1]);
+  appFolders.forEach(async (f) => {
+    if (f[0] === folderName) {
+      let appData = await window.protectedGlobals.extractAppData(f);
+      window.protectedGlobals.apps.sort((a, b) => a.label.localeCompare(b.label));
+      window.protectedGlobals.initAppRuntimeState(appData);
+      window.protectedGlobals.apps.push(appData);
+    }
+  });
+  window.protectedGlobals.renderAppsGrid();
+}
 
 
 

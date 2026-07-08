@@ -46,12 +46,6 @@ window.protectedGlobals.rebuildhandler = function () {
     delete window.protectedGlobals.systemAPIs.processTrackerSyncTimer;
   }
 
-  if (
-    window.protectedGlobals.FlowawayAppPolling &&
-    (window.protectedGlobals.FlowawayAppPolling.stop)
-  ) {
-    window.protectedGlobals.FlowawayAppPolling.stop();
-  }
 
   if (window.protectedGlobals.process && window.protectedGlobals.FlowawayProcess && window.protectedGlobals.process === window.protectedGlobals.FlowawayProcess) {
     delete window.protectedGlobals.process;
@@ -93,12 +87,6 @@ window.protectedGlobals.rebuildhandler = function () {
     m.src = "";
   });
 
-  if (
-    window.protectedGlobals.FlowawayAppPolling &&
-    (window.protectedGlobals.FlowawayAppPolling.stop)
-  ) {
-    window.protectedGlobals.FlowawayAppPolling.stop();
-  }
 
   if (
     window.protectedGlobals.systemAPIs &&

@@ -792,6 +792,7 @@ window.settings = function (posX = 50, posY = 50) {
       deleteBtn.textContent = "Deleting...";
       try {
         await window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${appMeta.name}`);
+        window.protectedGlobals.deleteApp(appMeta);
         await refreshAppList();
       } catch (err) {
         deleteBtn.disabled = false;

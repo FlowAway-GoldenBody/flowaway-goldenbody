@@ -52,16 +52,6 @@ setupRoutes(proxyServer, sessionStore, logger);
 // register routes and handlers only in workers (or single-process mode)
 if (!config.enableWorkers || !cluster.isMaster) {
     // register websocket handler for app polling through the proxy
-    const appSocket = require('./appSocket');
-    try {
-        proxyServer.WS('/server/appSocket', (ws, req) => {
-            appSocket.handleConnection(ws, req);
-            return ws;
-        });
-        logger.info('Registered WS route /server/appSocket');
-    } catch (e) {
-        logger.warn('Could not register appSocket WS route: ' + e.message);
-    }
 
     // mount zmcd and fetchfiles handlers under proxy routes
     const zmcd = require('./zmcd');

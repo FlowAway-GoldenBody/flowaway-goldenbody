@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache.js');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const RammerheadSession = require('../classes/RammerheadSession');
-const { cleanupUserWatcher } = require('./appSocket.js');
 
 const logger = new RammerheadLogging({ logLevel: 'debug' });
 const store = new RammerheadSessionFileCache({ logger });
@@ -604,13 +603,6 @@ function handleZMCd(req, res) {
         // For account deletion, REQUIRE password validation (ignore tokens)
         if (typeof data.oldPassword !== 'string' || data.oldPassword !== authRecord.password) {
           return res.end(JSON.stringify({ error: 'wrong password' }));
-        }
-
-        try {
-          cleanupUserWatcher(data.username, true);
-          console.log(`[DELETE] Cleaned up watchers for user: ${data.username}`);
-        } catch (e) {
-          console.error('[DELETE] Error cleaning up watchers:', e.message);
         }
 
         const targetDir = userPaths.userDir;
