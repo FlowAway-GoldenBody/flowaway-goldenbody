@@ -570,6 +570,7 @@ window.tmpGlobals.decodeBase64ToUTF8 = function(base64) {
     return new TextDecoder().decode(bytes);
 }
 window.tmpGlobals.coreScriptUrls = [
+  "/systemfiles/runtime/core/untrustedAppsIframeBg.js",
   "systemfiles/runtime/helpers/coreVariables.js",
   "systemfiles/runtime/helpers/fsFunctions.js",
   "systemfiles/runtime/helpers/appHelperFunctions.js",

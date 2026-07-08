@@ -11,7 +11,9 @@
     if (result === userKey) return true;
     else return false;
   }
-
+  function generateNamespace() {
+    return crypto.randomUUID();
+  }
 
 
   async function loadAppScript(pkg) {
@@ -97,7 +99,8 @@
       }
     }
     async function createIframeContainerAppFunction(entryObj) {
-      let scriptText = await window.protectedGlobals.ReadFile(entryObj.jsFile, { text: true, direct: true });
+      let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.jsFile, { text: true, direct: true });
+      let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
       window[entryObj.functionName] = function (path, posX = 50, posY = 50) {
         if (posX == 50 && posY == 50) {
           let pos = window.protectedGlobals.getNextWindowXY();
@@ -113,7 +116,7 @@
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
-        iframe.srcdoc = `<html><head><script>${scriptText}</script><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();}</script></head><body></body></html>`;
+        iframe.srcdoc = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${scriptText}</script><script>${untrustedIframePatch}</script></body></html>`;
         iframe.sandbox = "allow-scripts allow-pointer-lock";
         root.appendChild(iframe);
         var instance = window.protectedGlobals.apptools.api.createAppInstance({
@@ -147,7 +150,7 @@
     label = entryObj.label || label;
     openfileCapability = entryObj.openfileCapability || [];
 
-    if (verify) {
+    if (entryObj.requestAdminPerm && verify) {
       functionName = entryObj.functionName;
       globalVarObjectString = entryObj.globalVarObjectString || "";
       allAppArrayString = entryObj.allAppArrayString || "";
