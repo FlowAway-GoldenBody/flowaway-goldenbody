@@ -202,6 +202,9 @@ window.protectedGlobals.ReadFolder = async function (relPath) {
   return res.files;
 }
 window.protectedGlobals.WriteFile = async function (relPath, contents, options = { replace: true }) {
+  if (options.replace !== false) {
+    options.replace = true;
+  }
   if (!relPath) throw new Error("No path");
   // Use the saveSnapshot + directions API to perform edits
   function arrayBufferToBase64(buffer) {
