@@ -1,9 +1,9 @@
 {
-  "functionname": "browser",
+  "functionName": "browser",
   "label": "Browser",
-  "globalvarobjectstring": "browserGlobals",
-  "allapparraystring": "allBrowsers",
-  "usejs": true,
+  "globalVarObjectString": "browserGlobals",
+  "allAppArrayString": "allBrowsers",
+  "requestAdminPerm": true,
   "jsFile": "browser.js",
   "iconFile": "icon.png",
   "appPollingIgnore": {
@@ -17,7 +17,7 @@
   "pngEnabled": true,
   "nonTextIcon": true,
   "svgEnabled": false,
-  "openfilecapability": [
+  "openfileCapability": [
     ".html",
     ".htm",
     ".url",

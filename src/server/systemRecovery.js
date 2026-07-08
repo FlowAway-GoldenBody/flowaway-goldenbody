@@ -43,8 +43,8 @@ function collectSystemAppDefinitions(appsRoot) {
     const appDirPath = path.join(appsRoot, entry.name);
     const entryPath = path.join(appDirPath, 'entry.json');
     const entryData = fs.existsSync(entryPath) ? readJsonSafe(entryPath) : null;
-    const functionName = entryData && typeof entryData === 'object' && entryData.functionname
-      ? String(entryData.functionname)
+    const functionName = entryData && typeof entryData === 'object' && entryData.functionName
+      ? String(entryData.functionName)
       : '';
     const label = entryData && typeof entryData === 'object' && entryData.label
       ? String(entryData.label)
@@ -65,7 +65,7 @@ function collectSystemAppDefinitions(appsRoot) {
 function findMatchingAppDefinition(definitions, appIdentifier) {
   if (!definitions.length || !appIdentifier) return null;
   const normalizedInput = typeof appIdentifier === 'object'
-    ? [appIdentifier.id, appIdentifier.functionname, appIdentifier.label, appIdentifier.folderName]
+    ? [appIdentifier.id, appIdentifier.functionName, appIdentifier.label, appIdentifier.folderName]
     : [appIdentifier];
 
   for (const candidate of normalizedInput) {

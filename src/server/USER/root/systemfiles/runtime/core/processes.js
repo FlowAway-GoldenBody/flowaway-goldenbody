@@ -544,11 +544,11 @@
   function buildAppLaunchRecord(appMeta, extraMeta) {
     var app = appMeta && typeof appMeta === "object" ? appMeta : {};
     var extra = extraMeta && typeof extraMeta === "object" ? extraMeta : {};
-    var appId = String(app.id || app.functionname || app.label || app.path || "unknown-app");
-    var label = String(app.label || app.functionname || appId);
-    var functionname = String(app.functionname || app.path || app.id || "");
-    var globalVar = typeof app.globalvarobjectstring === "string" ? app.globalvarobjectstring : "";
-    var stableKey = [appId, functionname, globalVar, String(extra.instanceKey || extra.rootId || "launch")].join("::");
+    var appId = String(app.id || app.functionName || app.label || app.path || "unknown-app");
+    var label = String(app.label || app.functionName || appId);
+    var functionName = String(app.functionName || app.path || app.id || "");
+    var globalVar = typeof app.globalVarObjectString === "string" ? app.globalVarObjectString : "";
+    var stableKey = [appId, functionName, globalVar, String(extra.instanceKey || extra.rootId || "launch")].join("::");
     var existing = runtime.launchRegistry[stableKey];
     if (!existing) {
       existing = {
@@ -556,7 +556,7 @@
         pid: allocateProcessId("launch::" + stableKey, null),
         appId: appId,
         label: label,
-        functionname: functionname,
+        functionName: functionName,
         globalVar: globalVar,
         sourceType: "launch",
         status: "running",
@@ -570,7 +570,7 @@
 
     existing.appId = appId;
     existing.label = label;
-    existing.functionname = functionname;
+    existing.functionName = functionName;
     existing.globalVar = globalVar;
     existing.sourceType = "launch";
     existing.status = extra.status || "running";
@@ -671,12 +671,12 @@
     var keys = [];
     if (!app || typeof app !== "object") return keys;
 
-    if (typeof app.allapparraystring === "string") {
-      var singleKey = String(app.allapparraystring || "").trim();
+    if (typeof app.allAppArrayString === "string") {
+      var singleKey = String(app.allAppArrayString || "").trim();
       if (singleKey) keys.push(singleKey);
-    } else if (Array.isArray(app.allapparraystring)) {
-      for (var i = 0; i < app.allapparraystring.length; i++) {
-        var keyValue = app.allapparraystring[i];
+    } else if (Array.isArray(app.allAppArrayString)) {
+      for (var i = 0; i < app.allAppArrayString.length; i++) {
+        var keyValue = app.allAppArrayString[i];
         if (typeof keyValue !== "string") continue;
         var normalizedKey = String(keyValue || "").trim();
         if (!normalizedKey) continue;
@@ -721,7 +721,7 @@
 
     for (var i = 0; i < apps.length; i++) {
       var app = apps[i] && typeof apps[i] === "object" ? apps[i] : {};
-      var globalVar = typeof app.globalvarobjectstring === "string" ? app.globalvarobjectstring : "";
+      var globalVar = typeof app.globalVarObjectString === "string" ? app.globalVarObjectString : "";
       var arrayKeys = getAppArrayKeys(app);
       if (!globalVar || !arrayKeys.length) continue;
 
@@ -1803,7 +1803,7 @@
         appLabel: String(processObject.options && processObject.options.appLabel || appId),
         sourceType: String(processObject.sourceType || processObject.type || "process"),
         status: status,
-        functionname: String(processObject.options && processObject.options.entry || ""),
+        functionName: String(processObject.options && processObject.options.entry || ""),
         globalVar: String(processObject.options && processObject.options.globalVar || ""),
         processKind: String(processObject.processKind || processObject.type || "process"),
         type: String(processObject.type || processObject.processKind || "process"),

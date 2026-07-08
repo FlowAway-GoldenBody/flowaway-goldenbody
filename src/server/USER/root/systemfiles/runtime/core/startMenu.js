@@ -36,15 +36,15 @@ window.protectedGlobals.renderAppsGrid = async function () {
 
         app._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
         try {
-          var globalvarobjectstring = app.globalvarobjectstring;
-          if (app.functionname) delete window[app.functionname];
+          var globalVarObjectString = app.globalVarObjectString;
+          if (app.functionName) delete window[app.functionName];
           if (
             app.cmf &&
-            globalvarobjectstring &&
-            window[globalvarobjectstring] &&
+            globalVarObjectString &&
+            window[globalVarObjectString] &&
             !window.protectedGlobals.isProtectedAppGlobalName(app.cmf)
           ) {
-            delete window[globalvarobjectstring][app.cmf];
+            delete window[globalVarObjectString][app.cmf];
           }
         } catch (e) {}
 
@@ -451,17 +451,17 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
   var appObj = (window.protectedGlobals.apps || []).find(function (a) {
     return window.protectedGlobals.appMatchesIdentifier(a, targetAppId);
   });
-  if (appObj && appObj.globalvarobjectstring && appObj.allapparraystring) {
-    if (window[appObj.globalvarobjectstring]) {
+  if (appObj && appObj.globalVarObjectString && appObj.allAppArrayString) {
+    if (window[appObj.globalVarObjectString]) {
       var arrayKeys = [];
-      if (typeof appObj.allapparraystring === "string") {
-        var single = appObj.allapparraystring.trim();
+      if (typeof appObj.allAppArrayString === "string") {
+        var single = appObj.allAppArrayString.trim();
         if (single) arrayKeys.push(single);
-      } else if (Array.isArray(appObj.allapparraystring)) {
-        for (var ak = 0; ak < appObj.allapparraystring.length; ak++) {
+      } else if (Array.isArray(appObj.allAppArrayString)) {
+        for (var ak = 0; ak < appObj.allAppArrayString.length; ak++) {
           var normalized =
-            typeof appObj.allapparraystring[ak] === "string"
-              ? appObj.allapparraystring[ak].trim()
+            typeof appObj.allAppArrayString[ak] === "string"
+              ? appObj.allAppArrayString[ak].trim()
               : "";
           if (normalized && arrayKeys.indexOf(normalized) === -1) {
             arrayKeys.push(normalized);
@@ -470,7 +470,7 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
       }
 
       for (var keyCursor = 0; keyCursor < arrayKeys.length; keyCursor++) {
-        var arr = window[appObj.globalvarobjectstring][arrayKeys[keyCursor]];
+        var arr = window[appObj.globalVarObjectString][arrayKeys[keyCursor]];
         if (!Array.isArray(arr)) continue;
         for (var i = arr.length - 1; i >= 0; i--) {
           var inst = arr[i];
@@ -548,7 +548,7 @@ const renderPinnedAppsGrid = window.protectedGlobals.renderPinnedAppsGrid = asyn
 
   const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const appsMap = new Map(    window.protectedGlobals.apps.map(app => [
-app.functionname, app
+app.functionName, app
   ])  );
 
   for (const appId of pinnedApps) {
@@ -567,7 +567,7 @@ const renderRecentsGrid = window.protectedGlobals.renderRecentsGrid = async func
 
   const recents = window.protectedGlobals._startMenuConfig.recents || [];
   const appsMap = new Map(    window.protectedGlobals.apps.map(app => [
-app.functionname, app
+app.functionName, app
   ])  );
 
   for (const appId of recents) {
@@ -595,8 +595,8 @@ const renderAllAppsGrid = window.protectedGlobals.renderAllAppsGrid = async func
 const createAppTile = window.protectedGlobals.createAppTile = function createAppTile(app, container, draggable) {
   const div = document.createElement('div');
   div.className = 'app';
-  div.dataset.appId = app.functionname;
-  div.id = (app.functionname || app.id) + 'app';
+  div.dataset.appId = app.functionName;
+  div.id = (app.functionName || app.id) + 'app';
   div.style.padding = '10px';
   div.style.borderRadius = '6px';
   div.style.textAlign = 'center';
@@ -648,7 +648,7 @@ div.innerHTML = ` ${app.pngEnabled ? `<img src="data:image/[FORMAT];base64,${app
 
   function runAppPackageContextMenu(evt) {
     if(app.cmfl1) {
-      window[app.globalvarobjectstring][app.cmfl1](evt);
+      window[app.globalVarObjectString][app.cmfl1](evt);
     }
     else {
       window.protectedGlobals.cmfl1(evt, app);
@@ -683,7 +683,7 @@ const showAppContextMenu = window.protectedGlobals.showAppContextMenu = function
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
 
-  const appId = app.functionname;
+  const appId = app.functionName;
   const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const isPinned = pinnedApps.includes(appId);
 

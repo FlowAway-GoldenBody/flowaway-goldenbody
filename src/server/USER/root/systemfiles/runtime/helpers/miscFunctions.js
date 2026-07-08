@@ -409,7 +409,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   }
 
   const menu = document.createElement("div");
-  window.protectedGlobals.removeOtherMenus(app.id || app.functionname || "");
+  window.protectedGlobals.removeOtherMenus(app.id || app.functionName || "");
 
   menu.className = "app-menu";
   if (app && app.id) menu.dataset.appId = String(app.id);
@@ -431,7 +431,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     : menu.classList.toggle("light", true);
 
   function withInstances(handler) {
-    var instances = window[app.globalvarobjectstring][app.allapparraystring];
+    var instances = window[app.globalVarObjectString][app.allAppArrayString];
     handler(instances);
     menu.remove();
   }
@@ -517,13 +517,13 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
       if (first && (first.newWindow)) {
         first.newWindow();
       } else {
-        window.protectedGlobals.launchApp(app.functionname);
+        window.protectedGlobals.launchApp(app.functionName);
       }
     });
   });
   menu.appendChild(newWindow);
 
-    const appId = app.functionname;
+    const appId = app.functionName;
     const existingBtn = document.querySelector(
       `button.taskbutton[data-app-id="${appId}"]`,
     );
@@ -542,7 +542,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
       if (!btn) btn = window.protectedGlobals.taskbuttons.find((b) => b.dataset && b.dataset.appId === appId);
       if (btn) {
         btn.dataset.pinned = "false";
-        if (window[app.globalvarobjectstring][app.allapparraystring].length === 0) {
+        if (window[app.globalVarObjectString][app.allAppArrayString].length === 0) {
           window.protectedGlobals.removeTaskButton(btn);
         }
         window.protectedGlobals.saveTaskButtons();
@@ -571,9 +571,9 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         let btn;
         if(app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionname : app.icon,
+          app.nonTextIcon ? app.functionName : app.icon,
           () => window.protectedGlobals.launchApp(appId),
-          window[app.globalvarobjectstring][app.cmf],
+          window[app.globalVarObjectString][app.cmf],
           "",
           appId,
           false, true, false, { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
@@ -581,7 +581,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         }
         else {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionname : app.icon,
+          app.nonTextIcon ? app.functionName : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
@@ -601,7 +601,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   const barrier = document.createElement("hr");
   menu.appendChild(barrier);
 
-  const instances = window[app.globalvarobjectstring][app.allapparraystring];
+  const instances = window[app.globalVarObjectString][app.allAppArrayString];
   if (instances.length === 0) {
     const item = document.createElement("div");
     item.textContent = "No open windows";

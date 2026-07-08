@@ -3,7 +3,7 @@ window.protectedGlobals.appMatchesIdentifier = function (app, identifier) {
   if (!app || !identifier) return false;
   var id = String(identifier).trim();
   if (!id) return false;
-  var candidates = [app.functionname, app.id, app.icon]
+  var candidates = [app.functionName, app.id, app.icon]
     .filter((v) => v !== null && v !== undefined)
     .map((v) => String(v).trim())
     .filter(Boolean);
@@ -38,15 +38,15 @@ window.protectedGlobals.launchApp = async function (appId) {
     return;
   }
   var app = (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId));
-  window[app.functionname]();
+  window[app.functionName]();
 };
 
 window.protectedGlobals.initAppRuntimeState = function (app) {
-  var globalName = String(app.globalvarobjectstring || "").trim();
+  var globalName = String(app.globalVarObjectString || "").trim();
 
   var appGlobalObj = window[globalName] || {};
   window[globalName] = appGlobalObj;
-  window[globalName][app.allapparraystring] = window[globalName][app.allapparraystring] || [];
+  window[globalName][app.allAppArrayString] = window[globalName][app.allAppArrayString] || [];
   if (!Number.isFinite(Number(appGlobalObj.goldenbodyId))) {
     appGlobalObj.goldenbodyId = 0;
   } else {

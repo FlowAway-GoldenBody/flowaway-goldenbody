@@ -21,7 +21,7 @@ window.protectedGlobals.rebuildhandler = function () {
   }
   window.protectedGlobals.apps.forEach((app) => {
     try {
-    window[app.globalvarobjectstring][app.allapparraystring][0].closeAll();
+    window[app.globalVarObjectString][app.allAppArrayString][0].closeAll();
     } catch (e) {}
   });
   // remove all iframes
@@ -83,7 +83,7 @@ window.protectedGlobals.rebuildhandler = function () {
   window.protectedGlobals.removeAllEventListenersInWindow();
   window.protectedGlobals.apps.forEach((app) => {
     // dont remove this ai
-    delete window[app.globalvarobjectstring];
+    delete window[app.globalVarObjectString];
   });
   window.protectedGlobals.apps = [];
 

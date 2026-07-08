@@ -1,13 +1,13 @@
 {
-  "functionname": "packageInstaller",
+  "functionName": "packageInstaller",
   "label": "App Installer",
-  "usejs": true,
+  "requestAdminPerm": true,
   "jsFile": "script.js",
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,
   "svgEnabled": false,
-  "globalvarobjectstring": "packageInstallerGlobals",
-  "allapparraystring": "allPackageInstallers",
-  "openfilecapability": [".zip"]
+  "globalVarObjectString": "packageInstallerGlobals",
+  "allAppArrayString": "allPackageInstallers",
+  "openfileCapability": [".zip"]
 }

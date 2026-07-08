@@ -46,22 +46,26 @@ window.protectedGlobals.FileExists = async function (relPath) {
     return false;
   }
 }
-window.protectedGlobals.ReadFile = async function(relPath, options = {}) {
+window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
   if (!relPath) throw new Error("No path");
 
-  async function downloadRaw(relPath, options) {
-    const headers = {
-      "Content-Type": "application/json"
-    };
+  const useRawTransfer = !!options.buffer || !!options.text;
 
-    if (window.protectedGlobals.data?.authToken) {
-      headers.Authorization =
-        "Bearer " + window.protectedGlobals.data.authToken;
+  if (useRawTransfer) {
+    const headers = { "Content-Type": "application/json" };
+    if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
+      headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
     }
 
-    async function fetchChunk(chunkIndex) {
-      for (let attempt = 0; attempt < 30; attempt++) {
-        const response = await fetch(window.protectedGlobals.SERVER, {
+    let chunkIndex = 0;
+    const chunks = [];
+    let meta = null;
+    let anti_numtots = 0;
+    while (anti_numtots < 500) {
+      anti_numtots++;
+      let response;
+      try {
+        response = await fetch(window.protectedGlobals.SERVER, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -73,69 +77,48 @@ window.protectedGlobals.ReadFile = async function(relPath, options = {}) {
             text: !!options.text,
           }),
         });
-
+      } finally {
         if (response.status === 401) {
           window.protectedGlobals.showSessionExpiredDialog();
-          return null;
+          return;
         }
-
-        // Retry transient gateway errors.
-        if (response.status === 502 || response.status === 524) {
-          await new Promise(r => setTimeout(r, 500));
-          continue;
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        return response;
       }
-
-      throw new Error("Too many retries");
-    }
-
-    let chunkIndex = 0;
-    const chunks = [];
-    let meta;
-
-    while (true) {
-      const response = await fetchChunk(chunkIndex);
-      if (!response) return;
-
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
-
       if (contentType.includes("application/json")) {
         const json = await response.json();
-        if (json?.missing) return undefined;
+        if (json && json.missing) return undefined;
         return json;
       }
 
-      chunks.push(await response.arrayBuffer());
+      const rawChunk = await response.arrayBuffer();
+      chunks.push(rawChunk);
 
       meta = {
-        fileSize: Number(response.headers.get("x-file-size") || 0),
-        chunkIndex: Number(response.headers.get("x-chunk-index") || 0),
+        fileSize: Number(response.headers.get("x-file-size") || "0"),
+        chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
         isLastChunk: response.headers.get("x-is-last-chunk") === "1",
-        totalChunks: Number(response.headers.get("x-total-chunks") || 0),
+        totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
       };
 
       if (meta.isLastChunk) break;
-
       chunkIndex++;
     }
 
-    const totalLength = chunks.reduce((n, c) => n + c.byteLength, 0);
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
     const fullBuffer = new Uint8Array(totalLength);
-
     let offset = 0;
     for (const chunk of chunks) {
       fullBuffer.set(new Uint8Array(chunk), offset);
       offset += chunk.byteLength;
     }
 
-    if (options.buffer) return fullBuffer.buffer;
-    if (options.text) return new TextDecoder().decode(fullBuffer);
+    if (options.buffer) {
+      return fullBuffer.buffer;
+    }
+
+    if (options.text) {
+      return new TextDecoder().decode(fullBuffer);
+    }
 
     return {
       ...meta,
@@ -143,56 +126,48 @@ window.protectedGlobals.ReadFile = async function(relPath, options = {}) {
     };
   }
 
-  async function downloadBase64(relPath, options) {
-    let chunkIndex = 0;
-    const chunks = [];
-    let meta;
+  let chunkIndex = 0;
+  let chunks = [];
+  let meta = null;
+    let anti_numtots = 0;
 
-    while (true) {
-      const res = await window.protectedGlobals.filePost({
-        requestFile: true,
-        requestFileName: String(relPath),
-        chunkIndex,
-      });
+  while (anti_numtots < 500) {
+    anti_numtots++;
+    const res = await window.protectedGlobals.filePost({
+      requestFile: true,
+      requestFileName: String(relPath),
+      chunkIndex,
+    });
 
-      if (!res) break;
-      if (res.missing) return undefined;
+    if (!res) break;
+    if (res.missing) return undefined;
 
-      meta = res;
-      chunks.push(res.filecontent);
+    meta = res;
+    chunks.push(res.filecontent);
 
-      if (res.isLastChunk) break;
+    if (res.isLastChunk) break;
 
-      chunkIndex++;
-    }
-
-    const fullBase64 = chunks.join("");
-
-    if (options.buffer) {
-      const binary = atob(fullBase64);
-      return Uint8Array.from(binary, c => c.charCodeAt(0)).buffer;
-    }
-
-    if (options.text) {
-      return window.tmpGlobals.decodeBase64ToUTF8(fullBase64);
-    }
-
-    if (options.direct) return fullBase64;
-
-    return {
-      ...meta,
-      filecontent: fullBase64,
-    };
-  }
-  const useRawTransfer = !!options.buffer || !!options.text;
-
-  if (useRawTransfer) {
-    return await downloadRaw(relPath, options);
+    chunkIndex++;
   }
 
-  return await downloadBase64(relPath, options);
-}
+  // reconstruct full file
+  let fullBase64 = chunks.join("");
 
+  if (options.buffer) {
+    const binary = atob(fullBase64);
+    return Uint8Array.from(binary, c => c.charCodeAt(0)).buffer;
+  }
+
+  if (options.text) {
+    return window.tmpGlobals.decodeBase64ToUTF8(fullBase64);
+  }
+  if (options.direct) return fullBase64;
+
+  return {
+    ...meta,
+    filecontent: fullBase64
+  };
+};
 window.protectedGlobals.ReadFolder = async function (relPath) {
   if (!relPath) throw new Error("No path");
   let res = await window.protectedGlobals.filePost({

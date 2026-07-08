@@ -640,11 +640,11 @@ window.taskManager = function (posX = 50, posY = 50) {
     const apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
     for (let i = 0; i < apps.length; i++) {
       const app = apps[i] || {};
-      const candidates = [app.id, app.functionname, app.icon, app.path]
+      const candidates = [app.id, app.functionName, app.icon, app.path]
         .filter(Boolean)
         .map((v) => String(v));
       if (candidates.includes(id)) {
-        return String(app.label || app.functionname || app.id || id);
+        return String(app.label || app.functionName || app.id || id);
       }
     }
     return "";
@@ -654,7 +654,7 @@ window.taskManager = function (posX = 50, posY = 50) {
     const item = input && typeof input === "object" ? input : {};
     const appId = String(item.appId || item.id || item.appLabel || item.label || "unknown-app");
     const label = String(item.label || item.title || item.appLabel || appId + " task");
-    const functionname = String(item.functionname || item.entry || "");
+    const functionName = String(item.functionName || item.entry || "");
     const globalVar = String(item.globalVar || "");
     const sourceType = String(item.sourceType || item.appSourceType || "unknown");
     const status = String(item.status || item.appStatus || "unknown");
@@ -678,7 +678,7 @@ window.taskManager = function (posX = 50, posY = 50) {
       appId,
       label,
       title: String(item.title || label),
-      functionname,
+      functionName,
       globalVar,
       sourceType,
       appLabel,
@@ -779,7 +779,7 @@ window.taskManager = function (posX = 50, posY = 50) {
                   title: instance.title,
                   sourceType: entries[j] && entries[j].sourceType,
                   status: entries[j] && entries[j].status,
-                  functionname: entries[j] && entries[j].entry,
+                  functionName: entries[j] && entries[j].entry,
                   globalVar: entries[j] && entries[j].globalVar,
                   entryOptions: entries[j] && entries[j].entryOptions,
                   processId: instance.processId,
@@ -881,9 +881,9 @@ window.taskManager = function (posX = 50, posY = 50) {
       const fallbackEntryText = row.entryOptions && row.entryOptions.length
         ? row.entryOptions.slice(0, 3).join(" / ")
         : "-";
-      const lastColBase = row.functionname && row.globalVar
-        ? row.functionname + " / " + row.globalVar
-        : row.functionname || row.globalVar || fallbackEntryText;
+      const lastColBase = row.functionName && row.globalVar
+        ? row.functionName + " / " + row.globalVar
+        : row.functionName || row.globalVar || fallbackEntryText;
       const pidText =
         row.processId === null || typeof row.processId === "undefined"
           ? "-"
@@ -958,7 +958,7 @@ window.taskManager = function (posX = 50, posY = 50) {
 
   function resolveAppMetaForRow(row) {
     const apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
-    const wanted = [row.appId, row.functionname, row.globalVar, row.label]
+    const wanted = [row.appId, row.functionName, row.globalVar, row.label]
       .filter(Boolean)
       .map((v) => String(v));
 
@@ -966,8 +966,8 @@ window.taskManager = function (posX = 50, posY = 50) {
       const app = apps[i] || {};
       const candidates = [
         app.id,
-        app.functionname,
-        app.globalvarobjectstring,
+        app.functionName,
+        app.globalVarObjectString,
         app.label,
       ]
         .filter(Boolean)
@@ -1011,7 +1011,7 @@ window.taskManager = function (posX = 50, posY = 50) {
     if (!appMeta && row && row.globalVar && window[row.globalVar]) {
       const globalObj = window[row.globalVar];
       return readArrayFromObjectOfArrays(globalObj, [
-        row.functionname,
+        row.functionName,
         row.appId,
         row.label,
       ]);
@@ -1019,23 +1019,23 @@ window.taskManager = function (posX = 50, posY = 50) {
 
     if (!appMeta) return [];
 
-    const list = window[appMeta.globalvarobjectstring][appMeta.allapparraystring];
+    const list = window[appMeta.globalVarObjectString][appMeta.allAppArrayString];
     if (Array.isArray(list)) return list.slice();
 
-    if (appMeta.globalvarobjectstring && appMeta.allapparraystring) {
+    if (appMeta.globalVarObjectString && appMeta.allAppArrayString) {
       try {
-        const globalObj = window[appMeta.globalvarobjectstring];
-        const list = globalObj && globalObj[appMeta.allapparraystring];
+        const globalObj = window[appMeta.globalVarObjectString];
+        const list = globalObj && globalObj[appMeta.allAppArrayString];
         if (Array.isArray(list)) return list.slice();
       } catch (e) {}
     }
 
-    if (appMeta.globalvarobjectstring) {
+    if (appMeta.globalVarObjectString) {
       try {
-        const globalObj = window[appMeta.globalvarobjectstring];
+        const globalObj = window[appMeta.globalVarObjectString];
         return readArrayFromObjectOfArrays(globalObj, [
-          appMeta.allapparraystring,
-          row && row.functionname,
+          appMeta.allAppArrayString,
+          row && row.functionName,
           row && row.appId,
           row && row.label,
         ]);
@@ -1048,10 +1048,10 @@ window.taskManager = function (posX = 50, posY = 50) {
   function removeRootsByAppHint(row, appMeta, knownInstances) {
     const hints = [
       row && row.appId,
-      row && row.functionname,
+      row && row.functionName,
       appMeta && appMeta.id,
-      appMeta && appMeta.functionname,
-      appMeta && appMeta.allapparraystring,
+      appMeta && appMeta.functionName,
+      appMeta && appMeta.allAppArrayString,
     ]
       .filter(Boolean)
       .map((v) => String(v));
@@ -1093,16 +1093,16 @@ window.taskManager = function (posX = 50, posY = 50) {
     if (
       removedRoots.length &&
       appMeta &&
-      appMeta.globalvarobjectstring &&
-      appMeta.allapparraystring &&
-      window[appMeta.globalvarobjectstring] &&
-      Array.isArray(window[appMeta.globalvarobjectstring][appMeta.allapparraystring])
+      appMeta.globalVarObjectString &&
+      appMeta.allAppArrayString &&
+      window[appMeta.globalVarObjectString] &&
+      Array.isArray(window[appMeta.globalVarObjectString][appMeta.allAppArrayString])
     ) {
       try {
-        const arr = window[appMeta.globalvarobjectstring][appMeta.allapparraystring];
+        const arr = window[appMeta.globalVarObjectString][appMeta.allAppArrayString];
         const removedSet = new Set(removedRoots);
         const known = Array.isArray(knownInstances) ? knownInstances : [];
-        window[appMeta.globalvarobjectstring][appMeta.allapparraystring] = arr.filter((item) => {
+        window[appMeta.globalVarObjectString][appMeta.allAppArrayString] = arr.filter((item) => {
           if (!item || typeof item !== "object") return true;
           const itemRoot = item.rootElement;
           if (itemRoot && removedSet.has(itemRoot)) return false;
@@ -1141,8 +1141,8 @@ window.taskManager = function (posX = 50, posY = 50) {
       } catch (e) {}
 
       const base =
-        (appMeta && (appMeta.functionname || appMeta.id)) ||
-        (row && (row.functionname || row.appId)) ||
+        (appMeta && (appMeta.functionName || appMeta.id)) ||
+        (row && (row.functionName || row.appId)) ||
         "";
       const gid = firstDefinedValue(instance._goldenbodyId, instance.goldenbodyId);
       if (
@@ -1276,15 +1276,15 @@ window.taskManager = function (posX = 50, posY = 50) {
 
     if (
       appMeta &&
-      appMeta.globalvarobjectstring &&
-      appMeta.allapparraystring &&
-      window[appMeta.globalvarobjectstring] &&
-      Array.isArray(window[appMeta.globalvarobjectstring][appMeta.allapparraystring])
+      appMeta.globalVarObjectString &&
+      appMeta.allAppArrayString &&
+      window[appMeta.globalVarObjectString] &&
+      Array.isArray(window[appMeta.globalVarObjectString][appMeta.allAppArrayString])
     ) {
       try {
-        const arr = window[appMeta.globalvarobjectstring][appMeta.allapparraystring];
+        const arr = window[appMeta.globalVarObjectString][appMeta.allAppArrayString];
         if (arr.length && closed >= arr.length) {
-          window[appMeta.globalvarobjectstring][appMeta.allapparraystring] = [];
+          window[appMeta.globalVarObjectString][appMeta.allAppArrayString] = [];
         }
       } catch (e) {}
     }
@@ -1292,8 +1292,8 @@ window.taskManager = function (posX = 50, posY = 50) {
     if ((window.protectedGlobals.removeAllEventListenersForApp)) {
       const prefixes = [
         row.appId,
-        row.functionname,
-        appMeta && appMeta.functionname,
+        row.functionName,
+        appMeta && appMeta.functionName,
         appMeta && appMeta.id,
       ].filter(Boolean);
 

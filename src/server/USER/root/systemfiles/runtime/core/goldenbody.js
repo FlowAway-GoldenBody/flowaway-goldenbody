@@ -53,9 +53,9 @@
       }
     }
     for (let app of window.protectedGlobals.apps) {
-      for (let win of window[app.globalvarobjectstring]?.[app.allapparraystring] || []) {
+      for (let win of window[app.globalVarObjectString]?.[app.allAppArrayString] || []) {
         if (win.rootElement.style.display !== 'none' && win.rootElement.style.zIndex == topZindex) {
-          atTop = app.functionname;
+          atTop = app.functionName;
           break;
         }
       }
@@ -1219,7 +1219,7 @@
   function isFixedTaskButton(btn) {
     return btn.dataset && btn.dataset.fixedTaskbar === 'true';
   }
-  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalvarobjectstring = '', appId = '', fixedTaskbar = false, pinned = false, __startMenu = false, options = {}) {
+  function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalVarObjectString = '', appId = '', fixedTaskbar = false, pinned = false, __startMenu = false, options = {}) {
     var btn = document.createElement("button");
     if (!options.svg && !options.png) {
       btn.innerText = name;
@@ -1281,11 +1281,11 @@
         contextHandler = appcontextmenuhandler;
       } else {
         if (
-          globalvarobjectstring &&
-          window[globalvarobjectstring] &&
-          (window[globalvarobjectstring][appcontextmenuhandler])
+          globalVarObjectString &&
+          window[globalVarObjectString] &&
+          (window[globalVarObjectString][appcontextmenuhandler])
         ) {
-          contextHandler = window[globalvarobjectstring][appcontextmenuhandler];
+          contextHandler = window[globalVarObjectString][appcontextmenuhandler];
         } else if ((window[appcontextmenuhandler])) {
           contextHandler = window[appcontextmenuhandler];
         }
@@ -1372,14 +1372,14 @@
     }
     if (!exist) {
       // If no task button exists for this app, add one
-      const appInfo = window.protectedGlobals.apps.find(app => app.functionname === atTop);
+      const appInfo = window.protectedGlobals.apps.find(app => app.functionName === atTop);
       let btn = null;
       if (appInfo) {
         if (appInfo.cmf) {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.nonTextIcon ? appInfo.functionname : appInfo.icon,
+            appInfo.nonTextIcon ? appInfo.functionName : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
-            window[appInfo.globalvarobjectstring][appInfo.cmf],
+            window[appInfo.globalVarObjectString][appInfo.cmf],
             "",
             atTop,
             false, false, false, { svg: appInfo.svgEnabled, svgContent: appInfo.icon, png: appInfo.pngEnabled, pngContent: appInfo.icon }
@@ -1387,7 +1387,7 @@
         }
         else {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.nonTextIcon ? appInfo.functionname : appInfo.icon,
+            appInfo.nonTextIcon ? appInfo.functionName : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window.protectedGlobals.cmf,
             "",
@@ -1430,14 +1430,14 @@
   //   }
   //   if (!exist) {
   //     // If no task button exists for this app, add one
-  //     const appInfo = window.protectedGlobals.apps.find(app => app.functionname === appId);
+  //     const appInfo = window.protectedGlobals.apps.find(app => app.functionName === appId);
   //     let btn = null;
   //     if (appInfo) {
   //     if (appInfo.cmf) {
   //       btn = window.protectedGlobals.addTaskButton(
   //         appInfo.icon,
   //         () => window.protectedGlobals.launchApp(appId),
-  //         window[appInfo.globalvarobjectstring][appInfo.cmf],
+  //         window[appInfo.globalVarObjectString][appInfo.cmf],
   //         "",
   //         appId,
   //         false,
@@ -1482,7 +1482,7 @@
             let closedApps = 0;
             let headlessApps = 0;
             for (let app of window.protectedGlobals.apps) {
-              if (window[app.globalvarobjectstring] && window[app.globalvarobjectstring]?.[app.allapparraystring]?.length == 0) {
+              if (window[app.globalVarObjectString] && window[app.globalVarObjectString]?.[app.allAppArrayString]?.length == 0) {
                 closedApps++;
               } else if (!app.icon) {
                 headlessApps++;
@@ -1497,8 +1497,8 @@
             // An app window was removed, find corresponding task button and mark as closed
             setTimeout(() => {
               for (let app of window.protectedGlobals.apps) {
-                if (window[app.globalvarobjectstring] && window[app.globalvarobjectstring]?.[app.allapparraystring]?.length == 0) {
-                  let appId = app.functionname;
+                if (window[app.globalVarObjectString] && window[app.globalVarObjectString]?.[app.allAppArrayString]?.length == 0) {
+                  let appId = app.functionName;
                   for (let btn of window.protectedGlobals.taskbuttons) {
                     const btnAppId = btn.dataset.appId;
                     if (btnAppId === appId) {

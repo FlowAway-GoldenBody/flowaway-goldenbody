@@ -73,8 +73,6 @@ window.protectedGlobals.firstlogin = false;
 
     <div style="margin-top:18px;width:100%;padding-top:12px;border-top:1px solid #333;">
       <h3 style="margin:0 0 8px;text-align:center">Account Repair</h3>
-      <input id="recovery-user" placeholder="username" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
-      <input id="recovery-pass" type="password" placeholder="password" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
       <select id="recovery-app-select" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;display:block">
         <option value="" disabled selected>Enter recovery credentials to load system apps</option>
       </select>
@@ -135,8 +133,8 @@ window.protectedGlobals.firstlogin = false;
   const recoveryMsg = document.getElementById('recovery-msg');
   const recoveryAppSelect = document.getElementById('recovery-app-select');
   const recoveryDeleteAppSelect = document.getElementById('recovery-delete-app-select');
-  const recoveryUserInput = document.getElementById('recovery-user');
-  const recoveryPassInput = document.getElementById('recovery-pass');
+  const recoveryUserInput = document.getElementById('zmc-user');
+  const recoveryPassInput = document.getElementById('zmc-pass');
 
   function resetSelectPlaceholder(select, message) {
     select.innerHTML = `<option value="" disabled selected>${message}</option>`;
@@ -164,8 +162,8 @@ window.protectedGlobals.firstlogin = false;
   window.protectedGlobals.recoveryserver = recoveryServerUrl;
 
   async function sendRecoveryRequest(action, extraPayload) {
-    const username = document.getElementById('recovery-user').value;
-    const password = document.getElementById('recovery-pass').value;
+    const username = document.getElementById('zmc-user').value;
+    const password = document.getElementById('zmc-pass').value;
 
     if (!username || !password) {
       recoveryMsg.textContent = 'Fill recovery username and password';

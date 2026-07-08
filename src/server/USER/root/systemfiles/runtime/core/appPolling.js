@@ -17,7 +17,7 @@
   function checkAppModified(existingApp, newAppData) {
     if (!existingApp || !newAppData) return false;
     var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
-    var functionChanged = existingApp.functionname !== newAppData.functionname;
+    var functionChanged = existingApp.functionName !== newAppData.functionName;
     var cmfChanged = existingApp.cmf !== newAppData.cmf;
     return (
       jsFileChanged ||
@@ -25,11 +25,11 @@
       existingApp.id !== newAppData.id ||
       existingApp.icon !== newAppData.icon ||
       existingApp.label !== newAppData.label ||
-      JSON.stringify(existingApp.allapparraystring || []) !== JSON.stringify(newAppData.allapparraystring || []) ||
-      existingApp.globalvarobjectstring !== newAppData.globalvarobjectstring ||
+      JSON.stringify(existingApp.allAppArrayString || []) !== JSON.stringify(newAppData.allAppArrayString || []) ||
+      existingApp.globalVarObjectString !== newAppData.globalVarObjectString ||
       cmfChanged ||
       existingApp.cmfl1 !== newAppData.cmfl1 ||
-      JSON.stringify(existingApp.openfilecapability || []) !== JSON.stringify(newAppData.openfilecapability || [])
+      JSON.stringify(existingApp.openfileCapability || []) !== JSON.stringify(newAppData.openfileCapability || [])
     );
   }
 
@@ -216,16 +216,16 @@
           try {
             var appIndex = appsToDelete[di];
             var deletedApp = window.protectedGlobals.apps[appIndex];
-            if (deletedApp.functionname && window[deletedApp.functionname]) {
-              window[deletedApp.functionname] = null;
-              delete window[deletedApp.functionname];
+            if (deletedApp.functionName && window[deletedApp.functionName]) {
+              window[deletedApp.functionName] = null;
+              delete window[deletedApp.functionName];
             }
 
             if (deletedApp._scriptElement) deletedApp._scriptElement.remove();
             window.protectedGlobals.apps.splice(appIndex, 1);
 
             var appElement =
-              document.getElementById((deletedApp.functionname || deletedApp.id) + "app") ||
+              document.getElementById((deletedApp.functionName || deletedApp.id) + "app") ||
               document.getElementById(deletedApp.id + "app");
             if (appElement) appElement.remove();
 
@@ -237,7 +237,7 @@
             });
             if (taskbarBtn) taskbarBtn.remove();
 
-            var appIdToMatch = deletedApp.functionname;
+            var appIdToMatch = deletedApp.functionName;
             var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
               return root.dataset && root.dataset.appId === appIdToMatch;
             });
@@ -274,31 +274,31 @@
             if (!newAppData2) continue;
 
             var jsFileChanged = existingApp2.jsFile !== newAppData2.jsFile;
-            var functionChanged = existingApp2.functionname !== newAppData2.functionname;
+            var functionChanged = existingApp2.functionName !== newAppData2.functionName;
             var cmfChanged = existingApp2.cmf !== newAppData2.cmf;
             var appModified = checkAppModified(existingApp2, newAppData2);
 
             if (!appModified) continue;
 
-            var oldFunctionName = existingApp2.functionname;
+            var oldFunctionName = existingApp2.functionName;
             var oldCmf = existingApp2.cmf;
             var oldId = existingApp2.id;
-            var oldFunctionTileId = existingApp2.functionname;
+            var oldFunctionTileId = existingApp2.functionName;
 
-            existingApp2.functionname = newAppData2.functionname;
+            existingApp2.functionName = newAppData2.functionName;
             existingApp2.jsFile = newAppData2.jsFile;
             existingApp2.icon = newAppData2.icon;
             existingApp2.label = newAppData2.label;
             existingApp2.id = newAppData2.id;
-            existingApp2.globalvarobjectstring = newAppData2.globalvarobjectstring;
-            existingApp2.allapparraystring = newAppData2.allapparraystring;
+            existingApp2.globalVarObjectString = newAppData2.globalVarObjectString;
+            existingApp2.allAppArrayString = newAppData2.allAppArrayString;
             existingApp2.cmf = newAppData2.cmf;
             existingApp2.cmfl1 = newAppData2.cmfl1;
-            existingApp2.openfilecapability = newAppData2.openfilecapability;
+            existingApp2.openfileCapability = newAppData2.openfileCapability;
             window.protectedGlobals.initAppRuntimeState(existingApp2);
 
             var appGridElement =
-              document.getElementById((newAppData2.functionname || newAppData2.id) + "app") ||
+              document.getElementById((newAppData2.functionName || newAppData2.id) + "app") ||
               document.getElementById((oldFunctionTileId || oldId) + "app") ||
               document.getElementById(existingApp2.id + "app");
             if (appGridElement) {
@@ -345,7 +345,7 @@
               appToCheck.scriptLoaded = false;
             }
 
-            if (await reloadAppScript(appToCheck, appToCheck.functionname, appToCheck.cmf)) {
+            if (await reloadAppScript(appToCheck, appToCheck.functionName, appToCheck.cmf)) {
               appToCheck._lastScriptHash = currentHashNow;
               window.protectedGlobals.hasChanges = true;
             }
@@ -413,8 +413,8 @@
               if (existingApp._scriptElement) existingApp._scriptElement.remove();
             } catch (ee) {}
             try {
-              if (existingApp.functionname) {
-                delete window[existingApp.functionname];
+              if (existingApp.functionName) {
+                delete window[existingApp.functionName];
               }
               if (
                 existingApp.cmf &&
@@ -432,7 +432,7 @@
 
             try {
               var appElementToDelete =
-                document.getElementById((existingApp.functionname || existingApp.id) + "app") ||
+                document.getElementById((existingApp.functionName || existingApp.id) + "app") ||
                 document.getElementById(existingApp.id + "app");
               if (appElementToDelete) appElementToDelete.remove();
             } catch (ee) {}
@@ -448,7 +448,7 @@
             } catch (ee) {}
 
             try {
-              var appIdToClose = existingApp.functionname;
+              var appIdToClose = existingApp.functionName;
               var windowsToClose = Array.from(document.querySelectorAll(".app-window-root")).filter(function (root) {
                 return root.dataset && root.dataset.appId === appIdToClose;
               });
@@ -464,30 +464,30 @@
           if (!newAppData) continue;
 
           var jsFileChanged = existingApp.jsFile !== newAppData.jsFile;
-          var functionChanged = existingApp.functionname !== newAppData.functionname;
+          var functionChanged = existingApp.functionName !== newAppData.functionName;
           var cmfChanged = existingApp.cmf !== newAppData.cmf;
           var appModified = checkAppModified(existingApp, newAppData);
 
           if (appModified) {
-            var oldFunctionName = existingApp.functionname;
+            var oldFunctionName = existingApp.functionName;
             var oldCmf = existingApp.cmf;
             var oldId = existingApp.id;
-            var oldFunctionTileId = existingApp.functionname;
+            var oldFunctionTileId = existingApp.functionName;
 
-            existingApp.functionname = newAppData.functionname;
+            existingApp.functionName = newAppData.functionName;
             existingApp.jsFile = newAppData.jsFile;
             existingApp.icon = newAppData.icon;
             existingApp.label = newAppData.label;
             existingApp.id = newAppData.id;
-            existingApp.globalvarobjectstring = newAppData.globalvarobjectstring;
-            existingApp.allapparraystring = newAppData.allapparraystring;
+            existingApp.globalVarObjectString = newAppData.globalVarObjectString;
+            existingApp.allAppArrayString = newAppData.allAppArrayString;
             existingApp.cmf = newAppData.cmf;
             existingApp.cmfl1 = newAppData.cmfl1;
-            existingApp.openfilecapability = newAppData.openfilecapability;
+            existingApp.openfileCapability = newAppData.openfileCapability;
             window.protectedGlobals.initAppRuntimeState(existingApp);
 
             var appGridElement =
-              document.getElementById((newAppData.functionname || newAppData.id) + "app") ||
+              document.getElementById((newAppData.functionName || newAppData.id) + "app") ||
               document.getElementById((oldFunctionTileId || oldId) + "app") ||
               document.getElementById(existingApp.id + "app");
             if (appGridElement) {
@@ -509,7 +509,7 @@
               var scriptTextCurrent = String(await window.protectedGlobals.ReadFile(existingApp.path + "/" + existingApp.jsFile, { text: true, direct: true }) || "");
               var currentHashNow = window.protectedGlobals.hashScriptContent(scriptTextCurrent);
               if (currentHashNow !== existingApp._lastScriptHash) {
-                if (await reloadAppScript(existingApp, existingApp.functionname, existingApp.cmf)) {
+                if (await reloadAppScript(existingApp, existingApp.functionName, existingApp.cmf)) {
                   existingApp._lastScriptHash = currentHashNow;
                   localHasChanges = true;
                 }

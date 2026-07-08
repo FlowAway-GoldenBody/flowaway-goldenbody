@@ -488,11 +488,11 @@ window.protectedGlobals.initAppTools = function () {
       instance.rootElement._goldenbodyId = instance.goldenbodyId;
       if (instance.rootElement.dataset) {
         instance.rootElement.dataset.goldenbodyId = String(instance.goldenbodyId);
-        instance.rootElement.dataset.appId = app.functionname.trim();
+        instance.rootElement.dataset.appId = app.functionName.trim();
       }
     }
 
-    var instances = appState[app.allapparraystring];
+    var instances = appState[app.allAppArrayString];
     if (instances && Array.isArray(instances)) {
       if (instances.indexOf(instance) === -1) {
         instances.push(instance);
@@ -627,8 +627,8 @@ window.protectedGlobals.initAppTools = function () {
       if (instance.rootElement && instance.rootElement.remove) {
         instance.rootElement.remove();
       }
-      if (app && window[app.globalvarobjectstring] && window[app.globalvarobjectstring][app.allapparraystring]) {
-        var instances = window[app.globalvarobjectstring][app.allapparraystring];
+      if (app && window[app.globalVarObjectString] && window[app.globalVarObjectString][app.allAppArrayString]) {
+        var instances = window[app.globalVarObjectString][app.allAppArrayString];
         var idx = instances.indexOf(instance);
         if (idx >= 0) {
           instances.splice(idx, 1);
@@ -641,7 +641,7 @@ window.protectedGlobals.initAppTools = function () {
         instance.showWindow();
         return;
       }
-      var allInstances = window[app.globalvarobjectstring][app.allapparraystring];
+      var allInstances = window[app.globalVarObjectString][app.allAppArrayString];
       allInstances.sort(function (a, b) {
         var az = Number(a && a.rootElement && a.rootElement.style && a.rootElement.style.zIndex) || 0;
         var bz = Number(b && b.rootElement && b.rootElement.style && b.rootElement.style.zIndex) || 0;
@@ -659,7 +659,7 @@ window.protectedGlobals.initAppTools = function () {
         instance.hideWindow();
         return;
       }
-      var allInstances = window[app.globalvarobjectstring][app.allapparraystring];
+      var allInstances = window[app.globalVarObjectString][app.allAppArrayString];
       for (var i = 0; i < allInstances.length; i++) {
         if (allInstances[i]) {
           allInstances[i].hideWindow();
@@ -672,7 +672,7 @@ window.protectedGlobals.initAppTools = function () {
         instance.closeWindow();
         return;
       }
-      var allInstances = [...window[app.globalvarobjectstring][app.allapparraystring]];
+      var allInstances = [...window[app.globalVarObjectString][app.allAppArrayString]];
       for (var i = 0; i < allInstances.length; i++) {
         if (allInstances[i]) {
           allInstances[i].closeWindow();

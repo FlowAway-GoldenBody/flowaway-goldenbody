@@ -1,13 +1,13 @@
 {
-  "functionname": "settings",
+  "functionName": "settings",
   "label": "Settings",
-  "globalvarobjectstring": "settingsGlobals",
-  "allapparraystring": "allSettings",
-  "usejs": true,
+  "globalVarObjectString": "settingsGlobals",
+  "allAppArrayString": "allSettings",
+  "requestAdminPerm": true,
   "pngEnabled": true,
   "svgEnabled": false,
   "nonTextIcon": true,
   "jsFile": "settings.js",
   "iconFile": "image.png",
-  "openfilecapability": []
+  "openfileCapability": []
 }

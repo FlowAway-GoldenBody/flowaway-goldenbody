@@ -611,7 +611,7 @@ window.settings = function (posX = 50, posY = 50) {
   async function readAppMetadata(appFolderName) {
     const appPath = `/systemfiles/runtime/apps/${appFolderName}`;
     const entryPath = `${appPath}/entry.json`;
-    const meta = { name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionname: appFolderName };
+    const meta = { name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName };
     let entryText = null;
     try {
       entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
@@ -623,7 +623,7 @@ window.settings = function (posX = 50, posY = 50) {
         const data = JSON.parse(entryText);
         if (data && typeof data === "object") {
           meta.label = data.label || appFolderName;
-          meta.functionname = data.functionname || appFolderName;
+          meta.functionName = data.functionName || appFolderName;
           let iconFile = data.iconFile;
           if (!iconFile) {
             if (data.icon) iconFile = data.icon;
@@ -787,7 +787,7 @@ window.settings = function (posX = 50, posY = 50) {
     applyAppRowTheme(row, label, iconWrapper, deleteBtn);
 
     deleteBtn.addEventListener("click", async () => {
-      if (window.protectedGlobals.systemapps.includes(appMeta.functionname)) { alert("Cannot delete system app!"); return; }
+      if (window.protectedGlobals.systemapps.includes(appMeta.functionName)) { alert("Cannot delete system app!"); return; }
       deleteBtn.disabled = true;
       deleteBtn.textContent = "Deleting...";
       try {

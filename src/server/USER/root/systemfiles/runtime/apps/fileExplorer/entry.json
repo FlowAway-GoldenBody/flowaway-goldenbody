@@ -1,13 +1,13 @@
 {
-  "functionname": "fileExplorer",
+  "functionName": "fileExplorer",
   "label": "File Explorer",
-  "usejs": true,
+  "requestAdminPerm": true,
   "jsFile": "fileExplorer.js",
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,
   "svgEnabled": false,
-  "globalvarobjectstring": "explorerGlobals",
-  "allapparraystring": "allExplorers",
-  "openfilecapability": []
+  "globalVarObjectString": "explorerGlobals",
+  "allAppArrayString": "allExplorers",
+  "openfileCapability": []
 }

@@ -426,7 +426,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       await window.protectedGlobals.WriteFile(fullPath, fileContent, { buffer: true });
     }
 
-    const useJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.usejs === true);
+    const useJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.requestAdminPerm === true);
     if (useJsApi) {
       const masterKey = await window.packageInstallerGlobals.getMasterJsApiKey();
       if (masterKey) {
@@ -439,7 +439,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
   }
 
   async function showConfirmationDialog(container, zipData, folderName, packageMetadata) {
-    const requiresJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.usejs === true);
+    const requiresJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.requestAdminPerm === true);
     const baseFolder = `/systemfiles/runtime/apps/${folderName}`;
     const exists = await window.protectedGlobals.FolderExists(baseFolder).catch(() => false);
 

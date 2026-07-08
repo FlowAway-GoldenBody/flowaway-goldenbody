@@ -944,7 +944,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     try {
       if (Array.isArray(window.protectedGlobals.apps) && window.protectedGlobals.apps.length) {
         return window.protectedGlobals.apps
-          .map((a) => (a.functionname || a.id || a.label || a.path || ""))
+          .map((a) => (a.functionName || a.id || a.label || a.path || ""))
           .filter(Boolean)
           .map((s) => String(s).toLowerCase());
       }
@@ -958,7 +958,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     try {
       const apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
       let app = apps.find((a) => {
-        const candidates = [a.functionname, a.id, a.label, a.path]
+        const candidates = [a.functionName, a.id, a.label, a.path]
           .filter((v) => typeof v !== "undefined" && v !== null)
           .map((v) => String(v).toLowerCase());
         return candidates.includes(target);
@@ -970,7 +970,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
         app = apps.find((a) => String(a.label || "").toLowerCase().startsWith(target));
       }
       if (!app) return false;
-      const functionName = app.functionname || app.id;
+      const functionName = app.functionName || app.id;
       if (functionName && (window[functionName])) {
         try {
           return window[functionName](90, 90);

@@ -1,15 +1,15 @@
 {
-  "functionname": "textEditor",
+  "functionName": "textEditor",
   "label": "Text Editor",
-  "globalvarobjectstring": "textEditorGlobals",
-  "allapparraystring": "allTextEditors",
-  "usejs": true,
+  "globalVarObjectString": "textEditorGlobals",
+  "allAppArrayString": "allTextEditors",
+  "requestAdminPerm": true,
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,
   "svgEnabled": false,
   "jsFile": "textEditor.js",
-  "openfilecapability": [
+  "openfileCapability": [
     "*"
   ]
 }

@@ -1,10 +1,10 @@
 {
-  "functionname": "terminal",
+  "functionName": "terminal",
   "label": "Terminal",
-  "globalvarobjectstring": "terminalGlobals",
-  "allapparraystring": "allTerminals",
-  "usejs": true,
+  "globalVarObjectString": "terminalGlobals",
+  "allAppArrayString": "allTerminals",
+  "requestAdminPerm": true,
   "jsFile": "terminal.js",
   "iconFile": "icon.txt",
-  "openfilecapability": []
+  "openfileCapability": []
 }

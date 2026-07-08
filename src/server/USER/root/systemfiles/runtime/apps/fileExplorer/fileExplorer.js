@@ -2507,7 +2507,7 @@ function makeIcon(type, size = 16) {
         }
 
         function appSupportsSelectedExtensions(app) {
-          const caps = normalizeOpenFileCapability(app.openfilecapability);
+          const caps = normalizeOpenFileCapability(app.openfileCapability);
           if (!caps.length) return false;
           if (caps.includes("*")) return true;
           if (!selectedExtensions.length) return false;
@@ -2516,12 +2516,12 @@ function makeIcon(type, size = 16) {
 
         const apps = (Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [])
           .map((app) => {
-            const functionName = app && (app.functionname || app.id);
+            const functionName = app && (app.functionName || app.id);
             if (!functionName || !(window[functionName])) return null;
             return {
               label: app.label || functionName,
               functionName,
-              openfilecapability: app.openfilecapability,
+              openfileCapability: app.openfileCapability,
             };
           })
           .filter(Boolean)

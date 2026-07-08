@@ -40,16 +40,16 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       window.protectedGlobals.appMatchesIdentifier(a, taskbutton),
     );
     if (app) {
-      const appId = app.functionname;
+      const appId = app.functionName;
       let btn;
       if (seenAppIds.has(appId)) continue;
       seenAppIds.add(appId);
       
       if (app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionname : app.icon,
+          app.nonTextIcon ? app.functionName : app.icon,
           () => window.protectedGlobals.launchApp(appId),
-          window[app.globalvarobjectstring][app.cmf],
+          window[app.globalVarObjectString][app.cmf],
           "",
           appId,
           false,
@@ -60,7 +60,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       }
       else {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionname : app.icon,
+          app.nonTextIcon ? app.functionName : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
@@ -133,9 +133,9 @@ const resolveWindowAppId = window.protectedGlobals.resolveWindowAppId = function
   if (!appId) appId = el.getAttribute && el.getAttribute("data-app-id");
   if (!appId && window.protectedGlobals.apps && Array.isArray(window.protectedGlobals.apps)) {
     for (const a of window.protectedGlobals.apps) {
-      // Only use real identifier strings (functionname) for class/id matching.
+      // Only use real identifier strings (functionName) for class/id matching.
       // a.id and a.icon are icon content (emoji or HTML markup), not valid identifiers.
-      var candidates = [a.functionname].filter(function (c) {
+      var candidates = [a.functionName].filter(function (c) {
         return c && c.length < 64;
       });
       var matched = candidates.some(function (cid) {
@@ -144,7 +144,7 @@ const resolveWindowAppId = window.protectedGlobals.resolveWindowAppId = function
         );
       });
       if (matched) {
-        appId = a.functionname;
+        appId = a.functionName;
         break;
       }
     }
@@ -156,9 +156,9 @@ const findAppByIdentifier = window.protectedGlobals.findAppByIdentifier = functi
   if (!identifier || !window.protectedGlobals.apps || !Array.isArray(window.protectedGlobals.apps)) return null;
   for (const a of window.protectedGlobals.apps) {
     if (!a) continue;
-    // Only match against true identifiers (functionname).
+    // Only match against true identifiers (functionName).
     // Do NOT match a.id or a.icon — those contain icon HTML/emoji content, not identifiers.
-    if (identifier === a.functionname) {
+    if (identifier === a.functionName) {
       return a;
     }
   }

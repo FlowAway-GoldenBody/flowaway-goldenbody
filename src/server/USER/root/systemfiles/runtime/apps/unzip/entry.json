@@ -1,11 +1,12 @@
 {
-  "functionname": "unzip",
+  "functionName": "unzip",
   "label": "Unzip",
-  "globalvarobjectstring": "nothing",
-  "allapparraystring": "nothing",
-  "usejs": true,
+  "globalVarObjectString": "nothing",
+  "allAppArrayString": "nothing",
+  "requestAdminPerm": true,
+  "headless": true,
   "jsFile": "script.js",
-  "openfilecapability": [
+  "openfileCapability": [
     ".zip"
   ]
 }
