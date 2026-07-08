@@ -683,7 +683,7 @@ window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRef
 
 window.protectedGlobals.deleteApp = async function (obj) {
   window.protectedGlobals.apps.forEach(element => {
-    if (element.functionName == obj.functionName) {
+    if (element.id == obj.functionName) {
       window[element.globalVarObjectString][element.allAppArrayString].forEach(e => {
         e.rootElement.remove();
       });

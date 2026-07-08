@@ -140,7 +140,7 @@
     var cmfl1 = "";
     let jsFile = null;
     let iconFile = null;
-
+    let origfnName = null;
 
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
@@ -160,6 +160,7 @@
     } else if (entryObj.requestAdminPerm) {
       createPlaceholderFunction();
     } else {
+      origfnName = entryObj.functionName || null;
       globalVarObjectString = generateNamespace();
       allAppArrayString = generateNamespace();
       functionName = generateNamespace();
@@ -193,7 +194,7 @@
 
 
     let pkg = {
-      id: functionName || folderName,
+      id: (entryObj.requestAdminPerm && verify) ? functionName : origfnName,
       path: folderPath,
       jsFile: jsFile,
       allAppArrayString: allAppArrayString,
