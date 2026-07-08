@@ -470,7 +470,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       <div style="background-color: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px; border-radius: 4px;">
         <strong style="color: var(--text-color);">⚠️ Security Warning</strong>
         <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-color);">
-          This app wants JS access. By continuing, you understand that malicious JS enabled apps can run malware on your account and steal personal information from you. Only install packages from trusted sources.
+          This app wants admin access. By continuing, you understand that malicious admin access enabled apps can run malware on your account and steal personal information from you. Only install packages from trusted sources \n (Note: ⚠️⚠️⚠️ These apps CAN do WHATEVER you can ⚠️⚠️⚠️).
         </p>
       </div>
     ` : '';

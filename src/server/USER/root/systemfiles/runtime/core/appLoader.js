@@ -116,7 +116,7 @@
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
-        iframe.srcdoc = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${scriptText}</script><script>${untrustedIframePatch}</script></body></html>`;
+        iframe.srcdoc = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         iframe.sandbox = "allow-scripts allow-pointer-lock";
         root.appendChild(iframe);
         var instance = window.protectedGlobals.apptools.api.createAppInstance({

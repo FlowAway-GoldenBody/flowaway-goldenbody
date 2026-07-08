@@ -1,3 +1,3 @@
-let a = document.createElement('div');
-a.textContent = "SUSUSUSUSUSUSUSUSUSUS";
+let a = document.createElement('input');
+a.value = "aaaaaaa";
 document.body.appendChild(a);

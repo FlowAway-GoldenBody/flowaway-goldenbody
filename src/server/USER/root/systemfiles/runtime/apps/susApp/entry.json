@@ -1,6 +1,6 @@
 {
   "functionName": "nothing",
-  "label": "SUS",
+  "label": "---",
   "globalVarObjectString": "susglobals",
   "allAppArrayString": "allsus",
   "jsFile": "script.js",
