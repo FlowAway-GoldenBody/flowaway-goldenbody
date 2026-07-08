@@ -118,6 +118,11 @@
         iframe.style.border = "none";
         iframe.srcdoc = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         iframe.sandbox = "allow-scripts allow-pointer-lock";
+        window.protectedGlobals.apps.forEach(app => {
+          if (app.id === entryObj.origfnName) {
+            app.allIframe.push(iframe);
+          }
+        });
         root.appendChild(iframe);
         var instance = window.protectedGlobals.apptools.api.createAppInstance({
           rootElement: root,
@@ -141,7 +146,7 @@
     let jsFile = null;
     let iconFile = null;
     let origfnName = null;
-
+    let allIframe = [];
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
@@ -160,6 +165,7 @@
     } else if (entryObj.requestAdminPerm) {
       createPlaceholderFunction();
     } else {
+      allIframe = [];
       origfnName = entryObj.functionName || null;
       globalVarObjectString = generateNamespace();
       allAppArrayString = generateNamespace();
@@ -192,8 +198,8 @@
     }
 
 
-
     let pkg = {
+      allIframe: allIframe,
       id: (entryObj.requestAdminPerm && verify) ? functionName : origfnName,
       path: folderPath,
       jsFile: jsFile,

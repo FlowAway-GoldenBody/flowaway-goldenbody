@@ -802,6 +802,11 @@ function getAbsoluteMousePosition(e) {
             frame.contentWindow.gbextern.exitFullscreen();
             }
           });
+          frame.contentWindow.addEventListener('pointerup', function (e) {
+            setTimeout(() => {
+              window.dispatchEvent(new PointerEvent('pointerup', e));
+            }, 10);
+          });
           frame.contentWindow.__gbframeElement = frame;
           frame.contentWindow.Object.defineProperty(frame.contentWindow, "frameElement", {get: () => {return null}});
           let ruffleScript = document.createElement('script');
