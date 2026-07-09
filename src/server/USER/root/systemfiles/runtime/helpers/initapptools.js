@@ -488,7 +488,7 @@ window.protectedGlobals.initAppTools = function () {
       instance.rootElement._goldenbodyId = instance.goldenbodyId;
       if (instance.rootElement.dataset) {
         instance.rootElement.dataset.goldenbodyId = String(instance.goldenbodyId);
-        instance.rootElement.dataset.appId = app.functionName.trim();
+        instance.rootElement.dataset.appId = app.id.trim();
       }
     }
 

@@ -40,14 +40,14 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       window.protectedGlobals.appMatchesIdentifier(a, taskbutton),
     );
     if (app) {
-      const appId = app.functionName;
+      const appId = app.id;
       let btn;
       if (seenAppIds.has(appId)) continue;
       seenAppIds.add(appId);
       
       if (app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionName : app.icon,
+          app.nonTextIcon ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window[app.globalVarObjectString][app.cmf],
           "",
@@ -60,7 +60,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       }
       else {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionName : app.icon,
+          app.nonTextIcon ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
@@ -133,9 +133,8 @@ const resolveWindowAppId = window.protectedGlobals.resolveWindowAppId = function
   if (!appId) appId = el.getAttribute && el.getAttribute("data-app-id");
   if (!appId && window.protectedGlobals.apps && Array.isArray(window.protectedGlobals.apps)) {
     for (const a of window.protectedGlobals.apps) {
-      // Only use real identifier strings (functionName) for class/id matching.
-      // a.id and a.icon are icon content (emoji or HTML markup), not valid identifiers.
-      var candidates = [a.functionName].filter(function (c) {
+      // Only use real identifier strings (id) for class/id matching.
+      var candidates = [a.id].filter(function (c) {
         return c && c.length < 64;
       });
       var matched = candidates.some(function (cid) {
@@ -144,7 +143,7 @@ const resolveWindowAppId = window.protectedGlobals.resolveWindowAppId = function
         );
       });
       if (matched) {
-        appId = a.functionName;
+        appId = a.id;
         break;
       }
     }
@@ -156,9 +155,8 @@ const findAppByIdentifier = window.protectedGlobals.findAppByIdentifier = functi
   if (!identifier || !window.protectedGlobals.apps || !Array.isArray(window.protectedGlobals.apps)) return null;
   for (const a of window.protectedGlobals.apps) {
     if (!a) continue;
-    // Only match against true identifiers (functionName).
-    // Do NOT match a.id or a.icon — those contain icon HTML/emoji content, not identifiers.
-    if (identifier === a.functionName) {
+    // Only match against true identifiers (id).
+    if (identifier === a.id) {
       return a;
     }
   }

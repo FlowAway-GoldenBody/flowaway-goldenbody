@@ -110,7 +110,7 @@
           posX = pos.x;
           posY = pos.y;
         }
-        var root = window.protectedGlobals.apptools.createRoot(entryObj.functionName, posX, posY);
+        var root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
         var topbar = window.protectedGlobals.apptools.createtitlebar(root);
         // create an iframe that fills the whole window;
         let iframe = document.createElement("iframe");
@@ -154,11 +154,12 @@
     var cmfl1 = "";
     let jsFile = null;
     let iconFile = null;
-    let origfnName = null;
     let allIframe = [];
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
+    let origfnName = entryObj.functionName || null;
+
     let verify = await getVerification(folderPath + '/jsKey.txt');
     iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
@@ -179,7 +180,6 @@
       createPlaceholderFunction();
     } else {
       allIframe = [];
-      origfnName = entryObj.functionName || null;
       globalVarObjectString = generateNamespace();
       allAppArrayString = generateNamespace();
       functionName = generateNamespace();

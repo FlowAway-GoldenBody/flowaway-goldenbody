@@ -686,11 +686,14 @@ window.protectedGlobals.deleteApp = async function (obj) {
     if (element.id == obj.functionName) {
       window[element.globalVarObjectString][element.allAppArrayString].forEach(e => {
         e.rootElement.remove();
+        e.closeWindow();
       });
       window.protectedGlobals.renderAppsGrid();
       window.protectedGlobals.taskbuttons.forEach(b => {
-        if (b.dataset.appId === element.functionName) b.remove();
+        if (b.dataset.appId === element.id) b.remove();
       });
+      delete window[element.globalVarObjectString];
+      delete window[element.functionName];
       window.protectedGlobals.apps.splice(window.protectedGlobals.apps.indexOf(element), 1);
     }
   });

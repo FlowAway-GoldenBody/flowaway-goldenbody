@@ -55,7 +55,7 @@
     for (let app of window.protectedGlobals.apps) {
       for (let win of window[app.globalVarObjectString]?.[app.allAppArrayString] || []) {
         if (win.rootElement.style.display !== 'none' && win.rootElement.style.zIndex == topZindex) {
-          atTop = app.functionName;
+          atTop = app.id;
           break;
         }
       }
@@ -1372,12 +1372,12 @@
     }
     if (!exist) {
       // If no task button exists for this app, add one
-      const appInfo = window.protectedGlobals.apps.find(app => app.functionName === atTop);
+      const appInfo = window.protectedGlobals.apps.find(app => app.id === atTop);
       let btn = null;
       if (appInfo) {
         if (appInfo.cmf) {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.nonTextIcon ? appInfo.functionName : appInfo.icon,
+            appInfo.nonTextIcon ? appInfo.id : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window[appInfo.globalVarObjectString][appInfo.cmf],
             "",
@@ -1387,7 +1387,7 @@
         }
         else {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.nonTextIcon ? appInfo.functionName : appInfo.icon,
+            appInfo.nonTextIcon ? appInfo.id : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window.protectedGlobals.cmf,
             "",
@@ -1415,62 +1415,7 @@
     }
     }, 30);
   };
-  // let originalLaunchApp = window.protectedGlobals.launchApp;
-  // window.protectedGlobals.launchApp = function (appId) {
-  //   console.log("launchApp called with appId:", appId);
-  //   if (originalLaunchApp) {
-  //     originalLaunchApp(appId);
-  //   }
-  //   let exist = false;
-  //   for (const btn of window.protectedGlobals.taskbuttons) {
-  //     if (btn.dataset.appId === appId) {
-  //       exist = true;
-  //       break;
-  //     }
-  //   }
-  //   if (!exist) {
-  //     // If no task button exists for this app, add one
-  //     const appInfo = window.protectedGlobals.apps.find(app => app.functionName === appId);
-  //     let btn = null;
-  //     if (appInfo) {
-  //     if (appInfo.cmf) {
-  //       btn = window.protectedGlobals.addTaskButton(
-  //         appInfo.icon,
-  //         () => window.protectedGlobals.launchApp(appId),
-  //         window[appInfo.globalVarObjectString][appInfo.cmf],
-  //         "",
-  //         appId,
-  //         false,
-  //       );
-  //     }
-  //     else {
-  //       btn = window.protectedGlobals.addTaskButton(
-  //         appInfo.icon,
-  //         () => window.protectedGlobals.launchApp(appId),
-  //         window.protectedGlobals.cmf,
-  //         "",
-  //         appId,
-  //         false,
-  //       );
-  //     }
-  //     if (btn) btn.dataset.appId = appId;
-  //     } else {
-  //       console.warn("No app info found for appId:", appId);
-  //     }
-  //   }
-  //   // Add 'task-open' class to the corresponding task button if not already active
-  //   if (window.protectedGlobals.taskbuttons) {
-  //     for (let btn of window.protectedGlobals.taskbuttons) {
-  //       const btnAppId = btn.dataset && btn.dataset.appId ? btn.dataset.appId : (btn.value && String(btn.value).trim());
-  //       if (btnAppId === appId) {
-  //           btn.classList.remove('task-open');
-  //           btn.classList.remove('task-closed');
-  //           btn.classList.add('task-active');
-  //           btn.appactive = true; // custom property to track if app is active/open
-  //       }
-  //     }
-  //   }
-  // };
+
   // Track previous display values to only trigger on display changes
   const displayStyleMap = new WeakMap();
   
@@ -1498,7 +1443,7 @@
             setTimeout(() => {
               for (let app of window.protectedGlobals.apps) {
                 if (window[app.globalVarObjectString] && window[app.globalVarObjectString]?.[app.allAppArrayString]?.length == 0) {
-                  let appId = app.functionName;
+                  let appId = app.id;
                   for (let btn of window.protectedGlobals.taskbuttons) {
                     const btnAppId = btn.dataset.appId;
                     if (btnAppId === appId) {

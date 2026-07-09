@@ -490,7 +490,7 @@ const renderPinnedAppsGrid = window.protectedGlobals.renderPinnedAppsGrid = asyn
 
   const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const appsMap = new Map(    window.protectedGlobals.apps.map(app => [
-app.functionName, app
+app.id, app
   ])  );
 
   for (const appId of pinnedApps) {
@@ -509,7 +509,7 @@ const renderRecentsGrid = window.protectedGlobals.renderRecentsGrid = async func
 
   const recents = window.protectedGlobals._startMenuConfig.recents || [];
   const appsMap = new Map(    window.protectedGlobals.apps.map(app => [
-app.functionName, app
+app.id, app
   ])  );
 
   for (const appId of recents) {
@@ -537,8 +537,8 @@ const renderAllAppsGrid = window.protectedGlobals.renderAllAppsGrid = async func
 const createAppTile = window.protectedGlobals.createAppTile = function createAppTile(app, container, draggable) {
   const div = document.createElement('div');
   div.className = 'app';
-  div.dataset.appId = app.functionName;
-  div.id = (app.functionName || app.id) + 'app';
+  div.dataset.appId = app.id;
+  div.id = app.id + 'app';
   div.style.padding = '10px';
   div.style.borderRadius = '6px';
   div.style.textAlign = 'center';
@@ -625,7 +625,7 @@ const showAppContextMenu = window.protectedGlobals.showAppContextMenu = function
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
 
-  const appId = app.functionName;
+  const appId = app.id;
   const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const isPinned = pinnedApps.includes(appId);
 

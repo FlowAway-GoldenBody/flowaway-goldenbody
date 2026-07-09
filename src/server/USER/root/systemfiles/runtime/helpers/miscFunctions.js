@@ -409,7 +409,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   }
 
   const menu = document.createElement("div");
-  window.protectedGlobals.removeOtherMenus(app.id || app.functionName || "");
+  window.protectedGlobals.removeOtherMenus(app.id || "");
 
   menu.className = "app-menu";
   if (app && app.id) menu.dataset.appId = String(app.id);
@@ -523,7 +523,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
   });
   menu.appendChild(newWindow);
 
-    const appId = app.functionName;
+    const appId = app.id;
     const existingBtn = document.querySelector(
       `button.taskbutton[data-app-id="${appId}"]`,
     );
@@ -571,7 +571,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         let btn;
         if(app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionName : app.icon,
+          app.nonTextIcon ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window[app.globalVarObjectString][app.cmf],
           "",
@@ -581,7 +581,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         }
         else {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.functionName : app.icon,
+          app.nonTextIcon ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
