@@ -193,21 +193,11 @@ const getSwitchableWindows = window.protectedGlobals.getSwitchableWindows = func
 }
 
 const resolveFocusedWindowRoot = window.protectedGlobals.resolveFocusedWindowRoot = function resolveFocusedWindowRoot(windows) {
-  var active = null;
-  active = document.activeElement;
-
-  if (active) {
-    if ((active.closest)) {
-      var candidate = active.closest(".app-window-root");
-      if (candidate && (!windows || windows.indexOf(candidate) !== -1)) {
-        return candidate;
-      }
-    }
-  }
-
-  if (window.protectedGlobals.atTop && windows && windows.length) {
+  let atTop = window.protectedGlobals.calcTop();
+  if (atTop && windows && windows.length) {
     for (var i = 0; i < windows.length; i++) {
-      if (resolveWindowAppId(windows[i]) === window.protectedGlobals.atTop) return windows[i];
+      console.log(atTop, resolveWindowAppId(windows[i]), windows[i]);
+      if (resolveWindowAppId(windows[i]) === atTop) return windows[i];
     }
   }
 

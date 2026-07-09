@@ -62,6 +62,7 @@
     }
     return atTop;
   }
+  window.protectedGlobals.calcTop = calcTop;
   var taskbuttonStyles = document.createElement('style');
   taskbuttonStyles.textContent = `
     .taskbutton {

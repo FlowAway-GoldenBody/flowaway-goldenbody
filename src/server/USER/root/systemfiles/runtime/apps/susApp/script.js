@@ -1,13 +1,15 @@
+"use strict";
 let a = document.createElement('input');
 a.value = "aaaaaaa";
 document.body.appendChild(a);
-a.addEventListener('keydown', (e) => {
+a.addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') {
-    window.__goldenbodyAPI.writeFile('test.txt', a.value, { text: true, direct: true });
+    let a = await window.__goldenbodyAPI.writeFolder('TEST', { text: true, direct: true });
+    console.log(a);
   }
 });
 window.addEventListener('message', (e) => {
-  console.log('message received', e.data);
+  if (!e.data.type === "styleapplied") return;
   a.style.color = e.data.dark ? 'white' : 'black';
   a.style.background = e.data.dark ? 'black' : 'white';
 });

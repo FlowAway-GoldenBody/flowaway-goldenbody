@@ -119,7 +119,9 @@
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
-        iframe.srcdoc = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        let html = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        const blob = new Blob([html], { type: "text/html" });
+        iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";
         let appObj;
         window.protectedGlobals.apps.forEach(app => {

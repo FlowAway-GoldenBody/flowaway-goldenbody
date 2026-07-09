@@ -82,10 +82,18 @@
             path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
             let result = await window.protectedGlobals.DeleteFile(path, options);
             source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from }, "*");
-        } else if (e.detail.data.getFilesFromFolder) {
+        } else if (e.detail.data.readFolder) {
             path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.getFilesFromFolder(path, options);
-            source.postMessage({ getFilesFromFolderResult: true, result: result, from: e.detail.from }, "*");
-        }    
+            let result = await window.protectedGlobals.ReadFolder(path, options);
+            source.postMessage({ readFolderResult: true, result: result, from: e.detail.from }, "*");
+        } else if (e.detail.data.writeFolder) {
+            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+            let result = await window.protectedGlobals.WriteFolder(path, options);
+            source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from }, "*");
+        } else if (e.detail.data.deleteFolder) {
+            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+            let result = await window.protectedGlobals.DeleteFolder(path, options);
+            source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from }, "*");
+        }
     });
 })()

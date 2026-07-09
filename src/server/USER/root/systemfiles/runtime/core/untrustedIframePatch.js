@@ -4,10 +4,10 @@ window.__hiddengoldenbodyAPI = {};
 window.lockAPI = (api, parent) => {
     Object.defineProperty(parent, api, {
         get: function () {
-            return new Error("Access to " + api + " is Banned.");
+            throw new Error("Access to " + api + " is Banned.");
         },
         set: function () {
-            return new Error("Access to " + api + " is Banned.");
+            throw new Error("Access to " + api + " is Banned.");
         },
         configurable: false,
     });
@@ -43,7 +43,7 @@ window.__goldenbodyAPI = {
                 if (event.data.error) {
                     reject(new Error(event.data.error));
                 } else {
-                    resolve(event.data.content);
+                    resolve(event.data.result);
                 }
             }
             window.addEventListener('message', handleMessage);
@@ -57,7 +57,7 @@ window.__goldenbodyAPI = {
                 if (event.data.error) {
                     reject(new Error(event.data.error));
                 } else {
-                    resolve(event.data.content);
+                    resolve(event.data.result);
                 }
             }
             window.addEventListener('message', handleMessage);
@@ -92,7 +92,7 @@ window.__goldenbodyAPI = {
         });
     },
     writeFolder: async (path, content, options) => {
-        window.parent.postMessage({writeFolder: true, path, content, options}, '*');
+        window.parent.postMessage({writeFolder: true, path, options}, '*');
         return new Promise((resolve, reject) => {
             function handleMessage(event) {
                 window.removeEventListener('message', handleMessage);
@@ -106,7 +106,7 @@ window.__goldenbodyAPI = {
         });
     },
     writeFolderSuper: async (path, content, options) => {
-        window.parent.postMessage({writeFolderSuper: true, path, content, options}, '*');
+        window.parent.postMessage({writeFolderSuper: true, path, options}, '*');
         return new Promise((resolve, reject) => {
             function handleMessage(event) {
                 window.removeEventListener('message', handleMessage);
@@ -127,7 +127,7 @@ window.__goldenbodyAPI = {
                 if (event.data.error) {
                     reject(new Error(event.data.error));
                 } else {
-                    resolve(event.data.content);
+                    resolve(event.data.result);
                 }
             }
             window.addEventListener('message', handleMessage);
@@ -141,7 +141,7 @@ window.__goldenbodyAPI = {
                 if (event.data.error) {
                     reject(new Error(event.data.error));
                 } else {
-                    resolve(event.data.content);
+                    resolve(event.data.result);
                 }
             }
             window.addEventListener('message', handleMessage);
@@ -174,12 +174,41 @@ window.__goldenbodyAPI = {
             }
             window.addEventListener('message', handleMessage);
         });
+    },
+    deleteFolder: async (path, options) => {
+        window.parent.postMessage({deleteFolder: true, path, options}, '*');
+        return new Promise((resolve, reject) => {
+            function handleMessage(event) {
+                window.removeEventListener('message', handleMessage);
+                if (event.data.error) {
+                    reject(new Error(event.data.error));
+                } else {
+                    resolve();
+                }
+            }
+            window.addEventListener('message', handleMessage);
+        });
+    },
+    deleteFolderSuper: async (path, options) => {
+        window.parent.postMessage({deleteFolderSuper: true, path, options}, '*');
+        return new Promise((resolve, reject) => {
+            function handleMessage(event) {
+                window.removeEventListener('message', handleMessage);
+                if (event.data.error) {
+                    reject(new Error(event.data.error));
+                } else {
+                    resolve();
+                }
+            }
+            window.addEventListener('message', handleMessage);
+        });
     }
 };
 window.addEventListener("click", (e) => {
     window.parent.postMessage({clickOnApp:true}, '*');
 });
 window.addEventListener("keydown", (e) => {
+    e.stopPropagation();
     const parts = [];
     if (e.ctrlKey) parts.push("Ctrl");
     if (e.altKey) parts.push("Alt");
@@ -187,11 +216,6 @@ window.addEventListener("keydown", (e) => {
     if (e.shiftKey) parts.push("Shift");
     const key = e.key === " " ? "Space" : e.key;
     const comboKey = parts.length ? parts.concat(String(key)).join("+") : String(key);
-
-    if (e.key === "Tab" && (e.altKey || e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
 
     window.parent.postMessage({
         keydownOnApp: true,
