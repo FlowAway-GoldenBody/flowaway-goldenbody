@@ -80,58 +80,34 @@ window.__goldenbodyAPI = {
         });
     },
     writeFile: async (path, content, options) => {
-        window.parent.postMessage({writeFile: true, path, content, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({writeFile: true, path, content, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     writeFileSuper: async (path, content, options) => {
-        window.parent.postMessage({writeFileSuper: true, path, content, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({writeFileSuper: true, path, content, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     writeFolder: async (path, content, options) => {
-        window.parent.postMessage({writeFolder: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({writeFolder: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     writeFolderSuper: async (path, content, options) => {
-        window.parent.postMessage({writeFolderSuper: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({writeFolderSuper: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
@@ -144,72 +120,42 @@ window.__goldenbodyAPI = {
         });
     },
     readFolderSuper: async (path, options) => {
-        window.parent.postMessage({readFolderSuper: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({readFolderSuper: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve(event.data.result);
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     deleteFile: async (path, options) => {
-        window.parent.postMessage({deleteFile: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({deleteFile: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     deleteFileSuper: async (path, options) => {
-        window.parent.postMessage({deleteFileSuper: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({deleteFileSuper: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     deleteFolder: async (path, options) => {
-        window.parent.postMessage({deleteFolder: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({deleteFolder: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     deleteFolderSuper: async (path, options) => {
-        window.parent.postMessage({deleteFolderSuper: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({deleteFolderSuper: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve();
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
@@ -223,16 +169,19 @@ window.__goldenbodyAPI = {
         return window.curInstanceNum || null;
     },
     getLiveInstanceIndex: async () => {
-        window.parent.postMessage({getLiveInstanceIndex: true}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({getLiveInstanceIndex: true, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
+            const handleMessage = (event) => {
+                if (!event || !event.data || typeof event.data !== 'object') return;
+                if (event.data.requestId !== requestId) return;
                 window.removeEventListener('message', handleMessage);
                 if (event.data.liveInstanceIndex !== undefined) {
                     resolve(event.data.liveInstanceIndex);
                 } else {
                     reject(new Error("Failed to get live instance index."));
                 }
-            }
+            };
             window.addEventListener('message', handleMessage);
         });
     }

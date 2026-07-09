@@ -133,10 +133,13 @@
         });
         root.appendChild(iframe);
         window.addEventListener(appObj.id + root.goldenbodyId, 'message', (e) => {
+          if (e.source !== iframe.contentWindow) {
+            return;
+          }
           window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source} }));
-          if (e.data.setInstanceTitle && e.source === iframe.contentWindow) {
+          if (e.data.setInstanceTitle) {
             instance.title = e.data.title || instance.title;
-          } else if (e.data.instanceMessage && e.source === iframe.contentWindow) {
+          } else if (e.data.instanceMessage) {
             let toInstance = e.data.toInstance;
             let fromInstance = instance.instanceNum;
             let message = e.data.message;
@@ -152,7 +155,7 @@
                 targetInstance.iframe.contentWindow.postMessage({instanceMessage: true, message: message, fromInstance: fromInstance}, '*');
               }
             }
-          } else if (e.data.getLiveInstanceIndex && e.source === iframe.contentWindow) {
+          } else if (e.data.getLiveInstanceIndex) {
             let liveInstanceIndex = window[appObj.globalVarObjectString][appObj.allAppArrayString].length;
             iframe.contentWindow.postMessage({liveInstanceIndex: liveInstanceIndex}, '*');
           }

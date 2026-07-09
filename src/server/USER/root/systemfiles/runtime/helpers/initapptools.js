@@ -23,11 +23,19 @@ window.protectedGlobals.initAppTools = function () {
         style: { left: "0px", right: "0px", bottom: "0px", height: handleSize + "px", cursor: "ns-resize" },
       },
       {
-        className: "app-resize-handle-bottom-left",
+        className: "app-resize-handle-topleft",
+        style: { left: "0px", top: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nwse-resize" },
+      },
+      {
+        className: "app-resize-handle-topright",
+        style: { right: "0px", top: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nesw-resize" },
+      },
+      {
+        className: "app-resize-handle-bottomleft",
         style: { left: "0px", bottom: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nesw-resize" },
       },
       {
-        className: "app-resize-handle-bottom-right",
+        className: "app-resize-handle-bottomright",
         style: { right: "0px", bottom: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nwse-resize" },
       },
     ];
