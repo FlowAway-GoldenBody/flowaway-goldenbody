@@ -3013,10 +3013,10 @@ function makeIcon(type, size = 16) {
     hideAll,
     closeAll,
     newWindow,
-    showall: showAll,
-    hideall: hideAll,
-    closeall: closeAll,
-    newwindow: newWindow,
+    showAll: showAll,
+    hideAll: hideAll,
+    closeAll: closeAll,
+    newWindow: newWindow,
     goldenbodyId: window.explorerGlobals.goldenbodyId,
   });
   window.protectedGlobals.applyStyles();
@@ -3035,10 +3035,10 @@ function makeIcon(type, size = 16) {
     hideAll,
     closeAll,
     newWindow,
-    showall: showAll,
-    hideall: hideAll,
-    closeall: closeAll,
-    newwindow: newWindow,
+    showAll: showAll,
+    hideAll: hideAll,
+    closeAll: closeAll,
+    newWindow: newWindow,
     goldenbodyId: window.explorerGlobals.goldenbodyId,
   };
 };

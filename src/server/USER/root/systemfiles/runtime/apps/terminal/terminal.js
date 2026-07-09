@@ -1753,10 +1753,10 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     hideAll,
     closeAll,
     newWindow,
-    showall: showAll,
-    hideall: hideAll,
-    closeall: closeAll,
-    newwindow: newWindow,
+    showAll: showAll,
+    hideAll: hideAll,
+    closeAll: closeAll,
+    newWindow: newWindow,
     goldenbodyId: root._goldenbodyId,
   });
   window.protectedGlobals.applyStyles();
@@ -1775,10 +1775,10 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     hideAll,
     closeAll,
     newWindow,
-    showall: showAll,
-    hideall: hideAll,
-    closeall: closeAll,
-    newwindow: newWindow,
+    showAll: showAll,
+    hideAll: hideAll,
+    closeAll: closeAll,
+    newWindow: newWindow,
     goldenbodyId: root._goldenbodyId,
   };
 };

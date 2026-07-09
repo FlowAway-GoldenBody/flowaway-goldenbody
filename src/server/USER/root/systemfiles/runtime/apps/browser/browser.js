@@ -4486,10 +4486,10 @@ setTimeout(() => {
   chromeWindow.newWindow = function () {
     browser();
   };
-  chromeWindow.showall = chromeWindow.showAll;
-  chromeWindow.hideall = chromeWindow.hideAll;
-  chromeWindow.closeall = chromeWindow.closeAll;
-  chromeWindow.newwindow = chromeWindow.newWindow;
+  chromeWindow.showAll = chromeWindow.showAll;
+  chromeWindow.hideAll = chromeWindow.hideAll;
+  chromeWindow.closeAll = chromeWindow.closeAll;
+  chromeWindow.newWindow = chromeWindow.newWindow;
   window.browserGlobals.allBrowsers.push(chromeWindow); // Add to global tracking
   window.protectedGlobals.applyStyles();
 
