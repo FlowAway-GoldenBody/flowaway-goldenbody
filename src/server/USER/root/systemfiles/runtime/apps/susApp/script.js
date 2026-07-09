@@ -1,11 +1,17 @@
 "use strict";
 let a = document.createElement('input');
 a.value = "aaaaaaa";
+console.log('aa')
 document.body.appendChild(a);
+let s = 0;
 a.addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') {
-    let a = await window.__goldenbodyAPI.writeFolder('TEST', { text: true, direct: true });
-    console.log(a);
+    console.log(await window.__goldenbodyAPI.getLiveInstanceIndex());
+  }
+});
+window.addEventListener('message', (e) => {
+  if (e.data.instanceMessage) {
+    console.log('Received instance message:', e.data.message);
   }
 });
 window.addEventListener('message', (e) => {

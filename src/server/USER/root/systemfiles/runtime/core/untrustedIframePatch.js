@@ -34,32 +34,48 @@ Object.defineProperty(window.HTMLInputElement.prototype, 'type', {
     set: (val) => {if (val == 'file') return new Error("Access to file input is Banned.");},
     configurable: false
 });
+const createRequestId = () => {
+    if (typeof window.__goldenbodyRequestCounter !== "number") {
+        window.__goldenbodyRequestCounter = 0;
+    }
+    window.__goldenbodyRequestCounter += 1;
+    return window.__goldenbodyRequestCounter;
+};
+
+const createRequestMessageHandler = (requestId, resolve, reject) => {
+    return function handleMessage(event) {
+        if (!event || !event.data || typeof event.data !== "object") {
+            return;
+        }
+        if (event.data.requestId !== requestId) {
+            return;
+        }
+
+        window.removeEventListener("message", handleMessage);
+
+        if (event.data.error) {
+            reject(new Error(event.data.error));
+            return;
+        }
+
+        resolve(event.data.result);
+    };
+};
+
 window.__goldenbodyAPI = {
     readFile: async (path, options) => {
-        window.parent.postMessage({readFile: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({readFile: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve(event.data.result);
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
     readFileSuper: async (path, options) => {
-        window.parent.postMessage({readFileSuper: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({readFileSuper: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve(event.data.result);
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
@@ -120,16 +136,10 @@ window.__goldenbodyAPI = {
         });
     },
     readFolder: async (path, options) => {
-        window.parent.postMessage({readFolder: true, path, options}, '*');
+        let requestId = createRequestId();
+        window.parent.postMessage({readFolder: true, path, options, requestId}, '*');
         return new Promise((resolve, reject) => {
-            function handleMessage(event) {
-                window.removeEventListener('message', handleMessage);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve(event.data.result);
-                }
-            }
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
@@ -198,6 +208,29 @@ window.__goldenbodyAPI = {
                     reject(new Error(event.data.error));
                 } else {
                     resolve();
+                }
+            }
+            window.addEventListener('message', handleMessage);
+        });
+    },
+    setInstanceTitle: (title) => {
+        window.parent.postMessage({setInstanceTitle: true, title}, '*');
+    },
+    message: (message, toInstance) => {
+        window.parent.postMessage({instanceMessage: true, message: message, toInstance: toInstance}, '*');
+    },
+    getCurInstanceNum: () => {
+        return window.curInstanceNum || null;
+    },
+    getLiveInstanceIndex: async () => {
+        window.parent.postMessage({getLiveInstanceIndex: true}, '*');
+        return new Promise((resolve, reject) => {
+            function handleMessage(event) {
+                window.removeEventListener('message', handleMessage);
+                if (event.data.liveInstanceIndex !== undefined) {
+                    resolve(event.data.liveInstanceIndex);
+                } else {
+                    reject(new Error("Failed to get live instance index."));
                 }
             }
             window.addEventListener('message', handleMessage);

@@ -3,6 +3,51 @@ window.protectedGlobals.initAppTools = function () {
   var existing = window.protectedGlobals.apptools || {};
   existing.api = existing.api || {};
 
+  function ensureResizeHandles(root) {
+    if (!root || root._apptoolsResizeHandlesReady) return;
+    root._apptoolsResizeHandlesReady = true;
+
+    var handleSize = 7;
+    var cornerSize = 10;
+    var handleConfigs = [
+      {
+        className: "app-resize-handle-left",
+        style: { left: "0px", top: "0px", bottom: "0px", width: handleSize + "px", cursor: "ew-resize" },
+      },
+      {
+        className: "app-resize-handle-right",
+        style: { right: "0px", top: "0px", bottom: "0px", width: handleSize + "px", cursor: "ew-resize" },
+      },
+      {
+        className: "app-resize-handle-bottom",
+        style: { left: "0px", right: "0px", bottom: "0px", height: handleSize + "px", cursor: "ns-resize" },
+      },
+      {
+        className: "app-resize-handle-bottom-left",
+        style: { left: "0px", bottom: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nesw-resize" },
+      },
+      {
+        className: "app-resize-handle-bottom-right",
+        style: { right: "0px", bottom: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nwse-resize" },
+      },
+    ];
+
+    handleConfigs.forEach(function (cfg) {
+      var handle = document.createElement("div");
+      handle.className = "app-resize-handle " + cfg.className;
+      handle.style.position = "absolute";
+      handle.style.zIndex = "9999";
+      handle.style.background = "transparent";
+      handle.style.opacity = "0";
+      handle.style.pointerEvents = "auto";
+      handle.style.touchAction = "none";
+      Object.keys(cfg.style).forEach(function (key) {
+        handle.style[key] = cfg.style[key];
+      });
+      root.appendChild(handle);
+    });
+  }
+
   existing.createRoot = function (appId, posX, posY) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
@@ -23,6 +68,7 @@ window.protectedGlobals.initAppTools = function () {
     if (document && document.body) {
       document.body.appendChild(root);
     }
+    ensureResizeHandles(root);
     window.protectedGlobals.bringToFront(root);
     if (ctx.appId) window.protectedGlobals.atTop = ctx.appId;
     return root;
@@ -31,6 +77,7 @@ window.protectedGlobals.initAppTools = function () {
   existing.api.makeDraggableResizable = function (root, dragTarget, btnMax) {
     if (!root || !dragTarget || root._apptoolsDragResizeBound) return;
     root._apptoolsDragResizeBound = true;
+    ensureResizeHandles(root);
 
     function getInstance() {
       return root._appInstance || null;

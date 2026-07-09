@@ -1357,7 +1357,6 @@
   // hook bringtofront and launchapp
   let originalBringToFront = window.protectedGlobals.bringToFront;
   window.protectedGlobals.bringToFront = function (div) {
-    console.log("bringToFront called with appId:", div);
     if (originalBringToFront) {
       originalBringToFront(div);
     }

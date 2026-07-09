@@ -119,7 +119,8 @@
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
-        let html = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
+        let html = `<html><head><script>window.curInstanceNum = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         const blob = new Blob([html], { type: "text/html" });
         iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";
@@ -133,12 +134,36 @@
         root.appendChild(iframe);
         window.addEventListener(appObj.id + root.goldenbodyId, 'message', (e) => {
           window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source} }));
+          if (e.data.setInstanceTitle && e.source === iframe.contentWindow) {
+            instance.title = e.data.title || instance.title;
+          } else if (e.data.instanceMessage && e.source === iframe.contentWindow) {
+            let toInstance = e.data.toInstance;
+            let fromInstance = instance.instanceNum;
+            let message = e.data.message;
+            if (toInstance === "*" || toInstance === "all") {
+              window[appObj.globalVarObjectString][appObj.allAppArrayString].forEach(inst => {
+                if (inst.instanceNum !== fromInstance) {
+                  inst.iframe.contentWindow.postMessage({instanceMessage: true, message: message, fromInstance: fromInstance}, '*');
+                }
+              });
+            } else {
+              let targetInstance = window[appObj.globalVarObjectString][appObj.allAppArrayString].find(inst => inst.instanceNum === toInstance);
+              if (targetInstance) {
+                targetInstance.iframe.contentWindow.postMessage({instanceMessage: true, message: message, fromInstance: fromInstance}, '*');
+              }
+            }
+          } else if (e.data.getLiveInstanceIndex && e.source === iframe.contentWindow) {
+            let liveInstanceIndex = window[appObj.globalVarObjectString][appObj.allAppArrayString].length;
+            iframe.contentWindow.postMessage({liveInstanceIndex: liveInstanceIndex}, '*');
+          }
         });
         var instance = window.protectedGlobals.apptools.api.createAppInstance({
           rootElement: root,
           title: entryObj.label,
           btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
         });
+        instance.iframe = iframe;
+        instance.instanceNum = instanceNum;
         let origClose = instance.closeWindow;
         instance.closeWindow = function () {
           origClose();

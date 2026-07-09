@@ -70,10 +70,11 @@
         let path = e.detail.data.path;
         let source = e.detail.source;
         if (!typeof options === "object") options = undefined;
+        let requestId = e.detail.data.requestId;
         if (e.detail.data.readFile) {
             path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
             let result = await window.protectedGlobals.ReadFile(path, options);
-            source.postMessage({ readFileResult: true, result: result, from: e.detail.from }, "*");
+            source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
         } else if (e.detail.data.writeFile) {
             path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
             let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
@@ -85,7 +86,7 @@
         } else if (e.detail.data.readFolder) {
             path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
             let result = await window.protectedGlobals.ReadFolder(path, options);
-            source.postMessage({ readFolderResult: true, result: result, from: e.detail.from }, "*");
+            source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
         } else if (e.detail.data.writeFolder) {
             path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
             let result = await window.protectedGlobals.WriteFolder(path, options);
