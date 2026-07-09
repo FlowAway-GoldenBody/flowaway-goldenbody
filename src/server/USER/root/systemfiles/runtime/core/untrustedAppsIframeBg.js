@@ -61,4 +61,31 @@
             if (document.body) document.body.dispatchEvent(mouseEvent);
         }
     });
-})();
+
+
+
+
+    window.addEventListener("translatedmessage", async (e) => {
+        let options = e.detail.data.options;
+        let path = e.detail.data.path;
+        let source = e.detail.source;
+        if (!typeof options === "object") options = undefined;
+        if (e.detail.data.readFile) {
+            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+            let result = await window.protectedGlobals.ReadFile(path, options);
+            source.postMessage({ readFileResult: true, result: result, from: e.detail.from }, "*");
+        } else if (e.detail.data.writeFile) {
+            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+            let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
+            source.postMessage({ writeFileResult: true, result: result, from: e.detail.from }, "*");
+        } else if (e.detail.data.deleteFile) {
+            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+            let result = await window.protectedGlobals.DeleteFile(path, options);
+            source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from }, "*");
+        } else if (e.detail.data.getFilesFromFolder) {
+            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+            let result = await window.protectedGlobals.getFilesFromFolder(path, options);
+            source.postMessage({ getFilesFromFolderResult: true, result: result, from: e.detail.from }, "*");
+        }    
+    });
+})()

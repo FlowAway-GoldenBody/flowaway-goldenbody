@@ -101,7 +101,6 @@ const purgeButtons = window.protectedGlobals.purgeButtons = function purgeButton
 const saveTaskButtons = window.protectedGlobals.saveTaskButtons = function saveTaskButtons(silence = true) {
   if (!window.protectedGlobals.appsButtonsApplied) return;
   var buttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
-  buttons.splice(0, 2);
   var postdata = [];
   for (const b of buttons) {
     // Only save pinned buttons

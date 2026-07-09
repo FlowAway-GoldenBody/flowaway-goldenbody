@@ -1,6 +1,11 @@
 let a = document.createElement('input');
 a.value = "aaaaaaa";
 document.body.appendChild(a);
+a.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    window.__goldenbodyAPI.writeFile('test.txt', a.value, { text: true, direct: true });
+  }
+});
 window.addEventListener('message', (e) => {
   console.log('message received', e.data);
   a.style.color = e.data.dark ? 'white' : 'black';

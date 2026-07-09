@@ -793,21 +793,7 @@ window.protectedGlobals.starthandler = () => {
 }
 
 setTimeout(() => {
-  setTimeout(() => {
-    var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-    window.dispatchEvent(appUpdatedEvent);
-    setTimeout(() => {
-      var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
-      setTimeout(() => {
-        var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-        window.dispatchEvent(appUpdatedEvent);
-        setTimeout(() => {
-          var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-          window.dispatchEvent(appUpdatedEvent);
-        }, 5000);
-      }, 5000);
-    }, 5000);
-  }, 5000);
+  var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
+  window.dispatchEvent(appUpdatedEvent);
 }, 100);
 })();

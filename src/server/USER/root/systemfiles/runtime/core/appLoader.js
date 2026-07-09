@@ -129,6 +129,9 @@
           }
         });
         root.appendChild(iframe);
+        window.addEventListener(appObj.id + root.goldenbodyId, 'message', (e) => {
+          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source} }));
+        });
         var instance = window.protectedGlobals.apptools.api.createAppInstance({
           rootElement: root,
           title: entryObj.label,
@@ -212,6 +215,8 @@
 
 
     let pkg = {
+      folderName: folderName,
+      entryObjectfile: entryObjectfile,
       allIframe: allIframe,
       origfnName: origfnName,
       id: (entryObj.requestAdminPerm && verify) ? functionName : origfnName,
