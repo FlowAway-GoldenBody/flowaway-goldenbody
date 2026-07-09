@@ -157,7 +157,7 @@
             }
           } else if (e.data.getLiveInstanceIndex) {
             let liveInstanceIndex = window[appObj.globalVarObjectString][appObj.allAppArrayString].length;
-            iframe.contentWindow.postMessage({liveInstanceIndex: liveInstanceIndex}, '*');
+            iframe.contentWindow.postMessage({liveInstanceIndex: liveInstanceIndex, requestId: e.data.requestId}, '*');
           }
         });
         var instance = window.protectedGlobals.apptools.api.createAppInstance({
