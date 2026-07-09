@@ -78,6 +78,7 @@ window.protectedGlobals.rebuildhandler = function () {
   window.protectedGlobals.apps.forEach((app) => {
     // dont remove this ai
     delete window[app.globalVarObjectString];
+    delete window[app.functionName];
   });
   window.protectedGlobals.apps = [];
 

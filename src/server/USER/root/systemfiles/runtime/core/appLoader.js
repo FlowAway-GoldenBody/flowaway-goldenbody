@@ -92,16 +92,19 @@
 
 
 
-    function createPlaceholderFunction(entryObj) {
+    function createPlaceholderFunction() {
+      let entryObj = getEntryObj();
       window[entryObj.functionName] = function () {
         console.warn("App integrity check failed: jsKey.txt does not match master key for " + String(folderName));
         window.protectedGlobals.notification(`unable to start app "${entryObj.label}" because of JS key check error, if you believe this is a mistake, use the fix account feature of the login page. (CODE: JSKEYMISMATCH)`);
       }
     }
-    async function createIframeContainerAppFunction(entryObj) {
+    async function createIframeContainerAppFunction() {
+      let entryObj = getEntryObj();
       let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.jsFile, { text: true, direct: true });
       let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
       window[entryObj.functionName] = function (path, posX = 50, posY = 50) {
+        entryObj = getPkg();
         if (posX == 50 && posY == 50) {
           let pos = window.protectedGlobals.getNextWindowXY();
           posX = pos.x;
@@ -118,9 +121,11 @@
         iframe.style.border = "none";
         iframe.srcdoc = `<html><head><script>window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         iframe.sandbox = "allow-scripts allow-pointer-lock";
+        let appObj;
         window.protectedGlobals.apps.forEach(app => {
           if (app.id === entryObj.origfnName) {
             app.allIframe.push(iframe);
+            appObj = app;
           }
         });
         root.appendChild(iframe);
@@ -129,7 +134,11 @@
           title: entryObj.label,
           btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
         });
-
+        let origClose = instance.closeWindow;
+        instance.closeWindow = function () {
+          origClose();
+          appObj.allIframe.splice(appObj.allIframe.indexOf(iframe), 1);
+        };
         window.protectedGlobals.apptools.api.trackInstance(instance, entryObj.functionName);
         return instance;
       }
@@ -154,7 +163,9 @@
     iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
     openfileCapability = entryObj.openfileCapability || [];
-
+    let getEntryObj = () => {
+      return entryObj;
+    };
     if (entryObj.requestAdminPerm && verify) {
       functionName = entryObj.functionName;
       globalVarObjectString = entryObj.globalVarObjectString || "";
@@ -163,6 +174,8 @@
       cmfl1 = entryObj.cmfl1 || "";
       jsFile = entryObj.jsFile || "";
     } else if (entryObj.requestAdminPerm) {
+      functionName = generateNamespace();
+      entryObj.functionName = functionName;
       createPlaceholderFunction();
     } else {
       allIframe = [];
@@ -200,6 +213,7 @@
 
     let pkg = {
       allIframe: allIframe,
+      origfnName: origfnName,
       id: (entryObj.requestAdminPerm && verify) ? functionName : origfnName,
       path: folderPath,
       jsFile: jsFile,
@@ -216,6 +230,9 @@
       pngEnabled: !!entryObj.pngEnabled,
       nonTextIcon: !!entryObj.nonTextIcon,
       openfileCapability: openfileCapability,
+    };
+    let getPkg = () => {
+      return pkg;
     };
     window.protectedGlobals.initAppRuntimeState(pkg);
     await loadAppScript(pkg);

@@ -612,13 +612,10 @@ window.protectedGlobals.applyStyles = function applyStyles() {
     r.dispatchEvent(new CustomEvent("styleapplied", {}));
   }
   window.dispatchEvent(new CustomEvent("styleapplied", {}));
-  // if(window.protectedGlobals.data.dark) {
-  //   document.body.style.background = "#444";
-  //   document.body.style.color = "white";
-  // } else {
-  //   document.body.style.background = "white";
-  //   document.body.style.color = "black";
-  // }
+  document.querySelectorAll('iframe').forEach((iframe) => {
+      iframe.contentWindow.postMessage({ type: 'styleapplied', dark: window.protectedGlobals.data.dark }, '*');
+  });
+
   var startMenuEl = window.protectedGlobals.startMenu || document.getElementById("startMenu");
   var taskbarEl = window.protectedGlobals.taskbar || document.getElementById("taskbar");
   if (startMenuEl) {
