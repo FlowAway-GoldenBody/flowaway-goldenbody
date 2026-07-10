@@ -1,10 +1,35 @@
 "use strict";
 
 (function () {
+  let knownAppId = [];
+  let knownAppGlobals = [];
+  let knownAppFuncs = [];
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
   }
+  function checkEntryObject(entryObj) {
+    if (!entryObj.id) return false;
+    if (knownAppId.includes(entryObj.id)) {console.error(`Identifier ${entryObj.id} is already declared`); return false;}
+    else knownAppId.push(entryObj.id);
 
+    if (!entryObj.jsFile) return false;
+    if (!entryObj.label && !entryObj.headless) return false;
+    if (!entryObj.iconFile) return false;
+
+    if (entryObj.requestAdminPerm) {
+      if (!entryObj.allAppArrayString) return false;
+
+      if (!entryObj.functionName) return false;
+      if (knownAppFuncs.includes(entryObj.functionName)) {console.error(`Identifier ${entryObj.functionName} is already declared`); return false;}
+      else knownAppFuncs.push(entryObj.functionName);
+      
+      if (!entryObj.globalVarObjectString) return false;
+      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {console.error(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
+      else knownAppGlobals.push(entryObj.globalVarObjectString);
+    }
+    
+    return true;
+  }
   async function getVerification(path) {
     let result = await window.protectedGlobals.ReadFile(path, { text: true, direct: true });
     let userKey = await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true });
@@ -71,6 +96,7 @@
 
 
   window.protectedGlobals.extractAppData = async function (appFolder) {
+    
     var folderName = appFolder[0];
     var folderPath =
       appFolder[2] && appFolder[2].path
@@ -126,7 +152,7 @@
         iframe.sandbox = "allow-scripts allow-pointer-lock";
         let appObj;
         window.protectedGlobals.apps.forEach(app => {
-          if (app.id === entryObj.origfnName) {
+          if (app.id === entryObj.id) {
             app.allIframe.push(iframe);
             appObj = app;
           }
@@ -178,6 +204,7 @@
     }
 
     var functionName = null;
+    let id = null;
     var label = folderName;
     var icon = null;
     var globalVarObjectString = "";
@@ -191,8 +218,10 @@
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
-    let origfnName = entryObj.functionName || null;
-
+    if (!checkEntryObject(entryObj)) {
+      throw new Error("Invalid entry.json for app " + folderName);
+    }
+    id = entryObj.id;
     let verify = await getVerification(folderPath + '/jsKey.txt');
     iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
@@ -248,8 +277,7 @@
       folderName: folderName,
       entryObjectfile: entryObjectfile,
       allIframe: allIframe,
-      origfnName: origfnName,
-      id: (entryObj.requestAdminPerm && verify) ? functionName : origfnName,
+      id: id,
       path: folderPath,
       jsFile: jsFile,
       allAppArrayString: allAppArrayString,

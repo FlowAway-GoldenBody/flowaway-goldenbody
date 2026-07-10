@@ -1,6 +1,7 @@
 {
   "functionName": "settings",
   "label": "Settings",
+  "id": "Settings",
   "globalVarObjectString": "settingsGlobals",
   "allAppArrayString": "allSettings",
   "requestAdminPerm": true,

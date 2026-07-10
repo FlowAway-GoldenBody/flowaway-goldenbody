@@ -4,6 +4,7 @@
   "globalVarObjectString": "taskManagerGlobals",
   "requestAdminPerm": true,
   "jsFile": "taskManager.js",
+  "id": "Task Manager",
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,

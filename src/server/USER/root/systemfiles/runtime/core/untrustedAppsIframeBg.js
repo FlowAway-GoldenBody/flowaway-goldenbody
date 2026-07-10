@@ -284,10 +284,6 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.ReadFile(path, options);
                 source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-            } else if (e.detail.data.writeFile) {
-                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-                let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
-                source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.deleteFile) {
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.DeleteFile(path, options);
@@ -296,32 +292,43 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.ReadFolder(path, options);
                 source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-            } else if (e.detail.data.writeFolder) {
-                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-                let result = await window.protectedGlobals.WriteFolder(path, options);
-                source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.deleteFolder) {
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.DeleteFolder(path, options);
                 source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             }
         }
+        async function sendProtectedResponse() {
+            if (e.detail.data.writeFile) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
+                source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.writeFolder) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.WriteFolder(path, options);
+                source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } 
+        };
         if (!window.protectedGlobals.appPerms[appName]) {
             window.protectedGlobals.appPerms[appName] = { storage: "ask", camera: "ask", mic: "ask", notification: "ask" };
         }
-        if (window.protectedGlobals.appPerms[appName].storage === "true") {
-            sendResponse();
-        } else if (window.protectedGlobals.appPerms[appName].storage === "ask") {
-            dialogOpen = true;
-            let allow = await showAppPermissionPrompt(appName, "storage");
-            dialogOpen = false;
-            if (allow) {
-                sendResponse();
+        if (e.detail.data.writeFolder || e.detail.data.writeFile) {
+            if (window.protectedGlobals.appPerms[appName].storage === "true") {
+                sendProtectedResponse();
+            } else if (window.protectedGlobals.appPerms[appName].storage === "ask") {
+                dialogOpen = true;
+                let allow = await showAppPermissionPrompt(appName, "storage");
+                dialogOpen = false;
+                if (allow) {
+                    sendProtectedResponse();
+                } else {
+                    source.postMessage({ result: "Permission denied", from: e.detail.from, requestId: requestId }, "*");
+                }
             } else {
                 source.postMessage({ result: "Permission denied", from: e.detail.from, requestId: requestId }, "*");
             }
         } else {
-            source.postMessage({ result: "Permission denied", from: e.detail.from, requestId: requestId }, "*");
+            sendResponse();
         }
     });
 })()

@@ -7,6 +7,7 @@
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,
+  "id": "Text Editor",
   "svgEnabled": false,
   "jsFile": "textEditor.js",
   "openfileCapability": [

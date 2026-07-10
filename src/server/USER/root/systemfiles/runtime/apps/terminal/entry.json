@@ -1,6 +1,7 @@
 {
   "functionName": "terminal",
   "label": "Terminal",
+  "id": "Terminal",
   "globalVarObjectString": "terminalGlobals",
   "allAppArrayString": "allTerminals",
   "requestAdminPerm": true,

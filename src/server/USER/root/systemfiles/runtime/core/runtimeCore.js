@@ -682,8 +682,9 @@ window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRef
 
 
 window.protectedGlobals.deleteApp = async function (obj) {
+  window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${obj.folderName}`);
   window.protectedGlobals.apps.forEach(element => {
-    if (element.id == obj.functionName) {
+    if (element.id == obj.id) {
       window[element.globalVarObjectString][element.allAppArrayString].forEach(e => {
         e.rootElement.remove();
         e.closeWindow();
@@ -691,13 +692,21 @@ window.protectedGlobals.deleteApp = async function (obj) {
       window.protectedGlobals.renderAppsGrid();
       window.protectedGlobals.taskbuttons.forEach(b => {
         if (b.dataset.appId === element.id) b.remove();
+        let index = window.protectedGlobals.taskbuttons.indexOf(b);
+        if (index > -1) window.protectedGlobals.taskbuttons.splice(index, 1);
+        let index2 = window.protectedGlobals.data.taskbuttons.indexOf(b.dataset.appId);
+        if (index2 > -1) window.protectedGlobals.data.taskbuttons.splice(index2, 1);
       });
+      window.protectedGlobals.persistUserProfilePatch({ taskbuttons: window.protectedGlobals.data.taskbuttons });
+      window.protectedGlobals._startMenuConfig.pinnedApps.splice(window.protectedGlobals._startMenuConfig.pinnedApps.indexOf(element.id), 1);
+      window.protectedGlobals._startMenuConfig.recents.splice(window.protectedGlobals._startMenuConfig.recents.indexOf(element.id), 1);
+      window.protectedGlobals.saveStartMenuConfig();
       delete window[element.globalVarObjectString];
       delete window[element.functionName];
       window.protectedGlobals.apps.splice(window.protectedGlobals.apps.indexOf(element), 1);
     }
   });
-}
+};
 
 window.protectedGlobals.installApp = async function (folderName) {
   var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
@@ -723,7 +732,7 @@ window.protectedGlobals.installApp = async function (folderName) {
     }
   });
   window.protectedGlobals.renderAppsGrid();
-}
+};
 
 
 

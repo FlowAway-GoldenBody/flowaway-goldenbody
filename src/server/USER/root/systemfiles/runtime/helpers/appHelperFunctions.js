@@ -3,7 +3,7 @@ window.protectedGlobals.appMatchesIdentifier = function (app, identifier) {
   if (!app || !identifier) return false;
   var id = String(identifier).trim();
   if (!id) return false;
-  var candidates = [app.functionName, app.id, app.icon]
+  var candidates = [app.id]
     .filter((v) => v !== null && v !== undefined)
     .map((v) => String(v).trim())
     .filter(Boolean);

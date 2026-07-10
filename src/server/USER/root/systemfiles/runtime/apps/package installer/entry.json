@@ -6,6 +6,7 @@
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,
+  "id": "App Installer",
   "svgEnabled": false,
   "globalVarObjectString": "packageInstallerGlobals",
   "allAppArrayString": "allPackageInstallers",

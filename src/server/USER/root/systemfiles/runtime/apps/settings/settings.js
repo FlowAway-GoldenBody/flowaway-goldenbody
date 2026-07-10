@@ -8,7 +8,6 @@ window.settingsGlobals.goldenbodyId = 0;
 window.settingsGlobals.persistSettingsProfilePatch = function (patch) {
   return window.protectedGlobals.persistUserProfilePatch(patch || {});
 };
-window.protectedGlobals.systemapps = ["settings", "packageInstaller", "fileExplorer", "terminal", "textEditor", "browser", "taskManager"];
 window.settings = function (posX = 50, posY = 50) {
   window.protectedGlobals.startMenu.style.display = "none";
   if (posX == 50 && posY == 50) {
@@ -644,7 +643,7 @@ window.settings = function (posX = 50, posY = 50) {
   async function readAppMetadata(appFolderName) {
     const appPath = `/systemfiles/runtime/apps/${appFolderName}`;
     const entryPath = `${appPath}/entry.json`;
-    const meta = { name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName, requestAdminPerm: false };
+    const meta = { folderName: appFolderName, name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName, requestAdminPerm: false, id: appFolderName };
     let entryText = null;
     try {
       entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
@@ -657,6 +656,8 @@ window.settings = function (posX = 50, posY = 50) {
         if (data && typeof data === "object") {
           meta.label = data.label || appFolderName;
           meta.functionName = data.functionName || appFolderName;
+          meta.id = data.id || appFolderName;
+          meta.name = data.label || appFolderName;
           meta.requestAdminPerm = !!data.requestAdminPerm;
           let iconFile = data.iconFile;
           if (!iconFile) {
@@ -855,11 +856,9 @@ window.settings = function (posX = 50, posY = 50) {
     applyAppRowTheme(row, label, iconWrapper, deleteBtn);
 
     deleteBtn.addEventListener("click", async () => {
-      if (window.protectedGlobals.systemapps.includes(appMeta.functionName)) { alert("Cannot delete system app!"); return; }
       deleteBtn.disabled = true;
       deleteBtn.textContent = "Deleting...";
       try {
-        await window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${appMeta.name}`);
         window.protectedGlobals.deleteApp(appMeta);
         await refreshAppList();
       } catch (err) {

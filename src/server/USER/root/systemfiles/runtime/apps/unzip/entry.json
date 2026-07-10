@@ -1,6 +1,7 @@
 {
   "functionName": "unzip",
   "label": "Unzip",
+  "id": "Unzip",
   "globalVarObjectString": "nothing",
   "allAppArrayString": "nothing",
   "requestAdminPerm": true,

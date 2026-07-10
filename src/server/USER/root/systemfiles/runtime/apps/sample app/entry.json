@@ -4,6 +4,7 @@
   "globalVarObjectString": "yourAppGlobals",
   "allAppArrayString": "allYourAppInstances",
   "requestAdminPerm": true,
+  "id": "Your App",
   "iconFile": "icon.png",
   "pngEnabled": true,
   "nonTextIcon": true,

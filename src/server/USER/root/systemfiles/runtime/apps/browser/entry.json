@@ -1,6 +1,7 @@
 {
   "functionName": "browser",
   "label": "Browser",
+  "id": "Browser",
   "globalVarObjectString": "browserGlobals",
   "allAppArrayString": "allBrowsers",
   "requestAdminPerm": true,
