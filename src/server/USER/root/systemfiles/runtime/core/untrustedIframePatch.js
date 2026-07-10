@@ -57,11 +57,16 @@ const createRequestMessageHandler = (requestId, resolve, reject) => {
             reject(new Error(event.data.error));
             return;
         }
-
+        if (event.data.result === "Permission denied") {
+            reject(new Error("Permission denied"));
+            return;
+        }
         resolve(event.data.result);
     };
 };
-
+window.alert = function (message) {
+    window.parent.postMessage({alert: true, message}, '*');
+};
 window.__goldenbodyAPI = {
     readFile: async (path, options) => {
         let requestId = createRequestId();
@@ -71,14 +76,7 @@ window.__goldenbodyAPI = {
             window.addEventListener('message', handleMessage);
         });
     },
-    readFileSuper: async (path, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({readFileSuper: true, path, options, requestId}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },
+
     writeFile: async (path, content, options) => {
         let requestId = createRequestId();
         window.parent.postMessage({writeFile: true, path, content, options, requestId}, '*');
@@ -87,14 +85,7 @@ window.__goldenbodyAPI = {
             window.addEventListener('message', handleMessage);
         });
     },
-    writeFileSuper: async (path, content, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({writeFileSuper: true, path, content, options, requestId}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },
+
     writeFolder: async (path, content, options) => {
         let requestId = createRequestId();
         window.parent.postMessage({writeFolder: true, path, options, requestId}, '*');
@@ -103,14 +94,7 @@ window.__goldenbodyAPI = {
             window.addEventListener('message', handleMessage);
         });
     },
-    writeFolderSuper: async (path, content, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({writeFolderSuper: true, path, options, requestId}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },
+
     readFolder: async (path, options) => {
         let requestId = createRequestId();
         window.parent.postMessage({readFolder: true, path, options, requestId}, '*');
@@ -119,14 +103,7 @@ window.__goldenbodyAPI = {
             window.addEventListener('message', handleMessage);
         });
     },
-    readFolderSuper: async (path, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({readFolderSuper: true, path, options, requestId}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },
+
     deleteFile: async (path, options) => {
         let requestId = createRequestId();
         window.parent.postMessage({deleteFile: true, path, options, requestId}, '*');
@@ -135,14 +112,7 @@ window.__goldenbodyAPI = {
             window.addEventListener('message', handleMessage);
         });
     },
-    deleteFileSuper: async (path, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({deleteFileSuper: true, path, options, requestId}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },
+
     deleteFolder: async (path, options) => {
         let requestId = createRequestId();
         window.parent.postMessage({deleteFolder: true, path, options, requestId}, '*');
@@ -151,23 +121,19 @@ window.__goldenbodyAPI = {
             window.addEventListener('message', handleMessage);
         });
     },
-    deleteFolderSuper: async (path, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({deleteFolderSuper: true, path, options, requestId}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },
+
     setInstanceTitle: (title) => {
         window.parent.postMessage({setInstanceTitle: true, title}, '*');
     },
+
     message: (message, toInstance) => {
         window.parent.postMessage({instanceMessage: true, message: message, toInstance: toInstance}, '*');
     },
+
     getCurInstanceNum: () => {
         return window.curInstanceNum || null;
     },
+
     getLiveInstanceIndex: async () => {
         let requestId = createRequestId();
         window.parent.postMessage({getLiveInstanceIndex: true, requestId}, '*');

@@ -545,11 +545,44 @@ window.settings = function (posX = 50, posY = 50) {
   );
   mainContainer.append(title, section);
 
+  async function saveAppPermissions() {
+    const appPermsPayload = window.protectedGlobals.appPerms && typeof window.protectedGlobals.appPerms === "object"
+      ? window.protectedGlobals.appPerms
+      : {};
+    await window.protectedGlobals.WriteFile(
+      "/systemfiles/userprofile/appPermissions.json",
+      JSON.stringify(appPermsPayload, null, 2),
+      { text: true },
+    );
+    return appPermsPayload;
+  }
+
+  function setAppRowSaveButtonState(saveBtn, hasChanges) {
+    if (!saveBtn) return;
+    saveBtn.dataset.hasPendingChanges = hasChanges ? "true" : "false";
+    const dark = !!window.protectedGlobals.data.dark;
+    saveBtn.disabled = !hasChanges;
+    saveBtn.style.opacity = hasChanges ? "1" : "0.6";
+    saveBtn.style.background = hasChanges
+      ? (dark ? "rgba(100, 150, 255, 0.32)" : "rgba(100, 150, 255, 0.2)")
+      : (dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)");
+    saveBtn.style.color = dark ? "#fff" : "#111";
+    saveBtn.style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)";
+  }
+
   const appListHeader = document.createElement("div");
-  appListHeader.textContent = "App Settings";
-  appListHeader.style.fontSize = "16px";
-  appListHeader.style.fontWeight = "700";
+  appListHeader.style.display = "flex";
+  appListHeader.style.justifyContent = "space-between";
+  appListHeader.style.alignItems = "center";
   appListHeader.style.marginBottom = "12px";
+
+  const appListHeaderText = document.createElement("div");
+  appListHeaderText.textContent = "App Settings";
+  appListHeaderText.style.fontSize = "16px";
+  appListHeaderText.style.fontWeight = "700";
+
+
+  appListHeader.append(appListHeaderText);
 
   const appListDesc = document.createElement("div");
   appListDesc.textContent = "Installed app folders from /systemfiles/runtime/apps.";
@@ -611,7 +644,7 @@ window.settings = function (posX = 50, posY = 50) {
   async function readAppMetadata(appFolderName) {
     const appPath = `/systemfiles/runtime/apps/${appFolderName}`;
     const entryPath = `${appPath}/entry.json`;
-    const meta = { name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName };
+    const meta = { name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName, requestAdminPerm: false };
     let entryText = null;
     try {
       entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
@@ -624,6 +657,7 @@ window.settings = function (posX = 50, posY = 50) {
         if (data && typeof data === "object") {
           meta.label = data.label || appFolderName;
           meta.functionName = data.functionName || appFolderName;
+          meta.requestAdminPerm = !!data.requestAdminPerm;
           let iconFile = data.iconFile;
           if (!iconFile) {
             if (data.icon) iconFile = data.icon;
@@ -669,7 +703,7 @@ window.settings = function (posX = 50, posY = 50) {
     return meta;
   }
 
-  function applyAppRowTheme(row, label, iconWrapper, deleteBtn) {
+  function applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer) {
     const dark = !!window.protectedGlobals.data.dark;
     if (row) {
       row.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
@@ -685,21 +719,55 @@ window.settings = function (posX = 50, posY = 50) {
       deleteBtn.style.background = "#c0392b";
       deleteBtn.style.color = "white";
     }
+    if (permsToggleBtn) {
+      const isExpanded = permsToggleBtn.dataset.expanded === "true";
+      permsToggleBtn.style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)";
+      permsToggleBtn.style.background = isExpanded
+        ? (dark ? "rgba(33, 150, 243, 0.28)" : "rgba(33, 150, 243, 0.2)")
+        : (dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)");
+      permsToggleBtn.style.color = dark ? "#fff" : "#111";
+    }
+    if (saveBtn) {
+      setAppRowSaveButtonState(saveBtn, saveBtn.dataset.hasPendingChanges === "true");
+    }
+    if (adminPermsBtn) {
+      const isExpanded = adminPermsBtn.dataset.expanded === "true";
+      adminPermsBtn.style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)";
+      adminPermsBtn.style.background = isExpanded
+        ? (dark ? "rgba(33, 150, 243, 0.28)" : "rgba(33, 150, 243, 0.2)")
+        : (dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)");
+      adminPermsBtn.style.color = dark ? "#fff" : "#111";
+    }
+    if (adminPermsInfo) {
+      adminPermsInfo.style.color = dark ? "#ccc" : "#555";
+    }
+    if (detailsContainer) {
+      detailsContainer.style.background = dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)";
+    }
   }
 
   function syncAppRowsTheme() {
     const container = window.settingsGlobals.appListContainer;
     if (!container) return;
-    const rows = Array.from(container.children || []).filter((child) => child instanceof HTMLElement && child.dataset.appRow === "true");
-    rows.forEach((row) => {
-      const label = row.querySelector("[data-app-row-label='true']");
-      const iconWrapper = row.querySelector("[data-app-row-icon='true']");
-      const deleteBtn = row.querySelector("[data-app-row-delete='true']");
-      applyAppRowTheme(row, label, iconWrapper, deleteBtn);
+    const appItems = Array.from(container.children || []).filter((child) => child instanceof HTMLElement && child.dataset.appItem === "true");
+    appItems.forEach((appWrapper) => {
+      const row = appWrapper.querySelector("[data-app-row='true']");
+      const label = appWrapper.querySelector("[data-app-row-label='true']");
+      const iconWrapper = appWrapper.querySelector("[data-app-row-icon='true']");
+      const deleteBtn = appWrapper.querySelector("[data-app-row-delete='true']");
+      const permsToggleBtn = appWrapper.querySelector("[data-app-row-perms-toggle='true']");
+      const saveBtn = appWrapper.querySelector("[data-app-row-save='true']");
+      const adminPermsBtn = appWrapper.querySelector("[data-app-row-admin-toggle='true']");
+      const adminPermsInfo = appWrapper.querySelector("[data-app-row-admin-info='true']");
+      const detailsContainer = appWrapper.querySelector("[data-app-row-perms-container='true']") || appWrapper.querySelector("[data-app-row-admin-perms-container='true']");
+      applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer);
     });
   }
 
   function createAppItem(appMeta, refreshList) {
+    const appWrapper = document.createElement("div");
+    appWrapper.dataset.appItem = "true";
+
     const row = document.createElement("div");
     row.dataset.appRow = "true";
     row.style.display = "flex";
@@ -803,8 +871,169 @@ window.settings = function (posX = 50, posY = 50) {
 
     right.append(deleteBtn);
     row.append(left, right);
+    appWrapper.appendChild(row);
 
-    return row;
+    if (appMeta.requestAdminPerm) {
+      const adminPermsContainer = document.createElement("div");
+      adminPermsContainer.dataset.appRowAdminPermsContainer = "true";
+      adminPermsContainer.style.display = "none";
+      adminPermsContainer.style.padding = "0 10px 8px 46px";
+      adminPermsContainer.style.fontSize = "12px";
+      adminPermsContainer.style.flexDirection = "column";
+
+      const adminPermsInfo = document.createElement("div");
+      adminPermsInfo.dataset.appRowAdminInfo = "true";
+      adminPermsInfo.textContent = "This app has admin permission. It can do everything you can because it is a system app or you granted it a key during installation.";
+      adminPermsInfo.style.lineHeight = "1.4";
+      adminPermsContainer.appendChild(adminPermsInfo);
+
+      const adminPermsBtn = document.createElement("button");
+      adminPermsBtn.dataset.appRowAdminToggle = "true";
+      adminPermsBtn.textContent = "Permissions";
+      adminPermsBtn.style.border = "1px solid rgba(255,255,255,0.2)";
+      adminPermsBtn.style.borderRadius = "4px";
+      adminPermsBtn.style.padding = "3px 8px";
+      adminPermsBtn.style.fontSize = "11px";
+      adminPermsBtn.style.cursor = "pointer";
+      adminPermsBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)";
+      adminPermsBtn.style.color = "inherit";
+
+      adminPermsBtn.addEventListener("click", () => {
+        const isVisible = adminPermsContainer.style.display !== "none";
+        adminPermsContainer.style.display = isVisible ? "none" : "flex";
+        adminPermsBtn.dataset.expanded = String(!isVisible);
+        applyAppRowTheme(row, label, iconWrapper, deleteBtn, null, null, adminPermsBtn, adminPermsInfo, adminPermsContainer);
+      });
+
+      right.appendChild(adminPermsBtn);
+      appWrapper.appendChild(adminPermsContainer);
+    } else {
+      const permsContainer = document.createElement("div");
+      permsContainer.dataset.appRowPermsContainer = "true";
+      permsContainer.style.display = "none";
+      permsContainer.style.padding = "0 10px 8px 46px";
+      permsContainer.style.fontSize = "12px";
+      permsContainer.style.gap = "8px";
+      permsContainer.style.flexDirection = "column";
+
+      const existingPerms = window.protectedGlobals.appPerms && window.protectedGlobals.appPerms[appMeta.name] ? window.protectedGlobals.appPerms[appMeta.name] : {};
+      const pendingPerms = { ...existingPerms };
+      const permsList = ["camera", "mic", "storage", "notification"];
+      const permToggles = {};
+
+      permsList.forEach(perm => {
+        const permRow = document.createElement("div");
+        permRow.style.display = "flex";
+        permRow.style.alignItems = "center";
+        permRow.style.gap = "8px";
+        permRow.style.justifyContent = "space-between";
+
+        const permLabel = document.createElement("div");
+        permLabel.textContent = perm.charAt(0).toUpperCase() + perm.slice(1);
+        permLabel.style.flex = "1";
+
+        const cycleBtn = document.createElement("button");
+        cycleBtn.style.border = "1px solid rgba(255,255,255,0.2)";
+        cycleBtn.style.borderRadius = "4px";
+        cycleBtn.style.padding = "3px 8px";
+        cycleBtn.style.fontSize = "11px";
+        cycleBtn.style.cursor = "pointer";
+        cycleBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)";
+        cycleBtn.style.color = "inherit";
+        cycleBtn.style.whiteSpace = "nowrap";
+
+        const currentPerm = pendingPerms[perm] || "ask";
+        let state = currentPerm || "ask";
+        permToggles[perm] = { btn: cycleBtn, state: state };
+
+        const updateBtnText = () => {
+          cycleBtn.textContent = state === "ask" ? "Ask" : state === "true" ? "Allow" : "Deny";
+          cycleBtn.style.background = state === "ask"
+            ? (window.protectedGlobals.data.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)")
+            : state === "true"
+              ? "rgba(76, 175, 80, 0.3)"
+              : "rgba(244, 67, 54, 0.3)";
+        };
+        updateBtnText();
+
+        cycleBtn.addEventListener("click", () => {
+          state = state === "ask" ? "true" : state === "true" ? "false" : "ask";
+          permToggles[perm].state = state;
+          pendingPerms[perm] = state;
+          updateBtnText();
+          setAppRowSaveButtonState(appSaveBtn, true);
+        });
+
+        permRow.append(permLabel, cycleBtn);
+        permsContainer.appendChild(permRow);
+      });
+
+      const appSaveBtn = document.createElement("button");
+      appSaveBtn.dataset.appRowSave = "true";
+      appSaveBtn.textContent = "Save";
+      appSaveBtn.style.border = "1px solid rgba(255,255,255,0.2)";
+      appSaveBtn.style.borderRadius = "4px";
+      appSaveBtn.style.padding = "3px 8px";
+      appSaveBtn.style.fontSize = "11px";
+      appSaveBtn.style.cursor = "pointer";
+      appSaveBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)";
+      appSaveBtn.style.color = "inherit";
+      appSaveBtn.style.alignSelf = "flex-start";
+      appSaveBtn.style.marginTop = "4px";
+      setAppRowSaveButtonState(appSaveBtn, false);
+
+      appSaveBtn.addEventListener("click", async () => {
+        const originalText = appSaveBtn.textContent;
+        appSaveBtn.textContent = "Saving...";
+        appSaveBtn.disabled = true;
+        try {
+          window.protectedGlobals.appPerms = window.protectedGlobals.appPerms || {};
+          window.protectedGlobals.appPerms[appMeta.name] = { ...pendingPerms };
+          await saveAppPermissions();
+          appSaveBtn.textContent = "Saved!";
+          setAppRowSaveButtonState(appSaveBtn, false);
+          setTimeout(() => {
+            if (appSaveBtn.textContent === "Saved!") {
+              appSaveBtn.textContent = originalText;
+            }
+          }, 2000);
+        } catch (err) {
+          appSaveBtn.textContent = originalText;
+          setAppRowSaveButtonState(appSaveBtn, true);
+          alert(`Failed to save permissions for ${appMeta.label}: ${err.message || err}`);
+        }
+      });
+
+      const togglePermsBtn = document.createElement("button");
+      togglePermsBtn.dataset.appRowPermsToggle = "true";
+      togglePermsBtn.textContent = "Permissions";
+      togglePermsBtn.style.border = "1px solid rgba(255,255,255,0.2)";
+      togglePermsBtn.style.borderRadius = "4px";
+      togglePermsBtn.style.padding = "3px 8px";
+      togglePermsBtn.style.fontSize = "11px";
+      togglePermsBtn.style.cursor = "pointer";
+      togglePermsBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)";
+      togglePermsBtn.style.color = "inherit";
+
+      togglePermsBtn.addEventListener("click", () => {
+        const isVisible = permsContainer.style.display !== "none";
+        permsContainer.style.display = isVisible ? "none" : "flex";
+        togglePermsBtn.dataset.expanded = String(!isVisible);
+        // scroll to the bottom of the appWrapper to ensure the permissions are visible
+        if (!isVisible) {
+          setTimeout(() => {
+            appWrapper.scrollIntoView({ behavior: "smooth", block: "end" });
+          }, 100);
+        }
+        applyAppRowTheme(row, label, iconWrapper, deleteBtn, togglePermsBtn, appSaveBtn, null, null, permsContainer);
+      });
+
+      permsContainer.appendChild(appSaveBtn);
+      right.appendChild(togglePermsBtn);
+      appWrapper.appendChild(permsContainer);
+    }
+
+    return appWrapper;
   }
 
   root.addEventListener("styleapplied", syncAppRowsTheme);

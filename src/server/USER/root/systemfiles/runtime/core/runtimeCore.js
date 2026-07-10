@@ -747,3 +747,18 @@ window.protectedGlobals.isProtectedAppGlobalName = function isProtectedAppGlobal
 window.protectedGlobals.writeStatus = function writeStatus() {
   window.protectedGlobals.WriteFile('/systemfiles/userprofile/statusData.json', JSON.stringify(window.protectedGlobals.statusData), { text: true });
 };
+
+
+  // Load app permissions
+  window.protectedGlobals.appPerms = {};
+  (async () => {
+    try {
+      const appPermsFile = await window.protectedGlobals.ReadFile('/systemfiles/userprofile/appPermissions.json', { text: true, direct: true }).catch(() => null);
+      if (appPermsFile) {
+        window.protectedGlobals.appPerms = JSON.parse(appPermsFile) || {};
+      }
+    } catch (e) {
+      console.log("Could not load app permissions:", e);
+      window.protectedGlobals.appPerms = {};
+    }
+  })();

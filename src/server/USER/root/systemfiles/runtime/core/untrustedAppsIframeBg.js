@@ -1,6 +1,193 @@
 'use strict';
 
 (() => {
+async function showAppPermissionPrompt(appName, permissionType) {
+    return new Promise((resolve) => {
+
+        const saveChoice = (allowed, remember) => {
+            if (remember) {
+                if (!window.protectedGlobals.appPerms[appName]) {
+                    window.protectedGlobals.appPerms[appName] = {};
+                }
+
+                window.protectedGlobals.appPerms[appName][permissionType] = String(allowed);
+
+                window.protectedGlobals.WriteFile(
+                    "/systemfiles/userprofile/appPermissions.json",
+                    JSON.stringify(window.protectedGlobals.appPerms),
+                    { text: true }
+                );
+            }
+
+            overlay.remove();
+            window.removeEventListener("keydown", escListener);
+            resolve(allowed);
+        };
+
+        // Backdrop
+        const overlay = document.createElement("div");
+        overlay.style.cssText = `
+            position:fixed;
+            inset:0;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            background:rgba(0,0,0,.45);
+            backdrop-filter:blur(6px);
+            z-index:100003;
+            animation:fadeIn .15s ease;
+        `;
+
+        // Dialog
+        const dialog = document.createElement("div");
+        dialog.style.cssText = `
+            width:420px;
+            max-width:90vw;
+            background:#fff;
+            border-radius:16px;
+            box-shadow:0 20px 60px rgba(0,0,0,.35);
+            padding:28px;
+            font-family:system-ui,sans-serif;
+            animation:popup .18s ease;
+        `;
+
+        // App Icon
+        const icon = document.createElement("div");
+        icon.textContent = `"${appName}" says:`;
+        icon.style.cssText = `
+            font-size:42px;
+            text-align:center;
+            margin-bottom:14px;
+            color:black;
+        `;
+
+        // Title
+        const title = document.createElement("h2");
+        title.textContent = "Permission Request";
+        title.style.cssText = `
+            margin:0;
+            text-align:center;
+            font-size:22px;
+            font-weight:600;
+            color:#222;
+        `;
+
+        // Description
+        const desc = document.createElement("p");
+        desc.innerHTML = `
+            <strong>${appName}</strong> wants permission to access
+            <strong>${permissionType}</strong>.
+        `;
+        desc.style.cssText = `
+            margin:18px 0;
+            color:#555;
+            line-height:1.5;
+            text-align:center;
+            font-size:15px;
+        `;
+
+        // Remember checkbox
+        const rememberRow = document.createElement("label");
+        rememberRow.style.cssText = `
+            display:flex;
+            align-items:center;
+            gap:10px;
+            cursor:pointer;
+            margin-bottom:24px;
+            user-select:none;
+            color:#444;
+        `;
+
+        const remember = document.createElement("input");
+        remember.type = "checkbox";
+
+        rememberRow.append(
+            remember,
+            document.createTextNode("Remember my choice")
+        );
+
+        // Button row
+        const buttons = document.createElement("div");
+        buttons.style.cssText = `
+            display:flex;
+            justify-content:flex-end;
+            gap:10px;
+        `;
+
+        const deny = document.createElement("button");
+        deny.textContent = "Deny";
+        deny.style.cssText = `
+            border:none;
+            padding:10px 18px;
+            border-radius:8px;
+            background:#ececec;
+            cursor:pointer;
+            font-weight:600;
+        `;
+
+        const allow = document.createElement("button");
+        allow.textContent = "Allow";
+        allow.style.cssText = `
+            border:none;
+            padding:10px 18px;
+            border-radius:8px;
+            background:#2f80ed;
+            color:white;
+            cursor:pointer;
+            font-weight:600;
+        `;
+
+        deny.onmouseenter = () => deny.style.background = "#ddd";
+        deny.onmouseleave = () => deny.style.background = "#ececec";
+
+        allow.onmouseenter = () => allow.style.background = "#1768cf";
+        allow.onmouseleave = () => allow.style.background = "#2f80ed";
+
+        deny.onclick = () => saveChoice(false, remember.checked);
+        allow.onclick = () => saveChoice(true, remember.checked);
+
+        buttons.append(deny, allow);
+
+        dialog.append(
+            icon,
+            title,
+            desc,
+            rememberRow,
+            buttons
+        );
+
+        overlay.append(dialog);
+        document.body.appendChild(overlay);
+
+        const style = document.createElement("style");
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity:0; }
+                to { opacity:1; }
+            }
+
+            @keyframes popup {
+                from {
+                    opacity:0;
+                    transform:translateY(10px) scale(.96);
+                }
+                to {
+                    opacity:1;
+                    transform:none;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        const escListener = (e) => {
+            if (e.key === "Escape") {
+                saveChoice(false, false);
+            }
+        };
+
+        window.addEventListener("keydown", escListener);
+    });
+}
     window.protectedGlobals.setIframesPointerEvents = function (none = true) {
         document.querySelectorAll("iframe").forEach((iframe) => {
             if (none) iframe.classList.add("pointer-events-none");
@@ -64,37 +251,77 @@
 
 
 
-
+    let dialogOpen = false;
+    async function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
     window.addEventListener("translatedmessage", async (e) => {
+        while (dialogOpen) {
+            await sleep(1000);
+        }
+        let appName = e.detail.appName;
+        if (e.detail.data?.alert) {
+            if (window.protectedGlobals.appPerms[appName].notification === "ask") {
+                dialogOpen = true;
+                let allow = await showAppPermissionPrompt(appName, "notification");
+                dialogOpen = false;
+                if (!allow) {
+                    return;
+                }
+            } else if (window.protectedGlobals.appPerms[appName].notification === "false") {
+                return;
+            }
+            window.protectedGlobals.notification(`"${appName}" says: ${e.detail.data.message}`);
+            return;
+        }
         let options = e.detail.data.options;
         let path = e.detail.data.path;
         let source = e.detail.source;
         if (typeof options !== "object" || options === null) options = undefined;
         let requestId = e.detail.data.requestId;
-        if (e.detail.data.readFile) {
-            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.ReadFile(path, options);
-            source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-        } else if (e.detail.data.writeFile) {
-            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
-            source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-        } else if (e.detail.data.deleteFile) {
-            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.DeleteFile(path, options);
-            source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-        } else if (e.detail.data.readFolder) {
-            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.ReadFolder(path, options);
-            source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-        } else if (e.detail.data.writeFolder) {
-            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.WriteFolder(path, options);
-            source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-        } else if (e.detail.data.deleteFolder) {
-            path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-            let result = await window.protectedGlobals.DeleteFolder(path, options);
-            source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+        async function sendResponse() {
+            if (e.detail.data.readFile) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.ReadFile(path, options);
+                source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.writeFile) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
+                source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.deleteFile) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.DeleteFile(path, options);
+                source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.readFolder) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.ReadFolder(path, options);
+                source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.writeFolder) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.WriteFolder(path, options);
+                source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.deleteFolder) {
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.DeleteFolder(path, options);
+                source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            }
+        }
+        if (!window.protectedGlobals.appPerms[appName]) {
+            window.protectedGlobals.appPerms[appName] = { storage: "ask", camera: "ask", mic: "ask", notification: "ask" };
+        }
+        if (window.protectedGlobals.appPerms[appName].storage === "true") {
+            sendResponse();
+        } else if (window.protectedGlobals.appPerms[appName].storage === "ask") {
+            dialogOpen = true;
+            let allow = await showAppPermissionPrompt(appName, "storage");
+            dialogOpen = false;
+            if (allow) {
+                sendResponse();
+            } else {
+                source.postMessage({ result: "Permission denied", from: e.detail.from, requestId: requestId }, "*");
+            }
+        } else {
+            source.postMessage({ result: "Permission denied", from: e.detail.from, requestId: requestId }, "*");
         }
     });
 })()

@@ -136,7 +136,7 @@
           if (e.source !== iframe.contentWindow) {
             return;
           }
-          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source} }));
+          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.folderName} }));
           if (e.data.setInstanceTitle) {
             instance.title = e.data.title || instance.title;
           } else if (e.data.instanceMessage) {
