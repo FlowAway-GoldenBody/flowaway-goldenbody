@@ -19,30 +19,21 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 );
             }
 
-            overlay.remove();
+            dialog.remove();
             window.removeEventListener("keydown", escListener);
             resolve(allowed);
         };
 
         // Backdrop
-        const overlay = document.createElement("div");
-        overlay.style.cssText = `
-            position:fixed;
-            inset:0;
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            background:rgba(0,0,0,.45);
-            backdrop-filter:blur(6px);
-            z-index:100003;
-            animation:fadeIn .15s ease;
-        `;
 
         // Dialog
         const dialog = document.createElement("div");
         dialog.style.cssText = `
             width:420px;
-            max-width:90vw;
+            margin-left: ${document.body.offsetWidth-476}; // width + 2 * padding
+            margin-right: 0;
+            top:0px;
+            z-index:100003;
             background:#fff;
             border-radius:16px;
             box-shadow:0 20px 60px rgba(0,0,0,.35);
@@ -50,6 +41,7 @@ async function showAppPermissionPrompt(appName, permissionType) {
             font-family:system-ui,sans-serif;
             animation:popup .18s ease;
         `;
+        dialog.style.position = "fixed";
 
         // App Icon
         const icon = document.createElement("div");
@@ -156,8 +148,7 @@ async function showAppPermissionPrompt(appName, permissionType) {
             buttons
         );
 
-        overlay.append(dialog);
-        document.body.appendChild(overlay);
+        document.body.appendChild(dialog);
 
         const style = document.createElement("style");
         style.textContent = `

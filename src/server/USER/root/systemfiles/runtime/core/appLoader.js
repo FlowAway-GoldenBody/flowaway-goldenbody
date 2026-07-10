@@ -145,6 +145,11 @@
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
+        let allowList = ""
+        if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", camera: "ask", mic: "ask", notification: "ask" };
+        window.protectedGlobals.appPerms[entryObj.id].camera === "true" ? allowList += "camera " : allowList;
+        window.protectedGlobals.appPerms[entryObj.id].mic === "true" ? allowList += "microphone" : allowList;
+        iframe.allow = allowList;
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
         let html = `<html><head><script>window.curInstanceNum = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         const blob = new Blob([html], { type: "text/html" });
@@ -162,7 +167,7 @@
           if (e.source !== iframe.contentWindow) {
             return;
           }
-          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.folderName} }));
+          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id} }));
           if (e.data.setInstanceTitle) {
             instance.title = e.data.title || instance.title;
           } else if (e.data.instanceMessage) {

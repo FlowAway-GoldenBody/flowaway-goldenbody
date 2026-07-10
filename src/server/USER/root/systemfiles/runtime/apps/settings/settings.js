@@ -985,7 +985,7 @@ window.settings = function (posX = 50, posY = 50) {
         appSaveBtn.disabled = true;
         try {
           window.protectedGlobals.appPerms = window.protectedGlobals.appPerms || {};
-          window.protectedGlobals.appPerms[appMeta.name] = { ...pendingPerms };
+          window.protectedGlobals.appPerms[appMeta.id] = { ...pendingPerms };
           await saveAppPermissions();
           appSaveBtn.textContent = "Saved!";
           setAppRowSaveButtonState(appSaveBtn, false);
