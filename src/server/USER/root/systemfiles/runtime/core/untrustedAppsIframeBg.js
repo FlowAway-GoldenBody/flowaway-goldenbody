@@ -301,7 +301,7 @@ async function showAppPermissionPrompt(appName, permissionType) {
             } 
         };
         if (!window.protectedGlobals.appPerms[appName]) {
-            window.protectedGlobals.appPerms[appName] = { storage: "ask", camera: "ask", mic: "ask", notification: "ask" };
+            window.protectedGlobals.appPerms[appName] = { storage: "ask", notification: "ask" };
         }
         if (e.detail.data.writeFolder || e.detail.data.writeFile) {
             if (window.protectedGlobals.appPerms[appName].storage === "true") {

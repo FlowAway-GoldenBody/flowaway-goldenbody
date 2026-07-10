@@ -915,9 +915,8 @@ window.settings = function (posX = 50, posY = 50) {
 
       const existingPerms = window.protectedGlobals.appPerms && window.protectedGlobals.appPerms[appMeta.name] ? window.protectedGlobals.appPerms[appMeta.name] : {};
       const pendingPerms = { ...existingPerms };
-      const permsList = ["camera", "mic", "storage", "notification"];
+      const permsList = ["storage", "notification"];
       const permToggles = {};
-
       permsList.forEach(perm => {
         const permRow = document.createElement("div");
         permRow.style.display = "flex";
@@ -990,9 +989,7 @@ window.settings = function (posX = 50, posY = 50) {
           appSaveBtn.textContent = "Saved!";
           setAppRowSaveButtonState(appSaveBtn, false);
           setTimeout(() => {
-            if (appSaveBtn.textContent === "Saved!") {
               appSaveBtn.textContent = originalText;
-            }
           }, 2000);
         } catch (err) {
           appSaveBtn.textContent = originalText;
