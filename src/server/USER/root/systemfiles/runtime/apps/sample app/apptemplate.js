@@ -6,7 +6,7 @@ window.yourApp = function (posX = 50, posY = 50) {
     posX = pos.x;
     posY = pos.y;
   }
-  var root = window.protectedGlobals.apptools.createRoot('yourApp', posX, posY);
+  var root = window.protectedGlobals.apptools.createRoot('Your App', posX, posY);
   var topbar = window.protectedGlobals.apptools.createtitlebar(root);
 
   var content = document.createElement("div");
@@ -25,7 +25,7 @@ window.yourApp = function (posX = 50, posY = 50) {
     btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
   });
 
-  window.protectedGlobals.apptools.api.trackInstance(instance, "yourApp");
+  window.protectedGlobals.apptools.api.trackInstance(instance, "Your App");
   return instance;
 };
 

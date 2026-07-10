@@ -156,7 +156,6 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   window.protectedGlobals.startMenu.style.display = "none";
   let isMaximized = false;
   let _isMinimized = false;
-  window.protectedGlobals.atTop = "textEditor";
   const root = document.createElement("div");
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();
@@ -178,8 +177,7 @@ window.textEditor = function (path, posX = 50, posY = 50) {
     fontFamily: "sans-serif",
     zIndex: 1000,
   });
-  root.classList.add("textEditor");
-  root.dataset.appId = "textEditor";
+  root.dataset.appId = "Text Editor";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   window.textEditorGlobals.goldenbodyId++;

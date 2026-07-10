@@ -64,7 +64,6 @@ window.protectedGlobals.initAppTools = function () {
     root.classList.toggle("dark", isDark);
     root.classList.toggle("light", !isDark);
     if (ctx.appId) {
-      root.classList.add(ctx.appId);
       root.dataset.appId = ctx.appId;
       root.setAttribute("data-app-id", ctx.appId);
     }

@@ -337,7 +337,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     posX = pos.x;
     posY = pos.y;
   }
-  let root = window.protectedGlobals.apptools.createRoot('packageInstaller', posX, posY);
+  let root = window.protectedGlobals.apptools.createRoot('App Installer', posX, posY);
   let topbar = window.protectedGlobals.apptools.createtitlebar(root);
 
   // Helper functions
@@ -869,9 +869,9 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
 
   let instance = window.protectedGlobals.apptools.api.createAppInstance({
     rootElement: root,
-    title: "Package Installer",
+    title: "App Installer",
     btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
   });
-  window.protectedGlobals.apptools.api.trackInstance(instance, "packageInstaller");
+  window.protectedGlobals.apptools.api.trackInstance(instance, "App Installer");
   return instance;
 };

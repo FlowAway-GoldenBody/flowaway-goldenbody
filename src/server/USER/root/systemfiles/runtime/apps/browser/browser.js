@@ -76,6 +76,7 @@ window.browser = async function (
     }
     if (!window.browserGlobals.allocateBrowserGoldenbodyId) window.protectedGlobals.notification("There's a problem with the browser app. Please restart the runtime and try again.");
     let assignedId = window.browserGlobals.allocateBrowserGoldenbodyId();
+    let scopedListenerId = "Browser" + assignedId;
     let getRoot = () => {};
     let exposedToTabs = {};
     let checkerinterval = null;
@@ -1598,14 +1599,13 @@ setTimeout(() => {
   if (posY < 0) {
     posY = 0;
   }
-  window.protectedGlobals.atTop = "browser";
   const chromeWindow = (function createChromeLikeUI() {
     // --- Create root container ---
     var root = document.createElement("div");
     getRoot = function () { return root; };
     root.__moveTabListenerAdded = false;
     root.className = "app-root app-window-root";
-    root.dataset.appId = "browser";
+    root.dataset.appId = "Browser";
     Object.assign(root.style, {
       position: "fixed",
       top: posY + "px",
@@ -1934,10 +1934,9 @@ setTimeout(() => {
       // App-specific click handler can be implemented here
       window.protectedGlobals.bringToFront(root);
     });
-    document.addEventListener("browser" + root._goldenbodyId, "click", (e) => {
+    document.addEventListener(scopedListenerId, "click", (e) => {
       // Scoped listener for browser app cleanup
     });
-    root.classList.add("browser");
     // --- Top area ---
     const top = document.createElement("div");
     top.className = "sim-chrome-top";
@@ -3094,7 +3093,7 @@ setTimeout(() => {
       // reorder tabs
     }
     window.addEventListener(
-      "browser" + root._goldenbodyId,
+      scopedListenerId,
       "message",
       function (e) {
         if (e.data.type === "FROM_IFRAME") {
@@ -3495,7 +3494,7 @@ setTimeout(() => {
         }
       };
       document.addEventListener(
-        "browser" + root._goldenbodyId,
+        scopedListenerId,
         "keyup",
         onDocumentKeyup,
       );
@@ -3508,7 +3507,7 @@ setTimeout(() => {
       return id;
     }
     window.addEventListener(
-      "browser" + root._goldenbodyId,
+      scopedListenerId,
       "keydown",
       function (e) {
         try {
@@ -4217,7 +4216,7 @@ setTimeout(() => {
       });
 
       window.addEventListener(
-        "browser" + root._goldenbodyId,
+        scopedListenerId,
         "pointermove",
         (ev) => {
           if (!dragging) return;
@@ -4248,7 +4247,7 @@ setTimeout(() => {
         },
       );
 
-      window.addEventListener("browser" + root._goldenbodyId, "pointerup", () => {
+      window.addEventListener(scopedListenerId, "pointerup", () => {
         dragging = false;
         thresholdCrossed = false;
         document.body.style.userSelect = "";

@@ -170,7 +170,7 @@ function normalizeTaskbarRevealHoldDelayMs(value) {
 function defaultProfile() {
   return {
     schemaVersion: PROFILE_SCHEMA_VERSION,
-    taskbuttons: ["browser","fileExplorer","settings","textEditor"],
+    taskbuttons: ["Browser","File Explorer","Settings","Text Editor"],
     brightness: 100,
     volume: 40,
     dark: false,
@@ -208,7 +208,7 @@ function normalizeProfile(raw) {
 function defaultStartMenuConfig() {
   return {
     version: '1.0',
-    pinnedApps: ["browser","fileExplorer","packageInstaller","textEditor","settings","yourApp"],
+    pinnedApps: ["Browser","File Explorer","Settings","Text Editor"],
     recents: [],
     maxRecents: 5,
   };

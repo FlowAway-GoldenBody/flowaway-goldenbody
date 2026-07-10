@@ -17,7 +17,6 @@ window.settings = function (posX = 50, posY = 50) {
   }
   let isMaximized = false;
   let _isMinimized = false;
-  window.protectedGlobals.atTop = "settings";
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
@@ -34,8 +33,7 @@ window.settings = function (posX = 50, posY = 50) {
     fontFamily: "sans-serif",
     zIndex: 1000,
   });
-  root.classList.add("settings");
-  root.dataset.appId = "settings";
+  root.dataset.appId = "Settings";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   window.settingsGlobals.goldenbodyId++;

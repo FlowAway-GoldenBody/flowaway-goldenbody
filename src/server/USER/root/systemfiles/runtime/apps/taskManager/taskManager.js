@@ -15,9 +15,6 @@ window.taskManager = function (posX = 50, posY = 50) {
   let selectedRowKey = "";
   let latestRows = [];
 
-  try {
-    window.protectedGlobals.atTop = "taskManager";
-  } catch (e) {}
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();
     posX = pos.x;
@@ -39,8 +36,7 @@ window.taskManager = function (posX = 50, posY = 50) {
     fontFamily: "sans-serif",
     zIndex: 1000,
   });
-  root.classList.add("taskManager");
-  root.dataset.appId = "taskManager";
+  root.dataset.appId = "Task Manager";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
 
@@ -184,7 +180,8 @@ window.taskManager = function (posX = 50, posY = 50) {
 
   function clearAutoRefresh() {
     if (autoRefreshTimer) {
-      autoRefreshTimer = false;
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
     }
   }
 
@@ -1344,11 +1341,8 @@ window.taskManager = function (posX = 50, posY = 50) {
       return;
     }
 
-    autoRefreshTimer = true;
-    setTimeout(() => {
+    autoRefreshTimer = setInterval(() => {
       refreshSnapshot(false);
-      if (autoRefreshTimer)
-      setTimeout(refreshSnapshot, 1000 * window.protectedGlobals.timerSpeed);
     }, sec * 1000);
     setStatus("Auto-refresh every " + sec + "s enabled.");
   }

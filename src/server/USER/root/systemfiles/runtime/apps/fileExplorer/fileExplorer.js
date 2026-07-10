@@ -19,7 +19,6 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   let _isMinimized = false;
   let disposed = false;
   let autoRefreshTimer = null;
-  window.protectedGlobals.atTop = "fileExplorer";
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
@@ -36,8 +35,7 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
     fontFamily: "sans-serif",
     zIndex: 1000,
   });
-  root.classList.add("fileExplorer");
-  root.dataset.appId = "fileExplorer";
+  root.dataset.appId = "File Explorer";
   window.protectedGlobals.bringToFront(root);
   document.body.appendChild(root);
   window.explorerGlobals.goldenbodyId++;

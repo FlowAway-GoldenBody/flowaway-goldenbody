@@ -143,7 +143,7 @@ async function iframePatches() {
       e.ctrlKey &&
       e.shiftKey &&
       e.key === "W" &&
-      window.protectedGlobals.atTop == "browser"
+      window.protectedGlobals.atTop == "Browser"
     ) {
       let allIds = [];
       for (let i = 0; i < window.browserGlobals.allBrowsers.length; i++) {

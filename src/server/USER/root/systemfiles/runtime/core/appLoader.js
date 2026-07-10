@@ -198,7 +198,7 @@
           origClose();
           appObj.allIframe.splice(appObj.allIframe.indexOf(iframe), 1);
         };
-        window.protectedGlobals.apptools.api.trackInstance(instance, entryObj.functionName);
+        window.protectedGlobals.apptools.api.trackInstance(instance, entryObj.id);
         return instance;
       }
     }
