@@ -86,6 +86,15 @@ window.__goldenbodyAPI = {
         });
     },
 
+    writeFileSuper: async (path, content, options) => {
+        let requestId = createRequestId();
+        window.parent.postMessage({writeFileSuper: true, path, content, options, requestId, key: window.__fileHandleKey__}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },    
+    
     writeFolder: async (path, content, options) => {
         let requestId = createRequestId();
         window.parent.postMessage({writeFolder: true, path, options, requestId}, '*');
@@ -131,7 +140,11 @@ window.__goldenbodyAPI = {
     },
 
     getCurInstanceNum: () => {
-        return window.curInstanceNum || null;
+        return window.__curInstanceNum__ || null;
+    },
+
+    getUserSelectedFile: () => {
+        return { file: window.__userSelectedFile__, path: window.__path__ };
     },
 
     getLiveInstanceIndex: async () => {

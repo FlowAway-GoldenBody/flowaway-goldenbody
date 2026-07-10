@@ -129,12 +129,18 @@
       let entryObj = getEntryObj();
       let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.jsFile, { text: true, direct: true });
       let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
-      window[entryObj.functionName] = function (path, posX = 50, posY = 50) {
+      window[entryObj.functionName] = async function (path, posX = 50, posY = 50) {
         entryObj = getPkg();
         if (posX == 50 && posY == 50) {
           let pos = window.protectedGlobals.getNextWindowXY();
           posX = pos.x;
           posY = pos.y;
+        }
+        let filecontent;
+        let filehandlekey = "invalid key";
+        if (path) {
+          filecontent = await window.protectedGlobals.ReadFile(path, { direct: true });
+          filehandlekey = crypto.randomUUID();
         }
         var root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
         var topbar = window.protectedGlobals.apptools.createtitlebar(root);
@@ -147,7 +153,7 @@
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
-        let html = `<html><head><script>window.curInstanceNum = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        let html = `<html><head><script>window.__path__ = "${path}";window.__curInstanceNum__ = ${instanceNum};window.__userSelectedFile__ = "${filecontent}";window.__fileHandleKey__ = "${filehandlekey}";window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         const blob = new Blob([html], { type: "text/html" });
         iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";
@@ -161,6 +167,12 @@
         root.appendChild(iframe);
         window.addEventListener(appObj.id + root.goldenbodyId, 'message', (e) => {
           if (e.source !== iframe.contentWindow) {
+            return;
+          }
+          if ((e.data.key === filehandlekey) && filehandlekey !== "invalid key") {
+            let result = 0;
+            window.protectedGlobals.WriteFile(path, e.data.content, e.data.options);
+            e.source.postMessage({ writeFileResult: true, result: result, from: appObj.folderName, requestId: e.data.requestId }, "*");
             return;
           }
           window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id} }));

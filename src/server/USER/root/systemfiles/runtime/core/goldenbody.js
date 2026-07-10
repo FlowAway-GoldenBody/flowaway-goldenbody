@@ -985,7 +985,8 @@
   function enableAutohide() {
     if (autohideActive) return;
     autohideEnabled = true;
-    hideTaskbar();
+    setTimeout(() => hideTaskbar(), 2000);
+    
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.height === `calc(100% - 60px)`) {
       root.style.height = '100%';
