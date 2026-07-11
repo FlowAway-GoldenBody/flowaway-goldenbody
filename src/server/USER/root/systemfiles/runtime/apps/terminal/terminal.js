@@ -831,13 +831,6 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     return String(await window.protectedGlobals.ReadFile(relPath, { text: true, direct: true }) || "");
   }
 
-  function utf8ToBase64(text) {
-    try {
-      return btoa(unescape(encodeURIComponent(String(text || ""))));
-    } catch (e) {
-      return btoa(String(text || ""));
-    }
-  }
 
   function ensureServerResultOk(response) {
     if (!response) {
@@ -909,7 +902,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     const response = await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
-        { edit: true, contents: utf8ToBase64(text), path: relPath, replace: true },
+        { edit: true, contents: text, path: relPath, replace: true },
         { end: true },
       ],
     });

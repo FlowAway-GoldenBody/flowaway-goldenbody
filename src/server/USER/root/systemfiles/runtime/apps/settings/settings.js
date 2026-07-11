@@ -643,6 +643,21 @@ window.settings = function (posX = 50, posY = 50) {
     const entryPath = `${appPath}/entry.json`;
     const meta = { folderName: appFolderName, name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName, requestAdminPerm: false, id: appFolderName };
     let entryText = null;
+    function iconDataToBase64(raw) {
+      if (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw)) {
+        const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+        const chunkSize = 0x8000;
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
+      }
+      if (typeof raw === "string") {
+        return raw.trim();
+      }
+      return null;
+    }
     try {
       entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
     } catch (e) {
@@ -665,9 +680,11 @@ window.settings = function (posX = 50, posY = 50) {
             const iconPath = `${appPath}/${iconFile}`;
             try {
               if (data.pngEnabled) {
-                const raw = await window.protectedGlobals.ReadFile(iconPath, { direct: true });
-                if (raw) {
-                  meta.icon = `data:image/png;base64,${String(raw).trim()}`;
+                const raw = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
+                debugger;
+                const iconString = iconDataToBase64(raw);
+                if (iconString) {
+                  meta.icon = iconString;
                   meta.iconType = "img";
                 }
               } else if (data.svgEnabled) {
@@ -677,9 +694,10 @@ window.settings = function (posX = 50, posY = 50) {
                   meta.iconType = "svg";
                 }
               } else if (data.nonTextIcon) {
-                const raw = await window.protectedGlobals.ReadFile(iconPath, { direct: true });
-                if (raw) {
-                  meta.icon = String(raw).trim();
+                const raw = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
+                const iconString = iconDataToBase64(raw);
+                if (iconString) {
+                  meta.icon = iconString;
                   meta.iconType = iconFile.toLowerCase().endsWith(".png") ? "img" : iconFile.toLowerCase().endsWith(".svg") ? "svg" : "text";
                 }
               } else {
@@ -797,7 +815,7 @@ window.settings = function (posX = 50, posY = 50) {
 
     if (appMeta.iconType === "img" && appMeta.icon) {
       const img = document.createElement("img");
-      img.src = appMeta.icon;
+      img.src = `data:image/png;base64,${appMeta.icon}`;
       img.style.maxWidth = "100%";
       img.style.maxHeight = "100%";
       img.style.display = "block";

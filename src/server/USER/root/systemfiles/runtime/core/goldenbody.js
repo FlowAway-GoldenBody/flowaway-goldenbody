@@ -1,9 +1,10 @@
 "use strict";
 (async function () {
-  let fullScreenLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-light.png", { direct: true });
-  let fullScreenDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-dark.png", { direct: true });
-  let startMenuLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-light.png", { direct: true });
-  let startMenuDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-dark.png", { direct: true });
+  let iconDataToBase64 = window.protectedGlobals.iconDataToBase64;
+  let fullScreenLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-light.png", { buffer: true, direct: true }).then(res => res = iconDataToBase64(res));
+  let fullScreenDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/fullScreen-dark.png", { buffer: true, direct: true }).then(res => res = iconDataToBase64(res));
+  let startMenuLightImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-light.png", { buffer: true, direct: true }).then(res => res = iconDataToBase64(res));
+  let startMenuDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-dark.png", { buffer: true, direct: true }).then(res => res = iconDataToBase64(res));
   let refreshBatteryInfo = () => {
     window.protectedGlobals.updateBattery();
     window.protectedGlobals.statusData.batteryLevel = window.protectedGlobals.batteryLevel || NaN;

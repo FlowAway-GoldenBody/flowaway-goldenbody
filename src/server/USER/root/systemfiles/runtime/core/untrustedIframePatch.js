@@ -1,6 +1,5 @@
 "use strict";
 // disable all apis that can be used to exit fullscreen
-window.__hiddengoldenbodyAPI = {};
 window.lockAPI = (api, parent) => {
     Object.defineProperty(parent, api, {
         get: function () {
@@ -34,13 +33,13 @@ Object.defineProperty(window.HTMLInputElement.prototype, 'type', {
     set: (val) => {if (val == 'file') return new Error("Access to file input is Banned.");},
     configurable: false
 });
-const createRequestId = () => {
-    if (typeof window.__goldenbodyRequestCounter !== "number") {
-        window.__goldenbodyRequestCounter = 0;
-    }
-    window.__goldenbodyRequestCounter += 1;
-    return window.__goldenbodyRequestCounter;
-};
+let createRequestId;
+(function () {
+    let __goldenbodyRequestCounter = 0;
+    createRequestId = () => {
+        return ++__goldenbodyRequestCounter;
+    };
+})();
 
 const createRequestMessageHandler = (requestId, resolve, reject) => {
     return function handleMessage(event) {

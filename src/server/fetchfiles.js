@@ -139,6 +139,47 @@ async function writeEditPayload(filePath, buffer, { replace = true } = {}) {
   }
 }
 
+async function getDirSizeBytes(dir) {
+  let total = 0;
+  try {
+    const entries = await fsp.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name && entry.name.startsWith('.temp')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        total += await getDirSizeBytes(full);
+      } else if (entry.isFile()) {
+        try {
+          const s = await fsp.stat(full);
+          total += s.size || 0;
+        } catch (e) {
+          // ignore stat errors for individual files
+        }
+      }
+    }
+  } catch (e) {
+    // dir may not exist yet
+  }
+  return total;
+}
+
+async function getUserQuotaBytes(rootPath) {
+  try {
+    const userDir = path.dirname(rootPath);
+    const uname = path.basename(userDir);
+    const authPath = path.join(userDir, `${uname}.txt`);
+    const authTxt = await fsp.readFile(authPath, 'utf8');
+    const authObj = JSON.parse(authTxt);
+    const maxSpaceGb = Number(authObj && authObj.maxSpace);
+    if (Number.isFinite(maxSpaceGb) && maxSpaceGb > 0) {
+      return maxSpaceGb * 1024 * 1024 * 1024;
+    }
+  } catch (e) {
+    // ignore and fall through to default
+  }
+  return DEFAULT_QUOTA_BYTES;
+}
+
 function getPermissionForRelativePath(relPath, permissionEntries) {
   const normalizedRel = normalizeUserRelativePath(relPath);
   const normalizedTarget = normalizePermissionPath(normalizedRel ? `/${normalizedRel}` : '/');
@@ -185,14 +226,10 @@ async function buildUserFileTree(rootPath) {
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      // stat both files and directories so we can attach modification times
       const stats = await fsp.stat(fullPath);
       if (entry.isDirectory()) {
         nodes.push([entry.name, await walk(fullPath), { mtime: stats.mtimeMs, mtimeMs: stats.mtimeMs }]);
       } else {
-        // READ FILE AS BUFFER
-        // const buffer = await fsp.readFile(fullPath);
-
         nodes.push([
           entry.name,
           null,
@@ -200,7 +237,6 @@ async function buildUserFileTree(rootPath) {
             size: stats.size,
             mtime: stats.mtimeMs,
             mtimeMs: stats.mtimeMs,
-            // content: buffer.toString('base64'), // ✅ base64 content
           }
         ]);
       }
@@ -214,6 +250,88 @@ async function buildUserFileTree(rootPath) {
   return ['root', await walk(rootPath), rootMeta];
 }
 
+async function readFileChunk(fullPath, start, end) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    const stream = fs.createReadStream(fullPath, { start, end: end - 1 });
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+}
+
+async function getRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return Buffer.concat(chunks);
+}
+
+async function handleRawFileUpload(req, res) {
+  const headers = req.headers || {};
+  const username = String(headers['x-username'] || '').trim();
+  const password = String(headers['x-password'] || '').trim();
+  const authHeader = headers.authorization || headers.Authorization || '';
+  const relPath = String(headers['x-file-path'] || '').trim();
+
+  if (!username || !relPath) {
+    res.writeHead(400);
+    return res.end(JSON.stringify({ error: 'Missing username or file path' }));
+  }
+
+  if (!(await authenticateUser(username, password, authHeader))) {
+    res.writeHead(401);
+    return res.end(JSON.stringify({ error: 'unauthorized' }));
+  }
+
+  const normalizedPath = normalizeUserRelativePath(relPath);
+  if (!normalizedPath) {
+    res.writeHead(400);
+    return res.end(JSON.stringify({ error: 'Invalid file path' }));
+  }
+
+  const authFilePath = path.join(directoryPath, username, `${username}.txt`);
+  let userPathPermissions = [];
+  try {
+    const authContent = await fsp.readFile(authFilePath, 'utf8');
+    const authObj = JSON.parse(authContent);
+    userPathPermissions = normalizePermissionEntries(authObj && authObj.pathPermissions);
+  } catch (e) {
+    userPathPermissions = [];
+  }
+
+  const permission = getPermissionForRelativePath(normalizedPath, userPathPermissions);
+  if (!permission.write) {
+    res.writeHead(403);
+    return res.end(JSON.stringify({ error: 'write permission denied', path: `/${normalizedPath}` }));
+  }
+
+  const replace = String(headers['x-file-replace'] || 'true') !== 'false';
+  const userRoot = path.join(directoryPath, username, 'root');
+  await fsp.mkdir(userRoot, { recursive: true });
+  const filePath = path.join(userRoot, normalizedPath);
+  const rawBody = await getRawBody(req);
+
+  let oldSize = 0;
+  try {
+    const st = await fsp.stat(filePath);
+    if (st.isFile()) oldSize = st.size;
+  } catch (e) {
+    oldSize = 0;
+  }
+
+  const currentUsed = await getDirSizeBytes(userRoot);
+  const quota = await getUserQuotaBytes(userRoot);
+  const delta = replace ? rawBody.length - oldSize : rawBody.length;
+  if (delta > 0 && currentUsed + delta > quota) {
+    res.writeHead(403);
+    return res.end(JSON.stringify({ error: `Storage quota exceeded: cannot write ${normalizedPath}` }));
+  }
+
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  await fsp.writeFile(filePath, rawBody, { flag: replace ? 'w' : 'a' });
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  return res.end(JSON.stringify({ success: true }));
+}
 
 
 // ─────────────────────────────
@@ -223,7 +341,7 @@ async function buildUserFileTree(rootPath) {
 async function handleFetchfiles(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Username, X-File-Path, X-File-Replace, X-File-Action');
   res.setHeader('Access-Control-Expose-Headers', 'X-File-Size,X-Chunk-Index,X-Is-Last-Chunk,X-Total-Chunks');
   // safe response helpers (prevent double-write/write-after-end)
   const safeWriteHead = (code, headers) => {
@@ -277,67 +395,8 @@ async function handleFetchfiles(req, res) {
   }
   // Support simple streaming download endpoint for large files.
   // console.log('fetchfiles request', req.method, req.url);
-  if (req.method === 'GET' && req.url && req.url.startsWith('/download')) {
-    try {
-      const { URL } = require('url');
-      const full = new URL(req.url, `http://${req.headers.host}`);
-      const username = full.searchParams.get('username');
-      const pwd = full.searchParams.get('password');
-      const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
-      const rel = full.searchParams.get('path');
-      if (!username || !rel) {
-        res.writeHead(400);
-        return res.end('missing username or path');
-      }
-      // authenticate download request
-      if (!(await authenticateUser(username, pwd, authHeader))) {
-        res.writeHead(401);
-        return res.end('unauthorized');
-      }
-      let userPathPermissions = [];
-      try {
-        const authFilePath = path.join(directoryPath, username, `${username}.txt`);
-        const authContent = await fsp.readFile(authFilePath, 'utf8');
-        const authObj = JSON.parse(authContent);
-        userPathPermissions = normalizePermissionEntries(authObj && authObj.pathPermissions);
-      } catch (e) {
-        userPathPermissions = [];
-      }
-      const normalizedDownloadPath = normalizeUserRelativePath(rel);
-      if (!normalizedDownloadPath) {
-        res.writeHead(400);
-        return res.end('invalid path');
-      }
-      const downloadPerm = getPermissionForRelativePath(normalizedDownloadPath, userPathPermissions);
-      if (!downloadPerm.read) {
-        res.writeHead(403);
-        return res.end('read permission denied');
-      }
-      const userRoot = path.join(directoryPath, username, 'root');
-      const abs = path.join(userRoot, normalizedDownloadPath);
-      if (!fs.existsSync(abs)) {
-        res.writeHead(404);
-        return res.end('not found');
-      }
-      const stat = await fsp.stat(abs);
-      if (stat.isDirectory()) {
-        res.writeHead(400);
-        return res.end('path is a directory');
-      }
-  res.setHeader('Content-Length', stat.size);
-  res.setHeader('Content-Disposition', `attachment; filename="${path.basename(abs)}"`);
-      const stream = fs.createReadStream(abs);
-      stream.pipe(res);
-      stream.on('error', (e) => {
-        console.error('stream error', e);
-        res.destroy();
-      });
-      return;
-    } catch (e) {
-      console.error('download error', e);
-      res.writeHead(500);
-      return res.end('server error');
-    }
+  if (req.method === 'POST' && req.headers['content-type'] && req.headers['content-type'].startsWith('application/octet-stream') && req.headers['x-file-action'] === 'write') {
+    return handleRawFileUpload(req, res);
   }
 
   if (req.method !== 'POST') {
@@ -400,110 +459,76 @@ async function handleFetchfiles(req, res) {
 
 
       // 2️⃣ REQUEST FILE (supports chunked download for large files)
-if (data.requestFile) {
-  const normalizedRequestPath = normalizeUserRelativePath(data.requestFileName);
-  const jsonResponse = (payload, status = 200) => {
-    res.setHeader('Content-Type', 'application/json');
-    if (status && status !== 200) res.writeHead(status);
-    return res.end(JSON.stringify(payload));
-  };
+    if (data.requestFile) {
+      const normalizedRequestPath = normalizeUserRelativePath(data.requestFileName);
+      const jsonResponse = (payload, status = 200) => {
+        res.setHeader('Content-Type', 'application/json');
+        if (status && status !== 200) res.writeHead(status);
+        return res.end(JSON.stringify(payload));
+      };
 
-  if (!normalizedRequestPath) {
-    return jsonResponse({ error: 'Invalid file path' });
-  }
+      if (!normalizedRequestPath) {
+        return jsonResponse({ error: 'Invalid file path' }, 400);
+      }
 
-  const permission = getPermissionForRelativePath(normalizedRequestPath, userPathPermissions);
-  if (!permission.read) {
-    return jsonResponse({ error: 'read permission denied', path: `/${normalizedRequestPath}` }, 403);
-  }
+      const permission = getPermissionForRelativePath(normalizedRequestPath, userPathPermissions);
+      if (!permission.read) {
+        return jsonResponse({ error: 'read permission denied', path: `/${normalizedRequestPath}` }, 403);
+      }
 
-  const fullPath = path.join(userRoot, normalizedRequestPath);
-  const relativeToRoot = path.relative(userRoot, fullPath);
-  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
-    return jsonResponse({ error: 'Invalid file path' });
-  }
-  let stat;
-  try {
-    stat = await fsp.stat(fullPath);
-  } catch (e) {
-    if (e && e.code === 'ENOENT') {
-      return jsonResponse({
-        missing: true,
-        code: 'ENOENT',
-        kind: 'missing',
-        requestFileName: data.requestFileName
-      });
-    }
-    throw e;
-  }
-  
-  if (stat.isFile()) {
-    const fileSize = stat.size;
-    const chunkSize = 10 * 1024 * 1024; // 10MB chunks
-    const chunkIndex = typeof data.chunkIndex === 'number' ? data.chunkIndex : 0;
-    const start = chunkIndex * chunkSize;
-    const end = Math.min(start + chunkSize, fileSize);
-    const isLastChunk = end >= fileSize;
-    
-    // If the client requested raw transfer for buffer/text, send raw bytes directly.
-    if (data.buffer || data.text) {
-      const streamBuffer = fileSize <= chunkSize
-        ? await fsp.readFile(fullPath)
-        : await (async function readChunkStream(fp, s, e) {
-          return new Promise((resolve, reject) => {
-            const parts = [];
-            const rs = fs.createReadStream(fp, { start: s, end: e - 1 });
-            rs.on('data', (c) => parts.push(c));
-            rs.on('end', () => resolve(Buffer.concat(parts)));
-            rs.on('error', (err) => reject(err));
-          });
-        })(fullPath, start, end);
+      const fullPath = path.join(userRoot, normalizedRequestPath);
+      const relativeToRoot = path.relative(userRoot, fullPath);
+      if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+        return jsonResponse({ error: 'Invalid file path' }, 400);
+      }
 
+      let stat;
+      try {
+        stat = await fsp.stat(fullPath);
+      } catch (e) {
+        if (e && e.code === 'ENOENT') {
+          return jsonResponse({
+            missing: true,
+            code: 'ENOENT',
+            kind: 'missing',
+            requestFileName: data.requestFileName
+          }, 404);
+        }
+        throw e;
+      }
+
+      if (stat.isDirectory()) {
+        const files = await walkDir(fullPath);
+        return jsonResponse({ kind: 'folder', files });
+      }
+
+      if (!stat.isFile()) {
+        return jsonResponse({ error: 'Unsupported path type' }, 400);
+      }
+
+      const fileSize = stat.size;
+      const chunkSize = 10 * 1024 * 1024; // 10MB chunks
+      const chunkIndex = typeof data.chunkIndex === 'number' ? data.chunkIndex : 0;
+      const start = chunkIndex * chunkSize;
+      const end = Math.min(start + chunkSize, fileSize);
+      const isLastChunk = end >= fileSize;
+
+      if (!data.buffer && !data.text) {
+        return jsonResponse({ error: 'Base64 transport is no longer supported. Use buffer or text transfer.' }, 400);
+      }
+
+      if (start >= fileSize) {
+        return jsonResponse({ error: 'chunkIndex out of range' }, 400);
+      }
+
+      const chunkBuffer = await readFileChunk(fullPath, start, end);
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('X-File-Size', String(fileSize));
       res.setHeader('X-Chunk-Index', String(chunkIndex));
       res.setHeader('X-Is-Last-Chunk', isLastChunk ? '1' : '0');
       res.setHeader('X-Total-Chunks', String(Math.ceil(fileSize / chunkSize)));
-      return res.end(streamBuffer);
+      return res.end(chunkBuffer);
     }
-
-    // For small files, send whole file as base64
-    if (fileSize <= chunkSize) {
-      const buffer = await fsp.readFile(fullPath);
-      const filecontent = buffer.toString('base64');
-      return res.end(JSON.stringify({ filecontent, fileSize, isLastChunk: true }));
-    }
-    
-    // For large files, stream only the requested chunk (avoids loading whole file)
-    async function readChunkStream(fp, s, e) {
-      return new Promise((resolve, reject) => {
-        const parts = [];
-        const rs = fs.createReadStream(fp, { start: s, end: e - 1 });
-        rs.on('data', (c) => parts.push(c));
-        rs.on('end', () => resolve(Buffer.concat(parts)));
-        rs.on('error', (err) => reject(err));
-      });
-    }
-
-    const chunkBuffer = await readChunkStream(fullPath, start, end);
-    const chunkBase64 = chunkBuffer.toString('base64');
-    return res.end(JSON.stringify({
-      filecontent: chunkBase64,
-      fileSize,
-      chunkIndex,
-      isLastChunk,
-      totalChunks: Math.ceil(fileSize / chunkSize)
-    }));
-  }
-
-  if (stat.isDirectory()) {
-    const files = await walkDir(fullPath);
-    return res.end(JSON.stringify({
-      kind: 'folder',
-      files: files
-    }));
-  }
-}
 
 if (data.requestFolder) {
   const normalizedRequestPath = normalizeUserRelativePath(data.requestFolderName);
@@ -639,48 +664,6 @@ async function applyDirections(rootPath, directions, username, userPathPermissio
   }
 
   // Helper: compute total size (bytes) of a directory recursively
-  async function getDirSizeBytes(dir) {
-    let total = 0;
-    try {
-      const entries = await fsp.readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        // Skip temporary copy folders used during paste operations
-        if (entry.name && entry.name.startsWith('.temp')) continue;
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          total += await getDirSizeBytes(full);
-        } else if (entry.isFile()) {
-          try {
-            const s = await fsp.stat(full);
-            total += s.size || 0;
-          } catch (e) {
-            // ignore stat errors for individual files
-          }
-        }
-      }
-    } catch (e) {
-      // dir may not exist yet
-    }
-    return total;
-  }
-
-  // Helper: read a user's maxSpace (GB) from zmcd auth file and return bytes
-  async function getUserQuotaBytes(rootPath) {
-    try {
-      const userDir = path.dirname(rootPath); // .../username
-      const uname = path.basename(userDir);
-      const authPath = path.join(userDir, `${uname}.txt`);
-      const authTxt = await fsp.readFile(authPath, 'utf8');
-      const authObj = JSON.parse(authTxt);
-      const maxSpaceGb = Number(authObj && authObj.maxSpace);
-      if (Number.isFinite(maxSpaceGb) && maxSpaceGb > 0) {
-        return maxSpaceGb * 1024 * 1024 * 1024;
-      }
-    } catch (e) {
-      // ignore and fall through to default
-    }
-    return DEFAULT_QUOTA_BYTES;
-  }
   // Prepare per-user temp directory for chunked uploads
   const userDir = path.dirname(rootPath); // .../username
   const userTempDir = path.join(userDir, '.uploads_temp');
@@ -1213,36 +1196,6 @@ if (dir.deleteFolder) {
   // return any collected results (e.g., checkParts)
   return result;
 }
-function copyRecursive(src, dest) {
-    fs.copy(src, dest)
-}
-
-function getNode(node, pathParts) {
-  let current = node;
-  for (const part of pathParts) {
-    if (!current[1]) return null;
-    current = current[1].find(n => n[0] === part);
-    if (!current) return null;
-  }
-  return current;
-}
-function removeNodeFromTree(node, pathParts) {
-  if (!node[1]) return false;
-  const [target, ...rest] = pathParts;
-
-  for (let i = 0; i < node[1].length; i++) {
-    const child = node[1][i];
-    if (child[0] === target) {
-      if (rest.length === 0) {
-        node[1].splice(i, 1);
-        return true;
-      } else {
-        return removeNodeFromTree(child, rest);
-      }
-    }
-  }
-  return false;
-}
 if (data.unzip) {
   try {
     const zipRelPath = normalizeUserRelativePath(data.path);
@@ -1362,7 +1315,6 @@ if (data.action === 'saveStartMenuConfig' && data.configJson) {
       console.warn('Unknown action in directions:', dir);
       res.writeHead(400);
       res.end(JSON.stringify({ error: 'Unknown action' }));
-
     } catch (err) {
       console.error(err);
         if (res.headersSent) {

@@ -21,38 +21,13 @@
         async function fetchFileContent(username, fileFullPath) {
           if (!fileFullPath) throw new Error("No file path provided");
 
-          const data = await window.protectedGlobals.filePost({
-            requestFile: true,
-            requestFileName: fileFullPath,
-            username,
-          });
-
-          if (data.kind === "folder") {
-            throw new Error(
-              `Expected a file but got a folder at ${fileFullPath}`,
-            );
+          const data = await window.protectedGlobals.ReadFile(fileFullPath, { buffer: true, direct: true });
+          if (data === undefined || data === null) {
+            throw new Error(`Expected a file but got no data at ${fileFullPath}`);
           }
-
-          // For large files, fetch all chunks and combine directly as ArrayBuffer
-          if (data.totalChunks && data.totalChunks > 1) {
-            // Return chunk metadata and first-chunk payload (base64) to caller so
-            // caller can stream chunks instead of allocating a single huge buffer.
-            return data; // { filecontent, fileSize, totalChunks }
-          }
-
-          // For small files, still return base64 from single request
-          return data.filecontent;
+          return data;
         }
 
-        function base64ToArrayBuffer(base64) {
-          const binaryString = atob(base64);
-          const len = binaryString.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return bytes.buffer;
-        }
         function getMimeType(filename) {
           const ext = filename.split(".").pop().toLowerCase();
 
@@ -140,21 +115,10 @@
           currentPath.splice(0, 1);
           const fullPath =
             node[2].path || currentPath.join("/") + "/" + node[0];
-          const result = await fetchFileContent(username, fullPath);
-
-          // If server returned chunk metadata for a large file, stream chunks
-          const isChunked =
-            result &&
-            typeof result === "object" &&
-            result.totalChunks &&
-            result.totalChunks > 1;
-          // Handle both base64 strings and ArrayBuffers (small-file fast path)
-          const buffer =
-            !isChunked && typeof result === "string"
-              ? base64ToArrayBuffer(result)
-              : !isChunked
-                ? result
-                : null;
+          const buffer = await fetchFileContent(username, fullPath);
+          if (buffer == null) {
+            throw new Error(`Unable to read file ${fullPath}`);
+          }
           const type = getMimeType(node[0]);
           // Compute a webkitRelativePath-like relative path for the file so the
           // injector can reconstruct directory structure (remove picker base)
@@ -171,34 +135,21 @@
           const webkitRelativePath = relParts.join("/") || node[0];
 
           // Send in chunks if large to avoid postMessage size limits
-          // Use larger chunks to reduce number of messages, add delays between sends
-          const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message (reduced from 100MB)
-          if (isChunked) {
-            const CHUNK_SIZE = 10 * 1024 * 1024; // server chunk size
-            const totalChunks = result.totalChunks;
-
+          const MAX_MESSAGE_SIZE = 50 * 1024 * 1024; // 50MB per message
+          if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
+            const chunkSize = MAX_MESSAGE_SIZE;
+            const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
             for (let i = 0; i < totalChunks; i++) {
-              // obtain chunk: first chunk provided inline as base64, others fetched
-              let chunkBuf;
-              if (i === 0) {
-                chunkBuf = base64ToArrayBuffer(result.filecontent);
-              } else {
-                const chunkData = await window.protectedGlobals.filePost({
-                  requestFile: true,
-                  requestFileName: fullPath,
-                  chunkIndex: i,
-                  username,
-                });
-                chunkBuf = base64ToArrayBuffer(chunkData.filecontent);
-              }
-
+              const start = i * chunkSize;
+              const end = Math.min(start + chunkSize, buffer.byteLength);
+              const chunk = buffer.slice(start, end);
               await new Promise((resolve) => {
                 deliverVfsPayload(iframe.contentWindow, {
                   __VFS__: true,
                   kind: "file",
                   name: node[0],
                   type,
-                  buffer: chunkBuf,
+                  buffer: chunk,
                   path: fullPath,
                   webkitRelativePath,
                   chunkIndex: i,
@@ -209,41 +160,16 @@
               });
             }
           } else {
-            if (buffer && buffer.byteLength > MAX_MESSAGE_SIZE) {
-              const chunkSize = MAX_MESSAGE_SIZE;
-              const totalChunks = Math.ceil(buffer.byteLength / chunkSize);
-              for (let i = 0; i < totalChunks; i++) {
-                const start = i * chunkSize;
-                const end = Math.min(start + chunkSize, buffer.byteLength);
-                const chunk = buffer.slice(start, end);
-                await new Promise((resolve) => {
-                  deliverVfsPayload(iframe.contentWindow, {
-                    __VFS__: true,
-                    kind: "file",
-                    name: node[0],
-                    type,
-                    buffer: chunk,
-                    path: fullPath,
-                    webkitRelativePath,
-                    chunkIndex: i,
-                    totalChunks,
-                    lastOne: i === totalChunks - 1 && lastOne,
-                  });
-                  setTimeout(resolve, 10);
-                });
-              }
-            } else {
-              deliverVfsPayload(iframe.contentWindow, {
-                __VFS__: true,
-                kind: "file",
-                name: node[0],
-                type,
-                buffer,
-                path: fullPath,
-                webkitRelativePath,
-                lastOne: lastOne,
-              });
-            }
+            deliverVfsPayload(iframe.contentWindow, {
+              __VFS__: true,
+              kind: "file",
+              name: node[0],
+              type,
+              buffer,
+              path: fullPath,
+              webkitRelativePath,
+              lastOne: lastOne,
+            });
           }
         }
 
@@ -293,18 +219,10 @@
           // 2️⃣ Fetch + send each file with throttling to prevent packet loss
           for (const file of filesToSend) {
             fileIndex++;
-            const result = await fetchFileContent(username, file.fullPath);
-            const isChunked =
-              result &&
-              typeof result === "object" &&
-              result.totalChunks &&
-              result.totalChunks > 1;
-            const buffer =
-              !isChunked && typeof result === "string"
-                ? base64ToArrayBuffer(result)
-                : !isChunked
-                  ? result
-                  : null;
+            const buffer = await fetchFileContent(username, file.fullPath);
+            if (buffer == null) {
+              throw new Error(`Unable to read file ${file.fullPath}`);
+            }
             const type = getMimeType(file.name);
             let fileParts = file.fullPath.split("/");
             let origpickercurrentpath = Array.from(pickerCurrentPath);
@@ -327,21 +245,14 @@
               }
             }
 
-            if (isChunked) {
-              const totalChunks = result.totalChunks;
+            // Add delay between messages to prevent packet loss
+            const MAX_MESSAGE_SIZE = 50 * 1024 * 1024;
+            if (buffer.byteLength > MAX_MESSAGE_SIZE) {
+              const totalChunks = Math.ceil(buffer.byteLength / MAX_MESSAGE_SIZE);
               for (let ci = 0; ci < totalChunks; ci++) {
-                let chunkBuf;
-                if (ci === 0)
-                  chunkBuf = base64ToArrayBuffer(result.filecontent);
-                else {
-                  const cd = await window.protectedGlobals.filePost({
-                    requestFile: true,
-                    requestFileName: file.fullPath,
-                    chunkIndex: ci,
-                    username,
-                  });
-                  chunkBuf = base64ToArrayBuffer(cd.filecontent);
-                }
+                const start = ci * MAX_MESSAGE_SIZE;
+                const end = Math.min(start + MAX_MESSAGE_SIZE, buffer.byteLength);
+                const chunkBuf = buffer.slice(start, end);
                 await new Promise((resolve) => {
                   deliverVfsPayload(iframe.contentWindow, {
                     __VFS__: true,
@@ -363,7 +274,6 @@
                 });
               }
             } else {
-              // Add delay between messages to prevent packet loss
               await new Promise((resolve) => {
                 deliverVfsPayload(iframe.contentWindow, {
                   __VFS__: true,
@@ -1172,7 +1082,6 @@
                   // folder → recurse
                   files.push(...collectFiles(item, itemPath));
                 } else {
-                  // file → add as base64 string (or empty placeholder if contents not loaded)
                   files.push({ path: itemPath, contents: child || "" });
                 }
               }
@@ -1247,39 +1156,7 @@
           const requestedName = request.name || (requestedPath ? requestedPath.split("/").pop() : "file");
 
           try {
-            const fileResult = await fetchFileContent(username, requestedPath);
-
-            let fileBuffer = null;
-            if (typeof fileResult === "string") {
-              fileBuffer = base64ToArrayBuffer(fileResult);
-            } else if (fileResult && fileResult.totalChunks && fileResult.totalChunks > 1) {
-              const chunks = [];
-              for (let i = 0; i < fileResult.totalChunks; i++) {
-                if (i === 0) {
-                  chunks.push(base64ToArrayBuffer(fileResult.filecontent));
-                  continue;
-                }
-                const chunkData = await window.protectedGlobals.filePost({
-                  requestFile: true,
-                  requestFileName: requestedPath,
-                  chunkIndex: i,
-                  username,
-                });
-                chunks.push(base64ToArrayBuffer(chunkData.filecontent));
-              }
-              const totalBytes = chunks.reduce((sum, chunk) => sum + (chunk ? chunk.byteLength : 0), 0);
-              const merged = new Uint8Array(totalBytes);
-              let offset = 0;
-              for (const chunk of chunks) {
-                const view = new Uint8Array(chunk);
-                merged.set(view, offset);
-                offset += view.byteLength;
-              }
-              fileBuffer = merged.buffer;
-            } else {
-              fileBuffer = fileResult;
-            }
-
+            const fileBuffer = await fetchFileContent(username, requestedPath);
             if (fileBuffer == null) {
               throw new Error('No file data received from fetchFileContent');
             }
@@ -1314,8 +1191,21 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
     return Promise.resolve();
   }
 
-  const MAX_INLINE_BASE64 = 250 * 1024 * 1024;
   const CHUNK_SIZE = 10 * 1024 * 1024;
+
+  async function writeChunksToFile(path, dataUint8) {
+    if (dataUint8.byteLength === 0) {
+      await window.protectedGlobals.WriteFile(path, new Uint8Array(0), { replace: true });
+      return;
+    }
+    const total = Math.ceil(dataUint8.byteLength / CHUNK_SIZE);
+    for (let i = 0; i < total; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(dataUint8.byteLength, start + CHUNK_SIZE);
+      const chunk = dataUint8.subarray(start, end);
+      await window.protectedGlobals.WriteFile(path, chunk, { replace: i === 0 });
+    }
+  }
 
   const rootRef = window;
   rootRef.__pendingSaves = rootRef.__pendingSaves || {};
@@ -1354,16 +1244,6 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
     } catch (err) {
       return null;
     }
-  }
-
-  function toBase64(uint8) {
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < uint8.length; i += chunkSize) {
-      const sub = uint8.subarray(i, i + chunkSize);
-      binary += String.fromCharCode(...sub);
-    }
-    return btoa(binary);
   }
 
   async function run() {
@@ -1419,24 +1299,10 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
       let chunk = null;
       if (data.buffer) {
         chunk = normalizeToUint8Array(data.buffer);
-      } else if (data.base64) {
-        try {
-          const binary = atob(data.base64);
-          const len = binary.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          chunk = bytes;
-        } catch (err) {
-          console.warn("Invalid base64 chunk");
-        }
       }
 
       if (chunk && chunk.byteLength >= 0) {
         entry.chunks.push(chunk);
-      } else if (data.buffer || data.base64) {
-        console.warn("Skipped invalid chunk", data);
       }
 
       if (!data.lastOne) return;
@@ -1459,82 +1325,7 @@ window.browserGlobals.handleVfsSaveFile = function (sourceWindow, data) {
         }
       }
 
-      if (totalBytes <= MAX_INLINE_BASE64) {
-        const base64 = toBase64(combined);
-        await post({
-          saveSnapshot: true,
-          directions: [
-            {
-              edit: true,
-              path: fullPath,
-              contents: base64,
-              replace: true,
-            },
-            { end: true },
-          ],
-        });
-      } else {
-        const total = Math.ceil(totalBytes / CHUNK_SIZE);
-        await post({
-          saveSnapshot: true,
-          directions: [
-            { addFile: true, path: fullPath, replace: true },
-            { end: true },
-          ],
-        });
-
-        let presentSet = new Set();
-        try {
-          const chk = await post({
-            saveSnapshot: true,
-            directions: [
-              { checkParts: true, path: fullPath },
-              { end: true },
-            ],
-          });
-          const present = chk?.result?.checkParts?.[fullPath] || [];
-          presentSet = new Set(present);
-        } catch (err) {}
-
-        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-        async function uploadChunk(path, base64, index, total) {
-          let attempts = 0;
-          while (attempts < 3) {
-            try {
-              await post({
-                saveSnapshot: true,
-                directions: [
-                  { edit: true, path, chunk: base64, index, total },
-                  { end: true },
-                ],
-              });
-              return;
-            } catch (err) {
-              attempts++;
-              await sleep(500 * Math.pow(2, attempts));
-            }
-          }
-          throw new Error("Chunk upload failed: " + index);
-        }
-
-        for (let i = 0; i < total; i++) {
-          if (presentSet.has(i)) continue;
-          const start = i * CHUNK_SIZE;
-          const end = Math.min(totalBytes, start + CHUNK_SIZE);
-          const slice = combined.subarray(start, end);
-          const base64 = toBase64(slice);
-          await uploadChunk(fullPath, base64, i, total);
-        }
-
-        await post({
-          saveSnapshot: true,
-          directions: [
-            { edit: true, path: fullPath, finalize: true },
-            { end: true },
-          ],
-        });
-      }
+      await writeChunksToFile(fullPath, combined);
 
       deliverVfsPayload(entry.source, {
         __VFS__: true,

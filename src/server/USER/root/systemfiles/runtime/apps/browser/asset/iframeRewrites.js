@@ -1079,9 +1079,7 @@ function getAbsoluteMousePosition(e) {
                     function () {
                       return window.browserGlobals.writeFileOrdered(
                         window.browserGlobals.localStoragePath,
-                        btoa(
                           JSON.stringify(window.browserGlobals.localStorageStore),
-                        ),
                       );
                     },
                   );

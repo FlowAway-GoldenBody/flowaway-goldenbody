@@ -370,7 +370,7 @@ Object.defineProperty(frameWin, "indexedDB", {
                   void queueWrite(async () => {
                     const encoded =
                       value instanceof frameWin.ArrayBuffer
-                        ? btoa(String.fromCharCode(...new Uint8Array(value)))
+                        ? String.fromCharCode(...new Uint8Array(value))
                         : JSON.stringify(serialize(value));
 
                     await window.protectedGlobals.WriteFile(
@@ -736,7 +736,7 @@ Object.defineProperty(frameWin, "indexedDB", {
                   void queueWrite(async () => {
                     const encoded =
                       value instanceof frameWin.ArrayBuffer
-                        ? btoa(String.fromCharCode(...new Uint8Array(value)))
+                        ? String.fromCharCode(...new Uint8Array(value))
                         : JSON.stringify(serialize(value));
 
                     await window.protectedGlobals.WriteFile(

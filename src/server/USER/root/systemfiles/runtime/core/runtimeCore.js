@@ -7,7 +7,6 @@
 // ----------------- Convenience file helpers -----------------
 // These wrap the existing `filePost` API so apps can easily perform
 // common VFS actions. Responses are the raw server responses; use
-// `base64ToArrayBuffer()` above to convert base64 payloads when needed.
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
 
@@ -46,126 +45,74 @@ window.protectedGlobals.FileExists = async function (relPath) {
     return false;
   }
 }
-window.protectedGlobals.ReadFile = async function (relPath, options = {}) {
+window.protectedGlobals.ReadFile = async function (relPath, options = { text: true }) {
   if (!relPath) throw new Error("No path");
 
-  const useRawTransfer = !!options.buffer || !!options.text;
+  const isBuffer = !!options.buffer;
+  const isText = !isBuffer && (options.text !== false);
 
-  if (useRawTransfer) {
-    const headers = { "Content-Type": "application/json" };
-    if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
-      headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
-    }
-
-    let chunkIndex = 0;
-    const chunks = [];
-    let meta = null;
-    let anti_numtots = 0;
-    while (anti_numtots < 500) {
-      anti_numtots++;
-      let response;
-      try {
-        response = await fetch(window.protectedGlobals.SERVER, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            username: window.protectedGlobals.getCurrentUsernameForRequests(),
-            requestFile: true,
-            requestFileName: String(relPath),
-            chunkIndex,
-            buffer: !!options.buffer,
-            text: !!options.text,
-          }),
-        });
-      } finally {
-        if (response.status === 401) {
-          window.protectedGlobals.showSessionExpiredDialog();
-          return;
-        }
-      }
-      const contentType = (response.headers.get("content-type") || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const json = await response.json();
-        if (json && json.missing) return undefined;
-        return json;
-      }
-
-      const rawChunk = await response.arrayBuffer();
-      chunks.push(rawChunk);
-
-      meta = {
-        fileSize: Number(response.headers.get("x-file-size") || "0"),
-        chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
-        isLastChunk: response.headers.get("x-is-last-chunk") === "1",
-        totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
-      };
-
-      if (meta.isLastChunk) break;
-      chunkIndex++;
-    }
-
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-    const fullBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      fullBuffer.set(new Uint8Array(chunk), offset);
-      offset += chunk.byteLength;
-    }
-
-    if (options.buffer) {
-      return fullBuffer.buffer;
-    }
-
-    if (options.text) {
-      return new TextDecoder().decode(fullBuffer);
-    }
-
-    return {
-      ...meta,
-      filecontent: fullBuffer.buffer,
-    };
+  const headers = { "Content-Type": "application/json" };
+  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
+    headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
   }
 
   let chunkIndex = 0;
-  let chunks = [];
+  const chunks = [];
   let meta = null;
-    let anti_numtots = 0;
-
-  while (anti_numtots < 500) {
-    anti_numtots++;
-    const res = await window.protectedGlobals.filePost({
-      requestFile: true,
-      requestFileName: String(relPath),
-      chunkIndex,
+  while (chunkIndex < 500) {
+    const response = await fetch(window.protectedGlobals.SERVER, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        username: window.protectedGlobals.getCurrentUsernameForRequests(),
+        requestFile: true,
+        requestFileName: String(relPath),
+        chunkIndex,
+        buffer: isBuffer,
+        text: isText,
+      }),
     });
 
-    if (!res) break;
-    if (res.missing) return undefined;
+    if (response.status === 401) {
+      window.protectedGlobals.showSessionExpiredDialog();
+      return;
+    }
 
-    meta = res;
-    chunks.push(res.filecontent);
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (contentType.includes("application/json")) {
+      const json = await response.json();
+      if (json && json.missing) return undefined;
+      return json;
+    }
 
-    if (res.isLastChunk) break;
+    const rawChunk = await response.arrayBuffer();
+    chunks.push(rawChunk);
 
+    meta = {
+      fileSize: Number(response.headers.get("x-file-size") || "0"),
+      chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
+      isLastChunk: response.headers.get("x-is-last-chunk") === "1",
+      totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
+    };
+
+    if (meta.isLastChunk) break;
     chunkIndex++;
   }
 
-  // reconstruct full file
-  let fullBase64 = chunks.join("");
-
-  if (options.buffer) {
-    const binary = atob(fullBase64);
-    return Uint8Array.from(binary, c => c.charCodeAt(0)).buffer;
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const fullBuffer = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    fullBuffer.set(new Uint8Array(chunk), offset);
+    offset += chunk.byteLength;
   }
 
-  if (options.text) {
-    return window.tmpGlobals.decodeBase64ToUTF8(fullBase64);
-  }
-  if (options.direct) return fullBase64;
-
+  if (isBuffer) return fullBuffer.buffer;
+  if (isText) return new TextDecoder().decode(fullBuffer);
+  if (options.direct) return fullBuffer.buffer;
   return {
     ...meta,
-    filecontent: fullBase64
+    filecontent: fullBuffer.buffer,
   };
 };
 window.protectedGlobals.ReadFolder = async function (relPath) {
@@ -177,37 +124,43 @@ window.protectedGlobals.ReadFolder = async function (relPath) {
   return res.files;
 }
 window.protectedGlobals.WriteFile = async function (relPath, contents, options = { replace: true }) {
-  if (options.replace !== false) {
-    options.replace = true;
+  // remove the 1st 4 char if it is "root" because legacy code may have added "root" to the path, but the server expects paths relative to the root, not starting with "root"
+  if (relPath.startsWith("root")) {
+    relPath = relPath.slice(4);
   }
   if (!relPath) throw new Error("No path");
-  // Use the saveSnapshot + directions API to perform edits
-  function arrayBufferToBase64(buffer) {
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const slice = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, slice);
-    }
-    return btoa(binary);
+
+  const raw = (contents instanceof ArrayBuffer || ArrayBuffer.isView(contents))
+    ? contents instanceof ArrayBuffer
+      ? new Uint8Array(contents)
+      : new Uint8Array(contents.buffer, contents.byteOffset, contents.byteLength)
+    : new TextEncoder().encode(String(contents || ""));
+
+  const headers = {
+    "Content-Type": "application/octet-stream",
+    "X-File-Action": "write",
+    "X-File-Path": String(relPath),
+    "X-File-Replace": options.replace !== false ? "true" : "false",
+    "X-Username": window.protectedGlobals.getCurrentUsernameForRequests(),
+  };
+  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
+    headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
   }
-  if (options.buffer) {
-    contents = arrayBufferToBase64(contents);
+
+  const response = await fetch(window.protectedGlobals.SERVER, {
+    method: "POST",
+    headers,
+    body: raw,
+  });
+
+  const body = await response.json();
+  if (response.status === 401 && !window.protectedGlobals.firstlogin) {
+    window.protectedGlobals.showSessionExpiredDialog();
+    return body || { error: "unauthorized" };
   }
-  if (options.text) {
-    contents = btoa(contents);
-  }
-  const directions = [
-    {
-      edit: true,
-      path: String(relPath),
-      contents,
-      replace: !!options.replace,
-    },
-    { end: true },
-  ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+
+  window.protectedGlobals.queueOnlyLoadTreeRefresh();
+  return body;
 };
 
 window.protectedGlobals.DeleteFile = async function (relPath) {
@@ -559,16 +512,6 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
 window.protectedGlobals.delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 window.tmpGlobals = {};
-window.tmpGlobals.decodeBase64ToUTF8 = function(base64) {
-    // 1. Decode base64 to a binary string
-    const binaryString = atob(base64);
-    
-    // 2. Convert binary string to a Uint8Array (array of bytes)
-    const bytes = Uint8Array.from(binaryString, (char) => char.charCodeAt(0));
-    
-    // 3. Decode the bytes as UTF-8
-    return new TextDecoder().decode(bytes);
-}
 window.tmpGlobals.coreScriptUrls = [
   "/systemfiles/runtime/core/untrustedAppsIframeBg.js",
   "systemfiles/runtime/helpers/coreVariables.js",
@@ -617,8 +560,19 @@ document.documentElement.style.height = "100%";
 document.body.style.margin = "0";
 document.body.style.height = "100vh";
 window.protectedGlobals.setBodyBackground = async function () {
-  let backgroundImageBase64 = await window.protectedGlobals.ReadFile("systemfiles/background/background.png", { direct: true });
-  document.body.style.backgroundImage = `url(data:image/png;base64,${backgroundImageBase64})`;
+  const backgroundBuffer = await window.protectedGlobals.ReadFile("systemfiles/background/background.png", { buffer: true, direct: true });
+  if (backgroundBuffer instanceof ArrayBuffer) {
+    const blob = new Blob([backgroundBuffer], { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+    document.body.style.backgroundImage = `url(${url})`;
+  } else if (typeof backgroundBuffer === "string" && backgroundBuffer) {
+    const binary = atob(backgroundBuffer);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+    document.body.style.backgroundImage = `url(${url})`;
+  }
 };
 window.protectedGlobals.setBodyBackground();
 document.body.style.backgroundSize = "cover";
@@ -733,8 +687,6 @@ window.protectedGlobals.installApp = async function (folderName) {
   });
   window.protectedGlobals.renderAppsGrid();
 };
-
-
 
 
 

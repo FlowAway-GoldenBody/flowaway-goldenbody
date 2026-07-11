@@ -89,17 +89,6 @@ window.textEditorGlobals.normalizeTextEditorSettings = function(value) {
   };
 }
 
-window.textEditorGlobals.decodeMaybeBase64Text = function(raw) {
-  const text = String(raw || "").trim();
-  if (!text) return "";
-  const looksLikeBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(text) && text.length % 4 === 0;
-  if (!looksLikeBase64) return text;
-  try {
-    return atob(text);
-  } catch (e) {
-    return text;
-  }
-}
 
 window.textEditorGlobals.loadTextEditorSettings = async function loadTextEditorSettings(forceRefresh = false) {
   if (!forceRefresh && window.textEditorGlobals.settingsLoadPromise) {
@@ -109,14 +98,8 @@ window.textEditorGlobals.loadTextEditorSettings = async function loadTextEditorS
   window.textEditorGlobals.settingsLoadPromise = (async () => {
     try {
       let raw = "";
-      const res = await window.protectedGlobals.ReadFile(window.textEditorGlobals.settingsPath);
-      if (res && !res.missing) {
-        if (typeof res.filecontent === "string") raw = window.textEditorGlobals.decodeMaybeBase64Text(res.filecontent);
-        else if (typeof res === "string") raw = window.textEditorGlobals.decodeMaybeBase64Text(res);
-      }
-      if (raw) {
-        window.textEditorGlobals.editorSettings = window.textEditorGlobals.normalizeTextEditorSettings(JSON.parse(raw));
-      }
+      const res = await window.protectedGlobals.ReadFile(window.textEditorGlobals.settingsPath, { text: true, direct: true });
+      raw = res;
     } catch (e) {
       window.textEditorGlobals.editorSettings = window.textEditorGlobals.normalizeTextEditorSettings(window.textEditorGlobals.editorSettings);
     }
@@ -130,11 +113,7 @@ window.textEditorGlobals.saveTextEditorSettings = async function saveTextEditorS
   const normalized = window.textEditorGlobals.normalizeTextEditorSettings(settings);
   window.textEditorGlobals.editorSettings = normalized;
   window.textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
-  const content = btoa(JSON.stringify(normalized, null, 2));
-
-    await window.protectedGlobals.WriteFile(window.textEditorGlobals.settingsPath, content);
-}
-
+  const content = JSON.stringify(normalized, null, 2);
 window.textEditorGlobals.getTextEditorSettings = function getTextEditorSettings() {
   return window.textEditorGlobals.normalizeTextEditorSettings(window.textEditorGlobals.editorSettings);
 }
@@ -143,7 +122,6 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   let getTextEditorSettings = window.textEditorGlobals.getTextEditorSettings;
   let saveTextEditorSettings = window.textEditorGlobals.saveTextEditorSettings;
   let loadTextEditorSettings = window.textEditorGlobals.loadTextEditorSettings;
-  let decodeMaybeBase64Text = window.textEditorGlobals.decodeMaybeBase64Text;
   let normalizeTextEditorSettings = window.textEditorGlobals.normalizeTextEditorSettings;
   let makeIcon = window.textEditorGlobals.makeIcon;
   let ICONS = window.textEditorGlobals.ICONS;
@@ -1311,15 +1289,17 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   }
   // Assign the editor's path from the picked file (do not reuse old path)
   async function preloadFile() {
-    const res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: path });
-    if (res) {
+    const reqName = toRequestFileName(path);
+    if (!reqName) return;
+    const res = await window.protectedGlobals.ReadFile(reqName, { text: true, direct: true });
+    if (typeof res === "string") {
       hasFileOpen = true;
       if (textarea.style.display === "none") {
         textarea.style.display = "block";
         revertBtn.disabled = false;
         saveBtn.disabled = false;
       }
-      textarea.value = b64DecodeUnicode(res.filecontent);
+      textarea.value = res;
       editorName = path.split("/").pop() || editorName;
       titleLabel.textContent = editorName;
       updateStatus();
@@ -1359,8 +1339,10 @@ window.textEditor = function (path, posX = 50, posY = 50) {
       if (!reqName) return;
 
       try {
-        const res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: reqName });
-        textarea.value = b64DecodeUnicode(res.filecontent);
+        const res = await window.protectedGlobals.ReadFile(reqName, { text: true, direct: true });
+        if (typeof res === "string") {
+          textarea.value = res;
+        }
         // Assign the editor's path from the picked file (do not reuse old path)
         path = fullPath || picked[0];
         editorName = path.split("/").pop() || editorName;
@@ -1403,35 +1385,6 @@ window.textEditor = function (path, posX = 50, posY = 50) {
 
   // Debounced autosave
   let saveTimer = null;
-  // Helpers for UTF-8-safe base64
-  function b64EncodeUnicode(str) {
-    try {
-      return btoa(
-        encodeURIComponent(str).replace(
-          /%([0-9A-F]{2})/g,
-          function (match, p1) {
-            return String.fromCharCode("0x" + p1);
-          },
-        ),
-      );
-    } catch (e) {
-      return btoa(str);
-    }
-  }
-
-  function b64DecodeUnicode(b64) {
-    try {
-      return decodeURIComponent(
-        Array.prototype.map
-          .call(atob(b64), function (c) {
-            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-          })
-          .join(""),
-      );
-    } catch (e) {
-      return atob(b64);
-    }
-  }
 
   // Normalize paths for the server APIs used by the backend (see src/server/fetchfiles.js)
   function toRequestFileName(p) {
@@ -1461,13 +1414,7 @@ window.textEditor = function (path, posX = 50, posY = 50) {
       if (!auto && path) {
         if (dirPath) {
           try {
-            const base64 = b64EncodeUnicode(textarea.value || "");
-            await window.protectedGlobals.filePost({
-              saveSnapshot: true,
-              directions: [
-                { edit: true, path: dirPath, contents: base64, replace: true },
-              ],
-            });
+            await window.protectedGlobals.WriteFile(dirPath, textarea.value || "", { replace: true });
             saveBtn.textContent = "Saved!!!";
             setTimeout(() => {
               saveBtn.textContent = "Save";     
@@ -1479,13 +1426,7 @@ window.textEditor = function (path, posX = 50, posY = 50) {
           }
         }
       } else if (auto) {
-        const base64 = b64EncodeUnicode(textarea.value || "");
-        await window.protectedGlobals.filePost({
-          saveSnapshot: true,
-          directions: [
-            { edit: true, path: dirPath, contents: base64, replace: true },
-          ],
-        });
+        await window.protectedGlobals.WriteFile(dirPath, textarea.value || "", { replace: true });
       }
     } catch (e) {
       saveBtn.textContent = "Save failed!!!";
@@ -1541,12 +1482,9 @@ window.textEditor = function (path, posX = 50, posY = 50) {
         const reqName = toRequestFileName(path);
         if (reqName) {
           try {
-            const res = await window.protectedGlobals.filePost({
-              requestFile: true,
-              requestFileName: reqName,
-            });
-            if (res && res.filecontent) {
-              textarea.value = b64DecodeUnicode(res.filecontent);
+            const res = await window.protectedGlobals.ReadFile(reqName, { text: true, direct: true });
+            if (typeof res === "string") {
+              textarea.value = res;
               updateStatus();
               return;
             }
@@ -1590,4 +1528,5 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   window.protectedGlobals.applyStyles();
 
   return returnObject;
+}
 };

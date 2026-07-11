@@ -200,7 +200,7 @@ window.protectedGlobals.persistUserProfilePatch = async function (patch = {}) {
   var profile = window.protectedGlobals.buildPersistableUserProfile(patch);
   window.protectedGlobals.data = window.protectedGlobals.data || {};
   Object.assign(window.protectedGlobals.data, profile);
-  var encoded = btoa(JSON.stringify(profile, null, 2));
+  var encoded = JSON.stringify(profile, null, 2);
   return await window.protectedGlobals.filePost({
     saveSnapshot: true,
     directions: [
@@ -360,14 +360,6 @@ window.alert = function (message) {
   window.protectedGlobals.showModal("Alert", String(message || ""), "info");
 };
 
-
-window.protectedGlobals.flowawayCrash = function(message, detail) {
-  if (window.protectedGlobals.notification && typeof window.protectedGlobals.notification === "function") {
-    window.protectedGlobals.notification("A critical error occurred: " + String(message || "") + (detail ? "\n\n" + String(detail) : ""));
-  } else {
-    console.error("CRASH:", message, detail);
-  }
-}
 
 
 

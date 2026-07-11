@@ -651,9 +651,9 @@ setTimeout(() => {
             return;
           }
           await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
-          await window.protectedGlobals.WriteFile(folderPath + "/script.txt", btoa(data.script || ""));
-          await window.protectedGlobals.WriteFile(folderPath + "/name.txt", btoa(data.name));
-          await window.protectedGlobals.WriteFile(folderPath + "/active.txt", btoa("true"));
+          await window.protectedGlobals.WriteFile(folderPath + "/script.txt", data.script || "", { text: true });
+          await window.protectedGlobals.WriteFile(folderPath + "/name.txt", data.name, { text: true });
+          await window.protectedGlobals.WriteFile(folderPath + "/active.txt", "true", { text: true });
           // mark as activated in memory
           if (activatedUserscriptNames.indexOf(safeFolder) === -1) activatedUserscriptNames.push(safeFolder);
           window.protectedGlobals.notification && window.protectedGlobals.notification("Created");
@@ -740,7 +740,7 @@ setTimeout(() => {
           try {
             av = await window.protectedGlobals.ReadFile(activePath, { text: true, direct: true }).catch(() => null);
             if (!av) {
-              await window.protectedGlobals.WriteFile(activePath, btoa("true")).catch(() => {});
+              await window.protectedGlobals.WriteFile(activePath, "true", { text: true }).catch(() => {});
               toggle.checked = true;
             } else {
               let val = av && typeof av === "string" ? av.trim().toLowerCase() : "true";
@@ -748,7 +748,7 @@ setTimeout(() => {
             }
           } catch (e) {
             // read failed; try create
-            try { await window.protectedGlobals.WriteFile(activePath, btoa("true")).catch(() => {}); } catch (e) {}
+            try { await window.protectedGlobals.WriteFile(activePath, "true", { text: true }).catch(() => {}); } catch (e) {}
             toggle.checked = true;
           }
         } catch (e) {
@@ -759,7 +759,7 @@ setTimeout(() => {
         toggle.addEventListener("change", async () => {
           try {
             const activePath = basePath + "/" + entry + "/active.txt";
-            await window.protectedGlobals.WriteFile(activePath, toggle.checked ? btoa("true") : btoa("false"));
+            await window.protectedGlobals.WriteFile(activePath, toggle.checked ? "true" : "false", { text: true });
             // update activatedUserscriptNames
             const idx = activatedUserscriptNames.indexOf(entry);
             if (toggle.checked) {
@@ -854,8 +854,8 @@ setTimeout(() => {
 
           if (data && data.name) {
             try {
-              await window.protectedGlobals.WriteFile(folderPath + "/script.txt", btoa(data.script || ""));
-              await window.protectedGlobals.WriteFile(folderPath + "/name.txt", btoa(data.name));
+              await window.protectedGlobals.WriteFile(folderPath + "/script.txt", data.script || "", { text: true });
+              await window.protectedGlobals.WriteFile(folderPath + "/name.txt", data.name, { text: true });
               window.protectedGlobals.notification && window.protectedGlobals.notification("Saved");
               panel.remove();
               showUserscriptDialogue();
@@ -988,11 +988,11 @@ setTimeout(() => {
                 ? window.browserGlobals.defaultBrowserProfile()
                 : {};
             const settingsPayload = JSON.stringify(defaultProfile, null, 2);
-            await window.protectedGlobals.WriteFile(folderPath + "/settings.json", btoa(settingsPayload)).catch(() => {});
-            await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", btoa(await window.browserGlobals.requestNewBrowserSessionId())).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/settings.json", settingsPayload, { text: true }).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", await window.browserGlobals.requestNewBrowserSessionId(), { text: true }).catch(() => {});
             try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
-            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", btoa("{}")).catch(() => {});
-            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", btoa("{}")).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", "{}", { text: true }).catch(() => {});
+            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", "{}", { text: true }).catch(() => {});
           } catch (e) {}
           // ensure profilepaths.txt exists and load content
           let content = "";
@@ -1002,7 +1002,7 @@ setTimeout(() => {
           if (!content) content = "profile";
           const lines = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           if (lines.indexOf(safeName) === -1) lines.push(safeName);
-          await window.protectedGlobals.WriteFile(listPath, btoa(lines.join("\n")));
+          await window.protectedGlobals.WriteFile(listPath, lines.join("\n"), { text: true });
           window.protectedGlobals.notification && window.protectedGlobals.notification("Profile created");
           panel.remove();
           showProfileDialogue();
@@ -1026,7 +1026,7 @@ setTimeout(() => {
         rawTry = (await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "")) || "";
       } catch (e) { rawTry = ""; }
       if (!rawTry) {
-        try { await window.protectedGlobals.WriteFile(listPath, btoa("profile")).catch(() => {}); } catch (e) {}
+        try { await window.protectedGlobals.WriteFile(listPath, "profile", { text: true }).catch(() => {}); } catch (e) {}
         rawTry = "profile";
       }
       var raw = rawTry;
@@ -1132,9 +1132,9 @@ setTimeout(() => {
               window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
             } catch (e) {}
             window.browserGlobals.allBrowsers.forEach((b) => b.tabs.forEach((t) => t.iframe.contentWindow.location.reload()));
-            window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", btoa(p));
+            window.protectedGlobals.WriteFile("/systemfiles/runtime/apps/browser/defaultprofile.txt", p, { text: true });
             try {
-              await window.protectedGlobals.WriteFile(defaultPath, btoa(p));
+              await window.protectedGlobals.WriteFile(defaultPath, p, { text: true });
             } catch (e) {}
             window.protectedGlobals.notification && window.protectedGlobals.notification("Switched profile to " + p + ". Reload tabs for it to take effect.");
           } catch (e) {
@@ -1161,7 +1161,7 @@ setTimeout(() => {
               const lines2 = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
               const idx = lines2.indexOf(p);
               if (idx !== -1) lines2.splice(idx, 1);
-              await window.protectedGlobals.WriteFile(listPath, btoa(lines2.join("\n")));
+              await window.protectedGlobals.WriteFile(listPath, lines2.join("\n"), { text: true });
             } catch (e) {}
             window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted profile " + p);
             panel.remove();
@@ -3925,57 +3925,50 @@ setTimeout(() => {
       return mimeByExt[ext] || "application/octet-stream";
     }
 
-    function base64ToBlobUrl(base64, mimeType) {
-      const raw = String(base64 || "");
-      const clean = raw.replace(/\s+/g, "");
-      const binary = atob(clean);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], {
-        type: mimeType || "application/octet-stream",
-      });
-      return URL.createObjectURL(blob);
-    }
-
     async function resolveLocalFileNavigation(inputPath, options = null) {
       const normalizedPath = normalizeLocalFilePath(inputPath);
       if (!normalizedPath) throw new Error("Missing file path");
-      if (!(window.protectedGlobals.filePost)) {
-        throw new Error("File service unavailable");
-      }
 
-      const response = await window.protectedGlobals.filePost({
-        requestFile: true,
-        requestFileName: normalizedPath,
-      });
-
-      if (!response || response.missing || response.code === "ENOENT") {
-        throw new Error("File not found");
-      }
-      if (response.kind === "folder") {
-        throw new Error("Path points to a folder");
-      }
-
-      const base64 = String(response.filecontent || "");
       const ext = normalizedPath.includes(".")
         ? normalizedPath.slice(normalizedPath.lastIndexOf(".")).toLowerCase()
         : "";
 
-      if (ext === ".url") {
-        const text = window.browserGlobals.decodeMaybeBase64(base64);
-        const direct = text.trim();
-        const match = text.match(/^\s*URL\s*=\s*(\S+)/im);
-        const targetUrl = (match && match[1] ? match[1] : direct).trim();
-        if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
-          return {
-            iframeSrc: targetUrl,
-            historyUrl: targetUrl,
-            displayUrl: targetUrl,
-            isLocal: false,
-          };
-        }
+      const response = await window.protectedGlobals.ReadFile(normalizedPath, {
+        buffer: true
+      });
+
+      if (
+        response === undefined ||
+        response === null ||
+        (typeof response === "object" && response.missing)
+      ) {
+        throw new Error("File not found");
+      }
+      if (response && typeof response === "object" && response.kind === "folder") {
+        throw new Error("Path points to a folder");
+      }
+
+      const buffer = response instanceof ArrayBuffer
+        ? response
+        : response && response.buffer instanceof ArrayBuffer
+          ? response.buffer
+          : null;
+
+      if (!buffer) {
+        throw new Error("Unexpected file response type");
+      }
+
+      const text = new TextDecoder().decode(buffer);
+      const direct = text.trim();
+      const match = text.match(/^\s*URL\s*=\s*(\S+)/im);
+      const targetUrl = (match && match[1] ? match[1] : direct).trim();
+      if (targetUrl && /^https?:\/\//i.test(targetUrl)) {
+        return {
+          iframeSrc: targetUrl,
+          historyUrl: targetUrl,
+          displayUrl: targetUrl,
+          isLocal: false,
+        };
       }
 
       const mime = mimeFromPath(normalizedPath);
@@ -3991,7 +3984,7 @@ setTimeout(() => {
 
       let blobUrl = "";
 
-      blobUrl = base64ToBlobUrl(base64, mime);
+      blobUrl = URL.createObjectURL(new Blob([response], { type: mime }));
       try {
         window.browserGlobals.__localFileUrlMap.set(blobUrl, normalizedPath);
         window.browserGlobals.__localFilePathToBlobMap.set(normalizedPath, blobUrl);

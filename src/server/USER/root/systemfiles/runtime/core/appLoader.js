@@ -64,7 +64,7 @@
       return false;
     }
 
-    pkg._lastScriptHash = window.protectedGlobals.hashScriptContent(scriptText);
+    pkg._lastScriptHash = "deprecated field";
     try {
       var globalVarObjectString = pkg.globalVarObjectString;
       if (pkg.functionName) delete window[pkg.functionName];
@@ -93,7 +93,31 @@
 
 
 
+let getFilesFromFolder = async function (relPath) {
+  window.protectedGlobals.missingFolders.delete(relPath);
+  var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
+  if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
 
+  var isMissing =
+    !!(
+      r &&
+      (
+        r.missing ||
+        r.kind === "missing" ||
+        r.error === "ENOENT" ||
+        r.code === "ENOENT"
+      )
+    );
+
+  if (isMissing) {
+    window.protectedGlobals.missingFolders.add(relPath);
+    var missingError = new Error("ENOENT: Missing folder " + String(relPath));
+    missingError.code = "ENOENT";
+    throw missingError;
+  }
+
+  throw new Error("Invalid folder response for " + String(relPath));
+}
 
   window.protectedGlobals.extractAppData = async function (appFolder) {
     
@@ -102,7 +126,7 @@
       appFolder[2] && appFolder[2].path
         ? appFolder[2].path
         : "systemfiles/runtime/apps/" + folderName;
-    var files = await window.protectedGlobals.getFilesFromFolder(folderPath);
+    var files = await getFilesFromFolder(folderPath);
     if (!Array.isArray(files)) {
       throw new Error("Invalid folder listing for " + String(folderPath));
     }
@@ -169,7 +193,7 @@
           if (e.source !== iframe.contentWindow) {
             return;
           }
-          if ((e.data.key === filehandlekey) && filehandlekey !== "invalid key") {
+          if (e.data.writeFileSuper && ((e.data.key === filehandlekey) && filehandlekey !== "invalid key")) {
             let result = 0;
             window.protectedGlobals.WriteFile(path, e.data.content, e.data.options);
             e.source.postMessage({ writeFileResult: true, result: result, from: appObj.folderName, requestId: e.data.requestId }, "*");
@@ -273,6 +297,21 @@
     console.log("Found icon file for app " + folderName + ": " + iconFile); 
     if (!entryObj.headless || !iconFile) {
       var iconPath = folderPath + "/" + iconFile;
+      function iconDataToBase64(raw) {
+        if (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw)) {
+          var bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+          var chunkSize = 0x8000;
+          var binary = "";
+          for (var i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          return btoa(binary);
+        }
+        if (typeof raw === "string") {
+          return raw.trim();
+        }
+        return null;
+      }
       if (!entryObj.nonTextIcon) {
         var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
         icon = parsedIcon || icon;
@@ -280,7 +319,8 @@
         var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
         icon = parsedIcon || icon;
       } else if (entryObj.pngEnabled) {
-        var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { direct: true }) || "").trim();
+        var rawIcon = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
+        var parsedIcon = iconDataToBase64(rawIcon || "");
         icon = parsedIcon || icon;
       }
     }

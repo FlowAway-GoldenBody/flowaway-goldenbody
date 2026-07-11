@@ -22,7 +22,7 @@ if (!window.protectedGlobals.__ouchbad_preinit_done) {
   window.protectedGlobals.__ouchbad_wsProtocol = window.protectedGlobals.__ouchbad_baseOrigin.startsWith('https') ? 'wss://' : 'ws://';
   window.protectedGlobals.__ouchbad_hostname = new URL(window.protectedGlobals.__ouchbad_baseOrigin).hostname;
 }
-window.protectedGlobals.filePost = async function filePost(data) {
+window.protectedGlobals.filePost = async function (data) {
   const headers = { 'Content-Type': 'application/json' };
   if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) headers.Authorization = 'Bearer ' + window.protectedGlobals.data.authToken;
   const res = await fetch(window.protectedGlobals.SERVER, {
@@ -30,7 +30,7 @@ window.protectedGlobals.filePost = async function filePost(data) {
     headers,
     body: JSON.stringify({ username: window.protectedGlobals.data && window.protectedGlobals.data.username ? window.protectedGlobals.data.username : '', ...data }),
   });
-  return res.json();
+  return res.text();
 };
 window.protectedGlobals.BASE = window.protectedGlobals.__ouchbad_BASE;
 window.protectedGlobals.goldenbodywebsite = window.protectedGlobals.__ouchbad_goldenbodywebsite;
@@ -87,44 +87,6 @@ window.protectedGlobals.firstlogin = false;
       <div id="recovery-msg" style="margin-top:10px;font-size:14px;text-align:center"></div>
     </div>
   `;
-
-  window.protectedGlobals.base64ToUtf8 = function base64ToUtf8(b64OrBuffer) {
-    try {
-      if (b64OrBuffer && (b64OrBuffer instanceof ArrayBuffer || ArrayBuffer.isView(b64OrBuffer))) {
-        const view = b64OrBuffer instanceof ArrayBuffer ? new Uint8Array(b64OrBuffer) : b64OrBuffer;
-        return new TextDecoder('utf-8').decode(view);
-      }
-
-      const base64 = String(b64OrBuffer || '');
-      let bytes;
-      const arrayBufferDecoder = typeof window !== 'undefined' && typeof window.base64ToArrayBuffer === 'function'
-        ? window.base64ToArrayBuffer
-        : null;
-      if (arrayBufferDecoder) {
-        const buf = arrayBufferDecoder(base64);
-        bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-      } else if (typeof atob === 'function') {
-        const binaryString = atob(base64);
-        const len = binaryString.length;
-        bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-      } else {
-        try {
-          return atob(base64);
-        } catch (e) {
-          return '';
-        }
-      }
-      return new TextDecoder('utf-8').decode(bytes);
-    } catch (e) {
-      try {
-        if (typeof b64OrBuffer === 'string') return atob(b64OrBuffer);
-      } catch (ee) {
-        console.warn('Base64 fallback decode failed', ee);
-      }
-      return '';
-    }
-  };
 
   document.body.innerHTML = '';
   document.body.appendChild(box);
@@ -210,12 +172,11 @@ window.protectedGlobals.firstlogin = false;
       recoveryMsg.textContent = '';
     }
   }
-
-  function startDesktop() {
+  function startUp() {
     setTimeout(async () => {
       const a = document.createElement('script');
-      const res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: 'systemfiles/runtime/core/flowaway.js' });
-      a.textContent = window.protectedGlobals.base64ToUtf8(res.filecontent);
+      const res = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: 'systemfiles/runtime/core/flowaway.js', text: true });
+      a.textContent = res;
       document.body.appendChild(a);
       box.remove();
     });
@@ -268,7 +229,7 @@ window.protectedGlobals.firstlogin = false;
         setTimeout(() => {
           window.protectedGlobals.isRebuilding = false;
         }, 5000);
-        startDesktop();
+        startUp();
       })
       .catch((err) => {
         console.error(err);

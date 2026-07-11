@@ -1823,7 +1823,7 @@ function makeIcon(type, size = 16) {
     box.className = "misc";
     box.style.cssText = "padding:18px 20px;border-radius:8px;min-width:320px;max-width:520px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.35);";
     // adapt background/text for dark theme
-    if (window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    if (window.protectedGlobals.data.dark) {
       box.style.background = "#0b0b0b";
       box.style.color = "#e6eef8";
     } else {
@@ -2718,84 +2718,28 @@ function makeIcon(type, size = 16) {
   saveBtn.onclick = handlesave;
   // root.addEventListener("pointerup", handlesave);
   // --- Upload helpers ---
-  const MAX_INLINE_BASE64 = 10 * 1024 * 1024; // 10 MB inline threshold
   const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks for large files
   const MAX_CHUNK_RETRIES = 3;
   const CHUNK_RETRY_BASE_MS = 500; // ms
 
-  function arrayBufferToBase64(buffer) {
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const slice = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, slice);
-    }
-    return btoa(binary);
-  }
-
-  function fileToBase64(file, onProgress) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onprogress = (ev) => {
-        if (typeof onProgress === "function" && ev && ev.lengthComputable) {
-          onProgress(ev.loaded, ev.total);
-        }
-      };
-      reader.onload = () => {
-        const base64 = arrayBufferToBase64(reader.result);
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  function sleep(ms) {
+  async function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
 
-  function readBlobAsBase64(blob, onProgress) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onprogress = (ev) => {
-        if (typeof onProgress === "function" && ev && ev.lengthComputable) {
-          onProgress(ev.loaded, ev.total);
-        }
-      };
-      reader.onload = () => {
-        const base64 = arrayBufferToBase64(reader.result);
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(blob);
-    });
-  }
-
-  async function uploadChunkWithRetries(path, file, index, total, onProgress) {
+  async function uploadChunkWithRetries(path, file, index, onProgress) {
     let attempts = 0;
     while (true) {
       try {
         const start = index * CHUNK_SIZE;
         const end = Math.min(file.size, start + CHUNK_SIZE);
         const blob = file.slice(start, end);
-        const chunkBase64 = await readBlobAsBase64(blob, onProgress);
-        // Only send replace:true on the first chunk (index 0)
+        const arrayBuffer = await blob.arrayBuffer();
+        const chunkData = new Uint8Array(arrayBuffer);
+        if (typeof onProgress === "function") {
+          onProgress(chunkData.byteLength, chunkData.byteLength);
+        }
         const shouldReplace = index === 0;
-        await window.protectedGlobals.filePost({
-          saveSnapshot: true,
-          directions: [
-            {
-              edit: true,
-              path,
-              chunk: chunkBase64,
-              index,
-              total,
-              replace: shouldReplace,
-            },
-            { end: true },
-          ],
-        });
+        await window.protectedGlobals.WriteFile(path, chunkData, { replace: shouldReplace });
         return true;
       } catch (err) {
         attempts++;
@@ -2851,120 +2795,35 @@ function makeIcon(type, size = 16) {
         const cp = targetPath.join("/");
         const fileLabel = `${fileIndex + 1}/${allowed.length}: ${newName}`;
 
-        if (f.size <= MAX_INLINE_BASE64) {
-          const content = await fileToBase64(f, (loaded) => {
-            updateUploadProgress(uploadedBytes + loaded, `Reading ${fileLabel}`);
-          });
-          updateUploadProgress(uploadedBytes + f.size, `Saving ${fileLabel}`);
-          await window.protectedGlobals.filePost({
-            saveSnapshot: true,
-            directions: [
-              {
-                edit: true,
-                contents: content,
-                path: cp + "/" + newName,
-                replace: true,
-              },
-              { end: true },
-            ],
-          });
-          uploadedBytes += f.size;
+        if (f.size === 0) {
+          await window.protectedGlobals.WriteFile(cp + "/" + newName, new Uint8Array(0), { replace: true });
           updateUploadProgress(uploadedBytes, `Uploaded ${fileLabel}`);
         } else {
           const total = Math.ceil(f.size / CHUNK_SIZE);
-
-          await window.protectedGlobals.filePost({
-            saveSnapshot: true,
-            directions: [
-              { addFile: true, path: cp + "/" + newName, replace: true },
-              { end: true },
-            ],
-          });
-
-          let presentParts = [];
-          try {
-            const chk = await window.protectedGlobals.filePost({
-              saveSnapshot: true,
-              directions: [
-                { checkParts: true, path: cp + "/" + newName },
-                { end: true },
-              ],
-            });
-            presentParts =
-              (chk &&
-                chk.result &&
-                chk.result.checkParts &&
-                chk.result.checkParts[cp + "/" + newName]) ||
-              [];
-          } catch (e) {
-            console.warn("checkParts failed, will attempt full upload", e);
-            presentParts = [];
-          }
-
-          const presentSet = new Set(presentParts);
-          let uploadedCount = presentSet.size;
-          let fileDoneBytes = 0;
-
-          if (presentSet.size < total) {
-            for (let i = 0; i < total; i++) {
+          for (let i = 0; i < total; i++) {
+            try {
+              await uploadChunkWithRetries(cp + "/" + newName, f, i, (loaded) => {
+                updateUploadProgress(
+                  uploadedBytes + loaded,
+                  `Uploading ${fileLabel} (${i + 1}/${total} chunks)`,
+                );
+              });
               const chunkBytes = Math.min(CHUNK_SIZE, f.size - i * CHUNK_SIZE);
-              if (presentSet.has(i)) {
-                fileDoneBytes += chunkBytes;
-                uploadedBytes += chunkBytes;
-                updateUploadProgress(
-                  uploadedBytes,
-                  `Resuming ${fileLabel} (${uploadedCount}/${total} chunks)`,
-                );
-                continue;
-              }
-
-              try {
-                await uploadChunkWithRetries(cp + "/" + newName, f, i, total, (loaded) => {
-                  updateUploadProgress(
-                    uploadedBytes + fileDoneBytes + loaded,
-                    `Uploading ${fileLabel} (${uploadedCount + 1}/${total} chunks)`,
-                  );
-                });
-                uploadedCount++;
-                fileDoneBytes += chunkBytes;
-                uploadedBytes += chunkBytes;
-                updateUploadProgress(
-                  uploadedBytes,
-                  `Uploading ${fileLabel} (${uploadedCount}/${total} chunks)`,
-                );
-              } catch (err) {
-                console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
-                setUploadError(
-                  "Upload failed",
-                  `Chunk ${i + 1}/${total} failed for ${newName}`,
-                );
-                uploadFailed = true;
-                break;
-              }
-
-              await sleep(0);
+              uploadedBytes += chunkBytes;
+              updateUploadProgress(
+                uploadedBytes,
+                `Uploaded ${fileLabel} (${i + 1}/${total} chunks)`,
+              );
+            } catch (err) {
+              console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
+              setUploadError(
+                "Upload failed",
+                `Chunk ${i + 1}/${total} failed for ${newName}`,
+              );
+              uploadFailed = true;
+              break;
             }
-          } else {
-            uploadedBytes += f.size;
-            updateUploadProgress(uploadedBytes, `Resuming ${fileLabel} (already present)`);
-          }
-
-          if (uploadFailed) break;
-
-          try {
-            updateUploadProgress(uploadedBytes, `Finalizing ${fileLabel}`);
-            await window.protectedGlobals.filePost({
-              saveSnapshot: true,
-              directions: [
-                { edit: true, path: cp + "/" + newName, finalize: true },
-                { end: true },
-              ],
-            });
-          } catch (e) {
-            console.error("finalize failed for", newName, e);
-            setUploadError("Upload failed", `Could not finalize ${newName}`);
-            uploadFailed = true;
-            break;
+            await sleep(0);
           }
         }
       }

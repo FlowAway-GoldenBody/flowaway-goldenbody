@@ -256,49 +256,9 @@ window.browserGlobals.profileState = {
   siteZoom: {},
 };
 
-window.browserGlobals.safeDecodeBase64Text = function (v) {
-  try {
-    return atob(String(v || ""));
-  } catch (e) {
-    return "";
-  }
-};
-
 window.browserGlobals.looksLikeSessionId = function (value) {
   const s = String(value || "").trim();
   return /^[A-Za-z0-9._-]{8,}$/.test(s);
-};
-
-window.browserGlobals.decodeMaybeBase64 = function (raw) {
-  const s = String(raw || "").trim();
-  if (!s) return "";
-  if (s[0] === "{" || s[0] === "[") return s;
-  const looksLikeBase64 =
-    /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
-  if (!looksLikeBase64) return s;
-  const decoded = window.browserGlobals.safeDecodeBase64Text(s);
-  if (!decoded) return s;
-  const trimmed = decoded.trim();
-  if (!trimmed) return s;
-  if (trimmed[0] === "{" || trimmed[0] === "[") return trimmed;
-  if (window.browserGlobals.looksLikeSessionId(trimmed)) return trimmed;
-
-  let printable = 0;
-  for (let i = 0; i < decoded.length; i++) {
-    const code = decoded.charCodeAt(i);
-    if (
-      code === 9 ||
-      code === 10 ||
-      code === 13 ||
-      (code >= 32 && code <= 126)
-    ) {
-      printable++;
-    }
-  }
-  const printableRatio = decoded.length ? printable / decoded.length : 0;
-  if (printableRatio >= 0.95) return trimmed;
-
-  return s;
 };
 
 window.browserGlobals.sleep = function (ms) {
@@ -419,79 +379,17 @@ window.browserGlobals.readProfileTextFileMeta = async function (
   filePath,
   options = {},
 ) {
-  const attempts = Math.max(1, Number(options.attempts || 1));
-  const retryDelayMs = Math.max(0, Number(options.retryDelayMs || 0));
-  let lastError = null;
 
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      if ((window.protectedGlobals.ReadFile)) {
-        const res = await window.protectedGlobals.ReadFile(filePath);
-        if (
-          !res ||
-          res.missing ||
-          res.code === "ENOENT" ||
-          res.kind === "missing"
-        ) {
-          if (attempt + 1 < attempts) {
-            if (retryDelayMs > 0)
-              await window.browserGlobals.sleep(retryDelayMs);
-            continue;
-          }
-          return { text: "", missing: true, error: null };
-        }
-        if (typeof res === "string") {
-          return {
-            text: window.browserGlobals.decodeMaybeBase64(res),
-            missing: false,
-            error: null,
-          };
-        }
-        if (typeof res.filecontent === "string") {
-          return {
-            text: window.browserGlobals.decodeMaybeBase64(res.filecontent),
-            missing: false,
-            error: null,
-          };
-        }
-        return { text: "", missing: false, error: null };
-      }
 
-      if ((readFile)) {
-        const value = readFile(filePath);
-        return {
-          text: window.browserGlobals.decodeMaybeBase64(value),
-          missing: false,
-          error: null,
-        };
-      }
-
-      return {
-        text: "",
-        missing: false,
-        error: new Error("No file reader available"),
-      };
-    } catch (e) {
-      lastError = e;
-      if (attempt + 1 < attempts) {
-        if (retryDelayMs > 0) await window.browserGlobals.sleep(retryDelayMs);
-        continue;
-      }
-    }
-  }
+  const res = await window.protectedGlobals.ReadFile(filePath, { text: true, direct: true });
 
   return {
     text: "",
-    missing: false,
-    error: lastError || new Error("Failed to read file"),
   };
 };
 
 window.browserGlobals.readProfileTextFile = async function (filePath) {
-  const result = await window.browserGlobals.readProfileTextFileMeta(filePath, {
-    attempts: 3,
-    retryDelayMs: 120,
-  });
+  const result = await window.browserGlobals.readProfileTextFileMeta(filePath);
   return result.text || "";
 };
 
@@ -538,11 +436,7 @@ window.browserGlobals.repairBrowserProfile = function (parsed) {
 window.browserGlobals.readBrowserProfile = async function () {
   try {
     const profileRead = await window.browserGlobals.readProfileTextFileMeta(
-      window.browserGlobals.profileSettingsPath,
-      {
-        attempts: 4,
-        retryDelayMs: 120,
-      },
+      window.browserGlobals.profileSettingsPath
     );
     const raw = profileRead.text;
     if (!raw) return window.browserGlobals.defaultBrowserProfile();
@@ -575,11 +469,7 @@ window.browserGlobals.writeBrowserProfile = async function (
   if (!options.force) {
     try {
       const existingRead = await window.browserGlobals.readProfileTextFileMeta(
-        window.browserGlobals.profileSettingsPath,
-        {
-          attempts: 3,
-          retryDelayMs: 100,
-        },
+        window.browserGlobals.profileSettingsPath
       );
       const existingRaw = existingRead.text;
       if (existingRaw) {
@@ -591,55 +481,21 @@ window.browserGlobals.writeBrowserProfile = async function (
       // ignore parse/read guard failures and continue with write
     }
   }
-  const content = btoa(JSON.stringify(payload, null, 2));
-  if ((window.protectedGlobals.WriteFile)) {
+  const content = JSON.stringify(payload, null, 2);
     await window.protectedGlobals.WriteFile(
       window.browserGlobals.profileSettingsPath,
       content,
     );
     return true;
-  }
-  if ((window.protectedGlobals.filePost)) {
-    await window.protectedGlobals.filePost({
-      saveSnapshot: true,
-      directions: [
-        {
-          edit: true,
-          path: window.browserGlobals.profileSettingsPath,
-          contents: content,
-          replace: true,
-        },
-        { end: true },
-      ],
-    });
-    return true;
-  }
-  return false;
 };
 
 window.browserGlobals.writeBrowserUserId = async function (id) {
-  const encoded = btoa(String(id || ""));
-  if ((window.protectedGlobals.WriteFile)) {
-    await window.protectedGlobals.WriteFile(
-      window.browserGlobals.profileUserIdPath,
-      encoded,
-    );
-    return;
-  }
-  if ((window.protectedGlobals.filePost)) {
-    await window.protectedGlobals.filePost({
-      saveSnapshot: true,
-      directions: [
-        {
-          edit: true,
-          path: window.browserGlobals.profileUserIdPath,
-          contents: encoded,
-          replace: true,
-        },
-        { end: true },
-      ],
-    });
-  }
+  const encoded = String(id || "");
+  await window.protectedGlobals.WriteFile(
+    window.browserGlobals.profileUserIdPath,
+    encoded,
+  );
+  return;
 };
 
 
@@ -696,11 +552,7 @@ window.browserGlobals.profileReadyPromise = (async () => {
   }
 
   const idRead = await window.browserGlobals.readProfileTextFileMeta(
-    window.browserGlobals.profileUserIdPath,
-    {
-      attempts: 5,
-      retryDelayMs: 150,
-    },
+    window.browserGlobals.profileUserIdPath
   );
   const persistedId = String(idRead.text || "").trim();
   if (persistedId) {
@@ -708,25 +560,15 @@ window.browserGlobals.profileReadyPromise = (async () => {
     return;
   }
 
-  if (idRead.error) {
-    return;
-  }
 
   // One more confirmation pass before generating/writing a new session id.
   // This avoids replacing an existing id when the first read was transiently empty.
   const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(
-    window.browserGlobals.profileUserIdPath,
-    {
-      attempts: 6,
-      retryDelayMs: 220,
-    },
+    window.browserGlobals.profileUserIdPath
   );
   const confirmedId = String(idReadConfirm.text || "").trim();
   if (confirmedId) {
     window.browserGlobals.id = confirmedId;
-    return;
-  }
-  if (idReadConfirm.error) {
     return;
   }
   const id = await window.browserGlobals.requestNewBrowserSessionId();
@@ -813,11 +655,9 @@ async function loadCookies() {
 try {
   const res = await window.protectedGlobals.ReadFile(
     window.browserGlobals.cookiesPath,
-    { text: true }
+    { text: true, direct: true}
   );
-  const raw = res && res.filecontent ? res.filecontent : "";
-  const decoded = window.browserGlobals.decodeMaybeBase64(raw);
-  const newData = JSON.parse(decoded || "{}") || {};
+  const newData = JSON.parse(res || "{}");
   window.browserGlobals.mutateObject(window.browserGlobals.cookies, newData);
 } catch {
   window.browserGlobals.mutateObject(window.browserGlobals.cookies, {});
@@ -911,7 +751,7 @@ for (const [key, value] of Object.entries(storagecookies)) {
     function () {
       return window.browserGlobals.writeFileOrdered(
         window.browserGlobals.cookiesPath,
-        btoa(JSON.stringify(cookies)),
+        JSON.stringify(cookies),
       );
     },
   );
@@ -922,11 +762,9 @@ async function loadLocalStorage() {
 try {
   const res = await window.protectedGlobals.ReadFile(
     window.browserGlobals.localStoragePath,
-    { text: true }
+    { text: true, direct: true }
   );
-  const raw = res && res.filecontent ? res.filecontent : "";
-  const decoded = window.browserGlobals.decodeMaybeBase64(raw);
-  const newData = JSON.parse(decoded || "{}") || {};
+  const newData = JSON.parse(res || "{}") || {};
   window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newData);
 } catch {
   window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, {});
@@ -961,7 +799,7 @@ window.browserGlobals.setLocalStorageForSite = function (site, dataObject) {
     function () {
       return window.browserGlobals.writeFileOrdered(
         window.browserGlobals.localStoragePath,
-        btoa(JSON.stringify(store)),
+        JSON.stringify(store),
       );
     },
   );
@@ -979,7 +817,7 @@ window.browserGlobals.removeLocalStorageItem = function (site, key) {
     function () {
       return window.browserGlobals.writeFileOrdered(
         window.browserGlobals.localStoragePath,
-        btoa(JSON.stringify(window.browserGlobals.localStorageStore)),
+        JSON.stringify(window.browserGlobals.localStorageStore),
       );
     },
   );
@@ -1001,7 +839,7 @@ window.browserGlobals.clearCookiesForSite = function (url) {
     function () {
       return window.browserGlobals.writeFileOrdered(
         window.browserGlobals.cookiesPath,
-        btoa(JSON.stringify(window.browserGlobals.cookies)),
+        JSON.stringify(window.browserGlobals.cookies),
       );
     },
   );
@@ -1023,7 +861,7 @@ window.browserGlobals.clearLocalStorageForSite = function (url) {
     function () {
       return window.browserGlobals.writeFileOrdered(
         window.browserGlobals.localStoragePath,
-        btoa(JSON.stringify(window.browserGlobals.localStorageStore)),
+        JSON.stringify(window.browserGlobals.localStorageStore),
       );
     },
   );
@@ -1062,13 +900,13 @@ window.browserGlobals.clearAllCookies = async function () {
   window.browserGlobals.mutateObject(window.browserGlobals.cookies, {});
   await window.browserGlobals.writeFileOrdered(
     window.browserGlobals.cookiesPath,
-    btoa(JSON.stringify(window.browserGlobals.cookies))
+    JSON.stringify(window.browserGlobals.cookies)
   );
 };
 window.browserGlobals.clearAllLocalStorage = async function () {
   window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, {});
   await window.browserGlobals.writeFileOrdered(
     window.browserGlobals.localStoragePath,
-    btoa(JSON.stringify(window.browserGlobals.localStorageStore))
+    JSON.stringify(window.browserGlobals.localStorageStore)
   );
 };

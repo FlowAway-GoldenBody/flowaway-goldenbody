@@ -212,64 +212,25 @@ window.protectedGlobals.removeAllEventListenersForApp = function (appname) {
     return;
   }
   window.protectedGlobals._bootLoaded = true;
-
-  function crash(message, detail) {
-    window.protectedGlobals.notification(message + ': ' + detail);
-    throw new Error(String(message || "Flowaway initialization failed.") + (detail ? "\n\n" + String(detail) : ""));
-  }
-
-  function base64ToUtf8Local(b64) {
-    var binaryString = atob(String(b64 || ""));
-    var len = binaryString.length;
-    var bytes = new Uint8Array(len);
-    for (var i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+  window.protectedGlobals.iconDataToBase64 = function (raw) {
+    if (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw)) {
+      const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+      const chunkSize = 0x8000;
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
     }
-    if ((TextDecoder)) {
-      return new TextDecoder("utf-8").decode(bytes);
+    if (typeof raw === "string") {
+      return raw.trim();
     }
-    return binaryString;
-  }
-
-  async function fetchAndLoadScript(path) {
-    if (!(window.protectedGlobals.filePost)) {
-      crash("Flowaway bootstrap missing filePost.", "Cannot fetch " + String(path || ""));
-      return;
-    }
-
-    var response = await window.protectedGlobals.filePost({
-      requestFile: true,
-      requestFileName: String(path || ""),
-    });
-
-    if (!response || typeof response.filecontent !== "string") {
-      crash("Flowaway bootstrap failed to fetch script.", String(path || ""));
-      return;
-    }
-
-    var scriptText = base64ToUtf8Local(response.filecontent);
-    if (!scriptText || !scriptText.trim()) {
-      crash("Flowaway bootstrap received empty script.", String(path || ""));
-      return;
-    }
-
-    var script = document.createElement("script");
-    script.type = "text/javascript";
-    script.textContent = scriptText;
-    document.body.appendChild(script);
-  }
-
-  async function loadRuntime() {
-    var parts = [
-      "systemfiles/runtime/core/runtimeCore.js",
-    ];
-
-    for (var i = 0; i < parts.length; i++) {
-      await fetchAndLoadScript(parts[i]);
-    }
-
-    window.protectedGlobals._runtimeLoaded = true;
-  }
-
-  loadRuntime();
+    return null;
+  };
+  (async () => {
+    const data = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: 'systemfiles/runtime/core/runtimeCore.js', text: true });
+    let script = document.createElement('script');
+    script.textContent = data;
+    document.head.appendChild(script);
+  })();
 })();
