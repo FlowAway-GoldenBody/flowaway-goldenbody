@@ -48,18 +48,26 @@ window.protectedGlobals.FileExists = async function (relPath) {
 window.protectedGlobals.ReadFile = async function (relPath, options = { text: true }) {
   if (!relPath) throw new Error("No path");
 
+  options = Object.assign(
+    {
+      text: true,
+      buffer: false,
+      direct: false,
+      largeFile: false,
+    },
+    options,
+  );
+
   const isBuffer = !!options.buffer;
-  const isText = !isBuffer && (options.text !== false);
+  const isText = !isBuffer && options.text !== false;
+  const useLargeFile = !!options.largeFile;
 
   const headers = { "Content-Type": "application/json" };
   if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
     headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
   }
 
-  let chunkIndex = 0;
-  const chunks = [];
-  let meta = null;
-  while (chunkIndex < 500) {
+  async function requestChunk(chunkIndex) {
     const response = await fetch(window.protectedGlobals.SERVER, {
       method: "POST",
       headers,
@@ -75,43 +83,144 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
 
     if (response.status === 401) {
       window.protectedGlobals.showSessionExpiredDialog();
-      return;
+      return { unauthorized: true };
     }
 
     const contentType = (response.headers.get("content-type") || "").toLowerCase();
     if (contentType.includes("application/json")) {
-      const json = await response.json();
-      if (json && json.missing) return undefined;
-      return json;
+      return { json: await response.json() };
     }
 
     const rawChunk = await response.arrayBuffer();
-    chunks.push(rawChunk);
-
-    meta = {
-      fileSize: Number(response.headers.get("x-file-size") || "0"),
-      chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
-      isLastChunk: response.headers.get("x-is-last-chunk") === "1",
-      totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
+    return {
+      rawChunk,
+      meta: {
+        fileSize: Number(response.headers.get("x-file-size") || "0"),
+        chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
+        isLastChunk: response.headers.get("x-is-last-chunk") === "1",
+        totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
+      },
     };
-
-    if (meta.isLastChunk) break;
-    chunkIndex++;
   }
 
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
-  const fullBuffer = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    fullBuffer.set(new Uint8Array(chunk), offset);
-    offset += chunk.byteLength;
+  const initialResponse = await requestChunk(0);
+  if (initialResponse.unauthorized) return;
+  if (initialResponse.json) {
+    if (initialResponse.json && initialResponse.json.missing) return undefined;
+    return initialResponse.json;
   }
 
-  if (isBuffer) return fullBuffer.buffer;
-  if (isText) return new TextDecoder().decode(fullBuffer);
+  if (useLargeFile) {
+    const fileSize = initialResponse.meta.fileSize;
+    const totalChunks = initialResponse.meta.totalChunks;
+    const decoder = isText ? new TextDecoder() : null;
+    let currentChunkIndex = 0;
+    let finished = false;
+
+    function enqueueChunk(controller, rawChunk, isLastChunk) {
+      if (isText) {
+        controller.enqueue(decoder.decode(new Uint8Array(rawChunk), { stream: !isLastChunk }));
+      } else {
+        controller.enqueue(new Uint8Array(rawChunk));
+      }
+      if (isLastChunk) {
+        finished = true;
+        controller.close();
+      }
+    }
+
+    return {
+      largeFile: true,
+      fileSize,
+      totalChunks,
+      stream: new ReadableStream({
+        async start(controller) {
+          enqueueChunk(controller, initialResponse.rawChunk, initialResponse.meta.isLastChunk);
+          if (initialResponse.meta.isLastChunk) return;
+          currentChunkIndex = 1;
+        },
+        async pull(controller) {
+          if (finished) return;
+          const response = await requestChunk(currentChunkIndex);
+          if (response.unauthorized) {
+            controller.error(new Error("Unauthorized"));
+            return;
+          }
+          if (response.json) {
+            controller.error(new Error(response.json.error || "Failed to stream file"));
+            return;
+          }
+
+          enqueueChunk(controller, response.rawChunk, response.meta.isLastChunk);
+          currentChunkIndex += 1;
+        },
+        cancel() {
+          finished = true;
+        },
+      }),
+    };
+  }
+
+  const fileSize = initialResponse.meta.fileSize;
+  const totalChunks = initialResponse.meta.totalChunks;
+
+  if (totalChunks === 1) {
+    const rawChunk = initialResponse.rawChunk;
+    if (isBuffer) return rawChunk;
+    if (isText) return new TextDecoder().decode(rawChunk);
+    if (options.direct) return rawChunk;
+    return {
+      ...initialResponse.meta,
+      filecontent: rawChunk,
+    };
+  }
+
+  if (isText) {
+    const decoder = new TextDecoder();
+    let text = decoder.decode(new Uint8Array(initialResponse.rawChunk), { stream: true });
+    let nextIndex = 1;
+
+    while (true) {
+      const response = await requestChunk(nextIndex);
+      if (response.unauthorized) return;
+      if (response.json) {
+        if (response.json && response.json.missing) return undefined;
+        return response.json;
+      }
+
+      const isLast = response.meta.isLastChunk;
+      text += decoder.decode(new Uint8Array(response.rawChunk), { stream: !isLast });
+      if (isLast) break;
+      nextIndex += 1;
+    }
+    return text + decoder.decode();
+  }
+
+  const fullBuffer = new Uint8Array(fileSize);
+  fullBuffer.set(new Uint8Array(initialResponse.rawChunk), 0);
+  let offset = initialResponse.rawChunk.byteLength;
+  let nextIndex = 1;
+
+  while (true) {
+    const response = await requestChunk(nextIndex);
+    if (response.unauthorized) return;
+    if (response.json) {
+      if (response.json && response.json.missing) return undefined;
+      return response.json;
+    }
+
+    fullBuffer.set(new Uint8Array(response.rawChunk), offset);
+    offset += response.rawChunk.byteLength;
+    if (response.meta.isLastChunk) break;
+    nextIndex += 1;
+  }
+
   if (options.direct) return fullBuffer.buffer;
   return {
-    ...meta,
+    fileSize,
+    chunkIndex: totalChunks - 1,
+    isLastChunk: true,
+    totalChunks,
     filecontent: fullBuffer.buffer,
   };
 };

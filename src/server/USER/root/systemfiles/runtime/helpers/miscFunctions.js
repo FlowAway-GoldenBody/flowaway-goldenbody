@@ -196,23 +196,12 @@ window.protectedGlobals.buildPersistableUserProfile = function buildPersistableU
   };
 };
 
-window.protectedGlobals.persistUserProfilePatch = async function (patch = {}) {
+window.protectedGlobals.persistUserProfilePatch = function (patch = {}) {
   var profile = window.protectedGlobals.buildPersistableUserProfile(patch);
   window.protectedGlobals.data = window.protectedGlobals.data || {};
   Object.assign(window.protectedGlobals.data, profile);
   var encoded = JSON.stringify(profile, null, 2);
-  return await window.protectedGlobals.filePost({
-    saveSnapshot: true,
-    directions: [
-      {
-        edit: true,
-        path: window.protectedGlobals.USER_PROFILE_PATH,
-        contents: encoded,
-        replace: true,
-      },
-      { end: true },
-    ],
-  });
+  return window.protectedGlobals.WriteFile("/systemfiles/userprofile/profile.json", encoded, { replace: true });
 };
 
 
