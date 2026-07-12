@@ -65,7 +65,7 @@ window.textEditorGlobals.makeIcon = function(type, size = 16) {
   svg.style.display = "block";
   svg.innerHTML = ICONS[type] || "";
   return svg;
-}
+};
 
 window.textEditorGlobals.normalizeTextEditorSettings = function(value) {
   const base = {
@@ -87,7 +87,7 @@ window.textEditorGlobals.normalizeTextEditorSettings = function(value) {
         : base.tabSize,
     autosave: !!value.autosave,
   };
-}
+};
 
 
 window.textEditorGlobals.loadTextEditorSettings = async function loadTextEditorSettings(forceRefresh = false) {
@@ -107,17 +107,17 @@ window.textEditorGlobals.loadTextEditorSettings = async function loadTextEditorS
   })();
 
   return window.textEditorGlobals.settingsLoadPromise;
-}
+};
 
 window.textEditorGlobals.saveTextEditorSettings = async function saveTextEditorSettings(settings) {
-  const normalized = window.textEditorGlobals.normalizeTextEditorSettings(settings);
-  window.textEditorGlobals.editorSettings = normalized;
-  window.textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
-  const content = JSON.stringify(normalized, null, 2);
+    const normalized = window.textEditorGlobals.normalizeTextEditorSettings(settings);
+    window.textEditorGlobals.editorSettings = normalized;
+    window.textEditorGlobals.settingsLoadPromise = Promise.resolve(normalized);
+    const content = JSON.stringify(normalized, null, 2);
+};
 window.textEditorGlobals.getTextEditorSettings = function getTextEditorSettings() {
   return window.textEditorGlobals.normalizeTextEditorSettings(window.textEditorGlobals.editorSettings);
-}
-
+};
 window.textEditor = function (path, posX = 50, posY = 50) {
   let getTextEditorSettings = window.textEditorGlobals.getTextEditorSettings;
   let saveTextEditorSettings = window.textEditorGlobals.saveTextEditorSettings;
@@ -736,7 +736,7 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   textarea.className = "texteditor-area";
   textarea.setAttribute("aria-label", titleLabel.textContent);
   root.addEventListener("styleapplied", () => {
-     textarea.style.border =
+    textarea.style.border =
       window.protectedGlobals.data.dark
         ? "1px solid rgba(255,255,255,0.06)"
         : "1px solid rgba(0,0,0,0.08)";
@@ -1529,4 +1529,3 @@ window.textEditor = function (path, posX = 50, posY = 50) {
 
   return returnObject;
 }
-};

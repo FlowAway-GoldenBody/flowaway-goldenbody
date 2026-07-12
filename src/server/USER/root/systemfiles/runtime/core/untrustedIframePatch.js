@@ -41,6 +41,18 @@ let createRequestId;
     };
 })();
 
+const normalizePathInput = (pathOrHandle) => {
+    let path = pathOrHandle;
+    let key = undefined;
+    if (pathOrHandle && typeof pathOrHandle === "object" && typeof pathOrHandle.path === "string") {
+        path = pathOrHandle.path;
+        if (typeof pathOrHandle.key === "string") {
+            key = pathOrHandle.key;
+        }
+    }
+    return { path, key };
+};
+
 const createRequestMessageHandler = (requestId, resolve, reject) => {
     return function handleMessage(event) {
         if (!event || !event.data || typeof event.data !== "object") {
@@ -60,70 +72,103 @@ const createRequestMessageHandler = (requestId, resolve, reject) => {
             reject(new Error("Permission denied"));
             return;
         }
-        resolve(event.data.result);
+
+        const result = event.data.result ?? event.data.openFilePickerResult ?? event.data.showSaveFilePickerResult ?? event.data.showDirectoryPickerResult;
+        if (result && typeof result.path === "string") {
+            window.__path__ = { path: result.path, key: result.key };
+            if (event.data.openFilePickerResult || event.data.showSaveFilePickerResult || event.data.showDirectoryPickerResult) {
+                window.__userSelectedFile__ = result.path;
+            }
+        }
+
+        resolve(result);
     };
 };
 window.alert = function (message) {
     window.parent.postMessage({alert: true, message}, '*');
 };
 window.__goldenbodyAPI = {
-    readFile: async (path, options) => {
+    readFile: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
-        window.parent.postMessage({readFile: true, path, options, requestId}, '*');
+        window.parent.postMessage({readFile: true, path, key, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
 
-    writeFile: async (path, content, options) => {
+    writeFile: async (pathOrHandle, content, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
-        window.parent.postMessage({writeFile: true, path, content, options, requestId}, '*');
+        window.parent.postMessage({writeFile: true, path, content, key, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
 
-    writeFileSuper: async (path, content, options) => {
+    writeFolder: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
-        window.parent.postMessage({writeFileSuper: true, path, content, options, requestId, key: window.__fileHandleKey__}, '*');
-        return new Promise((resolve, reject) => {
-            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
-            window.addEventListener('message', handleMessage);
-        });
-    },    
-    
-    writeFolder: async (path, content, options) => {
-        let requestId = createRequestId();
-        window.parent.postMessage({writeFolder: true, path, options, requestId}, '*');
+        window.parent.postMessage({writeFolder: true, path, key, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
 
-    readFolder: async (path, options) => {
+    readFolder: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
-        window.parent.postMessage({readFolder: true, path, options, requestId}, '*');
+        window.parent.postMessage({readFolder: true, path, key, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
 
-    deleteFile: async (path, options) => {
+    deleteFile: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
-        window.parent.postMessage({deleteFile: true, path, options, requestId}, '*');
+        window.parent.postMessage({deleteFile: true, path, key, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
 
-    deleteFolder: async (path, options) => {
+    deleteFolder: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
-        window.parent.postMessage({deleteFolder: true, path, options, requestId}, '*');
+        window.parent.postMessage({deleteFolder: true, path, key, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    showOpenFilePicker: async (options = {}) => {
+        let requestId = createRequestId();
+        window.parent.postMessage({showOpenFilePicker: true, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    showSaveFilePicker: async (options = {}) => {
+        let requestId = createRequestId();
+        window.parent.postMessage({showSaveFilePicker: true, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    showDirectoryPicker: async (options = {}) => {
+        let requestId = createRequestId();
+        window.parent.postMessage({showDirectoryPicker: true, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);

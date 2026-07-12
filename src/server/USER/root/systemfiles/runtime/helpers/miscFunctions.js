@@ -498,7 +498,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
       if (first && (first.newWindow)) {
         first.newWindow();
       } else {
-        window.protectedGlobals.launchApp(app.functionName);
+        window.protectedGlobals.launchApp(app.id);
       }
     });
   });

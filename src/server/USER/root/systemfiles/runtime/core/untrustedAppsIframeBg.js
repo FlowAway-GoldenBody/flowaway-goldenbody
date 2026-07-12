@@ -179,6 +179,35 @@ async function showAppPermissionPrompt(appName, permissionType) {
         window.addEventListener("keydown", escListener);
     });
 }
+
+    function normalizeVfsPath(path) {
+        if (!path && path !== "") return "";
+        return String(path).replace(/\/+/g, "/").replace(/^\//, "");
+    }
+
+    function isPathUnderRoot(path, root) {
+        if (typeof path !== "string" || typeof root !== "string") return false;
+        const normalizedPath = normalizeVfsPath(path);
+        const normalizedRoot = normalizeVfsPath(root);
+        return normalizedPath === normalizedRoot || normalizedPath.startsWith(normalizedRoot + "/");
+    }
+
+    function isExternalKeyAllowed(path, key, appName) {
+        if (!key || typeof path !== "string") return false;
+        const keys = window.protectedGlobals.__externalPickerKeys;
+        if (!keys || !(keys instanceof Map)) return false;
+        const mapping = keys.get(key);
+        if (!mapping) return false;
+        if (mapping.appName !== appName) return false;
+        if (mapping.kind === "file") {
+            return normalizeVfsPath(path) === normalizeVfsPath(mapping.path);
+        }
+        if (mapping.kind === "directory") {
+            return isPathUnderRoot(path, mapping.path);
+        }
+        return false;
+    }
+
     window.protectedGlobals.setIframesPointerEvents = function (none = true) {
         document.querySelectorAll("iframe").forEach((iframe) => {
             if (none) iframe.classList.add("pointer-events-none");
@@ -271,19 +300,40 @@ async function showAppPermissionPrompt(appName, permissionType) {
         if (typeof options !== "object" || options === null) options = undefined;
         let requestId = e.detail.data.requestId;
         async function sendResponse() {
+            const externalKey = e.detail.data.key;
             if (e.detail.data.readFile) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.ReadFile(path, options);
+                    source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.ReadFile(path, options);
                 source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.deleteFile) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.DeleteFile(path, options);
+                    source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.DeleteFile(path, options);
                 source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.readFolder) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.ReadFolder(path, options);
+                    source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.ReadFolder(path, options);
                 source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.deleteFolder) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.DeleteFolder(path, options);
+                    source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.DeleteFolder(path, options);
                 source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
@@ -291,10 +341,22 @@ async function showAppPermissionPrompt(appName, permissionType) {
         }
         async function sendProtectedResponse() {
             if (e.detail.data.writeFile) {
+                const externalKey = e.detail.data.key;
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
+                    source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
                 source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.writeFolder) {
+                const externalKey = e.detail.data.key;
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.WriteFolder(path, options);
+                    source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.WriteFolder(path, options);
                 source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
@@ -303,8 +365,11 @@ async function showAppPermissionPrompt(appName, permissionType) {
         if (!window.protectedGlobals.appPerms[appName]) {
             window.protectedGlobals.appPerms[appName] = { storage: "ask", notification: "ask" };
         }
+        const externalWriteRequest = (e.detail.data.key && isExternalKeyAllowed(path, e.detail.data.key, appName));
         if (e.detail.data.writeFolder || e.detail.data.writeFile) {
-            if (window.protectedGlobals.appPerms[appName].storage === "true") {
+            if (externalWriteRequest) {
+                sendProtectedResponse();
+            } else if (window.protectedGlobals.appPerms[appName].storage === "true") {
                 sendProtectedResponse();
             } else if (window.protectedGlobals.appPerms[appName].storage === "ask") {
                 dialogOpen = true;

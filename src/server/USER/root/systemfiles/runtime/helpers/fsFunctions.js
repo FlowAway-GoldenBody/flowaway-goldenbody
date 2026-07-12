@@ -1,11 +1,15 @@
 "use strict";
 // required functions for user file system
 window.protectedGlobals.findNodeByPath = function (relPath) {
-  var parts = relPath.split("/");
-  var current = window.protectedGlobals.treeData;
-  for (let i = 1; i < parts.length; i++) {
-    if (!current[1]) return null;
-    current = current[1].find((c) => c[0] === parts[i]);
+  if (typeof relPath !== "string") return null;
+  const normalized = String(relPath).replace(/\/+/g, "/").replace(/^\//, "").replace(/\/$/, "");
+  if (!normalized) return window.protectedGlobals.treeData;
+  const parts = normalized.split("/");
+  let current = window.protectedGlobals.treeData;
+  for (const part of parts) {
+    if (!current || !Array.isArray(current[1])) return null;
+    current = current[1].find((c) => c[0] === part);
+    if (!current) return null;
   }
   return current;
 };
