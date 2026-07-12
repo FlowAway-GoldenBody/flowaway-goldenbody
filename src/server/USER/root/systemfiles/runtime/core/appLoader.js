@@ -518,7 +518,6 @@ let getFilesFromFolder = async function (relPath) {
     document.body.appendChild(overlay);
     updateStyles();
     makeDraggable(titleBar, panel);
-    renderEntries();
 
     return new Promise((resolve, reject) => {
       cancelButton.onclick = () => {

@@ -79,7 +79,7 @@ window.protectedGlobals.loadTree = async function () {
 window.protectedGlobals.annotateTreeWithPaths = function annotateTreeWithPaths(tree, basePath = "") {
   var [name, children, meta = {}] = tree;
 
-  var path = name === "root" ? "" : basePath ? `${basePath}/${name}` : name;
+  var path = basePath === "" && name === "root" ? "" : basePath ? `${basePath}/${name}` : name;
 
   tree[2] = { ...meta, path };
 
