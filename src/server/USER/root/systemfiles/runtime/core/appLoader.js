@@ -605,7 +605,7 @@ let getFilesFromFolder = async function (relPath) {
           }
           if (e.data.showOpenFilePicker) {
             try {
-              const selectedPath = await showVfsPickerDialog({ title: "Open File or Folder", mode: "openFile" });
+              const selectedPath = await showVfsPickerDialog({ title: "Open File", mode: "openFile" });
               if (!selectedPath) {
                 throw new Error("No file or folder selected.");
               }
@@ -625,7 +625,9 @@ let getFilesFromFolder = async function (relPath) {
               if (!selectedPath) {
                 throw new Error("No save destination selected.");
               }
-              e.source.postMessage({ showSaveFilePickerResult: { kind: "file", path: selectedPath, name: selectedPath.split("/").pop() || "untitled" }, requestId: e.data.requestId }, "*");
+              const key = crypto.randomUUID();
+              window.protectedGlobals.__externalPickerKeys.set(key, { appName: appObj.id, kind: "file", path: selectedPath });
+              e.source.postMessage({ showSaveFilePickerResult: { kind: "file", path: selectedPath, key, name: selectedPath.split("/").pop() || "untitled" }, requestId: e.data.requestId }, "*");
             } catch (err) {
               e.source.postMessage({ error: err.message || "The user aborted a request.", requestId: e.data.requestId }, "*");
             }

@@ -339,28 +339,26 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             }
         }
-        async function sendProtectedResponse() {
+        async function sendProtectedResponse(externalAllowed) {
             if (e.detail.data.writeFile) {
-                const externalKey = e.detail.data.key;
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if (externalAllowed) {
                     let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
                     source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
                 }
-                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-                let result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
+                const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.WriteFile(internalPath, e.detail.data.content, options);
                 source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.writeFolder) {
-                const externalKey = e.detail.data.key;
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if (externalAllowed) {
                     let result = await window.protectedGlobals.WriteFolder(path, options);
                     source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
                 }
-                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-                let result = await window.protectedGlobals.WriteFolder(path, options);
+                const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.WriteFolder(internalPath, options);
                 source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
-            } 
+            }
         };
         if (!window.protectedGlobals.appPerms[appName]) {
             window.protectedGlobals.appPerms[appName] = { storage: "ask", notification: "ask" };
@@ -368,9 +366,9 @@ async function showAppPermissionPrompt(appName, permissionType) {
         const externalWriteRequest = (e.detail.data.key && isExternalKeyAllowed(path, e.detail.data.key, appName));
         if (e.detail.data.writeFolder || e.detail.data.writeFile) {
             if (externalWriteRequest) {
-                sendProtectedResponse();
+                sendProtectedResponse(true);
             } else if (window.protectedGlobals.appPerms[appName].storage === "true") {
-                sendProtectedResponse();
+                sendProtectedResponse(false);
             } else if (window.protectedGlobals.appPerms[appName].storage === "ask") {
                 dialogOpen = true;
                 let allow = await showAppPermissionPrompt(appName, "storage");
