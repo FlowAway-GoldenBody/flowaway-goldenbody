@@ -29,13 +29,15 @@ async function showAppPermissionPrompt(appName, permissionType) {
 
         // Dialog
         const dialog = document.createElement("div");
+        // make the div in center horizontally
         dialog.style.cssText = `
-            width:420px;
-            margin-left: ${document.body.offsetWidth-476}px; /* width + 2 * padding */
-            margin-right: 0;
-            top:0px;
+            width:25%;
+            top:10%;
             z-index:100003;
             background:#fff;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
             border-radius:16px;
             box-shadow:0 20px 60px rgba(0,0,0,.35);
             padding:28px;
@@ -43,16 +45,6 @@ async function showAppPermissionPrompt(appName, permissionType) {
             animation:popup .18s ease;
         `;
         dialog.style.position = "fixed";
-
-        // App Icon
-        const icon = document.createElement("div");
-        icon.textContent = `"${appName}" says:`;
-        icon.style.cssText = `
-            font-size:42px;
-            text-align:center;
-            margin-bottom:14px;
-            color:black;
-        `;
 
         // Title
         const title = document.createElement("h2");
@@ -142,7 +134,6 @@ async function showAppPermissionPrompt(appName, permissionType) {
         buttons.append(deny, allow);
 
         dialog.append(
-            icon,
             title,
             desc,
             rememberRow,
