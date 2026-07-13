@@ -248,9 +248,9 @@ let getFilesFromFolder = async function (relPath) {
     actionButton.style.fontWeight = "700";
     buttonBar.appendChild(actionButton);
 
-    let theme = createPickerTheme(!!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    let theme = createPickerTheme(!!(window.protectedGlobals.data.dark));
     const updateStyles = () => {
-      const isDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+      const isDark = !!(window.protectedGlobals.data.dark);
       theme = createPickerTheme(isDark);
       panel.style.background = theme.panelBg;
       panel.style.color = theme.panelText;

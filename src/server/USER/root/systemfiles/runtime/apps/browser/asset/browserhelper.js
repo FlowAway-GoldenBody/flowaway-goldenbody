@@ -540,14 +540,14 @@ window.browserGlobals.profileReadyPromise = (async () => {
         : "auto";
     if (pm === "auto") {
       window.browserGlobals.dark = !!(
-        window.protectedGlobals.data && window.protectedGlobals.data.dark
+        window.protectedGlobals.data.dark
       );
     } else {
       window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
     }
   } catch (e) {
     window.browserGlobals.dark = !!(
-      window.protectedGlobals.data && window.protectedGlobals.data.dark
+      window.protectedGlobals.data.dark
     );
   }
 

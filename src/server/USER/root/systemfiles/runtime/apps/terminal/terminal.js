@@ -402,7 +402,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
-    root.style.top = "0";
+    root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
     root.style.width = "100%";
     root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
     root.style.borderRadius = "0px";
@@ -1457,7 +1457,6 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
 });
         let body = response;
         ensureServerResultOk(response);
-        window.protectedGlobals.data = window.protectedGlobals.data || {};
         window.protectedGlobals.data.pathPermissions = Array.isArray(body.pathPermissions)
           ? body.pathPermissions
           : window.protectedGlobals.data.pathPermissions;

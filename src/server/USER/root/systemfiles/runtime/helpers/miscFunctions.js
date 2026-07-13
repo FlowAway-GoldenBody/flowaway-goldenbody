@@ -153,7 +153,7 @@ window.protectedGlobals.calculateVwInPixels = function(vwValue) {
 
 // optional functions
 window.protectedGlobals.buildPersistableUserProfile = function buildPersistableUserProfile(overrides = {}) {
-  var runtime = window.protectedGlobals.data && typeof window.protectedGlobals.data === "object" ? window.protectedGlobals.data : {};
+  var runtime = window.protectedGlobals.data;
   return {
     schemaVersion: 1,
     taskbuttons:
@@ -193,12 +193,17 @@ window.protectedGlobals.buildPersistableUserProfile = function buildPersistableU
       : Number.isFinite(Number(runtime.DRAG_THRESHOLD))
         ? Math.max(2, Math.min(128, Math.round(Number(runtime.DRAG_THRESHOLD))))
         : 15,
+    taskbarOnTop:
+      typeof overrides.taskbarOnTop === "boolean"
+        ? overrides.taskbarOnTop
+        : typeof runtime.taskbarOnTop === "boolean"
+          ? runtime.taskbarOnTop
+          : false,
   };
 };
 
 window.protectedGlobals.persistUserProfilePatch = function (patch = {}) {
   var profile = window.protectedGlobals.buildPersistableUserProfile(patch);
-  window.protectedGlobals.data = window.protectedGlobals.data || {};
   Object.assign(window.protectedGlobals.data, profile);
   var encoded = JSON.stringify(profile, null, 2);
   return window.protectedGlobals.WriteFile("/systemfiles/userprofile/profile.json", encoded, { replace: true });
@@ -251,7 +256,7 @@ console.error(
 window.protectedGlobals.showModal = function(title, body, level) {
   var isDark = true;
   var darkVal = null;
-  if (window.protectedGlobals.data && typeof window.protectedGlobals.data.dark !== "undefined") darkVal = window.protectedGlobals.data.dark;
+  if (typeof window.protectedGlobals.data.dark !== "undefined") darkVal = window.protectedGlobals.data.dark;
   else if (document.documentElement && document.documentElement.dataset && typeof document.documentElement.dataset.dark !== "undefined") darkVal = document.documentElement.dataset.dark;
   else if (document.body && document.body.dataset && typeof document.body.dataset.dark !== "undefined") darkVal = document.body.dataset.dark;
 
@@ -407,7 +412,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
     fontSize: "13px",
     visibility: "hidden",
   });
-  (window.protectedGlobals.data && window.protectedGlobals.data.dark)
+  (window.protectedGlobals.data.dark)
     ? menu.classList.toggle("dark", true)
     : menu.classList.toggle("light", true);
 

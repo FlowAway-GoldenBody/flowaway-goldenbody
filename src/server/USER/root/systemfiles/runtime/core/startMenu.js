@@ -178,7 +178,7 @@ const getBrightnessMax = function getBrightnessMax() {
 const updateBrightnessOverlayTheme = function updateBrightnessOverlayTheme() {
   const overlay = window.protectedGlobals.brightnessOverlayEl;
   if (!overlay) return;
-  const isDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  const isDark = !!(window.protectedGlobals.data.dark);
   const theme = {
     bg: isDark ? "rgba(25, 28, 34, 0.96)" : "rgba(255, 255, 255, 0.96)",
     border: isDark ? "1px solid rgba(255,255,255,0.16)" : "1px solid rgba(0,0,0,0.12)",
@@ -434,7 +434,7 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
 }
 
 const createShortcutButton = window.protectedGlobals.createShortcutButton = function createShortcutButton(label, description, handler) {
-  var isDarkTheme = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  var isDarkTheme = !!(window.protectedGlobals.data.dark);
   const btn = document.createElement("button");
   btn.type = "button";
   btn.style.padding = "12px";
@@ -752,6 +752,8 @@ if (navigator.getBattery) {
 // ----------------- TOGGLE START MENU -----------------
 window.protectedGlobals.starthandler = () => {
   if (!startMenu.isConnected) document.body.appendChild(startMenu);
+  if (window.protectedGlobals.data.taskbarOnTop) {startMenu.style.top = "60px"; startMenu.style.bottom = ''} else {startMenu.style.bottom = "60px"; startMenu.style.top = ''}
+
   startMenu.style.display =
     startMenu.style.display === "block" ? "none" : "block";
   // Auto-switch to pinned tab when opening

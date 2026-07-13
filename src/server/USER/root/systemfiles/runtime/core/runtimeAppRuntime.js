@@ -33,7 +33,7 @@ if ((window.protectedGlobals.loadTree)) {
 window.protectedGlobals.onlyloadTree = window.protectedGlobals.oldLoadTree;
 // ----------------- END dynamic app loader -----------------
 
-window.protectedGlobals.username = window.protectedGlobals.data && typeof window.protectedGlobals.data.username === 'string' ? window.protectedGlobals.data.username : '';
+window.protectedGlobals.username = window.protectedGlobals.data.username;
 
 // fullscreen keyboard lock
 // fullscreenchange - ensure single binding

@@ -38,7 +38,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
   const useLargeFile = !!options.largeFile;
 
   const headers = { "Content-Type": "application/json" };
-  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
+  if (window.protectedGlobals.data.authToken) {
     headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
   }
 
@@ -227,7 +227,7 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
     "X-File-Replace": options.replace !== false ? "true" : "false",
     "X-Username": window.protectedGlobals.getCurrentUsernameForRequests(),
   };
-  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) {
+  if (window.protectedGlobals.data.authToken) {
     headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
   }
 
@@ -304,7 +304,6 @@ window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipbo
 // Helper function to extract auth token from response
 function extractAuthTokenFromResponse(body) {
   if (body && (body.authToken || body.token)) {
-    window.protectedGlobals.data = window.protectedGlobals.data || {};
     window.protectedGlobals.data.authToken = body.authToken || body.token;
   }
 }
@@ -312,7 +311,7 @@ function extractAuthTokenFromResponse(body) {
 // auth related stuff
   window.protectedGlobals.zmcdpost = async function (data) {
     const headers = { 'Content-Type': 'application/json' };
-    if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) headers['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
+    if (window.protectedGlobals.data.authToken) headers['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
     var res = await fetch(window.protectedGlobals.zmcdserver, {
         method: 'POST',
         headers,
@@ -348,8 +347,8 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
     transform: "translate(-50%, -50%)",
     width: "420px",
     maxWidth: "90vw",
-    background: window.protectedGlobals.data && window.protectedGlobals.data.dark ? "#222" : "#fff",
-    color: window.protectedGlobals.data && window.protectedGlobals.data.dark ? "#fff" : "#000",
+    background: window.protectedGlobals.data.dark ? "#222" : "#fff",
+    color: window.protectedGlobals.data.dark ? "#fff" : "#000",
     borderRadius: "8px",
     boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
     zIndex: 100002,
@@ -451,7 +450,7 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
     const uname = (function () {
       const u = window.protectedGlobals.getCurrentUsernameForRequests();
       if (u && typeof u === 'string' && u.trim()) return u.trim();
-      if (window.protectedGlobals.data && typeof window.protectedGlobals.data.username === 'string')         return window.protectedGlobals.data.username.trim();
+      return window.protectedGlobals.data.username.trim();
       return '';
     })();
 
@@ -505,7 +504,6 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
         return;
       }
 
-      window.protectedGlobals.data = window.protectedGlobals.data || {};
       window.protectedGlobals.data.authToken = body.authToken;
       status.textContent = 'Session refilled. You can continue.';
       status.style.color = 'green';
@@ -523,26 +521,12 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
 };
 
 window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsernameForRequests() {
-  var liveUsername = "";
-  var cachedUsername = "";
-  if (window.protectedGlobals.data && typeof window.protectedGlobals.data.username === "string") {
-    liveUsername = window.protectedGlobals.data.username.trim();
-  }
-
-  if (typeof window.protectedGlobals._cachedUsername === "string") {
-    cachedUsername = window.protectedGlobals._cachedUsername.trim();
-  }
-
-  if (liveUsername) {
-    window.protectedGlobals._cachedUsername = liveUsername;
-  }
-
-  return liveUsername || cachedUsername;
+  return window.protectedGlobals.data.username.trim();
 };
 
 window.protectedGlobals.filePost = async function filePost(data) {
   const headers = { "Content-Type": "application/json" };
-  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken)
+  if (window.protectedGlobals.data.authToken)
     headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
   var res = await fetch(window.protectedGlobals.SERVER, {
     method: "POST",
@@ -584,7 +568,7 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
     method: "POST",
     headers: (function () {
       const h = { "Content-Type": "application/json" };
-      if (window.protectedGlobals.data && window.protectedGlobals.data.authToken)
+      if (window.protectedGlobals.data.authToken)
         h["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
       return h;
     })(),

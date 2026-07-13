@@ -172,10 +172,10 @@ function defaultProfile() {
     schemaVersion: PROFILE_SCHEMA_VERSION,
     taskbuttons: ["Browser","File Explorer","Settings","Text Editor"],
     brightness: 100,
-    volume: 40,
     dark: false,
+    taskbarOnTop: false,
     autohidetaskbar: false,
-    taskbarRevealEdgePx: 6,
+    taskbarRevealEdgePx: 60,
     taskbarRevealHoldDelayMs: 450,
     DRAG_THRESHOLD: 15,
   };
@@ -202,6 +202,7 @@ function normalizeProfile(raw) {
     autoupdate: typeof profile.autoupdate === 'boolean' ? profile.autoupdate : defaults.autoupdate,
     siteSettings: Array.isArray(profile.siteSettings) ? profile.siteSettings : defaults.siteSettings,
     DRAG_THRESHOLD: normalizeDragThreshold(profile.DRAG_THRESHOLD),
+    taskbarOnTop: !!profile.taskbarOnTop
   };
 }
 

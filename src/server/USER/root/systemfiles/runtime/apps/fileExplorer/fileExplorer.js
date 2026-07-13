@@ -145,7 +145,7 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
-    root.style.top = "0";
+    root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
     root.style.width = "100%";
     root.style.height = !window.protectedGlobals.data.autohidetaskbar ? "calc(100% - 60px)" : "100%";
     root.style.borderRadius = "0";
@@ -444,7 +444,7 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   }
 
   // --- ELEMENTS ---
-  let isDark = !!(window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  let isDark = !!(window.protectedGlobals && window.protectedGlobals.data.dark);
   let sidebar = null;
   let topbar = null;
   let breadcrumbs = null;
@@ -724,7 +724,7 @@ function makeIcon(type, size = 16) {
   }
 
   function applyExplorerTheme() {
-    isDark = !!(window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark);
+    isDark = !!(window.protectedGlobals && window.protectedGlobals.data.dark);
     root.style.color = isDark ? "#e6eef8" : "#111";
     root.style.background = isDark ? "#0f172a" : "#ffffff";
     if (sidebar) {
@@ -823,10 +823,10 @@ function makeIcon(type, size = 16) {
   controls.style.gap = "8px";
   controls.style.alignItems = "center";
   controls.style.flex = "0 0 auto";
-  controls.style.background = window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(255,255,255,0.04)' : '#f3f4f6';
+  controls.style.background = window.protectedGlobals && window.protectedGlobals.data.dark ? 'rgba(255,255,255,0.04)' : '#f3f4f6';
   controls.style.padding = '6px';
   controls.style.borderRadius = '10px';
-  controls.style.boxShadow = window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.6)';
+  controls.style.boxShadow = window.protectedGlobals && window.protectedGlobals.data.dark ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.6)';
 
   sortSelect = document.createElement("select");
   [

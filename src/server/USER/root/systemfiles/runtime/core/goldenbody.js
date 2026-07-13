@@ -242,11 +242,10 @@
     .status-menu {
       position: fixed;
       right: 10px;
-      bottom: 70px;
+      bottom: 60px;
       background: rgba(240, 240, 240, 0.98);
       backdrop-filter: blur(10px);
       border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
       padding: 16px;
       min-width: 280px;
       z-index: 100000;
@@ -451,7 +450,7 @@
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
   taskbar.style.zIndex = 100000; // very high z-index to ensure it stays on top of app content but below modals/menus
-  taskbar.style.bottom = "0";
+  window.protectedGlobals.data.taskbarOnTop ? taskbar.style.top = "0" : taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
   taskbar.style.height = "60px";
@@ -462,7 +461,14 @@
   taskbar.style.boxSizing = "border-box";
   document.body.appendChild(taskbar);
   window.protectedGlobals.taskbar = taskbar;
-  
+  let changeTaskbarPosition = () => {
+    if (window.protectedGlobals.data.taskbarOnTop) {taskbar.style.top = "0"; taskbar.style.bottom = ''} else {taskbar.style.bottom = "0"; taskbar.style.top = ''}
+    for(let root of document.querySelectorAll('.app-window-root')){
+      if(root.style.width === `100%` && root.style.height === `calc(100% - 60px)`) {
+        window.protectedGlobals.data.taskbarOnTop ? root.style.top = `60px` : root.style.top = `0px`;
+      }
+    }
+  };
   let leftSection = document.createElement('div');
   leftSection.className = 'taskbar-left-section';
   leftSection.id = 'taskbar-left-section';
@@ -491,7 +497,7 @@
   if (!tempdata) {
     window.protectedGlobals.statusData = {
       wifiEnabled: true, // Always start with WiFi on, don't persist
-      batterySaverEnabled: (window.protectedGlobals.data && window.protectedGlobals.data.batterySaverEnabled) || false,
+      batterySaverEnabled: (window.protectedGlobals.data.batterySaverEnabled) || false,
       brightness: 100,
       batteryLevel: window.protectedGlobals.batteryLevel || NaN,
       isCharging: false
@@ -550,7 +556,7 @@
   // Add divider
   var divider = document.createElement('div');
   divider.className = 'taskbar-divider';
-  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+  if (window.protectedGlobals.data.dark) {
     divider.classList.add('dark');
   }
   rightSection.appendChild(divider);
@@ -560,7 +566,8 @@
   // Create status menu
   var statusMenu = document.createElement('div');
   statusMenu.className = 'status-menu';
-  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+  if (window.protectedGlobals.data.taskbarOnTop) {statusMenu.style.top = "60px"; statusMenu.style.bottom = ''} else {statusMenu.style.bottom = "60px"; statusMenu.style.top = ''}
+  if (window.protectedGlobals.data.dark) {
     statusMenu.classList.add('dark');
   }
   statusMenu.id = 'status-menu';
@@ -620,7 +627,7 @@
           <div class="toggle-label">
             <span>Dark Mode</span>
           </div>
-          <div class="toggle-switch ${window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'active' : ''}">
+          <div class="toggle-switch ${window.protectedGlobals.data.dark ? 'active' : ''}">
             <div class="toggle-switch-dot"></div>
         </div>
         </div>
@@ -665,7 +672,6 @@
         }
         else if (toggleType === 'battery-saver') {
           window.protectedGlobals.statusData.batterySaverEnabled = !window.protectedGlobals.statusData.batterySaverEnabled;
-          if (!window.protectedGlobals.data) window.protectedGlobals.data = {};
           window.protectedGlobals.data.batterySaverEnabled = window.protectedGlobals.statusData.batterySaverEnabled;
           if (window.protectedGlobals.statusData.batterySaverEnabled) {
             window.protectedGlobals.statusData.brightness /= 2; // dim brightness when battery saver is on
@@ -763,7 +769,7 @@
   
   // Update status bar theme when switching between light/dark
   window.protectedGlobals.updateStatusBarTheme = function() {
-    if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    if (window.protectedGlobals.data.dark) {
       statusMenu.classList.add('dark');
       divider.classList.add('dark');
       divider1.classList.add('dark');
@@ -776,14 +782,14 @@
   // window.protectedGlobals.updateStatusBarTheme();
 
   // Autohide support (reveals only from bottom-edge hold)
-  var autohideEnabled = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
+  var autohideEnabled = !!(window.protectedGlobals.data.autohidetaskbar);
   function getTaskbarRevealEdgePx() {
-    var v = Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealEdgePx);
+    var v = Number(window.protectedGlobals.data.taskbarRevealEdgePx);
     if (!Number.isFinite(v)) return 6;
     return Math.max(1, Math.min(64, Math.round(v)));
   }
   function getTaskbarRevealHoldDelayMs() {
-    var v = Number(window.protectedGlobals.data && window.protectedGlobals.data.taskbarRevealHoldDelayMs);
+    var v = Number(window.protectedGlobals.data.taskbarRevealHoldDelayMs);
     if (!Number.isFinite(v)) return 450;
     return Math.max(0, Math.min(5000, Math.round(v)));
   }
@@ -812,6 +818,19 @@
   taskbar.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
   taskbar.style.transform = 'translateY(0)';
   var taskbarVisible = true;
+  function isTaskbarOnTop() {
+    return !!(window.protectedGlobals.data.taskbarOnTop);
+  }
+  function getTaskbarHiddenTransform() {
+    return isTaskbarOnTop() ? 'translateY(-100%)' : 'translateY(100%)';
+  }
+  function isInTaskbarRevealZone(clientY) {
+    var revealEdgePx = getTaskbarRevealEdgePx();
+    if (isTaskbarOnTop()) {
+      return clientY <= revealEdgePx;
+    }
+    return clientY >= window.innerHeight - revealEdgePx;
+  }
   function showTaskbar() {
     if (_hideTimer) {
       clearTimeout(_hideTimer);
@@ -824,7 +843,7 @@
   }
   function hideTaskbar() {
     if (!taskbarVisible) return;
-    taskbar.style.transform = 'translateY(100%)';
+    taskbar.style.transform = getTaskbarHiddenTransform();
     taskbar.style.opacity = 0;
     taskbarVisible = false;
   }
@@ -876,8 +895,7 @@
   function _onMouseMove(e) {
     _lastMouseX = e.clientX;
     _lastMouseY = e.clientY;
-    var revealEdgePx = getTaskbarRevealEdgePx();
-    var inRevealZone = e.clientY >= window.innerHeight - revealEdgePx;
+    var inRevealZone = isInTaskbarRevealZone(e.clientY);
     if (inRevealZone) {
       if (taskbarVisible) {
         _cancelRevealTimer();
@@ -953,8 +971,7 @@
   function _onTouchStart(e) {
     var t = e.touches && e.touches[0];
     if (!t) return;
-    var revealEdgePx = getTaskbarRevealEdgePx();
-    if (t.clientY >= window.innerHeight - revealEdgePx) {
+    if (isInTaskbarRevealZone(t.clientY)) {
       if (taskbarVisible) {
         _cancelRevealTimer();
         return;
@@ -972,8 +989,7 @@
   function _onTouchMove(e) {
     var t = e.touches && e.touches[0];
     if (!t) return;
-    var revealEdgePx = getTaskbarRevealEdgePx();
-    if (t.clientY < window.innerHeight - revealEdgePx) {
+    if (!isInTaskbarRevealZone(t.clientY)) {
       _cancelRevealTimer();
       _scheduleHide();
     }
@@ -986,11 +1002,12 @@
   function enableAutohide() {
     if (autohideActive) return;
     autohideEnabled = true;
-    setTimeout(() => hideTaskbar(), 2000);
+    setTimeout(() => {if (autohideEnabled) hideTaskbar()}, 2000);
     
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.height === `calc(100% - 60px)`) {
       root.style.height = '100%';
+      root.style.top = 0;
       }
     }
     document.addEventListener('mousemove', _onMouseMove);
@@ -1035,7 +1052,8 @@
     _cancelRevealTimer();
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.height === `100%`) {
-      root.style.height = `calc(100% - 60px)`;
+        root.style.height = `calc(100% - 60px)`;
+        window.protectedGlobals.data.taskbarOnTop ? root.style.top = `60px` : root.style.top = `0px`;
       }
     }
     if (_hideTimer) {
@@ -1072,7 +1090,6 @@
   }
 
   window.protectedGlobals.applyTaskbarAutohideSettings = function (settings) {
-    if (!window.protectedGlobals.data) window.protectedGlobals.data = {};
     if (settings && settings.autohidetaskbar !== undefined) {
       window.protectedGlobals.data.autohidetaskbar = !!settings.autohidetaskbar;
     }
@@ -1082,7 +1099,7 @@
     if (settings && settings.taskbarRevealHoldDelayMs !== undefined) {
       window.protectedGlobals.data.taskbarRevealHoldDelayMs = Number(settings.taskbarRevealHoldDelayMs);
     }
-    autohideEnabled = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
+    autohideEnabled = !!(window.protectedGlobals.data.autohidetaskbar);
     if (autohideEnabled) enableAutohide(); else disableAutohide();
   };
 
@@ -1094,8 +1111,8 @@
     var cm = document.createElement('div');
     cm.style.position = 'fixed';
     cm.style.zIndex = 100001; // above taskbar but below modals/overlays
-    cm.style.background = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
-    cm.style.color = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'white' : 'black';
+    cm.style.background = window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
+    cm.style.color = window.protectedGlobals.data.dark ? 'white' : 'black';
     cm.style.padding = '8px';
     cm.style.borderRadius = '6px';
     cm.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
@@ -1119,7 +1136,23 @@
     row.appendChild(chk);
     row.appendChild(lbl);
 
+    let chk2 = document.createElement('input');
+    chk2.type = 'checkbox';
+    chk2.id = 'taskbar-alignment-checkbox';
+    chk2.style.marginRight = '8px';
+    let lbl2 = document.createElement('label');
+    lbl2.htmlFor = chk2.id;
+    lbl2.style.cursor = 'pointer';
+    lbl2.textContent = 'Put Taskbar On Top';
+
+    let row2 = document.createElement('div');
+    row2.style.display = 'flex';
+    row2.style.alignItems = 'center';
+    row2.style.gap = '8px';
+    row2.appendChild(chk2);
+    row2.appendChild(lbl2);
     cm.appendChild(row);
+    cm.appendChild(row2);
     document.body.appendChild(cm);
 
     function closeMenu() {
@@ -1141,11 +1174,12 @@
       if (autohideEnabled) _setTaskbarContextMenuOpen(true);
       var x = ev.clientX;
       var y = ev.clientY;
-      chk.checked = !!(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar);
+      chk.checked = window.protectedGlobals.data.autohidetaskbar;
+      chk2.checked = window.protectedGlobals.data.taskbarOnTop;
       cm.style.left = Math.min(window.innerWidth - 200, x) + 'px';
       cm.style.top = Math.min(window.innerHeight - 50, y) + 'px';
-      cm.style.color = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'white' : 'black'; 
-      cm.style.background = window.protectedGlobals.data && window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
+      cm.style.color = window.protectedGlobals.data.dark ? 'white' : 'black'; 
+      cm.style.background = window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
       cm.style.display = 'block';
       document.addEventListener('pointerdown', onDocPointerDown);
       taskbar.addEventListener('pointerdown', onDocPointerDown); // also close if clicking taskbar (but not buttons)
@@ -1154,12 +1188,19 @@
 
     chk.addEventListener('change', function () {
       var newVal = !!chk.checked;
-      if (!window.protectedGlobals.data) window.protectedGlobals.data = {}; window.protectedGlobals.data.autohidetaskbar = newVal;
+      window.protectedGlobals.data.autohidetaskbar = newVal;
       // update runtime behavior
       if (newVal) enableAutohide(); else disableAutohide();
+      window.protectedGlobals.persistUserProfilePatch({ autohidetaskbar: newVal });
+      closeMenu();
+    });
 
-      // persist to server if available
-      persistUserProfilePatch({ autohidetaskbar: newVal });
+    chk2.addEventListener('change', () => {
+      var newVal = !!chk2.checked;
+      window.protectedGlobals.data.taskbarOnTop = newVal;
+      // update runtime behavior
+      changeTaskbarPosition();
+      window.protectedGlobals.persistUserProfilePatch({ taskbarOnTop: newVal });
       closeMenu();
     });
   })();
@@ -1248,7 +1289,7 @@
     btn.style.border = "none";
     btn.className = 'taskbutton';
     btn.style.minWidth = '50px';
-    var isDarkTaskbarTheme = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+    var isDarkTaskbarTheme = !!(window.protectedGlobals.data.dark);
     btn.classList.toggle('dark', isDarkTaskbarTheme);
     btn.classList.toggle('light', !isDarkTaskbarTheme);
     btn.style.borderRadius = "3px";
@@ -1319,7 +1360,7 @@
   window.protectedGlobals._fullscreen = _fullscreen;
   let fullscreenbtn;
   let startbtn;
-  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+  if (window.protectedGlobals.data.dark) {
     fullscreenbtn = addTaskButton("⤢", window.protectedGlobals._fullscreen, false, '', '', true, false, false, { png: true, pngContent: fullScreenDarkImage, nonApp: true });
     startbtn = addTaskButton("▶", window.protectedGlobals.starthandler, false, '', '', true, false, true, { png: true, pngContent: startMenuDarkImage, nonApp: true });
   } else {
@@ -1328,12 +1369,12 @@
   }
   let divider1 = document.createElement('div');
   divider1.className = 'taskbar-divider';
-  if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+  if (window.protectedGlobals.data.dark) {
     divider1.classList.add('dark');
   }
   window.protectedGlobals.leftSection.appendChild(divider1);
   let updateTaskbarCoreButtonTheme = () => {
-    if (window.protectedGlobals.data && window.protectedGlobals.data.dark) {
+    if (window.protectedGlobals.data.dark) {
       fullscreenbtn.img.src = "data:image/png;base64," + fullScreenDarkImage;
       startbtn.img.src = "data:image/png;base64," + startMenuDarkImage;
       fullscreenbtn.classList.add('dark');

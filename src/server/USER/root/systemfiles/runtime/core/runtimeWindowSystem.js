@@ -31,7 +31,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
   window.protectedGlobals.appsButtonsApplied = true;
 
   // Prefer dynamic apps discovered in /apps
-  var savedTaskButtons = Array.isArray(window.protectedGlobals.data && window.protectedGlobals.data.taskbuttons)
+  var savedTaskButtons = Array.isArray(window.protectedGlobals.data.taskbuttons)
     ? window.protectedGlobals.data.taskbuttons
     : [];
   var seenAppIds = new Set();
@@ -238,7 +238,7 @@ var prepareWindowSwitchPreview = window.protectedGlobals.prepareWindowSwitchPrev
   });
 
   var panel = document.createElement("div");
-  var systemDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  var systemDark = !!(window.protectedGlobals.data.dark);
   Object.assign(panel.style, {
     minWidth: "520px",
     maxWidth: "88vw",
@@ -296,7 +296,7 @@ var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPrevie
 
   var list = windowSwitchState.previewList;
   var panel = list.parentElement;
-  var systemDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  var systemDark = !!(window.protectedGlobals.data.dark);
   if (panel) {
     panel.style.background = systemDark
       ? "rgba(26,26,26,0.96)"
@@ -525,7 +525,7 @@ window.protectedGlobals.systemAPIs.onKeydown = function (e) {
     }
 
     // Check user-defined shortcuts first
-    if (window.protectedGlobals.data && window.protectedGlobals.data.shortcuts && window.protectedGlobals.data.shortcuts[combo]) {
+    if (window.protectedGlobals.data.shortcuts && window.protectedGlobals.data.shortcuts[combo]) {
       e.preventDefault();
       window.protectedGlobals.launchApp(window.protectedGlobals.data.shortcuts[combo]);
       return;
@@ -593,8 +593,8 @@ window.protectedGlobals.applyStyles = function applyStyles() {
   for (const r of roots) {
     // don't let the global applyStyles override its classes.
     if (!(r.dataset.themeManual === 'true')) {
-      r.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
-      r.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+      r.classList.toggle("dark", !!(window.protectedGlobals.data.dark));
+      r.classList.toggle("light", !(window.protectedGlobals.data.dark));
     }
     r.dispatchEvent(new CustomEvent("styleapplied", {}));
   }
@@ -606,19 +606,19 @@ window.protectedGlobals.applyStyles = function applyStyles() {
   var startMenuEl = window.protectedGlobals.startMenu || document.getElementById("startMenu");
   var taskbarEl = window.protectedGlobals.taskbar || document.getElementById("taskbar");
   if (startMenuEl) {
-    startMenuEl.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
-    startMenuEl.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    startMenuEl.classList.toggle("dark", !!(window.protectedGlobals.data.dark));
+    startMenuEl.classList.toggle("light", !(window.protectedGlobals.data.dark));
   }
   if (taskbarEl) {
-    taskbarEl.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
-    taskbarEl.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    taskbarEl.classList.toggle("dark", !!(window.protectedGlobals.data.dark));
+    taskbarEl.classList.toggle("light", !(window.protectedGlobals.data.dark));
   }
   var taskButtonsList = Array.isArray(window.protectedGlobals.taskbuttons)
     ? window.protectedGlobals.taskbuttons
     : [];
   for (var button of taskButtonsList) {
-    button.classList.toggle("dark", !!(window.protectedGlobals.data && window.protectedGlobals.data.dark));
-    button.classList.toggle("light", !(window.protectedGlobals.data && window.protectedGlobals.data.dark));
+    button.classList.toggle("dark", !!(window.protectedGlobals.data.dark));
+    button.classList.toggle("light", !(window.protectedGlobals.data.dark));
   }
   // Update status bar theme
   if (window.protectedGlobals.updateStatusBarTheme) {
@@ -640,7 +640,7 @@ document.documentElement.style.filter = `brightness(${window.protectedGlobals.st
 // // 1. Create a new MutationObserver instance with a callback function
 // window.protectedGlobals.observer = new MutationObserver((mutationsList, observer) => {
 //   if (mutationsList) {
-//     document.documentElement.style.filter = `brightness(${window.protectedGlobals.data && window.protectedGlobals.statusData.brightness}%)`;
+//     document.documentElement.style.filter = `brightness(${window.protectedGlobals.statusData.brightness}%)`;
 //   }
 // });
 // var observer = window.protectedGlobals.observer;
@@ -689,7 +689,7 @@ window.protectedGlobals.notification = function(message, options) {
 
     // theme detection: explicit option > data-theme attributes > protected theme state > data-dark flag > default
     var dataDark = null;
-    if (window.protectedGlobals.data && window.protectedGlobals.data.dark !== undefined) dataDark = window.protectedGlobals.data.dark;
+    if (window.protectedGlobals.data.dark !== undefined) dataDark = window.protectedGlobals.data.dark;
     var themeCandidate = options.theme || (document.documentElement && document.documentElement.getAttribute('data-theme')) || (document.body && (document.body.getAttribute('data-theme') || document.body.dataset.theme)) || window.protectedGlobals.flowawayTheme || dataDark || null;
     var theme = themeCandidate;
 

@@ -354,7 +354,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
 
   function applySystemTheme(container) {
     const updateTheme = () => {
-      const dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+      const dark = !!(window.protectedGlobals.data.dark);
       const colors = {
         '--app-bg': dark ? '#121212' : '#ffffff',
         '--panel-bg': dark ? '#1f1f1f' : '#fafafa',

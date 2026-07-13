@@ -24,11 +24,11 @@ if (!window.protectedGlobals.__ouchbad_preinit_done) {
 }
 window.protectedGlobals.filePost = async function (data) {
   const headers = { 'Content-Type': 'application/json' };
-  if (window.protectedGlobals.data && window.protectedGlobals.data.authToken) headers.Authorization = 'Bearer ' + window.protectedGlobals.data.authToken;
+  if (window.protectedGlobals.data.authToken) headers.Authorization = 'Bearer ' + window.protectedGlobals.data.authToken;
   const res = await fetch(window.protectedGlobals.SERVER, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ username: window.protectedGlobals.data && window.protectedGlobals.data.username ? window.protectedGlobals.data.username : '', ...data }),
+    body: JSON.stringify({ username: window.protectedGlobals.data.username ? window.protectedGlobals.data.username : '', ...data }),
   });
   return res.text();
 };
@@ -40,7 +40,6 @@ window.protectedGlobals.downloadserver = window.protectedGlobals.__ouchbad_downl
 window.protectedGlobals.baseOrigin = window.protectedGlobals.__ouchbad_baseOrigin;
 window.protectedGlobals.wsProtocol = window.protectedGlobals.__ouchbad_wsProtocol;
 window.protectedGlobals.hostname = window.protectedGlobals.__ouchbad_hostname;
-window.protectedGlobals.data = window.protectedGlobals.data || {};
 window.protectedGlobals.zmcdata = null;
 window.protectedGlobals.firstlogin = false;
 
@@ -197,6 +196,16 @@ window.protectedGlobals.firstlogin = false;
       msg.style.color = 'red';
       return;
     }
+    if (username.includes(' ')) {
+      msg.textContent = 'username cannot contain spaces';
+      msg.style.color = 'red';
+      return;
+    }
+    if (password.length > 20 || password.length < 3) {
+      msg.textContent = 'password is 3 to 20 characters';
+      msg.style.color = 'red';
+      return;
+    }
 
     const payload = {
       username,
@@ -223,7 +232,7 @@ window.protectedGlobals.firstlogin = false;
         msg.textContent = 'Success!';
         msg.style.color = 'lime';
         window.protectedGlobals.data = window.protectedGlobals.zmcdata;
-        if (!window.protectedGlobals.firstlogin && String(window.protectedGlobals.data && window.protectedGlobals.data.username ? window.protectedGlobals.data.username : '').startsWith('183')) {
+        if (!window.protectedGlobals.firstlogin && String(window.protectedGlobals.data.username ? window.protectedGlobals.data.username : '').startsWith('183')) {
           window.protectedGlobals.firstlogin = true;
         }
         setTimeout(() => {

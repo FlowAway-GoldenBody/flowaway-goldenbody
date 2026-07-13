@@ -122,7 +122,7 @@ window.settings = function (posX = 50, posY = 50) {
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
-    root.style.top = "0";
+    root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
     root.style.width = "100%";
     root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
     root.style.borderRadius = "0px";
@@ -543,9 +543,7 @@ window.settings = function (posX = 50, posY = 50) {
   mainContainer.append(title, section);
 
   async function saveAppPermissions() {
-    const appPermsPayload = window.protectedGlobals.appPerms && typeof window.protectedGlobals.appPerms === "object"
-      ? window.protectedGlobals.appPerms
-      : {};
+    const appPermsPayload = window.protectedGlobals.appPerms || {};
     await window.protectedGlobals.WriteFile(
       "/systemfiles/userprofile/appPermissions.json",
       JSON.stringify(appPermsPayload, null, 2),

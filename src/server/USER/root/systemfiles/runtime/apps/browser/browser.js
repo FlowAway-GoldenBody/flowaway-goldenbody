@@ -139,14 +139,14 @@ window.browser = async function (
         : "auto";
     if (pm === "auto") {
       window.browserGlobals.dark = !!(
-        window.protectedGlobals.data && window.protectedGlobals.data.dark
+        window.protectedGlobals.data.dark
       );
     } else {
       window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
     }
   } catch (e) {
     window.browserGlobals.dark = !!(
-      window.protectedGlobals.data && window.protectedGlobals.data.dark
+      window.protectedGlobals.data.dark
     );
   }
 
@@ -1648,7 +1648,7 @@ setTimeout(() => {
             : "auto";
         if (pm === "auto") {
           window.browserGlobals.dark = !!(
-            window.protectedGlobals.data && window.protectedGlobals.data.dark
+            window.protectedGlobals.data.dark
           );
         } else {
           window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
@@ -1657,7 +1657,7 @@ setTimeout(() => {
           root.classList.toggle("light", !window.browserGlobals.dark);
       } catch (e) {
         window.browserGlobals.dark = !!(
-          window.protectedGlobals.data && window.protectedGlobals.data.dark
+          window.protectedGlobals.data.dark
         );
       }
 
@@ -2015,7 +2015,7 @@ setTimeout(() => {
       savedBounds = getBounds();
       root.style.position = "absolute";
       root.style.left = "0";
-      root.style.top = "0";
+      root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
       root.style.width = "100%";
       root.style.height = !window.protectedGlobals.data.autohidetaskbar
         ? `calc(100% - 60px)`
@@ -2516,7 +2516,7 @@ setTimeout(() => {
             window.browserGlobals.profile.themeMode === "auto"
           ) {
             window.browserGlobals.dark = !!(
-              window.protectedGlobals.data && window.protectedGlobals.data.dark
+              window.protectedGlobals.data.dark
             );
           } else {
             window.browserGlobals.dark = !!(
@@ -2525,7 +2525,7 @@ setTimeout(() => {
           }
         } catch (e) {
           window.browserGlobals.dark = !!(
-            window.protectedGlobals.data && window.protectedGlobals.data.dark
+            window.protectedGlobals.data.dark
           );
         }
 

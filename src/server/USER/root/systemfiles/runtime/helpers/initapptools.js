@@ -60,7 +60,7 @@ window.protectedGlobals.initAppTools = function () {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
-    var isDark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+    var isDark = !!(window.protectedGlobals.data.dark);
     root.classList.toggle("dark", isDark);
     root.classList.toggle("light", !isDark);
     if (ctx.appId) {
@@ -120,7 +120,7 @@ window.protectedGlobals.initAppTools = function () {
       var thresholdCrossed = false;
 
       function getDragThreshold() {
-        var v = Number(window.protectedGlobals.data && window.protectedGlobals.data.DRAG_THRESHOLD);
+        var v = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
         if (!Number.isFinite(v)) return 15;
         return Math.max(2, Math.min(128, Math.round(v)));
       }
@@ -130,7 +130,7 @@ window.protectedGlobals.initAppTools = function () {
 
       dragTarget.addEventListener("pointerdown", function (ev) {
         if (active) return;
-        var configuredThreshold = Number(window.protectedGlobals.data && window.protectedGlobals.data.DRAG_THRESHOLD);
+        var configuredThreshold = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
         if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
           window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
         }
@@ -409,7 +409,7 @@ window.protectedGlobals.initAppTools = function () {
     });
 
     function applyTitlebarTheme() {
-      var dark = !!(window.protectedGlobals.data && window.protectedGlobals.data.dark);
+      var dark = !!(window.protectedGlobals.data.dark);
       root.classList.toggle("dark", dark);
       root.classList.toggle("light", !dark);
       topBar.style.background = dark ? "#444" : "#ccc";
@@ -449,9 +449,9 @@ window.protectedGlobals.initAppTools = function () {
         };
         root._apptoolsSavedBounds = savedBounds;
         root.style.left = "0";
-        root.style.top = "0";
+        root.style.top = window.protectedGlobals.data.taskbarOnTop && window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
         root.style.width = "100%";
-        root.style.height = !(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
+        root.style.height = !(window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
         root.style.borderRadius = "0";
         root._apptoolsMaximized = true;
         setMaximizedIcon(true);
@@ -626,9 +626,9 @@ window.protectedGlobals.initAppTools = function () {
       instance.savedBounds = savedBounds;
       instance.rootElement._apptoolsSavedBounds = savedBounds;
       instance.rootElement.style.left = "0";
-      instance.rootElement.style.top = "0";
+      instance.rootElement.style.top = window.protectedGlobals.data.taskbarOnTop && window.protectedGlobals.data.autohidetaskbar ? "0" : "60";
       instance.rootElement.style.width = "100%";
-      instance.rootElement.style.height = !(window.protectedGlobals.data && window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
+      instance.rootElement.style.height = !(window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
       instance.rootElement.style.borderRadius = "0px";
       instance._isMaximized = true;
       instance._isMinimized = false;

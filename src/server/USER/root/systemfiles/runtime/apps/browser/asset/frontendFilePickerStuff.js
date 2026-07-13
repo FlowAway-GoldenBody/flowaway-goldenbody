@@ -9,11 +9,7 @@
         let fullPath;
         function getSessionAuthHeaders() {
           const headers = { "Content-Type": "application/json" };
-          const token =
-            window.protectedGlobals.data &&
-            typeof window.protectedGlobals.data.authToken === "string"
-              ? window.protectedGlobals.data.authToken.trim()
-              : "";
+          const token = window.protectedGlobals.data.authToken.trim()
           if (token) headers.Authorization = "Bearer " + token;
           return headers;
         }
