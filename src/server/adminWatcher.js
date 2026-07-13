@@ -43,6 +43,51 @@ function writeJsonPretty(filePath, value) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
+function readTextFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function getUserMasterJsKey(userSystemfilesPath) {
+  const jsApiKeyPath = path.join(userSystemfilesPath, 'userprofile', 'jsApiKey.txt');
+  const key = readTextFile(jsApiKeyPath);
+  return key ? String(key).trim() : '';
+}
+
+function appRequestsAdminPerm(appDirPath) {
+  const entry = readJsonSafe(path.join(appDirPath, 'entry.json'), {});
+  return Boolean(entry && entry.requestAdminPerm);
+}
+
+function syncAppJsKey(appDirPath, masterKey) {
+  const jsKeyPath = path.join(appDirPath, 'jsKey.txt');
+  if (masterKey) {
+    fs.writeFileSync(jsKeyPath, masterKey, 'utf8');
+  } else if (fs.existsSync(jsKeyPath)) {
+    fs.rmSync(jsKeyPath, { force: true });
+  }
+}
+
+function copyDirRecursiveExcludeJsKey(srcDir, dstDir) {
+  if (!srcDir || !fs.existsSync(srcDir)) return;
+  fs.mkdirSync(dstDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.toLowerCase() === 'jskey.txt') continue;
+    const srcPath = path.join(srcDir, entry.name);
+    const dstPath = path.join(dstDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursiveExcludeJsKey(srcPath, dstPath);
+    } else if (entry.isFile()) {
+      fs.mkdirSync(path.dirname(dstPath), { recursive: true });
+      fs.copyFileSync(srcPath, dstPath);
+    }
+  }
+}
+
 function updateAllSystemApps() {
   try {
     const directoryPath = path.resolve(__dirname, './zmcdfiles');
@@ -71,6 +116,7 @@ function updateAllSystemApps() {
         const userProfilePath = path.join(userSystemfilesPath, 'userprofile');
         const userProfileJsonPath = path.join(userProfilePath, 'profile.json');
         const userStartMenuConfigPath = path.join(userProfilePath, 'startMenu-config.json');
+        const userMasterKey = getUserMasterJsKey(userSystemfilesPath);
 
         fs.mkdirSync(userSystemfilesPath, { recursive: true });
         fs.mkdirSync(userProfilePath, { recursive: true });
@@ -216,13 +262,17 @@ const copyAppsIfSrcNewer = (srcDir, dstDir) => {
             const userAppPath = path.join(userAppsPath, appName);
             try {
               if (!fs.existsSync(userAppPath)) {
-                fs.cpSync(templateAppPath, userAppPath, { recursive: true });
+                copyDirRecursiveExcludeJsKey(templateAppPath, userAppPath);
               } else {
                 if (__gbconfig.forceUpdate) {
                   copyAppsIfSrcNewer(templateAppPath, userAppPath);
                 } else {
                   copyAppsIfNotExists(templateAppPath, userAppPath);
                 }
+              }
+
+              if (appRequestsAdminPerm(userAppPath)) {
+                syncAppJsKey(userAppPath, userMasterKey);
               }
             } catch (e) {
               console.error(`Failed to update app '${appName}' for user ${username}:`, e);

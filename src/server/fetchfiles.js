@@ -18,7 +18,6 @@ async function walkDir(dir, base = dir) {
       files.push(...(await walkDir(fullPath, base)));
     } else {
       // Avoid reading entire file into memory when listing folders.
-      // Return metadata (name, relativePath, size) instead of base64 content.
       const stat = await fsp.stat(fullPath);
       files.push({
         name: entry.name,
@@ -1218,7 +1217,6 @@ async function handleFetchfiles(req, res) {
 
           if (dir.edit) {
             // Two modes supported for edits:
-            // 1) Small inline edit: dir.contents (base64 string)
             // 2) Chunked upload: dir.chunk (single part), dir.chunks (array of parts), and dir.finalize/dir.finalizeUpload to assemble
             const destRel = dir.path || "";
             const editRelPath = directionPathToRelative(destRel);

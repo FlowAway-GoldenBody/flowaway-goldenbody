@@ -27,6 +27,21 @@ function copyDirRecursive(srcDir, dstDir) {
   }
 }
 
+function appRequestsAdminPerm(appDirPath) {
+  const entryJsonPath = path.join(appDirPath, 'entry.json');
+  const entry = fs.existsSync(entryJsonPath) ? readJsonSafe(entryJsonPath) : null;
+  return Boolean(entry && entry.requestAdminPerm);
+}
+
+function syncAppJsKey(appDirPath, masterKey) {
+  const jsKeyPath = path.join(appDirPath, 'jsKey.txt');
+  if (masterKey) {
+    fs.writeFileSync(jsKeyPath, masterKey, 'utf8');
+  } else if (fs.existsSync(jsKeyPath)) {
+    fs.rmSync(jsKeyPath, { force: true });
+  }
+}
+
 function normalizeValue(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -326,9 +341,10 @@ function restoreSystemAppJsKeys(options = {}) {
   const definitions = collectSystemAppDefinitions(sourceAppsRoot);
 
   for (const definition of definitions) {
+    if (!appRequestsAdminPerm(definition.appDirPath)) continue;
     const targetAppDir = path.join(targetAppsRoot, definition.folderName);
     if (!fs.existsSync(targetAppDir)) continue;
-    fs.writeFileSync(path.join(targetAppDir, 'jsKey.txt'), masterKey);
+    syncAppJsKey(targetAppDir, masterKey);
     restoredApps.push({ id: definition.id, label: definition.label, folderName: definition.folderName });
   }
 
@@ -380,8 +396,14 @@ function resetSystemApp(options = {}) {
     copyDirRecursive(sourceBackupDir, targetAppDir);
   } else if (fallbackAppsRoot && fs.existsSync(path.join(fallbackAppsRoot, match.folderName))) {
     copyDirRecursive(path.join(fallbackAppsRoot, match.folderName), targetAppDir);
-  } else {
+  } else if (match.appDirPath && fs.existsSync(match.appDirPath)) {
     copyDirRecursive(match.appDirPath, targetAppDir);
+  }
+
+  const masterKeyPath = path.join(userRoot, 'systemfiles', 'userprofile', 'jsApiKey.txt');
+  const masterKey = fs.existsSync(masterKeyPath) ? fs.readFileSync(masterKeyPath, 'utf8').trim() : '';
+  if (appRequestsAdminPerm(targetAppDir)) {
+    syncAppJsKey(targetAppDir, masterKey);
   }
 
   return {
