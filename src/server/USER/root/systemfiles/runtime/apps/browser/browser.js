@@ -171,10 +171,6 @@ window.browser = async function (
   // This avoids replacing an existing id when the first read was transiently empty.
   const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(
     window.browserGlobals.profileUserIdPath,
-    {
-      attempts: 6,
-      retryDelayMs: 220,
-    },
   );
   const confirmedId = String(idReadConfirm.text || "").trim();
   if (confirmedId) {
@@ -1657,6 +1653,8 @@ setTimeout(() => {
         } else {
           window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
         }
+          root.classList.toggle("dark", !!window.browserGlobals.dark);
+          root.classList.toggle("light", !window.browserGlobals.dark);
       } catch (e) {
         window.browserGlobals.dark = !!(
           window.protectedGlobals.data && window.protectedGlobals.data.dark
@@ -2562,7 +2560,7 @@ setTimeout(() => {
 
         // Dispatch styleapplied to notify apps
         try {
-          allRoots = [];
+          let allRoots = [];
           window.browserGlobals.allBrowsers.forEach((b) => {
             try {
               const r = b.rootElement;

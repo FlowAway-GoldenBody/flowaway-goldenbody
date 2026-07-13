@@ -384,7 +384,7 @@ window.browserGlobals.readProfileTextFileMeta = async function (
   const res = await window.protectedGlobals.ReadFile(filePath, { text: true, direct: true });
 
   return {
-    text: "",
+    text: res,
   };
 };
 
