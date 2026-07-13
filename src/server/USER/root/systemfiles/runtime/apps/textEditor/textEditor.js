@@ -687,7 +687,6 @@ window.textEditor = function (path, posX = 50, posY = 50) {
       if (ev.target === overlay) overlay.remove();
     });
 
-    // Apply handler - keep existing server logic (window.protectedGlobals.filePost) as in shared panels
     btnApply.addEventListener("click", async () => {
       const newSettings = {
         fontSize: Number(fontInput.value),

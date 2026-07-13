@@ -2094,8 +2094,7 @@ function makeIcon(type, size = 16) {
         node: item,
         path: getCurrentFolderPath() + item[0],
         name: item[0],
-        isFolder: Array.isArray(item[1]),
-        isCut: false,
+        isFolder: Array.isArray(item[1])
       }));
       const targetPath = [...currentPath]; // current folder path array
       let predirections = [];

@@ -1,7 +1,8 @@
 "use strict";
 
 const api = window.__goldenbodyAPI || window.protectedGlobals;
-const hasRename = typeof window.protectedGlobals?.RenameFile === 'function';
+const hasRename = typeof api?.renameFile === 'function';
+const hasPaste = typeof api?.pasteFile === 'function' && typeof api?.pasteFolder === 'function';
 const state = {
   openFileHandle: null,
   saveFileHandle: null,
@@ -10,6 +11,7 @@ const state = {
   createdFolderPath: null,
   renamedFilePath: null,
   renamedFolderPath: null,
+  clipboardItems: [],
 };
 
 const logArea = document.createElement('div');
@@ -58,14 +60,18 @@ const safeApi = {
   writeFolder: async (...args) => api.writeFolder(...args),
   deleteFile: async (...args) => api.deleteFile(...args),
   deleteFolder: async (...args) => api.deleteFolder(...args),
+  renameFile: async (...args) => api.renameFile ? api.renameFile(...args) : Promise.reject(new Error('renameFile not supported')),
+  renameFolder: async (...args) => api.renameFolder ? api.renameFolder(...args) : Promise.reject(new Error('renameFolder not supported')),
+  pasteFile: async (...args) => api.pasteFile ? api.pasteFile(...args) : Promise.reject(new Error('pasteFile not supported')),
+  pasteFolder: async (...args) => api.pasteFolder ? api.pasteFolder(...args) : Promise.reject(new Error('pasteFolder not supported')),
   showOpenFilePicker: async (...args) => api.showOpenFilePicker(...args),
   showSaveFilePicker: async (...args) => api.showSaveFilePicker(...args),
   showDirectoryPicker: async (...args) => api.showDirectoryPicker(...args),
 };
 
-const renameEntry = async (path, newName) => {
+const renameEntry = async (path, newName, folder = false) => {
   if (hasRename) {
-    return window.protectedGlobals.RenameFile(path, newName);
+    return folder ? safeApi.renameFolder(path, newName) : safeApi.renameFile(path, newName);
   }
   throw new Error('Rename API is not available in this environment');
 };
@@ -98,7 +104,8 @@ const buildUI = () => {
       `Save file: <strong>${getPathDisplay(state.saveFileHandle)}</strong> | ` +
       `Folder: <strong>${getPathDisplay(state.folderHandle)}</strong> | ` +
       `Created file: <strong>${state.createdFilePath || '<none>'}</strong> | ` +
-      `Created folder: <strong>${state.createdFolderPath || '<none>'}</strong>`;
+      `Created folder: <strong>${state.createdFolderPath || '<none>'}</strong> | ` +
+      `Clipboard items: <strong>${state.clipboardItems.length}</strong>`;
   };
 
   const btnOpenFile = createButton('Pick Open File', async () => {
@@ -218,12 +225,60 @@ const buildUI = () => {
       if (!currentPath) throw new Error('Create a folder first');
       if (!hasRename) throw new Error('Rename API missing');
       const newName = `renamed-${currentPath.split('/').pop()}`;
-      await renameEntry(currentPath, newName);
+      await renameEntry(currentPath, newName, true);
       state.renamedFolderPath = `${currentPath.split('/').slice(0, -1).join('/')}/${newName}`;
       addLog(`Renamed folder to ${state.renamedFolderPath}`, 'success');
       updateStatus();
     } catch (err) {
       addLog(`Rename folder failed: ${err.message}`, 'error');
+    }
+  });
+
+  const btnCopyCreatedFile = createButton('Copy Created File to Clipboard', async () => {
+    try {
+      const currentPath = state.renamedFilePath || state.createdFilePath;
+      if (!currentPath) throw new Error('Create a file first');
+      state.clipboardItems = [{ path: currentPath }];
+      addLog(`Copied file to clipboard: ${currentPath}`, 'success');
+      updateStatus();
+    } catch (err) {
+      addLog(`Copy file failed: ${err.message}`, 'error');
+    }
+  });
+
+  const btnCopyCreatedFolder = createButton('Copy Created Folder to Clipboard', async () => {
+    try {
+      const currentPath = state.renamedFolderPath || state.createdFolderPath;
+      if (!currentPath) throw new Error('Create a folder first');
+      state.clipboardItems = [{ path: currentPath }];
+      addLog(`Copied folder to clipboard: ${currentPath}`, 'success');
+      updateStatus();
+    } catch (err) {
+      addLog(`Copy folder failed: ${err.message}`, 'error');
+    }
+  });
+
+  const btnPasteFile = createButton('Paste File', async () => {
+    try {
+      if (!state.folderHandle) throw new Error('Pick a folder first');
+      if (!hasPaste) throw new Error('Paste API missing');
+      if (!state.clipboardItems.length) throw new Error('Clipboard is empty');
+      await safeApi.pasteFile({ path: state.folderHandle.path, key: state.folderHandle.key }, state.clipboardItems);
+      addLog(`Pasted file(s) into ${state.folderHandle.path}`, 'success');
+    } catch (err) {
+      addLog(`Paste file failed: ${err.message}`, 'error');
+    }
+  });
+
+  const btnPasteFolder = createButton('Paste Folder', async () => {
+    try {
+      if (!state.folderHandle) throw new Error('Pick a folder first');
+      if (!hasPaste) throw new Error('Paste API missing');
+      if (!state.clipboardItems.length) throw new Error('Clipboard is empty');
+      await safeApi.pasteFolder({ path: state.folderHandle.path, key: state.folderHandle.key }, state.clipboardItems);
+      addLog(`Pasted folder(s) into ${state.folderHandle.path}`, 'success');
+    } catch (err) {
+      addLog(`Paste folder failed: ${err.message}`, 'error');
     }
   });
 
@@ -274,7 +329,7 @@ const buildUI = () => {
     addLog('Log cleared.');
   });
 
-  [btnOpenFile, btnSaveFile, btnPickFolder, btnReadSelectedFile, btnWriteSelectedFile, btnReadFolder, btnWriteInFolder, btnWriteFolder, btnRenameFile, btnRenameFolder, btnAddEntryInCreatedFolder, btnDeleteCreatedFile, btnDeleteCreatedFolder, btnClear].forEach((btn) => controls.appendChild(btn));
+  [btnOpenFile, btnSaveFile, btnPickFolder, btnReadSelectedFile, btnWriteSelectedFile, btnReadFolder, btnWriteInFolder, btnWriteFolder, btnRenameFile, btnRenameFolder, btnCopyCreatedFile, btnCopyCreatedFolder, btnPasteFile, btnPasteFolder, btnAddEntryInCreatedFolder, btnDeleteCreatedFile, btnDeleteCreatedFolder, btnClear].forEach((btn) => controls.appendChild(btn));
 
   logArea.style.background = '#141432';
   logArea.style.border = '1px solid #333857';

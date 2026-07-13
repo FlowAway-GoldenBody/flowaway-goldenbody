@@ -3,6 +3,9 @@ const fs = require("fs-extra");
 const path = require("path");
 const fsp = require("fs/promises");
 const AdmZip = require("adm-zip");
+const { pipeline } = require("stream");
+const { promisify } = require("util");
+const pipelineAsync = promisify(pipeline);
 
 async function walkDir(dir, base = dir) {
   const entries = await fsp.readdir(dir, { withFileTypes: true });
@@ -26,6 +29,51 @@ async function walkDir(dir, base = dir) {
   }
 
   return files;
+}
+
+function getUserAuthFilePath(username) {
+  return path.join(directoryPath, username, `${username}.txt`);
+}
+
+async function readUserAuth(username) {
+  const filePath = getUserAuthFilePath(username);
+  const txt = await fsp.readFile(filePath, "utf8");
+  return JSON.parse(txt || "{}");
+}
+
+async function writeUserAuth(username, authObj) {
+  const filePath = getUserAuthFilePath(username);
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  await fsp.writeFile(filePath, JSON.stringify(authObj, null, 2), "utf8");
+}
+
+function getUsernameFromRoot(rootPath) {
+  return path.basename(path.dirname(rootPath));
+}
+
+async function getUserUsedBytes(userRoot, username) {
+  if (!username) username = getUsernameFromRoot(userRoot);
+  const authObj = await readUserAuth(username).catch(() => ({}));
+  if (Number.isFinite(authObj.usedBytes) && authObj.usedBytes >= 0) {
+    return authObj.usedBytes;
+  }
+  const calculated = await getDirSizeBytes(userRoot).catch(() => 0);
+  authObj.usedBytes = calculated;
+  await writeUserAuth(username, authObj).catch(() => {});
+  return calculated;
+}
+
+async function adjustUserUsedBytes(userRoot, username, delta) {
+  if (!username) username = getUsernameFromRoot(userRoot);
+  if (!Number.isFinite(delta) || delta === 0) return;
+  const authObj = await readUserAuth(username).catch(() => ({}));
+  let current = Number.isFinite(authObj.usedBytes) ? authObj.usedBytes : null;
+  if (current === null) {
+    current = await getDirSizeBytes(userRoot).catch(() => 0);
+  }
+  const updated = Math.max(0, current + Number(delta));
+  authObj.usedBytes = updated;
+  await writeUserAuth(username, authObj).catch(() => {});
 }
 
 // Authenticate a username/password pair against a per-user JSON file
@@ -358,7 +406,7 @@ async function handleRawFileUpload(req, res) {
     oldSize = 0;
   }
 
-  const currentUsed = await getDirSizeBytes(userRoot);
+  const currentUsed = await getUserUsedBytes(userRoot, username);
   const quota = await getUserQuotaBytes(userRoot);
   const delta = replace ? rawBody.length - oldSize : rawBody.length;
   if (delta > 0 && currentUsed + delta > quota) {
@@ -372,6 +420,9 @@ async function handleRawFileUpload(req, res) {
 
   await fsp.mkdir(path.dirname(filePath), { recursive: true });
   await fsp.writeFile(filePath, rawBody, { flag: replace ? "w" : "a" });
+  if (delta !== 0) {
+    await adjustUserUsedBytes(userRoot, username, delta).catch(() => {});
+  }
   res.writeHead(200, { "Content-Type": "application/json" });
   return res.end(JSON.stringify({ success: true }));
 }
@@ -789,7 +840,19 @@ async function handleFetchfiles(req, res) {
           }
         };
 
-        // Helper: compute total size (bytes) of a directory recursively
+        const pathStatsCache = new Map();
+        const statCached = async (fullPath) => {
+          if (pathStatsCache.has(fullPath)) return pathStatsCache.get(fullPath);
+          const stat = await fsp.stat(fullPath).catch(() => null);
+          pathStatsCache.set(fullPath, stat);
+          return stat;
+        };
+        const existsCached = async (fullPath) => !!(await statCached(fullPath));
+        const ensureDir = async (p) => {
+          await fsp.mkdir(p, { recursive: true });
+        };
+        let usageDelta = 0;
+
         // Prepare per-user temp directory for chunked uploads
         const userDir = path.dirname(rootPath); // .../username
         const userTempDir = path.join(userDir, ".uploads_temp");
@@ -848,9 +911,9 @@ async function handleFetchfiles(req, res) {
             await ensureDir(parentPath || rootPath);
 
             // If an entry exists at the target path, ensure it's a directory.
-            if (await exists(folderPath)) {
-              const stat = await fsp.stat(folderPath);
-              if (!stat.isDirectory()) {
+            const existingStat = await statCached(folderPath);
+            if (existingStat) {
+              if (!existingStat.isDirectory()) {
                 throw new Error(
                   `Cannot create folder, file exists: ${folderPath}`,
                 );
@@ -924,6 +987,10 @@ async function handleFetchfiles(req, res) {
             continue;
           }
 
+          if (dir.renameFolder) {
+            dir.rename = true;
+          }
+
           if (dir.rename) {
             try {
               const oldRelPath = directionPathToRelative(dir.path || "");
@@ -973,10 +1040,7 @@ async function handleFetchfiles(req, res) {
             if (relativeTarget === "systemfiles") {
               continue; // prevent deleting root 'systemfiles' folder only
             }
-            const targetExists = await fsp
-              .access(targetPath)
-              .then(() => true)
-              .catch(() => false);
+            const targetExists = await existsCached(targetPath);
             if (!targetExists) {
               continue;
             }
@@ -986,12 +1050,7 @@ async function handleFetchfiles(req, res) {
             const itemName = path.basename(targetPath);
             let trashDest = path.join(trashDir, itemName);
             // Avoid overwriting existing trash items by appending a timestamp
-            if (
-              await fsp
-                .access(trashDest)
-                .then(() => true)
-                .catch(() => false)
-            ) {
+            if (await existsCached(trashDest)) {
               trashDest = path.join(trashDir, `${Date.now()}_${itemName}`);
             }
             try {
@@ -1046,7 +1105,13 @@ async function handleFetchfiles(req, res) {
               // Not inside .trash — refuse
               continue;
             }
+            const deleteSize = await getDirSizeBytes(targetPath).catch(() => 0);
             await fsp.rm(targetPath, { recursive: true, force: true });
+            if (deleteSize !== 0) {
+              await adjustUserUsedBytes(rootPath, username, -deleteSize).catch(
+                () => {},
+              );
+            }
             continue;
           }
 
@@ -1064,18 +1129,10 @@ async function handleFetchfiles(req, res) {
             const itemName = path.basename(targetPath);
             let dest = path.join(rootPath, itemName);
             // Avoid overwriting by appending a numeric suffix
-            if (
-              await fsp
-                .access(dest)
-                .then(() => true)
-                .catch(() => false)
-            ) {
+            if (await existsCached(dest)) {
               let n = 1;
               while (
-                await fsp
-                  .access(path.join(rootPath, `(${n}) ${itemName}`))
-                  .then(() => true)
-                  .catch(() => false)
+                await existsCached(path.join(rootPath, `(${n}) ${itemName}`))
               )
                 n++;
               dest = path.join(rootPath, `(${n}) ${itemName}`);
@@ -1101,6 +1158,10 @@ async function handleFetchfiles(req, res) {
             continue;
           }
 
+          if (dir.pasteFolder) {
+            dir.paste = true;
+          }
+
           if (dir.paste && clipboard) {
             const destinationRelPath = directionPathToRelative(
               dir.path || "root",
@@ -1109,7 +1170,8 @@ async function handleFetchfiles(req, res) {
             const destinationDir = path.join(userRoot, dir.path);
             // Resolve per-user quota and current usage once
             const quota = await getUserQuotaBytes(userRoot);
-            let currentUsed = await getDirSizeBytes(userRoot);
+            let currentUsed = await getUserUsedBytes(userRoot, username);
+            let pasteDelta = 0;
 
             // Check and copy/move each item; abort the whole paste if any item would exceed quota
             for (const item of clipboard) {
@@ -1120,54 +1182,36 @@ async function handleFetchfiles(req, res) {
               const src = path.join(userRoot, item.path);
 
               // ensure source still exists
-              if (!fs.existsSync(src)) {
+              if (!(await existsCached(src))) {
                 continue; // skip missing source
               }
 
               // compute size of src (could be folder)
               const srcSize = await getDirSizeBytes(src);
 
-              if (currentUsed + srcSize > quota) {
-                throw new Error(
-                  `Storage quota exceeded: cannot paste "${path.basename(item.path)}" (${srcSize} bytes)`,
-                );
-              }
-
               let dest = path.join(destinationDir, path.basename(item.path));
 
               // 🔑 collision handling
               dest = await getUniquePath(dest);
 
-              // If this is a cut/move operation and moving a folder, prevent moving into itself
-              if (item.isCut) {
-                const st = await fsp.stat(src);
-                if (st.isDirectory()) {
-                  const rel = path.relative(src, dest);
-                  if (
-                    rel === "" ||
-                    (!rel.startsWith("..") && !path.isAbsolute(rel))
-                  ) {
-                    throw new Error(
-                      `Cannot move folder into itself or a subfolder: ${item.path}`,
-                    );
-                  }
-                }
+              if (currentUsed + srcSize > quota) {
+                throw new Error(
+                  `Storage quota exceeded: cannot paste "${path.basename(item.path)}" (${srcSize} bytes)`,
+                );
               }
-
-              if (item.isCut) {
-                // Move/rename
-                await fsp.mkdir(path.dirname(dest), { recursive: true });
-                await fsp.rename(src, dest);
-              } else {
                 // Copy
                 await fsp.cp(src, dest, {
                   recursive: true,
                   force: false,
                 });
-              }
+                pasteDelta += srcSize;
+                currentUsed += srcSize;
+            }
 
-              // increase currentUsed so subsequent items are checked correctly
-              currentUsed += srcSize;
+            if (pasteDelta !== 0) {
+              await adjustUserUsedBytes(userRoot, username, pasteDelta).catch(
+                () => {},
+              );
             }
             continue;
           }
@@ -1327,6 +1371,7 @@ async function handleFetchfiles(req, res) {
 
               // Quota check: sum parts (also collect diagnostics)
               let partsTotal = 0;
+              let oldSize = 0;
               const partsInfo = [];
               for (const p of parts) {
                 const pth = path.join(userTempDir, p);
@@ -1366,9 +1411,20 @@ async function handleFetchfiles(req, res) {
                 // Throw to surface error to caller so the client can retry instead of creating 0-byte file
                 throw new Error(`No upload parts found for ${safeName}`);
               }
+
               const quota = await getUserQuotaBytes(rootPath);
-              const currentUsed = await getDirSizeBytes(rootPath);
-              if (currentUsed + partsTotal > quota) {
+              const currentUsed = await getUserUsedBytes(rootPath, username);
+              if (shouldReplace) {
+                try {
+                  const stat = await fsp.stat(filePath);
+                  if (stat.isFile()) oldSize = stat.size || 0;
+                } catch (e) {
+                  oldSize = 0;
+                }
+              }
+
+              const delta = shouldReplace ? partsTotal - oldSize : partsTotal;
+              if (delta > 0 && currentUsed + delta > quota) {
                 for (const p of parts)
                   await fsp.rm(path.join(userTempDir, p), { force: true });
                 throw new Error(
@@ -1384,26 +1440,34 @@ async function handleFetchfiles(req, res) {
                 return ai - bi;
               });
 
+              await fsp.mkdir(path.dirname(filePath), { recursive: true });
               const writeStream = fs.createWriteStream(filePath, {
                 flags: shouldReplace ? "w" : "a",
               });
+
               for (const p of parts) {
                 const pth = path.join(userTempDir, p);
-                const buffer = await fsp.readFile(pth);
                 await new Promise((resolve, reject) => {
-                  writeStream.write(buffer, (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                  });
+                  const readStream = fs.createReadStream(pth);
+                  readStream.on("error", reject);
+                  readStream.on("end", resolve);
+                  readStream.pipe(writeStream, { end: false });
                 });
                 await fsp.rm(path.join(userTempDir, p), { force: true });
               }
+
               await new Promise((resolve, reject) => {
                 writeStream.end((err) => {
                   if (err) reject(err);
                   else resolve();
                 });
               });
+
+              if (delta !== 0) {
+                await adjustUserUsedBytes(rootPath, username, delta).catch(
+                  () => {},
+                );
+              }
               continue;
             }
 
@@ -1423,7 +1487,7 @@ async function handleFetchfiles(req, res) {
                 // file may not exist yet
               }
 
-              const currentUsed = await getDirSizeBytes(rootPath);
+              const currentUsed = await getUserUsedBytes(rootPath, username);
               const delta = shouldReplace ? newSize - oldSize : newSize;
               const quota = await getUserQuotaBytes(rootPath);
               if (delta > 0 && currentUsed + delta > quota) {
@@ -1432,10 +1496,14 @@ async function handleFetchfiles(req, res) {
                 );
               }
 
-              // console.log(filePath, buffer.length);
               await writeEditPayload(filePath, buffer, {
                 replace: shouldReplace,
               });
+              if (delta !== 0) {
+                await adjustUserUsedBytes(rootPath, username, delta).catch(
+                  () => {},
+                );
+              }
               continue;
             }
 
@@ -1545,6 +1613,8 @@ async function handleFetchfiles(req, res) {
 
           const zip = new AdmZip(zipFullPath);
           const extractedFiles = [];
+          const toExtract = [];
+          let unzipDelta = 0;
 
           for (const entry of zip.getEntries() || []) {
             const entryName = sanitizeZipEntryPath(entry && entry.entryName);
@@ -1567,10 +1637,33 @@ async function handleFetchfiles(req, res) {
             );
             if (!outputRel) continue;
 
-            await fsp.mkdir(path.dirname(outputPath), { recursive: true });
-            const buffer = entry.getData ? entry.getData() : Buffer.from("");
-            await fsp.writeFile(outputPath, buffer);
-            extractedFiles.push(outputRel);
+            const existingStat = await fsp.stat(outputPath).catch(() => null);
+            const existingSize = existingStat && existingStat.isFile() ? existingStat.size : 0;
+            const entrySize = Number(entry.header?.size || 0);
+            unzipDelta += entrySize - existingSize;
+            toExtract.push({ entry, outputPath, outputRel });
+          }
+
+          const quota = await getUserQuotaBytes(userRoot);
+          const currentUsed = await getUserUsedBytes(userRoot, username);
+          if (unzipDelta > 0 && currentUsed + unzipDelta > quota) {
+            return res.end(
+              JSON.stringify({
+                error: `Storage quota exceeded: cannot unzip ${zipRelPath}`,
+              }),
+            );
+          }
+
+          for (const item of toExtract) {
+            await fsp.mkdir(path.dirname(item.outputPath), { recursive: true });
+            zip.extractEntryTo(item.entry, path.dirname(item.outputPath), false, true);
+            extractedFiles.push(item.outputRel);
+          }
+
+          if (unzipDelta !== 0) {
+            await adjustUserUsedBytes(userRoot, username, unzipDelta).catch(
+              () => {},
+            );
           }
 
           return res.end(

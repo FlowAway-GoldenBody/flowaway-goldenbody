@@ -1475,7 +1475,7 @@ window.settings = function (posX = 50, posY = 50) {
   aboutText.style.fontSize = "13px";
 
   const aboutBtn = document.createElement("button");
-  aboutBtn.textContent = "About";
+  aboutBtn.textContent = "Developer Docs";
   aboutBtn.style.marginLeft = "8px";
 
   aboutRow.append(aboutText, aboutBtn);
@@ -1559,9 +1559,128 @@ window.settings = function (posX = 50, posY = 50) {
     content.style.flex = "1";
     content.style.overflow = "auto";
     content.innerHTML = `
-      <div style="font-weight:600;margin-bottom:6px">About Flowaway Goldenbody</div>
-      <div style="margin-bottom:6px">An utopia that has EVERYTHING unblocked (anything internet filters block, code your own apps, works on chromebooks), free, open-source, forever.</div>
-      <div style="font-size:12px;color:gray">Version: ${window.protectedGlobals.APP_VERSION || 'unknown'}</div>
+      <h2>App Developer Docs</h2>
+      <p>This environment supports two app styles:</p>
+      <ul>
+        <li><strong>Sandboxed iframe apps</strong> using <code>requestAdminPerm: false</code>.</li>
+        <li><strong>Admin apps</strong> using <code>requestAdminPerm: true</code> and a user-provided key.</li>
+      </ul>
+      <h3>App package layout</h3>
+      <p>Apps live under <code>/systemfiles/runtime/apps/&lt;app-folder&gt;</code>. Every app must include an <code>entry.json</code> file and an executable JS file named by <code>jsFile</code>.</p>
+      <h3><code>entry.json</code> fields</h3>
+      <ul>
+        <li><code>id</code> - unique app identifier.</li>
+        <li><code>jsFile</code> - entry script file relative to the app folder.</li>
+        <li><code>label</code> - display name for the app.</li>
+        <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
+        <li><code>nonTextIcon</code> - boolean flag that tells the runtime the icon is not plain text. Use this for binary or complex icon rendering.</li>
+        <li><code>svgEnabled</code> - boolean flag to render <code>iconFile</code> as SVG markup.</li>
+        <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a base64 PNG image.</li>
+        <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
+        <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
+      </ul>
+      <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text, SVG, or PNG.</p>
+      <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>
+      <ul>
+        <li><code>functionName</code> - globally exported launch function that the runtime calls.</li>
+        <li><code>globalVarObjectString</code> - name of the global object for app instances.</li>
+        <li><code>allAppArrayString</code> - array name under the global object for tracking instances.</li>
+        <li><code>cmf</code> and <code>cmfl1</code> - app btn contextmenu hooks. (i personally think its useless)</li>
+        <li><code>headless</code> - if you have this on, the app will only run in the background, it will be ignored if you have the <code>icon</code> entry in the json file.</li>
+      </ul>
+      <h3>How <code>requestAdminPerm</code> works</h3>
+      <p>An app with <code>requestAdminPerm: true</code> is treated as an admin-style app only when the runtime can verify a matching key.</p>
+      <p>The loader reads:</p>
+      <ul>
+        <li><code>&lt;app-folder&gt;/jsKey.txt</code></li>
+        <li><code>systemfiles/userprofile/jsApiKey.txt</code></li>
+      </ul>
+      <p>Only if both exist and match will the runtime load the app script directly with full privileges. If the key is missing or invalid, the app is skipped or replaced by a placeholder launcher.</p>
+      <p>This means admin apps are developer-mode apps: they can behave like system apps, but they still need a user-supplied API key to run. (system apps has those keys too, but they are written when ur acc is created)</p>
+      <h3>Sandboxed iframe apps</h3>
+      <p>When <code>requestAdminPerm</code> is <code>false</code>, the app runs inside a sandboxed iframe using <code>untrustedIframePatch.js</code>. That iframe has:</p>
+      <ul>
+        <li><code>sandbox="allow-scripts allow-pointer-lock"</code></li>
+        <li>No direct access to DOM APIs like file inputs, localStorage, sessionStorage, IndexedDB, caches, or fullscreen exit APIs. (EXPERIMENTAL, aka not done)</li>
+        <li>Only the exposed runtime API surface available through <code>window.__goldenbodyAPI</code>.</li>
+      </ul>
+      <h3>Iframe API reference</h3>
+      <p>Sandboxed apps should call <code>window.__goldenbodyAPI</code>.</p>
+      <ul>
+        <li><code>readFile(pathOrHandle, options)</code></li>
+        <li><code>writeFile(pathOrHandle, content, options)</code></li>
+        <li><code>readFolder(pathOrHandle, options)</code></li>
+        <li><code>writeFolder(pathOrHandle, options)</code></li>
+        <li><code>deleteFile(pathOrHandle, options)</code></li>
+        <li><code>deleteFolder(pathOrHandle, options)</code></li>
+        <li><code>showOpenFilePicker(options)</code></li>
+        <li><code>showSaveFilePicker(options)</code></li>
+        <li><code>showDirectoryPicker(options)</code></li>
+        <li><code>setInstanceTitle(title)</code></li>
+        <li><code>message(message, toInstance)</code></li>
+        <li><code>getCurInstanceNum()</code></li>
+        <li><code>getUserSelectedFile()</code></li>
+        <li><code>getLiveInstanceIndex()</code></li>
+      </ul>
+      <p>These methods send a message to the host frame and return a promise.</p>
+      <h4>Path handles</h4>
+      <p>Most file APIs accept either a string path or an object like:</p>
+      <pre><code>{ path: '/some/path.txt', key: 'uuid-key' }</code></pre>
+      <p>The <code>key</code> is only used when the path came from an external picker result. For example, a file picked by <code>showSaveFilePicker</code> or <code>showDirectoryPicker</code> returns a handle with a key that authorizes writes.</p>
+      <h4>Picker results</h4>
+      <p>Results from external pickers include:</p>
+      <pre><code>{ kind: 'file' | 'directory', path, key, name }</code></pre>
+      <p>If the picker path is not authorized with a valid key, writes do not go to the external path.</p>
+      <h3>Example sandbox code</h3>
+      <pre><code>const fileHandle = await window.__goldenbodyAPI.showSaveFilePicker({ suggestedName: 'hello.txt' });
+await window.__goldenbodyAPI.writeFile(fileHandle, 'hello world', { text: true });
+const contents = await window.__goldenbodyAPI.readFile(fileHandle, { text: true });
+console.log(contents);
+</code></pre>
+      <pre><code>const folderHandle = await window.__goldenbodyAPI.showDirectoryPicker();
+const folderContents = await window.__goldenbodyAPI.readFolder(folderHandle);
+console.log(folderContents);
+</code></pre>
+      <h3>Admin app strategy</h3>
+      <p>Admin apps should be designed differently from iframe apps:</p>
+      <ul>
+        <li>They can access the runtime directly once verified.</li>
+        <li>They are not limited by the sandboxed postMessage APIs.</li>
+        <li>They still must be installed under <code>/systemfiles/runtime/apps/&lt;folder&gt;</code> with a matching <code>jsKey.txt</code>.</li>
+      </ul>
+      <p>If you want to build a full system-style app, use <code>requestAdminPerm: true</code> and make sure your <code>jsKey.txt</code> is valid.</p>
+      <h3>Permissions and app settings</h3>
+      <p>The Settings app stores <code>window.protectedGlobals.appPerms</code> in <code>/systemfiles/userprofile/appPermissions.json</code>. For sandboxed apps this controls:</p>
+      <ul>
+        <li><code>storage</code> - allow, deny, or ask for write access.</li>
+        <li><code>notification</code> - allow, deny, or ask for notifications.</li>
+      </ul>
+      <p>Admin apps with valid keys are trusted differently, because they are expected to run with user-level privilege when the key is verified.</p>
+      <h3>Entry file example</h3>
+      <pre><code>{
+  "id": "myApp",
+  "label": "My App",
+  "jsFile": "script.js",
+  "iconFile": "icon.svg",
+  "requestAdminPerm": false
+}
+</code></pre>
+      <p>For admin apps:</p>
+      <pre><code>{
+  "id": "myAdminApp",
+  "label": "My Admin App",
+  "jsFile": "app.js",
+  "iconFile": "icon.svg",
+  "requestAdminPerm": true,
+  "functionName": "myAdminAppLauncher",
+  "globalVarObjectString": "myAdminAppGlobals",
+  "allAppArrayString": "instances",
+  "cmf": "",
+  "cmfl1": ""
+}
+</code></pre>
+      <h3>Bottom line</h3>
+      <p>There are no hidden files or directories anywhere in cloud storage. You can edit <code>systemfiles</code> to change how the client behaves. If you break it, don’t worry: you can repair <code>systemfiles</code> and system apps from the login page, and delete broken non-system apps there. A copy of broken files will be made in your cloud storage.</p>
     `;
     dlg.appendChild(content);
 

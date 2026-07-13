@@ -1,12 +1,5 @@
 "use strict";
-// Preserve protected runtime data if already set (e.g., from ouchbad.js account creation), otherwise initialize
-// absolutely no hardcoded app names allowed! all apps should be installed and theres no way to predict their name and structure in advance, so we must not bake in any assumptions here. we will rely on dynamic detection and labeling based on heuristics instead.
-// i mean by no if(appId === 'browser') or similar checks anywhere in the core (flowaway.js/goldenbody.js). its not allowed!
 
-// all added global system vars are in the protectedglobals namespace, no exceptions. this is to avoid conflicts with apps and to make it clear what is part of the core system vs what is app-level.
-// ----------------- Convenience file helpers -----------------
-// These wrap the existing `filePost` API so apps can easily perform
-// common VFS actions. Responses are the raw server responses; use
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
 
@@ -26,24 +19,6 @@ window.protectedGlobals.WriteFolder = async function (relPath) {
     window.protectedGlobals.missingFolders.delete(relPath);
   }
   return res;
-}
-window.protectedGlobals.FolderExists = async function (relPath) {
-  if (!relPath) throw new Error("No path");
-  const res = await window.protectedGlobals.filePost({saveSnapshot: true, directions: [{ checkFolder: true, path: String(relPath) }] });
-  if (res && res.exists) {
-    return true;
-  } else {
-    return false;
-  }
-}
-window.protectedGlobals.FileExists = async function (relPath) {
-  if (!relPath) throw new Error("No path");
-  const res = await window.protectedGlobals.filePost({ saveSnapshot: true, directions: [{ checkFile: true, path: String(relPath) }] });
-  if (res && res.exists) {
-    return true;
-  } else {
-    return false;
-  }
 }
 window.protectedGlobals.ReadFile = async function (relPath, options = { text: true }) {
   if (!relPath) throw new Error("No path");
@@ -292,7 +267,16 @@ window.protectedGlobals.RenameFile = async function (relPath, newName) {
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-// clipboardItems: array of { path: 'root/dir/file', isCut: true|false }
+window.protectedGlobals.RenameFolder = async function (relPath, newName) {
+  if (!relPath) throw new Error("No path");
+  if (!newName) throw new Error("No new name");
+  const directions = [
+    { renameFolder: true, path: String(relPath), newName: String(newName) },
+    { end: true },
+  ];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+};
+
 window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems) {
   if (!destinationRelPath) throw new Error("No destination path");
   if (!Array.isArray(clipboardItems) || !clipboardItems.length)
@@ -300,6 +284,18 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
   const directions = [
     { copy: true, directions: clipboardItems },
     { paste: true, path: String(destinationRelPath) },
+    { end: true },
+  ];
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+};
+
+window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipboardItems) {
+  if (!destinationRelPath) throw new Error("No destination path");
+  if (!Array.isArray(clipboardItems) || !clipboardItems.length)
+    throw new Error("No clipboard items");
+  const directions = [
+    { copy: true, directions: clipboardItems },
+    { pasteFolder: true, path: String(destinationRelPath) },
     { end: true },
   ];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });

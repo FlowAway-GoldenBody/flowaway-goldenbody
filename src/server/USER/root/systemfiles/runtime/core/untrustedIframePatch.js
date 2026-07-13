@@ -20,19 +20,11 @@ window.lockAPI("webkitExitFullscreen", window);
 window.lockAPI("mozCancelFullScreen", window);
 window.lockAPI("msExitFullscreen", window);
 window.lockAPI("exitFullscreen", document);
-window.lockAPI("webkitExitFullscreen", document);
-window.lockAPI("mozCancelFullScreen", document);
-window.lockAPI("msExitFullscreen", document);
 window.lockAPI("indexedDB", window);
 window.lockAPI("localStorage", window);
 window.lockAPI("sessionStorage", window);
 window.lockAPI("caches", window);
-window.lockAPI("cookies", document);
-
-Object.defineProperty(window.HTMLInputElement.prototype, 'type', {
-    set: (val) => {if (val == 'file') return new Error("Access to file input is Banned.");},
-    configurable: false
-});
+window.lockAPI("cookie", document);
 let createRequestId;
 (function () {
     let __goldenbodyRequestCounter = 0;
@@ -142,6 +134,54 @@ window.__goldenbodyAPI = {
         const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
         window.parent.postMessage({deleteFolder: true, path, key, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    renameFile: async (pathOrHandle, newName, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
+        if (!newName) throw new Error('No new name');
+        let requestId = createRequestId();
+        window.parent.postMessage({renameFile: true, path, key, newName, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    renameFolder: async (pathOrHandle, newName, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
+        if (!newName) throw new Error('No new name');
+        let requestId = createRequestId();
+        window.parent.postMessage({renameFolder: true, path, key, newName, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    pasteFile: async (destinationOrHandle, clipboardItems, options) => {
+        const { path, key } = normalizePathInput(destinationOrHandle);
+        if (!Array.isArray(clipboardItems) || !clipboardItems.length) {
+            throw new Error('No clipboard items');
+        }
+        let requestId = createRequestId();
+        window.parent.postMessage({pasteFile: true, path, key, clipboardItems, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    pasteFolder: async (destinationOrHandle, clipboardItems, options) => {
+        const { path, key } = normalizePathInput(destinationOrHandle);
+        if (!Array.isArray(clipboardItems) || !clipboardItems.length) {
+            throw new Error('No clipboard items');
+        }
+        let requestId = createRequestId();
+        window.parent.postMessage({pasteFolder: true, path, key, clipboardItems, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
@@ -279,22 +319,3 @@ window.addEventListener("pointerup", (e) => {
         meta: e.metaKey,
     }, '*');
 });
-document.createElement =  function (...args) {
-    const element = HTMLDocument.prototype.createElement.apply(this, args);
-    if (args[0] === "iframe") {
-        throw new Error("Access to iframe creation is Banned.");
-    }
-    Object.defineProperty(element, "attachShadow", {
-        get: function () {
-            throw new Error("Access to attachShadow is Banned.");
-        },
-        set: function () {
-            throw new Error("Access to attachShadow is Banned.");
-        },
-        configurable: false,
-    });
-    element.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-    });
-    return element;
-};

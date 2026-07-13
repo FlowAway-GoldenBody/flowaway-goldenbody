@@ -831,20 +831,6 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
     return String(await window.protectedGlobals.ReadFile(relPath, { text: true, direct: true }) || "");
   }
 
-
-  function ensureServerResultOk(response) {
-    if (!response) {
-      throw new Error("empty server response");
-    }
-    if (response.error) {
-      const errorMessage = String(response.error || "");
-      if (/denied/i.test(errorMessage) && (window.protectedGlobals.notification)) {
-        window.protectedGlobals.notification(errorMessage);
-      }
-      throw new Error(String(response.error));
-    }
-  }
-
   function parsePermissionMode(rawOptionText) {
     const normalized = String(rawOptionText || "").trim().toLowerCase();
     if (!normalized) return null;
@@ -896,38 +882,22 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   async function saveTextFileByPath(relPath, text) {
-    if (!(window.protectedGlobals.filePost)) {
-      throw new Error("window.protectedGlobals.filePost is unavailable");
-    }
-    const response = await window.protectedGlobals.filePost({
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [
         { edit: true, contents: text, path: relPath, replace: true },
         { end: true },
       ],
     });
-    ensureServerResultOk(response);
-    if ((window.protectedGlobals.onlyloadTree)) {
-      try {
-        await window.protectedGlobals.onlyloadTree();
-      } catch (e) {}
-    }
+    window.protectedGlobals.onlyloadTree();
   }
 
   async function applySnapshotDirections(directions) {
-    if (!(window.protectedGlobals.filePost)) {
-      throw new Error("window.protectedGlobals.filePost is unavailable");
-    }
-    const response = await window.protectedGlobals.filePost({
+    await window.protectedGlobals.filePost({
       saveSnapshot: true,
       directions: [...directions, { end: true }],
     });
-    ensureServerResultOk(response);
-    if ((window.protectedGlobals.onlyloadTree)) {
-      try {
-        await window.protectedGlobals.onlyloadTree();
-      } catch (e) {}
-    }
+    window.protectedGlobals.onlyloadTree();
   }
 
 

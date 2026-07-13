@@ -1,6 +1,7 @@
 'use strict';
 
 (() => {
+let style = null;
 async function showAppPermissionPrompt(appName, permissionType) {
     return new Promise((resolve) => {
 
@@ -30,7 +31,7 @@ async function showAppPermissionPrompt(appName, permissionType) {
         const dialog = document.createElement("div");
         dialog.style.cssText = `
             width:420px;
-            margin-left: ${document.body.offsetWidth-476}; // width + 2 * padding
+            margin-left: ${document.body.offsetWidth-476}px; /* width + 2 * padding */
             margin-right: 0;
             top:0px;
             z-index:100003;
@@ -149,26 +150,27 @@ async function showAppPermissionPrompt(appName, permissionType) {
         );
 
         document.body.appendChild(dialog);
-
-        const style = document.createElement("style");
-        style.textContent = `
-            @keyframes fadeIn {
-                from { opacity:0; }
-                to { opacity:1; }
-            }
-
-            @keyframes popup {
-                from {
-                    opacity:0;
-                    transform:translateY(10px) scale(.96);
+        if (!style) {
+            style = document.createElement("style");
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity:0; }
+                    to { opacity:1; }
                 }
-                to {
-                    opacity:1;
-                    transform:none;
+
+                @keyframes popup {
+                    from {
+                        opacity:0;
+                        transform:translateY(10px) scale(.96);
+                    }
+                    to {
+                        opacity:1;
+                        transform:none;
+                    }
                 }
-            }
-        `;
-        document.head.appendChild(style);
+            `;
+            document.head.appendChild(style);
+        }
 
         const escListener = (e) => {
             if (e.key === "Escape") {
@@ -337,6 +339,42 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 let result = await window.protectedGlobals.DeleteFolder(path, options);
                 source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.renameFile) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.RenameFile(path, e.detail.data.newName);
+                    source.postMessage({ renameFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
+                const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.RenameFile(internalPath, e.detail.data.newName);
+                source.postMessage({ renameFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.renameFolder) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.RenameFolder(path, e.detail.data.newName);
+                    source.postMessage({ renameFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
+                const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.RenameFolder(internalPath, e.detail.data.newName);
+                source.postMessage({ renameFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.pasteFile) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.PasteFile(path, e.detail.data.clipboardItems);
+                    source.postMessage({ pasteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
+                const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.PasteFile(internalPath, e.detail.data.clipboardItems);
+                source.postMessage({ pasteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.pasteFolder) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    let result = await window.protectedGlobals.PasteFolder(path, e.detail.data.clipboardItems);
+                    source.postMessage({ pasteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
+                const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                let result = await window.protectedGlobals.PasteFolder(internalPath, e.detail.data.clipboardItems);
+                source.postMessage({ pasteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             }
         }
         async function sendProtectedResponse(externalAllowed) {
