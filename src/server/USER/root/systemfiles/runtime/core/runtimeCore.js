@@ -56,14 +56,21 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
       }),
     });
 
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const isJson = contentType.includes("application/json");
+
     if (response.status === 401) {
       window.protectedGlobals.showSessionExpiredDialog();
-      return { unauthorized: true };
+      throw new Error("Unauthorized");
     }
 
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    if (contentType.includes("application/json")) {
-      return { json: await response.json() };
+    if (isJson) {
+      return { json: await response.json(), status: response.status };
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Failed to read file: ${response.status} ${errorText}`);
     }
 
     const rawChunk = await response.arrayBuffer();
@@ -79,10 +86,16 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
   }
 
   const initialResponse = await requestChunk(0);
-  if (initialResponse.unauthorized) return;
   if (initialResponse.json) {
-    if (initialResponse.json && initialResponse.json.missing) return undefined;
-    return initialResponse.json;
+    if (initialResponse.json.missing) return undefined;
+    const errorPayload = initialResponse.json;
+    throw new Error(
+      String(
+        (errorPayload && (errorPayload.error || errorPayload.message)) ||
+          errorPayload ||
+          "Failed to read file",
+      ),
+    );
   }
 
   if (useLargeFile) {
@@ -117,12 +130,14 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
         async pull(controller) {
           if (finished) return;
           const response = await requestChunk(currentChunkIndex);
-          if (response.unauthorized) {
-            controller.error(new Error("Unauthorized"));
-            return;
-          }
           if (response.json) {
-            controller.error(new Error(response.json.error || "Failed to stream file"));
+            const errPayload = response.json;
+            const message = String(
+              (errPayload && (errPayload.error || errPayload.message)) ||
+                errPayload ||
+                "Failed to stream file",
+            );
+            controller.error(new Error(message));
             return;
           }
 
@@ -157,10 +172,17 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
 
     while (true) {
       const response = await requestChunk(nextIndex);
-      if (response.unauthorized) return;
+      if (response.unauthorized) throw new Error("Unauthorized");
       if (response.json) {
-        if (response.json && response.json.missing) return undefined;
-        return response.json;
+        if (response.json.missing) return undefined;
+        const errPayload = response.json;
+        throw new Error(
+          String(
+            (errPayload && (errPayload.error || errPayload.message)) ||
+              errPayload ||
+              "Failed to read file",
+          ),
+        );
       }
 
       const isLast = response.meta.isLastChunk;
@@ -178,10 +200,17 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
 
   while (true) {
     const response = await requestChunk(nextIndex);
-    if (response.unauthorized) return;
+    if (response.unauthorized) throw new Error("Unauthorized");
     if (response.json) {
-      if (response.json && response.json.missing) return undefined;
-      return response.json;
+      if (response.json.missing) return undefined;
+      const errPayload = response.json;
+      throw new Error(
+        String(
+          (errPayload && (errPayload.error || errPayload.message)) ||
+            errPayload ||
+            "Failed to read file",
+        ),
+      );
     }
 
     fullBuffer.set(new Uint8Array(response.rawChunk), offset);

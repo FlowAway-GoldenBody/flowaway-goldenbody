@@ -449,7 +449,7 @@ window.protectedGlobals.initAppTools = function () {
         };
         root._apptoolsSavedBounds = savedBounds;
         root.style.left = "0";
-        root.style.top = window.protectedGlobals.data.taskbarOnTop && window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
+        root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
         root.style.width = "100%";
         root.style.height = !(window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
         root.style.borderRadius = "0";
@@ -626,7 +626,7 @@ window.protectedGlobals.initAppTools = function () {
       instance.savedBounds = savedBounds;
       instance.rootElement._apptoolsSavedBounds = savedBounds;
       instance.rootElement.style.left = "0";
-      instance.rootElement.style.top = window.protectedGlobals.data.taskbarOnTop && window.protectedGlobals.data.autohidetaskbar ? "0" : "60";
+      instance.rootElement.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
       instance.rootElement.style.width = "100%";
       instance.rootElement.style.height = !(window.protectedGlobals.data.autohidetaskbar) ? "calc(100% - 60px)" : "100%";
       instance.rootElement.style.borderRadius = "0px";

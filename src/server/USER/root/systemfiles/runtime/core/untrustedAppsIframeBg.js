@@ -306,7 +306,7 @@ async function showAppPermissionPrompt(appName, permissionType) {
         let source = e.detail.source;
         let result = null;
         if (!window.protectedGlobals.statusData.wifiEnabled) return;
-
+        if (!e.detail.data.path) return;
         if (typeof options !== "object" || options === null) options = undefined;
         let requestId = e.detail.data.requestId;
         async function sendResponse() {
