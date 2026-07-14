@@ -228,7 +228,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
     filecontent: fullBuffer.buffer,
   };
 };
-window.protectedGlobals.ReadFolder = async function (relPath) {
+window.protectedGlobals.ReadFolder = async function (relPath, options = { detail: false }) {
   if (!relPath) throw new Error("No path");
   let res = await window.protectedGlobals.filePost({
     requestFolder: true,
@@ -677,22 +677,62 @@ document.documentElement.style.height = "100%";
 
 document.body.style.margin = "0";
 document.body.style.height = "100vh";
-window.protectedGlobals.setBodyBackground = async function () {
-  const backgroundBuffer = await window.protectedGlobals.ReadFile("systemfiles/background/background.png", { buffer: true, direct: true });
+window.protectedGlobals.refreshBackground = async function refreshBackground() {
+  let backgroundBuffer = await window.protectedGlobals.ReadFile("/systemfiles/background/background.png", { buffer: true, direct: true });
+  if (!backgroundBuffer) {
+      backgroundBuffer = await window.protectedGlobals.ReadFile("/systemfiles/background/origbackground.png", { buffer: true, direct: true });
+  }
+
+  if (window.protectedGlobals._desktopBackgroundObjectUrl) {
+    URL.revokeObjectURL(window.protectedGlobals._desktopBackgroundObjectUrl);
+    delete window.protectedGlobals._desktopBackgroundObjectUrl;
+  }
+
   if (backgroundBuffer instanceof ArrayBuffer) {
     const blob = new Blob([backgroundBuffer], { type: "image/png" });
     const url = URL.createObjectURL(blob);
+    window.protectedGlobals._desktopBackgroundObjectUrl = url;
     document.body.style.backgroundImage = `url(${url})`;
-  } else if (typeof backgroundBuffer === "string" && backgroundBuffer) {
-    const binary = atob(backgroundBuffer);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], { type: "image/png" });
-    const url = URL.createObjectURL(blob);
-    document.body.style.backgroundImage = `url(${url})`;
+  } else {
+    document.body.style.backgroundImage = "";
   }
 };
-window.protectedGlobals.setBodyBackground();
+window.protectedGlobals.setBodyBackground = window.protectedGlobals.refreshBackground;
+window.protectedGlobals.changeBackground = async function changeBackground() {
+  try {
+    const selectedPath = await window.protectedGlobals.pickFile({ accept: "file", startPath: "/" });
+    if (!selectedPath) return false;
+
+    const backgroundBuffer = await window.protectedGlobals.ReadFile(selectedPath, { buffer: true, direct: true });
+    if (!backgroundBuffer) {
+      window.protectedGlobals.notification?.("Could not read the selected image.");
+      return false;
+    }
+
+    await window.protectedGlobals.DeleteFile("systemfiles/background/background.png").catch(() => {});
+    await window.protectedGlobals.WriteFile("systemfiles/background/background.png", backgroundBuffer, { replace: true });
+    await window.protectedGlobals.refreshBackground();
+    window.protectedGlobals.notification?.("Background updated.");
+    return true;
+  } catch (e) {
+    console.error("Failed to change background", e);
+    window.protectedGlobals.notification?.("Failed to change background.");
+    return false;
+  }
+};
+window.protectedGlobals.resetBackground = async function resetBackground() {
+  try {
+    await window.protectedGlobals.DeleteFile("systemfiles/background/background.png").catch(() => {});
+    await window.protectedGlobals.refreshBackground();
+    window.protectedGlobals.notification?.("Background reset.");
+    return true;
+  } catch (e) {
+    console.error("Failed to reset background", e);
+    window.protectedGlobals.notification?.("Failed to reset background.");
+    return false;
+  }
+};
+window.protectedGlobals.refreshBackground();
 document.body.style.backgroundSize = "cover";
 document.body.style.backgroundPosition = "center";
 document.body.style.backgroundRepeat = "no-repeat";
@@ -718,9 +758,82 @@ window.protectedGlobals.bodyStyle.textContent = `body {
 overflow: hidden;
 }`;
 document.body.appendChild(window.protectedGlobals.bodyStyle);
-// Prevent default context menu (single binding)
-  // customize right click menu, it can ban the use of it. due to its causing troubles
-  window.addEventListener("contextmenu", (e) => e.preventDefault());
+// Desktop background context menu
+window.protectedGlobals.showBackgroundContextMenu = function showBackgroundContextMenu(x, y) {
+  let menu = document.getElementById("desktop-background-context-menu");
+  if (menu) menu.remove();
+
+  menu = document.createElement("div");
+  menu.id = "desktop-background-context-menu";
+  Object.assign(menu.style, {
+    position: "fixed",
+    left: x + "px",
+    top: y + "px",
+    zIndex: 100002,
+    minWidth: "180px",
+    padding: "6px",
+    borderRadius: "8px",
+    background: window.protectedGlobals.data.dark ? "#1a1a1a" : "#ffffff",
+    color: window.protectedGlobals.data.dark ? "#ffffff" : "#111111",
+    border: window.protectedGlobals.data.dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.12)",
+    boxShadow: "0 10px 24px rgba(0,0,0,0.25)",
+    fontFamily: "system-ui, -apple-system, sans-serif",
+    fontSize: "13px",
+  });
+
+  const addItem = (label, handler) => {
+    const row = document.createElement("div");
+    row.textContent = label;
+    Object.assign(row.style, {
+      padding: "8px 10px",
+      borderRadius: "6px",
+      cursor: "pointer",
+    });
+    row.onmouseenter = () => {
+      row.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
+    };
+    row.onmouseleave = () => {
+      row.style.background = "transparent";
+    };
+    row.onclick = async () => {
+      menu.remove();
+      if (handler) await handler();
+    };
+    menu.appendChild(row);
+  };
+
+  addItem("Change background", async () => {
+    await window.protectedGlobals.changeBackground();
+  });
+
+  addItem("Reset background", async () => {
+    await window.protectedGlobals.resetBackground();
+  });
+
+  document.body.appendChild(menu);
+};
+
+window.addEventListener("contextmenu", (e) => {
+  const interactiveTarget = e.target && e.target.closest && e.target.closest("input, textarea, select, button, a, [contenteditable='true'], .app-window-root, .taskbar");
+  if (interactiveTarget) return;
+  if (e.target && e.target !== document.body && e.target !== document.documentElement && !document.body.contains(e.target)) {
+    return;
+  }
+  e.preventDefault();
+  window.protectedGlobals.showBackgroundContextMenu(e.clientX, e.clientY);
+});
+
+document.addEventListener("click", () => {
+  const menu = document.getElementById("desktop-background-context-menu");
+  if (menu) menu.remove();
+}, true);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const menu = document.getElementById("desktop-background-context-menu");
+    if (menu) menu.remove();
+  }
+});
 
 // prevent apps from doing window.top.location.reload()
   window.addEventListener(
@@ -841,3 +954,416 @@ window.protectedGlobals.writeStatus = function writeStatus() {
       window.protectedGlobals.appPerms = {};
     }
   })();
+
+  // accept file/folder
+  // return path or array of paths
+  // a ui that lets the user pick a file/folder from their cloud storage
+  window.protectedGlobals.pickFile = async function (options = { multiple: false, accept: "file" }) {
+    options = Object.assign({ multiple: false, accept: "file", startPath: "/" }, options);
+
+    return new Promise((resolve, reject) => {
+      const isDark = window.protectedGlobals.data.dark || false;
+
+      // Create modal container
+      const modal = document.createElement("div");
+      modal.id = "filePickerModal";
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        font-family: system-ui, -apple-system, sans-serif;
+      `;
+
+      // Create picker dialog
+      const dialog = document.createElement("div");
+      dialog.style.cssText = `
+        width: 600px;
+        max-height: 80vh;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        background: ${isDark ? "#1e1e1e" : "#ffffff"};
+        color: ${isDark ? "#ffffff" : "#000000"};
+      `;
+
+      // Header
+      const header = document.createElement("div");
+      header.style.cssText = `
+        padding: 16px;
+        border-bottom: 1px solid ${isDark ? "#333333" : "#e0e0e0"};
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      `;
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = "Select " + (options.accept === "folder" ? "Folder" : options.accept === "file" ? "File" : "File or Folder");
+      titleSpan.style.fontSize = "16px";
+      titleSpan.style.fontWeight = "600";
+      header.appendChild(titleSpan);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.innerHTML = window.protectedGlobals.windowControlSvgs.close;
+      closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        color: ${isDark ? "#cccccc" : "#333333"};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+      `;
+      closeBtn.onclick = () => {
+        modal.remove();
+        resolve(options.multiple ? [] : null);
+      };
+      header.appendChild(closeBtn);
+      dialog.appendChild(header);
+
+      // Path display
+      const pathBar = document.createElement("div");
+      pathBar.style.cssText = `
+        padding: 12px 16px;
+        background: ${isDark ? "#252525" : "#f5f5f5"};
+        border-bottom: 1px solid ${isDark ? "#333333" : "#e0e0e0"};
+        font-size: 12px;
+        color: ${isDark ? "#aaaaaa" : "#666666"};
+        word-break: break-all;
+      `;
+      pathBar.textContent = "Current: " + options.startPath;
+      dialog.appendChild(pathBar);
+
+      // File browser area
+      const browserContainer = document.createElement("div");
+      browserContainer.style.cssText = `
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
+      `;
+      dialog.appendChild(browserContainer);
+
+      // Selection state
+      const selected = new Set();
+      let currentPath = options.startPath || "/";
+
+      // Update path bar
+      const updatePathBar = () => {
+        pathBar.textContent = "Current: " + currentPath;
+      };
+
+      const getEntriesFromTreeData = (treePath) => {
+        if (!window.protectedGlobals.treeData) return null;
+        const node = window.protectedGlobals.findNodeByPath ? window.protectedGlobals.findNodeByPath(treePath) : null;
+        if (!node || !Array.isArray(node[1])) return null;
+
+        return node[1].map((child) => {
+          if (!Array.isArray(child)) {
+            return { raw: child, name: "", folder: false };
+          }
+
+          const name = typeof child[0] === "string" ? child[0] : "";
+          const folder = Array.isArray(child[1]);
+          return { raw: child, name, folder };
+        });
+      };
+
+      // Load and render folder contents
+      const loadFolder = async (path) => {
+        browserContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: ' + (isDark ? "#aaa" : "#666") + ';">Loading...</div>';
+        try {
+          if (!window.protectedGlobals.treeData && window.protectedGlobals.onlyloadTree) {
+            await window.protectedGlobals.onlyloadTree().catch(() => {});
+          }
+
+          let files = getEntriesFromTreeData(path);
+          if (!files) {
+            files = await window.protectedGlobals.ReadFolder(path).catch(() => []);
+          }
+
+          currentPath = path;
+          updatePathBar();
+          renderFiles(files, path);
+        } catch (e) {
+          browserContainer.innerHTML = '<div style="padding: 16px; color: #e74c3c;">Error loading folder: ' + e.message + '</div>';
+        }
+      };
+
+      // Render file list
+      const renderFiles = (files, path) => {
+        browserContainer.innerHTML = "";
+
+        if (path !== "/" && path !== "") {
+          const parentItem = document.createElement("div");
+          parentItem.style.cssText = `
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            background: ${isDark ? "#252525" : "#fafafa"};
+            border-bottom: 1px solid ${isDark ? "#333333" : "#e0e0e0"};
+          `;
+          parentItem.onmouseover = () => parentItem.style.background = isDark ? "#333333" : "#f0f0f0";
+          parentItem.onmouseout = () => parentItem.style.background = isDark ? "#252525" : "#fafafa";
+
+          const parentIcon = document.createElement("span");
+          parentIcon.innerHTML = window.protectedGlobals.windowControlSvgs.close.replace("width=\"14\"", "width=\"16\"").replace("height=\"14\"", "height=\"16\"");
+          parentIcon.style.cssText = `
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: ${isDark ? "#aaa" : "#666"};
+            transform: rotate(45deg);
+          `;
+          parentItem.appendChild(parentIcon);
+
+          const parentText = document.createElement("span");
+          parentText.textContent = "..";
+          parentText.style.cssText = `
+            font-size: 13px;
+            color: ${isDark ? "#aaa" : "#666"};
+          `;
+          parentItem.appendChild(parentText);
+
+          parentItem.onclick = () => {
+            const newPath = path.split("/").slice(0, -1).join("/") || "/";
+            loadFolder(newPath);
+          };
+
+          browserContainer.appendChild(parentItem);
+        }
+
+        if (!files || files.length === 0) {
+          const emptyMsg = document.createElement("div");
+          emptyMsg.style.cssText = `padding: 16px; text-align: center; color: ${isDark ? "#aaa" : "#999"};`;
+          emptyMsg.textContent = "Folder is empty";
+          browserContainer.appendChild(emptyMsg);
+          return;
+        }
+
+        // Normalize entries returned from ReadFolder.
+        // ReadFolder can return strings (names), arrays ([name, children,...]) or objects ({ name, folder }).
+        const normalized = (files || []).map((file) => {
+          let name = "";
+          let isFolder = false;
+          if (typeof file === "string") {
+            name = file;
+            isFolder = true; // assume folder for string entries; we'll probe on click
+          } else if (Array.isArray(file)) {
+            name = String(file[0] || "");
+            isFolder = Array.isArray(file[1]);
+          } else if (file && typeof file === "object") {
+            name = String(file.name || file.filename || file[0] || "");
+            isFolder = !!file.folder || !!file.isFolder || false;
+          }
+          return { raw: file, name, folder: !!isFolder };
+        });
+
+        const folders = normalized.filter((f) => f.folder);
+        const filelist = normalized.filter((f) => !f.folder);
+
+        const sortedFiles = [
+          ...folders.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
+          ...filelist.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
+        ];
+
+        sortedFiles.forEach((file) => {
+          const item = document.createElement("div");
+          const isFolder = !!file.folder;
+          const name = file.name || "";
+          const filePath = path === "/" ? "/" + name : path + "/" + name;
+          const isSelected = selected.has(filePath);
+
+          item.style.cssText = `
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid ${isDark ? "#333333" : "#e0e0e0"};
+            background: ${isSelected ? (isDark ? "#0e639c" : "#e3f2fd") : (isDark ? "#1e1e1e" : "#ffffff")};
+          `;
+
+          item.onmouseover = () => {
+            if (!isSelected) item.style.background = isDark ? "#252525" : "#f5f5f5";
+          };
+          item.onmouseout = () => {
+            if (!isSelected) item.style.background = isDark ? "#1e1e1e" : "#ffffff";
+          };
+
+          // Icon
+          const icon = document.createElement("span");
+          icon.style.cssText = `
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: ${isDark ? "#dcdcdc" : "#000000"};
+          `;
+          const iconMarkup = isFolder
+            ? (window.protectedGlobals.fileIconSet?.folder || window.protectedGlobals.fileIconSet?.file)
+            : (window.protectedGlobals.fileIconSet?.file || window.protectedGlobals.fileIconSet?.folder);
+          icon.innerHTML = iconMarkup;
+          item.appendChild(icon);
+
+          // Filename
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = name;
+          nameSpan.style.cssText = `
+            flex: 1;
+            font-size: 13px;
+            color: ${isDark ? "#ffffff" : "#000000"};
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          `;
+          item.appendChild(nameSpan);
+
+          // Checkbox (if multiple)
+          if (options.multiple && !isFolder) {
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = isSelected;
+            checkbox.style.cssText = `
+              margin-left: 12px;
+              cursor: pointer;
+              width: 16px;
+              height: 16px;
+            `;
+            item.appendChild(checkbox);
+          }
+
+          // Click handler
+          item.onclick = async (e) => {
+            if (isFolder) {
+              // If the original entry was a plain string, probe to see if it's actually a folder
+              if (typeof file.raw === "string") {
+                const probe = await window.protectedGlobals.ReadFolder(filePath).catch(() => null);
+                if (Array.isArray(probe)) {
+                  loadFolder(filePath);
+                  return;
+                }
+                // not a folder according to probe, fall through to selection
+              } else {
+                loadFolder(filePath);
+                return;
+              }
+            }
+
+            if (options.accept === "folder") return;
+
+            if (options.multiple) {
+              if (selected.has(filePath)) {
+                selected.delete(filePath);
+              } else {
+                selected.add(filePath);
+              }
+            } else {
+              selected.clear();
+              selected.add(filePath);
+            }
+            renderFiles(files, path);
+          };
+
+          browserContainer.appendChild(item);
+        });
+      };
+
+      // Footer
+      const footer = document.createElement("div");
+      footer.style.cssText = `
+        padding: 16px;
+        border-top: 1px solid ${isDark ? "#333333" : "#e0e0e0"};
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      `;
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.style.cssText = `
+        padding: 8px 16px;
+        border: 1px solid ${isDark ? "#666666" : "#cccccc"};
+        background: ${isDark ? "#2d2d2d" : "#f5f5f5"};
+        color: ${isDark ? "#ffffff" : "#000000"};
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+      `;
+      cancelBtn.onmouseover = () => cancelBtn.style.background = isDark ? "#3d3d3d" : "#eeeeee";
+      cancelBtn.onmouseout = () => cancelBtn.style.background = isDark ? "#2d2d2d" : "#f5f5f5";
+      cancelBtn.onclick = () => {
+        modal.remove();
+        resolve(options.multiple ? [] : null);
+      };
+      footer.appendChild(cancelBtn);
+
+      const selectBtn = document.createElement("button");
+      selectBtn.textContent = "Select";
+      selectBtn.style.cssText = `
+        padding: 8px 16px;
+        border: none;
+        background: #0e639c;
+        color: #ffffff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+      `;
+      selectBtn.onmouseover = () => selectBtn.style.background = "#1177bb";
+      selectBtn.onmouseout = () => selectBtn.style.background = "#0e639c";
+      selectBtn.onclick = () => {
+        modal.remove();
+        if (options.multiple) {
+          resolve(Array.from(selected));
+        } else {
+          resolve(selected.size > 0 ? Array.from(selected)[0] : null);
+        }
+      };
+      footer.appendChild(selectBtn);
+      dialog.appendChild(footer);
+
+      // Add to page
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+
+      // Update theme on styleapplied event
+      const updateTheme = () => {
+        const newIsDark = window.protectedGlobals.data.dark || false;
+        if (newIsDark !== isDark) {
+          // Recreate the dialog with new theme
+          modal.remove();
+          window.protectedGlobals.pickFile(options).then(resolve).catch(reject);
+        }
+      };
+
+      window.addEventListener("styleapplied", updateTheme);
+
+      // Cleanup listener when modal closes
+      const observer = new MutationObserver(() => {
+        if (!document.body.contains(modal)) {
+          window.removeEventListener("styleapplied", updateTheme);
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true });
+
+      // Load initial folder
+      loadFolder(options.startPath || "/");
+    });
+  };

@@ -1155,6 +1155,43 @@ window.settings = function (posX = 50, posY = 50) {
 
   themeRow.append(themeLabel, themeToggle);
   mainContainer.appendChild(themeRow);
+  const backgroundLabel = document.createElement("div");
+  backgroundLabel.textContent = "Background";
+  backgroundLabel.style.fontSize = "13px";
+  backgroundLabel.style.marginTop = "8px";
+  mainContainer.appendChild(backgroundLabel);
+  const backgroundActionsRow = document.createElement("div");
+  backgroundActionsRow.style.display = "flex";
+  backgroundActionsRow.style.flexWrap = "wrap";
+  backgroundActionsRow.style.gap = "8px";
+  backgroundActionsRow.style.marginTop = "8px";
+  const changeBackgroundBtn = document.createElement("button");
+  changeBackgroundBtn.textContent = "Change Background";
+  changeBackgroundBtn.style.padding = "6px 10px";
+  changeBackgroundBtn.style.borderRadius = "6px";
+  changeBackgroundBtn.style.border = "1px solid rgba(255,255,255,0.16)";
+  changeBackgroundBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.05)";
+  changeBackgroundBtn.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+  changeBackgroundBtn.style.cursor = "pointer";
+  changeBackgroundBtn.onclick = async () => {
+    await window.protectedGlobals.changeBackground();
+  };
+
+  const resetBackgroundBtn = document.createElement("button");
+  resetBackgroundBtn.textContent = "Reset Background";
+  resetBackgroundBtn.style.padding = "6px 10px";
+  resetBackgroundBtn.style.borderRadius = "6px";
+  resetBackgroundBtn.style.border = "1px solid rgba(255,255,255,0.16)";
+  resetBackgroundBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.05)";
+  resetBackgroundBtn.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+  resetBackgroundBtn.style.cursor = "pointer";
+  resetBackgroundBtn.onclick = async () => {
+    await window.protectedGlobals.resetBackground();
+  };
+
+  backgroundActionsRow.append(changeBackgroundBtn, resetBackgroundBtn);
+  mainContainer.appendChild(backgroundActionsRow);
+  mainContainer.appendChild(document.createElement("hr"));
 
   window.protectedGlobals.data.taskbarRevealEdgePx = Number.isFinite(Number(window.protectedGlobals.data.taskbarRevealEdgePx))
     ? Math.max(1, Math.min(64, Math.round(Number(window.protectedGlobals.data.taskbarRevealEdgePx))))
