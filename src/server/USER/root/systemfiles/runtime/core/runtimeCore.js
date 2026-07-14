@@ -955,6 +955,54 @@ window.protectedGlobals.writeStatus = function writeStatus() {
     }
   })();
 
+  function buildPickerSelectionState({
+    selected,
+    clickedPath,
+    clickedIndex,
+    anchorIndex = -1,
+    allEntries = [],
+    event = {},
+    allowMultiple = true,
+  }) {
+    const nextSelection = new Set(selected || []);
+    const hasShift = !!(event && event.shiftKey);
+    const hasModifier = !!(event && (event.ctrlKey || event.metaKey));
+
+    if (!allowMultiple) {
+      const singleSelection = new Set();
+      singleSelection.add(clickedPath);
+      return singleSelection;
+    }
+
+    if (hasShift) {
+      const start = anchorIndex >= 0 ? anchorIndex : clickedIndex;
+      const end = clickedIndex;
+      const [from, to] = [start, end].sort((a, b) => a - b);
+      const rangeSelection = new Set();
+      const entries = Array.isArray(allEntries) ? allEntries : [];
+      for (let index = from; index <= to; index += 1) {
+        const entry = entries[index];
+        if (entry && entry.path) rangeSelection.add(entry.path);
+      }
+      return rangeSelection;
+    }
+
+    if (hasModifier) {
+      if (nextSelection.has(clickedPath)) {
+        nextSelection.delete(clickedPath);
+      } else {
+        nextSelection.add(clickedPath);
+      }
+      return nextSelection;
+    }
+
+    const singleSelection = new Set();
+    singleSelection.add(clickedPath);
+    return singleSelection;
+  }
+
+  window.protectedGlobals.buildPickerSelectionState = buildPickerSelectionState;
+
   // accept file/folder
   // return path or array of paths
   // a ui that lets the user pick a file/folder from their cloud storage
@@ -1057,6 +1105,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
       // Selection state
       const selected = new Set();
       let currentPath = options.startPath || "/";
+      let selectionAnchorIndex = -1;
 
       // Update path bar
       const updatePathBar = () => {
@@ -1116,6 +1165,10 @@ window.protectedGlobals.writeStatus = function writeStatus() {
           `;
           parentItem.onmouseover = () => parentItem.style.background = isDark ? "#333333" : "#f0f0f0";
           parentItem.onmouseout = () => parentItem.style.background = isDark ? "#252525" : "#fafafa";
+          parentItem.ondblclick = () => {
+            const newPath = path.split("/").slice(0, -1).join("/") || "/";
+            loadFolder(newPath);
+          };
 
           const parentIcon = document.createElement("span");
           parentIcon.innerHTML = window.protectedGlobals.windowControlSvgs.close.replace("width=\"14\"", "width=\"16\"").replace("height=\"14\"", "height=\"16\"");
@@ -1139,9 +1192,8 @@ window.protectedGlobals.writeStatus = function writeStatus() {
           `;
           parentItem.appendChild(parentText);
 
-          parentItem.onclick = () => {
-            const newPath = path.split("/").slice(0, -1).join("/") || "/";
-            loadFolder(newPath);
+          parentItem.onclick = (event) => {
+            event.stopPropagation();
           };
 
           browserContainer.appendChild(parentItem);
@@ -1180,28 +1232,37 @@ window.protectedGlobals.writeStatus = function writeStatus() {
           ...folders.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
           ...filelist.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
         ];
+        const selectionEntries = sortedFiles.map((entry) => ({
+          ...entry,
+          path: path === "/" ? "/" + (entry.name || "") : path + "/" + (entry.name || ""),
+        }));
 
-        sortedFiles.forEach((file) => {
+        sortedFiles.forEach((file, index) => {
           const item = document.createElement("div");
           const isFolder = !!file.folder;
           const name = file.name || "";
           const filePath = path === "/" ? "/" + name : path + "/" + name;
           const isSelected = selected.has(filePath);
+          const isFolderMode = options.accept === "folder";
+          const isEnabledItem = !isFolderMode || isFolder;
 
           item.style.cssText = `
             padding: 12px 16px;
             display: flex;
             align-items: center;
-            cursor: pointer;
+            cursor: ${isEnabledItem ? "pointer" : "not-allowed"};
+            opacity: ${isEnabledItem ? "1" : "0.45"};
             border-bottom: 1px solid ${isDark ? "#333333" : "#e0e0e0"};
             background: ${isSelected ? (isDark ? "#0e639c" : "#e3f2fd") : (isDark ? "#1e1e1e" : "#ffffff")};
           `;
 
           item.onmouseover = () => {
-            if (!isSelected) item.style.background = isDark ? "#252525" : "#f5f5f5";
+            if (!isEnabledItem || isSelected) return;
+            item.style.background = isDark ? "#252525" : "#f5f5f5";
           };
           item.onmouseout = () => {
-            if (!isSelected) item.style.background = isDark ? "#1e1e1e" : "#ffffff";
+            if (!isEnabledItem || isSelected) return;
+            item.style.background = isDark ? "#1e1e1e" : "#ffffff";
           };
 
           // Icon
@@ -1235,49 +1296,60 @@ window.protectedGlobals.writeStatus = function writeStatus() {
           `;
           item.appendChild(nameSpan);
 
-          // Checkbox (if multiple)
-          if (options.multiple && !isFolder) {
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.checked = isSelected;
-            checkbox.style.cssText = `
-              margin-left: 12px;
-              cursor: pointer;
-              width: 16px;
-              height: 16px;
-            `;
-            item.appendChild(checkbox);
-          }
+          item.ondblclick = async (e) => {
+            if (!isFolder) return;
+            if (typeof file.raw === "string") {
+              const probe = await window.protectedGlobals.ReadFolder(filePath).catch(() => null);
+              if (Array.isArray(probe)) {
+                loadFolder(filePath);
+              }
+              return;
+            }
+            loadFolder(filePath);
+          };
 
           // Click handler
           item.onclick = async (e) => {
+            if (isFolderMode && !isFolder) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+
             if (isFolder) {
-              // If the original entry was a plain string, probe to see if it's actually a folder
-              if (typeof file.raw === "string") {
-                const probe = await window.protectedGlobals.ReadFolder(filePath).catch(() => null);
-                if (Array.isArray(probe)) {
-                  loadFolder(filePath);
-                  return;
-                }
-                // not a folder according to probe, fall through to selection
-              } else {
-                loadFolder(filePath);
+              if (isFolderMode) {
+                const nextSelection = buildPickerSelectionState({
+                  selected,
+                  clickedPath: filePath,
+                  clickedIndex: index,
+                  anchorIndex: selectionAnchorIndex,
+                  allEntries: selectionEntries,
+                  event: e,
+                  allowMultiple: !!options.multiple,
+                });
+                selected.clear();
+                nextSelection.forEach((entryPath) => selected.add(entryPath));
+                selectionAnchorIndex = index;
+                renderFiles(files, path);
                 return;
               }
+              e.preventDefault();
+              e.stopPropagation();
+              return;
             }
 
-            if (options.accept === "folder") return;
-
-            if (options.multiple) {
-              if (selected.has(filePath)) {
-                selected.delete(filePath);
-              } else {
-                selected.add(filePath);
-              }
-            } else {
-              selected.clear();
-              selected.add(filePath);
-            }
+            const nextSelection = buildPickerSelectionState({
+              selected,
+              clickedPath: filePath,
+              clickedIndex: index,
+              anchorIndex: selectionAnchorIndex,
+              allEntries: selectionEntries,
+              event: e,
+              allowMultiple: !!options.multiple,
+            });
+            selected.clear();
+            nextSelection.forEach((entryPath) => selected.add(entryPath));
+            selectionAnchorIndex = index;
             renderFiles(files, path);
           };
 

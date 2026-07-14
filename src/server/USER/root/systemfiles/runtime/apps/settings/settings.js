@@ -1188,7 +1188,12 @@ window.settings = function (posX = 50, posY = 50) {
   resetBackgroundBtn.onclick = async () => {
     await window.protectedGlobals.resetBackground();
   };
-
+  root.addEventListener("styleapplied", () => {
+    changeBackgroundBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.05)";
+    changeBackgroundBtn.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+    resetBackgroundBtn.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.05)";
+    resetBackgroundBtn.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+  });
   backgroundActionsRow.append(changeBackgroundBtn, resetBackgroundBtn);
   mainContainer.appendChild(backgroundActionsRow);
   mainContainer.appendChild(document.createElement("hr"));
