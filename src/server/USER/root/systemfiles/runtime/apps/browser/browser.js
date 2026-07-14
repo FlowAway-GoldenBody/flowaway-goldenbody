@@ -12,21 +12,9 @@ window.browserGlobals.iframePatchPath =
   "/systemfiles/runtime/apps/browser/asset/iframeRewrites.js";
 window.browserGlobals.browserhelperPath =
   "/systemfiles/runtime/apps/browser/asset/browserhelper.js";
-window.browserGlobals.pid = '';
 window.browserGlobals.fetchId = async function () {
-  if (window.protectedGlobals.statusData.wifiEnabled) {
-    window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
-  }
+  window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
 };
-window.addEventListener("wifi-toggle", (e) => {
-  let enabled = e.detail.enabled;
-  if (!enabled) {
-    window.browserGlobals.pid = window.browserGlobals.id;
-    window.browserGlobals.id = "";
-  } else {
-    window.browserGlobals.id = window.browserGlobals.pid;
-  }
-});
 // this need async fn idk y
 (async () => {
   window.browserGlobals.vfstxt = await window.protectedGlobals

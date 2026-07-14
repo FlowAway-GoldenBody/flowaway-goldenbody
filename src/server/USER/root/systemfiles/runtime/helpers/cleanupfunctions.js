@@ -8,7 +8,6 @@ window.protectedGlobals.rebuildhandler = function () {
   delete window.protectedGlobals.brightnessOverlayLabel;
   delete window.protectedGlobals.brightnessOverlaySlider;
   window.protectedGlobals.goldenbody.clearSystemInterval();
-  window.protectedGlobals.statusData.wifiEnabled = true; // reset wifi status to default on rebuild
   // Mark rebuilding
   window.protectedGlobals.isRebuilding = true;
 

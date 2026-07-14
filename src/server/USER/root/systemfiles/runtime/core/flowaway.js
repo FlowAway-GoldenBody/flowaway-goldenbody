@@ -194,19 +194,7 @@ window.protectedGlobals.removeAllEventListenersForApp = function (appname) {
     }
   };
 })();
-  if (!window.permGlobals.origFetch) {
-    window.permGlobals.origFetch = window.fetch;
-  }
-  window.fetch = function (...args) {
-    // this is only for people to protect their data
-    try {
-    if (window.protectedGlobals.statusData.wifiEnabled === false) return Promise.resolve(new Response({ error: "WiFi is disabled" }, { status: 403 }));
-    else return window.permGlobals.origFetch.apply(this, args);
-    } 
-    catch (e) {
-      return window.permGlobals.origFetch.apply(this, args);
-    };
-  };
+
   window.protectedGlobals.____gbEventListners = [];
   if (window.protectedGlobals._bootLoaded) {
     return;

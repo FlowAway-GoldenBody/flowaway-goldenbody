@@ -278,7 +278,10 @@
       opacity: 0.6;
       margin-bottom: 4px;
     }
-
+   .description {
+      font-size: 11px;
+      opacity: 0.6;
+    }
     .status-toggle {
       display: flex;
       align-items: center;
@@ -491,7 +494,6 @@
   try {
     tempdata = await window.protectedGlobals.ReadFile('/systemfiles/userprofile/statusData.json', { text: true, direct: true });
     tempdata = JSON.parse(tempdata);
-    tempdata.wifiEnabled = true;
   } catch {}
   // Initialize protectedGlobals status data
   if (!tempdata) {
@@ -518,11 +520,11 @@
   var wifiItem = document.createElement('div');
   wifiItem.className = 'status-item';
   wifiItem.innerHTML = svgIcons.wifi;
-  wifiItem.title = 'WiFi';
+  wifiItem.title = 'WiFi toggle for community apps. If you have no community apps installed, it will have no effect.';
   wifiItem.addEventListener('click', function(e) {
     e.stopPropagation();
     window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
-    window.dispatchEvent(new CustomEvent('wifi-toggle', { detail: { enabled: window.protectedGlobals.statusData.wifiEnabled } }));
+    window.protectedGlobals.writeStatus();
     updateStatusBar();
     if (window.protectedGlobals.buildStatusMenu) window.protectedGlobals.buildStatusMenu();
   });
@@ -609,6 +611,8 @@
             <div class="toggle-switch-dot"></div>
           </div>
         </div>
+        <div class="description">WiFi toggle is for non-system-trusted apps. If you have no</div>
+        <div class="description">community apps installed, it will have no effect.</div>
       </div>
 
 
@@ -657,7 +661,7 @@
         var toggleType = this.dataset.toggle;
         if (toggleType === 'wifi') {
           window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
-          window.dispatchEvent(new CustomEvent('wifi-toggle', { detail: { enabled: window.protectedGlobals.statusData.wifiEnabled } }));
+          window.protectedGlobals.writeStatus();
           updateStatusBar();
         } 
         else if (toggleType === 'theme') {
