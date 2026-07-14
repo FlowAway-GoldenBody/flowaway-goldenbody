@@ -870,6 +870,8 @@ window.settings = function (posX = 50, posY = 50) {
     applyAppRowTheme(row, label, iconWrapper, deleteBtn);
 
     deleteBtn.addEventListener("click", async () => {
+      let userConfirm = await window.protectedGlobals.showConfirmDialog("Delete App", "This will delete this app and all the data it wrote in it's own folder. (Note: If you accidentally deleted a system app you can recover it in the login page in the Reset System App section)");
+      if (!userConfirm) return;
       deleteBtn.disabled = true;
       deleteBtn.textContent = "Deleting...";
       try {

@@ -250,9 +250,9 @@
       min-width: 280px;
       z-index: 100000;
       display: none;
-      flex-direction: column;
       gap: 12px;
       color: #000;
+      flex-direction: column;
     }
 
     .status-menu.dark {
@@ -453,7 +453,7 @@
   window.protectedGlobals.data.taskbarOnTop ? taskbar.style.top = "0" : taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
-  taskbar.style.height = "60px";
+  window.protectedGlobals.data.taskbarOnTop ? taskbar.style.height = "55px" : taskbar.style.height = "60px";
   taskbar.style.display = "flex";
   taskbar.style.alignItems = "center";
   taskbar.style.paddingLeft = "3%"; // 50px empty space on left
@@ -462,7 +462,7 @@
   document.body.appendChild(taskbar);
   window.protectedGlobals.taskbar = taskbar;
   let changeTaskbarPosition = () => {
-    if (window.protectedGlobals.data.taskbarOnTop) {taskbar.style.top = "0"; taskbar.style.bottom = ''} else {taskbar.style.bottom = "0"; taskbar.style.top = ''}
+    if (window.protectedGlobals.data.taskbarOnTop) {taskbar.style.top = "0"; taskbar.style.height = '55px';taskbar.style.bottom = 'initial'} else {taskbar.style.bottom = "0"; taskbar.style.height = '60px'; taskbar.style.top = 'initial'}
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.width === `100%` && root.style.height === `calc(100% - 60px)`) {
         window.protectedGlobals.data.taskbarOnTop ? root.style.top = `60px` : root.style.top = `0px`;
@@ -566,7 +566,7 @@
   // Create status menu
   var statusMenu = document.createElement('div');
   statusMenu.className = 'status-menu';
-  if (window.protectedGlobals.data.taskbarOnTop) {statusMenu.style.top = "60px"; statusMenu.style.bottom = ''} else {statusMenu.style.bottom = "60px"; statusMenu.style.top = ''}
+  if (window.protectedGlobals.data.taskbarOnTop) {statusMenu.style.top = "60px"; statusMenu.style.bottom = 'initial'} else {statusMenu.style.bottom = "60px"; statusMenu.style.top = 'initial'}
   if (window.protectedGlobals.data.dark) {
     statusMenu.classList.add('dark');
   }
@@ -755,6 +755,13 @@
   timeItem.addEventListener('click', function(e) {
     e.stopPropagation();
     statusMenu.classList.toggle('show');
+    if (window.protectedGlobals.data.taskbarOnTop) {
+      statusMenu.style.top = "60px";
+      statusMenu.style.bottom = 'initial';
+    } else {
+      statusMenu.style.bottom = "60px";
+      statusMenu.style.top = 'initial';
+    }
     if (statusMenu.classList.contains('show')) {
       window.protectedGlobals.buildStatusMenu();
     }

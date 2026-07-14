@@ -200,7 +200,27 @@ function splitRecoveryAppDefinitions(options = {}) {
 }
 
 function getRecoveryCatalog(options = {}) {
-  const { systemApps } = splitRecoveryAppDefinitions(options);
+  const { userRoot, sampleRoot, appsRoot, sampleAppsRoot } = getRecoveryPaths(options);
+  const userAppsRoot = appsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'apps');
+  const sampleAppsRootResolved = sampleAppsRoot || path.join(sampleRoot, 'systemfiles', 'runtime', 'apps');
+
+  const sampleDefinitions = collectSystemAppDefinitions(sampleAppsRootResolved);
+  const userDefinitions = collectSystemAppDefinitions(userAppsRoot);
+
+  const userDefinitionsByKey = new Map();
+  for (const definition of userDefinitions) {
+    userDefinitionsByKey.set(normalizeValue(definition.folderName), definition);
+    userDefinitionsByKey.set(normalizeValue(definition.id), definition);
+  }
+
+  const systemApps = sampleDefinitions.map((definition) => {
+    const normalizedId = normalizeValue(definition.id);
+    const normalizedFolderName = normalizeValue(definition.folderName);
+    return userDefinitionsByKey.get(normalizedFolderName)
+      || userDefinitionsByKey.get(normalizedId)
+      || definition;
+  });
+
   return systemApps.map((definition) => ({
     id: definition.id,
     label: definition.label,
@@ -362,7 +382,13 @@ function resetSystemApp(options = {}) {
   }
 
   const { systemApps } = splitRecoveryAppDefinitions(options);
-  const match = findMatchingAppDefinition(systemApps, options.appIdentifier);
+  let match = findMatchingAppDefinition(systemApps, options.appIdentifier);
+
+  if (!match && fallbackAppsRoot && fs.existsSync(fallbackAppsRoot)) {
+    const fallbackDefinitions = collectSystemAppDefinitions(fallbackAppsRoot);
+    match = findMatchingAppDefinition(fallbackDefinitions, options.appIdentifier);
+  }
+
   if (!match) {
     return { success: false, error: 'unable to locate matching system app' };
   }

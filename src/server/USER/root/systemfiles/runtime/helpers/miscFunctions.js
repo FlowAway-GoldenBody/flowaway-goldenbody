@@ -690,3 +690,95 @@ window.protectedGlobals.cmfl1 = function (e, appOverride = null) {
   window.protectedGlobals.showUnifiedAppContextMenu(e, appOverride);
 };
 
+
+
+
+window.protectedGlobals.showConfirmDialog = (title, message) => {
+    return new Promise((resolve) => {
+      document.getElementById("confirm-dialog")?.remove();
+
+      const dialog = document.createElement("div");
+      dialog.id = "confirm-dialog";
+      dialog.className = "panel";
+      dialog.classList.toggle("dark", window.browserGlobals.dark);
+      dialog.classList.toggle("light", !window.browserGlobals.dark);
+      dialog.style.cssText =
+        "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
+
+      let resolved = false;
+      function closeConfirmDialog(result) {
+        if (resolved) return;
+        resolved = true;
+        try {
+          document.removeEventListener(
+            "pointerdown",
+            onOutsidePointerDown,
+            true,
+          );
+        } catch (e) {}
+        try {
+          document.removeEventListener("keydown", onEscKeyDown, true);
+        } catch (e) {}
+        dialog.remove();
+        resolve(result);
+      }
+
+      function onOutsidePointerDown(event) {
+        if (!dialog.contains(event.target)) {
+          closeConfirmDialog(false);
+        }
+      }
+
+      function onEscKeyDown(event) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeConfirmDialog(false);
+        }
+      }
+
+      const titleEl = document.createElement("div");
+      titleEl.style.cssText =
+        "font-weight:600;margin-bottom:12px;font-size:16px;";
+      titleEl.textContent = title;
+      dialog.appendChild(titleEl);
+
+      const msgEl = document.createElement("div");
+      msgEl.style.cssText = `font-size:14px;color:#${window.browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+      msgEl.textContent = message;
+      dialog.appendChild(msgEl);
+
+      const btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
+
+      const btnCancel = document.createElement("button");
+      btnCancel.textContent = "Cancel";
+      btnCancel.style.cssText =
+        "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
+      btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
+      btnCancel.onmouseleave = () => (btnCancel.style.background = "#f5f5f5");
+      btnCancel.onclick = () => closeConfirmDialog(false);
+
+      const btnConfirm = document.createElement("button");
+      btnConfirm.textContent = "Continue";
+      btnConfirm.style.cssText =
+        "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
+      btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
+      btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
+      btnConfirm.onclick = () => closeConfirmDialog(true);
+
+      btnRow.appendChild(btnCancel);
+      btnRow.appendChild(btnConfirm);
+      dialog.appendChild(btnRow);
+
+      document.body.appendChild(dialog);
+
+      setTimeout(() => {
+        if (!resolved) {
+          document.addEventListener("pointerdown", onOutsidePointerDown, true);
+          document.addEventListener("keydown", onEscKeyDown, true);
+        }
+      }, 0);
+
+      btnConfirm.focus();
+    });
+  }

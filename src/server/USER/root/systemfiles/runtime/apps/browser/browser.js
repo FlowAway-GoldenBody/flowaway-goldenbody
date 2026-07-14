@@ -3115,15 +3115,8 @@ setTimeout(() => {
         try {
           // Try to access its document
           const doc = iframe.contentDocument || iframe.contentWindow.document;
-          // let script = document.createElement('script');
-          // script.textContent = `
-          // const nativePostMessage = window.postMessage;
-          // window.postMessage = function(msg, target) {
-          //   nativePostMessage.call(window, msg, target);
-          // };
-          // `;
-          // doc.appendChild(sc)
-          // If site unreachable, doc will often be null
+
+          // If site unreachable, doc will be null
           if (!doc || doc.body.innerHTML.trim() === "") {
             console.log("Site unreachable or failed to load.");
           } else {
@@ -3149,6 +3142,7 @@ setTimeout(() => {
         iframe.contentWindow.postMessage(
           {
             message: "GOLDENBODY_id",
+            __goldenbodyChangeTheme__: true,
             website: window.protectedGlobals.goldenbodywebsite,
             value: window.browserGlobals.id,
             dark: window.browserGlobals.dark,
