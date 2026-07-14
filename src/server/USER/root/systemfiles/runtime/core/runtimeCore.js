@@ -700,8 +700,15 @@ window.protectedGlobals.refreshBackground = async function refreshBackground() {
 window.protectedGlobals.setBodyBackground = window.protectedGlobals.refreshBackground;
 window.protectedGlobals.changeBackground = async function changeBackground() {
   try {
-    const selectedPath = await window.protectedGlobals.pickFile({ accept: "file", startPath: "/" });
-    if (!selectedPath) return false;
+    const selectedPath = await window.protectedGlobals.pickFile({ accept: "file", startPath: "/" }).catch((e) => {
+      console.error("Failed to open background picker", e);
+      window.protectedGlobals.notification("Failed to open background picker.");
+      return null;
+    });
+    if (!selectedPath) {
+      window.protectedGlobals.notification("No image selected.");
+      return false;
+    }
 
     const backgroundBuffer = await window.protectedGlobals.ReadFile(selectedPath, { buffer: true, direct: true });
     if (!backgroundBuffer) {
@@ -1141,6 +1148,8 @@ window.protectedGlobals.writeStatus = function writeStatus() {
             files = await window.protectedGlobals.ReadFolder(path).catch(() => []);
           }
 
+          selected.clear();
+          selectionAnchorIndex = -1;
           currentPath = path;
           updatePathBar();
           renderFiles(files, path);
