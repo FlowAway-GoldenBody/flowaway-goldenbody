@@ -467,8 +467,12 @@
   let changeTaskbarPosition = () => {
     if (window.protectedGlobals.data.taskbarOnTop) {taskbar.style.top = "0"; taskbar.style.height = '55px';taskbar.style.bottom = 'initial'} else {taskbar.style.bottom = "0"; taskbar.style.height = '60px'; taskbar.style.top = 'initial'}
     for(let root of document.querySelectorAll('.app-window-root')){
-      if(root.style.width === `100%` && root.style.height === `calc(100% - 60px)`) {
-        window.protectedGlobals.data.taskbarOnTop ? root.style.top = `60px` : root.style.top = `0px`;
+      let h1 = root.style.height === `calc(100% - 60px)`;
+      let h2 = root.style.height === `calc(100% - 55px)`;
+      if(root.style.width === `100%` && (h1 || h2)) {
+        window.protectedGlobals.data.taskbarOnTop ? root.style.top = `55px` : root.style.top = `0px`;
+        if (h1 && window.protectedGlobals.data.taskbarOnTop) root.style.height = `calc(100% - 55px)`;
+        else if (h2 && !window.protectedGlobals.data.taskbarOnTop) root.style.height = `calc(100% - 60px)`;
       }
     }
   };
@@ -1016,7 +1020,7 @@
     setTimeout(() => {if (autohideEnabled) hideTaskbar()}, 2000);
     
     for(let root of document.querySelectorAll('.app-window-root')){
-      if(root.style.height === `calc(100% - 60px)`) {
+      if(root.style.height === `calc(100% - 60px)` || root.style.height === `calc(100% - 55px)`) {
       root.style.height = '100%';
       root.style.top = 0;
       }
@@ -1063,8 +1067,8 @@
     _cancelRevealTimer();
     for(let root of document.querySelectorAll('.app-window-root')){
       if(root.style.height === `100%`) {
-        root.style.height = `calc(100% - 60px)`;
-        window.protectedGlobals.data.taskbarOnTop ? root.style.top = `60px` : root.style.top = `0px`;
+        window.protectedGlobals.data.taskbarOnTop ? root.style.top = '55px' : root.style.top = '0px';
+        window.protectedGlobals.data.taskbarOnTop ? root.style.height = `calc(100% - 55px)` : root.style.height = `calc(100% - 60px)`;
       }
     }
     if (_hideTimer) {

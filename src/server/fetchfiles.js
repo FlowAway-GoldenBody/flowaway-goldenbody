@@ -30,20 +30,39 @@ async function walkDir(dir, base = dir) {
   return files;
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function getUserAuthFilePath(username) {
   return path.join(directoryPath, username, `${username}.txt`);
 }
 
 async function readUserAuth(username) {
   const filePath = getUserAuthFilePath(username);
-  const txt = await fsp.readFile(filePath, "utf8");
-  return JSON.parse(txt || "{}");
+  try {
+    const txt = await fsp.readFile(filePath, "utf8");
+    const trimmed = typeof txt === "string" ? txt.trim() : "";
+    if (!trimmed) return {};
+    const parsed = JSON.parse(trimmed);
+    return isPlainObject(parsed) ? parsed : {};
+  } catch (err) {
+    if (err && (err.code === "ENOENT" || err.code === "EISDIR")) {
+      return {};
+    }
+    return {};
+  }
 }
 
 async function writeUserAuth(username, authObj) {
   const filePath = getUserAuthFilePath(username);
+  const existing = await readUserAuth(username);
+  const merged = {
+    ...existing,
+    ...(isPlainObject(authObj) ? authObj : {}),
+  };
   await fsp.mkdir(path.dirname(filePath), { recursive: true });
-  await fsp.writeFile(filePath, JSON.stringify(authObj, null, 2), "utf8");
+  await fsp.writeFile(filePath, JSON.stringify(merged, null, 2), "utf8");
 }
 
 function getUsernameFromRoot(rootPath) {
@@ -52,7 +71,7 @@ function getUsernameFromRoot(rootPath) {
 
 async function getUserUsedBytes(userRoot, username) {
   if (!username) username = getUsernameFromRoot(userRoot);
-  const authObj = await readUserAuth(username).catch(() => ({}));
+  const authObj = await readUserAuth(username);
   if (Number.isFinite(authObj.usedBytes) && authObj.usedBytes >= 0) {
     return authObj.usedBytes;
   }
@@ -65,7 +84,7 @@ async function getUserUsedBytes(userRoot, username) {
 async function adjustUserUsedBytes(userRoot, username, delta) {
   if (!username) username = getUsernameFromRoot(userRoot);
   if (!Number.isFinite(delta) || delta === 0) return;
-  const authObj = await readUserAuth(username).catch(() => ({}));
+  const authObj = await readUserAuth(username);
   let current = Number.isFinite(authObj.usedBytes) ? authObj.usedBytes : null;
   if (current === null) {
     current = await getDirSizeBytes(userRoot).catch(() => 0);
@@ -1775,4 +1794,12 @@ function startServer(port = 8083, host = "0.0.0.0") {
   return server;
 }
 
-module.exports = { handleFetchfiles, startServer, writeEditPayload };
+module.exports = {
+  handleFetchfiles,
+  startServer,
+  writeEditPayload,
+  readUserAuth,
+  writeUserAuth,
+  getUserUsedBytes,
+  adjustUserUsedBytes,
+};

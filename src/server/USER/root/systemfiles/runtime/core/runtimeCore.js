@@ -70,7 +70,7 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      throw new Error(`Failed to read file: ${response.status} ${errorText}`);
+      throw new Error(`Failed to read file: ${response.status} ${relPath}`);
     }
 
     const rawChunk = await response.arrayBuffer();

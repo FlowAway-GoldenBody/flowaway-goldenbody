@@ -244,9 +244,9 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
-    root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "60" : "0";
+    root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbar ? "55" : "0";
     root.style.width = "100%";
-    root.style.height = !window.protectedGlobals.data.autohidetaskbar ? `calc(100% - 60px)` : "100%";
+    root.style.height = window.protectedGlobals.data.autohidetaskbar ?  "100%" : (window.protectedGlobals.data.taskbarOnTop ? "calc(100% - 55px)" : "calc(100% - 60px)");
     root.style.borderRadius = "0px";
     isMaximized = true;
     _isMinimized = false;
