@@ -766,7 +766,7 @@ overflow: hidden;
 }`;
 document.body.appendChild(window.protectedGlobals.bodyStyle);
 // Desktop background context menu
-window.protectedGlobals.showBackgroundContextMenu = function showBackgroundContextMenu(x, y) {
+window.protectedGlobals.showBackgroundContextMenu = function (x, y) {
   let menu = document.getElementById("desktop-background-context-menu");
   if (menu) menu.remove();
 
@@ -821,6 +821,9 @@ window.protectedGlobals.showBackgroundContextMenu = function showBackgroundConte
 };
 
 window.addEventListener("contextmenu", (e) => {
+  if (e.target !== document.body) {
+    return;
+  }
   const interactiveTarget = e.target && e.target.closest && e.target.closest("input, textarea, select, button, a, [contenteditable='true'], .app-window-root, .taskbar");
   if (interactiveTarget) return;
   if (e.target && e.target !== document.body && e.target !== document.documentElement && !document.body.contains(e.target)) {
@@ -1448,3 +1451,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
       loadFolder(options.startPath || "/");
     });
   };
+
+
+
+window.addEventListener("contextmenu", (e) => {e.preventDefault();});
