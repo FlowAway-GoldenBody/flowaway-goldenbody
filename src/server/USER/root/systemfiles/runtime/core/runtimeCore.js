@@ -43,46 +43,59 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
   }
 
   async function requestChunk(chunkIndex) {
-    const response = await fetch(window.protectedGlobals.SERVER, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        username: window.protectedGlobals.getCurrentUsernameForRequests(),
-        requestFile: true,
-        requestFileName: String(relPath),
-        chunkIndex,
-        buffer: isBuffer,
-        text: isText,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    const isJson = contentType.includes("application/json");
+    try {
+      const response = await fetch(window.protectedGlobals.SERVER, {
+        method: "POST",
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          username: window.protectedGlobals.getCurrentUsernameForRequests(),
+          requestFile: true,
+          requestFileName: String(relPath),
+          chunkIndex,
+          buffer: isBuffer,
+          text: isText,
+        }),
+      });
 
-    if (response.status === 401) {
-      window.protectedGlobals.showSessionExpiredDialog();
-      throw new Error("Unauthorized");
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      const isJson = contentType.includes("application/json");
+
+      if (response.status === 401) {
+        window.protectedGlobals.showSessionExpiredDialog();
+        throw new Error("Unauthorized");
+      }
+
+      if (isJson) {
+        return { json: await response.json(), status: response.status };
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(`Failed to read file: ${response.status} ${relPath}`);
+      }
+
+      const rawChunk = await response.arrayBuffer();
+      return {
+        rawChunk,
+        meta: {
+          fileSize: Number(response.headers.get("x-file-size") || "0"),
+          chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
+          isLastChunk: response.headers.get("x-is-last-chunk") === "1",
+          totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
+        },
+      };
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(`Timed out while reading file: ${relPath}`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    if (isJson) {
-      return { json: await response.json(), status: response.status };
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      throw new Error(`Failed to read file: ${response.status} ${relPath}`);
-    }
-
-    const rawChunk = await response.arrayBuffer();
-    return {
-      rawChunk,
-      meta: {
-        fileSize: Number(response.headers.get("x-file-size") || "0"),
-        chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
-        isLastChunk: response.headers.get("x-is-last-chunk") === "1",
-        totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
-      },
-    };
   }
 
   const initialResponse = await requestChunk(0);
@@ -237,23 +250,48 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
   return res.files;
 }
 window.protectedGlobals.WriteFile = async function (relPath, contents, options = { replace: true }) {
-  // remove the 1st 4 char if it is "root" because legacy code may have added "root" to the path, but the server expects paths relative to the root, not starting with "root"
-  if (relPath.startsWith("root")) {
-    relPath = relPath.slice(4);
-  }
-  if (!relPath) throw new Error("No path");
+  let normalizedPath = String(relPath || "").trim();
+  if (!normalizedPath) throw new Error("No path");
 
-  const raw = (contents instanceof ArrayBuffer || ArrayBuffer.isView(contents))
-    ? contents instanceof ArrayBuffer
-      ? new Uint8Array(contents)
-      : new Uint8Array(contents.buffer, contents.byteOffset, contents.byteLength)
-    : new TextEncoder().encode(String(contents || ""));
+  // Normalize legacy prefixes and leading slashes so the server still sees
+  // a path relative to the user root, while preserving the same 3-argument API.
+  normalizedPath = normalizedPath.replace(/\\/g, "/");
+  if (normalizedPath === "root") {
+    normalizedPath = "";
+  } else if (normalizedPath.startsWith("root/")) {
+    normalizedPath = normalizedPath.slice("root/".length);
+  } else if (normalizedPath.startsWith("/root/")) {
+    normalizedPath = normalizedPath.slice("/root/".length);
+  }
+  while (normalizedPath.startsWith("/")) {
+    normalizedPath = normalizedPath.slice(1);
+  }
+
+  if (!normalizedPath) throw new Error("No path");
+
+  const replace =
+    options && typeof options === "object"
+      ? options.replace !== false
+      : options !== false;
+
+  let raw;
+  if (contents instanceof ArrayBuffer) {
+    raw = new Uint8Array(contents);
+  } else if (ArrayBuffer.isView(contents)) {
+    raw = new Uint8Array(contents.buffer, contents.byteOffset, contents.byteLength);
+  } else if (typeof Blob !== "undefined" && contents instanceof Blob) {
+    raw = new Uint8Array(await contents.arrayBuffer());
+  } else if (contents == null) {
+    raw = new Uint8Array(0);
+  } else {
+    raw = new TextEncoder().encode(String(contents || ""));
+  }
 
   const headers = {
     "Content-Type": "application/octet-stream",
     "X-File-Action": "write",
-    "X-File-Path": String(relPath),
-    "X-File-Replace": options.replace !== false ? "true" : "false",
+    "X-File-Path": normalizedPath,
+    "X-File-Replace": replace ? "true" : "false",
     "X-Username": window.protectedGlobals.getCurrentUsernameForRequests(),
   };
   if (window.protectedGlobals.data.authToken) {
@@ -266,7 +304,13 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
     body: raw,
   });
 
-  const body = await response.json();
+  let body = null;
+  try {
+    body = await response.json();
+  } catch (err) {
+    body = {};
+  }
+
   if (response.status === 401 && !window.protectedGlobals.firstlogin) {
     window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };

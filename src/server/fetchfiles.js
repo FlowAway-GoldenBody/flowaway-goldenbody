@@ -356,12 +356,93 @@ async function readFileChunk(fullPath, start, end) {
 }
 
 async function getRawBody(req) {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  return Buffer.concat(chunks);
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+
+    req.on("data", chunk => {
+      total += chunk.length;
+      console.log("data", chunk.length, "total:", total);
+      chunks.push(chunk);
+    });
+
+    req.on("end", () => {
+      console.log("END total:", total);
+      resolve(Buffer.concat(chunks));
+    });
+
+    req.on("close", () => {
+      console.log("CLOSE total:", total);
+    });
+
+    req.on("aborted", () => {
+      console.log("ABORTED total:", total);
+    });
+  });
+}
+
+function attachRequestTimeout(req, res, timeoutMs = 30000) {
+  const timeoutValue = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30000;
+  let timer = null;
+  let settled = false;
+
+  const clearTimer = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  const markSettled = () => {
+    if (settled) return false;
+    settled = true;
+    clearTimer();
+    return true;
+  };
+
+  const respondWithTimeout = () => {
+    if (settled) return;
+    settled = true;
+    clearTimer();
+
+    try {
+      if (!res.headersSent) {
+        res.writeHead(504, { "Content-Type": "application/json" });
+      }
+      if (!res.writableEnded) {
+        res.end(JSON.stringify({ error: "request timed out" }));
+      }
+    } catch (err) {
+      console.warn("Failed to send timeout response", err);
+    }
+
+    try {
+      req.destroy && req.destroy();
+    } catch (err) {
+      // ignore cleanup errors
+    }
+  };
+
+  timer = setTimeout(respondWithTimeout, timeoutValue);
+  req.on("close", markSettled);
+  req.on("aborted", markSettled);
+  req.on("error", markSettled);
+  res.on("finish", markSettled);
+  res.on("close", markSettled);
+
+  return { clearTimer, markSettled };
 }
 
 async function handleRawFileUpload(req, res) {
+  attachRequestTimeout(
+    req,
+    res,
+    Number(process.env.FETCHFILES_REQUEST_TIMEOUT_MS || 30000),
+  );
+  console.log({
+  contentLength: req.headers["content-length"],
+  transferEncoding: req.headers["transfer-encoding"],
+});
   const headers = req.headers || {};
   const username = String(headers["x-username"] || "").trim();
   const password = String(headers["x-password"] || "").trim();
@@ -412,7 +493,7 @@ async function handleRawFileUpload(req, res) {
 
   const replace = String(headers["x-file-replace"] || "true") !== "false";
   const userRoot = path.join(directoryPath, username, "root");
-  await fsp.mkdir(userRoot, { recursive: true });
+  // await fsp.mkdir(userRoot, { recursive: true });
   const filePath = path.join(userRoot, normalizedPath);
   const rawBody = await getRawBody(req);
 
@@ -450,6 +531,12 @@ async function handleRawFileUpload(req, res) {
 // ─────────────────────────────
 
 async function handleFetchfiles(req, res) {
+  attachRequestTimeout(
+    req,
+    res,
+    Number(process.env.FETCHFILES_REQUEST_TIMEOUT_MS || 30000),
+  );
+
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   res.setHeader(
