@@ -1,15 +1,16 @@
 // Ensure this pre-init block runs only once even if the script is injected twice
-window.protectedGlobals = window.protectedGlobals || {};
+window.protectedGlobals = {};
+window.persistGlobals = window.persistGlobals || {};
 if (!document.body) {
   document.documentElement.appendChild(document.createElement('body'));
 }
-if (!window.protectedGlobals.__ouchbad_preinit_done) {
-  window.protectedGlobals.__ouchbad_preinit_done = true;
-  window.protectedGlobals.__ouchbad_BASE = window.origin;
-  window.protectedGlobals.__ouchbad_goldenbodywebsite = window.protectedGlobals.__ouchbad_BASE + '/';
-  window.protectedGlobals.__ouchbad_zmcdserver = `${window.protectedGlobals.__ouchbad_BASE}/server/zmcd`;
-  window.protectedGlobals.__ouchbad_SERVER = `${window.protectedGlobals.__ouchbad_BASE}/server/fetchfiles/`;
-  window.protectedGlobals.__ouchbad_downloadserver = `${window.protectedGlobals.__ouchbad_BASE}/server/download/`;
+if (!window.persistGlobals.__ouchbad_preinit_done) {
+  window.persistGlobals.__ouchbad_preinit_done = true;
+  window.persistGlobals.__ouchbad_BASE = window.origin;
+  window.persistGlobals.__ouchbad_goldenbodywebsite = window.persistGlobals.__ouchbad_BASE + '/';
+  window.persistGlobals.__ouchbad_zmcdserver = `${window.persistGlobals.__ouchbad_BASE}/server/zmcd`;
+  window.persistGlobals.__ouchbad_SERVER = `${window.persistGlobals.__ouchbad_BASE}/server/fetchfiles/`;
+  window.persistGlobals.__ouchbad_downloadserver = `${window.persistGlobals.__ouchbad_BASE}/server/download/`;
   let __ouchbad_openerOrigin = null;
   try {
     if (window.opener && window.opener.location && window.opener.location.origin) {
@@ -18,9 +19,9 @@ if (!window.protectedGlobals.__ouchbad_preinit_done) {
   } catch (e) {
     __ouchbad_openerOrigin = null;
   }
-  window.protectedGlobals.__ouchbad_baseOrigin = __ouchbad_openerOrigin || window.location.origin;
-  window.protectedGlobals.__ouchbad_wsProtocol = window.protectedGlobals.__ouchbad_baseOrigin.startsWith('https') ? 'wss://' : 'ws://';
-  window.protectedGlobals.__ouchbad_hostname = new URL(window.protectedGlobals.__ouchbad_baseOrigin).hostname;
+  window.persistGlobals.__ouchbad_baseOrigin = __ouchbad_openerOrigin || window.location.origin;
+  window.persistGlobals.__ouchbad_wsProtocol = window.persistGlobals.__ouchbad_baseOrigin.startsWith('https') ? 'wss://' : 'ws://';
+  window.persistGlobals.__ouchbad_hostname = new URL(window.persistGlobals.__ouchbad_baseOrigin).hostname;
 }
 window.protectedGlobals.filePost = async function (data) {
   const headers = { 'Content-Type': 'application/json' };
@@ -32,14 +33,14 @@ window.protectedGlobals.filePost = async function (data) {
   });
   return res.text();
 };
-window.protectedGlobals.BASE = window.protectedGlobals.__ouchbad_BASE;
-window.protectedGlobals.goldenbodywebsite = window.protectedGlobals.__ouchbad_goldenbodywebsite;
-window.protectedGlobals.zmcdserver = window.protectedGlobals.__ouchbad_zmcdserver;
-window.protectedGlobals.SERVER = window.protectedGlobals.__ouchbad_SERVER;
-window.protectedGlobals.downloadserver = window.protectedGlobals.__ouchbad_downloadserver;
-window.protectedGlobals.baseOrigin = window.protectedGlobals.__ouchbad_baseOrigin;
-window.protectedGlobals.wsProtocol = window.protectedGlobals.__ouchbad_wsProtocol;
-window.protectedGlobals.hostname = window.protectedGlobals.__ouchbad_hostname;
+window.protectedGlobals.BASE = window.persistGlobals.__ouchbad_BASE;
+window.protectedGlobals.goldenbodywebsite = window.persistGlobals.__ouchbad_goldenbodywebsite;
+window.protectedGlobals.zmcdserver = window.persistGlobals.__ouchbad_zmcdserver;
+window.protectedGlobals.SERVER = window.persistGlobals.__ouchbad_SERVER;
+window.protectedGlobals.downloadserver = window.persistGlobals.__ouchbad_downloadserver;
+window.protectedGlobals.baseOrigin = window.persistGlobals.__ouchbad_baseOrigin;
+window.protectedGlobals.wsProtocol = window.persistGlobals.__ouchbad_wsProtocol;
+window.protectedGlobals.hostname = window.persistGlobals.__ouchbad_hostname;
 window.protectedGlobals.zmcdata = null;
 window.protectedGlobals.firstlogin = false;
 
@@ -117,7 +118,7 @@ window.protectedGlobals.firstlogin = false;
   resetSelectPlaceholder(recoveryDeleteAppSelect, 'Enter recovery username/password to load non-system apps');
 
   const recoveryServerUrl = (() => {
-    const baseUrl = new URL(window.protectedGlobals.__ouchbad_BASE);
+    const baseUrl = new URL(window.persistGlobals.__ouchbad_BASE);
     return `${baseUrl.origin}/server/systemRecovery`;
   })();
   window.protectedGlobals.recoveryserver = recoveryServerUrl;
