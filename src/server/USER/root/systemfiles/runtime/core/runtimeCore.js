@@ -140,7 +140,9 @@ window.protectedGlobals.WriteFile = async function (
 ) {
   let normalizedPath = String(relPath || "").trim();
   if (!normalizedPath) throw new Error("No path");
-
+  if (!options.retrytimeout && options.retry) {
+    options.retrytimeout = 8000;
+  }
   function utf8ToBase64(str) {
     const bytes = new TextEncoder().encode(str);
     const binaryString = String.fromCharCode(...bytes);
@@ -220,32 +222,37 @@ window.protectedGlobals.WriteFile = async function (
   let response;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      options.retrytimeout ?? 8000
+    );
+
     try {
       response = await fetch(window.protectedGlobals.SERVER, {
         method: "POST",
         headers,
         body: getBody(),
         duplex: "half",
+        signal: controller.signal,
       });
 
-      // Don't retry unauthorized.
-      if (response.status === 401 || response.ok) {
-        break;
-      }
+      clearTimeout(timeout);
 
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, options.retrytimeout)
-        );
-      }
+      // Request finished (even if HTTP 500/404/etc).
+      // Do not retry anything that completed.
+      break;
     } catch (err) {
-      if (attempt === maxAttempts) {
+      clearTimeout(timeout);
+
+      // Retry ONLY aborted (timed out) requests.
+      const timedOut = err.name === "AbortError";
+
+      if (!timedOut || attempt === maxAttempts) {
         throw err;
       }
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.retrytimeout)
-      );
+      // Immediately retry the timed-out request.
     }
   }
 

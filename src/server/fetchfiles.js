@@ -374,24 +374,13 @@ async function getRawBody(req) {
       console.log("CLOSE total:", total);
     });
 
-    req.on("aborted", () => {
-      console.log("ABORTED total:", total);
-    });
-req.socket.on("close", hadError => {
-  console.log("socket close", hadError);
-});
-
-req.socket.on("error", err => {
-  console.log("socket error", err);
-});
-
-req.on("aborted", () => {
-  console.log("ABORTED");
-  console.log("req.complete =", req.complete);
-  console.log("req.destroyed =", req.destroyed);
-  res.writeHead(499);
-  res.end(JSON.stringify({ error: "Client aborted the request" }));
-});
+  req.on("aborted", () => {
+    console.log("ABORTED");
+    console.log("req.complete =", req.complete);
+    console.log("req.destroyed =", req.destroyed);
+    res.writeHead(499);
+    res.end(JSON.stringify({ error: "Client aborted the request" }));
+  });
   });
 }
 
