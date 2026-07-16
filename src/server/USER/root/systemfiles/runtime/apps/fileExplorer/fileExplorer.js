@@ -2739,7 +2739,7 @@ function makeIcon(type, size = 16) {
         const chunkData = new Uint8Array(arrayBuffer);
         onProgress(chunkData.byteLength, chunkData.byteLength);
         const shouldReplace = index === 0;
-        await window.protectedGlobals.WriteFile(path, blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength });
+        await window.protectedGlobals.WriteFile(path, () => blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength, retry: true });
         return true;
       } catch (err) {
         attempts++;

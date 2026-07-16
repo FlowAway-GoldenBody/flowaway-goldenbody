@@ -362,7 +362,6 @@ async function getRawBody(req) {
 
     req.on("data", chunk => {
       total += chunk.length;
-      console.log("data", chunk.length, "total:", total);
       chunks.push(chunk);
     });
 
@@ -401,11 +400,16 @@ async function handleRawFileUpload(req, res) {
   contentLength: req.headers["content-length"],
   transferEncoding: req.headers["transfer-encoding"],
 });
+function base64ToUtf8(base64Str) {
+  const binString = atob(base64Str);
+  const bytes = Uint8Array.from(binString, (m) => m.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
   const headers = req.headers || {};
   const username = String(headers["x-username"] || "").trim();
   const password = String(headers["x-password"] || "").trim();
   const authHeader = headers.authorization || headers.Authorization || "";
-  const relPath = String(headers["x-file-path"] || "").trim();
+  const relPath = base64ToUtf8(String(headers["x-file-path"] || "").trim());
 
   if (!username || !relPath) {
     res.writeHead(400);
@@ -637,9 +641,10 @@ async function handleFetchfiles(req, res) {
         const normalizedRequestPath = normalizeUserRelativePath(
           data.requestFileName,
         );
+
         const jsonResponse = (payload, status = 200) => {
           res.setHeader("Content-Type", "application/json");
-          if (status && status !== 200) res.writeHead(status);
+          if (status !== 200) res.writeHead(status);
           return res.end(JSON.stringify(payload));
         };
 
@@ -651,6 +656,7 @@ async function handleFetchfiles(req, res) {
           normalizedRequestPath,
           userPathPermissions,
         );
+
         if (!permission.read) {
           return jsonResponse(
             {
@@ -663,6 +669,7 @@ async function handleFetchfiles(req, res) {
 
         const fullPath = path.join(userRoot, normalizedRequestPath);
         const relativeToRoot = path.relative(userRoot, fullPath);
+
         if (
           relativeToRoot.startsWith("..") ||
           path.isAbsolute(relativeToRoot)
@@ -674,7 +681,7 @@ async function handleFetchfiles(req, res) {
         try {
           stat = await fsp.stat(fullPath);
         } catch (e) {
-          if (e && e.code === "ENOENT") {
+          if (e?.code === "ENOENT") {
             return jsonResponse(
               {
                 missing: true,
@@ -697,38 +704,11 @@ async function handleFetchfiles(req, res) {
           return jsonResponse({ error: "Unsupported path type" }, 400);
         }
 
-        const fileSize = stat.size;
-        const chunkSize = 10 * 1024 * 1024; // 10MB chunks
-        const chunkIndex =
-          typeof data.chunkIndex === "number" ? data.chunkIndex : 0;
-        const start = chunkIndex * chunkSize;
-        const end = Math.min(start + chunkSize, fileSize);
-        const isLastChunk = end >= fileSize;
-
-        if (!data.buffer && !data.text) {
-          return jsonResponse(
-            {
-              error:
-                "Base64 transport is no longer supported. Use buffer or text transfer.",
-            },
-            400,
-          );
-        }
-
-        if (start >= fileSize) {
-          return jsonResponse({ error: "chunkIndex out of range" }, 400);
-        }
-
-        const chunkBuffer = await readFileChunk(fullPath, start, end);
         res.setHeader("Content-Type", "application/octet-stream");
-        res.setHeader("X-File-Size", String(fileSize));
-        res.setHeader("X-Chunk-Index", String(chunkIndex));
-        res.setHeader("X-Is-Last-Chunk", isLastChunk ? "1" : "0");
-        res.setHeader(
-          "X-Total-Chunks",
-          String(Math.ceil(fileSize / chunkSize)),
-        );
-        return res.end(chunkBuffer);
+        res.setHeader("Content-Length", String(stat.size));
+        res.setHeader("X-File-Name", path.basename(fullPath));
+
+        return fs.createReadStream(fullPath).pipe(res);
       }
 
       if (data.requestFolder) {

@@ -20,218 +20,109 @@ window.protectedGlobals.WriteFolder = async function (relPath) {
   }
   return res;
 }
-window.protectedGlobals.ReadFile = async function (relPath, options = { text: true }) {
+window.protectedGlobals.ReadFile = async function (
+  relPath,
+  options = { text: true, buffer: false, direct: false, stream: false }
+) {
   if (!relPath) throw new Error("No path");
 
-  options = Object.assign(
-    {
-      text: true,
-      buffer: false,
-      direct: false,
-      largeFile: false,
-    },
-    options,
-  );
-
   const isBuffer = !!options.buffer;
-  const isText = !isBuffer && options.text !== false;
-  const useLargeFile = !!options.largeFile;
-
-  const headers = { "Content-Type": "application/json" };
-  if (window.protectedGlobals.data.authToken) {
-    headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
+  const isText = !!options.text;
+  const isStream = !!options.stream;
+  const modes = [isBuffer, isText, isStream].filter(Boolean).length;
+  if (modes !== 1) {
+    throw new Error("Choose exactly one of text, buffer, or stream.");
   }
 
-  async function requestChunk(chunkIndex) {
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (window.protectedGlobals.data.authToken) {
+    headers.Authorization =
+      "Bearer " + window.protectedGlobals.data.authToken;
+  }
+
+  const MAX_RETRIES = 5;
+  const TIMEOUT_MS = 2000;
+
+  let response;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
-      const response = await fetch(window.protectedGlobals.SERVER, {
+      response = await fetch(window.protectedGlobals.SERVER, {
         method: "POST",
         headers,
+        signal: controller.signal,
         body: JSON.stringify({
           username: window.protectedGlobals.getCurrentUsernameForRequests(),
           requestFile: true,
           requestFileName: String(relPath),
-          chunkIndex,
-          buffer: isBuffer,
-          text: isText,
         }),
       });
 
-      const contentType = (response.headers.get("content-type") || "").toLowerCase();
-      const isJson = contentType.includes("application/json");
-
-      if (response.status === 401) {
-        window.protectedGlobals.showSessionExpiredDialog();
-        throw new Error("Unauthorized");
-      }
-
-      if (isJson) {
-        return { json: await response.json(), status: response.status };
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(`Failed to read file: ${response.status} ${relPath}`);
-      }
-
-      const rawChunk = await response.arrayBuffer();
-      return {
-        rawChunk,
-        meta: {
-          fileSize: Number(response.headers.get("x-file-size") || "0"),
-          chunkIndex: Number(response.headers.get("x-chunk-index") || "0"),
-          isLastChunk: response.headers.get("x-is-last-chunk") === "1",
-          totalChunks: Number(response.headers.get("x-total-chunks") || "0"),
-        },
-      };
+      clearTimeout(timeout);
+      break; // Success
     } catch (err) {
-      throw err;
-    } finally {
+      clearTimeout(timeout);
+
+      if (attempt === MAX_RETRIES) {
+        throw err.name === "AbortError"
+          ? new Error("Request timed out after 5 attempts.")
+          : err;
+      }
+
+      console.warn(
+        `ReadFile attempt ${attempt} failed, retrying...`,
+        err
+      );
     }
   }
 
-  const initialResponse = await requestChunk(0);
-  if (initialResponse.json) {
-    if (initialResponse.json.missing) return undefined;
-    const errorPayload = initialResponse.json;
+  if (response.status === 401) {
+    window.protectedGlobals.showSessionExpiredDialog();
+    throw new Error("Unauthorized");
+  }
+
+  const contentType = (
+    response.headers.get("content-type") || ""
+  ).toLowerCase();
+
+  if (contentType.includes("application/json")) {
+    const payload = await response.json();
+
+    if (payload.missing) return undefined;
+
     throw new Error(
-      String(
-        (errorPayload && (errorPayload.error || errorPayload.message)) ||
-          errorPayload ||
-          "Failed to read file",
-      ),
+      payload.error || payload.message || "Failed to read file"
     );
   }
 
-  if (useLargeFile) {
-    const fileSize = initialResponse.meta.fileSize;
-    const totalChunks = initialResponse.meta.totalChunks;
-    const decoder = isText ? new TextDecoder() : null;
-    let currentChunkIndex = 0;
-    let finished = false;
-
-    function enqueueChunk(controller, rawChunk, isLastChunk) {
-      if (isText) {
-        controller.enqueue(decoder.decode(new Uint8Array(rawChunk), { stream: !isLastChunk }));
-      } else {
-        controller.enqueue(new Uint8Array(rawChunk));
-      }
-      if (isLastChunk) {
-        finished = true;
-        controller.close();
-      }
-    }
-
-    return {
-      largeFile: true,
-      fileSize,
-      totalChunks,
-      stream: new ReadableStream({
-        async start(controller) {
-          enqueueChunk(controller, initialResponse.rawChunk, initialResponse.meta.isLastChunk);
-          if (initialResponse.meta.isLastChunk) return;
-          currentChunkIndex = 1;
-        },
-        async pull(controller) {
-          if (finished) return;
-          const response = await requestChunk(currentChunkIndex);
-          if (response.json) {
-            const errPayload = response.json;
-            const message = String(
-              (errPayload && (errPayload.error || errPayload.message)) ||
-                errPayload ||
-                "Failed to stream file",
-            );
-            controller.error(new Error(message));
-            return;
-          }
-
-          enqueueChunk(controller, response.rawChunk, response.meta.isLastChunk);
-          currentChunkIndex += 1;
-        },
-        cancel() {
-          finished = true;
-        },
-      }),
-    };
+  if (!response.ok) {
+    throw new Error(`Failed to read file: ${response.status} ${relPath}`);
   }
 
-  const fileSize = initialResponse.meta.fileSize;
-  const totalChunks = initialResponse.meta.totalChunks;
+  const fileSize = Number(response.headers.get("content-length") || 0);
 
-  if (totalChunks === 1) {
-    const rawChunk = initialResponse.rawChunk;
-    if (isBuffer) return rawChunk;
-    if (isText) return new TextDecoder().decode(rawChunk);
-    if (options.direct) return rawChunk;
-    return {
-      ...initialResponse.meta,
-      filecontent: rawChunk,
-    };
+  let filecontent = null;
+  if (isBuffer) {
+    filecontent = await response.arrayBuffer();
+  } else if (isText) {
+    filecontent = await response.text();
+  } else {
+    filecontent = response.body;
   }
 
-  if (isText) {
-    const decoder = new TextDecoder();
-    let text = decoder.decode(new Uint8Array(initialResponse.rawChunk), { stream: true });
-    let nextIndex = 1;
-
-    while (true) {
-      const response = await requestChunk(nextIndex);
-      if (response.unauthorized) throw new Error("Unauthorized");
-      if (response.json) {
-        if (response.json.missing) return undefined;
-        const errPayload = response.json;
-        throw new Error(
-          String(
-            (errPayload && (errPayload.error || errPayload.message)) ||
-              errPayload ||
-              "Failed to read file",
-          ),
-        );
-      }
-
-      const isLast = response.meta.isLastChunk;
-      text += decoder.decode(new Uint8Array(response.rawChunk), { stream: !isLast });
-      if (isLast) break;
-      nextIndex += 1;
-    }
-    return text + decoder.decode();
+  if (options.direct) {
+    return filecontent;
   }
 
-  const fullBuffer = new Uint8Array(fileSize);
-  fullBuffer.set(new Uint8Array(initialResponse.rawChunk), 0);
-  let offset = initialResponse.rawChunk.byteLength;
-  let nextIndex = 1;
-
-  while (true) {
-    const response = await requestChunk(nextIndex);
-    if (response.unauthorized) throw new Error("Unauthorized");
-    if (response.json) {
-      if (response.json.missing) return undefined;
-      const errPayload = response.json;
-      throw new Error(
-        String(
-          (errPayload && (errPayload.error || errPayload.message)) ||
-            errPayload ||
-            "Failed to read file",
-        ),
-      );
-    }
-
-    fullBuffer.set(new Uint8Array(response.rawChunk), offset);
-    offset += response.rawChunk.byteLength;
-    if (response.meta.isLastChunk) break;
-    nextIndex += 1;
-  }
-
-  if (options.direct) return fullBuffer.buffer;
   return {
     fileSize,
-    chunkIndex: totalChunks - 1,
-    isLastChunk: true,
-    totalChunks,
-    filecontent: fullBuffer.buffer,
+    filecontent,
   };
 };
 window.protectedGlobals.ReadFolder = async function (relPath, options = { detail: false }) {
@@ -242,12 +133,21 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
   });
   return res.files;
 }
-window.protectedGlobals.WriteFile = async function (relPath, contents, options = { replace: true, stream: false }) {
+window.protectedGlobals.WriteFile = async function (
+  relPath,
+  contents,
+  options = { replace: true, stream: false, retry: false, retrytimeout: 8000 }
+) {
   let normalizedPath = String(relPath || "").trim();
   if (!normalizedPath) throw new Error("No path");
 
-  // Normalize legacy prefixes and leading slashes so the server still sees
-  // a path relative to the user root, while preserving the same 3-argument API.
+  function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    const binaryString = String.fromCharCode(...bytes);
+    return btoa(binaryString);
+  }
+
+  // Normalize legacy prefixes and leading slashes.
   normalizedPath = normalizedPath.replace(/\\/g, "/");
   if (normalizedPath === "root") {
     normalizedPath = "";
@@ -267,46 +167,92 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
       ? options.replace !== false
       : options !== false;
 
-  let raw;
+  // Build a body factory so each retry gets a fresh stream.
+  let getBody;
+
   if (!options.stream) {
-  if (contents instanceof ArrayBuffer) {
-    raw = new Uint8Array(contents);
-  } else if (ArrayBuffer.isView(contents)) {
-    raw = new Uint8Array(contents.buffer, contents.byteOffset, contents.byteLength);
-  } else if (typeof Blob !== "undefined" && contents instanceof Blob) {
-    raw = new Uint8Array(await contents.arrayBuffer());
-  } else if (contents == null) {
-    raw = new Uint8Array(0);
+    let raw;
+    if (contents instanceof ArrayBuffer) {
+      raw = new Uint8Array(contents);
+    } else if (ArrayBuffer.isView(contents)) {
+      raw = new Uint8Array(
+        contents.buffer,
+        contents.byteOffset,
+        contents.byteLength
+      );
+    } else if (typeof Blob !== "undefined" && contents instanceof Blob) {
+      raw = new Uint8Array(await contents.arrayBuffer());
+    } else if (contents == null) {
+      raw = new Uint8Array(0);
+    } else {
+      raw = new TextEncoder().encode(String(contents));
+    }
+
+    getBody = () => new Blob([raw]).stream();
   } else {
-    raw = new TextEncoder().encode(String(contents || ""));
+    if (typeof contents === "function") {
+      // Stream factory: () => ReadableStream
+      getBody = contents;
+    } else if (typeof Blob !== "undefined" && contents instanceof Blob) {
+      // Blob can create a fresh stream each time.
+      getBody = () => contents.stream();
+    } else {
+      throw new Error(
+        "When stream:true, contents must be a Blob or a function returning a ReadableStream."
+      );
+    }
   }
-  } else {
-    raw = contents;
-  }
+
   const headers = {
     "Content-Type": "application/octet-stream",
     "X-File-Action": "write",
-    "X-File-Path": normalizedPath,
+    "X-File-Path": utf8ToBase64(normalizedPath),
     "X-File-Replace": replace ? "true" : "false",
     "X-Username": window.protectedGlobals.getCurrentUsernameForRequests(),
   };
+
   if (window.protectedGlobals.data.authToken) {
-    headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
+    headers["Authorization"] =
+      "Bearer " + window.protectedGlobals.data.authToken;
   }
 
-  const response = await fetch(window.protectedGlobals.SERVER, {
-    method: "POST",
-    headers,
-    body: raw,
-    duplex: "half",
-  });
+  const maxAttempts = options.retry ? 5 : 1;
+  let response;
 
-  let body = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      response = await fetch(window.protectedGlobals.SERVER, {
+        method: "POST",
+        headers,
+        body: getBody(),
+        duplex: "half",
+      });
+
+      // Don't retry unauthorized.
+      if (response.status === 401 || response.ok) {
+        break;
+      }
+
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, options.retrytimeout)
+        );
+      }
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        throw err;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, options.retrytimeout)
+      );
+    }
+  }
+
+  let body = {};
   try {
     body = await response.json();
-  } catch (err) {
-    body = {};
-  }
+  } catch {}
 
   if (response.status === 401 && !window.protectedGlobals.firstlogin) {
     window.protectedGlobals.showSessionExpiredDialog();
@@ -316,7 +262,6 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
   window.protectedGlobals.queueOnlyLoadTreeRefresh();
   return body;
 };
-
 window.protectedGlobals.DeleteFile = async function (relPath) {
   if (!relPath) throw new Error("No path");
   const directions = [{ delete: true, path: String(relPath) }, { end: true }];
