@@ -378,67 +378,25 @@ async function getRawBody(req) {
     req.on("aborted", () => {
       console.log("ABORTED total:", total);
     });
+req.socket.on("close", hadError => {
+  console.log("socket close", hadError);
+});
+
+req.socket.on("error", err => {
+  console.log("socket error", err);
+});
+
+req.on("aborted", () => {
+  console.log("ABORTED");
+  console.log("req.complete =", req.complete);
+  console.log("req.destroyed =", req.destroyed);
+  res.writeHead(499);
+  res.end(JSON.stringify({ error: "Client aborted the request" }));
+});
   });
 }
 
-function attachRequestTimeout(req, res, timeoutMs = 30000) {
-  const timeoutValue = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30000;
-  let timer = null;
-  let settled = false;
-
-  const clearTimer = () => {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  };
-
-  const markSettled = () => {
-    if (settled) return false;
-    settled = true;
-    clearTimer();
-    return true;
-  };
-
-  const respondWithTimeout = () => {
-    if (settled) return;
-    settled = true;
-    clearTimer();
-
-    try {
-      if (!res.headersSent) {
-        res.writeHead(504, { "Content-Type": "application/json" });
-      }
-      if (!res.writableEnded) {
-        res.end(JSON.stringify({ error: "request timed out" }));
-      }
-    } catch (err) {
-      console.warn("Failed to send timeout response", err);
-    }
-
-    try {
-      req.destroy && req.destroy();
-    } catch (err) {
-      // ignore cleanup errors
-    }
-  };
-
-  timer = setTimeout(respondWithTimeout, timeoutValue);
-  req.on("close", markSettled);
-  req.on("aborted", markSettled);
-  req.on("error", markSettled);
-  res.on("finish", markSettled);
-  res.on("close", markSettled);
-
-  return { clearTimer, markSettled };
-}
-
 async function handleRawFileUpload(req, res) {
-  attachRequestTimeout(
-    req,
-    res,
-    Number(process.env.FETCHFILES_REQUEST_TIMEOUT_MS || 30000),
-  );
   console.log({
   contentLength: req.headers["content-length"],
   transferEncoding: req.headers["transfer-encoding"],
@@ -531,11 +489,7 @@ async function handleRawFileUpload(req, res) {
 // ─────────────────────────────
 
 async function handleFetchfiles(req, res) {
-  attachRequestTimeout(
-    req,
-    res,
-    Number(process.env.FETCHFILES_REQUEST_TIMEOUT_MS || 30000),
-  );
+
 
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");

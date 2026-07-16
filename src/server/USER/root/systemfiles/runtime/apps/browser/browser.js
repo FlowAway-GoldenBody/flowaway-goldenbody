@@ -3911,7 +3911,7 @@ setTimeout(() => {
         ? normalizedPath.slice(normalizedPath.lastIndexOf(".")).toLowerCase()
         : "";
 
-      const response = await window.protectedGlobals.ReadFile(normalizedPath, {
+      let response = await window.protectedGlobals.ReadFile(normalizedPath, {
         buffer: true
       });
 
@@ -3925,7 +3925,9 @@ setTimeout(() => {
       if (response && typeof response === "object" && response.kind === "folder") {
         throw new Error("Path points to a folder");
       }
-
+      if (!(response instanceof ArrayBuffer)) {
+        response = response.filecontent;
+      }
       const buffer = response instanceof ArrayBuffer
         ? response
         : response && response.buffer instanceof ArrayBuffer

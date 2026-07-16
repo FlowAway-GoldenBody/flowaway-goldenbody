@@ -2,7 +2,7 @@
 
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
-
+console.log("runtimeCore.js loaded");
 window.protectedGlobals.unzip = async function (path, destinationFolder) {
   if (!destinationFolder) {
     destinationFolder = path.split("/").slice(0, -1).join("/"); // default to the folder containing the zip file
@@ -43,14 +43,11 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
   }
 
   async function requestChunk(chunkIndex) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const response = await fetch(window.protectedGlobals.SERVER, {
         method: "POST",
         headers,
-        signal: controller.signal,
         body: JSON.stringify({
           username: window.protectedGlobals.getCurrentUsernameForRequests(),
           requestFile: true,
@@ -89,12 +86,8 @@ window.protectedGlobals.ReadFile = async function (relPath, options = { text: tr
         },
       };
     } catch (err) {
-      if (controller.signal.aborted) {
-        throw new Error(`Timed out while reading file: ${relPath}`);
-      }
       throw err;
     } finally {
-      clearTimeout(timeoutId);
     }
   }
 
@@ -249,7 +242,7 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
   });
   return res.files;
 }
-window.protectedGlobals.WriteFile = async function (relPath, contents, options = { replace: true }) {
+window.protectedGlobals.WriteFile = async function (relPath, contents, options = { replace: true, stream: false }) {
   let normalizedPath = String(relPath || "").trim();
   if (!normalizedPath) throw new Error("No path");
 
@@ -275,6 +268,7 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
       : options !== false;
 
   let raw;
+  if (!options.stream) {
   if (contents instanceof ArrayBuffer) {
     raw = new Uint8Array(contents);
   } else if (ArrayBuffer.isView(contents)) {
@@ -286,7 +280,9 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
   } else {
     raw = new TextEncoder().encode(String(contents || ""));
   }
-
+  } else {
+    raw = contents;
+  }
   const headers = {
     "Content-Type": "application/octet-stream",
     "X-File-Action": "write",
@@ -302,6 +298,7 @@ window.protectedGlobals.WriteFile = async function (relPath, contents, options =
     method: "POST",
     headers,
     body: raw,
+    duplex: "half",
   });
 
   let body = null;

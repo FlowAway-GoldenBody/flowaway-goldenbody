@@ -712,6 +712,9 @@ function makeIcon(type, size = 16) {
     uploadState.status = status || "";
     uploadState.doneBytes = uploadState.totalBytes;
     renderUploadProgress();
+    setTimeout(() => {
+      hideUploadProgress(3000);
+    }, 1000);
   }
 
   function hideUploadProgress(delay = 700) {
@@ -2734,11 +2737,9 @@ function makeIcon(type, size = 16) {
         const blob = file.slice(start, end);
         const arrayBuffer = await blob.arrayBuffer();
         const chunkData = new Uint8Array(arrayBuffer);
-        if (typeof onProgress === "function") {
-          onProgress(chunkData.byteLength, chunkData.byteLength);
-        }
+        onProgress(chunkData.byteLength, chunkData.byteLength);
         const shouldReplace = index === 0;
-        await window.protectedGlobals.WriteFile(path, chunkData, { replace: shouldReplace });
+        await window.protectedGlobals.WriteFile(path, blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength });
         return true;
       } catch (err) {
         attempts++;
