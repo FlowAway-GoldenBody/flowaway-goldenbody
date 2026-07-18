@@ -136,12 +136,12 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
 window.protectedGlobals.WriteFile = async function (
   relPath,
   contents,
-  options = { replace: true, stream: false, retry: false, retrytimeout: 8000 }
+  options = { replace: true, stream: false, retry: false, retrytimeout: 3000 }
 ) {
   let normalizedPath = String(relPath || "").trim();
-  if (!normalizedPath) throw new Error("No path");
+  if (!normalizedPath) throw new Error("Nopath");
   if (!options.retrytimeout && options.retry) {
-    options.retrytimeout = 8000;
+    options.retrytimeout = 3000;
   }
   function utf8ToBase64(str) {
     const bytes = new TextEncoder().encode(str);
@@ -225,7 +225,7 @@ window.protectedGlobals.WriteFile = async function (
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
-      options.retrytimeout ?? 8000
+      options.retrytimeout
     );
 
     try {
