@@ -560,7 +560,7 @@ window.protectedGlobals.initAppTools = function () {
   existing.api.createAppInstance = function (ops) {
     var options = ops || {};
     var root = options.rootElement || options.root || null;
-    
+    var topbar = options.topbar || options.titlebar || null;
     var initialAppId = options.appId || options.appid || "";
     
     var ctx = window.protectedGlobals.resolveApptoolsContext(initialAppId, root);
@@ -571,7 +571,9 @@ window.protectedGlobals.initAppTools = function () {
     if (!root) {
       root = existing.createRoot(appId, options.posX, options.posY);
     }
-
+    if (!topbar) {
+      topbar = existing.createtitlebar(root);
+    }
     if (title) {
       window.protectedGlobals.setAppDataTitle(root, title);
     }
@@ -581,6 +583,10 @@ window.protectedGlobals.initAppTools = function () {
       btnMax: options.btnMax || (root && root.querySelector ? root.querySelector(".btnMaxColor") : null),
       _isMinimized: !!options._isMinimized,
       _isMaximized: !!options._isMaximized,
+      topbar: topbar,
+      topbarElement: topbar,
+      titlebar: topbar,
+      titlebarElement: topbar,
       goldenbodyId: Number(options.goldenbodyId) || 0,
     };
 

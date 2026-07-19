@@ -1687,10 +1687,33 @@ console.log(folderContents);
       <p>Admin apps should be designed differently from iframe apps:</p>
       <ul>
         <li>They can access the runtime directly once verified.</li>
-        <li>They are not limited by the sandboxed postMessage APIs.</li>
+        <li>They are not limited by the sandboxed APIs.</li>
         <li>They still must be installed under <code>/systemfiles/runtime/apps/&lt;folder&gt;</code> with a matching <code>jsKey.txt</code>.</li>
       </ul>
       <p>If you want to build a full system-style app, use <code>requestAdminPerm: true</code> and make sure your <code>jsKey.txt</code> is valid.</p>
+      <h3>Admin app GUI framework</h3>
+      <p>Admin apps can build their window looks through <code>window.protectedGlobals.apptools</code>, which is initialized by <code>initapptools.js</code>. The usual flow is:</p>
+      <ol>
+        <li>Create an app instance with <code>window.protectedGlobals.apptools.api.createAppInstance({...})</code>.</li>
+        <li>Attach a title bar with <code>window.protectedGlobals.apptools.createtitlebar(root)</code>.</li>
+        <li>Register the instance with <code>window.protectedGlobals.apptools.api.trackInstance(instance, appId)</code> so maximize/minimize/show/hide/close state is tracked by the runtime.</li>
+      </ol>
+      <pre><code>
+"use strict";
+
+window.myadminapp = () => {
+  // necessary for the runtime to track this app instance
+  const appId = "myAdminApp";
+  let pos = window.protectedGlobals.getNextWindowXY();
+  const instance = window.protectedGlobals.apptools.api.createAppInstance({ appId, posX: pos.x, posY: pos.y });
+  window.protectedGlobals.apptools.api.trackInstance(instance, appId);
+
+  // vars u prob need
+  let appwindow = instance.rootElement;
+  let dragTarget = instance.titlebarElement;
+};
+</code></pre>
+      <p>For admin apps, <code>appLoader.js</code> validates the app entry object and only injects the script after the runtime confirms that the app folder has a matching <code>jsKey.txt</code> and <code>systemfiles/userprofile/jsApiKey.txt</code>.</p>
       <h3>Permissions and app settings</h3>
       <p>The Settings app stores <code>window.protectedGlobals.appPerms</code> in <code>/systemfiles/userprofile/appPermissions.json</code>. For sandboxed apps this controls:</p>
       <ul>
@@ -1707,7 +1730,7 @@ console.log(folderContents);
   "requestAdminPerm": false
 }
 </code></pre>
-      <p>For admin apps:</p>
+      <p>For admin apps, include the launcher hooks and optionally a <code>headless</code> flag:</p>
       <pre><code>{
   "id": "myAdminApp",
   "label": "My Admin App",
@@ -1718,11 +1741,12 @@ console.log(folderContents);
   "globalVarObjectString": "myAdminAppGlobals",
   "allAppArrayString": "instances",
   "cmf": "",
-  "cmfl1": ""
+  "cmfl1": "",
+  "headless": false
 }
 </code></pre>
       <h3>Bottom line</h3>
-      <p>There are no hidden files or directories anywhere in cloud storage. You can edit <code>systemfiles</code> to change how the client behaves. If you break it, don’t worry: you can repair <code>systemfiles</code> and system apps from the login page, and delete broken non-system apps there. A copy of broken files will be made in your cloud storage.</p>
+      <p>There are no hidden files or directories anywhere in cloud storage. You can edit <code>systemfiles</code> to change how the client behaves. If you break it, you can restore the system tree from the login page and remove broken non-system apps there. A copy of broken files will also be stored in your cloud storage.</p>
     `;
     dlg.appendChild(content);
 

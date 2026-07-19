@@ -10,7 +10,5 @@
   "nonTextIcon": true,
   "svgEnabled": false,
   "jsFile": "apptemplate.js",
-  "openfileCapability": [],
-  "cmf": "shell",
-  "cmfl1": "shell1"
+  "openfileCapability": []
 }

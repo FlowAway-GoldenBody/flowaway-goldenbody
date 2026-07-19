@@ -629,7 +629,6 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/runtime/helpers/fsFunctions.js",
   "systemfiles/runtime/helpers/appHelperFunctions.js",
   "systemfiles/runtime/helpers/miscFunctions.js",
-  "systemfiles/runtime/core/runtimeAppRuntime.js",
   "systemfiles/runtime/core/runtimeWindowSystem.js",
   "systemfiles/runtime/core/appLoader.js",
   "systemfiles/runtime/helpers/initapptools.js",
