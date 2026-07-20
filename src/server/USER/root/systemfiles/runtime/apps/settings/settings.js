@@ -1620,6 +1620,7 @@ window.settings = function (posX = 50, posY = 50) {
         <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a base64 PNG image.</li>
         <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
         <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
+        <li><code>enableDebugging</code> - boolean flag to enable debugging features for the app.</li>
       </ul>
       <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text, SVG, or PNG.</p>
       <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>
@@ -1727,7 +1728,12 @@ window.myadminapp = () => {
   "label": "My App",
   "jsFile": "script.js",
   "iconFile": "icon.svg",
-  "requestAdminPerm": false
+  "requestAdminPerm": false,
+  "nonTextIcon": true, /* important */
+  "svgEnabled": true, /* important */
+  "pngEnabled": false, /* important */
+  "openfileCapability": ["*.txt", "*.md"],
+  "enableDebugging": true
 }
 </code></pre>
       <p>For admin apps, include the launcher hooks and optionally a <code>headless</code> flag:</p>

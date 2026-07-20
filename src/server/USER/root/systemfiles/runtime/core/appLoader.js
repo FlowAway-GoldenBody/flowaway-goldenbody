@@ -20,7 +20,7 @@
 
     if (!entryObj.jsFile) return false;
     if (!entryObj.label && !entryObj.headless) return false;
-    if (!entryObj.iconFile) return false;
+    if (!entryObj.iconFile && !entryObj.headless) return false;
 
     if (entryObj.requestAdminPerm) {
       if (!entryObj.allAppArrayString) return false;
@@ -599,7 +599,9 @@ let getFilesFromFolder = async function (relPath) {
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
         if (!path) path = null;
-        let html = `<html><head><script>const appName = "${entryObj.id}";window.__path__ = "${path}";window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        let html = '';
+        if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.__path__ = "${path}";window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = "${path}";window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         const blob = new Blob([html], { type: "text/html" });
         iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";
@@ -784,6 +786,8 @@ let getFilesFromFolder = async function (relPath) {
 
     let pkg = {
       folderName: folderName,
+      enableDebugging: !!entryObj.enableDebugging,
+      headless: !!entryObj.headless,
       entryObjectfile: entryObjectfile,
       allIframe: allIframe,
       id: id,
