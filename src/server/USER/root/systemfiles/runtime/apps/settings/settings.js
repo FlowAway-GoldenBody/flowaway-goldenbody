@@ -1826,7 +1826,7 @@ window.myadminapp = () => {
   "nonTextIcon": true, /* important */
   "svgEnabled": true, /* important */
   "pngEnabled": false, /* important */
-  "openfileCapability": ["*.txt", "*.md"],
+  "openfileCapability": [".txt", ".md"],
   "enableDebugging": true
 }
 </code></pre>
