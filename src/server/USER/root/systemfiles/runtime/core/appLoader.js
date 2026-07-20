@@ -328,6 +328,28 @@ let getFilesFromFolder = async function (relPath) {
       return svg;
     }
 
+    function isProtectedPickerFileName(name) {
+      const normalized = String(name || "")
+        .replace(/\\/g, "/")
+        .split("/")
+        .pop()
+        .trim();
+      return normalized === "jsKey.txt" || normalized === "jsApiKey.txt";
+    }
+
+    function isTopLevelSystemfilesFolder(targetPath) {
+      return normalizeVfsPath(targetPath || "") === "systemfiles";
+    }
+
+    function updateActionButtonState() {
+      const effectiveTargetPath = selectedPath || currentPath;
+      const isProtectedFolderTarget = mode === "showDirectoryPicker" && isTopLevelSystemfilesFolder(effectiveTargetPath);
+      const shouldDisable = isProtectedFolderTarget;
+      actionButton.disabled = shouldDisable;
+      actionButton.style.opacity = shouldDisable ? "0.55" : "1";
+      actionButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
+    }
+
     function renderBreadcrumb() {
       breadcrumb.innerHTML = "";
       const parts = currentPath ? currentPath.split("/") : [];
@@ -367,13 +389,23 @@ let getFilesFromFolder = async function (relPath) {
     function renderEntries() {
       renderBreadcrumb();
       list.innerHTML = "";
-      const entries = getEntries();
+      let entries = getEntries();
+      entries = entries.filter((entry) => {
+        if (entry.kind === "file" && isProtectedPickerFileName(entry.label)) {
+          return false;
+        }
+        return true;
+      });
+      if (selectedPath && !entries.some((entry) => entry.path === selectedPath)) {
+        selectedPath = "";
+      }
       if (entries.length === 0) {
         const empty = document.createElement("div");
         empty.textContent = "This folder is empty.";
         empty.style.padding = "16px 0";
         empty.style.color = theme.muted;
         list.appendChild(empty);
+        updateActionButtonState();
         return;
       }
       entries.sort((a, b) => {
@@ -394,13 +426,15 @@ let getFilesFromFolder = async function (relPath) {
 
         const isDirectoryPicker = mode === "showDirectoryPicker";
         const disableFileSelection = isDirectoryPicker && entry.kind === "file";
-        if (disableFileSelection) {
+        const isProtectedFolderEntry = isDirectoryPicker && entry.kind === "folder" && isTopLevelSystemfilesFolder(entry.path);
+        const disableEntrySelection = disableFileSelection || isProtectedFolderEntry;
+        if (disableEntrySelection) {
           row.style.opacity = "0.55";
           row.style.cursor = "default";
         }
 
         row.onmouseenter = () => {
-          if (!disableFileSelection && entry.path !== selectedPath) row.style.background = theme.hoverBg;
+          if (!disableEntrySelection && entry.path !== selectedPath) row.style.background = theme.hoverBg;
         };
         row.onmouseleave = () => {
           row.style.background = entry.path === selectedPath ? theme.selectedBg : theme.panelBg;
@@ -421,7 +455,7 @@ let getFilesFromFolder = async function (relPath) {
         badge.style.fontSize = "12px";
         row.appendChild(badge);
 
-        if (!disableFileSelection) {
+        if (!disableEntrySelection) {
           row.onclick = () => {
             if (entry.kind === "folder") {
               if (mode === "showDirectoryPicker") {
@@ -451,6 +485,7 @@ let getFilesFromFolder = async function (relPath) {
 
         list.appendChild(row);
       }
+      updateActionButtonState();
     }
 
     function cleanup() {
@@ -474,7 +509,7 @@ let getFilesFromFolder = async function (relPath) {
       }
       if (mode === "saveFile") {
         const filename = saveInput ? saveInput.value.trim() : "";
-        if (!filename) return;
+        if (!filename || isProtectedPickerFileName(filename)) return;
         const pickPath = normalizeVfsPath((currentPath ? currentPath + "/" : "") + filename);
         cleanup();
         resolve(pickPath);
@@ -482,6 +517,9 @@ let getFilesFromFolder = async function (relPath) {
       }
       if (mode === "showDirectoryPicker") {
         const pickPath = selectedPath || currentPath;
+        if (isTopLevelSystemfilesFolder(pickPath)) {
+          return;
+        }
         cleanup();
         resolve(normalizeVfsPath(pickPath));
         return;
@@ -598,10 +636,12 @@ let getFilesFromFolder = async function (relPath) {
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
-        if (!path) path = null;
+        // Preserve an already-passed path or picker handle for the iframe. If the app was launched
+        // with a target, the iframe can inspect window.__path__ and use that as its initial file/folder target.
+        const launchTarget = path || null;
         let html = '';
-        if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.__path__ = "${path}";window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
-        else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = "${path}";window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
+        if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         const blob = new Blob([html], { type: "text/html" });
         iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";

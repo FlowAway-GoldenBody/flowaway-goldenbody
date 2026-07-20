@@ -329,6 +329,24 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
                 result = await window.protectedGlobals.ReadFolder(path, options);
                 source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.folderExists) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    result = await window.protectedGlobals.FolderExists(path, options);
+                    source.postMessage({ folderExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                result = await window.protectedGlobals.FolderExists(path, options);
+                source.postMessage({ folderExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+            } else if (e.detail.data.fileExists) {
+                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                    result = await window.protectedGlobals.FileExists(path, options);
+                    source.postMessage({ fileExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
+                    return;
+                }
+                path = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
+                result = await window.protectedGlobals.FileExists(path, options);
+                source.postMessage({ fileExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             }
         }
         
@@ -439,7 +457,8 @@ async function showAppPermissionPrompt(appName, permissionType) {
 
 
         const externalWriteRequest = (e.detail.data.key && isExternalKeyAllowed(path, e.detail.data.key, appName));
-        if (!e.detail.data.readFile && !e.detail.data.readFolder) {
+        const isReadOnlyRequest = !e.detail.data.readFile && !e.detail.data.readFolder && !e.detail.data.folderExists && !e.detail.data.fileExists;
+        if (isReadOnlyRequest) {
             if (externalWriteRequest) {
                 sendProtectedResponse(true);
             } else if (window.protectedGlobals.appPerms[appName].storage === "true") {

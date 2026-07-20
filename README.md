@@ -56,41 +56,135 @@ This is copied directly from the dev docs in the settings app
         <li>Only the exposed runtime API surface available through <code>window.__goldenbodyAPI</code>.</li>
       </ul>
       <h3>Iframe API reference</h3>
-      <p>Sandboxed apps should call <code>window.__goldenbodyAPI</code>.</p>
+      <p>Sandboxed apps should call <code>window.__goldenbodyAPI</code>. Every method returns a promise, so await it in async code.</p>
       <ul>
-        <li><code>readFile(pathOrHandle, options): return [Buffer || ReadableStream || String]</code></li>
-        <li><code>writeFile(pathOrHandle, content, options): return [undefined]</code></li>
-        <li><code>readFolder(pathOrHandle, options): options.detailed ? return [Array of Objects] : return [Array of Strings]</code></li>
-        <li><code>writeFolder(pathOrHandle, options): return [undefined]</code></li>
-        <li><code>deleteFile(pathOrHandle, options): return [undefined]</code></li>
-        <li><code>deleteFolder(pathOrHandle, options): return [undefined]</code></li>
-        <li><code>showOpenFilePicker(options): return [Object] /* {kind: 'file', path: [String], key: [UUID: String], name: [String]} */</code></li>
-        <li><code>showSaveFilePicker(options): return [Object] /* {kind: 'file', path: [String], key: [UUID: String], name: [String]} */</code></li>
-        <li><code>showDirectoryPicker(options): return [Object] /* {kind: 'directory', path: [String], key: [UUID: String], name: [String]} */</code></li>
-        <li><code>setInstanceTitle(title): return [undefined] /* set the instance title of your cur instance */</code></li>
-        <li><code>message(message, toInstance): return [undefined] /* it sends a message to instances of ur app, toInstance is where you put instance index, see next 2 funcs, or '*' to send to all instances of ur app */</code></li>
-        <li><code>getCurInstanceNum(): return [int] /* returns a number that tells you the instance index of your current instance, aka if you are the 1st one the user opened u get 1 second u get 2. */</code></li>
-        <li><code>getLiveInstanceIndex(): return [int] /* returns a number that tells you how many instances of your app is opened */</code></li>
-        <li><code>getTheme(): return 'dark' || 'light'</code></li>
+        <li><code>readFile(pathOrHandle, options)</code> - read a file from the VFS. The first argument can be a plain string path or a picker result object like <code>{ path, key }</code>.</li>
+        <li><code>writeFile(pathOrHandle, content, options)</code> - write text or binary data to a file.</li>
+        <li><code>readFolder(pathOrHandle, options)</code> - list the children of a folder. If <code>options.detail === true</code>, the runtime returns objects with <code>path</code> and <code>type</code>.</li>
+        <li><code>writeFolder(pathOrHandle, options)</code> - create a folder.</li>
+        <li><code>deleteFile(pathOrHandle, options)</code> - delete a file.</li>
+        <li><code>deleteFolder(pathOrHandle, options)</code> - delete a folder.</li>
+        <li><code>renameFile(pathOrHandle, newName, options)</code> - rename a file.</li>
+        <li><code>renameFolder(pathOrHandle, newName, options)</code> - rename a folder.</li>
+        <li><code>pasteFile(destinationOrHandle, clipboardItems, options)</code> - paste a file payload into a destination folder.</li>
+        <li><code>pasteFolder(destinationOrHandle, clipboardItems, options)</code> - paste a folder payload into a destination folder.</li>
+        <li><code>folderExists(pathOrHandle, options)</code> - resolve <code>true</code> if the target exists and is a folder.</li>
+        <li><code>fileExists(pathOrHandle, options)</code> - resolve <code>true</code> if the target exists and is a file.</li>
+        <li><code>showOpenFilePicker(options)</code> - return a picker handle object describing the selected file or folder.</li>
+        <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
+        <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
+        <li><code>setInstanceTitle(title)</code> - set the instance title of your current instance.</li>
+        <li><code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to broadcast.</li>
+        <li><code>getCurInstanceNum()</code> - return the index of the current instance.</li>
+        <li><code>getLiveInstanceIndex()</code> - return the number of live instances for your app.</li>
+        <li><code>getTheme()</code> - return <code>dark</code> or <code>light</code>.</li>
       </ul>
       <p>These methods send a message to the host frame and return a promise.</p>
-      <h4>Path handles</h4>
-      <p>Most file APIs accept either a string path or an object like:</p>
+      <h4>How handles work</h4>
+      <p>A handle in this platform is not a browser <code>FileSystemHandle</code> and it is not a special object you need to open or close. It is a small runtime record shaped like:</p>
       <pre><code>{ path: '/some/path.txt', key: 'uuid-key' }</code></pre>
-      <p>The <code>key</code> is only used when the path came from an external picker result. For example, a file picked by <code>showSaveFilePicker</code> or <code>showDirectoryPicker</code> returns a handle with a key that authorizes writes.</p>
+      <p>The <code>path</code> field tells the runtime which VFS path to use. The <code>key</code> field is the permission token that was created when the user picked that file or folder. You keep this object and pass it back to later FS calls whenever you want to keep using the same picked target.</p>
+      <p>There are two common patterns:</p>
+      <ol>
+        <li><strong>Plain path</strong>: use a normal string such as <code>/root/demo/notes.txt</code> when the target is already known and you are not using a picker token. This is the simplest pattern for paths you already know.</li>
+        <li><strong>Handle object</strong>: use the object returned by <code>showOpenFilePicker</code>, <code>showSaveFilePicker</code>, or <code>showDirectoryPicker</code> when you want to keep editing the same picked target after the picker closes. The runtime uses the saved <code>path</code> plus the saved <code>key</code> for future calls. This is the pattern you want for writes and edits to a picked file or folder.</li>
+      </ol>
+      <h4>How to use each FS API</h4>
+      <ul>
+        <li><strong>readFile(input, options)</strong> - read a file. The first argument can be a plain string path or a handle object. Example: <code>await window.__goldenbodyAPI.readFile('/root/demo/notes.txt', { text: true })</code>. Result: a string when <code>{ text: true }</code> is used, or raw file bytes when you omit that option.</li>
+        <li><strong>writeFile(input, content, options)</strong> - write text or binary content to a file. Example with a plain path: <code>await window.__goldenbodyAPI.writeFile('/root/demo/notes.txt', 'hello', { text: true })</code>. Result: <code>undefined</code>. Example with a handle: <code>await window.__goldenbodyAPI.writeFile(savedFileHandle, 'updated', { text: true })</code>. Result: <code>undefined</code>.</li>
+        <li><strong>writeFolder(input, options)</strong> - create a folder. Example: <code>await window.__goldenbodyAPI.writeFolder('/root/demo/new-folder')</code>. Result: <code>undefined</code>. If you have a picked folder handle, you can reuse it: <code>await window.__goldenbodyAPI.writeFolder(folderHandle)</code>.</li>
+        <li><strong>readFolder(input, options)</strong> - list children of a folder. Example without a handle: <code>await window.__goldenbodyAPI.readFolder('/root/demo')</code>. Result: an array of names, such as <code>['notes.txt', 'subfolder']</code>. Example with detail: <code>await window.__goldenbodyAPI.readFolder('/root/demo', { detail: true })</code>. Result: an array of objects like <code>[{ path: '/root/demo/notes.txt', type: 'file' }]</code>.</li>
+        <li><strong>deleteFile(input, options)</strong> - delete a file. Example: <code>await window.__goldenbodyAPI.deleteFile('/root/demo/notes.txt')</code>. Result: <code>undefined</code>.</li>
+        <li><strong>deleteFolder(input, options)</strong> - delete a folder. Example: <code>await window.__goldenbodyAPI.deleteFolder('/root/demo/old-folder')</code>. Result: <code>undefined</code>.</li>
+        <li><strong>renameFile(input, newName, options)</strong> - rename a file. Example: <code>await window.__goldenbodyAPI.renameFile('/root/demo/notes.txt', 'draft.txt')</code>. Result: <code>undefined</code>.</li>
+        <li><strong>renameFolder(input, newName, options)</strong> - rename a folder. Example: <code>await window.__goldenbodyAPI.renameFolder('/root/demo/old-folder', 'new-folder')</code>. Result: <code>undefined</code>.</li>
+        <li><strong>pasteFile(destination, clipboardItems, options)</strong> - copy or move a file payload into a destination folder. Example: <code>await window.__goldenbodyAPI.pasteFile('/root/demo', [{ path: '/root/demo/template.txt', kind: 'file' }])</code>. Result: <code>undefined</code>.</li>
+        <li><strong>pasteFolder(destination, clipboardItems, options)</strong> - copy or move a folder payload. Example: <code>await window.__goldenbodyAPI.pasteFolder('/root/demo', [{ path: '/root/demo/template-folder', kind: 'directory' }])</code>. Result: <code>undefined</code>.</li>
+        <li><strong>folderExists(input, options)</strong> - check whether the target exists and is a folder. Example: <code>await window.__goldenbodyAPI.folderExists('/root/demo')</code>. Result: <code>true</code> or <code>false</code>.</li>
+        <li><strong>fileExists(input, options)</strong> - check whether the target exists and is a file. Example: <code>await window.__goldenbodyAPI.fileExists('/root/demo/notes.txt')</code>. Result: <code>true</code> or <code>false</code>.</li>
+      </ul>
+      <h4>How to write a file inside a folder you picked</h4>
+      <p>First pick a directory. Then build a child path inside that directory and reuse the same <code>key</code> from the folder handle.</p>
+      <pre><code>const folderHandle = await window.__goldenbodyAPI.showDirectoryPicker();
+const childFilePath = folderHandle.path + '/notes.txt';
+await window.__goldenbodyAPI.writeFile(
+  { path: childFilePath, key: folderHandle.key },
+  'hello from the picked folder',
+  { text: true }
+);
+</code></pre>
+      <p>The important detail is that the folder handle object is not the file itself. It describes a directory, and you create the real file path by appending the file name to that directory path.</p>
+      <h4>How to modify a file you picked</h4>
+      <p>If you want to edit a file the user picked, keep the picker result and reuse it for later read/write calls.</p>
+      <pre><code>const pickedFile = await window.__goldenbodyAPI.showOpenFilePicker();
+const currentText = await window.__goldenbodyAPI.readFile(pickedFile, { text: true });
+await window.__goldenbodyAPI.writeFile(
+  pickedFile,
+  currentText + '\n\nappended by the app',
+  { text: true }
+);
+</code></pre>
+      <p>The same handle object can be passed to <code>readFile</code>, <code>writeFile</code>, <code>deleteFile</code>, and the other file APIs. You do not need to re-pick the file for each operation as long as you keep the object around.</p>
       <h4>Picker results</h4>
       <p>Results from external pickers include:</p>
       <pre><code>{ kind: 'file' | 'directory', path, key, name }</code></pre>
       <p>If the picker path is not authorized with a valid key, writes do not go to the external path.</p>
-      <h3>Example sandbox code</h3>
-      <pre><code>const fileHandle = await window.__goldenbodyAPI.showSaveFilePicker({ suggestedName: 'hello.txt' });
-await window.__goldenbodyAPI.writeFile(fileHandle, 'hello world', { text: true });
-const contents = await window.__goldenbodyAPI.readFile(fileHandle, { text: true });
+      <h4>Using a directory picked with showDirectoryPicker</h4>
+      <p>When you call <code>showDirectoryPicker</code>, the returned object is a folder handle that can be reused for all subsequent operations against that folder. The important part is that you keep the returned object and use it as the first argument whenever you want to operate inside that directory.</p>
+      <pre><code>const folderHandle = await window.__goldenbodyAPI.showDirectoryPicker();
+
+// read the folder contents
+const listing = await window.__goldenbodyAPI.readFolder(folderHandle, { detail: true });
+console.log(listing);
+
+// check whether a child exists
+const childExists = await window.__goldenbodyAPI.fileExists({ path: folderHandle.path + '/notes.txt', key: folderHandle.key });
+console.log(childExists);
+
+// write a new file inside that picked folder
+await window.__goldenbodyAPI.writeFile(
+  { path: folderHandle.path + '/notes.txt', key: folderHandle.key },
+  'created via picked folder handle',
+  { text: true }
+);
+
+// rename an existing child inside that folder
+await window.__goldenbodyAPI.renameFile(
+  { path: folderHandle.path + '/notes.txt', key: folderHandle.key },
+  'renamed.txt'
+);
+
+// delete a child inside that folder
+await window.__goldenbodyAPI.deleteFile({ path: folderHandle.path + '/renamed.txt', key: folderHandle.key });
+</code></pre>
+      <p>You can also use the same handle for a directory-level operation such as creating a subfolder, listing children, or checking whether the directory itself exists.</p>
+      <pre><code>const folderHandle = await window.__goldenbodyAPI.showDirectoryPicker();
+const exists = await window.__goldenbodyAPI.folderExists(folderHandle);
+if (!exists) {
+  await window.__goldenbodyAPI.writeFolder(folderHandle);
+}
+const children = await window.__goldenbodyAPI.readFolder(folderHandle);
+console.log(children);
+</code></pre>
+      <h4>Common examples</h4>
+      <pre><code>const saveHandle = await window.__goldenbodyAPI.showSaveFilePicker({ suggestedName: 'hello.txt' });
+await window.__goldenbodyAPI.writeFile(saveHandle, 'hello world', { text: true });
+const contents = await window.__goldenbodyAPI.readFile(saveHandle, { text: true });
 console.log(contents);
 </code></pre>
       <pre><code>const folderHandle = await window.__goldenbodyAPI.showDirectoryPicker();
-const folderContents = await window.__goldenbodyAPI.readFolder(folderHandle);
-console.log(folderContents);
+const folderExists = await window.__goldenbodyAPI.folderExists(folderHandle);
+if (!folderExists) {
+  await window.__goldenbodyAPI.writeFolder(folderHandle);
+}
+const listing = await window.__goldenbodyAPI.readFolder(folderHandle, { detail: true });
+console.log(listing);
+await window.__goldenbodyAPI.renameFolder(folderHandle, 'new-name');
+</code></pre>
+      <pre><code>const targetFolder = '/root/demo';
+const clipboardItems = [{ path: '/root/demo/template.txt', kind: 'file' }];
+await window.__goldenbodyAPI.pasteFile(targetFolder, clipboardItems);
 </code></pre>
       <h3>Admin app strategy</h3>
       <p>Admin apps should be designed differently from iframe apps:</p>

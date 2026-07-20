@@ -20,6 +20,30 @@ window.protectedGlobals.WriteFolder = async function (relPath) {
   }
   return res;
 }
+window.protectedGlobals.FolderExists = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const normalizedPath = String(relPath || "").trim().replace(/\\/g, "/");
+  const requestPath = normalizedPath === "root"
+    ? ""
+    : normalizedPath.replace(/^\/+/g, "").replace(/^root\//, "");
+  const res = await window.protectedGlobals.filePost({
+    saveSnapshot: true,
+    directions: [{ checkFolder: true, path: requestPath }],
+  });
+  return Boolean(res && res.exists);
+};
+window.protectedGlobals.FileExists = async function (relPath) {
+  if (!relPath) throw new Error("No path");
+  const normalizedPath = String(relPath || "").trim().replace(/\\/g, "/");
+  const requestPath = normalizedPath === "root"
+    ? ""
+    : normalizedPath.replace(/^\/+/g, "").replace(/^root\//, "");
+  const res = await window.protectedGlobals.filePost({
+    saveSnapshot: true,
+    directions: [{ checkFile: true, path: requestPath }],
+  });
+  return Boolean(res && res.exists);
+};
 window.protectedGlobals.ReadFile = async function (
   relPath,
   options = { text: true, buffer: false, direct: false, stream: false }

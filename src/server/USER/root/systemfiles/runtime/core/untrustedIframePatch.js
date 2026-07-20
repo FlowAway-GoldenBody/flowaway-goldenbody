@@ -114,6 +114,26 @@ window.__goldenbodyAPI = {
         });
     },
 
+    folderExists: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
+        let requestId = createRequestId();
+        window.parent.postMessage({folderExists: true, path, key, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    fileExists: async (pathOrHandle, options) => {
+        const { path, key } = normalizePathInput(pathOrHandle);
+        let requestId = createRequestId();
+        window.parent.postMessage({fileExists: true, path, key, options, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
     deleteFile: async (pathOrHandle, options) => {
         const { path, key } = normalizePathInput(pathOrHandle);
         let requestId = createRequestId();
