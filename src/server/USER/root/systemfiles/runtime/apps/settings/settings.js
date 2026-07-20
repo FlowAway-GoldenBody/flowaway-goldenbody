@@ -1649,20 +1649,20 @@ window.settings = function (posX = 50, posY = 50) {
       <h3>Iframe API reference</h3>
       <p>Sandboxed apps should call <code>window.__goldenbodyAPI</code>.</p>
       <ul>
-        <li><code>readFile(pathOrHandle, options)</code></li>
-        <li><code>writeFile(pathOrHandle, content, options)</code></li>
-        <li><code>readFolder(pathOrHandle, options)</code></li>
-        <li><code>writeFolder(pathOrHandle, options)</code></li>
-        <li><code>deleteFile(pathOrHandle, options)</code></li>
-        <li><code>deleteFolder(pathOrHandle, options)</code></li>
-        <li><code>showOpenFilePicker(options)</code></li>
-        <li><code>showSaveFilePicker(options)</code></li>
-        <li><code>showDirectoryPicker(options)</code></li>
-        <li><code>setInstanceTitle(title)</code></li>
-        <li><code>message(message, toInstance)</code></li>
-        <li><code>getCurInstanceNum()</code></li>
-        <li><code>getUserSelectedFile()</code></li>
-        <li><code>getLiveInstanceIndex()</code></li>
+        <li><code>readFile(pathOrHandle, options): return [Buffer || ReadableStream || String]</code></li>
+        <li><code>writeFile(pathOrHandle, content, options): return [undefined]</code></li>
+        <li><code>readFolder(pathOrHandle, options): options.detailed ? return [Array of Objects] : return [Array of Strings]</code></li>
+        <li><code>writeFolder(pathOrHandle, options): return [undefined]</code></li>
+        <li><code>deleteFile(pathOrHandle, options): return [undefined]</code></li>
+        <li><code>deleteFolder(pathOrHandle, options): return [undefined]</code></li>
+        <li><code>showOpenFilePicker(options): return [Object] /* {kind: 'file', path: [String], key: [UUID: String], name: [String]} */</code></li>
+        <li><code>showSaveFilePicker(options): return [Object] /* {kind: 'file', path: [String], key: [UUID: String], name: [String]} */</code></li>
+        <li><code>showDirectoryPicker(options): return [Object] /* {kind: 'directory', path: [String], key: [UUID: String], name: [String]} */</code></li>
+        <li><code>setInstanceTitle(title): return [undefined] /* set the instance title of your cur instance */</code></li>
+        <li><code>message(message, toInstance): return [undefined] /* it sends a message to instances of ur app, toInstance is where you put instance index, see next 2 funcs, or '*' to send to all instances of ur app */</code></li>
+        <li><code>getCurInstanceNum(): return [int] /* returns a number that tells you the instance index of your current instance, aka if you are the 1st one the user opened u get 1 second u get 2. */</code></li>
+        <li><code>getLiveInstanceIndex(): return [int] /* returns a number that tells you how many instances of your app is opened */</code></li>
+        <li><code>getTheme(): return 'dark' || 'light'</code></li>
       </ul>
       <p>These methods send a message to the host frame and return a promise.</p>
       <h4>Path handles</h4>

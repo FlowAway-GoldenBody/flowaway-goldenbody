@@ -130,6 +130,7 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
   let res = await window.protectedGlobals.filePost({
     requestFolder: true,
     requestFolderName: String(relPath),
+    detail: options.detail
   });
   return res.files;
 }

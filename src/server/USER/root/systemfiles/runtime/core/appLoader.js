@@ -1,6 +1,12 @@
 "use strict";
 
 (function () {
+  window.addEventListener("styleapplied", () => {
+    let iframes = document.querySelectorAll("iframe");
+    iframes.forEach((iframe) => {
+      iframe.contentWindow.postMessage({ type: 'themechange', verify: window.protectedGlobals.appVerify, channel: '*', darkTheme: window.protectedGlobals.data.dark }, "*");
+    });
+  });
   let knownAppId = [];
   let knownAppGlobals = [];
   let knownAppFuncs = [];
@@ -64,7 +70,6 @@
       return false;
     }
 
-    pkg._lastScriptHash = "deprecated field";
     try {
       var globalVarObjectString = pkg.globalVarObjectString;
       if (pkg.functionName) delete window[pkg.functionName];
@@ -569,12 +574,19 @@ let getFilesFromFolder = async function (relPath) {
           posX = pos.x;
           posY = pos.y;
         }
-        let filecontent;
         let filehandlekey = "invalid key";
         if (path) {
-          filecontent = await window.protectedGlobals.ReadFile(path, { direct: true });
           filehandlekey = crypto.randomUUID();
         }
+        let appObj;
+        window.protectedGlobals.apps.forEach(app => {
+          if (app.id === entryObj.id) {
+            appObj = app;
+          }
+        });
+        appObj.allIframe.forEach(iframe => {
+          iframe.contentWindow.postMessage({ type: 'newinstance', verify: window.protectedGlobals.appVerify, channel: appObj.id }, "*");
+        });
         var root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
         var topbar = window.protectedGlobals.apptools.createtitlebar(root);
         // create an iframe that fills the whole window;
@@ -586,18 +598,12 @@ let getFilesFromFolder = async function (relPath) {
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
-        let iframePath = path ? { path: path, key: filehandlekey } : null;
-        let html = `<html><head><script>window.__path__ = ${JSON.stringify(iframePath)};window.__curInstanceNum__ = ${instanceNum};window.__userSelectedFile__ = ${JSON.stringify(filecontent || null)};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        if (!path) path = null;
+        let html = `<html><head><script>const appName = "${entryObj.id}";window.__path__ = "${path}";window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         const blob = new Blob([html], { type: "text/html" });
         iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";
-        let appObj;
-        window.protectedGlobals.apps.forEach(app => {
-          if (app.id === entryObj.id) {
-            app.allIframe.push(iframe);
-            appObj = app;
-          }
-        });
+        appObj.allIframe.push(iframe);
         root.appendChild(iframe);
         window.addEventListener(appObj.id + root.goldenbodyId, 'message', async (e) => {
           if (e.source !== iframe.contentWindow) {
@@ -669,6 +675,8 @@ let getFilesFromFolder = async function (relPath) {
           } else if (e.data.getLiveInstanceIndex) {
             let liveInstanceIndex = window[appObj.globalVarObjectString][appObj.allAppArrayString].length;
             iframe.contentWindow.postMessage({liveInstanceIndex: liveInstanceIndex, requestId: e.data.requestId}, '*');
+          } else if (e.data.getTheme) {
+            iframe.contentWindow.postMessage({ requestId: e.data.requestId, theme: window.protectedGlobals.data.dark ? 'dark' : 'light' }, '*');
           }
         });
         var instance = window.protectedGlobals.apptools.api.createAppInstance({

@@ -704,6 +704,7 @@ async function handleFetchfiles(req, res) {
         const normalizedRequestPath = normalizeUserRelativePath(
           data.requestFolderName,
         );
+        const wantDetails = Boolean(data.detail || data.wantDetails);
         // return an array with all the file/folder names in the requested folder (non-recursive)
 
         // normalizedRequestPath may be empty for root; use '' for permission lookup
@@ -758,8 +759,29 @@ async function handleFetchfiles(req, res) {
         }
 
         const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
-        const names = dirents.map((d) => d.name);
-        return res.end(JSON.stringify({ kind: "folder", files: names }));
+        const files = await Promise.all(
+          dirents.map(async (d) => {
+            if (!wantDetails) return d.name;
+
+            const entryPath = normalizeUserRelativePath(
+              normalizedRequestPath ? `${normalizedRequestPath}/${d.name}` : d.name,
+            );
+            let type = "folder";
+            try {
+              const entryStat = await fsp.stat(path.join(fullPath, d.name));
+              type = entryStat && entryStat.isDirectory() ? "folder" : "file";
+            } catch (e) {
+              // fall back to folder for directories and file for others
+              type = d.isDirectory() ? "folder" : "file";
+            }
+
+            return {
+              path: entryPath,
+              type,
+            };
+          }),
+        );
+        return res.end(JSON.stringify({ kind: "folder", files }));
       }
       async function exists(p) {
         try {

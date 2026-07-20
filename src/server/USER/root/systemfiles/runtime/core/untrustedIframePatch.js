@@ -66,12 +66,6 @@ const createRequestMessageHandler = (requestId, resolve, reject) => {
         }
 
         const result = event.data.result ?? event.data.openFilePickerResult ?? event.data.showSaveFilePickerResult ?? event.data.showDirectoryPickerResult;
-        if (result && typeof result.path === "string") {
-            window.__path__ = { path: result.path, key: result.key };
-            if (event.data.openFilePickerResult || event.data.showSaveFilePickerResult || event.data.showDirectoryPickerResult) {
-                window.__userSelectedFile__ = result.path;
-            }
-        }
 
         resolve(result);
     };
@@ -227,10 +221,6 @@ window.__goldenbodyAPI = {
         return window.__curInstanceNum__ || null;
     },
 
-    getUserSelectedFile: () => {
-        return { file: window.__userSelectedFile__, path: window.__path__ };
-    },
-
     getLiveInstanceIndex: async () => {
         let requestId = createRequestId();
         window.parent.postMessage({getLiveInstanceIndex: true, requestId}, '*');
@@ -247,6 +237,39 @@ window.__goldenbodyAPI = {
             };
             window.addEventListener('message', handleMessage);
         });
+    },
+
+    getTheme: () => {
+        let requestId = createRequestId();
+        window.parent.postMessage({getLiveInstanceIndex: true, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = (event) => {
+                if (event.data.requestId !== requestId) return;
+                window.removeEventListener('message', handleMessage);
+                resolve(event.data.theme);
+            };
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    Observer: class {
+        constructor(callback, type) {
+            this.callback = callback;
+            this.type = type;
+            this.cbwrapper = this.callbackWrapper.bind(this);
+            window.addEventListener('message', this.cbwrapper);
+        }
+        // appName is a const defined in the iframe patch script, which is the app's id
+        callbackWrapper(event) {
+            if ((event.data.type !== this.type) || event.data.verify !== 'syfamr' || ((event.data.channel !== appName) && (event.data.channel !== '*'))) return;
+            this.callback(event.data);
+        }
+        disconnect() {
+            window.removeEventListener('message', this.cbwrapper);
+        }
+        remove() {
+            this.disconnect();
+        }
     }
 };
 window.addEventListener("click", (e) => {
