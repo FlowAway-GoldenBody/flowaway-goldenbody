@@ -179,21 +179,25 @@ Object.defineProperty(frameWin, "indexedDB", {
         if (type === 'upgradeneeded') {
             setTimeout(async () => {
             if (db._schemaDirty) {
+            const metadataToPersist = {
+                version,
+                stores: Object.fromEntries(
+                  Object.entries(db.stores).map(([name, store]) => [
+                      name,
+                      {
+                          keyPath: store.keyPath,
+                          autoIncrement: store.autoIncrement
+                      }
+                  ])
+                )
+            };
+
+            metadata = metadataToPersist;
+
             const writePromise = (async () => {
                 await window.protectedGlobals.WriteFile(
                 `${basePath}/metadata.json`,
-                JSON.stringify({
-                    version,
-                    stores: Object.fromEntries(
-                      Object.entries(db.stores).map(([name, store]) => [
-                          name,
-                          {
-                              keyPath: store.keyPath,
-                              autoIncrement: store.autoIncrement
-                          }
-                      ])
-                  )
-                }),
+                JSON.stringify(metadataToPersist),
                 { text: true, direct: true }
                 );
 
