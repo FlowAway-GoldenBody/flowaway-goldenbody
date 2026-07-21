@@ -25,7 +25,7 @@ This is copied directly from the dev docs in the settings app
         <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
         <li><code>nonTextIcon</code> - boolean flag that tells the runtime the icon is not plain text. Use this for binary or complex icon rendering.</li>
         <li><code>svgEnabled</code> - boolean flag to render <code>iconFile</code> as SVG markup.</li>
-        <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a base64 PNG image.</li>
+        <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
         <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
         <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
         <li><code>enableDebugging</code> - boolean flag to enable debugging features for the app.</li>

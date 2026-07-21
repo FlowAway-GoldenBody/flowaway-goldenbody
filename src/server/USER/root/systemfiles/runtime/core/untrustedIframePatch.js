@@ -290,6 +290,13 @@ window.__goldenbodyAPI = {
         remove() {
             this.disconnect();
         }
+    },
+
+    FShandle: class {
+        constructor(handle) {
+            this.path = handle.path;
+            this.key = handle.key;
+        }
     }
 };
 window.addEventListener("click", (e) => {
