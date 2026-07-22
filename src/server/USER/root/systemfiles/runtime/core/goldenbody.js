@@ -528,6 +528,7 @@
   wifiItem.addEventListener('click', function(e) {
     e.stopPropagation();
     window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
+    window.protectedGlobals.sendMsgToAllIframes({ allowNetwork: window.protectedGlobals.statusData.wifiEnabled, verify: window.protectedGlobals.appVerify });
     window.protectedGlobals.writeStatus();
     updateStatusBar();
     if (window.protectedGlobals.buildStatusMenu) window.protectedGlobals.buildStatusMenu();
@@ -665,6 +666,7 @@
         var toggleType = this.dataset.toggle;
         if (toggleType === 'wifi') {
           window.protectedGlobals.statusData.wifiEnabled = !window.protectedGlobals.statusData.wifiEnabled;
+          window.protectedGlobals.sendMsgToAllIframes({ allowNetwork: window.protectedGlobals.statusData.wifiEnabled, verify: window.protectedGlobals.appVerify });
           window.protectedGlobals.writeStatus();
           updateStatusBar();
         } 

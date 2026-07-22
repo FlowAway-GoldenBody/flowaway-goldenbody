@@ -1,5 +1,51 @@
 "use strict";
 // disable all apis that can be used to exit fullscreen
+(() => {
+// 1. Keep a state variable and store original network APIs
+let networkAllowed = true; 
+const _originalFetch = window.fetch;
+const _originalXHR = window.XMLHttpRequest;
+const _originalWebSocket = window.WebSocket;
+
+// 2. Override Fetch API
+let fetch = function(...args) {
+if (!networkAllowed) {
+    return Promise.reject(new TypeError("Network request blocked."));
+}
+return _originalFetch.apply(this, args);
+};
+
+// 3. Override XMLHttpRequest (XHR)
+let XHR = function() {
+const xhr = new _originalXHR();
+const _originalOpen = xhr.open;
+
+xhr.open = function(...args) {
+    if (!networkAllowed) {
+    throw new Error("XHR blocked.");
+    }
+    return _originalOpen.apply(this, args);
+};
+return xhr;
+};
+
+// 4. Override WebSockets
+let WS = function(...args) {
+if (!networkAllowed) {
+    throw new Error("WebSocket connection blocked.");
+}
+return new _originalWebSocket(...args);
+};
+
+// 5. Listen for the toggle message from your main page switch
+window.addEventListener('message', (event) => {
+if (event.data && typeof event.data.allowNetwork === 'boolean' && event.data.verify === 'syfamr') {
+    networkAllowed = event.data.allowNetwork;
+}
+});
+Object.defineProperty(window, 'fetch', { value: fetch, writable: false, configurable: false });
+Object.defineProperty(window, 'XMLHttpRequest', { value: XHR, writable: false, configurable: false });
+Object.defineProperty(window, 'WebSocket', { value: WS, writable: false, configurable: false });
 window.lockAPI = (api, parent) => {
     Object.defineProperty(parent, api, {
         get: function () {
@@ -11,7 +57,7 @@ window.lockAPI = (api, parent) => {
         configurable: false,
     });
 };
-
+})();
 window.lockAPI("showOpenFilePicker", window);
 window.lockAPI("showSaveFilePicker", window);
 window.lockAPI("showDirectoryPicker", window);
@@ -261,7 +307,7 @@ window.__goldenbodyAPI = {
 
     getTheme: () => {
         let requestId = createRequestId();
-        window.parent.postMessage({getLiveInstanceIndex: true, requestId}, '*');
+        window.parent.postMessage({getTheme: true, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = (event) => {
                 if (event.data.requestId !== requestId) return;

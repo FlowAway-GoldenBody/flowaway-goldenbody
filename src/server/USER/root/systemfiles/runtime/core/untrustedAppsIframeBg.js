@@ -300,12 +300,10 @@ async function showAppPermissionPrompt(appName, permissionType) {
             return;
         }
 
-        // wifi affected area
         let options = e.detail.data.options;
         let path = e.detail.data.path;
         let source = e.detail.source;
         let result = null;
-        if (!window.protectedGlobals.statusData.wifiEnabled) return;
         if (!e.detail.data.path) return;
         if (typeof options !== "object" || options === null) options = undefined;
         let requestId = e.detail.data.requestId;
