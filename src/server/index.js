@@ -2,7 +2,6 @@ const cluster = require('cluster');
 if (cluster.isMaster) {
     require('dotenv-flow').config();
 }
-
 const exitHook = require('async-exit-hook');
 const sticky = require('sticky-session-custom');
 const RammerheadProxy = require('../classes/RammerheadProxy');
@@ -14,6 +13,115 @@ const setupPipeline = require('./setupPipeline');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const getSessionId = require('../util/getSessionId');
 const systemRecovery = require('./systemRecovery');
+
+const zmcdAttempts = new Map();
+function zmcdRateLimit(req, res) {
+    const ip = config.getIP(req);
+    const now = Date.now();
+
+    const window = 60 * 1000 * 1; // 1 minute
+    const max = 10;
+
+    let data = zmcdAttempts.get(ip);
+
+    if (!data || now - data.time > window) {
+        data = {
+            time: now,
+            count: 0
+        };
+    }
+
+    data.count++;
+    zmcdAttempts.set(ip, data);
+
+    if (data.count > max) {
+        res.writeHead(429);
+        res.end("error: This action had been rate limited. Try again later.");
+        return false;
+    }
+
+    return true;
+}
+
+const newSessionAttempts = new Map();
+function newSessionRateLimit(req, res) {
+    const ip = config.getIP(req);
+    const now = Date.now();
+
+    const window = 60 * 60 * 1000; // 1 hour
+    const max = 10;
+
+    let data = newSessionAttempts.get(ip);
+
+    if (!data || now - data.time > window) {
+        data = {
+            time: now,
+            count: 0
+        };
+    }
+
+    data.count++;
+    newSessionAttempts.set(ip, data);
+
+    if (data.count > max) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: "This action had been rate limited. Try again later."}));
+        return false;
+    }
+
+    return true;
+}
+
+const fetchFilesAttempts = new Map();
+function fetchFilesRateLimit(req, res) {
+    const ip = config.getIP(req);
+    const now = Date.now();
+
+    const window = 10 * 1000; // 10 seconds
+    const max = 300;
+
+    let data = fetchFilesAttempts.get(ip);
+
+    if (!data || now - data.time > window) {
+        data = {
+            time: now,
+            count: 0
+        };
+    }
+
+    data.count++;
+    fetchFilesAttempts.set(ip, data);
+
+    if (data.count > max) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: "This action had been rate limited. Try again later."}));
+        return false;
+    }
+
+    return true;
+}
+
+setInterval(() => {
+    const now = Date.now();
+
+    for (const [ip, data] of zmcdAttempts) {
+        if (now - data.time > 5 * 60 * 1000) {
+            zmcdAttempts.delete(ip);
+        }
+    }
+
+    for (const [ip, data] of newSessionAttempts) {
+        if (now - data.time > 60 * 60 * 1000) {
+            newSessionAttempts.delete(ip);
+        }
+    }
+
+    for (const [ip, data] of fetchFilesAttempts) {
+        if (now - data.time > 60 * 60 * 1000) {
+            fetchFilesAttempts.delete(ip);
+        }
+    }
+}, 10 * 60 * 1000);
 
 const prefix = config.enableWorkers ? (cluster.isMaster ? '(master) ' : `(${cluster.worker.id}) `) : '';
 
@@ -62,6 +170,9 @@ if (!config.enableWorkers || !cluster.isMaster) {
     proxyServer.addToOnRequestPipeline((req, res) => {
         if (!req.url) return;
         if (req.url.startsWith('/server/newsession')) {
+            if (!newSessionRateLimit(req, res)) {
+                return true;
+            }
             // Forward to existing Rammerhead route while keeping support for deployments
             // that only expose /server/* paths.
             let nextUrl = '/newsession' + (req.url.slice('/server/newsession'.length) || '');
@@ -80,6 +191,8 @@ if (!config.enableWorkers || !cluster.isMaster) {
         }
         if (req.url.startsWith('/server/zmcd')) {
             // strip prefix so handler sees original paths
+            let passed = zmcdRateLimit(req, res);
+            if (!passed) return;
             req.url = req.url.slice('/server/zmcd'.length) || '/';
             try {
                 zmcd.handleZMCd(req, res);
@@ -91,6 +204,9 @@ if (!config.enableWorkers || !cluster.isMaster) {
             return true;
         }
         if (req.url.startsWith('/server/fetchfiles')) {
+            if (!fetchFilesRateLimit(req, res)) {
+                return true;
+            }
             req.url = req.url.slice('/server/fetchfiles'.length) || '/';
             try {
                 // fetchfiles handler is async

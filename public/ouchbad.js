@@ -220,8 +220,10 @@ window.protectedGlobals.firstlogin = false;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-      .then((res) => res.json())
-      .then((result) => {
+      .then(async (result) => {
+        try {
+          result = await result.json();
+        } catch {}
         window.protectedGlobals.zmcdata = result;
 
         if (typeof window.protectedGlobals.zmcdata === 'string' && window.protectedGlobals.zmcdata.startsWith('error:')) {
