@@ -6,7 +6,7 @@ const fsp = require("fs/promises");
 const limit = createLimiter(64);
 function safeResolve(root, userPath = "") {
   const resolvedRoot = path.resolve(root);
-  const resolved = path.resolve(root, "." + String(userPath));
+  const resolved = path.join(root, String(userPath));
 
   if (
     resolved !== resolvedRoot &&

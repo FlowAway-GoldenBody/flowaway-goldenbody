@@ -60,44 +60,6 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
 
     proxyServer.addToOnRequestPipeline((req, res) => {
-        const contentLength = Number(req.headers["content-length"]);
-
-        // Fast reject when Content-Length is known
-        if (
-            Number.isFinite(contentLength) &&
-            contentLength > MAX_REQUEST_BODY
-        ) {
-            res.writeHead(413, {
-                "Content-Type": "application/json",
-            });
-
-            res.end(JSON.stringify({
-                error: "Request body too large",
-            }));
-
-            req.destroy();
-            return true;
-        }
-
-        // Protect against chunked requests without Content-Length
-        let received = 0;
-
-        req.on("data", (chunk) => {
-            received += chunk.length;
-
-            if (received > MAX_REQUEST_BODY) {
-                res.writeHead(413, {
-                    "Content-Type": "application/json",
-                });
-
-                res.end(JSON.stringify({
-                    error: "Request body too large",
-                }));
-
-                req.destroy();
-            }
-        });
-
         if (!req.url) return;
         if (req.url.startsWith('/server/newsession')) {
             // Forward to existing Rammerhead route while keeping support for deployments
