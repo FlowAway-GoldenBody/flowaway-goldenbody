@@ -882,14 +882,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
   }
 
   async function saveTextFileByPath(relPath, text) {
-    await window.protectedGlobals.filePost({
-      saveSnapshot: true,
-      directions: [
-        { edit: true, contents: text, path: relPath, replace: true },
-        { end: true },
-      ],
-    });
-    window.protectedGlobals.onlyloadTree();
+    await window.protectedGlobals.WriteFile(relPath, text, {text: true});
   }
 
   async function applySnapshotDirections(directions) {
@@ -1189,7 +1182,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
         return;
       }
       try {
-        await applySnapshotDirections([{ addFolder: true, path: `root/${targetRelPath}` }]);
+        await applySnapshotDirections([{ addFolder: true, path: `/${targetRelPath}` }]);
       } catch (e) {
         writeLine(`mkdir: failed to create '${args[0]}'`, "#ff7a7a");
       }
@@ -1215,7 +1208,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
         return;
       }
       try {
-        await applySnapshotDirections([{ addFile: true, path: `root/${targetRelPath}` }]);
+        await window.protectedGlobals.WriteFile(targetRelPath, "", {text:true});
       } catch (e) {
         writeLine(`touch: failed to create '${args[0]}'`, "#ff7a7a");
       }
@@ -1261,7 +1254,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
         return;
       }
       try {
-        await applySnapshotDirections([{ delete: true, path: `root/${targetRelPath}` }]);
+        await applySnapshotDirections([{ delete: true, path: `/${targetRelPath}` }]);
       } catch (e) {
         writeLine(`rm: failed to remove '${args[0]}'`, "#ff7a7a");
       }
@@ -1341,7 +1334,7 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
       try {
         const content = await readFileByPath(srcRelPath);
         await saveTextFileByPath(dstFinalPath, content);
-        await applySnapshotDirections([{ delete: true, path: `root/${srcRelPath}` }]);
+        await applySnapshotDirections([{ delete: true, path: `/${srcRelPath}` }]);
       } catch (e) {
         writeLine(`mv: failed to move '${args[0]}'`, "#ff7a7a");
       }

@@ -28,23 +28,20 @@ window.protectedGlobals.renderAppsGrid = async function () {
 // ============= START MENU CONFIG SYSTEM =============
 window.protectedGlobals._startMenuConfig = null;
 
-const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async function loadStartMenuConfig() {
+const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async function () {
   const configPath = 'systemfiles/userprofile/startMenu-config.json';
   const configText = String(await window.protectedGlobals.ReadFile(configPath, { text: true, direct: true }) || "");
   window.protectedGlobals._startMenuConfig = JSON.parse(configText);
   return window.protectedGlobals._startMenuConfig;
 }
 
-const saveStartMenuConfig = window.protectedGlobals.saveStartMenuConfig = async function saveStartMenuConfig() {
+const saveStartMenuConfig = window.protectedGlobals.saveStartMenuConfig = async function () {
   if (!window.protectedGlobals._startMenuConfig) return;
   const configJson = JSON.stringify(window.protectedGlobals._startMenuConfig, null, 2);
-  await window.protectedGlobals.filePost({
-    action: 'saveStartMenuConfig',
-    configJson: configJson
-  });
+  await window.protectedGlobals.WriteFile('systemfiles/userprofile/startMenu-config.json', JSON.stringify(window.protectedGlobals._startMenuConfig), { text: true });
 }
 
-const addToRecents = window.protectedGlobals.addToRecents = function addToRecents(appId) {
+const addToRecents = window.protectedGlobals.addToRecents = function (appId) {
   if (!window.protectedGlobals._startMenuConfig) return;
   const recents = window.protectedGlobals._startMenuConfig.recents || [];
   const index = recents.indexOf(appId);

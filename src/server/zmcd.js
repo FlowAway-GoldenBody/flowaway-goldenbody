@@ -3,12 +3,7 @@ const generateId = require('../util/generateId');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCache.js');
-const RammerheadLogging = require('../classes/RammerheadLogging');
-const RammerheadSession = require('../classes/RammerheadSession');
 
-const logger = new RammerheadLogging({ logLevel: 'debug' });
-const store = new RammerheadSessionFileCache({ logger });
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 directoryPath += '/';
 console.log(directoryPath);
@@ -444,28 +439,11 @@ function handleZMCd(req, res) {
       const authHeader = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
 
       if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
-      const userPaths = getUserPaths(data.username);
-
-      if (data.needID) {
-        const authResult = readAuthRecord(userPaths);
-        if (!authResult) {
-          responseContent = { error: 'invalid user' };
-        } else {
-          const sessionId = generateId();
-          const session = new RammerheadSession({ sessionId, store });
-          store.add(sessionId, session);
-          const sfiles = fs.readdirSync(sessionPath).filter((f) => !f.startsWith('.'));
-          for (const sfileName of sfiles) {
-            if (sfileName === `${sessionId}.rhfsession`) {
-              deleteFile(path.join(sessionPath, `${sessionId}.rhfsession`));
-            }
-          }
-          responseContent = { id: sessionId };
-        }
-
-        res.end(JSON.stringify(responseContent));
-        return;
+      if (!/^[a-zA-Z0-9_-]+$/.test(data.username) || data.username.length < 3 || data.password < 3) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: "Username or password don't meet server requirements" }))
       }
+      const userPaths = getUserPaths(data.username);
 
       if (data.needNewAcc) {
         if (fs.existsSync(userPaths.userDir)) {

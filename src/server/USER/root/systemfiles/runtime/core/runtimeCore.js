@@ -13,7 +13,7 @@ window.protectedGlobals.unzip = async function (path, destinationFolder) {
 };
 window.protectedGlobals.WriteFolder = async function (relPath) {
   if (!relPath) throw new Error("No path");
-  const directions = [{ edit: true, path: String(relPath), addFolder: true }, { end: true }];
+  const directions = [{ path: String(relPath), addFolder: true }, { end: true }];
   const res = await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
   if (res && res.success) {
     window.protectedGlobals.missingFolders.delete(relPath);
