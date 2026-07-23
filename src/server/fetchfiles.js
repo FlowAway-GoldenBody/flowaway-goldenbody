@@ -3,7 +3,16 @@ const fs = require("fs-extra");
 const path = require("path");
 const fsp = require("fs/promises");
 
-const limit = createLimiter(8);
+const MAX_BODY = 100 * 1024 * 1024;
+async function exists(fullPath) {
+  try {
+    await fsp.access(fullPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+const limit = createLimiter(32);
 function safeResolve(root, userPath = "") {
   const resolvedRoot = path.resolve(root);
   const resolved = path.resolve(path.join(root, String(userPath)));
@@ -14,17 +23,25 @@ function safeResolve(root, userPath = "") {
 
   return resolved;
 }
-function createLimiter(maxConcurrent = 64) {
+const userLocks = new Map();
+function withUserLock(username, fn) {
+  const prev = userLocks.get(username) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  userLocks.set(username, next.catch(() => {}));
+  return next;
+}
+function createLimiter(maxConcurrent = 64, maxQueue = 500) {
   let active = 0;
   const queue = [];
 
   return async (fn) => {
     if (active >= maxConcurrent) {
+      if (queue.length >= maxQueue) {
+        throw new Error("Too many pending operations");
+      }
       await new Promise((resolve) => queue.push(resolve));
     }
-
     active++;
-
     try {
       return await fn();
     } finally {
@@ -33,41 +50,77 @@ function createLimiter(maxConcurrent = 64) {
     }
   };
 }
+const userUsageCache = new Map();
+
+async function getUserUsage(username, userRoot) {
+  if (!userUsageCache.has(username)) {
+    const bytes = await getDirSizeBytes(userRoot);
+    userUsageCache.set(username, bytes);
+  }
+  return userUsageCache.get(username);
+}
+
+function adjustUserUsage(username, delta) {
+  const current = userUsageCache.get(username) || 0;
+  userUsageCache.set(username, Math.max(0, current + delta));
+}
+async function refreshUserUsage(username, userRoot) {
+  const bytes = await getDirSizeBytes(userRoot);
+
+  userUsageCache.set(username, bytes);
+
+  return bytes;
+}
 
 async function buildUserFileTree(rootPath) {
-  async function walk(dir) {
-    let entries;
+  const root = ["root", []];
 
+  const stack = [
+    {
+      path: rootPath,
+      children: root[1],
+    },
+  ];
+
+  while (stack.length) {
+    const { path: dir, children } = stack.pop();
+
+    let entries;
     try {
-      entries = await limit(() => fsp.readdir(dir, { withFileTypes: true }));
+      entries = await limit(() =>
+        fsp.readdir(dir, { withFileTypes: true }),
+      );
     } catch {
-      return [];
+      continue;
     }
 
-    const nodes = await Promise.all(
-      entries.map(async (entry) => {
-        const fullPath = path.join(dir, entry.name);
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
 
-        let stat;
+      let stat;
+      try {
+        stat = await limit(() => fsp.stat(fullPath));
+      } catch {
+        continue;
+      }
 
-        try {
-          stat = await limit(() => fsp.stat(fullPath));
-        } catch {
-          return null;
-        }
+      if (entry.isDirectory()) {
+        const dirChildren = [];
+        children.push([
+          entry.name,
+          dirChildren,
+          {
+            mtime: stat.mtimeMs,
+            mtimeMs: stat.mtimeMs,
+          },
+        ]);
 
-        if (entry.isDirectory()) {
-          return [
-            entry.name,
-            await walk(fullPath),
-            {
-              mtime: stat.mtimeMs,
-              mtimeMs: stat.mtimeMs,
-            },
-          ];
-        }
-
-        return [
+        stack.push({
+          path: fullPath,
+          children: dirChildren,
+        });
+      } else {
+        children.push([
           entry.name,
           null,
           {
@@ -75,15 +128,14 @@ async function buildUserFileTree(rootPath) {
             mtime: stat.mtimeMs,
             mtimeMs: stat.mtimeMs,
           },
-        ];
-      }),
-    );
-
-    return nodes.filter(Boolean);
+        ]);
+      }
+    }
   }
 
-  return ["root", await walk(rootPath)];
+  return root;
 }
+
 
 async function getDirSizeBytes(root) {
   async function walk(dir) {
@@ -97,7 +149,7 @@ async function getDirSizeBytes(root) {
 
     const sizes = await Promise.all(
       entries.map(async (entry) => {
-        const full = path.join(dir, entry.name);
+        const full = safeResolve(dir, entry.name);
 
         if (entry.isDirectory()) {
           return walk(full);
@@ -106,7 +158,6 @@ async function getDirSizeBytes(root) {
         if (entry.isFile()) {
           try {
             const stat = await limit(() => fsp.lstat(full));
-
             return stat.size;
           } catch {
             return 0;
@@ -114,10 +165,10 @@ async function getDirSizeBytes(root) {
         }
 
         return 0;
-      }),
+      })
     );
 
-    return sizes.reduce((a, b) => a + b, 0);
+      return sizes.reduce((a, b) => a + b, 0);
   }
 
   return walk(root);
@@ -145,34 +196,30 @@ async function getPathSizeBytes(target) {
 
 
 async function authenticateUser(username, providedPassword, authHeader) {
-  try {
-    if (!username) return false;
-    const userFile = safeResolve(directoryPath, `${username}/${username}.txt`);
-    try {
-      const txt = await fsp.readFile(userFile, "utf8");
-      const obj = JSON.parse(txt);
-      if (obj && typeof obj.password === "string" && obj.password.length) {
-        if (providedPassword === obj.password) return true;
-        // Otherwise check bearer token from header
-        if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-          const token = authHeader.slice(7).trim();
-          if (Array.isArray(obj.authTokens)) {
-            const now = Date.now();
-            obj.authTokens = obj.authTokens.filter((t) => t && t.expires && t.expires > now);
-            const valid = obj.authTokens.some((t) => t.token === token && t.expires > now);
+  if (!username) return false;
 
-            return valid;
-          }
-        }
-        return false;
-      }
-      // no password set: deny
-      return false;
-    } catch (e) {
-      // missing or unreadable user file: deny
-      return false;
+  try {
+    const userFile = safeResolve(directoryPath, `${username}/${username}.txt`);
+    const txt = await fsp.readFile(userFile, "utf8");
+    const obj = JSON.parse(txt);
+
+    if (!obj || typeof obj.password !== "string") return false;
+
+    if (providedPassword === obj.password) return true;
+
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7).trim();
+
+      const now = Date.now();
+
+      return Array.isArray(obj.authTokens) &&
+        obj.authTokens.some(
+          t => t.token === token && t.expires > now
+        );
     }
-  } catch (e) {
+
+    return false;
+  } catch {
     return false;
   }
 }
@@ -194,17 +241,6 @@ function removeUnwantedStuffInPath(value) {
   const normalized = path.posix.normalize(raw.startsWith("/") ? raw : `/${raw}`);
 
   return normalized === "." ? "/" : normalized;
-}
-
-async function writeEditPayload(filePath, buffer, { replace = true } = {}) {
-  const content = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer));
-  await fsp.mkdir(path.dirname(filePath), { recursive: true });
-
-  if (replace) {
-    await fsp.writeFile(filePath, content);
-  } else {
-    await fsp.appendFile(filePath, content);
-  }
 }
 
 async function getUserQuotaBytes(rootPath) {
@@ -264,7 +300,6 @@ function getPermissionForRelativePath(relPath, permissionEntries) {
   return matched.perm;
 }
 
-// Storage quota (bytes). Can be overridden by env var STORAGE_QUOTA_BYTES.
 const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 5 * 1024 * 1024 * 1024; // 5 GB default
 // How old can upload part files be before we consider them stale and remove them (hours)
 const UPLOAD_PART_TTL_HOURS = Number(process.env.UPLOAD_PART_TTL_HOURS) || 24; // default 24 hours
@@ -283,6 +318,10 @@ async function getRawBody(req) {
 
     req.on("data", (chunk) => {
       total += chunk.length;
+      if (total > MAX_BODY) {
+        req.destroy();
+        return;
+      }
       chunks.push(chunk);
     });
 
@@ -310,9 +349,7 @@ async function handleRawFileUpload(req, res) {
     transferEncoding: req.headers["transfer-encoding"],
   });
   function base64ToUtf8(base64Str) {
-    const binString = atob(base64Str);
-    const bytes = Uint8Array.from(binString, (m) => m.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
+    return Buffer.from(base64Str, "base64").toString("utf8");
   }
   const headers = req.headers || {};
   const username = String(headers["x-username"] || "").trim();
@@ -364,30 +401,27 @@ async function handleRawFileUpload(req, res) {
   const rawBody = await getRawBody(req);
 
   let oldSize = 0;
-  try {
-    const st = await fsp.stat(filePath);
-    if (st.isFile()) oldSize = st.size;
-  } catch (e) {
-    oldSize = 0;
-  }
 
-  const currentUsed = await getDirSizeBytes(userRoot);
-  const quota = await getUserQuotaBytes(userRoot);
-  const delta = replace ? rawBody.length - oldSize : rawBody.length;
-  if (delta > 0 && currentUsed + delta > quota) {
-    res.writeHead(403);
-    return res.end(
-      JSON.stringify({
-        error: `Storage quota exceeded: cannot write ${normalizedPath}`,
-      }),
-    );
-  }
-
-  await fsp.mkdir(path.dirname(filePath), { recursive: true });
-  await fsp.writeFile(filePath, rawBody, { flag: replace ? "w" : "a" });
-
-  res.writeHead(200, { "Content-Type": "application/json" });
-  return res.end(JSON.stringify({ success: true }));
+  return withUserLock(username, async () => {
+    try {
+      const st = await fsp.stat(filePath);
+      if (st.isFile()) oldSize = st.size;
+    } catch (e) {
+      oldSize = 0;
+    }
+    const used = await getUserUsage(username, userRoot);
+    const quota = await getUserQuotaBytes(userRoot);
+    const delta = replace ? rawBody.length - oldSize : rawBody.length;
+    if (delta > 0 && used + delta > quota) {
+      res.writeHead(403);
+      return res.end(JSON.stringify({ error: `Storage quota exceeded: cannot write ${normalizedPath}` }));
+    }
+    await fsp.mkdir(path.dirname(filePath), { recursive: true });
+    await fsp.writeFile(filePath, rawBody, { flag: replace ? "w" : "a" });
+    adjustUserUsage(username, delta);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ success: true }));
+  });
 }
 
 // ─────────────────────────────
@@ -417,10 +451,20 @@ async function handleFetchfiles(req, res) {
     return res.end();
   }
 
-  let body = "";
-  req.on("data", (c) => (body += c));
+  let chunks = [];
+  let total = 0;
+  req.on("data", (chunk) => { 
+    total += chunk.length;
+    if (total > MAX_BODY) {
+      req.destroy();
+      return;
+    }
+    chunks.push(chunk);
+  });
   req.on("end", async () => {
+    const body = Buffer.concat(chunks).toString("utf8");
     let data;
+
     try {
       data = JSON.parse(body);
     } catch {
@@ -463,7 +507,9 @@ async function handleFetchfiles(req, res) {
 
     try {
       if (data.initFE) {
-        const tree = await buildUserFileTree(userRoot);
+        const tree = await withUserLock(username, () =>
+          buildUserFileTree(userRoot)
+        );        
         const clipboard = userClipboards.get(username) || null;
         return res.end(JSON.stringify({ tree, clipboard }));
       }
@@ -479,8 +525,6 @@ async function handleFetchfiles(req, res) {
 
         const fullPath = safeResolve(userRoot, normalizedRequestPath);
         const relativeToRoot = path.relative(userRoot, fullPath);
-
-        if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return jsonResponse({ error: "Invalid file path" }, 400);
 
         let stat;
         try {
@@ -534,9 +578,6 @@ async function handleFetchfiles(req, res) {
         const fullPath = safeResolve(userRoot, normalizedRequestPath);
 
         const relativeToRoot = path.relative(userRoot, fullPath);
-        if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-          return res.end(JSON.stringify({ error: "Invalid folder path" }));
-        }
 
         let stat;
 
@@ -578,7 +619,7 @@ async function handleFetchfiles(req, res) {
           );
         }
 
-        const files = await Promise.all(
+        const files = await limit(() => Promise.all(
           dirents.map(async (d) => {
             const entryPath = removeUnwantedStuffInPath(normalizedRequestPath ? `${normalizedRequestPath}/${d.name}` : d.name);
 
@@ -590,7 +631,7 @@ async function handleFetchfiles(req, res) {
             };
 
             try {
-              const entryStat = await fsp.stat(path.join(fullPath, d.name));
+              const entryStat = await fsp.stat(safeResolve(fullPath, d.name));
 
               result.mtime = entryStat.mtimeMs;
 
@@ -600,14 +641,13 @@ async function handleFetchfiles(req, res) {
 
               if (type === "folder" && data.directoryDetail) {
                 // only if you really want folder sizes
-                result.size = await getDirSizeBytes(path.join(fullPath, d.name));
+                result.size = await getDirSizeBytes(safeResolve(fullPath, d.name));
               }
             } catch {}
 
             return result;
           }),
-        );
-
+        ));
         return res.end(
           JSON.stringify({
             kind: "folder",
@@ -636,7 +676,7 @@ async function handleFetchfiles(req, res) {
           entries = await fsp.readdir(dir);
         } catch (e) {
           // Directory may not exist yet; fall back to returning the original candidate
-          return path.join(dir, compareName);
+          return safeResolve(dir, compareName);
         }
 
         let found = false;
@@ -655,10 +695,10 @@ async function handleFetchfiles(req, res) {
           }
         }
 
-        if (!found) return path.join(dir, compareName);
+        if (!found) return safeResolve(dir, compareName);
 
         const newName = `(${maxNum + 1}) ${base}${ext}`;
-        return path.join(dir, newName);
+        return safeResolve(dir, newName);
       }
       async function applyDirections(rootPath, directions, username, userPathPermissions) {
         // result object used to return information back to the caller
@@ -701,19 +741,11 @@ async function handleFetchfiles(req, res) {
           }
         };
 
-        const pathStatsCache = new Map();
-        const statCached = async (fullPath) => {
-          if (pathStatsCache.has(fullPath)) return pathStatsCache.get(fullPath);
-          const stat = await fsp.stat(fullPath).catch(() => null);
-          pathStatsCache.set(fullPath, stat);
-          return stat;
-        };
-        const existsCached = async (fullPath) => !!(await statCached(fullPath));
         let usageDelta = 0;
 
         // Prepare per-user temp directory for chunked uploads
         const userDir = path.dirname(rootPath); // .../username
-        const userTempDir = path.join(userDir, ".uploads_temp");
+        const userTempDir = safeResolve(userDir, ".uploads_temp");
         await fsp.mkdir(userTempDir, { recursive: true });
 
         // Cleanup stale part files for this user on every apply (keeps disk usage bounded)
@@ -724,9 +756,9 @@ async function handleFetchfiles(req, res) {
           for (const p of parts) {
             try {
               if (!p.includes(".part.")) continue;
-              const st = await fsp.stat(path.join(userTempDir, p));
+              const st = await fsp.stat(safeResolve(userTempDir, p));
               if (now - st.mtimeMs > ttlMs) {
-                await fsp.rm(path.join(userTempDir, p), { force: true });
+                await fsp.rm(safeResolve(userTempDir, p), { force: true });
               }
             } catch (e) {
               // ignore individual errors
@@ -736,263 +768,256 @@ async function handleFetchfiles(req, res) {
           // best-effort cleanup
           console.error("stale part cleanup error", e);
         }
+        try {
+          for (const dir of directions) {
+            if (dir.addFolder) {
+              let parentPath;
+              let folderPath;
 
-        for (const dir of directions) {
-          if (dir.addFolder) {
-            let parentPath;
-            let folderPath;
-
-            if (dir.name && dir.name.length) {
-              parentPath = resolvePath(dir.path || "root");
-              folderPath = path.join(parentPath, dir.name);
-            } else {
-              const requestedPath = typeof dir.path === "string" ? dir.path : "";
-              const normalizedRequestedPath = removeUnwantedStuffInPath(requestedPath);
-              if (normalizedRequestedPath) {
-                folderPath = resolvePath(requestedPath);
-                parentPath = path.dirname(folderPath);
+              if (dir.name && dir.name.length) {
+                parentPath = resolvePath(dir.path || "root");
+                folderPath = safeResolve(parentPath, dir.name);
               } else {
-                parentPath = resolvePath("root");
-                folderPath = path.join(parentPath, `new-folder-${Date.now()}`);
-              }
-            }
-
-            const parentRel = removeUnwantedStuffInPath(path.relative(rootPath, parentPath || rootPath).replace(/\\/g, "/"));
-            assertWriteAllowed(parentRel);
-
-            await ensureDir(parentPath || rootPath);
-
-            // If an entry exists at the target path, ensure it's a directory.
-            const existingStat = await statCached(folderPath);
-            if (existingStat) {
-              if (!existingStat.isDirectory()) {
-                throw new Error(`Cannot create folder, file exists: ${folderPath}`);
-              }
-              // already a folder → OK
-            } else {
-              await fsp.mkdir(folderPath, { recursive: true });
-            }
-
-            continue;
-          }
-          if (dir.deleteFolder) {
-            dir.delete = true;
-          }
-          if (dir.checkFolder) {
-            const folderPath = resolvePath(dir.path);
-            const folderRel = directionPathToRelative(dir.path || "");
-            assertReadAllowed(folderRel);
-            const stat = await fsp.stat(folderPath).catch(() => null);
-            if (!stat || !stat.isDirectory()) {
-              res.writeHead(400);
-              return res.end(
-                JSON.stringify({
-                  error: "Folder does not exist",
-                  path: `/${folderRel}`,
-                }),
-              );
-            } else {
-              res.writeHead(200);
-              return res.end(JSON.stringify({ exists: true, path: `/${folderRel}` }));
-            }
-          }
-          if (dir.checkFile) {
-            const filePath = resolvePath(dir.path);
-            const fileRel = directionPathToRelative(dir.path || "");
-            assertReadAllowed(fileRel);
-            const stat = await fsp.stat(filePath).catch(() => null);
-            if (!stat || !stat.isFile()) {
-              res.writeHead(400);
-              return res.end(
-                JSON.stringify({
-                  error: "File does not exist",
-                  path: `/${fileRel}`,
-                }),
-              );
-            } else {
-              res.writeHead(200);
-              return res.end(JSON.stringify({ exists: true, path: `/${fileRel}` }));
-            }
-          }
-          if (dir.addFile) {
-            const fileRel = directionPathToRelative(dir.path || "");
-            assertWriteAllowed(fileRel);
-            const filePath = resolvePath(dir.path);
-            await fsp.mkdir(path.dirname(filePath), { recursive: true });
-            await fsp.writeFile(filePath, "");
-            continue;
-          }
-
-          if (dir.renameFolder) {
-            dir.rename = true;
-          }
-
-          if (dir.rename) {
-            try {
-              const oldRelPath = directionPathToRelative(dir.path || "");
-              assertWriteAllowed(oldRelPath);
-              const oldPath = resolvePath(dir.path);
-              const oldRel = directionPathToRelative(dir.path || "");
-
-              const newName = path.basename(String(dir.newName || "").trim());
-
-              if (!newName || newName === "." || newName === "..") {
-                throw new Error("Invalid rename name");
+                const requestedPath = typeof dir.path === "string" ? dir.path : "";
+                const normalizedRequestedPath = removeUnwantedStuffInPath(requestedPath);
+                if (normalizedRequestedPath) {
+                  folderPath = resolvePath(requestedPath);
+                  parentPath = path.dirname(folderPath);
+                } else {
+                  parentPath = resolvePath("root");
+                  folderPath = safeResolve(parentPath, `new-folder-${Date.now()}`);
+                }
               }
 
-              // Prevent hidden traversal attempts like ../file or folder/file
-              if (newName !== dir.newName) {
-                throw new Error("Invalid rename name");
+              const parentRel = removeUnwantedStuffInPath(path.relative(rootPath, parentPath || rootPath).replace(/\\/g, "/"));
+              assertWriteAllowed(parentRel);
+
+              await ensureDir(parentPath || rootPath);
+
+              // If an entry exists at the target path, ensure it's a directory.
+              if (await exists(folderPath)) {
+                const existingStat = await fsp.stat(folderPath);
+
+                if (!existingStat.isDirectory()) {
+                  throw new Error(`Cannot create folder, file exists: ${folderPath}`);
+                }
+              } else {
+                await fsp.mkdir(folderPath, { recursive: true });
               }
 
-              const parentDir = path.dirname(oldPath);
-              const newPath = path.join(parentDir, newName);
+              continue;
+            }
+            if (dir.deleteFolder) {
+              dir.delete = true;
+            }
+            if (dir.checkFolder) {
+              const folderPath = resolvePath(dir.path);
+              const folderRel = directionPathToRelative(dir.path || "");
+              assertReadAllowed(folderRel);
+              const stat = await fsp.stat(folderPath).catch(() => null);
+              if (!stat || !stat.isDirectory()) {
+                const err = new Error("Folder does not exist");
+                err.code = "ENOENT";
+                err.path = `/${folderRel}`;
+                throw err;
+              }
+              result.checkFolder = { exists: true, path: `/${folderRel}` };
+              continue;
+            }
 
-              const newRel = path.join(path.dirname(oldRel), newName).replace(/\\/g, "/");
+            if (dir.checkFile) {
+              const filePath = resolvePath(dir.path);
+              const fileRel = directionPathToRelative(dir.path || "");
+              assertReadAllowed(fileRel);
+              const stat = await fsp.stat(filePath).catch(() => null);
+              if (!stat || !stat.isFile()) {
+                const err = new Error("File does not exist");
+                err.code = "ENOENT";
+                err.path = `/${fileRel}`;
+                throw err;
+              }
+              result.checkFile = { exists: true, path: `/${fileRel}` };
+              continue;
+            }
+            if (dir.addFile) {
+              const fileRel = directionPathToRelative(dir.path || "");
+              assertWriteAllowed(fileRel);
+              const filePath = resolvePath(dir.path);
+              await fsp.mkdir(path.dirname(filePath), { recursive: true });
+              await fsp.writeFile(filePath, "");
+              continue;
+            }
 
-              assertWriteAllowed(removeUnwantedStuffInPath(newRel));
+            if (dir.renameFolder) {
+              dir.rename = true;
+            }
 
-              await fsp.rename(oldPath, newPath);
-
-              // Update any server-side clipboard entries that reference the renamed path
+            if (dir.rename) {
               try {
+                const oldRelPath = directionPathToRelative(dir.path || "");
+                assertWriteAllowed(oldRelPath);
+                const oldPath = resolvePath(dir.path);
+                const oldRel = directionPathToRelative(dir.path || "");
+
+                const newName = path.basename(String(dir.newName || "").trim());
+
+                if (!newName || newName === "." || newName === "..") {
+                  throw new Error("Invalid rename name");
+                }
+
+                // Prevent hidden traversal attempts like ../file or folder/file
+                if (newName !== dir.newName) {
+                  throw new Error("Invalid rename name");
+                }
+
+                const parentDir = path.dirname(oldPath);
+                const newPath = safeResolve(parentDir, newName);
+
+                const newRel = path.join(path.dirname(oldRel), newName).replace(/\\/g, "/");
+
+                assertWriteAllowed(removeUnwantedStuffInPath(newRel));
+
+                await fsp.rename(oldPath, newPath);
+
+                // Update any server-side clipboard entries that reference the renamed path
+                try {
+                  if (clipboard && Array.isArray(clipboard)) {
+                    clipboard = clipboard.map((c) => {
+                      if (!c || typeof c.path !== "string") return c;
+                      if (c.path === oldRel) {
+                        return { ...c, path: newRel, name: dir.newName };
+                      }
+                      if (c.path.startsWith(oldRel + "/")) {
+                        return {
+                          ...c,
+                          path: newRel + c.path.slice(oldRel.length),
+                        };
+                      }
+                      return c;
+                    });
+                  }
+                } catch (e) {
+                  // ignore clipboard update failures
+                }
+              } catch (e) {
+                throw e;
+              }
+              continue;
+            }
+
+            if (dir.delete) {
+              const deleteRelPath = directionPathToRelative(dir.path || "");
+              assertWriteAllowed(deleteRelPath);
+              const targetPath = resolvePath(dir.path);
+              const relativeTarget = path.relative(rootPath, targetPath).replace(/\\/g, "/");
+              if (relativeTarget === "systemfiles") {
+                continue; // prevent deleting root 'systemfiles' folder only
+              }
+              const targetExists = await exists(targetPath);
+              if (!targetExists) {
+                continue;
+              }
+              // Move to hidden .trash folder instead of permanently deleting
+              const trashDir = safeResolve(rootPath, ".trash");
+              await fsp.mkdir(trashDir, { recursive: true });
+              const itemName = path.basename(targetPath);
+              let trashDest = safeResolve(trashDir, itemName);
+              // Avoid overwriting existing trash items by appending a timestamp
+              if (await exists(trashDest)) {
+                trashDest = safeResolve(trashDir, `${Date.now()}_${itemName}`);
+              }
+              try {
+                await fsp.rename(targetPath, trashDest);
+              } catch (e) {
+                if (e && (e.code === "ENOENT" || e.code === "ENOTDIR")) {
+                  continue;
+                }
+                try {
+                  await fs.move(targetPath, trashDest, { overwrite: false });
+                } catch (moveErr) {
+                  console.error("soft-delete move failed", {
+                    targetPath,
+                    trashDest,
+                    error: moveErr && (moveErr.stack || moveErr.message || String(moveErr)),
+                  });
+                  continue;
+                }
+              }
+
+              // Clean up any server-side clipboard entries that reference this path
+              try {
+                const rel = dir.path.split("/").slice(1).join("/"); // remove leading "root"
                 if (clipboard && Array.isArray(clipboard)) {
-                  clipboard = clipboard.map((c) => {
-                    if (!c || typeof c.path !== "string") return c;
-                    if (c.path === oldRel) {
-                      return { ...c, path: newRel, name: dir.newName };
-                    }
-                    if (c.path.startsWith(oldRel + "/")) {
-                      return {
-                        ...c,
-                        path: newRel + c.path.slice(oldRel.length),
-                      };
-                    }
-                    return c;
+                  clipboard = clipboard.filter((c) => {
+                    if (!c || typeof c.path !== "string") return true;
+                    // If deleting a folder, remove entries inside it as well
+                    return !(c.path === rel || c.path.startsWith(rel + "/"));
                   });
                 }
               } catch (e) {
-                // ignore clipboard update failures
+                // ignore cleanup failures
               }
-            } catch (e) {
-              throw e;
-            }
-            continue;
-          }
 
-          if (dir.delete) {
-            const deleteRelPath = directionPathToRelative(dir.path || "");
-            assertWriteAllowed(deleteRelPath);
-            const targetPath = resolvePath(dir.path);
-            const relativeTarget = path.relative(rootPath, targetPath).replace(/\\/g, "/");
-            if (relativeTarget === "systemfiles") {
-              continue; // prevent deleting root 'systemfiles' folder only
-            }
-            const targetExists = await existsCached(targetPath);
-            if (!targetExists) {
               continue;
             }
-            // Move to hidden .trash folder instead of permanently deleting
-            const trashDir = path.join(rootPath, ".trash");
-            await fsp.mkdir(trashDir, { recursive: true });
-            const itemName = path.basename(targetPath);
-            let trashDest = path.join(trashDir, itemName);
-            // Avoid overwriting existing trash items by appending a timestamp
-            if (await existsCached(trashDest)) {
-              trashDest = path.join(trashDir, `${Date.now()}_${itemName}`);
-            }
-            try {
-              await fsp.rename(targetPath, trashDest);
-            } catch (e) {
-              if (e && (e.code === "ENOENT" || e.code === "ENOTDIR")) {
+
+            if (dir.permanentDelete) {
+              const deleteRelPath = directionPathToRelative(dir.path || "");
+              assertWriteAllowed(deleteRelPath);
+              const targetPath = resolvePath(dir.path);
+              // Security: only allow permanent deletion of items inside .trash
+              const trashDir = safeResolve(rootPath, ".trash");
+              const normalizedTarget = path.resolve(targetPath);
+              const normalizedTrash = path.resolve(trashDir);
+              if (!normalizedTarget.startsWith(normalizedTrash + path.sep) && normalizedTarget !== normalizedTrash) {
+                // Not inside .trash — refuse
                 continue;
               }
-              try {
-                await fs.move(targetPath, trashDest, { overwrite: false });
-              } catch (moveErr) {
-                console.error("soft-delete move failed", {
-                  targetPath,
-                  trashDest,
-                  error: moveErr && (moveErr.stack || moveErr.message || String(moveErr)),
-                });
-                continue;
-              }
-            }
-
-            // Clean up any server-side clipboard entries that reference this path
-            try {
-              const rel = dir.path.split("/").slice(1).join("/"); // remove leading "root"
-              if (clipboard && Array.isArray(clipboard)) {
-                clipboard = clipboard.filter((c) => {
-                  if (!c || typeof c.path !== "string") return true;
-                  // If deleting a folder, remove entries inside it as well
-                  return !(c.path === rel || c.path.startsWith(rel + "/"));
-                });
-              }
-            } catch (e) {
-              // ignore cleanup failures
-            }
-
-            continue;
-          }
-
-          if (dir.permanentDelete) {
-            const deleteRelPath = directionPathToRelative(dir.path || "");
-            assertWriteAllowed(deleteRelPath);
-            const targetPath = resolvePath(dir.path);
-            // Security: only allow permanent deletion of items inside .trash
-            const trashDir = path.join(rootPath, ".trash");
-            const normalizedTarget = path.resolve(targetPath);
-            const normalizedTrash = path.resolve(trashDir);
-            if (!normalizedTarget.startsWith(normalizedTrash + path.sep) && normalizedTarget !== normalizedTrash) {
-              // Not inside .trash — refuse
+              const deletedSize = await getPathSizeBytes(targetPath);
+              await fsp.rm(targetPath, { recursive: true, force: true });
+              adjustUserUsage(username, -deletedSize);
               continue;
             }
-            await fsp.rm(targetPath, { recursive: true, force: true });
 
-            continue;
-          }
-
-          if (dir.restore) {
-            const restoreRelPath = directionPathToRelative(dir.path || "");
-            assertWriteAllowed(restoreRelPath);
-            const targetPath = resolvePath(dir.path);
-            // Security: only restore items that are inside .trash
-            const trashDir = path.join(rootPath, ".trash");
-            const normalizedTarget = path.resolve(targetPath);
-            const normalizedTrash = path.resolve(trashDir);
-            if (!normalizedTarget.startsWith(normalizedTrash + path.sep)) {
-              continue; // refuse to restore items not in .trash
+            if (dir.restore) {
+              const restoreRelPath = directionPathToRelative(dir.path || "");
+              assertWriteAllowed(restoreRelPath);
+              const targetPath = resolvePath(dir.path);
+              // Security: only restore items that are inside .trash
+              const trashDir = safeResolve(rootPath, ".trash");
+              const normalizedTarget = path.resolve(targetPath);
+              const normalizedTrash = path.resolve(trashDir);
+              if (!normalizedTarget.startsWith(normalizedTrash + path.sep)) {
+                continue; // refuse to restore items not in .trash
+              }
+              const itemName = path.basename(targetPath);
+              let dest = safeResolve(rootPath, itemName);
+              // Avoid overwriting by appending a numeric suffix
+              if (await exists(dest)) {
+                let n = 1;
+                while (await exists(safeResolve(rootPath, `(${n}) ${itemName}`))) n++;
+                dest = safeResolve(rootPath, `(${n}) ${itemName}`);
+              }
+              await fsp.rename(targetPath, dest);
+              continue;
             }
-            const itemName = path.basename(targetPath);
-            let dest = safeResolve(rootPath, itemName);
-            // Avoid overwriting by appending a numeric suffix
-            if (await existsCached(dest)) {
-              let n = 1;
-              while (await existsCached(path.join(rootPath, `(${n}) ${itemName}`))) n++;
-              dest = path.join(rootPath, `(${n}) ${itemName}`);
+
+            if (dir.copy) {
+              const copyRows = Array.isArray(dir.directions) ? dir.directions : [];
+              for (const row of copyRows) {
+                const copyRelPath = removeUnwantedStuffInPath(row && row.path ? row.path : "");
+                assertReadAllowed(copyRelPath);
+              }
+              // Store the list of items to clipboard and avoid creating on-disk temp copies.
+              // Copy will be performed at paste time from the live location; if the source
+              // no longer exists when pasting, the operation will fail (matching real cloud drive behavior).
+              clipboard = dir.directions;
+              continue;
             }
-            await fsp.rename(targetPath, dest);
-            continue;
-          }
 
-          if (dir.copy) {
-            const copyRows = Array.isArray(dir.directions) ? dir.directions : [];
-            for (const row of copyRows) {
-              const copyRelPath = removeUnwantedStuffInPath(row && row.path ? row.path : "");
-              assertReadAllowed(copyRelPath);
+            if (dir.pasteFolder) {
+              dir.paste = true;
             }
-            // Store the list of items to clipboard and avoid creating on-disk temp copies.
-            // Copy will be performed at paste time from the live location; if the source
-            // no longer exists when pasting, the operation will fail (matching real cloud drive behavior).
-            clipboard = dir.directions;
-            continue;
-          }
-
-          if (dir.pasteFolder) {
-            dir.paste = true;
-          }
-
           if (dir.paste && clipboard) {
             const destinationRelPath = directionPathToRelative(dir.path || "root");
             assertWriteAllowed(destinationRelPath);
@@ -1008,7 +1033,7 @@ async function handleFetchfiles(req, res) {
               assertReadAllowed(sourceRelPath);
               const src = safeResolve(userRoot, item.path);
               // ensure source still exists
-              if (!(await existsCached(src))) {
+              if (!(await exists(src))) {
                 continue; // skip missing source
               }
 
@@ -1036,32 +1061,35 @@ async function handleFetchfiles(req, res) {
           }
 
           // Persist clipboard to server storage for this user
-          // dir.end is obsolete now
+        }     
+        } finally {
+          // Include clipboard in result so client can sync it
           if (clipboard) {
             userClipboards.set(username, clipboard);
           } else {
             userClipboards.delete(username);
           }
+          result.clipboard = clipboard;
         }
-        // Include clipboard in result so client can sync it
-        result.clipboard = clipboard;
+
         // return any collected results (e.g., checkParts)
         return result;
       }
 
       if (data.saveSnapshot) {
         // Apply all frontend directions to build tree
-        const result = await applyDirections(userRoot, data.directions, username, userPathPermissions);
+        const result = await withUserLock(username, () => applyDirections(userRoot, data.directions, username, userPathPermissions) );
 
         // Only return safe/serializable parts of result to avoid circular objects
         const safePayload = {
           success: true,
-          result:
-            result && typeof result === "object"
-              ? {
-                  ...(result.checkParts ? { checkParts: result.checkParts } : {}),
-                }
-              : {},
+          result: result && typeof result === "object"
+            ? {
+                ...(result.checkParts ? { checkParts: result.checkParts } : {}),
+                ...(result.checkFolder ? { checkFolder: result.checkFolder } : {}),
+                ...(result.checkFile ? { checkFile: result.checkFile } : {}),
+              }
+            : {},
           clipboard: result && "clipboard" in result ? result.clipboard : null,
         };
 
@@ -1070,19 +1098,20 @@ async function handleFetchfiles(req, res) {
 
       res.writeHead(400);
       res.end(JSON.stringify({ error: "Unknown action" }));
-    } catch (err) {
-      console.error(err);
-      if (res.headersSent) {
-        console.warn("Response headers already sent; cannot send error response");
-        return;
+      } catch (err) {
+        console.error(err);
+        if (res.headersSent) return;
+        if (err && err.code === "EACCES") {
+          res.writeHead(403);
+          return res.end(JSON.stringify({ error: err.message, path: err.path }));
+        }
+        if (err && err.code === "ENOENT" && err.path) {
+          res.writeHead(400);
+          return res.end(JSON.stringify({ error: err.message, path: err.path }));
+        }
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: err.message }));
       }
-      if (err && err.code === "EACCES") {
-        res.writeHead(403);
-        return res.end(JSON.stringify({ error: err.message || "permission denied" }));
-      }
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: err.message }));
-    }
   });
 }
 
