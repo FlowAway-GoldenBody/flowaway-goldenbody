@@ -30,7 +30,7 @@ window.protectedGlobals.FolderExists = async function (relPath) {
     saveSnapshot: true,
     directions: [{ checkFolder: true, path: requestPath }],
   });
-  return Boolean(res && res.exists);
+  return Boolean(res && res.result?.checkFolder);
 };
 window.protectedGlobals.FileExists = async function (relPath) {
   if (!relPath) throw new Error("No path");
@@ -42,7 +42,7 @@ window.protectedGlobals.FileExists = async function (relPath) {
     saveSnapshot: true,
     directions: [{ checkFile: true, path: requestPath }],
   });
-  return Boolean(res && res.exists);
+  return Boolean(res && res.result?.checkFile);
 };
 window.protectedGlobals.ReadFile = async function (
   relPath,
