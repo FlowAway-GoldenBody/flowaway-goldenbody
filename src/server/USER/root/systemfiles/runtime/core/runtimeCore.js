@@ -149,12 +149,13 @@ window.protectedGlobals.ReadFile = async function (
     filecontent,
   };
 };
-window.protectedGlobals.ReadFolder = async function (relPath, options = { detail: false }) {
+window.protectedGlobals.ReadFolder = async function (relPath, options = { detail: false, directoryDetail: false }) {
   if (!relPath) throw new Error("No path");
   let res = await window.protectedGlobals.filePost({
     requestFolder: true,
     requestFolderName: String(relPath),
-    detail: options.detail
+    detail: options.detail,
+    directoryDetail: options.directoryDetail
   });
   return res.files;
 }
@@ -291,7 +292,7 @@ window.protectedGlobals.WriteFile = async function (
     return body || { error: "unauthorized" };
   }
 
-  window.protectedGlobals.queueOnlyLoadTreeRefresh();
+  window.protectedGlobals.onlyloadTree();
   return body;
 };
 window.protectedGlobals.DeleteFile = async function (relPath) {
@@ -594,7 +595,7 @@ window.protectedGlobals.filePost = async function filePost(data) {
     return body || { error: "unauthorized" };
   }
   if (!data || !data.initFE) {
-    window.protectedGlobals.queueOnlyLoadTreeRefresh();
+    window.protectedGlobals.onlyloadTree();
   }
 
   window.protectedGlobals.firstlogin = false;
@@ -867,30 +868,6 @@ document.addEventListener("keydown", (e) => {
     "beforeunload",
     (e) => e.preventDefault()
   );
-
-
-
-
-window.protectedGlobals.onlyLoadTreeRefreshPending = false;
-window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
-
-window.protectedGlobals.queueOnlyLoadTreeRefresh = function queueOnlyLoadTreeRefresh() {
-  window.protectedGlobals.onlyLoadTreeRefreshPending = true;
-  if (window.protectedGlobals.onlyLoadTreeRefreshInFlight) return;
-
-  window.protectedGlobals.onlyLoadTreeRefreshInFlight = (async function runOnlyLoadTreeRefresh() {
-    while (window.protectedGlobals.onlyLoadTreeRefreshPending) {
-      window.protectedGlobals.onlyLoadTreeRefreshPending = false;
-      if (window.protectedGlobals.onlyloadTree) {
-        await window.protectedGlobals.onlyloadTree();
-      }
-    }
-  })();
-
-  window.protectedGlobals.onlyLoadTreeRefreshInFlight.finally(() => {
-    window.protectedGlobals.onlyLoadTreeRefreshInFlight = null;
-  });
-};
 
 
 window.protectedGlobals.deleteApp = async function (obj) {

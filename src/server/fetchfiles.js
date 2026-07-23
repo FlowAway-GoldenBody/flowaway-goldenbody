@@ -3,15 +3,12 @@ const fs = require("fs-extra");
 const path = require("path");
 const fsp = require("fs/promises");
 
-const limit = createLimiter(64);
+const limit = createLimiter(8);
 function safeResolve(root, userPath = "") {
   const resolvedRoot = path.resolve(root);
-  const resolved = path.join(root, String(userPath));
+  const resolved = path.resolve(path.join(root, String(userPath)));
 
-  if (
-    resolved !== resolvedRoot &&
-    !resolved.startsWith(resolvedRoot + path.sep)
-  ) {
+  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
     throw new Error("Invalid path");
   }
 
@@ -37,70 +34,115 @@ function createLimiter(maxConcurrent = 64) {
   };
 }
 
-async function walkDir(dir, base = dir) {
-  let entries;
+async function buildUserFileTree(rootPath) {
+  async function walk(dir) {
+    let entries;
 
-  try {
-    entries = await limit(() => fsp.readdir(dir, { withFileTypes: true }));
-  } catch {
-    return [];
-  }
+    try {
+      entries = await limit(() => fsp.readdir(dir, { withFileTypes: true }));
+    } catch {
+      return [];
+    }
 
-  const results = await Promise.all(
-    entries.map(async (entry) => {
-      const fullPath = path.join(dir, entry.name);
+    const nodes = await Promise.all(
+      entries.map(async (entry) => {
+        const fullPath = path.join(dir, entry.name);
 
-      if (entry.isDirectory()) {
-        return walkDir(fullPath, base);
-      }
+        let stat;
 
-      try {
-        const stat = await limit(() => fsp.stat(fullPath));
+        try {
+          stat = await limit(() => fsp.stat(fullPath));
+        } catch {
+          return null;
+        }
+
+        if (entry.isDirectory()) {
+          return [
+            entry.name,
+            await walk(fullPath),
+            {
+              mtime: stat.mtimeMs,
+              mtimeMs: stat.mtimeMs,
+            },
+          ];
+        }
 
         return [
+          entry.name,
+          null,
           {
-            name: entry.name,
-            relativePath: path.relative(base, fullPath).replace(/\\/g, "/"),
             size: stat.size,
+            mtime: stat.mtimeMs,
+            mtimeMs: stat.mtimeMs,
           },
         ];
-      } catch {
-        return [];
-      }
-    }),
-  );
+      }),
+    );
 
-  const files = [];
-
-  for (const result of results) {
-    files.push(...result);
+    return nodes.filter(Boolean);
   }
 
-  return files;
+  return ["root", await walk(rootPath)];
 }
 
-function getUserAuthFilePath(username) {
-  return safeResolve(directoryPath, `${username}/${username}.txt`);
+async function getDirSizeBytes(root) {
+  async function walk(dir) {
+    let entries;
+
+    try {
+      entries = await limit(() => fsp.readdir(dir, { withFileTypes: true }));
+    } catch {
+      return 0;
+    }
+
+    const sizes = await Promise.all(
+      entries.map(async (entry) => {
+        const full = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          return walk(full);
+        }
+
+        if (entry.isFile()) {
+          try {
+            const stat = await limit(() => fsp.lstat(full));
+
+            return stat.size;
+          } catch {
+            return 0;
+          }
+        }
+
+        return 0;
+      }),
+    );
+
+    return sizes.reduce((a, b) => a + b, 0);
+  }
+
+  return walk(root);
 }
 
-async function readUserAuth(username) {
-  const filePath = getUserAuthFilePath(username);
-  const txt = await fsp.readFile(filePath, "utf8");
-  const trimmed = txt.trim();
-  const parsed = JSON.parse(trimmed);
-  return parsed;
+async function getPathSizeBytes(target) {
+  let stat;
+
+  try {
+    stat = await fsp.lstat(target);
+  } catch {
+    return 0;
+  }
+
+  if (stat.isFile()) {
+    return stat.size;
+  }
+
+  if (stat.isDirectory()) {
+    return getDirSizeBytes(target);
+  }
+
+  return 0;
 }
 
-async function writeUserAuth(username, authObj) {
-  const filePath = getUserAuthFilePath(username);
-  const existing = await readUserAuth(username);
-  const merged = {
-    ...existing,
-    ...authObj,
-  };
-  await fsp.mkdir(path.dirname(filePath), { recursive: true });
-  await fsp.writeFile(filePath, JSON.stringify(merged, null, 2), "utf8");
-}
 
 async function authenticateUser(username, providedPassword, authHeader) {
   try {
@@ -117,9 +159,7 @@ async function authenticateUser(username, providedPassword, authHeader) {
           if (Array.isArray(obj.authTokens)) {
             const now = Date.now();
             obj.authTokens = obj.authTokens.filter((t) => t && t.expires && t.expires > now);
-            const valid = obj.authTokens.some(
-              (t) => t.token === token && t.expires > now
-            );
+            const valid = obj.authTokens.some((t) => t.token === token && t.expires > now);
 
             return valid;
           }
@@ -167,43 +207,6 @@ async function writeEditPayload(filePath, buffer, { replace = true } = {}) {
   }
 }
 
-async function getDirSizeBytes(root) {
-  let total = 0;
-
-  async function walk(target) {
-    let stat;
-
-    try {
-      stat = await fsp.stat(target);
-    } catch {
-      return;
-    }
-
-    if (stat.isFile()) {
-      total += stat.size;
-      return;
-    }
-
-    if (!stat.isDirectory()) {
-      return;
-    }
-
-    let entries;
-    try {
-      entries = await fsp.readdir(target, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    await Promise.all(
-      entries.map((entry) => walk(path.join(target, entry.name)))
-    );
-  }
-
-  await walk(root);
-  return total;
-}
-
 async function getUserQuotaBytes(rootPath) {
   try {
     const userDir = path.dirname(rootPath);
@@ -235,9 +238,7 @@ function getPermissionForRelativePath(relPath, permissionEntries) {
 
     if (!base) continue;
 
-    const isMatch =
-      normalizedTarget === base ||
-      normalizedTarget.startsWith(`${base}/`);
+    const isMatch = normalizedTarget === base || normalizedTarget.startsWith(`${base}/`);
 
     if (!isMatch) continue;
 
@@ -275,78 +276,6 @@ const userClipboards = new Map(); // username -> clipboard state
 // Helpers
 // ─────────────────────────────
 
-
-async function buildUserFileTree(rootPath) {
-  async function walk(dir) {
-    let entries;
-
-    try {
-      entries = await limit(() => fsp.readdir(dir, { withFileTypes: true }));
-    } catch {
-      return [];
-    }
-
-    const nodes = await Promise.all(
-      entries.map(async (entry) => {
-        const fullPath = path.join(dir, entry.name);
-
-        let stats;
-        try {
-          stats = await limit(() => fsp.stat(fullPath));
-        } catch {
-          return null;
-        }
-
-        if (entry.isDirectory()) {
-          return [
-            entry.name,
-            await walk(fullPath),
-            {
-              mtime: stats.mtimeMs,
-              mtimeMs: stats.mtimeMs,
-            },
-          ];
-        }
-
-        return [
-          entry.name,
-          null,
-          {
-            size: stats.size,
-            mtime: stats.mtimeMs,
-            mtimeMs: stats.mtimeMs,
-          },
-        ];
-      }),
-    );
-
-    return nodes.filter(Boolean);
-  }
-
-  const rootStat = await limit(() => fsp.stat(rootPath)).catch(() => null);
-
-  return [
-    "root",
-    await walk(rootPath),
-    rootStat
-      ? {
-          mtime: rootStat.mtimeMs,
-          mtimeMs: rootStat.mtimeMs,
-        }
-      : {},
-  ];
-}
-
-async function readFileChunk(fullPath, start, end) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    const stream = fs.createReadStream(fullPath, { start, end: end - 1 });
-    stream.on("data", (chunk) => chunks.push(chunk));
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-    stream.on("error", reject);
-  });
-}
-
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -370,6 +299,7 @@ async function getRawBody(req) {
       console.log("ABORTED");
       console.log("req.complete =", req.complete);
       console.log("req.destroyed =", req.destroyed);
+      reject(new Error("Request aborted by client"));
     });
   });
 }
@@ -401,7 +331,7 @@ async function handleRawFileUpload(req, res) {
   }
 
   const normalizedPath = removeUnwantedStuffInPath(relPath);
-  const userRoot = path.join(directoryPath, username, "root");
+  const userRoot = safeResolve(directoryPath, `${username}/root`);
   if (!normalizedPath) {
     res.writeHead(400);
     return res.end(JSON.stringify({ error: "Invalid file path" }));
@@ -561,7 +491,14 @@ async function handleFetchfiles(req, res) {
         }
 
         if (stat.isDirectory()) {
-          const files = await walkDir(fullPath);
+          const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
+
+          const files = dirents.map((d) => ({
+            name: d.name,
+            type: d.isDirectory() ? "folder" : "file",
+            relativePath: d.name,
+          }));
+
           return jsonResponse({ kind: "folder", files });
         }
 
@@ -578,24 +515,35 @@ async function handleFetchfiles(req, res) {
 
       if (data.requestFolder) {
         const normalizedRequestPath = removeUnwantedStuffInPath(data.requestFolderName);
+
         const wantDetails = Boolean(data.detail || data.wantDetails);
-        // return an array with all the file/folder names in the requested folder (non-recursive)
+
         const relForPerm = normalizedRequestPath || "";
+
         const permission = getPermissionForRelativePath(relForPerm, userPathPermissions);
         if (!permission.read) {
           res.writeHead(403);
-          return res.end(JSON.stringify({ error: "read permission denied", path: `/${relForPerm}` }));
+          return res.end(
+            JSON.stringify({
+              error: "read permission denied",
+              path: `/${relForPerm}`,
+            }),
+          );
         }
 
         const fullPath = safeResolve(userRoot, normalizedRequestPath);
+
         const relativeToRoot = path.relative(userRoot, fullPath);
-        if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return res.end(JSON.stringify({ error: "Invalid folder path" }));
+        if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+          return res.end(JSON.stringify({ error: "Invalid folder path" }));
+        }
 
         let stat;
+
         try {
           stat = await fsp.stat(fullPath);
         } catch (e) {
-          if (e && e.code === "ENOENT") {
+          if (e?.code === "ENOENT") {
             return res.end(
               JSON.stringify({
                 missing: true,
@@ -608,30 +556,64 @@ async function handleFetchfiles(req, res) {
           throw e;
         }
 
-        if (!stat.isDirectory()) return res.end(JSON.stringify({ error: "Not a directory", path: `/${relForPerm}` }));
+        if (!stat.isDirectory()) {
+          return res.end(
+            JSON.stringify({
+              error: "Not a directory",
+              path: `/${relForPerm}`,
+            }),
+          );
+        }
 
         const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
+
+        if (!wantDetails) {
+          const files = dirents.map((d) => removeUnwantedStuffInPath(normalizedRequestPath ? `${normalizedRequestPath}/${d.name}` : d.name));
+
+          return res.end(
+            JSON.stringify({
+              kind: "folder",
+              files,
+            }),
+          );
+        }
+
         const files = await Promise.all(
           dirents.map(async (d) => {
-            if (!wantDetails) return d.name;
-
             const entryPath = removeUnwantedStuffInPath(normalizedRequestPath ? `${normalizedRequestPath}/${d.name}` : d.name);
-            let type = "folder";
-            try {
-              const entryStat = await fsp.stat(path.join(fullPath, d.name));
-              type = entryStat && entryStat.isDirectory() ? "folder" : "file";
-            } catch (e) {
-              // fall back to folder for directories and file for others
-              type = d.isDirectory() ? "folder" : "file";
-            }
 
-            return {
+            const type = d.isDirectory() ? "folder" : "file";
+
+            const result = {
               path: entryPath,
               type,
             };
+
+            try {
+              const entryStat = await fsp.stat(path.join(fullPath, d.name));
+
+              result.mtime = entryStat.mtimeMs;
+
+              if (type === "file") {
+                result.size = entryStat.size;
+              }
+
+              if (type === "folder" && data.directoryDetail) {
+                // only if you really want folder sizes
+                result.size = await getDirSizeBytes(path.join(fullPath, d.name));
+              }
+            } catch {}
+
+            return result;
           }),
         );
-        return res.end(JSON.stringify({ kind: "folder", files }));
+
+        return res.end(
+          JSON.stringify({
+            kind: "folder",
+            files,
+          }),
+        );
       }
 
       async function ensureDir(p) {
@@ -866,10 +848,7 @@ async function handleFetchfiles(req, res) {
               const parentDir = path.dirname(oldPath);
               const newPath = path.join(parentDir, newName);
 
-              const newRel = path.join(
-                path.dirname(oldRel),
-                newName
-              ).replace(/\\/g, "/");
+              const newRel = path.join(path.dirname(oldRel), newName).replace(/\\/g, "/");
 
               assertWriteAllowed(removeUnwantedStuffInPath(newRel));
 
@@ -1034,7 +1013,7 @@ async function handleFetchfiles(req, res) {
               }
 
               // compute size of src (could be folder)
-              const srcSize = await getDirSizeBytes(src);
+              const srcSize = await getPathSizeBytes(src);
 
               let dest = path.join(destinationDir, path.basename(item.path));
 
