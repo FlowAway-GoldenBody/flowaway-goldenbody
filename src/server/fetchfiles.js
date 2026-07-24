@@ -111,7 +111,6 @@ async function buildUserFileTree(rootPath) {
           dirChildren,
           {
             mtime: stat.mtimeMs,
-            mtimeMs: stat.mtimeMs,
           },
         ]);
 
@@ -126,7 +125,6 @@ async function buildUserFileTree(rootPath) {
           {
             size: stat.size,
             mtime: stat.mtimeMs,
-            mtimeMs: stat.mtimeMs,
           },
         ]);
       }
@@ -1018,48 +1016,52 @@ async function handleFetchfiles(req, res) {
             if (dir.pasteFolder) {
               dir.paste = true;
             }
-          if (dir.paste && clipboard) {
-            const destinationRelPath = directionPathToRelative(dir.path || "root");
-            assertWriteAllowed(destinationRelPath);
-            const destinationDir = safeResolve(userRoot, dir.path);
-            // Resolve per-user quota and current usage once
-            const quota = await getUserQuotaBytes(userRoot);
-            let currentUsed = await getDirSizeBytes(userRoot);
-            let pasteDelta = 0;
+            if (dir.paste && clipboard) {
+              const destinationRelPath = directionPathToRelative(dir.path || "root");
+              assertWriteAllowed(destinationRelPath);
 
-            // Check and copy/move each item; abort the whole paste if any item would exceed quota
-            for (const item of clipboard) {
-              const sourceRelPath = removeUnwantedStuffInPath(item && item.path ? item.path : "");
-              assertReadAllowed(sourceRelPath);
-              const src = safeResolve(userRoot, item.path);
-              // ensure source still exists
-              if (!(await exists(src))) {
-                continue; // skip missing source
+              const destinationDir = safeResolve(userRoot, dir.path);
+
+              const quota = await getUserQuotaBytes(userRoot);
+              let currentUsed = await getUserUsage(username, userRoot);
+
+              for (const item of clipboard) {
+                const sourceRelPath = removeUnwantedStuffInPath(item?.path || "");
+                assertReadAllowed(sourceRelPath);
+
+                const src = safeResolve(userRoot, item.path);
+
+                if (!(await exists(src))) {
+                  continue;
+                }
+
+                const srcSize = await getPathSizeBytes(src);
+
+                let dest = path.join(destinationDir, path.basename(item.path));
+                dest = await getUniquePath(dest);
+
+                const destRelPath = removeUnwantedStuffInPath(
+                  path.relative(userRoot, dest).replace(/\\/g, "/")
+                );
+                assertWriteAllowed(destRelPath);
+
+                if (currentUsed + srcSize > quota) {
+                  throw new Error(
+                    `Storage quota exceeded: cannot paste "${path.basename(item.path)}"`
+                  );
+                }
+
+                await fsp.cp(src, dest, {
+                  recursive: true,
+                  force: false,
+                });
+
+                currentUsed += srcSize;
+                adjustUserUsage(username, srcSize);
               }
 
-              // compute size of src (could be folder)
-              const srcSize = await getPathSizeBytes(src);
-
-              let dest = path.join(destinationDir, path.basename(item.path));
-
-              // 🔑 collision handling
-              dest = await getUniquePath(dest);
-
-              if (currentUsed + srcSize > quota) {
-                throw new Error(`Storage quota exceeded: cannot paste "${path.basename(item.path)}" (${srcSize} bytes)`);
-              }
-              // Copy
-              await fsp.cp(src, dest, {
-                recursive: true,
-                force: false,
-              });
-              pasteDelta += srcSize;
-              currentUsed += srcSize;
+              continue;
             }
-
-            continue;
-          }
-
           // Persist clipboard to server storage for this user
         }     
         } finally {

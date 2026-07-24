@@ -1200,25 +1200,6 @@ function makeIcon(type, size = 16) {
     window.protectedGlobals.treeData = data.tree;
     treeData = window.protectedGlobals.treeData;
     window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
-    // Ensure nodes have date metadata (mtime) so client can sort by date
-    function ensureDates(node) {
-      if (!node || !Array.isArray(node[1])) return;
-      for (const child of node[1]) {
-        // Ensure metadata object exists
-        if (!child[2] || typeof child[2] !== 'object') child[2] = child[2] || {};
-        // If size missing or falsy, default to 0
-        try { child[2].size = Number(child[2].size) || 0; } catch (e) { child[2].size = 0; }
-        // If mtime missing, set to current time (fallback)
-        if (!child[2].mtime && !child[2].modified && !child[2].date && !child[2].mtimeMs) {
-          child[2].mtime = Date.now();
-          child[2].mtimeMs = child[2].mtime;
-        } else if (child[2].mtimeMs && !child[2].mtime) {
-          child[2].mtime = child[2].mtimeMs;
-        }
-        if (Array.isArray(child[1])) ensureDates(child);
-      }
-    }
-    try { ensureDates(window.protectedGlobals.treeData); } catch(e){}
     // Restore clipboard from server
     if (data.clipboard && Array.isArray(data.clipboard)) {
       window.explorerGlobals.clipboard = data.clipboard;
@@ -1488,7 +1469,7 @@ function makeIcon(type, size = 16) {
         tile.appendChild(size);
 
         const date = document.createElement("div");
-        date.textContent = formatDate(item[2]?.mtime || item[2]?.modified || item[2]?.date || item[2]?.mtimeMs);
+        date.textContent = formatDate(item[2]?.mtime);
         date.style.fontSize = "12px";
         date.style.opacity = "0.8";
         tile.appendChild(date);
@@ -1588,7 +1569,7 @@ function makeIcon(type, size = 16) {
 
         // Date
         const dateDiv = document.createElement("div");
-        dateDiv.textContent = formatDate(item[2]?.mtime || item[2]?.modified || item[2]?.date || item[2]?.mtimeMs);
+        dateDiv.textContent = formatDate(item[2]?.mtime);
         dateDiv.style.width = "180px";
         dateDiv.style.textAlign = "right";
         dateDiv.style.color = "#555";
@@ -1686,7 +1667,7 @@ function makeIcon(type, size = 16) {
         if (profile.sortMode === "date") {
           // Accept multiple date keys
           const meta = item[2] || {};
-          return Number(meta.mtime || meta.modified || meta.date || meta.mtimeMs || 0) || 0;
+          return Number(meta.mtime || 0) || 0;
         }
         return String(item[0] || "").toLowerCase();
       };
@@ -1856,7 +1837,7 @@ function makeIcon(type, size = 16) {
     addRow("Name", item[0]);
     addRow("Type", isFolder ? "Folder" : "File");
     addRow("Size", isFolder ? formatSize(getNodeSize(item)) : formatSize(meta.size));
-    addRow("Modified", formatDate(meta.mtime || meta.modified || meta.date || meta.mtimeMs));
+    addRow("Modified", formatDate(meta.mtime));
     addRow("Path", getItemPath(item) || getFullPathFromNode(item));
 
     const btnRow = document.createElement("div");
