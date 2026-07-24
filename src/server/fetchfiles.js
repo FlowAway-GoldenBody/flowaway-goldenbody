@@ -1,5 +1,5 @@
 const http = require("http");
-const fs = require("fs-extra");
+const fs = require("fs");
 const path = require("path");
 const fsp = require("fs/promises");
 
@@ -10,6 +10,18 @@ async function exists(fullPath) {
     return true;
   } catch {
     return false;
+  }
+}
+async function move(src, dest) {
+  try {
+    await fsp.rename(src, dest);
+  } catch (err) {
+    if (err.code === "EXDEV") {
+      await fsp.cp(src, dest, { recursive: true });
+      await fsp.rm(src, { recursive: true, force: true });
+    } else {
+      throw err;
+    }
   }
 }
 const limit = createLimiter(32);
@@ -936,7 +948,7 @@ async function handleFetchfiles(req, res) {
                   continue;
                 }
                 try {
-                  await fs.move(targetPath, trashDest, { overwrite: false });
+                  await move(targetPath, trashDest);
                 } catch (moveErr) {
                   console.error("soft-delete move failed", {
                     targetPath,
