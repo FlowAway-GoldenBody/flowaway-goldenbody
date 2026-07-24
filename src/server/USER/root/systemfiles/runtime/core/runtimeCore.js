@@ -291,8 +291,6 @@ window.protectedGlobals.WriteFile = async function (
     window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };
   }
-
-  window.protectedGlobals.onlyloadTree();
   return body;
 };
 window.protectedGlobals.DeleteFile = async function (relPath) {
@@ -593,9 +591,6 @@ window.protectedGlobals.filePost = async function filePost(data) {
   if (res.status === 401 && !window.protectedGlobals.firstlogin) {
     window.protectedGlobals.showSessionExpiredDialog();
     return body || { error: "unauthorized" };
-  }
-  if (!data || !data.initFE) {
-    window.protectedGlobals.onlyloadTree();
   }
 
   window.protectedGlobals.firstlogin = false;
@@ -1011,6 +1006,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
   // return path or array of paths
   // a ui that lets the user pick a file/folder from their cloud storage
   window.protectedGlobals.pickFile = async function (options = { multiple: false, accept: "file" }) {
+    await window.protectedGlobals.onlyloadTree();
     options = Object.assign({ multiple: false, accept: "file", startPath: "/" }, options);
 
     return new Promise((resolve, reject) => {
@@ -1136,10 +1132,6 @@ window.protectedGlobals.writeStatus = function writeStatus() {
       const loadFolder = async (path) => {
         browserContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: ' + (isDark ? "#aaa" : "#666") + ';">Loading...</div>';
         try {
-          if (!window.protectedGlobals.treeData && window.protectedGlobals.onlyloadTree) {
-            await window.protectedGlobals.onlyloadTree().catch(() => {});
-          }
-
           let files = getEntriesFromTreeData(path);
           if (!files) {
             files = await window.protectedGlobals.ReadFolder(path).catch(() => []);

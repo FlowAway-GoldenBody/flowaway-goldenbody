@@ -415,10 +415,11 @@ async function handleRawFileUpload(req, res) {
       return res.end(JSON.stringify({ error: `Storage quota exceeded: cannot write ${normalizedPath}` }));
     }
     await fsp.mkdir(path.dirname(filePath), { recursive: true });
+    let loadTreeRequired = !(await exists(filePath));
     await fsp.writeFile(filePath, rawBody, { flag: replace ? "w" : "a" });
     adjustUserUsage(username, delta);
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ success: true }));
+    return res.end(JSON.stringify({ success: true, loadTreeRequired }));
   });
 }
 
@@ -522,7 +523,6 @@ async function handleFetchfiles(req, res) {
         if (!permission.read) return jsonResponse({ error: "read permission denied", path: `/${normalizedRequestPath}` }, 403);
 
         const fullPath = safeResolve(userRoot, normalizedRequestPath);
-        const relativeToRoot = path.relative(userRoot, fullPath);
 
         let stat;
         try {
@@ -575,7 +575,6 @@ async function handleFetchfiles(req, res) {
 
         const fullPath = safeResolve(userRoot, normalizedRequestPath);
 
-        const relativeToRoot = path.relative(userRoot, fullPath);
 
         let stat;
 

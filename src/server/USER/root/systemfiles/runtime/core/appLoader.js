@@ -168,9 +168,7 @@ let getFilesFromFolder = async function (relPath) {
   }
 
   async function showVfsPickerDialog({ title, mode, suggestedName }) {
-    if (!window.protectedGlobals.treeData) {
-      await window.protectedGlobals.onlyloadTree();
-    }
+    await window.protectedGlobals.onlyloadTree();
     let currentPath = "";
     let selectedPath = "";
     const overlay = document.createElement("div");

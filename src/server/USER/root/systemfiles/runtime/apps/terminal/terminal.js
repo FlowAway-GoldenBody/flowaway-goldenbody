@@ -890,7 +890,6 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
       saveSnapshot: true,
       directions: [...directions, { end: true }],
     });
-    window.protectedGlobals.onlyloadTree();
   }
 
 
