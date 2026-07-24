@@ -698,7 +698,11 @@ async function handleFetchfiles(req, res) {
         const newName = `(${maxNum + 1}) ${base}${ext}`;
         return safeResolve(dir, newName);
       }
+
+      let getSuccess = () => true;
       async function applyDirections(rootPath, directions, username, userPathPermissions) {
+        let success = true;
+        getSuccess = () => success;
         // result object used to return information back to the caller
         const result = {};
         // Initialize clipboard from server storage or create new
@@ -913,6 +917,7 @@ async function handleFetchfiles(req, res) {
               }
               const targetExists = await exists(targetPath);
               if (!targetExists) {
+                success = false;
                 continue;
               }
               // Move to hidden .trash folder instead of permanently deleting
@@ -928,6 +933,7 @@ async function handleFetchfiles(req, res) {
                 await fsp.rename(targetPath, trashDest);
               } catch (e) {
                 if (e && (e.code === "ENOENT" || e.code === "ENOTDIR")) {
+                  success = false;
                   continue;
                 }
                 try {
@@ -938,6 +944,7 @@ async function handleFetchfiles(req, res) {
                     trashDest,
                     error: moveErr && (moveErr.stack || moveErr.message || String(moveErr)),
                   });
+                  success = false;
                   continue;
                 }
               }
@@ -969,6 +976,7 @@ async function handleFetchfiles(req, res) {
               const normalizedTrash = path.resolve(trashDir);
               if (!normalizedTarget.startsWith(normalizedTrash + path.sep) && normalizedTarget !== normalizedTrash) {
                 // Not inside .trash — refuse
+                success = false;
                 continue;
               }
               const deletedSize = await getPathSizeBytes(targetPath);
@@ -986,6 +994,7 @@ async function handleFetchfiles(req, res) {
               const normalizedTarget = path.resolve(targetPath);
               const normalizedTrash = path.resolve(trashDir);
               if (!normalizedTarget.startsWith(normalizedTrash + path.sep)) {
+                success = false;
                 continue; // refuse to restore items not in .trash
               }
               const itemName = path.basename(targetPath);
@@ -1046,6 +1055,7 @@ async function handleFetchfiles(req, res) {
                 assertWriteAllowed(destRelPath);
 
                 if (currentUsed + srcSize > quota) {
+                  success = false;
                   throw new Error(
                     `Storage quota exceeded: cannot paste "${path.basename(item.path)}"`
                   );
@@ -1082,9 +1092,8 @@ async function handleFetchfiles(req, res) {
         // Apply all frontend directions to build tree
         const result = await withUserLock(username, () => applyDirections(userRoot, data.directions, username, userPathPermissions) );
 
-        // Only return safe/serializable parts of result to avoid circular objects
         const safePayload = {
-          success: true,
+          success: getSuccess(),
           result: result && typeof result === "object"
             ? {
                 ...(result.checkParts ? { checkParts: result.checkParts } : {}),
