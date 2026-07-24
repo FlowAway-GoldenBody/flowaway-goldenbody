@@ -259,14 +259,17 @@ window.myadminapp = () => {
 ## QUICK DEV & RUN
 
 - Requirements: Node.js (v16+ recommended). IDK if bun works...
-- Install libraries/dependencies the server needs via npm install:
+- Install libraries/dependencies the server (aka. the rammerhead server) needs via npm install:
 
 ```bash
 npm install
 ```
 
-- THE BACKEND IS BASED ON ""aka (copied from)"" RAMMERHEAD SINCE THE PURPOSE OF THIS THING USED TO BE A PROXY:
-- Configure Rammerhead `src/config.js` to override defaults.
+- Because of how the proxy is set up, the 1st time you start the server you need to run
+```bash
+npm run build
+```
+
 - Run server:
 
 ```bash
@@ -277,6 +280,11 @@ node src/server.js
 ```bash
 npm start
 ```
+
+
+- THE BACKEND IS BASED ON ""aka (copied from)"" RAMMERHEAD SINCE THE PURPOSE OF THIS THING USED TO BE A PROXY:
+- Configure Rammerhead `src/config.js` to override defaults.
+
 
 - If you want external access, `cloudflared` is a good option to host it.
 
