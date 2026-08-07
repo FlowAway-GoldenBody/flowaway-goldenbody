@@ -152,10 +152,13 @@ window.protectedGlobals.calculateVwInPixels = function(vwValue) {
 
 
 // optional functions
-window.protectedGlobals.buildPersistableUserProfile = function buildPersistableUserProfile(overrides = {}) {
+window.protectedGlobals.buildPersistableUserProfile = async function (overrides = false) {
   var runtime = window.protectedGlobals.data;
+  debugger;
+  try {
+    if (!overrides) return JSON.parse(await window.protectedGlobals.ReadFile('systemfiles/userprofile/profile.json', { text: true, direct: true }));
+  } catch {}
   return {
-    schemaVersion: 1,
     taskbuttons:
       Array.isArray(overrides.taskbuttons)
         ? overrides.taskbuttons
@@ -199,16 +202,26 @@ window.protectedGlobals.buildPersistableUserProfile = function buildPersistableU
         : typeof runtime.taskbarOnTop === "boolean"
           ? runtime.taskbarOnTop
           : false,
+    compactTaskbar:
+      typeof overrides.compactTaskbar === "boolean"
+        ? overrides.compactTaskbar
+        : typeof runtime.compactTaskbar === "boolean"
+          ? runtime.compactTaskbar
+          : false,
   };
 };
 
-window.protectedGlobals.persistUserProfilePatch = function (patch = {}) {
-  var profile = window.protectedGlobals.buildPersistableUserProfile(patch);
+window.protectedGlobals.persistUserProfilePatch = async function (patch = {}) {
+  var profile = await window.protectedGlobals.buildPersistableUserProfile(patch);
   Object.assign(window.protectedGlobals.data, profile);
   var encoded = JSON.stringify(profile, null, 2);
   return window.protectedGlobals.WriteFile("/systemfiles/userprofile/profile.json", encoded, { replace: true });
 };
 
+(async () => {
+  var profile = await window.protectedGlobals.buildPersistableUserProfile();
+  Object.assign(window.protectedGlobals.data, profile);
+})();
 
 
 

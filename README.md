@@ -258,7 +258,7 @@ window.myadminapp = () => {
 
 ## QUICK DEV & RUN
 
-- Requirements: Node.js (latest recommended). IDK if bun works... prob not.
+- Requirements: Node.js (latest recommended, v24+). IDK if bun works... prob not.
 - Install libraries/dependencies the server (aka. the rammerhead server) needs via npm install:
 
 ```bash

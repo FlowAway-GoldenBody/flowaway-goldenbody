@@ -753,7 +753,7 @@ if (navigator.getBattery) {
 // ----------------- TOGGLE START MENU -----------------
 window.protectedGlobals.starthandler = () => {
   if (!startMenu.isConnected) document.body.appendChild(startMenu);
-  if (window.protectedGlobals.data.taskbarOnTop) {startMenu.style.top = "60px"; startMenu.style.bottom = 'initial'} else {startMenu.style.bottom = "60px"; startMenu.style.top = 'initial'}
+  if (window.protectedGlobals.data.taskbarOnTop) {startMenu.style.top = window.protectedGlobals.currentTaskbarHeight; startMenu.style.bottom = 'initial'} else {startMenu.style.bottom = window.protectedGlobals.currentTaskbarHeight; startMenu.style.top = 'initial'}
 
   startMenu.style.display =
     startMenu.style.display === "block" ? "none" : "block";

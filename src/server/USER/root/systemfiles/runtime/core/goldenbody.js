@@ -71,8 +71,15 @@
       transition: all 0.2s ease;
       min-height: 40px;
       max-height: 40px;
+      min-width: 50px;
+      max-width: 60px;
     }
-    
+    .taskbutton.small {
+      min-height: 35px;
+      max-height: 35px;
+      min-width: 40px;
+      max-width: 50px;
+    }
     .taskbutton::after {
       content: '';
       position: absolute;
@@ -130,6 +137,9 @@
       margin: 0 8px;
     }
 
+    .taskbar-divider.short {
+      height: 30px;
+    }
     .taskbar-divider.dark {
       background-color: rgba(255, 255, 255, 0.2);
     }
@@ -152,7 +162,10 @@
       transition: all 0.2s ease;
       user-select: none;
     }
-
+    .status-item.small {
+      width: 30px;
+      height: 30px;
+    }
     .status-item:hover {
       background-color: rgba(0, 0, 0, 0.1);
     }
@@ -166,7 +179,11 @@
       height: 18px;
       stroke: currentColor;
     }
-
+    .status-item.small svg {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+    }
     .taskbar.light .status-item {
       color: #000;
     }
@@ -205,9 +222,19 @@
       transition: all 0.2s ease;
     }
 
+    .status-item:has(.time-display).small {
+      min-width: 62px;
+      max-width: 62px;
+    }
+
     .status-item:has(.time-display):hover {
       min-width: 80px;
       max-width: 80px;
+    }
+
+    .status-item:has(.time-display).small:hover {
+      min-width: 72px;
+      max-width: 72px;
     }
 
     .taskbar-buttons-container {
@@ -228,6 +255,10 @@
       min-width: 147px;
     }
     
+    .taskbar-left-section.small {
+      min-width: 127px;
+    }
+
     .taskbar-buttons-container::-webkit-scrollbar {
       display: none;
     }
@@ -411,21 +442,6 @@
       background: rgba(255, 255, 255, 0.15);
     }
 
-    .battery-fill {
-      height: 100%;
-      background: #5ac950;
-      border-radius: 4px;
-      transition: all 0.3s ease;
-    }
-
-    .battery-fill.low {
-      background: #ff9500;
-    }
-
-    .battery-fill.critical {
-      background: #ff3b30;
-    }
-
     .status-info {
       font-size: 12px;
       opacity: 0.7;
@@ -453,32 +469,77 @@
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
   taskbar.style.zIndex = 100000; // very high z-index to ensure it stays on top of app content but below modals/menus
-  window.protectedGlobals.data.taskbarOnTop ? taskbar.style.top = "0" : taskbar.style.bottom = "0";
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
-  window.protectedGlobals.data.taskbarOnTop ? taskbar.style.height = "55px" : taskbar.style.height = "60px";
   taskbar.style.display = "flex";
   taskbar.style.alignItems = "center";
   taskbar.style.paddingLeft = "3%"; // 50px empty space on left
   taskbar.style.paddingRight = "1%"; // Add padding on right
   taskbar.style.boxSizing = "border-box";
-  document.body.appendChild(taskbar);
-  window.protectedGlobals.taskbar = taskbar;
   let changeTaskbarPosition = () => {
-    if (window.protectedGlobals.data.taskbarOnTop) {taskbar.style.top = "0"; taskbar.style.height = '55px';taskbar.style.bottom = 'initial'} else {taskbar.style.bottom = "0"; taskbar.style.height = '60px'; taskbar.style.top = 'initial'}
-    for(let root of document.querySelectorAll('.app-window-root')){
-      let h1 = root.style.height === `calc(100% - 60px)`;
-      let h2 = root.style.height === `calc(100% - 55px)`;
-      if(root.style.width === `100%` && (h1 || h2)) {
-        window.protectedGlobals.data.taskbarOnTop ? root.style.top = `55px` : root.style.top = `0px`;
-        if (h1 && window.protectedGlobals.data.taskbarOnTop) root.style.height = `calc(100% - 55px)`;
-        else if (h2 && !window.protectedGlobals.data.taskbarOnTop) root.style.height = `calc(100% - 60px)`;
+    debugger;
+    function removeSmallConfig() {
+      try {
+        divider1.classList.remove('short');
+        divider.classList.remove('short');
+        window.protectedGlobals.leftSection.classList.remove('small');
+        statusContainer.querySelectorAll('.status-item').forEach(b => b.classList.remove('small'));
+        window.protectedGlobals.leftSection.querySelectorAll('.taskbutton').forEach(b => b.classList.remove('small'));
+        window.protectedGlobals.taskbuttonsContainer.querySelectorAll('.taskbutton').forEach(b => b.classList.remove('small'));
+      } catch {}
+    }
+    function addSmallConfig() {
+      try {
+        divider1.classList.add('short');
+        divider.classList.add('short');
+        window.protectedGlobals.leftSection.classList.add('small');
+        statusContainer.querySelectorAll('.status-item').forEach(b => b.classList.add('small'));
+        window.protectedGlobals.taskbuttonsContainer.querySelectorAll('.taskbutton').forEach(b => b.classList.add('small'));
+        window.protectedGlobals.leftSection.querySelectorAll('.taskbutton').forEach(b => b.classList.add('small'));
+      } catch {}
+    }
+    if (window.protectedGlobals.data.taskbarOnTop) {
+      if (window.protectedGlobals.data.compactTaskbar) {
+        addSmallConfig();
+        window.protectedGlobals.currentTaskbarHeight = 45;
+        window.protectedGlobals.currentAppMaximizedTop = '45';
+      } else {
+        removeSmallConfig();
+        window.protectedGlobals.currentTaskbarHeight = 55;
+        window.protectedGlobals.currentAppMaximizedTop = '55';
+      }
+      taskbar.style.bottom = 'initial';
+      taskbar.style.top = '0';
+    }
+    else {
+      if (window.protectedGlobals.data.compactTaskbar) {
+        addSmallConfig();
+        window.protectedGlobals.currentTaskbarHeight = 50;
+        window.protectedGlobals.currentAppMaximizedTop = '0';
+      } else {
+        removeSmallConfig();
+        window.protectedGlobals.currentTaskbarHeight = 60;
+        window.protectedGlobals.currentAppMaximizedTop = '0';
+      }
+      taskbar.style.bottom = '0';
+      taskbar.style.top = 'initial';
+    }
+    taskbar.style.height = window.protectedGlobals.currentTaskbarHeight;
+    for (const root of document.querySelectorAll('.app-window-root')) {
+      if (root.style.width === `100%` && root.style.height.startsWith('calc(100%')) {
+        root.style.top = window.protectedGlobals.currentAppMaximizedTop;
+        root.style.height = `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
       }
     }
-  };
+  }
+  changeTaskbarPosition();
+  document.body.appendChild(taskbar);
+  window.protectedGlobals.taskbar = taskbar;
+
   let leftSection = document.createElement('div');
   leftSection.className = 'taskbar-left-section';
   leftSection.id = 'taskbar-left-section';
+  if (window.protectedGlobals.data.compactTaskbar) leftSection.classList.add('small');
   window.protectedGlobals.leftSection = leftSection;
   taskbar.appendChild(leftSection);
 
@@ -566,6 +627,9 @@
   if (window.protectedGlobals.data.dark) {
     divider.classList.add('dark');
   }
+  if (window.protectedGlobals.data.compactTaskbar) {
+    divider.classList.add('short');
+  }
   rightSection.appendChild(divider);
   rightSection.appendChild(statusContainer);
   taskbar.appendChild(rightSection);
@@ -573,7 +637,6 @@
   // Create status menu
   var statusMenu = document.createElement('div');
   statusMenu.className = 'status-menu';
-  if (window.protectedGlobals.data.taskbarOnTop) {statusMenu.style.top = "60px"; statusMenu.style.bottom = 'initial'} else {statusMenu.style.bottom = "60px"; statusMenu.style.top = 'initial'}
   if (window.protectedGlobals.data.dark) {
     statusMenu.classList.add('dark');
   }
@@ -766,10 +829,10 @@
     e.stopPropagation();
     statusMenu.classList.toggle('show');
     if (window.protectedGlobals.data.taskbarOnTop) {
-      statusMenu.style.top = "60px";
+      statusMenu.style.top = window.protectedGlobals.currentTaskbarHeight;
       statusMenu.style.bottom = 'initial';
     } else {
-      statusMenu.style.bottom = "60px";
+      statusMenu.style.bottom = window.protectedGlobals.currentTaskbarHeight;
       statusMenu.style.top = 'initial';
     }
     if (statusMenu.classList.contains('show')) {
@@ -1133,7 +1196,7 @@
     cm.style.padding = '8px';
     cm.style.borderRadius = '6px';
     cm.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
-    cm.style.display = 'none';
+    cm.style.visibility = 'hidden';
     cm.style.minWidth = '180px';
     cm.style.fontSize = '14px';
 
@@ -1153,6 +1216,7 @@
     row.appendChild(chk);
     row.appendChild(lbl);
 
+
     let chk2 = document.createElement('input');
     chk2.type = 'checkbox';
     chk2.id = 'taskbar-alignment-checkbox';
@@ -1168,12 +1232,32 @@
     row2.style.gap = '8px';
     row2.appendChild(chk2);
     row2.appendChild(lbl2);
+
+
+    let chk3 = document.createElement('input');
+    chk3.type = 'checkbox';
+    chk3.id = 'taskbar-alignment-checkbox';
+    chk3.style.marginRight = '8px';
+    let lbl3 = document.createElement('label');
+    lbl3.htmlFor = chk3.id;
+    lbl3.style.cursor = 'pointer';
+    lbl3.textContent = 'Compact Mode';
+
+    let row3 = document.createElement('div');
+    row3.style.display = 'flex';
+    row3.style.alignItems = 'center';
+    row3.style.gap = '8px';
+    row3.appendChild(chk3);
+    row3.appendChild(lbl3);
+
+
     cm.appendChild(row);
     cm.appendChild(row2);
+    cm.appendChild(row3);
     document.body.appendChild(cm);
 
     function closeMenu() {
-      cm.style.display = 'none';
+      cm.style.visibility = 'hidden';
       _setTaskbarContextMenuOpen(false);
       document.removeEventListener('pointerdown', onDocPointerDown);
       taskbar.removeEventListener('pointerdown', onDocPointerDown);
@@ -1193,11 +1277,12 @@
       var y = ev.clientY;
       chk.checked = window.protectedGlobals.data.autohidetaskbar;
       chk2.checked = window.protectedGlobals.data.taskbarOnTop;
-      cm.style.left = Math.min(window.innerWidth - 200, x) + 'px';
-      cm.style.top = Math.min(window.innerHeight - 50, y) + 'px';
+      chk3.checked = window.protectedGlobals.data.compactTaskbar;
+      cm.style.left = x + 'px';
+      cm.style.top = window.protectedGlobals.data.taskbarOnTop ? y + 'px' : y - cm.offsetHeight + 'px';
       cm.style.color = window.protectedGlobals.data.dark ? 'white' : 'black'; 
       cm.style.background = window.protectedGlobals.data.dark ? 'rgba(50,50,50,0.95)' : 'rgba(220,220,220,0.95)';
-      cm.style.display = 'block';
+      cm.style.visibility = 'visible';
       document.addEventListener('pointerdown', onDocPointerDown);
       taskbar.addEventListener('pointerdown', onDocPointerDown); // also close if clicking taskbar (but not buttons)
       document.addEventListener('keydown', onEsc);
@@ -1218,6 +1303,15 @@
       // update runtime behavior
       changeTaskbarPosition();
       window.protectedGlobals.persistUserProfilePatch({ taskbarOnTop: newVal });
+      closeMenu();
+    });
+
+    chk3.addEventListener('change', () => {
+      var newVal = !!chk3.checked;
+      window.protectedGlobals.data.compactTaskbar = newVal;
+      // update runtime behavior
+      changeTaskbarPosition();
+      window.protectedGlobals.persistUserProfilePatch({ compactTaskbar: newVal });
       closeMenu();
     });
   })();
@@ -1305,7 +1399,7 @@
     btn.style.marginLeft = "2.5px";
     btn.style.border = "none";
     btn.className = 'taskbutton';
-    btn.style.minWidth = '50px';
+    if (window.protectedGlobals.data.compactTaskbar) btn.classList.add('small');
     var isDarkTaskbarTheme = !!(window.protectedGlobals.data.dark);
     btn.classList.toggle('dark', isDarkTaskbarTheme);
     btn.classList.toggle('light', !isDarkTaskbarTheme);
@@ -1388,6 +1482,9 @@
   divider1.className = 'taskbar-divider';
   if (window.protectedGlobals.data.dark) {
     divider1.classList.add('dark');
+  }
+  if (window.protectedGlobals.data.compactTaskbar) {
+    divider1.classList.add('short');
   }
   window.protectedGlobals.leftSection.appendChild(divider1);
   let updateTaskbarCoreButtonTheme = () => {

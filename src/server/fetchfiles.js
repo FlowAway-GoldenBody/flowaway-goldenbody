@@ -616,7 +616,7 @@ async function handleFetchfiles(req, res) {
         const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
 
         if (!wantDetails) {
-          const files = dirents.map((d) => removeUnwantedStuffInPath(normalizedRequestPath ? `${normalizedRequestPath}/${d.name}` : d.name));
+          const files = dirents.map((d) => removeUnwantedStuffInPath(d.name));
 
           return res.end(
             JSON.stringify({
@@ -628,7 +628,7 @@ async function handleFetchfiles(req, res) {
 
         const files = await limit(() => Promise.all(
           dirents.map(async (d) => {
-            const entryPath = removeUnwantedStuffInPath(normalizedRequestPath ? `${normalizedRequestPath}/${d.name}` : d.name);
+            const entryPath = removeUnwantedStuffInPath(d.name);
 
             const type = d.isDirectory() ? "folder" : "file";
 

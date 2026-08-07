@@ -147,9 +147,9 @@ window.taskManager = function (posX = 50, posY = 50) {
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
-    root.style.top = window.protectedGlobals.data.taskbarOnTop && !window.protectedGlobals.data.autohidetaskbarr ? "55" : "0";
+    root.style.top = window.protectedGlobals.currentAppMaximizedTop;
     root.style.width = "100%";
-    root.style.height = window.protectedGlobals.data.autohidetaskbar ?  "100%" : (window.protectedGlobals.data.taskbarOnTop ? "calc(100% - 55px)" : "calc(100% - 60px)");
+    root.style.height = `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
     root.style.borderRadius = "0";
     isMaximized = true;
     _isMinimized = false;

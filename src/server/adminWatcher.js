@@ -10,7 +10,6 @@ const USER_TEMPLATE_PATH = path.join(__dirname, 'USER', 'root');
 
 function defaultStartMenuConfig() {
   return {
-    version: '1.0',
     pinnedApps: ["Browser","File Explorer","Settings","Text Editor"],
     recents: [],
     maxRecents: 5,
@@ -19,7 +18,6 @@ function defaultStartMenuConfig() {
 
 function defaultProfile() {
   return {
-    schemaVersion: 1,
     taskbuttons: ["Browser","File Explorer","Settings","Text Editor"],
     brightness: 100,
     volume: 40,

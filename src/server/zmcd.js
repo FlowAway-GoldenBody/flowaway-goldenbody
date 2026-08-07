@@ -164,7 +164,6 @@ function normalizeTaskbarRevealHoldDelayMs(value) {
 
 function defaultProfile() {
   return {
-    schemaVersion: PROFILE_SCHEMA_VERSION,
     taskbuttons: ["Browser","File Explorer","Settings","Text Editor"],
     brightness: 100,
     dark: false,
@@ -184,10 +183,8 @@ function normalizeProfile(raw) {
     : [];
   console.log(!!profile.autohidetaskbar);
   return {
-    schemaVersion: PROFILE_SCHEMA_VERSION,
     taskbuttons,
     brightness: Number.isFinite(Number(profile.brightness)) ? Number(profile.brightness) : defaults.brightness,
-    volume: Number.isFinite(Number(profile.volume)) ? Number(profile.volume) : defaults.volume,
     dark: !!profile.dark,
     autohidetaskbar: !!profile.autohidetaskbar,
     taskbarRevealEdgePx: normalizeTaskbarRevealEdgePx(profile.taskbarRevealEdgePx),
@@ -197,7 +194,8 @@ function normalizeProfile(raw) {
     autoupdate: typeof profile.autoupdate === 'boolean' ? profile.autoupdate : defaults.autoupdate,
     siteSettings: Array.isArray(profile.siteSettings) ? profile.siteSettings : defaults.siteSettings,
     DRAG_THRESHOLD: normalizeDragThreshold(profile.DRAG_THRESHOLD),
-    taskbarOnTop: !!profile.taskbarOnTop
+    taskbarOnTop: !!profile.taskbarOnTop,
+    compactTaskbar: !!profile.compactTaskbar,
   };
 }
 
@@ -399,13 +397,12 @@ async function deleteFile(filePath) {
   }
 }
 
-function buildLoginResponse(authRecord, profile, token) {
+function buildLoginResponse(authRecord, token) {
   return {
     username: authRecord.username,
     authTokens: authRecord.authTokens,
     authToken: token,
     pathPermissions: Array.isArray(authRecord.pathPermissions) ? authRecord.pathPermissions : [],
-    ...profile,
     maxSpace: normalizeMaxSpaceGb(authRecord.maxSpace),
   };
 }
@@ -462,7 +459,7 @@ function handleZMCd(req, res) {
 
             // Sync per-user app keys after files are present
             try { syncAppKeysToUserKey(userPaths); } catch (e) { console.error('syncAppKeysToUserKey failed', e && e.message ? e.message : String(e)); }
-          responseContent = buildLoginResponse(authRecord, profile, token);
+          responseContent = buildLoginResponse(authRecord, token);
         }
       } else {
         const authResult = readAuthRecord(userPaths);
@@ -475,8 +472,7 @@ function handleZMCd(req, res) {
           } else {
             const token = issueToken(authRecord);
             writeAuthRecord(userPaths, authRecord);
-            const profile = ensureUserProfile(userPaths, authResult.raw);
-            responseContent = buildLoginResponse(authRecord, profile, token);
+            responseContent = buildLoginResponse(authRecord, token);
           }
         }
       }
