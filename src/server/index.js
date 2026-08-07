@@ -165,7 +165,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const zmcd = require('./zmcd');
     const fetchfiles = require('./fetchfiles');
     const download = require('./download');
-    const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
+    const MAX_REQUEST_BODY = 10 * 1024 * 1024; // 10 MB
 
     proxyServer.addToOnRequestPipeline((req, res) => {
         if (!req.url) return;

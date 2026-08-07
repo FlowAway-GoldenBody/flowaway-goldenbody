@@ -195,11 +195,8 @@ window.protectedGlobals.WriteFile = async function (
       ? options.replace !== false
       : options !== false;
 
-  // Build a body factory so each retry gets a fresh stream.
-  let getBody;
-
+  let raw;
   if (!options.stream) {
-    let raw;
     if (contents instanceof ArrayBuffer) {
       raw = new Uint8Array(contents);
     } else if (ArrayBuffer.isView(contents)) {
@@ -215,22 +212,11 @@ window.protectedGlobals.WriteFile = async function (
     } else {
       raw = new TextEncoder().encode(String(contents));
     }
-
-    getBody = () => new Blob([raw]).stream();
   } else {
-    if (typeof contents === "function") {
-      // Stream factory: () => ReadableStream
-      getBody = contents;
-    } else if (typeof Blob !== "undefined" && contents instanceof Blob) {
-      // Blob can create a fresh stream each time.
-      getBody = () => contents.stream();
-    } else {
-      throw new Error(
-        "When stream:true, contents must be a Blob or a function returning a ReadableStream."
-      );
-    }
+    debugger;
+    let tempres = new Response(contents);
+    raw = await tempres.arrayBuffer();
   }
-
   const headers = {
     "Content-Type": "application/octet-stream",
     "X-File-Action": "write",
@@ -258,8 +244,7 @@ window.protectedGlobals.WriteFile = async function (
       response = await fetch(window.protectedGlobals.SERVER, {
         method: "POST",
         headers,
-        body: getBody(),
-        duplex: "half",
+        body: raw,
         signal: controller.signal,
       });
 

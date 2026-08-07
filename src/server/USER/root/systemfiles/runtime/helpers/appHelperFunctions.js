@@ -143,7 +143,7 @@ window.protectedGlobals.loadAppsFromTree = async function () {
       var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
       window.dispatchEvent(appUpdatedEvent);
   } catch (e) {
-    window.protectedGlobals.throwError("loadAppsFromTree", "loadAppsFromTree failed", e);
+    throw e;
   }
 }
 

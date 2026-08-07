@@ -31,7 +31,11 @@ window.protectedGlobals._startMenuConfig = null;
 const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async function () {
   const configPath = 'systemfiles/userprofile/startMenu-config.json';
   const configText = String(await window.protectedGlobals.ReadFile(configPath, { text: true, direct: true }) || "");
-  window.protectedGlobals._startMenuConfig = JSON.parse(configText);
+  try {
+    window.protectedGlobals._startMenuConfig = JSON.parse(configText);
+  } catch (e) {
+    window.protectedGlobals._startMenuConfig = {};
+  }
   return window.protectedGlobals._startMenuConfig;
 }
 

@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const fsp = require("fs/promises");
 
-const MAX_BODY = 100 * 1024 * 1024;
+const MAX_BODY = 10 * 1024 * 1024;
 async function exists(fullPath) {
   try {
     await fsp.access(fullPath);
@@ -562,7 +562,6 @@ async function handleFetchfiles(req, res) {
 
         res.setHeader("Content-Type", "application/octet-stream");
         res.setHeader("Content-Length", String(stat.size));
-        res.setHeader("X-File-Name", path.basename(fullPath));
 
         return fs.createReadStream(fullPath).pipe(res);
       }

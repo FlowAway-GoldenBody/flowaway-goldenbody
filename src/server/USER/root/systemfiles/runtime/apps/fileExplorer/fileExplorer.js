@@ -10,6 +10,7 @@ window.explorerGlobals.clipboard = {
 };
 
 window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
+  let needRefresh = false;
   if (posX == 50 && posY == 50) {
     let pos = window.protectedGlobals.getNextWindowXY();
     posX = pos.x;
@@ -2262,7 +2263,7 @@ function makeIcon(type, size = 16) {
             const deletePath = [...currentPath.slice(1), item[0]];
             // slice(1) removes "root" if treeData is the root node
             removeNodeFromTree(treeData, deletePath);
-
+            needRefresh = true;
             // If window.explorerGlobals.clipboard is an array, remove any entries that reference this deleted path.
             if (!Array.isArray(window.explorerGlobals.clipboard))
               window.explorerGlobals.clipboard = [];
@@ -2684,6 +2685,11 @@ function makeIcon(type, size = 16) {
     saveBtn.innerHTML = '';
     saveBtn.appendChild(makeIcon('save',16));
     saveBtn.appendChild(document.createTextNode(saveFailed ? 'Save Failed!' : 'Saved!'));
+    if (needRefresh) {
+      await onlyloadTree();
+      render();
+      needRefresh = false;
+    }
     setTimeout(() => {
       saveBtn.innerHTML = '';
       saveBtn.appendChild(makeIcon('save',16));
@@ -2720,7 +2726,7 @@ function makeIcon(type, size = 16) {
         const chunkData = new Uint8Array(arrayBuffer);
         onProgress(chunkData.byteLength, chunkData.byteLength);
         const shouldReplace = index === 0;
-        await window.protectedGlobals.WriteFile(path, () => blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength, retry: true });
+        await window.protectedGlobals.WriteFile(path, blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength, retry: true });
         return true;
       } catch (err) {
         attempts++;

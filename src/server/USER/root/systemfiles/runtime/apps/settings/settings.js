@@ -679,7 +679,6 @@ window.settings = function (posX = 50, posY = 50) {
             try {
               if (data.pngEnabled) {
                 const raw = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
-                debugger;
                 const iconString = iconDataToBase64(raw);
                 if (iconString) {
                   meta.icon = iconString;
