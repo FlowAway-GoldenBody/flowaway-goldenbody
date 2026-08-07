@@ -154,7 +154,6 @@ window.protectedGlobals.calculateVwInPixels = function(vwValue) {
 // optional functions
 window.protectedGlobals.buildPersistableUserProfile = async function (overrides = false) {
   var runtime = window.protectedGlobals.data;
-  debugger;
   try {
     if (!overrides) return JSON.parse(await window.protectedGlobals.ReadFile('systemfiles/userprofile/profile.json', { text: true, direct: true }));
   } catch {}

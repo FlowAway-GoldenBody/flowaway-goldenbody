@@ -146,9 +146,8 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   function maximizeWindow() {
     savedBounds = getBounds();
     root.style.left = "0";
-    root.style.top = window.protectedGlobals.currentAppMaximizedTop;
-    root.style.width = "100%";
-    root.style.height = `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
+    root.style.top = window.protectedGlobals.data.autohidetaskbar ? '0px' : window.protectedGlobals.currentAppMaximizedTop;    root.style.width = "100%";
+    root.style.height = window.protectedGlobals.data.autohidetaskbar ? '100%' : `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
     root.style.borderRadius = "0";
     isMaximized = true;
     _isMinimized = false;

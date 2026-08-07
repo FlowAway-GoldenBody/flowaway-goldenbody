@@ -449,8 +449,7 @@ window.protectedGlobals.initAppTools = function () {
         };
         root._apptoolsSavedBounds = savedBounds;
         root.style.left = "0";
-        root.style.top = window.protectedGlobals.currentAppMaximizedTop;
-        root.style.width = "100%";
+        root.style.top = window.protectedGlobals.data.autohidetaskbar ? '0px' : window.protectedGlobals.currentAppMaximizedTop;        root.style.width = "100%";
         root.style.height = !(window.protectedGlobals.data.autohidetaskbar) ? `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)` : "100%";
         root.style.borderRadius = "0";
         root._apptoolsMaximized = true;
@@ -632,9 +631,8 @@ window.protectedGlobals.initAppTools = function () {
       instance.savedBounds = savedBounds;
       instance.rootElement._apptoolsSavedBounds = savedBounds;
       instance.rootElement.style.left = "0";
-      instance.rootElement.style.top = window.protectedGlobals.currentAppMaximizedTop;
-      instance.rootElement.style.width = "100%";
-      instance.rootElement.style.height = `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
+      instance.rootElement.style.top = window.protectedGlobals.data.autohidetaskbar ? '0px' : window.protectedGlobals.currentAppMaximizedTop;      instance.rootElement.style.width = "100%";
+      instance.rootElement.style.height = window.protectedGlobals.data.autohidetaskbar ? '100%' : `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
       instance.rootElement.style.borderRadius = "0px";
       instance._isMaximized = true;
       instance._isMinimized = false;
