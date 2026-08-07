@@ -162,10 +162,10 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
 window.protectedGlobals.WriteFile = async function (
   relPath,
   contents,
-  options = { replace: true, stream: false, retrytimeout: 3000 }
+  options = { replace: true, stream: false }
 ) {
   let normalizedPath = String(relPath || "").trim();
-  if (!normalizedPath) throw new Error("Nopath");
+  if (!normalizedPath) throw new Error("No path");
   if (!options.retrytimeout) {
     options.retrytimeout = 3000;
   }
@@ -213,7 +213,6 @@ window.protectedGlobals.WriteFile = async function (
       raw = new TextEncoder().encode(String(contents));
     }
   } else {
-    debugger;
     let tempres = new Response(contents);
     raw = await tempres.arrayBuffer();
   }

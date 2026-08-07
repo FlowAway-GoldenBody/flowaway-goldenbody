@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const fsp = require("fs/promises");
 
-const MAX_BODY = 10 * 1024 * 1024;
+const MAX_BODY = 100 * 1024 * 1024;
 async function exists(fullPath) {
   try {
     await fsp.access(fullPath);
@@ -355,8 +355,7 @@ async function getRawBody(req) {
 
 async function handleRawFileUpload(req, res) {
   console.log({
-    contentLength: req.headers["content-length"],
-    transferEncoding: req.headers["transfer-encoding"],
+    contentLength: req.headers["content-length"]
   });
   function base64ToUtf8(base64Str) {
     return Buffer.from(base64Str, "base64").toString("utf8");

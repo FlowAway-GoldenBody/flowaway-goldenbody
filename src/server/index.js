@@ -78,7 +78,7 @@ function fetchFilesRateLimit(req, res) {
     const now = Date.now();
 
     const window = 10 * 1000; // 10 seconds
-    const max = 300;
+    const max = 500;
 
     let data = fetchFilesAttempts.get(ip);
 
@@ -165,7 +165,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const zmcd = require('./zmcd');
     const fetchfiles = require('./fetchfiles');
     const download = require('./download');
-    const MAX_REQUEST_BODY = 10 * 1024 * 1024; // 10 MB
+    const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
 
     proxyServer.addToOnRequestPipeline((req, res) => {
         if (!req.url) return;

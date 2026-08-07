@@ -2724,7 +2724,7 @@ function makeIcon(type, size = 16) {
         const blob = file.slice(start, end);
         const arrayBuffer = await blob.arrayBuffer();
         const chunkData = new Uint8Array(arrayBuffer);
-        onProgress(chunkData.byteLength, chunkData.byteLength);
+        onProgress();
         const shouldReplace = index === 0;
         await window.protectedGlobals.WriteFile(path, blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength, retry: true });
         return true;
@@ -2789,18 +2789,20 @@ function makeIcon(type, size = 16) {
           const total = Math.ceil(f.size / CHUNK_SIZE);
           for (let i = 0; i < total; i++) {
             try {
-              await uploadChunkWithRetries(cp + "/" + newName, f, i, (loaded) => {
+              let progressLabel = '';
+              const chunkBytes = Math.min(CHUNK_SIZE, f.size - i * CHUNK_SIZE);
+              if (i > 1) {
+                progressLabel = `Uploading ${fileLabel} (${i + 1}/${total} chunks)`;
+              } else {
+                progressLabel = `Uploading ${fileLabel} (${i + 1}/${total} chunks) (The 1st chunk may take longer to upload)`;
+              }
+              uploadedBytes += chunkBytes;
+              await uploadChunkWithRetries(cp + "/" + newName, f, i, () => {
                 updateUploadProgress(
-                  uploadedBytes + loaded,
-                  `Uploading ${fileLabel} (${i + 1}/${total} chunks)`,
+                  uploadedBytes,
+                  progressLabel
                 );
               });
-              const chunkBytes = Math.min(CHUNK_SIZE, f.size - i * CHUNK_SIZE);
-              uploadedBytes += chunkBytes;
-              updateUploadProgress(
-                uploadedBytes,
-                `Uploaded ${fileLabel} (${i + 1}/${total} chunks)`,
-              );
             } catch (err) {
               console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
               setUploadError(
