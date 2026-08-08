@@ -12,3 +12,6 @@
 
 ## V 1.1.2
 - Fixed the file upload bug once and for all
+
+## V 1.1.3
+- Emergency patch

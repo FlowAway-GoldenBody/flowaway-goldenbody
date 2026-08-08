@@ -168,7 +168,7 @@ window.protectedGlobals.WriteFile = async function (
   if (!normalizedPath) throw new Error("No path");
 
   if (!options.retrytimeout) {
-    options.retrytimeout = 3000;
+    options.retrytimeout = 15000; // default 15 seconds
   }
 
   function utf8ToBase64(str) {
@@ -221,7 +221,7 @@ window.protectedGlobals.WriteFile = async function (
     raw = await tempres.arrayBuffer();
   }
 
-  const CHUNK_SIZE = 100 * 1024 * 1024; // 10 MB
+  const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
 
   const baseHeaders = {
     "Content-Type": "application/octet-stream",

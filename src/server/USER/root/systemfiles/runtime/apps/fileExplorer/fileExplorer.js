@@ -2710,7 +2710,7 @@ function makeIcon(type, size = 16) {
   saveBtn.onclick = handlesave;
   // root.addEventListener("pointerup", handlesave);
   // --- Upload helpers ---
-  const CHUNK_SIZE = 100 * 1024 * 1024; // 100 MB chunks for visible progress
+  const CHUNK_SIZE = 1 * 1024 * 1024; // 1 MB chunks for visible progress
 
   fileInput.addEventListener("change", async (e) => {
     const files = [...e.target.files];

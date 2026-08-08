@@ -77,8 +77,8 @@ function fetchFilesRateLimit(req, res) {
     const ip = config.getIP(req);
     const now = Date.now();
 
-    const window = 1 * 1000; // 10 seconds
-    const max = 1000;
+    const window = 10 * 1000; // 10 seconds
+    const max = 5000;
 
     let data = fetchFilesAttempts.get(ip);
 
@@ -166,12 +166,11 @@ setupPipeline(proxyServer, sessionStore);
 setupRoutes(proxyServer, sessionStore, logger);
 
 // register routes and handlers only in workers (or single-process mode)
+// special /server/* endpoints are pinned to one dedicated worker via sticky routing
 if (!config.enableWorkers || !cluster.isMaster) {
     // register websocket handler for app polling through the proxy
 
     // mount zmcd and fetchfiles handlers under proxy routes
-    const zmcd = require('./zmcd');
-    const fetchfiles = require('./fetchfiles');
     const download = require('./download');
     const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
 
@@ -200,9 +199,10 @@ if (!config.enableWorkers || !cluster.isMaster) {
         if (req.url.startsWith('/server/zmcd')) {
             // strip prefix so handler sees original paths
             let passed = zmcdRateLimit(req, res);
-            if (!passed) return;
+            if (!passed) return true;
             req.url = req.url.slice('/server/zmcd'.length) || '/';
             try {
+                const zmcd = require('./zmcd');
                 zmcd.handleZMCd(req, res);
             } catch (e) {
                 logger.error('zmcd handler error: ' + e.message);
@@ -223,6 +223,25 @@ if (!config.enableWorkers || !cluster.isMaster) {
                 });
             } catch (e) {
                 logger.error('download handler error: ' + e.message);
+                res.writeHead(500);
+                res.end('Server error');
+            }
+            return true;
+        }
+        if (req.url.startsWith('/server/fetchfiles')) {
+            if (!fetchFilesRateLimit(req, res)) return true;
+            req.url = req.url.slice('/server/fetchfiles'.length) || '/';
+            try {
+                const fetchfiles = require('./fetchfiles');
+                const maybe = fetchfiles.handleFetchfiles(req, res);
+                if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
+                    logger.error('fetchfiles handler error: ' + e.message);
+                    try { res.writeHead(500); res.end('Server error'); } catch (er) {
+                        logger.debug('Failed to write fetchfiles error response: ' + er.message);
+                    }
+                });
+            } catch (e) {
+                logger.error('fetchfiles handler error: ' + e.message);
                 res.writeHead(500);
                 res.end('Server error');
             }
@@ -326,7 +345,6 @@ if (cluster.isMaster) {
     require('./adminWatcher');
     const httpLocal = require('http');
     const routers = [];
-
     const startPortRouter = (listenPort, targetPath) => {
         const srv = httpLocal.createServer((req, res) => {
             // proxy incoming request to the main proxy server at `targetPath`
@@ -346,27 +364,6 @@ if (cluster.isMaster) {
                 headers
             };
 
-            if (req.url.startsWith('/server/fetchfiles')) {
-                if (!fetchFilesRateLimit(req, res)) {
-                    return true;
-                }
-                req.url = req.url.slice('/server/fetchfiles'.length) || '/';
-                try {
-                    // fetchfiles handler is async
-                    const maybe = fetchfiles.handleFetchfiles(req, res);
-                    if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
-                        logger.error('fetchfiles handler error: ' + e.message);
-                        try { res.writeHead(500); res.end('Server error'); } catch (er) {
-                            logger.debug('Failed to write fetchfiles error response: ' + er.message);
-                        }
-                    });
-                } catch (e) {
-                    logger.error('fetchfiles handler error: ' + e.message);
-                    res.writeHead(500);
-                    res.end('Server error');
-                }
-                return true;
-            }
             const proxyReq = httpLocal.request(options, (proxyRes) => {
                 res.writeHead(proxyRes.statusCode, proxyRes.headers);
                 proxyRes.pipe(res, { end: true });
