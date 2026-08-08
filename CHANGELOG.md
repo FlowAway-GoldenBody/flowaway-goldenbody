@@ -9,3 +9,6 @@
 
 ## V 1.1.1
 - Various bug fixes
+
+## V 1.1.2
+- Fixed the file upload bug once and for all
