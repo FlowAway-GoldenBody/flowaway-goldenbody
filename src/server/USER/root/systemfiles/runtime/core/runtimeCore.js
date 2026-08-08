@@ -166,9 +166,11 @@ window.protectedGlobals.WriteFile = async function (
 ) {
   let normalizedPath = String(relPath || "").trim();
   if (!normalizedPath) throw new Error("No path");
+
   if (!options.retrytimeout) {
     options.retrytimeout = 3000;
   }
+
   function utf8ToBase64(str) {
     const bytes = new TextEncoder().encode(str);
     const binaryString = String.fromCharCode(...bytes);
@@ -177,6 +179,7 @@ window.protectedGlobals.WriteFile = async function (
 
   // Normalize legacy prefixes and leading slashes.
   normalizedPath = normalizedPath.replace(/\\/g, "/");
+
   if (normalizedPath === "root") {
     normalizedPath = "";
   } else if (normalizedPath.startsWith("root/")) {
@@ -184,6 +187,7 @@ window.protectedGlobals.WriteFile = async function (
   } else if (normalizedPath.startsWith("/root/")) {
     normalizedPath = normalizedPath.slice("/root/".length);
   }
+
   while (normalizedPath.startsWith("/")) {
     normalizedPath = normalizedPath.slice(1);
   }
@@ -195,87 +199,134 @@ window.protectedGlobals.WriteFile = async function (
       ? options.replace !== false
       : options !== false;
 
+  // Convert the entire input to bytes first.
   let raw;
+
   if (!options.stream) {
     if (contents instanceof ArrayBuffer) {
-      raw = new Uint8Array(contents);
-    } else if (ArrayBuffer.isView(contents)) {
-      raw = new Uint8Array(
-        contents.buffer,
-        contents.byteOffset,
-        contents.byteLength
-      );
-    } else if (typeof Blob !== "undefined" && contents instanceof Blob) {
-      raw = new Uint8Array(await contents.arrayBuffer());
+      raw = contents;
+    } else if (ArrayBuffer.isView(contents)) {}
+    else if (
+      typeof Blob !== "undefined" &&
+      contents instanceof Blob
+    ) {
+      raw = await contents.arrayBuffer();
     } else if (contents == null) {
-      raw = new Uint8Array(0);
+      raw = new ArrayBuffer(0);
     } else {
       raw = new TextEncoder().encode(String(contents));
     }
   } else {
-    let tempres = new Response(contents);
+    const tempres = new Response(contents);
     raw = await tempres.arrayBuffer();
   }
-  const headers = {
+
+  const CHUNK_SIZE = 100 * 1024 * 1024; // 10 MB
+
+  const baseHeaders = {
     "Content-Type": "application/octet-stream",
     "X-File-Action": "write",
     "X-File-Path": utf8ToBase64(normalizedPath),
-    "X-File-Replace": replace ? "true" : "false",
-    "X-Username": window.protectedGlobals.getCurrentUsernameForRequests(),
+    "X-Username":
+      window.protectedGlobals.getCurrentUsernameForRequests(),
   };
 
   if (window.protectedGlobals.data.authToken) {
-    headers["Authorization"] =
+    baseHeaders["Authorization"] =
       "Bearer " + window.protectedGlobals.data.authToken;
   }
 
   const maxAttempts = 15;
-  let response;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      options.retrytimeout
-    );
+  async function sendChunk(chunk, chunkReplace) {
+    const headers = {
+      ...baseHeaders,
+      "X-File-Replace": chunkReplace ? "true" : "false",
+    };
+
+    let response;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const controller = new AbortController();
+
+      const timeout = setTimeout(
+        () => controller.abort(),
+        options.retrytimeout
+      );
+
+      try {
+        response = await fetch(window.protectedGlobals.SERVER, {
+          method: "POST",
+          headers,
+          body: new Blob([chunk]), // a hack to make the server send all of it
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
+        // Request completed, regardless of HTTP status.
+        // Don't retry completed requests.
+        break;
+      } catch (err) {
+        clearTimeout(timeout);
+
+        // Only retry timed-out requests.
+        const timedOut = err.name === "AbortError";
+
+        if (!timedOut || attempt === maxAttempts) {
+          throw err;
+        }
+      }
+    }
+
+    let body = {};
 
     try {
-      response = await fetch(window.protectedGlobals.SERVER, {
-        method: "POST",
-        headers,
-        body: raw,
-        signal: controller.signal,
-      });
+      body = await response.json();
+    } catch {}
 
-      clearTimeout(timeout);
+    if (
+      response.status === 401 &&
+      !window.protectedGlobals.firstlogin
+    ) {
+      window.protectedGlobals.showSessionExpiredDialog();
+      return body || { error: "unauthorized" };
+    }
 
-      // Request finished (even if HTTP 500/404/etc).
-      // Do not retry anything that completed.
-      break;
-    } catch (err) {
-      clearTimeout(timeout);
+    return {
+      response,
+      body,
+    };
+  }
 
-      // Retry ONLY aborted (timed out) requests.
-      const timedOut = err.name === "AbortError";
+  // Always send at least one request, including for an empty file.
+  const totalChunks = Math.max(
+    1,
+    Math.ceil(raw.byteLength / CHUNK_SIZE)
+  );
 
-      if (!timedOut || attempt === maxAttempts) {
-        throw err;
-      }
+  let lastResult = {};
 
-      // Immediately retry the timed-out request.
+  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    const start = chunkIndex * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, raw.byteLength);
+
+    const chunk = raw.slice(start, end);
+
+    // The first chunk honors the caller's replace option.
+    // All later chunks must append to the existing file.
+    const chunkReplace =
+      chunkIndex === 0 ? replace : false;
+
+    lastResult = await sendChunk(chunk, chunkReplace);
+
+    // If the server returned an error status, stop immediately.
+    if (!lastResult.response.ok) {
+      return lastResult.body;
     }
   }
 
-  let body = {};
-  try {
-    body = await response.json();
-  } catch {}
-
-  if (response.status === 401 && !window.protectedGlobals.firstlogin) {
-    window.protectedGlobals.showSessionExpiredDialog();
-    return body || { error: "unauthorized" };
-  }
-  return body;
+  return lastResult.body;
 };
 window.protectedGlobals.DeleteFile = async function (relPath) {
   if (!relPath) throw new Error("No path");

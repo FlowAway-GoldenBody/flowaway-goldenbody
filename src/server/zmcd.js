@@ -600,12 +600,5 @@ function handleZMCd(req, res) {
   });
 }
 
-function startServer(port = 8082, host = '0.0.0.0') {
-  const server = http.createServer(handleZMCd);
-  server.listen(port, host, () => {
-    console.log(`zmcd server listening on port ${port}`);
-  });
-  return server;
-}
 
-module.exports = { handleZMCd, startServer };
+module.exports = { handleZMCd };

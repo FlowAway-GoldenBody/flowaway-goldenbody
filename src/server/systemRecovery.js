@@ -612,28 +612,7 @@ function handleSystemRecoveryRequest(req, res) {
   });
 }
 
-let recoveryServer = null;
-function startSystemRecoveryServer(port = 8085, host = '0.0.0.0') {
-  if (recoveryServer) return recoveryServer;
-  recoveryServer = http.createServer((req, res) => handleSystemRecoveryRequest(req, res));
-  recoveryServer.listen(port, host, () => {
-    console.log(`[systemRecovery] listening on ${host}:${port}`);
-  });
-  return recoveryServer;
-}
 
 module.exports = {
-  collectSystemAppDefinitions,
-  ensureBrokenAppsBackup,
-  collectSystemAppDefinitions,
-  ensureBrokenAppsBackup,
-  getRecoveryCatalog,
-  getNonSystemRecoveryCatalog,
-  restoreSystemAppJsKeys,
-  resetSystemApp,
-  deleteUserApp,
-  repairSystemFiles,
-  ensureBrokenSystemBackup,
-  startSystemRecoveryServer,
-  handleSystemRecoveryRequest,
+  handleSystemRecoveryRequest
 };

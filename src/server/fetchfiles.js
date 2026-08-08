@@ -357,6 +357,11 @@ async function handleRawFileUpload(req, res) {
   console.log({
     contentLength: req.headers["content-length"]
   });
+  
+  // 1. START CONSUMING THE STREAM IMMEDIATELY
+  // This prevents TCP window stalling and backpressure issues
+  const bodyPromise = getRawBody(req);
+  
   function base64ToUtf8(base64Str) {
     return Buffer.from(base64Str, "base64").toString("utf8");
   }
@@ -371,6 +376,7 @@ async function handleRawFileUpload(req, res) {
     return res.end(JSON.stringify({ error: "Missing username or file path" }));
   }
 
+  // 2. Perform async authentication and permission checks safely
   if (!(await authenticateUser(username, password, authHeader))) {
     res.writeHead(401);
     return res.end(JSON.stringify({ error: "unauthorized" }));
@@ -405,9 +411,11 @@ async function handleRawFileUpload(req, res) {
   }
 
   const replace = String(headers["x-file-replace"] || "true") !== "false";
-  // await fsp.mkdir(userRoot, { recursive: true });
   const filePath = safeResolve(userRoot, normalizedPath);
-  const rawBody = await getRawBody(req);
+  
+  // 3. AWAIT THE BODY HERE 
+  // The network chunks have already been safely buffered into memory
+  const rawBody = await bodyPromise;
 
   let oldSize = 0;
 
@@ -1135,15 +1143,6 @@ async function handleFetchfiles(req, res) {
   });
 }
 
-function startServer(port = 8083, host = "0.0.0.0") {
-  const server = http.createServer((req, res) => handleFetchfiles(req, res));
-  server.listen(port, host, () => {
-    // console.log(`fetchfiles server listening on port ${port}`);
-  });
-  return server;
-}
-
 module.exports = {
-  handleFetchfiles,
-  startServer,
+  handleFetchfiles
 };

@@ -77,8 +77,8 @@ function fetchFilesRateLimit(req, res) {
     const ip = config.getIP(req);
     const now = Date.now();
 
-    const window = 10 * 1000; // 10 seconds
-    const max = 500;
+    const window = 1 * 1000; // 10 seconds
+    const max = 1000;
 
     let data = fetchFilesAttempts.get(ip);
 
@@ -122,6 +122,14 @@ setInterval(() => {
         }
     }
 }, 10 * 60 * 1000);
+
+
+
+
+
+
+
+
 
 const prefix = config.enableWorkers ? (cluster.isMaster ? '(master) ' : `(${cluster.worker.id}) `) : '';
 
@@ -198,27 +206,6 @@ if (!config.enableWorkers || !cluster.isMaster) {
                 zmcd.handleZMCd(req, res);
             } catch (e) {
                 logger.error('zmcd handler error: ' + e.message);
-                res.writeHead(500);
-                res.end('Server error');
-            }
-            return true;
-        }
-        if (req.url.startsWith('/server/fetchfiles')) {
-            if (!fetchFilesRateLimit(req, res)) {
-                return true;
-            }
-            req.url = req.url.slice('/server/fetchfiles'.length) || '/';
-            try {
-                // fetchfiles handler is async
-                const maybe = fetchfiles.handleFetchfiles(req, res);
-                if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
-                    logger.error('fetchfiles handler error: ' + e.message);
-                    try { res.writeHead(500); res.end('Server error'); } catch (er) {
-                        logger.debug('Failed to write fetchfiles error response: ' + er.message);
-                    }
-                });
-            } catch (e) {
-                logger.error('fetchfiles handler error: ' + e.message);
                 res.writeHead(500);
                 res.end('Server error');
             }
@@ -359,6 +346,27 @@ if (cluster.isMaster) {
                 headers
             };
 
+            if (req.url.startsWith('/server/fetchfiles')) {
+                if (!fetchFilesRateLimit(req, res)) {
+                    return true;
+                }
+                req.url = req.url.slice('/server/fetchfiles'.length) || '/';
+                try {
+                    // fetchfiles handler is async
+                    const maybe = fetchfiles.handleFetchfiles(req, res);
+                    if (maybe && typeof maybe.then === 'function') maybe.catch((e) => {
+                        logger.error('fetchfiles handler error: ' + e.message);
+                        try { res.writeHead(500); res.end('Server error'); } catch (er) {
+                            logger.debug('Failed to write fetchfiles error response: ' + er.message);
+                        }
+                    });
+                } catch (e) {
+                    logger.error('fetchfiles handler error: ' + e.message);
+                    res.writeHead(500);
+                    res.end('Server error');
+                }
+                return true;
+            }
             const proxyReq = httpLocal.request(options, (proxyRes) => {
                 res.writeHead(proxyRes.statusCode, proxyRes.headers);
                 proxyRes.pipe(res, { end: true });
@@ -380,10 +388,5 @@ if (cluster.isMaster) {
         routers.push(srv);
         return srv;
     };
-
-    // route external ports into the main proxy under the specified paths
-    startPortRouter(8082, '/server/zmcd');
-    startPortRouter(8083, '/server/fetchfiles');
-    startPortRouter(8085, '/server/systemRecovery');
 }
 module.exports = proxyServer;

@@ -286,12 +286,4 @@ async function handleDownload(req, res) {
   });
 }
 
-function startServer(port = 8084, host = '0.0.0.0') {
-  const server = http.createServer((req, res) => handleDownload(req, res));
-  server.listen(port, host, () => {
-    console.log(`download server listening on port ${port}`);
-  });
-  return server;
-}
-
-module.exports = { handleDownload, startServer };
+module.exports = { handleDownload };

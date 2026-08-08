@@ -472,7 +472,7 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
 
   // Sidebar
   sidebar = document.createElement("div");
-  sidebar.style.width = "185px";
+  sidebar.style.minWidth = "15%";
   sidebar.style.background = "#1e293b";
   sidebar.style.color = "white";
   sidebar.style.padding = "10px";
@@ -1931,8 +1931,8 @@ function makeIcon(type, size = 16) {
     const node = findNode(treeData, currentPath);
     if (!node || !node[1]) return;
 
-    // Add new folder with empty children
-    node[1].push([folderName, []]);
+    // Add new folder with empty children and metadata (mtime)
+    node[1].push([folderName, [], { mtime: Date.now() }]);
     render();
     const targetPath = [...currentPath]; // current folder path array
     directions.push({
@@ -1948,8 +1948,8 @@ function makeIcon(type, size = 16) {
     const node = findNode(treeData, currentPath);
     if (!node || !node[1]) return;
 
-    // Add new file with empty content object
-    node[1].push([fileName, null, { size: 0 }]);
+    // Add new file with empty content object and metadata (mtime)
+    node[1].push([fileName, null, { size: 0, mtime: Date.now() }]);
     render();
     const targetPath = [...currentPath]; // current folder path array
     directions.push({
@@ -2054,6 +2054,10 @@ function makeIcon(type, size = 16) {
 
         // Deep clone the node to avoid circular references
         const newNode = JSON.parse(JSON.stringify(item.node));
+
+        // Ensure metadata object exists and set mtime to now for the newly-pasted node
+        newNode[2] = newNode[2] || {};
+        newNode[2].mtime = Date.now();
 
         // Generate a unique name if conflict exists
         newNode[0] = getUniqueName(newNode[0], "", node[1]);
@@ -2706,39 +2710,7 @@ function makeIcon(type, size = 16) {
   saveBtn.onclick = handlesave;
   // root.addEventListener("pointerup", handlesave);
   // --- Upload helpers ---
-  const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks for large files
-  const MAX_CHUNK_RETRIES = 3;
-  const CHUNK_RETRY_BASE_MS = 500; // ms
-
-  async function sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
-  }
-
-  async function uploadChunkWithRetries(path, file, index, onProgress) {
-    let attempts = 0;
-    while (true) {
-      try {
-        const start = index * CHUNK_SIZE;
-        const end = Math.min(file.size, start + CHUNK_SIZE);
-        const blob = file.slice(start, end);
-        const arrayBuffer = await blob.arrayBuffer();
-        const chunkData = new Uint8Array(arrayBuffer);
-        onProgress();
-        const shouldReplace = index === 0;
-        await window.protectedGlobals.WriteFile(path, blob.stream(), { replace: shouldReplace, stream: true, contentLength: chunkData.byteLength, retry: true });
-        return true;
-      } catch (err) {
-        attempts++;
-        if (attempts > MAX_CHUNK_RETRIES) throw err;
-        const backoff = CHUNK_RETRY_BASE_MS * Math.pow(2, attempts - 1);
-        console.warn(
-          `chunk upload failed for ${path} index ${index}, retrying in ${backoff}ms (attempt ${attempts})`,
-          err,
-        );
-        await sleep(backoff);
-      }
-    }
-  }
+  const CHUNK_SIZE = 100 * 1024 * 1024; // 100 MB chunks for visible progress
 
   fileInput.addEventListener("change", async (e) => {
     const files = [...e.target.files];
@@ -2776,43 +2748,43 @@ function makeIcon(type, size = 16) {
       for (let fileIndex = 0; fileIndex < allowed.length; fileIndex++) {
         const f = allowed[fileIndex];
         const newName = getUniqueName(f.name);
-        node[1].push([newName, null, { size: f.size }]);
+        node[1].push([newName, null, { size: f.size, mtime: Date.now() }]);
         const targetPath = [...currentPath];
         const cp = targetPath.join("/");
         const fileLabel = `${fileIndex + 1}/${allowed.length}: ${newName}`;
 
-        if (f.size === 0) {
-          await window.protectedGlobals.WriteFile(cp + "/" + newName, new Uint8Array(0), { replace: true });
-          updateUploadProgress(uploadedBytes, `Uploaded ${fileLabel}`);
-        } else {
+        try {
+          if (f.size === 0) {
+            await window.protectedGlobals.WriteFile(cp + "/" + newName, new Uint8Array(0), { replace: true });
+            uploadedBytes += f.size;
+            updateUploadProgress(uploadedBytes, `Uploaded ${fileLabel}`);
+            continue;
+          }
+
           const total = Math.ceil(f.size / CHUNK_SIZE);
           for (let i = 0; i < total; i++) {
-            try {
-              let progressLabel = '';
-              const chunkBytes = Math.min(CHUNK_SIZE, f.size - i * CHUNK_SIZE);
-              if (i > 1) {
-                progressLabel = `Uploading ${fileLabel} (${i + 1}/${total} chunks)`;
-              } else {
-                progressLabel = `Uploading ${fileLabel} (${i + 1}/${total} chunks) (The 1st chunk may take longer to upload)`;
-              }
-              uploadedBytes += chunkBytes;
-              await uploadChunkWithRetries(cp + "/" + newName, f, i, () => {
-                updateUploadProgress(
-                  uploadedBytes,
-                  progressLabel
-                );
-              });
-            } catch (err) {
-              console.error(`Failed to upload chunk ${i} for ${newName}:`, err);
-              setUploadError(
-                "Upload failed",
-                `Chunk ${i + 1}/${total} failed for ${newName}`,
-              );
-              uploadFailed = true;
-              break;
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(f.size, start + CHUNK_SIZE);
+            const chunk = f.slice(start, end);
+            const chunkBytes = end - start;
+            let progressLabel = '';
+
+            if (i > 1) {
+              progressLabel = `Uploading ${fileLabel} (${i + 1}/${total} chunks)`;
+            } else {
+              progressLabel = `Uploading ${fileLabel} (${i + 1}/${total} chunks) (The 1st chunk may take longer to upload)`;
             }
-            await sleep(0);
+
+            updateUploadProgress(uploadedBytes, progressLabel);
+            await window.protectedGlobals.WriteFile(cp + "/" + newName, chunk, { replace: i === 0 });
+            uploadedBytes += chunkBytes;
+            updateUploadProgress(uploadedBytes, `Uploaded ${fileLabel}`);
           }
+        } catch (err) {
+          console.error(`Failed to upload ${newName}:`, err);
+          setUploadError("Upload failed", `Failed to upload ${newName}`);
+          uploadFailed = true;
+          break;
         }
       }
 
