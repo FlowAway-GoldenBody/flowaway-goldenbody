@@ -20,7 +20,7 @@ function zmcdRateLimit(req, res) {
     const now = Date.now();
 
     const window = 60 * 1000 * 1; // 1 minute
-    const max = 10;
+    const max = 15;
 
     let data = zmcdAttempts.get(ip);
 
@@ -33,6 +33,35 @@ function zmcdRateLimit(req, res) {
 
     data.count++;
     zmcdAttempts.set(ip, data);
+
+    if (data.count > max) {
+        res.writeHead(429);
+        res.end("error: This action had been rate limited. Try again later.");
+        return false;
+    }
+
+    return true;
+}
+
+const systemRecoveryAttempts = new Map();
+function systemRecoveryRateLimit(req, res) {
+    const ip = config.getIP(req);
+    const now = Date.now();
+
+    const window = 60 * 1000 * 1; // 1 minute
+    const max = 15;
+
+    let data = systemRecoveryAttempts.get(ip);
+
+    if (!data || now - data.time > window) {
+        data = {
+            time: now,
+            count: 0
+        };
+    }
+
+    data.count++;
+    systemRecoveryAttempts.set(ip, data);
 
     if (data.count > max) {
         res.writeHead(429);
@@ -107,6 +136,12 @@ setInterval(() => {
     for (const [ip, data] of zmcdAttempts) {
         if (now - data.time > 5 * 60 * 1000) {
             zmcdAttempts.delete(ip);
+        }
+    }
+
+    for (const [ip, data] of systemRecoveryAttempts) {
+        if (now - data.time > 5 * 60 * 1000) {
+            systemRecoveryAttempts.delete(ip);
         }
     }
 
@@ -248,6 +283,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
             return true;
         }
         if (req.url.startsWith('/server/systemRecovery')) {
+            if (!systemRecoveryRateLimit(req, res)) return true;
             req.url = req.url.slice('/server/systemRecovery'.length) || '/';
             try {
                 systemRecovery.handleSystemRecoveryRequest(req, res);

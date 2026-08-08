@@ -73,6 +73,10 @@ window.protectedGlobals.firstlogin = false;
 
     <div style="margin-top:18px;width:100%;padding-top:12px;border-top:1px solid #333;">
       <h3 style="margin:0 0 8px;text-align:center">Account Repair</h3>
+      <button id="recovery-load" style="width:100%;margin-top:6px">
+        Load Recovery Options
+      </button>
+
       <select id="recovery-app-select" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;display:block">
         <option value="" disabled selected>Enter recovery credentials to load system apps</option>
       </select>
@@ -104,6 +108,12 @@ window.protectedGlobals.firstlogin = false;
     select.style.display = 'block';
     select.disabled = true;
   }
+  document.getElementById('recovery-load').onclick = async () => {
+    recoveryMsg.textContent = 'Loading available apps...';
+    recoveryMsg.style.color = '#ffd166';
+
+    await ensureRecoveryCatalog(true);
+  };
 
   function populateSelect(select, items, emptyMessage) {
     if (!items || !items.length) {
@@ -267,9 +277,6 @@ window.protectedGlobals.firstlogin = false;
     }
   };
 
-  recoveryUserInput.addEventListener('input', tryLoadRecoveryCatalog);
-  recoveryPassInput.addEventListener('input', tryLoadRecoveryCatalog);
-
   document.getElementById('recovery-delete').onclick = async () => {
     recoveryMsg.textContent = 'Sending recovery request...';
     recoveryMsg.style.color = '#ffd166';
@@ -361,7 +368,4 @@ window.protectedGlobals.firstlogin = false;
       recoveryMsg.style.color = 'red';
     }
   };
-
-  recoveryUserInput.addEventListener('input', tryLoadRecoveryCatalog);
-  recoveryPassInput.addEventListener('input', tryLoadRecoveryCatalog);
 })();

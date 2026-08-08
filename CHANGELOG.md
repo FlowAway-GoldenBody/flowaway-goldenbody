@@ -18,3 +18,9 @@
 
 ## V 1.1.4
 - Fixed some bugs in zmcd.js (auth/login/signup)
+
+## V 1.1.5
+- Added a reset system option
+
+## V 1.1.6
+- Added rate limit to systemRecovery server endpoint
