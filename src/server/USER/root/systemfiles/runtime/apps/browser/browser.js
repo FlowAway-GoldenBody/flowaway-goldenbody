@@ -2911,8 +2911,9 @@ setTimeout(() => {
         ids++;
         el.draggable = true;
         el.name = "tabs";
-        el.style.minWidth = "13.5%"; // or 150–185px if you want a bigger minimum
-        el.style.maxWidth = "13.5%";
+        el.style.width = "13.5%";
+        el.style.minWidth = "150px";
+        el.style.maxWidth = "200px";
         el.style.overflow = "hidden";
         el.style.display = "flex";
         el.style.whiteSpace = "nowrap";
