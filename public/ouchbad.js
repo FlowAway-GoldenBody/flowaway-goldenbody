@@ -80,6 +80,7 @@ window.protectedGlobals.firstlogin = false;
       <select id="recovery-delete-app-select" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;display:block">
         <option value="" disabled selected>Enter recovery credentials to load non-system apps</option>
       </select>
+      <button id="recovery-reset-systemfiles" style="width:100%;margin-top:6px">Reset /systemfiles</button>
       <button id="recovery-delete-app" style="width:100%;margin-top:6px">Delete selected non-system app</button>
       <button id="recovery-repair-system" style="width:100%;margin-top:6px">Repair system files</button>
       <button id="recovery-jskeys" style="width:100%;margin-top:6px">Restore all JS keys</button>
@@ -343,6 +344,20 @@ window.protectedGlobals.firstlogin = false;
       recoveryMsg.style.color = 'lime';
     } else {
       recoveryMsg.textContent = result && result.error ? result.error : 'Failed to repair system files';
+      recoveryMsg.style.color = 'red';
+    }
+  };
+
+  document.getElementById('recovery-reset-systemfiles').onclick = async () => {
+    if (!confirm('This will back up and replace the user\'s /systemfiles directory. Continue?')) return;
+    recoveryMsg.textContent = 'Resetting /systemfiles...';
+    recoveryMsg.style.color = '#ffd166';
+    const result = await sendRecoveryRequest('resetSystemFiles');
+    if (result && result.success) {
+      recoveryMsg.textContent = 'System files reset.';
+      recoveryMsg.style.color = 'lime';
+    } else {
+      recoveryMsg.textContent = result && result.error ? result.error : 'Failed to reset system files';
       recoveryMsg.style.color = 'red';
     }
   };

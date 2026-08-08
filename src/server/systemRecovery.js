@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 
 function readJsonSafe(filePath) {
   try {
@@ -8,6 +9,15 @@ function readJsonSafe(filePath) {
   } catch (e) {
     return null;
   }
+}
+function pathInside(base, candidate) {
+  const relative = path.relative(base, candidate);
+
+  return (
+    relative !== '' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }
 
 function copyDirRecursive(srcDir, dstDir) {
@@ -323,6 +333,68 @@ function repairSystemFiles(options = {}) {
   return { success: true, repaired: ['core', 'helpers'] };
 }
 
+function resetSystemFiles(options = {}) {
+  const { userRoot, sampleRoot } = getRecoveryPaths(options);
+  const userSystemFiles = path.join(userRoot, 'systemfiles');
+
+  if (!sampleRoot) {
+    return { success: false, error: 'sample root unavailable' };
+  }
+
+  const sampleSystemFiles = path.join(sampleRoot, 'systemfiles');
+  if (!fs.existsSync(sampleSystemFiles)) {
+    return { success: false, error: 'sample system files unavailable' };
+  }
+
+  let backupPath = null;
+
+  try {
+    if (fs.existsSync(userSystemFiles)) {
+      const backupName = `${Date.now()}_systemfiles`;
+      backupPath = path.join(userRoot, backupName);
+      try {
+        fs.renameSync(userSystemFiles, backupPath);
+      } catch (e) {
+        // fallback: copy then remove
+        fs.mkdirSync(backupPath, { recursive: true });
+        copyDirRecursive(userSystemFiles, backupPath);
+        fs.rmSync(userSystemFiles, { recursive: true, force: true });
+      }
+    }
+
+    // copy sample systemfiles into place
+    copyDirRecursive(sampleSystemFiles, userSystemFiles);
+
+    // generate a new random master key (do NOT use sample key)
+    // Use 16 bytes to produce a 32-character hex string (was 32 bytes -> 64 chars)
+    const masterKey = crypto.randomBytes(16).toString('hex');
+    const userProfileDir = path.join(userRoot, 'systemfiles', 'userprofile');
+    fs.mkdirSync(userProfileDir, { recursive: true });
+    fs.writeFileSync(path.join(userProfileDir, 'jsApiKey.txt'), masterKey, 'utf8');
+
+    // propagate key to apps that request admin permission
+    const appsRoot = path.join(userSystemFiles, 'runtime', 'apps');
+    if (fs.existsSync(appsRoot)) {
+      const entries = fs.readdirSync(appsRoot, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const appDir = path.join(appsRoot, entry.name);
+        try {
+          if (appRequestsAdminPerm(appDir)) {
+            syncAppJsKey(appDir, masterKey);
+          }
+        } catch (e) {
+          // ignore per-app errors
+        }
+      }
+    }
+
+    return { success: true, backedUpTo: backupPath };
+  } catch (err) {
+    return { success: false, error: String(err && err.message ? err.message : err) };
+  }
+}
+
 function deleteUserApp(options = {}) {
   const { userRoot, appsRoot } = getRecoveryPaths(options);
   const targetAppsRoot = appsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'apps');
@@ -442,10 +514,24 @@ function resetSystemApp(options = {}) {
   };
 }
 
+function validateUsername(username) {
+  return typeof username === 'string' &&
+    /^[A-Za-z0-9_-]{1,64}$/.test(username);
+}
+
 function getUserPaths(username) {
+  if (!validateUsername(username)) {
+    throw new Error('invalid username');
+  }
   const safeUsername = String(username || '').trim();
+
   const baseDir = path.resolve(__dirname, 'zmcdfiles');
-  const userDir = path.join(baseDir, safeUsername);
+  const userDir = path.resolve(baseDir, username);
+
+  if (!pathInside(baseDir, userDir)) {
+    throw new Error('path escape');
+  }
+
   const userRoot = path.join(userDir, 'root');
   const authFile = path.join(userDir, `${safeUsername}.txt`);
   return { safeUsername, userDir, userRoot, authFile };
@@ -515,7 +601,16 @@ function handleSystemRecoveryRequest(req, res) {
     const username = String(payload.username || '').trim();
     const password = String(payload.password || '').trim();
     const action = String(payload.action || payload.systemRecoveryAction || '').trim();
-    const userPaths = getUserPaths(username);
+    let userPaths;
+
+    try {
+        userPaths = getUserPaths(username);
+    } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid username' }));
+        return;
+    }
+
     const authRecord = readAuthRecord(userPaths);
 
     if (!authRecord || !authRecord.password || password !== authRecord.password) {
@@ -565,6 +660,16 @@ function handleSystemRecoveryRequest(req, res) {
 
     if (action === 'repairSystemFiles') {
       const result = repairSystemFiles({
+        userRoot,
+        sampleRoot,
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+      return;
+    }
+
+    if (action === 'resetSystemFiles' || action === 'reset/systemfiles') {
+      const result = resetSystemFiles({
         userRoot,
         sampleRoot,
       });

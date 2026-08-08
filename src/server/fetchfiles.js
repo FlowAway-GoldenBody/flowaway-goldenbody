@@ -405,7 +405,7 @@ async function handleRawFileUpload(req, res) {
     return res.end(
       JSON.stringify({
         error: "write permission denied",
-        path: `/${normalizedPath}`,
+        path: `${normalizedPath}`,
       }),
     );
   }
