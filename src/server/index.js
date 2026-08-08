@@ -65,7 +65,7 @@ function systemRecoveryRateLimit(req, res) {
 
     if (data.count > max) {
         res.writeHead(429);
-        res.end("error: This action had been rate limited. Try again later.");
+        res.end(JSON.stringify({ error: "This action had been rate limited. Try again later." }));
         return false;
     }
 
