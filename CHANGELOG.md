@@ -15,3 +15,6 @@
 
 ## V 1.1.3
 - Emergency patch
+
+## V 1.1.4
+- Fixed some bugs in zmcd.js (auth/login/signup)

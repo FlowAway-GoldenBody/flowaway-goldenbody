@@ -436,9 +436,9 @@ function handleZMCd(req, res) {
       const authHeader = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
 
       if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
-      if (!/^[a-zA-Z0-9_-]+$/.test(data.username) || data.username.length < 3 || data.password < 3) {
+      if (!/^[a-zA-Z0-9_-]+$/.test(data.username) || data.username.length < 3 || data.password.length < 3) {
         res.writeHead(403);
-        res.end(JSON.stringify({ error: "Username or password don't meet server requirements" }))
+        return res.end(JSON.stringify({ error: "Username or password don't meet server requirements" }));
       }
       const userPaths = getUserPaths(data.username);
 
