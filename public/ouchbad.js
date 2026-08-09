@@ -108,6 +108,20 @@ window.protectedGlobals.firstlogin = false;
     select.style.display = 'block';
     select.disabled = true;
   }
+
+  function downloadBase64Zip(base64Data, fileName) {
+    const bytes = Uint8Array.from(atob(base64Data), (char) => char.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/zip' });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
+
   document.getElementById('recovery-load').onclick = async () => {
     recoveryMsg.textContent = 'Loading available apps...';
     recoveryMsg.style.color = '#ffd166';
@@ -273,7 +287,8 @@ window.protectedGlobals.firstlogin = false;
         recoveryMsg.textContent = '';
       }
     } else {
-      updateRecoverySelectPlaceholder('Enter recovery username/password to load apps');
+      resetSelectPlaceholder(recoveryAppSelect, 'Enter recovery username/password to load apps');
+      resetSelectPlaceholder(recoveryDeleteAppSelect, 'Enter recovery username/password to load apps');
     }
   };
 
@@ -314,7 +329,12 @@ window.protectedGlobals.firstlogin = false;
     recoveryMsg.style.color = '#ffd166';
     const result = await sendRecoveryRequest('resetSystemApp', { appIdentifier: selectedAppId });
     if (result && result.success) {
-      recoveryMsg.textContent = `${result.app && result.app.label ? result.app.label : selectedAppId} was reset.`;
+      if (result.backupData) {
+        downloadBase64Zip(result.backupData, result.backupFileName || `${selectedAppId}.zip`);
+      }
+      recoveryMsg.textContent = result.backupData
+        ? `${result.app && result.app.label ? result.app.label : selectedAppId} was reset. Backup downloaded.`
+        : `${result.app && result.app.label ? result.app.label : selectedAppId} was reset.`;
       recoveryMsg.style.color = 'lime';
     } else {
       recoveryMsg.textContent = result && result.error ? result.error : 'Failed to reset system app';
@@ -347,7 +367,12 @@ window.protectedGlobals.firstlogin = false;
     recoveryMsg.style.color = '#ffd166';
     const result = await sendRecoveryRequest('repairSystemFiles');
     if (result && result.success) {
-      recoveryMsg.textContent = 'System files repaired.';
+      if (result.backupData) {
+        downloadBase64Zip(result.backupData, result.backupFileName || 'systemfiles-repair-backup.zip');
+      }
+      recoveryMsg.textContent = result.backupData
+        ? 'System files repaired. Backup downloaded.'
+        : 'System files repaired.';
       recoveryMsg.style.color = 'lime';
     } else {
       recoveryMsg.textContent = result && result.error ? result.error : 'Failed to repair system files';
@@ -361,7 +386,12 @@ window.protectedGlobals.firstlogin = false;
     recoveryMsg.style.color = '#ffd166';
     const result = await sendRecoveryRequest('resetSystemFiles');
     if (result && result.success) {
-      recoveryMsg.textContent = 'System files reset.';
+      if (result.backupData) {
+        downloadBase64Zip(result.backupData, result.backupFileName || 'systemfiles-backup.zip');
+      }
+      recoveryMsg.textContent = result.backupData
+        ? 'System files reset. Backup downloaded as ZIP.'
+        : 'System files reset.';
       recoveryMsg.style.color = 'lime';
     } else {
       recoveryMsg.textContent = result && result.error ? result.error : 'Failed to reset system files';

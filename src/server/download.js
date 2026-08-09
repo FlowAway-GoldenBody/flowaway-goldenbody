@@ -4,15 +4,20 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
+const { withUserLock, finalizeDownloadWithQuota } = require('./quotaFs');
 
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
 
+const MAX_JSON_BODY = 10 * 1024 * 1024; // 10MB
+
 function sanitizeAuthRecord(raw, usernameHint) {
   const base = raw && typeof raw === 'object' ? raw : {};
+  const maxSpace = Number(base.maxSpace);
   return {
     username: String(base.username || usernameHint || '').trim(),
     password: typeof base.password === 'string' ? base.password : '',
+    ...(Number.isFinite(maxSpace) && maxSpace > 0 ? { maxSpace } : {}),
     authTokens: Array.isArray(base.authTokens)
       ? base.authTokens.filter((tokenRow) => tokenRow && tokenRow.token && tokenRow.expires)
       : [],
@@ -99,8 +104,24 @@ async function handleDownload(req, res) {
   }
 
   let body = '';
-  req.on('data', c => body += c);
+  let total = 0;
+  let bodyTooLarge = false;
+
+  req.on('data', (c) => {
+    total += c.length;
+    if (total > MAX_JSON_BODY) {
+      bodyTooLarge = true;
+      req.destroy();
+      return;
+    }
+    body += c;
+  });
+
   req.on('end', async () => {
+    if (bodyTooLarge) {
+      return respondJSON(res, 413, { error: 'Request body too large' });
+    }
+
     let payload;
     try { payload = JSON.parse(body); } catch (e) { return respondJSON(res, 400, { error: 'Invalid JSON' }); }
 
@@ -112,7 +133,7 @@ async function handleDownload(req, res) {
 
     if (!username) return respondJSON(res, 400, { error: 'missing username' });
     if (!data.href) return respondJSON(res, 400, { error: 'missing data.href' });
-
+    if (username.includes('/') || username.includes('\\') || username === '..') return respondJSON(res, 400, { error: 'invalid username' });
     console.log('[download] username=', username, 'href=', data.href);
 
     const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization) || '';
@@ -185,14 +206,6 @@ async function handleDownload(req, res) {
         respondJSON(res, code, obj);
       }
 
-      async function finalizeTemp(tmp, dest) {
-        try {
-          await fsp.rename(tmp, dest);
-        } catch (e) {
-          try { await fsp.copyFile(tmp, dest); await fsp.unlink(tmp); } catch (e2) {}
-        }
-      }
-
       const MAX_REDIRECTS = 5;
 
       function fetchToFile(urlStr, redirectsLeft = MAX_REDIRECTS) {
@@ -244,7 +257,8 @@ async function handleDownload(req, res) {
             fileStream.on('finish', async () => {
               try {
                 console.log('[download] fileStream finished for', urlStr);
-                await finalizeTemp(tmpPath, destCandidate);
+
+                await withUserLock(username, () => finalizeDownloadWithQuota(username, userRoot, tmpPath, destCandidate));
                 const relPath = path.relative(userRoot, destCandidate).replace(/\\/g, '/');
                 const resp = { success: true, path: relPath };
                 if (tokenToReturn) {

@@ -24,3 +24,6 @@
 
 ## V 1.1.6
 - Added rate limit to systemRecovery server endpoint
+
+## V 1.1.7
+- Fix quota leaks and rewrite a lot of storage quota logics

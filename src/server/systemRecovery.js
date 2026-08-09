@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
 const crypto = require('crypto');
+const AdmZip = require('adm-zip');
+const { refreshUserUsage } = require('./storageQuota');
 
 function readJsonSafe(filePath) {
   try {
@@ -22,6 +23,15 @@ function pathInside(base, candidate) {
 
 function copyDirRecursive(srcDir, dstDir) {
   if (!srcDir || !fs.existsSync(srcDir)) return;
+
+  const resolvedSrcDir = path.resolve(srcDir);
+  const resolvedDstDir = path.resolve(dstDir);
+  if (resolvedSrcDir === resolvedDstDir) return;
+
+  if (fs.existsSync(dstDir)) {
+    fs.rmSync(dstDir, { recursive: true, force: true });
+  }
+
   fs.mkdirSync(dstDir, { recursive: true });
   const entries = fs.readdirSync(srcDir, { withFileTypes: true });
   for (const entry of entries) {
@@ -122,67 +132,9 @@ function getRecoveryPaths(options = {}) {
   };
 }
 
-function getVersionedBackupPath(basePath) {
-  if (!fs.existsSync(basePath)) return basePath;
-  const timestamp = Date.now();
-  let versionedPath = `${basePath}-${timestamp}`;
-  let counter = 0;
-  while (fs.existsSync(versionedPath)) {
-    counter++;
-    versionedPath = `${basePath}-${timestamp}-${counter}`;
-  }
-  return versionedPath;
-}
 
-function findLatestVersionedBackup(basePath) {
-  if (fs.existsSync(basePath)) return basePath;
-  const dir = path.dirname(basePath);
-  const basename = path.basename(basePath);
-  if (!fs.existsSync(dir)) return null;
-  const entries = fs.readdirSync(dir).filter((name) => name.startsWith(`${basename}-`));
-  if (!entries.length) return null;
-  entries.sort().reverse();
-  return path.join(dir, entries[0]);
-}
 
-function ensureBrokenAppsBackup(options = {}) {
-  const { userRoot, appsRoot, sampleAppsRoot, brokenAppsRoot, sampleRoot } = getRecoveryPaths(options);
-  const sourceAppsRoot = appsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'apps');
-  const targetBrokenAppsRoot = brokenAppsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'brokenApps');
 
-  if (!sourceAppsRoot || !fs.existsSync(sourceAppsRoot)) return [];
-
-  const versionedBrokenAppsRoot = getVersionedBackupPath(targetBrokenAppsRoot);
-  fs.mkdirSync(versionedBrokenAppsRoot, { recursive: true });
-  const definitions = collectSystemAppDefinitions(sourceAppsRoot);
-  const targetDefinitions = [];
-  const requestedApp = options.appIdentifier;
-
-  const backupDefinition = (definition) => {
-    const backupAppDir = path.join(versionedBrokenAppsRoot, definition.folderName);
-    copyDirRecursive(definition.appDirPath, backupAppDir);
-    targetDefinitions.push(definition);
-  };
-
-  if (requestedApp) {
-    const matchingDefinition = findMatchingAppDefinition(definitions, requestedApp);
-    if (matchingDefinition) backupDefinition(matchingDefinition);
-    return targetDefinitions;
-  }
-
-  for (const definition of definitions) {
-    backupDefinition(definition);
-  }
-
-  if (!targetDefinitions.length && sampleRoot && sampleAppsRoot && fs.existsSync(sampleAppsRoot)) {
-    const sampleDefinitions = collectSystemAppDefinitions(sampleAppsRoot);
-    for (const definition of sampleDefinitions) {
-      backupDefinition(definition);
-    }
-  }
-
-  return targetDefinitions;
-}
 
 function splitRecoveryAppDefinitions(options = {}) {
   const { userRoot, sampleRoot, appsRoot, sampleAppsRoot } = getRecoveryPaths(options);
@@ -247,34 +199,6 @@ function getNonSystemRecoveryCatalog(options = {}) {
   }));
 }
 
-function ensureBrokenSystemBackup(options = {}) {
-  const { userRoot } = getRecoveryPaths(options);
-  const brokenSystemRoot = path.join(userRoot, 'systemfiles', 'runtime', 'brokenSystem');
-  const versionedBrokenSystemRoot = getVersionedBackupPath(brokenSystemRoot);
-  fs.mkdirSync(versionedBrokenSystemRoot, { recursive: true });
-
-  const userCoreDirs = [
-    path.join(userRoot, 'systemfiles', 'runtime', 'core'),
-    path.join(userRoot, 'core'),
-  ];
-  const userHelpersDirs = [
-    path.join(userRoot, 'systemfiles', 'runtime', 'helpers'),
-    path.join(userRoot, 'helpers'),
-  ];
-
-  const coreSource = userCoreDirs.find((dir) => fs.existsSync(dir));
-  const helpersSource = userHelpersDirs.find((dir) => fs.existsSync(dir));
-
-  if (coreSource) {
-    copyDirRecursive(coreSource, path.join(versionedBrokenSystemRoot, 'core'));
-  }
-  if (helpersSource) {
-    copyDirRecursive(helpersSource, path.join(versionedBrokenSystemRoot, 'helpers'));
-  }
-
-  return versionedBrokenSystemRoot;
-}
-
 function repairSystemFiles(options = {}) {
   const { userRoot, sampleRoot } = getRecoveryPaths(options);
   const sampleCoreDirs = [
@@ -308,7 +232,12 @@ function repairSystemFiles(options = {}) {
     return { success: false, error: 'sample system files unavailable' };
   }
 
-  ensureBrokenSystemBackup(options);
+  const backupEntries = [];
+  if (fs.existsSync(destCore)) backupEntries.push({ path: destCore, rootName: 'core' });
+  if (fs.existsSync(destHelpers)) backupEntries.push({ path: destHelpers, rootName: 'helpers' });
+  const backupDownload = backupEntries.length
+    ? createDirectoryBackupZip(backupEntries, `systemfiles-repair-backup-${Date.now()}.zip`)
+    : null;
 
   if (fs.existsSync(targetCore)) {
     fs.rmSync(targetCore, { recursive: true, force: true });
@@ -330,7 +259,33 @@ function repairSystemFiles(options = {}) {
     copyDirRecursive(sourceHelpers, destHelpers);
   }
 
-  return { success: true, repaired: ['core', 'helpers'] };
+  refreshUserUsage(path.basename(path.dirname(userRoot)), userRoot).catch(() => {});
+
+  return {
+    success: true,
+    repaired: ['core', 'helpers'],
+    ...(backupDownload || {}),
+  };
+}
+
+function createDirectoryBackupZip(entries, backupFileName = 'backup.zip') {
+  const zip = new AdmZip();
+  const sourceEntries = Array.isArray(entries) ? entries : [entries];
+
+  for (const entry of sourceEntries) {
+    if (!entry || !entry.path || !fs.existsSync(entry.path)) continue;
+    const zipRootName = entry.rootName || path.basename(entry.path);
+    zip.addLocalFolder(entry.path, zipRootName);
+  }
+
+  const zipEntries = zip.getEntries();
+  if (!zipEntries || !zipEntries.length) return null;
+
+  return {
+    backupFileName,
+    backupData: zip.toBuffer().toString('base64'),
+    backupMimeType: 'application/zip',
+  };
 }
 
 function resetSystemFiles(options = {}) {
@@ -346,27 +301,20 @@ function resetSystemFiles(options = {}) {
     return { success: false, error: 'sample system files unavailable' };
   }
 
-  let backupPath = null;
+  let backupDownload = null;
 
   try {
     if (fs.existsSync(userSystemFiles)) {
-      const backupName = `${Date.now()}_systemfiles`;
-      backupPath = path.join(userRoot, backupName);
-      try {
-        fs.renameSync(userSystemFiles, backupPath);
-      } catch (e) {
-        // fallback: copy then remove
-        fs.mkdirSync(backupPath, { recursive: true });
-        copyDirRecursive(userSystemFiles, backupPath);
-        fs.rmSync(userSystemFiles, { recursive: true, force: true });
-      }
+      backupDownload = createDirectoryBackupZip(
+        [{ path: userSystemFiles, rootName: 'systemfiles' }],
+        `systemfiles-backup-${Date.now()}.zip`,
+      );
     }
 
     // copy sample systemfiles into place
     copyDirRecursive(sampleSystemFiles, userSystemFiles);
 
     // generate a new random master key (do NOT use sample key)
-    // Use 16 bytes to produce a 32-character hex string (was 32 bytes -> 64 chars)
     const masterKey = crypto.randomBytes(16).toString('hex');
     const userProfileDir = path.join(userRoot, 'systemfiles', 'userprofile');
     fs.mkdirSync(userProfileDir, { recursive: true });
@@ -389,7 +337,12 @@ function resetSystemFiles(options = {}) {
       }
     }
 
-    return { success: true, backedUpTo: backupPath };
+    refreshUserUsage(path.basename(path.dirname(userRoot)), userRoot).catch(() => {});
+
+    return {
+      success: true,
+      ...(backupDownload || {}),
+    };
   } catch (err) {
     return { success: false, error: String(err && err.message ? err.message : err) };
   }
@@ -444,9 +397,8 @@ function restoreSystemAppJsKeys(options = {}) {
 }
 
 function resetSystemApp(options = {}) {
-  const { userRoot, appsRoot, brokenAppsRoot, sampleRoot, sampleAppsRoot } = getRecoveryPaths(options);
+  const { userRoot, appsRoot, sampleRoot, sampleAppsRoot } = getRecoveryPaths(options);
   const targetAppsRoot = appsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'apps');
-  const backupRoot = brokenAppsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'brokenApps');
   const fallbackAppsRoot = sampleAppsRoot || path.join(sampleRoot, 'systemfiles', 'runtime', 'apps');
 
   if (!targetAppsRoot || !fs.existsSync(targetAppsRoot)) {
@@ -466,43 +418,38 @@ function resetSystemApp(options = {}) {
   }
 
   const targetAppDir = path.join(targetAppsRoot, match.folderName);
-  const backupAppDir = path.join(backupRoot, match.folderName);
-  const latestBackupRoot = findLatestVersionedBackup(backupRoot);
-  const latestBackupAppDir = latestBackupRoot ? path.join(latestBackupRoot, match.folderName) : null;
   fs.mkdirSync(path.dirname(targetAppDir), { recursive: true });
 
-  let sourceBackupDir = null;
-  if (fs.existsSync(backupAppDir)) {
-    sourceBackupDir = backupAppDir;
-  } else if (latestBackupAppDir && fs.existsSync(latestBackupAppDir)) {
-    sourceBackupDir = latestBackupAppDir;
+  let backupDownload = null;
+  if (fs.existsSync(targetAppDir)) {
+    backupDownload = createDirectoryBackupZip(
+      [{ path: targetAppDir, rootName: match.folderName || 'app' }],
+      `${match.folderName || 'app'}-backup-${Date.now()}.zip`,
+    );
   }
 
-  if (!sourceBackupDir) {
-    ensureBrokenAppsBackup({
-      userRoot,
-      appsRoot: targetAppsRoot,
-      sampleAppsRoot: fallbackAppsRoot,
-      brokenAppsRoot: backupRoot,
-      appIdentifier: match.id,
-    });
-    sourceBackupDir = latestBackupAppDir || backupAppDir;
+  const fallbackSourceAppDir = fallbackAppsRoot && fs.existsSync(path.join(fallbackAppsRoot, match.folderName))
+    ? path.join(fallbackAppsRoot, match.folderName)
+    : null;
+  const alternateSourceAppDir = match.appDirPath && path.resolve(match.appDirPath) !== path.resolve(targetAppDir)
+    ? match.appDirPath
+    : null;
+  const sourceAppDir = fallbackSourceAppDir || alternateSourceAppDir;
+
+  if (!sourceAppDir) {
+    return { success: false, error: 'no reset source available' };
   }
 
   fs.rmSync(targetAppDir, { recursive: true, force: true });
-  if (sourceBackupDir && fs.existsSync(sourceBackupDir)) {
-    copyDirRecursive(sourceBackupDir, targetAppDir);
-  } else if (fallbackAppsRoot && fs.existsSync(path.join(fallbackAppsRoot, match.folderName))) {
-    copyDirRecursive(path.join(fallbackAppsRoot, match.folderName), targetAppDir);
-  } else if (match.appDirPath && fs.existsSync(match.appDirPath)) {
-    copyDirRecursive(match.appDirPath, targetAppDir);
-  }
+  copyDirRecursive(sourceAppDir, targetAppDir);
 
   const masterKeyPath = path.join(userRoot, 'systemfiles', 'userprofile', 'jsApiKey.txt');
   const masterKey = fs.existsSync(masterKeyPath) ? fs.readFileSync(masterKeyPath, 'utf8').trim() : '';
   if (appRequestsAdminPerm(targetAppDir)) {
     syncAppJsKey(targetAppDir, masterKey);
   }
+
+  refreshUserUsage(path.basename(path.dirname(userRoot)), userRoot).catch(() => {});
 
   return {
     success: true,
@@ -511,6 +458,7 @@ function resetSystemApp(options = {}) {
       label: match.label,
       folderName: match.folderName,
     },
+    ...(backupDownload || {}),
   };
 }
 
