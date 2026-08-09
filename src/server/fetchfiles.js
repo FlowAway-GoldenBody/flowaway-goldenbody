@@ -675,7 +675,7 @@ async function handleFetchfiles(req, res) {
         const assertReadAllowed = (relativePath) => {
           const perm = getPermissionForRelativePath(relativePath, userPathPermissions);
           if (!perm.read) {
-            const err = new Error(`Read permission denied: /${relativePath}`);
+            const err = new Error(`Read permission denied: ${relativePath}`);
             err.code = "EACCES";
             throw err;
           }
@@ -684,7 +684,7 @@ async function handleFetchfiles(req, res) {
         const assertWriteAllowed = (relativePath) => {
           const perm = getPermissionForRelativePath(relativePath, userPathPermissions);
           if (!perm.write) {
-            const err = new Error(`Write permission denied: /${relativePath}`);
+            const err = new Error(`Write permission denied: ${relativePath}`);
             err.code = "EACCES";
             throw err;
           }

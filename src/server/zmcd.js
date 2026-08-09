@@ -1,28 +1,10 @@
-const http = require('http');
-const generateId = require('../util/generateId');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { defaultSystemPathPermissions, setupUserFilesystem } = require('./userFilesystemSetup');
 
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 directoryPath += '/';
-console.log(directoryPath);
-let sessionPath = path.resolve(__dirname, '../../sessions');
-sessionPath += '/';
-console.log(sessionPath);
-const projectroot = path.resolve(__dirname, '../../');
-const fsp = require('fs/promises');
-
-const PROFILE_SCHEMA_VERSION = 1;
-const USER_TEMPLATE_PATH = path.join(__dirname, 'USER', 'root');
-const START_MENU_SOURCE_PATH = path.join(USER_TEMPLATE_PATH, 'systemfiles', 'userprofile', 'startMenu-config.json');
-const APP_INTEGRITY_KEY = '-masterappkeyfor42systemintegrity';
-
-function normalizeMaxSpaceGb(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return 5;
-  return Math.max(1, Math.min(1024, n));
-}
 
 function readJsonSafe(filePath, fallback) {
   try {
@@ -51,79 +33,42 @@ function getUserPaths(username) {
     authFile,
     systemfilesDir,
     userProfileDir,
-    profilePath: path.join(userProfileDir, 'profile.json'),
     startMenuPath: path.join(userProfileDir, 'startMenu-config.json'),
   };
 }
 
-function normalizePermissionPath(value) {
-  const raw = String(value || '').replace(/\\/g, '/').trim();
-  if (!raw) return '/';
-  const normalized = path.posix.normalize(raw.startsWith('/') ? raw : `/${raw}`);
-  if (!normalized || normalized === '.') return '/';
-  if (normalized.includes('..')) return '';
-  return normalized;
-}
-
-function normalizePermissionEntry(entry) {
-  const raw = entry || {};
-  const p = normalizePermissionPath(raw.path);
-  if (!p) return null;
-  const perm = raw.perm || {};
-  return {
-    path: p,
-    perm: {
-      read: perm.read !== false,
-      write: perm.write !== false,
-    },
-  };
-}
-
-function defaultSystemPathPermissions() {
-  return [
-    {
-      path: '/systemfiles',
-      perm: { read: true, write: false },
-    },
-    {
-      path: '/systemfiles/runtime/apps',
-      perm: { read: true, write: true },
-    },
-    {
-      path: '/systemfiles/userprofile',
-      perm: { read: true, write: true },
-    },
-    {
-      path: '/systemfiles/background',
-      perm: { read: true, write: true },
-    }
-  ];
-}
-
 function mergePathPermissionsWithDefaults(existingEntries) {
   const defaults = defaultSystemPathPermissions();
-  const merged = [];
-  const byPath = new Map();
+  const merged = defaults.map((row) => ({
+    path: row.path,
+    perm: {
+      read: row.perm && row.perm.read !== false,
+      write: row.perm && row.perm.write !== false,
+    },
+  }));
+  const byPath = new Map(merged.map((row) => [row.path, row]));
 
-  for (const row of defaults) {
-    const normalized = normalizePermissionEntry(row);
-    if (!normalized) continue;
-    byPath.set(normalized.path, normalized);
-    merged.push(normalized);
-  }
-
-  for (const row of existingEntries || []) {
-    const normalized = normalizePermissionEntry(row);
-    if (!normalized) continue;
-    if (byPath.has(normalized.path)) {
-      byPath.set(normalized.path, normalized);
-    } else {
-      byPath.set(normalized.path, normalized);
-      merged.push(normalized);
+  for (const row of Array.isArray(existingEntries) ? existingEntries : []) {
+    if (!row || typeof row !== 'object' || typeof row.path !== 'string') continue;
+    const existing = byPath.get(row.path);
+    if (!existing) {
+      const nextRow = {
+        path: row.path,
+        perm: {
+          read: row.perm && row.perm.read !== false,
+          write: row.perm && row.perm.write !== false,
+        },
+      };
+      byPath.set(row.path, nextRow);
+      merged.push(nextRow);
+      continue;
     }
+
+    if (typeof row.perm?.read === 'boolean') existing.perm.read = row.perm.read;
+    if (typeof row.perm?.write === 'boolean') existing.perm.write = row.perm.write;
   }
 
-  return merged.map((row) => byPath.get(row.path)).filter(Boolean);
+  return merged;
 }
 
 function sanitizeAuthRecord(raw, username, passwordHint = '') {
@@ -132,205 +77,13 @@ function sanitizeAuthRecord(raw, username, passwordHint = '') {
     ? base.authTokens.filter((tokenRow) => tokenRow && tokenRow.token && tokenRow.expires)
     : [];
   const password = typeof base.password === 'string' ? base.password : String(passwordHint || '');
-  const pathPermissions = mergePathPermissionsWithDefaults(
-    Array.isArray(base.pathPermissions) ? base.pathPermissions : [],
-  );
   return {
     username: String(base.username || username || '').trim(),
     password,
     authTokens,
-    maxSpace: normalizeMaxSpaceGb(base.maxSpace),
-    pathPermissions,
+    maxSpace: 5,
+    pathPermissions: mergePathPermissionsWithDefaults(Array.isArray(base.pathPermissions) ? base.pathPermissions : []),
   };
-}
-
-function normalizeDragThreshold(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 15;
-  return Math.max(2, Math.min(128, Math.round(n)));
-}
-
-function normalizeTaskbarRevealEdgePx(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 6;
-  return Math.max(1, Math.min(64, Math.round(n)));
-}
-
-function normalizeTaskbarRevealHoldDelayMs(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 450;
-  return Math.max(0, Math.min(5000, Math.round(n)));
-}
-
-function defaultProfile() {
-  return {
-    taskbuttons: ["Browser","File Explorer","Settings","Text Editor"],
-    brightness: 100,
-    dark: false,
-    taskbarOnTop: false,
-    autohidetaskbar: false,
-    taskbarRevealEdgePx: 60,
-    taskbarRevealHoldDelayMs: 450,
-    DRAG_THRESHOLD: 15,
-  };
-}
-
-function normalizeProfile(raw) {
-  const defaults = defaultProfile();
-  const profile = raw && typeof raw === 'object' ? raw : {};
-  const taskbuttons = Array.isArray(profile.taskbuttons)
-    ? profile.taskbuttons
-    : [];
-  console.log(!!profile.autohidetaskbar);
-  return {
-    taskbuttons,
-    brightness: Number.isFinite(Number(profile.brightness)) ? Number(profile.brightness) : defaults.brightness,
-    dark: !!profile.dark,
-    autohidetaskbar: !!profile.autohidetaskbar,
-    taskbarRevealEdgePx: normalizeTaskbarRevealEdgePx(profile.taskbarRevealEdgePx),
-    taskbarRevealHoldDelayMs: normalizeTaskbarRevealHoldDelayMs(profile.taskbarRevealHoldDelayMs),
-    autoupdate: typeof profile.autoupdate === 'boolean' ? profile.autoupdate : defaults.autoupdate,
-    DRAG_THRESHOLD: normalizeDragThreshold(profile.DRAG_THRESHOLD),
-    taskbarOnTop: !!profile.taskbarOnTop,
-    compactTaskbar: !!profile.compactTaskbar,
-  };
-}
-
-function defaultStartMenuConfig() {
-  return {
-    version: '1.0',
-    pinnedApps: ["Browser","File Explorer","Settings","Text Editor"],
-    recents: [],
-    maxRecents: 5,
-  };
-}
-
-function ensureStartMenuConfig(userPaths) {
-  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
-  if (fs.existsSync(userPaths.startMenuPath)) return;
-
-  if (fs.existsSync(START_MENU_SOURCE_PATH)) {
-    fs.copyFileSync(START_MENU_SOURCE_PATH, userPaths.startMenuPath);
-    return;
-  }
-
-  writeJsonPretty(userPaths.startMenuPath, defaultStartMenuConfig());
-}
-
-function ensureAppIntegrityKey(userPaths) {
-  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
-  const keyPath = path.join(userPaths.userProfileDir, 'jsApiKey.txt');
-  if (!fs.existsSync(keyPath)) {
-    const randomKey = crypto.randomBytes(16).toString('hex');
-    fs.writeFileSync(keyPath, randomKey);
-  }
-}
-
-
-function syncAppKeysToUserKey(userPaths) {
-  const keyPath = path.join(userPaths.userProfileDir, 'jsApiKey.txt');
-  if (!fs.existsSync(keyPath)) return;
-  
-  const userKey = fs.readFileSync(keyPath, 'utf8');
-  const appsDir = path.join(userPaths.systemfilesDir, 'runtime', 'apps');
-  
-  if (!fs.existsSync(appsDir)) return;
-  
-  const appFolders = fs.readdirSync(appsDir, { withFileTypes: true });
-  for (const folder of appFolders) {
-    if (!folder.isDirectory() || folder.name.startsWith('.')) continue;
-    const appFolderPath = path.join(appsDir, folder.name);
-
-    // Ensure any existing template key (case-insensitive jskey.txt) is replaced
-    try {
-      const items = fs.readdirSync(appFolderPath, { withFileTypes: true });
-      for (const it of items) {
-        if (!it.isFile()) continue;
-        if (it.name.toLowerCase() === 'jskey.txt') {
-          try { fs.unlinkSync(path.join(appFolderPath, it.name)); } catch (e) {}
-        }
-      }
-    } catch (e) {}
-
-    // Write the per-user app key using the canonical filename `jsKey.txt`
-    const appKeyPath = path.join(appFolderPath, 'jsKey.txt');
-    try {
-      fs.writeFileSync(appKeyPath, userKey);
-    } catch (e) {}
-  }
-}
-
-// Copy template systemfiles/apps into a freshly created user directory
-function copyTemplateToUser(userPaths) {
-  try {
-    const templateSystemFilesPath = path.join(USER_TEMPLATE_PATH, 'systemfiles');
-    if (!fs.existsSync(templateSystemFilesPath)) return;
-
-    const userSystemfilesPath = userPaths.systemfilesDir;
-    const userAppsPath = path.join(userSystemfilesPath, 'runtime', 'apps');
-
-    const copyFileSafe = (src, dst) => {
-      try {
-        fs.mkdirSync(path.dirname(dst), { recursive: true });
-        fs.copyFileSync(src, dst);
-      } catch (e) {}
-    };
-
-    const copyDirSkipKeys = (srcDir, dstDir) => {
-      if (!fs.existsSync(srcDir)) return;
-      fs.mkdirSync(dstDir, { recursive: true });
-      const items = fs.readdirSync(srcDir, { withFileTypes: true });
-      for (const it of items) {
-        // Skip userprofile (we handle profile separately) and skip any jskey files
-        if (it.name === 'userprofile') continue;
-        const src = path.join(srcDir, it.name);
-        const dst = path.join(dstDir, it.name);
-        try {
-          if (it.isDirectory()) {
-            copyDirSkipKeys(src, dst);
-          } else {
-            if (it.name.toLowerCase() === 'jskey.txt') continue;
-            if (!fs.existsSync(dst)) copyFileSafe(src, dst);
-          }
-        } catch (e) {}
-      }
-    };
-
-    // Copy top-level systemfiles (except userprofile)
-    copyDirSkipKeys(templateSystemFilesPath, userSystemfilesPath);
-
-    // Ensure apps folder exists and copy apps, skipping any jskey files
-    const templateAppsPath = path.join(templateSystemFilesPath, 'runtime', 'apps');
-    if (fs.existsSync(templateAppsPath)) {
-      const appEntries = fs.readdirSync(templateAppsPath, { withFileTypes: true });
-      for (const appEntry of appEntries) {
-        if (!appEntry.isDirectory() || appEntry.name.startsWith('.')) continue;
-        const srcApp = path.join(templateAppsPath, appEntry.name);
-        const dstApp = path.join(userAppsPath, appEntry.name);
-        try {
-          copyDirSkipKeys(srcApp, dstApp);
-        } catch (e) {}
-      }
-    }
-  } catch (e) {
-    console.error('copyTemplateToUser error:', e && e.message ? e.message : String(e));
-  }
-}
-
-function ensureUserProfile(userPaths, rawUserRecord = null) {
-  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
-
-  let profile;
-  if (fs.existsSync(userPaths.profilePath)) {
-    profile = normalizeProfile(readJsonSafe(userPaths.profilePath, {}));
-  } else {
-    profile = defaultProfile();
-  }
-
-  writeJsonPretty(userPaths.profilePath, profile);
-  ensureStartMenuConfig(userPaths);
-  ensureAppIntegrityKey(userPaths);
-  return profile;
 }
 
 function readAuthRecord(userPaths) {
@@ -381,27 +134,19 @@ function issueToken(authRecord) {
   return token;
 }
 
-async function deleteFile(filePath) {
-  try {
-    await fsp.unlink(filePath);
-    console.log(`Successfully deleted ${filePath}`);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log(`File not found: ${filePath}`);
-    } else {
-      console.error('Error deleting file:', error.message);
-    }
-  }
-}
-
 function buildLoginResponse(authRecord, token) {
   return {
     username: authRecord.username,
     authTokens: authRecord.authTokens,
     authToken: token,
     pathPermissions: Array.isArray(authRecord.pathPermissions) ? authRecord.pathPermissions : [],
-    maxSpace: normalizeMaxSpaceGb(authRecord.maxSpace),
+    maxSpace: authRecord.maxSpace,
   };
+}
+
+function sendJson(res, statusCode, body) {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
 }
 
 function handleZMCd(req, res) {
@@ -416,9 +161,7 @@ function handleZMCd(req, res) {
   }
 
   if (req.method !== 'POST') {
-    res.writeHead(405);
-    res.end(JSON.stringify({ error: 'Send a POST request with JSON' }));
-    return;
+    return sendJson(res, 405, { error: 'Send a POST request with JSON' });
   }
 
   let body = '';
@@ -431,41 +174,40 @@ function handleZMCd(req, res) {
     try {
       const data = JSON.parse(body);
       const authHeader = (req.headers && (req.headers.authorization || req.headers.Authorization)) || '';
-
-      if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
-      if (!/^[a-zA-Z0-9_-]+$/.test(data.username) || data.username.length < 3 || data.password.length < 3) {
-        res.writeHead(403);
-        return res.end(JSON.stringify({ error: "Username or password don't meet server requirements" }));
+      const password = typeof data.password === 'string' ? data.password : '';
+      if (!/^[a-zA-Z0-9_-]+$/.test(data.username)) {
+        return sendJson(res, 400, { error: 'Invalid username format' });
       }
+      if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
+
       const userPaths = getUserPaths(data.username);
 
       if (data.needNewAcc) {
+        if (!/^[a-zA-Z0-9_-]+$/.test(data.username) || data.username.length < 3 || password.length < 3) {
+          return sendJson(res, 403, { error: "Username or password don't meet server requirements" });
+        }
         if (fs.existsSync(userPaths.userDir)) {
-          responseContent = 'error: user already exists';
+          responseContent = { error: 'user already exists' };
         } else {
           fs.mkdirSync(userPaths.userDir, { recursive: true });
-          const authRecord = sanitizeAuthRecord(null, userPaths.username, data.password);
+          const authRecord = sanitizeAuthRecord(null, userPaths.username, password);
           const token = issueToken(authRecord);
           writeAuthRecord(userPaths, authRecord);
-            const profile = ensureUserProfile(userPaths, null);
-
-            // Copy template system files/apps into the new user's directory.
-            // This is done here so new accounts get the expected files immediately
-            // and any errors are caught locally instead of crashing the server.
-            try { copyTemplateToUser(userPaths); } catch (e) { console.error('new account template copy failed', e && e.message ? e.message : String(e)); }
-
-            // Sync per-user app keys after files are present
-            try { syncAppKeysToUserKey(userPaths); } catch (e) { console.error('syncAppKeysToUserKey failed', e && e.message ? e.message : String(e)); }
+          try {
+            setupUserFilesystem(userPaths);
+          } catch (e) {
+            console.error('setupUserFilesystem failed', e && e.message ? e.message : String(e));
+          }
           responseContent = buildLoginResponse(authRecord, token);
         }
       } else {
         const authResult = readAuthRecord(userPaths);
         if (!authResult) {
-          responseContent = 'error: invalid username or password';
+          responseContent = { error: 'invalid username or password' };
         } else {
           const authRecord = authResult.auth;
           if (authRecord.username !== data.username || !isAuthorized(authRecord, data, authHeader)) {
-            responseContent = 'error: invalid username or password';
+            responseContent = { error: 'invalid username or password' };
           } else {
             const token = issueToken(authRecord);
             writeAuthRecord(userPaths, authRecord);
@@ -477,14 +219,12 @@ function handleZMCd(req, res) {
       if (data.refillSession) {
         const authResult = readAuthRecord(userPaths);
         if (!authResult) {
-          res.writeHead(404);
-          return res.end(JSON.stringify({ error: 'User file not found' }));
+          return sendJson(res, 404, { error: 'User file not found' });
         }
 
         const authRecord = authResult.auth;
         if (!isAuthorized(authRecord, data, authHeader)) {
-          res.writeHead(401);
-          return res.end(JSON.stringify({ error: 'unauthorized' }));
+          return sendJson(res, 401, { error: 'unauthorized' });
         }
 
         const newToken = issueToken(authRecord);
@@ -495,14 +235,12 @@ function handleZMCd(req, res) {
       if (data.updatePathPermission || data.setPathPermissions) {
         const authResult = readAuthRecord(userPaths);
         if (!authResult) {
-          res.writeHead(404);
-          return res.end(JSON.stringify({ error: 'User file not found' }));
+          return sendJson(res, 404, { error: 'User file not found' });
         }
 
         const authRecord = authResult.auth;
         if (!isAuthorized(authRecord, data, authHeader)) {
-          res.writeHead(401);
-          return res.end(JSON.stringify({ error: 'authorization required to change path permissions' }));
+          return sendJson(res, 401, { error: 'authorization required to change path permissions' });
         }
 
         let nextPermissions = Array.isArray(authRecord.pathPermissions)
@@ -514,24 +252,23 @@ function handleZMCd(req, res) {
         }
 
         if (data.updatePathPermission) {
-          console.log(data.username, data.updatePathPermission);
-          let userfile = fs.readFileSync(userPaths.authFile, 'utf8');
-          userfile = JSON.parse(userfile);
-          console.log(data.password, userfile.password);
-          if(data.password !== userfile.password) {
-            res.writeHead(403);
-            return res.end(JSON.stringify({ error: 'incorrect password' }));
+          const userfile = fs.readFileSync(userPaths.authFile, 'utf8');
+          const parsedUserfile = JSON.parse(userfile);
+          if (password !== parsedUserfile.password) {
+            return sendJson(res, 403, { error: 'incorrect password' });
           }
-          const normalizedRow = normalizePermissionEntry(data.updatePathPermission);
-          if (!normalizedRow) {
-            res.writeHead(403);
-            return res.end(JSON.stringify({ error: 'invalid path permission payload' }));
-          }
+
+          const normalizedRow = {
+            path: data.updatePathPermission.path,
+            perm: {
+              read: data.updatePathPermission.perm && data.updatePathPermission.perm.read !== false,
+              write: data.updatePathPermission.perm && data.updatePathPermission.perm.write !== false,
+            },
+          };
+
           let replaced = false;
           nextPermissions = nextPermissions.map((row) => {
-            const normalizedExisting = normalizePermissionEntry(row);
-            if (!normalizedExisting) return row;
-            if (normalizedExisting.path !== normalizedRow.path) return normalizedExisting;
+            if (row.path !== normalizedRow.path) return row;
             replaced = true;
             return normalizedRow;
           });
@@ -549,14 +286,12 @@ function handleZMCd(req, res) {
       if (data.updatePassword) {
         const authResult = readAuthRecord(userPaths);
         if (!authResult) {
-          res.writeHead(404);
-          return res.end(JSON.stringify({ error: 'User file not found' }));
+          return sendJson(res, 404, { error: 'User file not found' });
         }
 
         const authRecord = authResult.auth;
-        // For password change, REQUIRE password validation (ignore tokens)
         if (typeof data.oldPassword !== 'string' || data.oldPassword !== authRecord.password) {
-          return res.end(JSON.stringify({ error: 'old password is wrong' }));
+          return sendJson(res, 400, { error: 'old password is wrong' });
         }
 
         authRecord.password = String(data.newPassword || '');
@@ -567,14 +302,12 @@ function handleZMCd(req, res) {
       } else if (data.deleteAcc) {
         const authResult = readAuthRecord(userPaths);
         if (!authResult) {
-          res.writeHead(404);
-          return res.end(JSON.stringify({ error: 'User file not found' }));
+          return sendJson(res, 404, { error: 'User file not found' });
         }
 
         const authRecord = authResult.auth;
-        // For account deletion, REQUIRE password validation (ignore tokens)
         if (typeof data.oldPassword !== 'string' || data.oldPassword !== authRecord.password) {
-          return res.end(JSON.stringify({ error: 'wrong password' }));
+          return sendJson(res, 400, { error: 'wrong password' });
         }
 
         const targetDir = userPaths.userDir;
@@ -584,7 +317,7 @@ function handleZMCd(req, res) {
           }
           return res.end(JSON.stringify({ success: true }));
         } catch (e) {
-          return res.end(JSON.stringify({ error: 'failed to remove account directory', details: String(e) }));
+          return sendJson(res, 500, { error: 'failed to remove account directory', details: String(e) });
         }
       }
     } catch (err) {
@@ -596,6 +329,5 @@ function handleZMCd(req, res) {
     res.end(JSON.stringify(responseContent));
   });
 }
-
 
 module.exports = { handleZMCd };

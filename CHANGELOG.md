@@ -27,3 +27,6 @@
 
 ## V 1.1.7
 - Fix quota leaks and rewrite a lot of storage quota logics
+
+## V 1.1.8
+- Organized how login/signup/auth work

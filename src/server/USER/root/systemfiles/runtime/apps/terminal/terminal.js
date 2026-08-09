@@ -1447,7 +1447,6 @@ window.terminal = function (argPath = '', posX = 50, posY = 50) {
         },           password: String(password || ""),
 });
         let body = response;
-        ensureServerResultOk(response);
         window.protectedGlobals.data.pathPermissions = Array.isArray(body.pathPermissions)
           ? body.pathPermissions
           : window.protectedGlobals.data.pathPermissions;

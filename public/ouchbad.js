@@ -245,14 +245,23 @@ window.protectedGlobals.firstlogin = false;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-      .then(async (result) => {
+      .then(async (response) => {
+        let result;
         try {
-          result = await result.json();
-        } catch {}
-        window.protectedGlobals.zmcdata = result;
+          result = await response.json();
+        } catch (err) {
+          result = await response.text().catch(() => null);
+        }
 
-        if (typeof window.protectedGlobals.zmcdata === 'string' && window.protectedGlobals.zmcdata.startsWith('error:')) {
-          msg.textContent = window.protectedGlobals.zmcdata;
+        window.protectedGlobals.zmcdata = result;
+        const errorMessage = result && typeof result === 'object' && typeof result.error === 'string'
+          ? result.error
+          : typeof result === 'string' && result.startsWith('error:')
+            ? result
+            : null;
+
+        if (errorMessage || (response && !response.ok)) {
+          msg.textContent = errorMessage || `Server error (${response.status})`;
           msg.style.color = 'red';
           return;
         }
