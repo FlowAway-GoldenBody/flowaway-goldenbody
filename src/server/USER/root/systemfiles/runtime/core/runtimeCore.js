@@ -205,7 +205,7 @@ window.protectedGlobals.WriteFile = async function (
   if (!options.stream) {
     if (contents instanceof ArrayBuffer) {
       raw = contents;
-    } else if (ArrayBuffer.isView(contents)) {}
+    } else if (ArrayBuffer.isView(contents)) {raw = contents.buffer;}
     else if (
       typeof Blob !== "undefined" &&
       contents instanceof Blob
@@ -213,6 +213,8 @@ window.protectedGlobals.WriteFile = async function (
       raw = await contents.arrayBuffer();
     } else if (contents == null) {
       raw = new ArrayBuffer(0);
+    } else if (contents instanceof Uint8Array) {
+      raw = contents;
     } else {
       raw = new TextEncoder().encode(String(contents));
     }

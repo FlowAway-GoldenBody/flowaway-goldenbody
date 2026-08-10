@@ -156,27 +156,6 @@ async function getDirSizeBytes(root) {
   return walk(root);
 }
 
-async function getPathSizeBytes(target) {
-  let stat;
-
-  try {
-    stat = await fsp.lstat(target);
-  } catch {
-    return 0;
-  }
-
-  if (stat.isFile()) {
-    return stat.size;
-  }
-
-  if (stat.isDirectory()) {
-    return getDirSizeBytes(target);
-  }
-
-  return 0;
-}
-
-
 async function authenticateUser(username, providedPassword, authHeader) {
   if (!username) return false;
 
@@ -450,9 +429,7 @@ async function handleFetchfiles(req, res) {
 
     try {
       if (data.initFE) {
-        const tree = await withUserLock(username, () =>
-          buildUserFileTree(userRoot)
-        );        
+        const tree = await buildUserFileTree(userRoot);
         const clipboard = userClipboards.get(username) || null;
         return res.end(JSON.stringify({ tree, clipboard }));
       }

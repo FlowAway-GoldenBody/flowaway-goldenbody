@@ -1252,6 +1252,7 @@ function makeIcon(type, size = 16) {
   }
 
   function formatSize(bytes) {
+    if (bytes === 0) return "0 B";
     if (!bytes) return "";
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 ** 2) return (bytes / 1024).toFixed(1) + " KB";
