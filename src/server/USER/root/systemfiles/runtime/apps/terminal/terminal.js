@@ -232,7 +232,7 @@ if (!window.protectedGlobals.__terminalProcessCommandsRegistered && (window.prot
 }
 
 window.terminal = function (argPath = '', posX = 50, posY = 50) {
-  window.protectedGlobals.notification("Terminal is in beta. Type 'help' for available commands.");
+  window.protectedGlobals.notification("This is the place where you change permissions for files/folders. Type 'help' for available commands.");
   window.protectedGlobals.startMenu.style.display = "none";
   let isMaximized = false;
   let _isMinimized = false;

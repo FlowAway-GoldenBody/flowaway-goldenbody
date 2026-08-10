@@ -260,28 +260,16 @@ async function getRawBody(req) {
     });
 
     req.on("end", () => {
-      console.log("END total:", total);
       resolve(Buffer.concat(chunks));
     });
 
-    req.on("close", () => {
-      console.log("CLOSE total:", total);
-    });
-
     req.on("aborted", () => {
-      console.log("ABORTED");
-      console.log("req.complete =", req.complete);
-      console.log("req.destroyed =", req.destroyed);
       reject(new Error("Request aborted by client"));
     });
   });
 }
 
 async function handleRawFileUpload(req, res) {
-  console.log({
-    contentLength: req.headers["content-length"]
-  });
-  
   // 1. START CONSUMING THE STREAM IMMEDIATELY
   // This prevents TCP window stalling and backpressure issues
   const bodyPromise = getRawBody(req);
@@ -363,7 +351,6 @@ async function handleFetchfiles(req, res) {
   res.setHeader("Access-Control-Expose-Headers", "X-File-Size,X-Chunk-Index,X-Is-Last-Chunk,X-Total-Chunks");
 
   // Support simple streaming download endpoint for large files.
-  // console.log('fetchfiles request', req.method, req.url);
   if (req.method === "POST" && req.headers["content-type"] && req.headers["content-type"].startsWith("application/octet-stream") && req.headers["x-file-action"] === "write") {
     return handleRawFileUpload(req, res);
   }
