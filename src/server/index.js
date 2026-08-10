@@ -77,7 +77,7 @@ function newSessionRateLimit(req, res) {
     const ip = config.getIP(req);
     const now = Date.now();
 
-    const window = 60 * 60 * 1000; // 1 hour
+    const window = 1 * 60 * 1000; // 1 minute
     const max = 10;
 
     let data = newSessionAttempts.get(ip);
@@ -133,30 +133,21 @@ function fetchFilesRateLimit(req, res) {
 setInterval(() => {
     const now = Date.now();
 
-    for (const [ip, data] of zmcdAttempts) {
-        if (now - data.time > 5 * 60 * 1000) {
-            zmcdAttempts.delete(ip);
-        }
-    }
+    cleanup(zmcdAttempts, 5 * 60 * 1000);
+    cleanup(systemRecoveryAttempts, 5 * 60 * 1000);
+    cleanup(newSessionAttempts, 2 * 60 * 1000);
+    cleanup(fetchFilesAttempts, 90 * 1000);
+}, 60 * 1000);
 
-    for (const [ip, data] of systemRecoveryAttempts) {
-        if (now - data.time > 5 * 60 * 1000) {
-            systemRecoveryAttempts.delete(ip);
-        }
-    }
+function cleanup(map, maxAge) {
+    const now = Date.now();
 
-    for (const [ip, data] of newSessionAttempts) {
-        if (now - data.time > 60 * 60 * 1000) {
-            newSessionAttempts.delete(ip);
+    for (const [ip, data] of map) {
+        if (now - data.time > maxAge) {
+            map.delete(ip);
         }
     }
-
-    for (const [ip, data] of fetchFilesAttempts) {
-        if (now - data.time > 60 * 60 * 1000) {
-            fetchFilesAttempts.delete(ip);
-        }
-    }
-}, 10 * 60 * 1000);
+}
 
 
 
