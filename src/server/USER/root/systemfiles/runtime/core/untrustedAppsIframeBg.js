@@ -2,7 +2,7 @@
 
 (() => {
 let style = null;
-async function showAppPermissionPrompt(appName, permissionType) {
+async function showAppPermissionPrompt(appName, permissionType, diffmsg = false, saveChoiceName = '') {
     return new Promise((resolve) => {
 
         const saveChoice = (allowed, remember) => {
@@ -10,8 +10,11 @@ async function showAppPermissionPrompt(appName, permissionType) {
                 if (!window.protectedGlobals.appPerms[appName]) {
                     window.protectedGlobals.appPerms[appName] = {};
                 }
-
-                window.protectedGlobals.appPerms[appName][permissionType] = String(allowed);
+                if (saveChoiceName) {
+                    window.protectedGlobals.appPerms[appName][saveChoiceName] = String(allowed);
+                } else {
+                    window.protectedGlobals.appPerms[appName][permissionType] = String(allowed);
+                }
 
                 window.protectedGlobals.WriteFile(
                     "/systemfiles/userprofile/appPermissions.json",
@@ -65,13 +68,21 @@ async function showAppPermissionPrompt(appName, permissionType) {
 
         const perm = document.createElement("strong");
         perm.textContent = permissionType;
-
-        desc.append(
-            app,
-            document.createTextNode(" wants permission to access "),
-            perm,
-            document.createTextNode(".")
-        );
+        if (diffmsg) {
+            desc.append(
+                app,
+                document.createTextNode(" wants permission to "),
+                perm,
+                document.createTextNode(".")
+            );
+        } else {
+            desc.append(
+                app,
+                document.createTextNode(" wants permission to access "),
+                perm,
+                document.createTextNode(".")
+            );
+        }
         desc.style.cssText = `
             margin:18px 0;
             color:#555;
@@ -283,7 +294,7 @@ async function showAppPermissionPrompt(appName, permissionType) {
         }
         let appName = e.detail.appName;
         if (!window.protectedGlobals.appPerms[appName]) {
-            window.protectedGlobals.appPerms[appName] = { storage: "ask", notification: "ask" };
+            window.protectedGlobals.appPerms[appName] = { storage: "ask", notification: "ask", launch: "ask" };
         }
         if (e.detail.data?.alert) {
             if (window.protectedGlobals.appPerms[appName].notification === "ask") {
@@ -304,9 +315,34 @@ async function showAppPermissionPrompt(appName, permissionType) {
         let path = e.detail.data.path;
         let source = e.detail.source;
         let result = null;
+        let requestId = e.detail.data.requestId;
+        if (e.detail.data.launchApp) {
+            const appId = String(e.detail.data.appId || "").trim();
+            if (!appId) {
+                source.postMessage({ error: "Invalid appId", requestId: requestId }, "*");
+                return;
+            }
+            const permState = window.protectedGlobals.appPerms[appName].LaunchApp || "ask";
+            let allowed = permState === "true";
+            if (permState === "ask") {
+                dialogOpen = true;
+                allowed = await showAppPermissionPrompt(appName, `launch app "${appId}"`, true, 'LaunchApp');
+                dialogOpen = false;
+            }
+            if (!allowed) {
+                source.postMessage({ result: "Permission denied", requestId: requestId }, "*");
+                return;
+            }
+            try {
+                await window.protectedGlobals.launchApp(appId, e.detail.data.args);
+                source.postMessage({ launchAppResult: true, result: true, requestId: requestId }, "*");
+            } catch (err) {
+                source.postMessage({ error: err.message || String(err), requestId: requestId }, "*");
+            }
+            return;
+        }
         if (!e.detail.data.path) return;
         if (typeof options !== "object" || options === null) options = undefined;
-        let requestId = e.detail.data.requestId;
         async function sendResponse() {
             const externalKey = e.detail.data.key;
             if (e.detail.data.readFile) {

@@ -275,6 +275,27 @@ window.__goldenbodyAPI = {
         });
     },
 
+    closeWindow: async () => {
+        let requestId = createRequestId();
+        window.parent.postMessage({closeWindow: true, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    launchApp: async (appId, args = []) => {
+        if (!appId || typeof appId !== 'string') {
+            throw new Error('Invalid appId');
+        }
+        let requestId = createRequestId();
+        window.parent.postMessage({launchApp: true, appId, args, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
     setInstanceTitle: (title) => {
         window.parent.postMessage({setInstanceTitle: true, title}, '*');
     },

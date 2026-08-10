@@ -632,7 +632,7 @@ let getFilesFromFolder = async function (relPath) {
         iframe.style.width = "100%";
         iframe.style.height = "100%";
         iframe.style.border = "none";
-        if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask" };
+        if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask", launch: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
         // Preserve an already-passed path or picker handle for the iframe. If the app was launched
         // with a target, the iframe can inspect window.__path__ and use that as its initial file/folder target.
@@ -690,6 +690,15 @@ let getFilesFromFolder = async function (relPath) {
               e.source.postMessage({ showDirectoryPickerResult: { kind: "directory", path: selectedPath, key, name: selectedPath.split("/").pop() || selectedPath }, requestId: e.data.requestId }, "*");
             } catch (err) {
               e.source.postMessage({ error: err.message || "The user aborted a request.", requestId: e.data.requestId }, "*");
+            }
+            return;
+          }
+          if (e.data.closeWindow) {
+            try {
+              instance.closeWindow();
+              e.source.postMessage({ closeWindowResult: true, result: true, requestId: e.data.requestId }, "*");
+            } catch (err) {
+              e.source.postMessage({ error: err.message || String(err), requestId: e.data.requestId }, "*");
             }
             return;
           }

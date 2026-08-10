@@ -30,3 +30,6 @@
 
 ## V 1.1.8
 - Organized how login/signup/auth work
+
+## V 1.2.0
+- Added 2 features for untrusted iframe apps: 1. close its own window 2. iframe apps can now launch other apps on the user's cloud device if the user give it the permission to do so.

@@ -32,13 +32,18 @@ window.protectedGlobals.resolveApptoolsContext = function (appId, rootElement) {
 };
 
 
-window.protectedGlobals.launchApp = async function (appId) {
+window.protectedGlobals.launchApp = async function (appId, args) {
   if (!window.protectedGlobals.appsButtonsApplied) {
     window.protectedGlobals.notification("Apps are still loading, please wait a moment and try again.");
     return;
   }
   var app = (window.protectedGlobals.apps || []).find((a) => window.protectedGlobals.appMatchesIdentifier(a, appId));
-  window[app.functionName]();
+  if (!app) {
+    throw new Error("App not found: " + String(appId));
+  }
+  window.protectedGlobals._launchContext = { appId: String(appId || ""), args: args === undefined ? [] : Array.isArray(args) ? args : [args] };
+  var result = window[app.functionName](...window.protectedGlobals._launchContext.args);
+  return result;
 };
 
 window.protectedGlobals.initAppRuntimeState = function (app) {
