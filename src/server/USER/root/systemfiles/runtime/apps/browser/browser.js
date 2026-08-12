@@ -2056,7 +2056,6 @@ setTimeout(() => {
       if (index !== -1) {
         window.browserGlobals.allBrowsers.splice(index, 1);
       }
-      window.removeEventListener("message", messageHandler);
       window.removeEventListener("pointerup", onpointerupAnywhere);
       // Clean up all event listeners added by this app
       window.protectedGlobals.removeAllEventListenersForApp(
@@ -2854,40 +2853,6 @@ setTimeout(() => {
 
       resetTabDragState();
     };
-    function messageHandler(event) {
-      const data = event.data;
-      if (data?.type === "iframe-pointerup") {
-        // console.log("pointerup from iframe:");
-        // console.log("Coordinates:", data.x, data.y);
-        // console.log("Button pressed:", data.button);
-
-        // You can reconstruct a pseudo-event:
-        const e = {
-          clientX: data.x,
-          clientY: data.y,
-          pageX: data.pageX,
-          pageY: data.pageY,
-          button: data.button,
-          buttons: data.buttons,
-          altKey: data.altKey,
-          ctrlKey: data.ctrlKey,
-          shiftKey: data.shiftKey,
-          metaKey: data.metaKey,
-        };
-        onpointerupAnywhere(e, true);
-        // Use pseudoEvent however you want
-        let pointerup = new MouseEvent("pointerup", e);
-        document.dispatchEvent(pointerup);
-        window.dispatchEvent(pointerup);
-        let pointerdown = new MouseEvent("pointerdown", e);
-        document.dispatchEvent(pointerdown);
-        window.dispatchEvent(pointerdown);
-        let CLICK = new MouseEvent("click", e);
-        document.dispatchEvent(CLICK);
-        window.dispatchEvent(CLICK);
-      }
-    }
-    window.addEventListener("message", messageHandler);
     window.addEventListener("pointerup", onpointerupAnywhere);
     renderInterval = setInterval(() => {
       if (!window.browserGlobals.allBrowsers.some((b) => b.rootElement === root)) {

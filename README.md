@@ -222,6 +222,7 @@ window.myadminapp = () => {
       <ul>
         <li><code>storage</code> - allow, deny, or ask for write access.</li>
         <li><code>notification</code> - allow, deny, or ask for notifications.</li>
+        <li><code>launchApp</code> - allow, deny, or ask for launching other apps.</li>
       </ul>
       <p>Admin apps with valid keys are trusted differently, because they are expected to run with user-level privilege when the key is verified.</p>
       <h3>Entry file example</h3>

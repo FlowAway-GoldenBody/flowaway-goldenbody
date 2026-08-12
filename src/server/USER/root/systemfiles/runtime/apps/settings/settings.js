@@ -931,7 +931,7 @@ window.settings = function (posX = 50, posY = 50) {
 
       const existingPerms = window.protectedGlobals.appPerms && window.protectedGlobals.appPerms[appMeta.name] ? window.protectedGlobals.appPerms[appMeta.name] : {};
       const pendingPerms = { ...existingPerms };
-      const permsList = ["storage", "notification", "LaunchApp"];
+      const permsList = ["storage", "notification", "launchApp"];
       const permToggles = {};
       permsList.forEach(perm => {
         const permRow = document.createElement("div");
@@ -1812,7 +1812,7 @@ window.myadminapp = () => {
       <ul>
         <li><code>storage</code> - allow, deny, or ask for write access.</li>
         <li><code>notification</code> - allow, deny, or ask for notifications.</li>
-        <li><code>launch</code> - allow, deny, or ask for launching other apps.</li>
+        <li><code>launchApp</code> - allow, deny, or ask for launching other apps.</li>
       </ul>
       <p>Admin apps with valid keys are trusted differently, because they are expected to run with user-level privilege when the key is verified.</p>
       <h3>Entry file example</h3>

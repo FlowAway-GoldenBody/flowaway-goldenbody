@@ -802,11 +802,52 @@ function getAbsoluteMousePosition(e) {
             frame.contentWindow.gbextern.exitFullscreen();
             }
           });
-          frame.contentWindow.addEventListener('pointerup', function (e) {
+          function generatePointerEvent(e) {
+            const init = {
+              bubbles: e.bubbles,
+              cancelable: e.cancelable,
+              clientX: e.clientX,
+              clientY: e.clientY,
+              pageX: e.pageX,
+              pageY: e.pageY,
+              button: e.button,
+              buttons: e.buttons,
+              pointerId: e.pointerId,
+              pointerType: e.pointerType,
+              pressure: e.pressure,
+              isPrimary: e.isPrimary,
+              target: e.target,
+            };
+
             setTimeout(() => {
-              window.dispatchEvent(new PointerEvent('pointerup', e));
+              window.dispatchEvent(new PointerEvent(e.type, init));
             }, 10);
-          });
+          }
+          function generateClickEvent(e) {
+            const init = {
+              bubbles: e.bubbles,
+              cancelable: e.cancelable,
+              clientX: e.clientX,
+              clientY: e.clientY,
+              pageX: e.pageX,
+              pageY: e.pageY,
+              button: e.button,
+              buttons: e.buttons,
+              pointerId: e.pointerId,
+              pointerType: e.pointerType,
+              pressure: e.pressure,
+              isPrimary: e.isPrimary,
+              target: e.target,
+            };
+
+            setTimeout(() => {
+              window.dispatchEvent(new MouseEvent(e.type, init));
+            }, 10);
+          }
+          frame.contentWindow.addEventListener('pointerup', generatePointerEvent);
+          frame.contentWindow.addEventListener('pointerdown', generatePointerEvent);
+          frame.contentWindow.addEventListener('pointermove', generatePointerEvent);
+          frame.contentWindow.addEventListener('click', generateClickEvent);
           frame.contentWindow.__gbframeElement = frame;
           frame.contentWindow.Object.defineProperty(frame.contentWindow, "frameElement", {get: () => {return null}});
           let ruffleScript = document.createElement('script');

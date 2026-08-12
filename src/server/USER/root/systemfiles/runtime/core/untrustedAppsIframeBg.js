@@ -322,11 +322,11 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 source.postMessage({ error: "Invalid appId", requestId: requestId }, "*");
                 return;
             }
-            const permState = window.protectedGlobals.appPerms[appName].LaunchApp || "ask";
+            const permState = window.protectedGlobals.appPerms[appName].launchApp || "ask";
             let allowed = permState === "true";
             if (permState === "ask") {
                 dialogOpen = true;
-                allowed = await showAppPermissionPrompt(appName, `launch app "${appId}"`, true, 'LaunchApp');
+                allowed = await showAppPermissionPrompt(appName, `launch app "${appId}"`, true, 'launchApp');
                 dialogOpen = false;
             }
             if (!allowed) {
