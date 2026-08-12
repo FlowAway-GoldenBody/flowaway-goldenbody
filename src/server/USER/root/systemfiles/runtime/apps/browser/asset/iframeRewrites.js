@@ -802,6 +802,7 @@ function getAbsoluteMousePosition(e) {
             frame.contentWindow.gbextern.exitFullscreen();
             }
           });
+          // the timeout are hacks to prevent contextmenu event being blocked by the iframe's own event listeners
           function generatePointerEvent(e) {
             const init = {
               bubbles: e.bubbles,
@@ -816,11 +817,12 @@ function getAbsoluteMousePosition(e) {
               pointerType: e.pointerType,
               pressure: e.pressure,
               isPrimary: e.isPrimary,
-              target: e.target,
+              target: window.__gbframeElement,
             };
 
             setTimeout(() => {
               window.dispatchEvent(new PointerEvent(e.type, init));
+              document.dispatchEvent(new PointerEvent(e.type, init));
             }, 10);
           }
           function generateClickEvent(e) {
@@ -837,11 +839,12 @@ function getAbsoluteMousePosition(e) {
               pointerType: e.pointerType,
               pressure: e.pressure,
               isPrimary: e.isPrimary,
-              target: e.target,
+              target: window.__gbframeElement,
             };
 
             setTimeout(() => {
               window.dispatchEvent(new MouseEvent(e.type, init));
+              document.dispatchEvent(new MouseEvent(e.type, init));
             }, 10);
           }
           frame.contentWindow.addEventListener('pointerup', generatePointerEvent);
