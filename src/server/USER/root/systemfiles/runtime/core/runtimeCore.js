@@ -107,8 +107,9 @@ window.protectedGlobals.ReadFile = async function (
   }
 
   if (response.status === 401) {
-    window.protectedGlobals.showSessionExpiredDialog();
-    throw new Error("Unauthorized");
+    const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
+    if (refilled) return await window.protectedGlobals.ReadFile(relPath, options);
+    return { error: "unauthorized" };
   }
 
   const contentType = (
@@ -245,7 +246,10 @@ window.protectedGlobals.WriteFile = async function (
       ...baseHeaders,
       "X-File-Replace": chunkReplace ? "true" : "false",
     };
-
+    if (!headers["Authorization"]) {
+      headers["Authorization"] =
+        "Bearer " + window.protectedGlobals.data.authToken;
+    }
     let response;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -291,8 +295,9 @@ window.protectedGlobals.WriteFile = async function (
       response.status === 401 &&
       !window.protectedGlobals.firstlogin
     ) {
-      window.protectedGlobals.showSessionExpiredDialog();
-      return body || { error: "unauthorized" };
+      const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
+      if (refilled) return await sendChunk(chunk, chunkReplace);
+      return { error: "unauthorized" };
     }
 
     return {
@@ -410,16 +415,24 @@ function extractAuthTokenFromResponse(body) {
       window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
     }
     if (res.status === 401) {
-      window.protectedGlobals.showSessionExpiredDialog();
-        return body || { error: 'unauthorized' };
+      const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
+      if (refilled) return await window.protectedGlobals.zmcdpost(data);
+      return { error: 'unauthorized' };
     }
     return body;
 }
+window.protectedGlobals._sessionExpiredPromiseQueue = window.protectedGlobals._sessionExpiredPromiseQueue || [];
+window.protectedGlobals._sessionExpiredDialogOpen = window.protectedGlobals._sessionExpiredDialogOpen || false;
 window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDialog() {
-  if (    document.getElementById("session-expired-dialog") ||     window.protectedGlobals.isRebuilding  ) {
-    // already shown
-    return;
+  // Return a promise that resolves true when a session refill occurs,
+  // or rejects when the user cancels / chooses Sign In Again.
+  if (window.protectedGlobals._sessionExpiredDialogOpen) {
+    return new Promise((resolve, reject) => {
+      window.protectedGlobals._sessionExpiredPromiseQueue.push({ resolve, reject });
+    });
   }
+
+  window.protectedGlobals._sessionExpiredDialogOpen = true;
 
   const dlg = document.createElement("div");
   dlg.id = "session-expired-dialog";
@@ -525,8 +538,40 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
   btnRow.append(closeBtn, refillBtn, reloadBtn);
   dlg.appendChild(btnRow);
 
-  closeX.addEventListener("click", () => dlg.remove());
-  closeBtn.addEventListener("click", () => dlg.remove());
+  function rejectAll(reason) {
+    try {
+      (window.protectedGlobals._sessionExpiredPromiseQueue || []).forEach((p) => {
+        try { p.reject(reason); } catch (e) {}
+      });
+    } finally {
+      window.protectedGlobals._sessionExpiredPromiseQueue = [];
+    }
+  }
+
+  function resolveAll(value) {
+    try {
+      (window.protectedGlobals._sessionExpiredPromiseQueue || []).forEach((p) => {
+        try { p.resolve(value); } catch (e) {}
+      });
+    } finally {
+      window.protectedGlobals._sessionExpiredPromiseQueue = [];
+    }
+  }
+
+  const cleanupAndReject = (reason) => {
+    if (dlg && dlg.remove) dlg.remove();
+    window.protectedGlobals._sessionExpiredDialogOpen = false;
+    rejectAll(reason || new Error('Session refill canceled'));
+  };
+
+  const cleanupAndResolve = (value) => {
+    if (dlg && dlg.remove) dlg.remove();
+    window.protectedGlobals._sessionExpiredDialogOpen = false;
+    resolveAll(value === undefined ? true : value);
+  };
+
+  closeX.addEventListener("click", () => cleanupAndReject(new Error('User closed dialog')));
+  closeBtn.addEventListener("click", () => cleanupAndReject(new Error('User closed dialog')));
   refillBtn.addEventListener("click", async () => {
     // When user clicks refill, don't attempt token-based refill automatically.
     // Instead prompt for password and only send a password-based refill when provided.
@@ -590,17 +635,42 @@ window.protectedGlobals.showSessionExpiredDialog = function showSessionExpiredDi
       window.protectedGlobals.data.authToken = body.authToken;
       status.textContent = 'Session refilled. You can continue.';
       status.style.color = 'green';
-      setTimeout(() => { dlg.remove(); }, 350);
+      // resolve queued promises and then remove dialog
+      cleanupAndResolve(true);
+      return;
     } finally {
       refillBtn.disabled = false;
       refillBtn.textContent = 'Refill Session';
     }
   });
   reloadBtn.addEventListener("click", () => {
+    // User chose to sign in again: reject pending promises and trigger rebuild
     window.protectedGlobals.rebuildhandler();
+    cleanupAndReject(new Error('User chose to sign in again'));
   });
 
   document.body.appendChild(dlg);
+
+  // Return a promise for this caller and add to queue so multiple callers
+  // all get notified when a refill or cancel happens.
+  const p = new Promise((resolve, reject) => {
+    window.protectedGlobals._sessionExpiredPromiseQueue.push({ resolve, reject });
+  });
+
+  // Also listen for dialog removal via external means (safety): if removed,
+  // reject remaining promises.
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(dlg)) {
+      observer.disconnect();
+      if (window.protectedGlobals._sessionExpiredDialogOpen) {
+        window.protectedGlobals._sessionExpiredDialogOpen = false;
+        rejectAll(new Error('Session dialog removed'));
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true });
+
+  return p;
 };
 
 window.protectedGlobals.getCurrentUsernameForRequests = function getCurrentUsernameForRequests() {
@@ -626,8 +696,9 @@ window.protectedGlobals.filePost = async function filePost(data) {
     window.protectedGlobals.notification(fileErrorMessage || "Access denied.");
   }
   if (res.status === 401 && !window.protectedGlobals.firstlogin) {
-    window.protectedGlobals.showSessionExpiredDialog();
-    return body || { error: "unauthorized" };
+    const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
+    if (refilled) return await window.protectedGlobals.filePost(data);
+    return { error: "unauthorized" };
   }
 
   window.protectedGlobals.firstlogin = false;
@@ -664,8 +735,9 @@ window.protectedGlobals.downloadPost = async function downloadPost(data) {
     window.protectedGlobals.notification("Download successful! Filename: " + data.filename + ". Check your downloads folder.");
   }
   if (res.status === 401) {
-    window.protectedGlobals.showSessionExpiredDialog();
-    return body || { error: "unauthorized" };
+    const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
+    if (refilled) return await window.protectedGlobals.downloadPost(data);
+    return { error: "unauthorized" };
   }
   return body;
 };
