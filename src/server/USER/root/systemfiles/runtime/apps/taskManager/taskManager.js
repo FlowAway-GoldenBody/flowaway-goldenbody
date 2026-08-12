@@ -189,7 +189,7 @@ window.taskManager = function (posX = 50, posY = 50) {
     disposed = true;
     clearAutoRefresh();
     root.remove();
-
+    clearInterval(memoryInterval);
     const index = window.taskManagerGlobals.allTaskManagers.findIndex(
       (instance) => instance.rootElement === root,
     );
@@ -438,6 +438,24 @@ window.taskManager = function (posX = 50, posY = 50) {
   title.style.fontWeight = "700";
   main.appendChild(title);
 
+  const subTitle = document.createElement("div");
+  subTitle.textContent = "Memory Used: " + formatSize(performance.memory.usedJSHeapSize) + " / " + formatSize(performance.memory.jsHeapSizeLimit) + '(' + parseInt((performance.memory.usedJSHeapSize / performance.memory.jsHeapSizeLimit) * 100) +'%)';
+  subTitle.style.fontSize = "15px";
+  subTitle.style.fontWeight = "700";
+  main.appendChild(subTitle);
+
+  function formatSize(bytes) {
+    if (bytes === 0) return "0 B";
+    if (!bytes) return "";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 ** 2) return (bytes / 1024).toFixed(1) + " KB";
+    if (bytes < 1024 ** 3) return (bytes / 1024 ** 2).toFixed(1) + " MB";
+    return (bytes / 1024 ** 3).toFixed(1) + " GB";
+  }
+
+  let memoryInterval = setInterval(() => {
+    subTitle.textContent = "Memory Used: " + formatSize(performance.memory.usedJSHeapSize) + " / " + formatSize(performance.memory.jsHeapSizeLimit) + '(' + parseInt((performance.memory.usedJSHeapSize / performance.memory.jsHeapSizeLimit) * 100) +'%)';
+  }, 5000);
   const summaryGrid = document.createElement("div");
   Object.assign(summaryGrid.style, {
     display: "grid",
