@@ -251,7 +251,6 @@ window.browserGlobals.__localFilePathToBlobMap =
 
 window.browserGlobals.profileState = {
   siteSettings: [],
-  enableURLSync: true,
   lazyloading: true,
   siteZoom: {},
 };
@@ -396,7 +395,6 @@ window.browserGlobals.readProfileTextFile = async function (filePath) {
 window.browserGlobals.defaultBrowserProfile = function () {
   return {
     siteSettings: [],
-    enableURLSync: true,
     lazyloading: true,
     siteZoom: {},
     // themeMode: 'auto' | 'manual' ; when 'auto' use global `window.protectedGlobals.data.dark`
@@ -423,8 +421,6 @@ window.browserGlobals.repairBrowserProfile = function (parsed) {
   }
   return {
     siteSettings: Array.isArray(parsed.siteSettings) ? parsed.siteSettings : [],
-    enableURLSync:
-      typeof parsed.enableURLSync === "boolean" ? parsed.enableURLSync : true,
     lazyloading:
       typeof parsed.lazyloading === "boolean" ? parsed.lazyloading : true,
     siteZoom: normalizedSiteZoom,
@@ -455,7 +451,6 @@ window.browserGlobals.writeBrowserProfile = async function (
     siteSettings: Array.isArray(profile?.siteSettings)
       ? profile.siteSettings
       : [],
-    enableURLSync: !!profile?.enableURLSync,
     lazyloading: !!profile?.lazyloading,
     siteZoom:
       profile?.siteZoom && typeof profile.siteZoom === "object"

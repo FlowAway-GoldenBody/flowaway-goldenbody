@@ -95,7 +95,6 @@ window.browser = async function (
             window.browserGlobals.profile = prof;
             window.browserGlobals.dark = prof.themeMode === "manual" ? !!prof.dark : window.protectedGlobals.data.dark;
             window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
-            window.browserGlobals.profileState.enableURLSync = !!prof.enableURLSync;
             window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
             window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
             await populateActivatedUserscripts();
@@ -1100,7 +1099,6 @@ setTimeout(() => {
                 }
               } catch (e) {}
               window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
-              window.browserGlobals.profileState.enableURLSync = !!prof.enableURLSync;
               window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
               window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
               await populateActivatedUserscripts();
@@ -1178,7 +1176,6 @@ setTimeout(() => {
       await window.browserGlobals.profileReadyPromise;
     }
 
-    window.browserGlobals.profileState.enableURLSync = !!content.enableURLSync;
     window.browserGlobals.profileState.lazyloading = !!content.lazyloading;
     if (content.lazyloading)
       window.browserGlobals.allBrowsers.forEach((b) =>
@@ -1208,11 +1205,9 @@ setTimeout(() => {
       list.push([currentUrl, content.newSandbox]);
     }
     profile.siteSettings = list;
-    profile.enableURLSync = !!content.enableURLSync;
     profile.lazyloading = !!content.lazyloading;
     window.browserGlobals.profile = profile;
     window.browserGlobals.profileState.siteSettings = profile.siteSettings;
-    window.browserGlobals.profileState.enableURLSync = profile.enableURLSync;
     window.browserGlobals.profileState.lazyloading = profile.lazyloading;
     window.browserGlobals.profileState.siteZoom =
       profile.siteZoom && typeof profile.siteZoom === "object"
@@ -1350,33 +1345,22 @@ setTimeout(() => {
       secure = "You are viewing a secure official goldenbody webpage";
     section(website);
     section(secure);
-    if (!window.browserGlobals.profileState.enableURLSync)
-      section(
-        "Only user-initiated navigations get new permissions. To disable this, open sync perms below.",
-      );
     // perms
-    const syncpermsSec = section("Sync Perms");
-    let syncperms = checkbox(
-      syncpermsSec,
-      "sync perms",
-      window.browserGlobals.profileState.enableURLSync,
-    );
-    const info = document.createElement("div");
-    info.style.cssText = `
-    margin-top:6px;
-    font-size:11px;
-    color:#aaa;
-  `;
-    info.textContent =
-      "Recommended if you want permissions to automatically update when you navigate to different sites. If disabled, permissions will only be set on the initial URL and won't change until you manually update them or open this panel again.";
-    syncpermsSec.appendChild(info);
     let lazyloadingsect = section("Performance");
     let lazyloading = checkbox(
       lazyloadingsect,
       "Lazy Loading",
       window.browserGlobals.profileState.lazyloading,
     );
-
+    const info2 = document.createElement("div");
+    info2.style.cssText = `
+    margin-top:6px;
+    font-size:11px;
+    color:#aaa;
+    `;
+    info2.textContent =
+      "Strongly recommended for school chromebooks";
+    lazyloadingsect.appendChild(info2);
     // ===============================
     // SANDBOX
     // ===============================
@@ -1562,7 +1546,6 @@ setTimeout(() => {
       updateSiteSettings(iframe, {
         newSandbox: newSandbox,
         addTheSite: perms.addTheSite,
-        enableURLSync: syncperms.checked,
         lazyloading: lazyloading.checked,
       });
 
@@ -2643,7 +2626,6 @@ setTimeout(() => {
       await window.browserGlobals.writeBrowserUserId(id);
       window.browserGlobals.profile = {
         siteSettings: [],
-        enableURLSync: true,
         lazyloading: true,
         siteZoom: {},
       };
@@ -2652,7 +2634,6 @@ setTimeout(() => {
         { force: true },
       );
       window.browserGlobals.profileState.siteSettings = [];
-      window.browserGlobals.profileState.enableURLSync = true;
       window.browserGlobals.profileState.lazyloading = true;
       window.browserGlobals.profileState.siteZoom = {};
       await window.browserGlobals.clearAllCookies();
@@ -3670,7 +3651,6 @@ setTimeout(() => {
         tab.iframe.contentWindow.location.href,
       );
 
-      // Inject custom styles
       checkInterval = setInterval(() => {
         try {
           if (
@@ -3706,14 +3686,13 @@ setTimeout(() => {
               currentUrl !== "about:blank" &&
               previousUrl !== ""
             )
-              if (window.browserGlobals.profileState.enableURLSync) {
-                openUrlInActiveTab(currentUrl);
-              }
+            // a hack to change the src of the iframe, sync it with location.href
+            openUrlInActiveTab(currentUrl);
             if (window.browserGlobals.id == "") {
               window.browserGlobals.fetchId();
               setTimeout(() => {
                 tab.iframe.contentWindow.location.reload();
-              }, 250);
+              }, 100);
             }
             previousUrlMain = currentUrl;
           }
