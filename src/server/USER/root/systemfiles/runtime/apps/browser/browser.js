@@ -3314,11 +3314,9 @@ setTimeout(() => {
             console.warn("Interval cleared: tab.iframe is gone");
             return;
           }
-          tab.url = window.browserGlobals.unshuffleURL(
-            tab.iframe.contentWindow.location.href,
-          );
+          if (tab.iframe.src) tab.url = window.browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href);
           if (tab.iframe.contentDocument.readyState === "complete" && !tab.donotm) {
-            const docTitle =
+            let docTitle =
               tab.iframe.contentDocument.title ||
               tab.iframe.contentDocument.querySelector("title")?.childNodes[0]
                 ?.nodeValue ||
@@ -3326,6 +3324,9 @@ setTimeout(() => {
                 tab.iframe.contentWindow.location.href,
               ) ||
               "Untitled";
+            if (tab.iframe.contentWindow.location.href === 'about:blank' && docTitle === 'about:blank' && !tab.iframe.src) {
+              docTitle = "Loading...";
+            }
             tab.title = docTitle;
             if (tab.iframe.style.display === "block") chromeWindow.title = tab.title;
           } else {
@@ -3364,16 +3365,20 @@ setTimeout(() => {
       activatedTab = tab;
       eval(window.browserGlobals.iframePatch);
       stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
-      
+      Object.defineProperty(tab.iframe, "src", {
+        set: function (value) {
+          this.setAttribute("src", 'about:blank');
+          setTimeout(() => {
+            this.setAttribute("src", value);
+          }, 10);
+        },
+        get: function () {
+          if (this.getAttribute("src") !== tab.iframe.contentWindow.location.href) { return undefined; }
+          return this.getAttribute("src");
+        }
+      });
       if (window.browserGlobals.proxyurl != "") {
         iframe.src = a(url, window.browserGlobals.proxyurl);
-        // oof we dont need this anymore
-        // if(!window.browserGlobals.profileState.enableURLSync) {
-        // setTimeout(() => {
-        //   // to fix a contextmenu not showing bug, thats what i can do because after checking the devtools, idk what happened.
-        //   iframe.contentWindow.location.reload();
-        // }, 250);
-        // }
       } else {
         iframe.src = url;
       }
@@ -3685,9 +3690,13 @@ setTimeout(() => {
         );
       };
       activeTabId = id;
-      urlInput.value = window.browserGlobals.unshuffleURL(
-        tab.iframe.contentWindow.location.href,
-      );
+      if (tab.iframe.src) {
+        urlInput.value = window.browserGlobals.unshuffleURL(
+          tab.iframe.contentWindow.location.href,
+        );
+      } else {
+        urlInput.value = tab.url;
+      }
       let previousUrl = canonicalHistoryUrl(
         window.browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
       );
@@ -3714,7 +3723,7 @@ setTimeout(() => {
             tab.iframe.contentWindow.location.href,
           );
           const currentCanonical = canonicalHistoryUrl(currentUrl);
-          if (currentCanonical !== previousUrl) {
+          if (currentCanonical !== previousUrl && tab.iframe.src) {
             tab.firstNav = false;
             historyRecord(tab, currentUrl);
             previousUrl = currentCanonical;
