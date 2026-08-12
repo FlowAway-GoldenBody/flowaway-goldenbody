@@ -1,6 +1,1 @@
-{
-  "version": "1.0",
-  "pinnedApps": ["browser","fileExplorer","packageInstaller","textEditor","settings","yourApp"],
-  "recents": [],
-  "maxRecents": 5
-}
+{"version":"1.0","pinnedApps":["Browser","File Explorer","Settings","Text Editor","browser","fileExplorer","packageInstaller","textEditor","settings","yourApp"],"recents":["File Explorer"],"maxRecents":5}

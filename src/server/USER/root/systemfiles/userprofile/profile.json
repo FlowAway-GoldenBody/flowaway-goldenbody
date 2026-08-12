@@ -1,0 +1,15 @@
+{
+  "taskbuttons": [
+    "Browser",
+    "File Explorer"
+  ],
+  "brightness": 100,
+  "dark": false,
+  "autohidetaskbar": false,
+  "taskbarRevealEdgePx": 60,
+  "taskbarRevealHoldDelayMs": 450,
+  "autoupdate": true,
+  "DRAG_THRESHOLD": 15,
+  "taskbarOnTop": false,
+  "compactTaskbar": true
+}

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 
 const USER_TEMPLATE_PATH = path.join(__dirname, 'USER', 'root');
 const START_MENU_SOURCE_PATH = path.join(USER_TEMPLATE_PATH, 'systemfiles', 'userprofile', 'startMenu-config.json');
+const PROFILE_SOURCE_PATH = path.join(USER_TEMPLATE_PATH, 'systemfiles', 'userprofile', 'profile.json');
 
 function defaultSystemPathPermissions() {
   return [
@@ -37,14 +38,25 @@ function defaultStartMenuConfig() {
 
 function ensureStartMenuConfig(userPaths) {
   fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
-  if (fs.existsSync(userPaths.startMenuPath)) return;
 
-  if (fs.existsSync(START_MENU_SOURCE_PATH)) {
-    fs.copyFileSync(START_MENU_SOURCE_PATH, userPaths.startMenuPath);
-    return;
-  }
+  // Ensure start menu config exists (copy from template or write default)
+  try {
+    if (!fs.existsSync(userPaths.startMenuPath)) {
+      if (fs.existsSync(START_MENU_SOURCE_PATH)) {
+        try { fs.copyFileSync(START_MENU_SOURCE_PATH, userPaths.startMenuPath); } catch (e) {}
+      } else {
+        try { fs.writeFileSync(userPaths.startMenuPath, JSON.stringify(defaultStartMenuConfig(), null, 2)); } catch (e) {}
+      }
+    }
+  } catch (e) {}
 
-  fs.writeFileSync(userPaths.startMenuPath, JSON.stringify(defaultStartMenuConfig(), null, 2));
+  // If a profile.json exists in the USER template, copy it into the user's profile directory
+  try {
+    const profileDest = path.join(userPaths.userProfileDir, 'profile.json');
+    if (!fs.existsSync(profileDest) && fs.existsSync(PROFILE_SOURCE_PATH)) {
+      try { fs.copyFileSync(PROFILE_SOURCE_PATH, profileDest); } catch (e) {}
+    }
+  } catch (e) {}
 }
 
 function ensureAppIntegrityKey(userPaths) {
