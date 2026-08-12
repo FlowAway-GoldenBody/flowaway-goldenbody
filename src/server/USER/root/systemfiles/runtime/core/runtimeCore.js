@@ -234,11 +234,6 @@ window.protectedGlobals.WriteFile = async function (
       window.protectedGlobals.getCurrentUsernameForRequests(),
   };
 
-  if (window.protectedGlobals.data.authToken) {
-    baseHeaders["Authorization"] =
-      "Bearer " + window.protectedGlobals.data.authToken;
-  }
-
   const maxAttempts = 15;
 
   async function sendChunk(chunk, chunkReplace) {
@@ -246,10 +241,7 @@ window.protectedGlobals.WriteFile = async function (
       ...baseHeaders,
       "X-File-Replace": chunkReplace ? "true" : "false",
     };
-    if (!headers["Authorization"]) {
-      headers["Authorization"] =
-        "Bearer " + window.protectedGlobals.data.authToken;
-    }
+    headers["Authorization"] = "Bearer " + window.protectedGlobals.data.authToken;
     let response;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {

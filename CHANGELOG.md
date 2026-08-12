@@ -36,3 +36,6 @@
 
 ## V 1.2.1
 - When session has expired, the caller will still get a response if the user refilled the session.
+
+## V 1.2.2
+- Fixed a bug when the retry for session expired for writefile don't use the new session token
