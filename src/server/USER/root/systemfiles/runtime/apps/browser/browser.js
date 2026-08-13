@@ -4,6 +4,7 @@
 window.browserGlobals = window.browserGlobals || {};
 window.browserGlobals.nhjd = 1;
 window.browserGlobals.tmp = {};
+window.browserGlobals.activatedUserscriptNames = [];
 window.browserGlobals.vfsScriptPath =
   "/systemfiles/runtime/apps/browser/asset/fileSystemRelatedStuff.js";
 window.browserGlobals.frontendFilePickerStuffJSPath =
@@ -42,6 +43,8 @@ window.browserGlobals.fetchId = async function () {
   window.browserGlobals.indexedDBPatch = await window.protectedGlobals
     .ReadFile("/systemfiles/runtime/apps/browser/asset/indexedDB.js", { text: true, direct: true });
 })();
+  // in-memory userscript store (folderName -> script source)
+  window.browserGlobals.userscripts = window.browserGlobals.userscripts || {};
 window.browserGlobals.findWindowById = function(id) {
   // Implementation for finding window by ID
   window.browserGlobals.allBrowsers.forEach(b => {
@@ -68,20 +71,38 @@ window.browser = async function (
     let getRoot = () => {};
     let exposedToTabs = {};
     let checkerinterval = null;
-    let activatedUserscriptNames = [];
+    let activatedUserscriptNames = window.browserGlobals.activatedUserscriptNames;
     let curProfileName = 'profile';
     let stopIframePatchWatcher = null;
     let getCurProfileName = function() { return curProfileName; };
     window.browserGlobals.getCurProfileName = getCurProfileName;
 
+    // Only create/inject the built-in userscript when a profile is created.
+    // We do not auto-write it on every startup for existing profiles.
+    async function ensureDefaultUserscriptForProfile(profileName) {
+      if (!profileName) return;
+      const scriptPath = "/systemfiles/runtime/apps/browser/" + profileName + "/userscripts/EggPatcher/script.txt";
+      if (await window.protectedGlobals.FileExists(scriptPath)) return;
+
+      const assetPath = "/systemfiles/runtime/apps/browser/asset/defaultUserscripts/EggPatcher/script.txt";
+      const targetFolder = "/systemfiles/runtime/apps/browser/" + profileName + "/userscripts/EggPatcher";
+      const src = await window.protectedGlobals.ReadFile(assetPath, { text: true, direct: true });
+      await window.protectedGlobals.WriteFile(scriptPath, src, { text: true }).catch(() => {});
+      await window.protectedGlobals.WriteFile(targetFolder + "/active.txt", "true", { text: true });
+      await window.protectedGlobals.WriteFile(targetFolder + "/name.txt", "EggPatcher", { text: true });
+    }
+
     // initialize curProfileName from defaultprofile.txt if present
     async function initDefaultProfile() {
       try {
         const defPath = "/systemfiles/runtime/apps/browser/defaultprofile.txt";
+        let needscript = false;
         try {
           const v = await window.protectedGlobals.ReadFile(defPath, { text: true, direct: true }).catch(() => null);
           if (v && typeof v === 'string' && v.trim()) {
             curProfileName = v.trim();
+          } else {
+            needscript = true;
           }
         } catch (e) {
           // read failed or file missing — ignore
@@ -90,15 +111,16 @@ window.browser = async function (
         try {
           window.browserGlobals.profileUserIdPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userID.txt";
           window.browserGlobals.profileSettingsPath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "settings.json";
-          if (window.browserGlobals.readBrowserProfile) {
-            const prof = await window.browserGlobals.readBrowserProfile();
-            window.browserGlobals.profile = prof;
-            window.browserGlobals.dark = prof.themeMode === "manual" ? !!prof.dark : window.protectedGlobals.data.dark;
-            window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
-            window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
-            window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
-            await populateActivatedUserscripts();
-          }
+          const prof = await window.browserGlobals.readBrowserProfile();
+          window.browserGlobals.profile = prof;
+          window.browserGlobals.dark = prof.themeMode === "manual" ? !!prof.dark : window.protectedGlobals.data.dark;
+          window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
+          window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
+          window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
+          await populateActivatedUserscripts();
+          // load userscripts into in-memory map so iframe patches do not need to read files
+          try { await loadActivatedUserscripts(); } catch (e) {}
+          if (needscript) try { await ensureDefaultUserscriptForProfile(getCurProfileName()); } catch {}
         } catch (e) {}
       } catch (e) {}
     }
@@ -202,7 +224,22 @@ window.browser = async function (
         }
       } catch (e) {}
     };
-    populateActivatedUserscripts();
+    await populateActivatedUserscripts();
+    try { await loadActivatedUserscripts(); } catch (e) {}
+
+    // Load userscripts (reads script.txt into memory for each active userscript)
+    async function loadActivatedUserscripts() {
+      window.browserGlobals.userscripts = {};
+      const base = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userscripts";
+      for (const folderName of activatedUserscriptNames) {
+        try {
+          const script = await window.protectedGlobals.ReadFile(base + "/" + folderName + "/script.txt", { text: true, direct: true }).catch(() => "");
+          window.browserGlobals.userscripts[folderName] = script || "";
+        } catch (e) {
+          window.browserGlobals.userscripts[folderName] = "";
+        }
+      }
+    }
 setTimeout(() => {
   function checkFrames(root = document) {
     // add something so the interval knows when to clear itself
@@ -639,6 +676,8 @@ setTimeout(() => {
           await window.protectedGlobals.WriteFile(folderPath + "/active.txt", "true", { text: true });
           // mark as activated in memory
           if (activatedUserscriptNames.indexOf(safeFolder) === -1) activatedUserscriptNames.push(safeFolder);
+          // keep in-memory copy immediately
+          try { window.browserGlobals.userscripts = window.browserGlobals.userscripts || {}; window.browserGlobals.userscripts[safeFolder] = data.script || ""; } catch (e) {}
           window.protectedGlobals.notification && window.protectedGlobals.notification("Created");
           panel.remove();
           showUserscriptDialogue();
@@ -747,8 +786,16 @@ setTimeout(() => {
             const idx = activatedUserscriptNames.indexOf(entry);
             if (toggle.checked) {
               if (idx === -1) activatedUserscriptNames.push(entry);
+              // load script into memory when activated
+              try {
+                const s = await window.protectedGlobals.ReadFile(basePath + "/" + entry + "/script.txt", { text: true, direct: true }).catch(() => "");
+                window.browserGlobals.userscripts = window.browserGlobals.userscripts || {};
+                window.browserGlobals.userscripts[entry] = s || "";
+              } catch (e) { window.browserGlobals.userscripts[entry] = ""; }
             } else {
               if (idx !== -1) activatedUserscriptNames.splice(idx, 1);
+              // remove from in-memory map when deactivated
+              try { if (window.browserGlobals && window.browserGlobals.userscripts) delete window.browserGlobals.userscripts[entry]; } catch (e) {}
             }
             try { window.protectedGlobals.notification && window.protectedGlobals.notification("Saved"); } catch (e) {}
           } catch (e) {
@@ -839,6 +886,8 @@ setTimeout(() => {
             try {
               await window.protectedGlobals.WriteFile(folderPath + "/script.txt", data.script || "", { text: true });
               await window.protectedGlobals.WriteFile(folderPath + "/name.txt", data.name, { text: true });
+                // update in-memory copy immediately
+                try { window.browserGlobals.userscripts = window.browserGlobals.userscripts || {}; window.browserGlobals.userscripts[entry] = data.script || ""; } catch (e) {}
               window.protectedGlobals.notification && window.protectedGlobals.notification("Saved");
               panel.remove();
               showUserscriptDialogue();
@@ -855,6 +904,8 @@ setTimeout(() => {
             // remove from activated list
             const di = activatedUserscriptNames.indexOf(entry);
             if (di !== -1) activatedUserscriptNames.splice(di, 1);
+            // remove from in-memory copy
+            try { if (window.browserGlobals && window.browserGlobals.userscripts) delete window.browserGlobals.userscripts[entry]; } catch (e) {}
             window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted");
             panel.remove();
             showUserscriptDialogue();
@@ -976,6 +1027,7 @@ setTimeout(() => {
             try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", "{}", { text: true }).catch(() => {});
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", "{}", { text: true }).catch(() => {});
+            try { await ensureDefaultUserscriptForProfile(safeName).catch(()=>{}); } catch (e) {}
           } catch (e) {}
           // ensure profilepaths.txt exists and load content
           let content = "";
@@ -1103,6 +1155,7 @@ setTimeout(() => {
               window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
               window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
               await populateActivatedUserscripts();
+              try { await loadActivatedUserscripts(); } catch (e) {}
             }
             // refresh local paths and reload in-memory stores
             try {
