@@ -1101,6 +1101,7 @@ setTimeout(() => {
               window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
               window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
               window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
+              window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
               await populateActivatedUserscripts();
             }
             // refresh local paths and reload in-memory stores

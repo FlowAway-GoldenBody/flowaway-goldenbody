@@ -496,25 +496,9 @@ window.browserGlobals.writeBrowserUserId = async function (id) {
 
 
 window.browserGlobals.requestNewBrowserSessionId = async function () {
-  const candidates = ["/server/newsession", "/newsession"];
-  let lastError = null;
-  for (const endpoint of candidates) {
-    try {
-      const res = await fetch(endpoint);
-      if (!res.ok) {
-        lastError = new Error(
-          `Failed to create new browser session (${endpoint})`,
-        );
-        continue;
-      }
-      const id = (await res.text()).trim();
-      if (id) return id;
-      lastError = new Error(`Empty browser session id (${endpoint})`);
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw lastError || new Error("Failed to create new browser session");
+  const res = await fetch("/server/newsession");
+  const id = (await res.text()).trim();
+  if (id) return id;
 };
 
 window.browserGlobals.profile = window.browserGlobals.defaultBrowserProfile();
