@@ -582,6 +582,7 @@
   // WiFi indicator
   var wifiItem = document.createElement('div');
   wifiItem.className = 'status-item';
+  if (window.protectedGlobals.data.compactTaskbar) wifiItem.classList.add('small');
   wifiItem.innerHTML = svgIcons.wifi;
   wifiItem.title = 'WiFi toggle for community apps. If you have no community apps installed, it will have no effect.';
   wifiItem.addEventListener('click', function(e) {
@@ -596,6 +597,7 @@
   // Battery indicator
   var batteryItem = document.createElement('div');
   batteryItem.className = 'status-item';
+  if (window.protectedGlobals.data.compactTaskbar) batteryItem.classList.add('small');
   batteryItem.innerHTML = svgIcons.battery;
   batteryItem.title = 'Battery';
   

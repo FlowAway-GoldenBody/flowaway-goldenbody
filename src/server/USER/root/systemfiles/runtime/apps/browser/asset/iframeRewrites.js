@@ -774,6 +774,26 @@ function getAbsoluteMousePosition(e) {
             "Patching iframe:",
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
+          var urlPatch = document.createElement('script');
+          urlPatch.textContent = `let nativeURL = window.URL;
+          function URLShim(url = '', base) {
+            let normalizedUrl = url == null ? '' : String(url);
+            const hasBase = arguments.length > 1;
+
+            if (hasBase) {
+              const normalizedBase = base == null ? '' : String(base);
+              return new nativeURL(normalizedUrl, normalizedBase || window.location.href);
+            }
+            else {
+              normalizedUrl = window.location.href;
+            }
+            return new nativeURL(normalizedUrl || window.location.href);
+          }
+
+          Object.setPrototypeOf(URLShim, nativeURL);
+          URLShim.prototype = nativeURL.prototype;
+          window.URL = URLShim;`;
+          frame.contentDocument.body.appendChild(urlPatch);
           frame.contentWindow.addEventListener("keydown", function (e) {
             if ((frame.contentDocument.pointerLockElement || frame.contentDocument.fullscreenElement) && e.key === "Escape") {
             frame.contentWindow.gbextern.exitPointerLock();
