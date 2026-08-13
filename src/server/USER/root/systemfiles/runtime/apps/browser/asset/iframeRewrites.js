@@ -774,7 +774,7 @@ function getAbsoluteMousePosition(e) {
             "Patching iframe:",
             frame.src || frame.contentWindow?.location?.href || "about:blank",
           );
-          var urlPatch = document.createElement('script');
+          const urlPatch = document.createElement('script');
           urlPatch.textContent = `let nativeURL = window.URL;
           function URLShim(url = '', base) {
             let normalizedUrl = url == null ? '' : String(url);
