@@ -3701,9 +3701,7 @@ setTimeout(() => {
         window.browserGlobals.unshuffleURL(tab.iframe.contentWindow.location.href),
       );
       let previousTabTitle = tab.title;
-      let previousUrlMain = window.browserGlobals.unshuffleURL(
-        tab.iframe.contentWindow.location.href,
-      );
+      let previousUrlMain = tab.url;
 
       checkInterval = setInterval(() => {
         try {
@@ -4142,7 +4140,7 @@ setTimeout(() => {
     });
 
     if (preloadlink) {
-      const id = addTab("goldenbody://newtab/", "New Tab");
+      const id = addTab("about:blank");
       activateTab(id);
       openUrlInActiveTab(normalizePreloadLink(preloadlink));
     }
