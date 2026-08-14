@@ -204,6 +204,11 @@ function removeUnwantedStuffInPath(value) {
   return normalized === "." ? "/" : normalized;
 }
 
+function stripLeadingSlash(value) {
+  const text = String(value ?? "");
+  return text.replace(/^\/+/, "");
+}
+
 function getPermissionForRelativePath(relPath, permissionEntries) {
   const normalizedTarget = removeUnwantedStuffInPath(relPath);
 
@@ -426,7 +431,7 @@ async function handleFetchfiles(req, res) {
 
         const permission = getPermissionForRelativePath(normalizedRequestPath, userPathPermissions);
 
-        if (!permission.read) return jsonResponse({ error: "read permission denied", path: `/${normalizedRequestPath}` }, 403);
+        if (!permission.read) return jsonResponse({ error: "read permission denied", path: `${normalizedRequestPath}` }, 403);
 
         const fullPath = safeResolve(userRoot, normalizedRequestPath);
 
@@ -473,7 +478,7 @@ async function handleFetchfiles(req, res) {
           return res.end(
             JSON.stringify({
               error: "read permission denied",
-              path: `/${relForPerm}`,
+              path: `${relForPerm}`,
             }),
           );
         }
@@ -511,7 +516,7 @@ async function handleFetchfiles(req, res) {
         const dirents = await fsp.readdir(fullPath, { withFileTypes: true });
 
         if (!wantDetails) {
-          const files = dirents.map((d) => removeUnwantedStuffInPath(d.name));
+          const files = dirents.map((d) => stripLeadingSlash(d.name));
 
           return res.end(
             JSON.stringify({
@@ -523,7 +528,7 @@ async function handleFetchfiles(req, res) {
 
         const files = await limit(() => Promise.all(
           dirents.map(async (d) => {
-            const entryPath = removeUnwantedStuffInPath(d.name);
+            const entryPath = stripLeadingSlash(d.name);
 
             const type = d.isDirectory() ? "folder" : "file";
 
