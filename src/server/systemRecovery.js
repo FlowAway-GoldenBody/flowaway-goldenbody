@@ -525,14 +525,8 @@ function deleteAccountDirectory(userPaths) {
 
 function handleSystemRecoveryRequest(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
 
   const requestPath = new URL(req.url || '/', 'http://127.0.0.1').pathname;
   if (

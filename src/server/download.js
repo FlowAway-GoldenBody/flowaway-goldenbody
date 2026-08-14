@@ -91,13 +91,8 @@ function respondJSON(res, code, obj) {
 
 async function handleDownload(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    return res.end();
-  }
 
   if (req.method !== 'POST') {
     return respondJSON(res, 405, { error: 'Use POST' });

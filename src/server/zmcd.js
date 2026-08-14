@@ -151,14 +151,8 @@ function sendJson(res, statusCode, body) {
 
 function handleZMCd(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
 
   if (req.method !== 'POST') {
     return sendJson(res, 405, { error: 'Send a POST request with JSON' });
