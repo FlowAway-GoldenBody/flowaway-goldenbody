@@ -11,7 +11,7 @@ function zmcdRateLimit(req, res) {
     const now = Date.now();
 
     const window = 60 * 1000; // 1 minute
-    const max = 10;
+    const max = 60;
 
     let data = zmcdAttempts.get(ip);
 
