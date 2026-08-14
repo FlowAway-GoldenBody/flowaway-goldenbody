@@ -16,7 +16,7 @@ const systemRecovery = require('./systemRecovery');
 
 const zmcdAttempts = new Map();
 function zmcdRateLimit(req, res) {
-    const ip = config.getIP(req);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const now = Date.now();
 
     const window = 60 * 1000 * 1; // 1 minute
@@ -45,7 +45,7 @@ function zmcdRateLimit(req, res) {
 
 const systemRecoveryAttempts = new Map();
 function systemRecoveryRateLimit(req, res) {
-    const ip = config.getIP(req);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const now = Date.now();
 
     const window = 60 * 1000 * 1; // 1 minute
@@ -74,7 +74,7 @@ function systemRecoveryRateLimit(req, res) {
 
 const newSessionAttempts = new Map();
 function newSessionRateLimit(req, res) {
-    const ip = config.getIP(req);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const now = Date.now();
 
     const window = 1 * 60 * 1000; // 1 minute
@@ -103,7 +103,7 @@ function newSessionRateLimit(req, res) {
 
 const fetchFilesAttempts = new Map();
 function fetchFilesRateLimit(req, res) {
-    const ip = config.getIP(req);
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const now = Date.now();
 
     const window = 10 * 1000; // 10 seconds
@@ -201,6 +201,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
 
     proxyServer.addToOnRequestPipeline((req, res) => {
+        console.log(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
         if (!req.url) return;
         if (req.url.startsWith('/server/newsession')) {
             if (!newSessionRateLimit(req, res)) {

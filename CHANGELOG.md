@@ -39,3 +39,6 @@
 
 ## V 1.2.2
 - Fixed a bug when the retry for session expired for writefile don't use the new session token
+
+## V 1.2.3
+- fixed a rate limit get IP bug
