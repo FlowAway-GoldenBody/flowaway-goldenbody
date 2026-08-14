@@ -252,7 +252,9 @@ window.protectedGlobals.firstlogin = false;
         } catch (err) {
           result = await response.text().catch(() => null);
         }
-
+          if (result?.error === 'Invalid username format') {
+            result.error = 'Invalid username format. Username can only contain letters and numbers.';
+          }
         window.protectedGlobals.zmcdata = result;
         const errorMessage = result && typeof result === 'object' && typeof result.error === 'string'
           ? result.error
