@@ -317,9 +317,9 @@ window.packageInstallerGlobals.getPackageMetadata = window.packageInstallerGloba
     throw new Error('entry.json is not valid JSON');
   }
 
-  const label = typeof entryData?.label === 'string' ? entryData.label.trim() : '';
+  const label = typeof entryData?.id === 'string' ? entryData.id.trim() : '';
   if (!label) {
-    throw new Error('entry.json is missing a valid label property');
+    throw new Error('entry.json is missing a valid id property');
   }
 
   const entryDir = String(entryJsonPath).split('/').slice(0, -1).join('/');

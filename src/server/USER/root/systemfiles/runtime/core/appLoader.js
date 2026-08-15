@@ -10,6 +10,7 @@
   let knownAppId = [];
   let knownAppGlobals = [];
   let knownAppFuncs = [];
+  window.protectedGlobals.knownAppStuff = { knownAppId, knownAppGlobals, knownAppFuncs };
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
   }

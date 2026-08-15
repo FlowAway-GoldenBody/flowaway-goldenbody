@@ -974,13 +974,14 @@ window.protectedGlobals.deleteApp = async function (obj) {
         e.rootElement.remove();
         e.closeWindow();
       });
+      window.protectedGlobals.knownAppStuff.knownAppId.splice(window.protectedGlobals.knownAppStuff.knownAppId.indexOf(element.id), 1);
+      window.protectedGlobals.knownAppStuff.knownAppGlobals.splice(window.protectedGlobals.knownAppStuff.knownAppGlobals.indexOf(element.globalVarObjectString), 1);
+      window.protectedGlobals.knownAppStuff.knownAppFuncs.splice(window.protectedGlobals.knownAppStuff.knownAppFuncs.indexOf(element.functionName), 1);
       window.protectedGlobals.renderAppsGrid();
-      window.protectedGlobals.taskbuttons.forEach(b => {
+      [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")].forEach(b => {
+        debugger;
         if (b.dataset.appId === element.id) b.remove();
-        let index = window.protectedGlobals.taskbuttons.indexOf(b);
-        if (index > -1) window.protectedGlobals.taskbuttons.splice(index, 1);
-        let index2 = window.protectedGlobals.data.taskbuttons.indexOf(b.dataset.appId);
-        if (index2 > -1) window.protectedGlobals.data.taskbuttons.splice(index2, 1);
+        window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
       });
       window.protectedGlobals.persistUserProfilePatch({ taskbuttons: window.protectedGlobals.data.taskbuttons });
       window.protectedGlobals._startMenuConfig.pinnedApps.splice(window.protectedGlobals._startMenuConfig.pinnedApps.indexOf(element.id), 1);
