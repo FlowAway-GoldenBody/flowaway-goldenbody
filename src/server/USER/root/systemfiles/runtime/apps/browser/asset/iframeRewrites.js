@@ -24,7 +24,7 @@ var startIframePatchWatcher = (durationMs = 2500) => {
       try {
         iframePatches();
       } catch (e) {}
-    }, 50);
+    }, 10);
   }
   if (patchwindowtimeout) clearTimeout(patchwindowtimeout);
   patchwindowtimeout = setTimeout(() => {
@@ -268,22 +268,7 @@ async function iframePatches() {
     addContextMenuItem(
       "inspect\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0\xA0Ctrl+Shift+I",
       () => {
-        const win = patchedTab.iframe.contentWindow;
-        const doc = patchedTab.iframe.contentDocument;
-        if (!win) return;
-        if (!win.eruda) {
-          patchedTab.iframe.contentWindow._goldenbodyIns = true;
-
-          const script = doc.createElement("script");
-          script.src = window.browserGlobals.erudaCDN;
-          script.onload = () => {
-            win.eruda.init();
-            win.eruda.get("entryBtn").hide();
-            win.eruda.show();
-          };
-          doc.head.appendChild(script);
-          return;
-        }
+        let win = patchedTab.iframe.contentWindow;
         win.eruda[win._goldenbodyIns ? "hide" : "show"]();
         win._goldenbodyIns = !win._goldenbodyIns;
       },
@@ -371,12 +356,11 @@ async function iframePatches() {
           if (!frameView?._goldenbodyIns) frameView._goldenbodyIns = false;
           if (!frameView.eruda) {
             let script = document.createElement("script");
-            script.src = window.browserGlobals.erudaCDN;
-            script.onload = () => {
-              frameView.eruda.init();
-              frameView.eruda.get("entryBtn").hide();
-              frameView.eruda.show();
-            };
+            script.textContent = window.protectedGlobals.erudaText;
+            frameView.document.head.appendChild(script);
+            frameView.eruda.init();
+            frameView.eruda.get("entryBtn").hide();
+            frameView.eruda.show();
             frameView._goldenbodyIns = true;
             return;
           }
@@ -851,9 +835,6 @@ function getAbsoluteMousePosition(e) {
           frame.contentWindow.addEventListener('click', generateClickEvent);
           frame.contentWindow.__gbframeElement = frame;
           frame.contentWindow.Object.defineProperty(frame.contentWindow, "frameElement", {get: () => {return null}});
-          let ruffleScript = document.createElement('script');
-          ruffleScript.src = 'https://unpkg.com/@ruffle-rs/ruffle';
-          frameDoc.body.appendChild(ruffleScript);
           
           // Patch links to handle proxy URLs and new tab behavior
           const hooked = new WeakSet();
@@ -901,20 +882,14 @@ function getAbsoluteMousePosition(e) {
           })();
           let tmpinterval = setInterval(() => {
             if (!patchedTab.iframe.isConnected) clearInterval(tmpinterval);
-            try {
               if (!win.eruda) {
                 const script = document.createElement("script");
-                script.src = window.browserGlobals.erudaCDN;
-                script.onload = () => {
-                  win.eruda.init();
-                  win.eruda.get("entryBtn").hide();
-                };
+                script.textContent = window.protectedGlobals.erudaText;
                 frameDoc.head.appendChild(script);
+                win.eruda.init();
+                win.eruda.get("entryBtn").hide();
               } else clearInterval(tmpinterval);
-            } catch (e) {
-              clearInterval(tmpinterval);
-            }
-          }, 1000);
+          }, 10);
           let themeOverride = document.createElement("script");
           themeOverride.textContent = `
           (function(){
@@ -1344,75 +1319,51 @@ function getAbsoluteMousePosition(e) {
 
           const mwin = patchedTab.iframe.contentWindow;
           win.tabIndex = "0";
-          if (!win.suberudaKeyHandler) {
-            win.erudaKeyHandler = function (e) {
-              if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-                if (!win.eruda) {
-                  patchedTab.iframe.contentWindow._goldenbodyIns = true;
+          win.erudaKeyHandler = function () {
+            // toggle show/hide
+            if (!win._goldenbodyIns) {
+              win.eruda.show();
 
-                  const script = doc.createElement("script");
-                  script.src = window.browserGlobals.erudaCDN;
-                  script.onload = () => {
-                    win.eruda.init();
-                    win.eruda.get("entryBtn").hide();
-                    win.eruda.show();
-                  };
-                  doc.head.appendChild(script);
-                } else {
-                  try {
-                    // toggle show/hide
-                    if (!win._goldenbodyIns) {
-                      win.eruda.show();
+              win._goldenbodyIns = true;
+            } else {
+              win.eruda.hide();
 
-                      win._goldenbodyIns = true;
-                    } else {
-                      win.eruda.hide();
+              win._goldenbodyIns = false;
+            }
+          };
 
-                      win._goldenbodyIns = false;
-                    }
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }
-              }
-            };
-
-            let injectInterval = setInterval(() => {
-              if (win.eruda) {
-                clearInterval(injectInterval);
+          let injectInterval = setInterval(() => {
+            if (win.eruda) {
+              clearInterval(injectInterval);
+              try {
+              for (let folderName of activatedUserscriptNames) {
                 try {
-                for (let folderName of activatedUserscriptNames) {
-                  try {
-                    const src = (window.browserGlobals.userscripts[folderName])
-                    if (src) {
-                      let script = document.createElement("script");
-                      script.textContent = src;
-                      frameDoc.body.appendChild(script);
-                    }
-                  } catch (e) {}
-                }
+                  const src = (window.browserGlobals.userscripts[folderName])
+                  if (src) {
+                    let script = document.createElement("script");
+                    script.textContent = src;
+                    frameDoc.body.appendChild(script);
+                  }
                 } catch (e) {}
               }
-            }, 10);
-            win.suberudaKeyHandler = function (e) {
-              if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-                if (frame.contentWindow.parent !== window) {
-                  document.activeElement.contentDocument.body.focus();
-                }
-                return;
-              } else if (
-                (e.ctrlKey && (e.key === "+" || e.key === "=")) ||
-                (e.ctrlKey && e.key === "-")
-              ) {
-                if (frame.contentWindow.parent !== window) {
-                  document.activeElement.contentDocument.body.focus();
-                }
-
-                // handleresize(e, tab);
-                return;
+              } catch (e) {}
+            }
+          }, 10);
+          win.suberudaKeyHandler = function (e) {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
+              win.erudaKeyHandler();
+            } else if (
+              (e.ctrlKey && (e.key === "+" || e.key === "=")) ||
+              (e.ctrlKey && e.key === "-")
+            ) {
+              if (frame.contentWindow.parent !== window) {
+                document.activeElement.contentDocument.body.focus();
               }
-            };
-          }
+
+              // handleresize(e, tab);
+              return;
+            }
+          };
           function attatch() {
             frame.contentWindow.removeEventListener(
               "pointerup",

@@ -2,6 +2,7 @@
 (function () {
   try { delete window.protectedGlobals.treeData; } catch (e) { }
   window.protectedGlobals = window.protectedGlobals || {};
+
   window.permGlobals = window.permGlobals || {};
   window.protectedGlobals.timerSpeed = 1;
 window.protectedGlobals.removeAllEventListenersInWindow = function() {

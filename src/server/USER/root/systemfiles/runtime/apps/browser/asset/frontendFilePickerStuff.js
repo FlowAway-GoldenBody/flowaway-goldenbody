@@ -4,7 +4,6 @@
         // ----------------------------
         let sentreqframe = null;
          console.log('active');
-        window.protectedGlobals.onlyloadTree();
 
         let fullPath;
         function getSessionAuthHeaders() {

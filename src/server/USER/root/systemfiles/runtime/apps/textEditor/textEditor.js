@@ -834,7 +834,8 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   applyTextEditorTheme();
 
   // Save-as dialog (defined here so New/Save can reuse it)
-  function openEditorSaveUI() {
+  async function openEditorSaveUI() {
+    await window.protectedGlobals.onlyloadTree();
     let pickerTree = JSON.parse(JSON.stringify(window.protectedGlobals.treeData || {}));
     let pickerCurrentPath = ["root"];
     let pickerSelection = [];
@@ -1087,7 +1088,8 @@ window.textEditor = function (path, posX = 50, posY = 50) {
   });
 
   // Recreate the app's custom picker UI (shared overlay pattern)
-  function openEditorPickerUI() {
+  async function openEditorPickerUI() {
+    await window.protectedGlobals.onlyloadTree();
     let pickerTree = JSON.parse(JSON.stringify(window.protectedGlobals.treeData || {}));
     let pickerCurrentPath = ["root"];
     let pickerSelection = [];

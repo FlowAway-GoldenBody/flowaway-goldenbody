@@ -3116,15 +3116,6 @@ setTimeout(() => {
         }
       };
       iframe.addEventListener("load", function () {
-        if (!iframe.contentWindow.eruda) {
-          const script = iframe.contentDocument.createElement("script");
-          script.src = window.browserGlobals.erudaCDN;
-          script.onload = () => {
-            iframe.contentWindow.eruda.init();
-            iframe.contentWindow.eruda.get("entryBtn").hide();
-          };
-          iframe.contentDocument.head.appendChild(script);
-        }
         iframe.contentWindow.postMessage(
           {
             message: "GOLDENBODY_id",
@@ -3257,56 +3248,8 @@ setTimeout(() => {
             iframe.contentWindow.location.href,
           );
         applyZoomToTab(tab);
-        // let sfc = tab.iframe.contentDocument.createElement("script");
-        // sfc.src = window.protectedGlobals.goldenbodywebsite + "sfc__o.js";
-        // tab.iframe.contentDocument.head.prepend(sfc);
       });
-      iframe.addEventListener("load", function onLoad() {
-        const doc = iframe.contentDocument;
-        const win = iframe.contentWindow;
 
-        // Skip if unloaded or invalid
-        if (!doc || !win) return;
-
-        // Remove old handler if exists
-        win.removeEventListener("keydown", win.erudaKeyHandler);
-
-        // Define new handler
-        win.erudaKeyHandler = function (e) {
-          if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-            if (!win.eruda) {
-              iframe.contentWindow._goldenbodyIns = true;
-
-              const script = doc.createElement("script");
-              script.src = window.browserGlobals.erudaCDN;
-              script.onload = () => {
-                win.eruda.init();
-                win.eruda.get("entryBtn").hide();
-                win.eruda.show();
-              };
-              doc.head.appendChild(script);
-            } else {
-              try {
-                // toggle show/hide
-                if (!win._goldenbodyIns) {
-                  win.eruda.show();
-
-                  win._goldenbodyIns = true;
-                } else {
-                  win.eruda.hide();
-
-                  win._goldenbodyIns = false;
-                }
-              } catch (e) {
-                console.error(e);
-              }
-            }
-          }
-        };
-
-        // Attach handler
-        win.addEventListener("keydown", win.erudaKeyHandler);
-      });
       const titleInterval = setInterval(() => {
         try {
           if (!tab.iframe || !tab.iframe.contentDocument) {
@@ -3447,41 +3390,6 @@ setTimeout(() => {
       tabs.push(tab);
       activateTab(id, !!options.forceRender);
       renderTabs(!!options.forceRender);
-      const onDocumentKeyup = function (e) {
-        try {
-          if (!root.contains(document.activeElement)) return;
-        } catch (e) {
-          return;
-        }
-        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "i") {
-          e.preventDefault();
-          e.stopPropagation();
-
-          const win = tab.iframe.contentWindow;
-          const doc = tab.iframe.contentDocument;
-          if (!win || tab.iframe.style.display === "none") return;
-          if (!win.eruda) {
-            tab.iframe.contentWindow._goldenbodyIns = true;
-
-            const script = doc.createElement("script");
-            script.src = window.browserGlobals.erudaCDN;
-            script.onload = () => {
-              win.eruda.init();
-              win.eruda.get("entryBtn").hide();
-              win.eruda.show();
-            };
-            doc.head.appendChild(script);
-          }
-          win.eruda[win._goldenbodyIns ? "hide" : "show"]();
-          win._goldenbodyIns = !win._goldenbodyIns;
-        }
-      };
-      document.addEventListener(
-        scopedListenerId,
-        "keyup",
-        onDocumentKeyup,
-      );
-      tab.__onDocumentKeyup = onDocumentKeyup;
       if (options.fileUrl) {
         setTimeout(() => {
           openUrlInActiveTab(normalizePreloadLink(url));
@@ -3794,11 +3702,6 @@ setTimeout(() => {
             "keydown",
             tabs[idx].__onResizeKeydown,
           );
-        }
-      } catch (e) {}
-      try {
-        if (tabs[idx].__onDocumentKeyup) {
-          document.removeEventListener("keyup", tabs[idx].__onDocumentKeyup);
         }
       } catch (e) {}
       cleanupLocalFileNav(tabs[idx]);

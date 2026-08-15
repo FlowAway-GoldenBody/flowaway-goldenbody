@@ -11,7 +11,7 @@ window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._js
   }
 
   const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.min.js';
+  script.textContent = window.protectedGlobals.fflateText;
   script.crossOrigin = 'anonymous';
   script.async = true;
 
@@ -352,6 +352,45 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     return text.replace(/[&<>"']/g, m => map[m]);
   }
 
+  function createSvgIcon(type, size = 16) {
+    const fileIconSet = window.protectedGlobals.fileIconSet || {};
+    const baseStyles = `style="display:block; width:${size}px; height:${size}px; flex-shrink:0; color: var(--text-color);"`;
+
+    if (type === 'back') {
+      return `
+        <svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" focusable="false" style="display:block; flex-shrink:0; color: var(--text-color);">
+          <path d="M10.5 3.5 5.5 8l5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+    }
+
+    if (type === 'folder' && fileIconSet.folder) {
+      return fileIconSet.folder.replace(/<svg\s+([^>]*?)>/, `<svg $1 ${baseStyles} aria-hidden="true" focusable="false">`);
+    }
+
+    if (type === 'zip' && fileIconSet.file) {
+      const fileSvg = fileIconSet.file.replace(/<svg\s+([^>]*?)>/, `<svg $1 ${baseStyles} aria-hidden="true" focusable="false">`);
+      return fileSvg.replace('</svg>', `
+        <g>
+          <rect x="49" y="14" width="22" height="20" rx="3.5" fill="#edf4ff" stroke="#4d7fe8" stroke-width="2"/>
+          <path d="M58 18v12M55 21h6M55 25h6M55 29h6" fill="none" stroke="#2a5ea8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>`);
+    }
+
+    if (type === 'file' && fileIconSet.file) {
+      return fileIconSet.file.replace(/<svg\s+([^>]*?)>/, `<svg $1 ${baseStyles} aria-hidden="true" focusable="false">`);
+    }
+
+    return `
+      <svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true" focusable="false" style="display:block; flex-shrink:0; color: var(--text-color);">
+        <path d="M4.5 2.5h5.2L11.5 4v9.5H4.5z" fill="currentColor" opacity="0.18"/>
+        <path d="M9.7 2.5V4h1.8" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+        <path d="M5.5 7h5M5.5 9h5M5.5 11h4" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
+
   function applySystemTheme(container) {
     const updateTheme = () => {
       const dark = !!(window.protectedGlobals.data.dark);
@@ -468,17 +507,17 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     // Build confirmation UI when either JS API is requested or app already exists
     const securityWarningHtml = requiresJsApi ? `
       <div style="background-color: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px; border-radius: 4px;">
-        <strong style="color: var(--text-color);">⚠️ Security Warning</strong>
+        <strong style="color: var(--text-color);">Security Warning</strong>
         <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-color);">
           This app wants admin access. By continuing, you understand that malicious admin access enabled apps can run malware on your account and steal personal information from you. Only install packages from trusted sources.
-          (Note: ⚠️⚠️⚠️ These apps CAN do WHATEVER you can ⚠️⚠️⚠️)
+          (Note: these apps can do whatever you can.)
         </p>
       </div>
     ` : '';
 
     const replaceWarningHtml = exists ? `
       <div style="background-color: var(--warning-bg); border-left: 4px solid var(--warning-border); padding: 12px; border-radius: 4px;">
-        <strong style="color: var(--text-color);">⚠️ Replace Existing App</strong>
+        <strong style="color: var(--text-color);">Replace Existing App</strong>
         <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--text-color);">
           An app named "${escapeHtml(folderName)}" already exists. Files included in this package will be overwritten, but other files/folders already present in the app folder will be preserved.
         </p>
@@ -704,7 +743,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
             gap: 10px;
             transition: background-color 0.2s;
           `;
-          backBtn.innerHTML = `<span style="font-size: 16px;">📤</span><span style="font-size: 13px; font-weight: 500;">Back</span>`;
+          backBtn.innerHTML = `<span style="font-size: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-color);">${createSvgIcon('back', 16)}</span><span style="font-size: 13px; font-weight: 500; color: var(--text-color);">Back</span>`;
           backBtn.addEventListener('mouseover', () => backBtn.style.backgroundColor = 'var(--row-hover)');
           backBtn.addEventListener('mouseout', () => backBtn.style.backgroundColor = 'var(--panel-bg)');
           backBtn.addEventListener('click', () => {
@@ -743,8 +782,8 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
             transition: background-color 0.15s;
           `;
           
-          const icon = isFolder ? '📁' : (isZip ? '📦' : '📄');
-          fileRow.innerHTML = `<span style="font-size: 16px;">${icon}</span><span style="font-size: 13px;">${escapeHtml(normalizedName)}</span>`;
+          const iconType = isFolder ? 'folder' : (isZip ? 'zip' : 'file');
+          fileRow.innerHTML = `<span style="font-size: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-color);">${createSvgIcon(iconType, 16)}</span><span style="font-size: 13px; color: var(--text-color);">${escapeHtml(normalizedName)}</span>`;
           
           if (isFolder) {
             fileRow.addEventListener('mouseover', () => fileRow.style.backgroundColor = 'var(--row-hover)');

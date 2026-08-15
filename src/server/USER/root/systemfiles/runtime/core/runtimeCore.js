@@ -994,6 +994,7 @@ window.protectedGlobals.deleteApp = async function (obj) {
 };
 
 window.protectedGlobals.installApp = async function (folderName) {
+  await window.protectedGlobals.onlyloadTree();
   var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
   var systemfilesNode = rootChildren.find(
     (c) => c[0] === "systemfiles" && Array.isArray(c[1]),
@@ -1545,5 +1546,8 @@ window.protectedGlobals.sendMsgToAllIframes = (msg) => {
     iframe.contentWindow.postMessage(msg, "*");
   });
 };
-
+(async () => {
+  window.protectedGlobals.erudaText = await window.protectedGlobals.ReadFile('/systemfiles/runtime/helpers/eruda.min.js', { text: true, direct: true });
+  window.protectedGlobals.fflateText = await window.protectedGlobals.ReadFile('/systemfiles/runtime/helpers/unzip.min.js', { text: true, direct: true });
+})();
 window.addEventListener("contextmenu", (e) => {e.preventDefault();});
