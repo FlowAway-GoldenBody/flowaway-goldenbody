@@ -1,32 +1,16 @@
 "use strict";
 
 window.packageInstallerGlobals = window.packageInstallerGlobals || {};
-window.packageInstallerGlobals._jsZipLoader = window.packageInstallerGlobals._jsZipLoader || (function () {
-  if (window.fflate) {
-    return Promise.resolve();
-  }
-
-  if (window.packageInstallerGlobals._jsZipLoader) {
-    return window.packageInstallerGlobals._jsZipLoader;
-  }
-
+(function () {
   const script = document.createElement('script');
   script.textContent = window.protectedGlobals.fflateText;
   script.crossOrigin = 'anonymous';
   script.async = true;
 
-  const promise = new Promise((resolve, reject) => {
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load zip library from CDN'));
-  });
-
-  window.packageInstallerGlobals._jsZipLoader = promise;
   document.head.appendChild(script);
-  return promise;
 })();
 
 window.packageInstallerGlobals.ensureJSZipLoaded = window.packageInstallerGlobals.ensureJSZipLoaded || async function () {
-  await window.packageInstallerGlobals._jsZipLoader;
   if (typeof window.fflate === 'undefined') {
     throw new Error('Zip library not available after loading CDN script');
   }

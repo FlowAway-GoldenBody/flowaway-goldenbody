@@ -968,18 +968,14 @@ document.addEventListener("keydown", (e) => {
 
 window.protectedGlobals.deleteApp = async function (obj) {
   window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${obj.folderName}`);
-  window.protectedGlobals.apps.forEach(element => {
+  for (const element of window.protectedGlobals.apps) {
     if (element.id == obj.id) {
-      window[element.globalVarObjectString][element.allAppArrayString].forEach(e => {
-        e.rootElement.remove();
-        e.closeWindow();
-      });
+      window[element.globalVarObjectString][element.allAppArrayString][0].closeAll();
       window.protectedGlobals.knownAppStuff.knownAppId.splice(window.protectedGlobals.knownAppStuff.knownAppId.indexOf(element.id), 1);
       window.protectedGlobals.knownAppStuff.knownAppGlobals.splice(window.protectedGlobals.knownAppStuff.knownAppGlobals.indexOf(element.globalVarObjectString), 1);
       window.protectedGlobals.knownAppStuff.knownAppFuncs.splice(window.protectedGlobals.knownAppStuff.knownAppFuncs.indexOf(element.functionName), 1);
       window.protectedGlobals.renderAppsGrid();
       [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")].forEach(b => {
-        debugger;
         if (b.dataset.appId === element.id) b.remove();
         window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
       });
@@ -991,7 +987,7 @@ window.protectedGlobals.deleteApp = async function (obj) {
       delete window[element.functionName];
       window.protectedGlobals.apps.splice(window.protectedGlobals.apps.indexOf(element), 1);
     }
-  });
+  }
 };
 
 window.protectedGlobals.installApp = async function (folderName) {
