@@ -970,7 +970,11 @@ window.protectedGlobals.deleteApp = async function (obj) {
   window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${obj.folderName}`);
   for (const element of window.protectedGlobals.apps) {
     if (element.id == obj.id) {
-      window[element.globalVarObjectString][element.allAppArrayString][0].closeAll();
+      try {
+        window[element.globalVarObjectString][element.allAppArrayString][0].closeAll();
+      } catch {
+        // no instance of the app is running, so nothing to close
+      }
       window.protectedGlobals.knownAppStuff.knownAppId.splice(window.protectedGlobals.knownAppStuff.knownAppId.indexOf(element.id), 1);
       window.protectedGlobals.knownAppStuff.knownAppGlobals.splice(window.protectedGlobals.knownAppStuff.knownAppGlobals.indexOf(element.globalVarObjectString), 1);
       window.protectedGlobals.knownAppStuff.knownAppFuncs.splice(window.protectedGlobals.knownAppStuff.knownAppFuncs.indexOf(element.functionName), 1);
