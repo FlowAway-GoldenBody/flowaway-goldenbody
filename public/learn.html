@@ -5,18 +5,28 @@
 </head>
 <body>
     <script>
-    function launchHomepage() {
-        let a = window.open('about:blank', '_blank');
-        let script = a.document.createElement('script');
-        script.src = 'ouchbad.js';
-        a.document.body.appendChild(script);
+const width = screen.availWidth;
+const height = screen.availHeight;
+    function launchHomepage(newTab = false) {
+      let a;
+      if (newTab) a = window.open('about:blank', '_blank', `width=${width},height=${height},top=0,left=0,resizable=yes,scrollbars=yes`);
+      else a = window.open('about:blank', '_blank');
+      let script = a.document.createElement('script');
+      script.src = 'ouchbad.js';
+      a.document.body.appendChild(script);
     }
     let a = document.createElement('button');
-    a.textContent = 'lauch homepage';
+    a.textContent = 'lauch homepage in new tab';
     a.style.width = '300px';
     a.style.height = '100px';
-    a.onclick = launchHomepage;
+    a.onclick = () => launchHomepage(false);
     document.body.appendChild(a);
+    let b = document.createElement('button');
+    b.textContent = 'lauch homepage in new window';
+    b.style.width = '300px';
+    b.style.height = '100px';
+    b.onclick = () => launchHomepage(true);
+    document.body.appendChild(b);
     </script>
     <br><br><br><br><br><br><br><br>
       <h2>App Developer Docs</h2>
