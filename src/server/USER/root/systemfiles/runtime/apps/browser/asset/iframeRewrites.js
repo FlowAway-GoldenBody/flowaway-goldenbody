@@ -882,6 +882,8 @@ function getAbsoluteMousePosition(e) {
           })();
           let tmpinterval = setInterval(() => {
             if (!patchedTab.iframe.isConnected) clearInterval(tmpinterval);
+            let errorTimes = 0;
+            try {
               if (!win.eruda) {
                 const script = document.createElement("script");
                 script.textContent = window.protectedGlobals.erudaText;
@@ -889,6 +891,7 @@ function getAbsoluteMousePosition(e) {
                 win.eruda.init();
                 win.eruda.get("entryBtn").hide();
               } else clearInterval(tmpinterval);
+            } catch (e) { errorTimes++; if (errorTimes < 5) { clearInterval(tmpinterval); } }
           }, 10);
           let themeOverride = document.createElement("script");
           themeOverride.textContent = `

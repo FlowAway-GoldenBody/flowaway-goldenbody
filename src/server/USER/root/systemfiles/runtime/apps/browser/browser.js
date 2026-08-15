@@ -3316,7 +3316,7 @@ setTimeout(() => {
           }, 10);
         },
         get: function () {
-          if (this.getAttribute("src") !== tab.iframe.contentWindow.location.href) { return undefined; }
+          if ((this.getAttribute("src") !== tab.iframe.contentWindow.location.href) && (tab.iframe.contentWindow.location.href === 'about:blank')) { return undefined; }
           return this.getAttribute("src");
         }
       });
