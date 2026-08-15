@@ -700,6 +700,28 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     
     let currentPath = '';
     let selectedFile = null;
+    let navigationInProgress = false;
+    let stagingInProgress = false;
+
+    async function navigateTo(nextPath) {
+      if (navigationInProgress) return;
+      navigationInProgress = true;
+      try {
+        // visually gate interaction while navigating
+        fileListDiv.style.pointerEvents = 'none';
+        fileListDiv.style.opacity = '0.95';
+        statusDiv.textContent = 'Loading...';
+        await loadFiles(nextPath);
+      } catch (e) {
+        // surface errors in status
+        statusDiv.textContent = `Error: ${e && e.message ? e.message : String(e)}`;
+        statusDiv.style.color = '#d13438';
+      } finally {
+        navigationInProgress = false;
+        fileListDiv.style.pointerEvents = '';
+        fileListDiv.style.opacity = '';
+      }
+    }
     
     function normalizeDirPath(dirPath) {
       if (!dirPath || dirPath === '/') return '';
@@ -707,13 +729,52 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     }
 
     function buildItemPath(dirPath, name) {
-      if (!dirPath) return `/${name}`;
-      return `${dirPath}/${name}`;
+      const cleanDir = dirPath && dirPath !== '/' ? dirPath.replace(/\/+$/, '') : '';
+      if (!cleanDir) return `/${name}`;
+      return `${cleanDir}/${name}`;
+    }
+
+    function normalizeFolderEntries(entries, basePath) {
+      if (!Array.isArray(entries)) return [];
+
+      return entries.map((entry) => {
+        if (typeof entry === 'string') {
+          return {
+            name: String(entry || ''),
+            path: buildItemPath(basePath, String(entry || '')),
+            type: 'folder',
+          };
+        }
+
+        if (Array.isArray(entry)) {
+          const name = String(entry[0] || '');
+          const isFolder = Array.isArray(entry[1]);
+          return {
+            name,
+            path: buildItemPath(basePath, name),
+            type: isFolder ? 'folder' : 'file',
+          };
+        }
+
+        if (entry && typeof entry === 'object') {
+          const rawName = String(entry.name || entry.filename || entry.path || '');
+          const name = rawName.split('/').pop() || rawName;
+          const type = String(entry.type || (entry.folder ? 'folder' : 'file') || 'file').toLowerCase();
+          return {
+            name,
+            path: buildItemPath(basePath, name),
+            type,
+          };
+        }
+
+        return null;
+      }).filter(Boolean);
     }
 
     async function loadFiles(dirPath) {
       try {
         dirPath = normalizeDirPath(dirPath);
+        const readFolderPath = dirPath || '/';
         currentPath = dirPath;
         currentPathSpan.textContent = dirPath || '(Root)';
         statusDiv.textContent = 'Loading...';
@@ -721,14 +782,9 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
         selectedFile = null;
         selectBtn.disabled = true;
         selectBtn.style.opacity = '0.5';
-        
-        await window.protectedGlobals.onlyloadTree();
-        const treeNode = window.protectedGlobals.findNodeByPath(dirPath);
-        const entries = Array.isArray(treeNode && treeNode[1]) ? treeNode[1].map((node) => ({
-          name: String(node && node[0] ? node[0] : ''),
-          node,
-        })) : [];
-        const files = Array.isArray(entries) ? entries : [];
+
+        const entries = await window.protectedGlobals.ReadFolder(readFolderPath, { detail: true }).catch(() => []);
+        const files = normalizeFolderEntries(entries, dirPath || '/');
 
         const showBackButton = Boolean(dirPath);
         if (showBackButton) {
@@ -747,8 +803,9 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
           backBtn.addEventListener('mouseover', () => backBtn.style.backgroundColor = 'var(--row-hover)');
           backBtn.addEventListener('mouseout', () => backBtn.style.backgroundColor = 'var(--panel-bg)');
           backBtn.addEventListener('click', () => {
+            if (navigationInProgress) return;
             const parentPath = dirPath.split('/').filter(p => p).slice(0, -1).join('/');
-            loadFiles(parentPath ? `/${parentPath}` : '');
+            navigateTo(parentPath ? `/${parentPath}` : '');
           });
           fileListDiv.appendChild(backBtn);
         }
@@ -763,11 +820,10 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
         }
         
         for (const entry of files) {
-          const entryNode = entry?.node;
-          const name = typeof entry === 'string' ? entry : String(entry?.name || entry?.path || entry);
+          const name = String(entry?.name || '');
           const normalizedName = name || '';
           const isZip = normalizedName.toLowerCase().endsWith('.zip');
-          const isFolder = Array.isArray(entryNode && entryNode[1]);
+          const isFolder = String(entry?.type || '').toLowerCase() === 'folder';
           
           const fileRow = document.createElement('div');
           fileRow.style.cssText = `
@@ -789,17 +845,20 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
             fileRow.addEventListener('mouseover', () => fileRow.style.backgroundColor = 'var(--row-hover)');
             fileRow.addEventListener('mouseout', () => fileRow.style.backgroundColor = 'var(--panel-bg)');
             fileRow.addEventListener('click', () => {
+              if (navigationInProgress) return;
               const nextPath = buildItemPath(dirPath, normalizedName);
-              loadFiles(nextPath);
+              navigateTo(nextPath);
             });
             fileRow.addEventListener('dblclick', () => {
+              if (navigationInProgress) return;
               const nextPath = buildItemPath(dirPath, normalizedName);
-              loadFiles(nextPath);
+              navigateTo(nextPath);
             });
           } else if (isZip) {
             fileRow.addEventListener('mouseover', () => fileRow.style.backgroundColor = 'var(--row-hover)');
             fileRow.addEventListener('mouseout', () => fileRow.style.backgroundColor = selectedFile?.path === buildItemPath(dirPath, normalizedName) ? 'var(--row-selected)' : 'var(--panel-bg)');
             fileRow.addEventListener('click', () => {
+              if (stagingInProgress) return;
               document.querySelectorAll('#fileList > div').forEach(el => {
                 el.style.backgroundColor = 'var(--panel-bg)';
               });
@@ -813,6 +872,9 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
               }
             });
             fileRow.addEventListener('dblclick', async () => {
+              if (stagingInProgress) return;
+              stagingInProgress = true;
+              try {
               document.querySelectorAll('#fileList > div').forEach(el => {
                 el.style.backgroundColor = 'var(--panel-bg)';
               });
@@ -827,12 +889,18 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
               statusDiv.style.color = 'var(--muted-color)';
               statusDiv.textContent = 'Staging App...';
               try {
+                // disable interactions while staging to avoid duplicate parses
+                fileListDiv.style.pointerEvents = 'none';
                 const fileBytes = await window.packageInstallerGlobals.readBinaryFile(fullPath);
                 const file = new File([fileBytes], normalizedName, { type: 'application/zip' });
                 await processUploadedFile(file, container);
               } catch (error) {
                 statusDiv.textContent = `Error: ${error.message}`;
                 statusDiv.style.color = '#d13438';
+              }
+              } finally {
+                stagingInProgress = false;
+                fileListDiv.style.pointerEvents = '';
               }
             });
           }
@@ -848,7 +916,8 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       }
     }
     
-    loadFiles('');
+    // start using navigateTo so clicks are gated during initial load
+    navigateTo('');
     
     selectBtn.addEventListener('click', async () => {
       if (selectedFile) {
