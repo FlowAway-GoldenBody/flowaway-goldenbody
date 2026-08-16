@@ -13,11 +13,13 @@ window.browserGlobals.iframePatchPath =
   "/systemfiles/runtime/apps/browser/asset/iframeRewrites.js";
 window.browserGlobals.browserhelperPath =
   "/systemfiles/runtime/apps/browser/asset/browserhelper.js";
-window.browserGlobals.fetchId = async function () {
-  window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
-};
 // this need async fn idk y
 (async () => {
+  window.browserGlobals.fetchId = async function() {
+    let res = await fetch("/server/getBrowserSessionId");
+    window.browserGlobals.id = await res.text();
+  };
+  window.browserGlobals.fetchId();
   window.browserGlobals.vfstxt = await window.protectedGlobals
     .ReadFile(window.browserGlobals.vfsScriptPath, { text: true, direct: true })
     .then((res) => (res ? res : ""))
@@ -134,65 +136,6 @@ window.browser = async function (
       window.browserGlobals.mutateObject(window.browserGlobals.cookies, newCookies);
       const newLocalStorage = await window.protectedGlobals.ReadFile(window.browserGlobals.localStoragePath, { text: true, direct: true }).then(res => res ? JSON.parse(res) : {}).catch(() => ({}));
       window.browserGlobals.mutateObject(window.browserGlobals.localStorageStore, newLocalStorage);
-      window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
-      if (!window.browserGlobals.id) {(async () => {
-  const loadedProfile = await window.browserGlobals.readBrowserProfile();
-  window.browserGlobals.profile = loadedProfile;
-  window.browserGlobals.profileState =
-    window.browserGlobals.repairBrowserProfile(window.browserGlobals.profile);
-  // Determine effective browser theme setting
-  try {
-    const pm =
-      window.browserGlobals.profile && window.browserGlobals.profile.themeMode
-        ? window.browserGlobals.profile.themeMode
-        : "auto";
-    if (pm === "auto") {
-      window.browserGlobals.dark = !!(
-        window.protectedGlobals.data.dark
-      );
-    } else {
-      window.browserGlobals.dark = !!window.browserGlobals.profile.dark;
-    }
-  } catch (e) {
-    window.browserGlobals.dark = !!(
-      window.protectedGlobals.data.dark
-    );
-  }
-
-  const idRead = await window.browserGlobals.readProfileTextFileMeta(
-    window.browserGlobals.profileUserIdPath,
-    {
-      attempts: 5,
-      retryDelayMs: 150,
-    },
-  );
-  const persistedId = String(idRead.text || "").trim();
-  if (persistedId) {
-    window.browserGlobals.id = persistedId;
-    return;
-  }
-
-  if (idRead.error) {
-    return;
-  }
-
-  // One more confirmation pass before generating/writing a new session id.
-  // This avoids replacing an existing id when the first read was transiently empty.
-  const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(
-    window.browserGlobals.profileUserIdPath,
-  );
-  const confirmedId = String(idReadConfirm.text || "").trim();
-  if (confirmedId) {
-    window.browserGlobals.id = confirmedId;
-    return;
-  }
-  if (idReadConfirm.error) {
-    return;
-  }
-  const id = await window.browserGlobals.requestNewBrowserSessionId();
-  window.browserGlobals.id = id;
-  await window.browserGlobals.writeBrowserUserId(id);
-})()}
     }
     initStores();
 
@@ -1023,7 +966,6 @@ setTimeout(() => {
                 : {};
             const settingsPayload = JSON.stringify(defaultProfile, null, 2);
             await window.protectedGlobals.WriteFile(folderPath + "/settings.json", settingsPayload, { text: true }).catch(() => {});
-            await window.protectedGlobals.WriteFile(folderPath + "/userID.txt", await window.browserGlobals.requestNewBrowserSessionId(), { text: true }).catch(() => {});
             try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", "{}", { text: true }).catch(() => {});
             await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", "{}", { text: true }).catch(() => {});
@@ -1153,7 +1095,6 @@ setTimeout(() => {
               window.browserGlobals.profileState.siteSettings = prof.siteSettings || [];
               window.browserGlobals.profileState.lazyloading = !!prof.lazyloading;
               window.browserGlobals.profileState.siteZoom = prof.siteZoom || {};
-              window.browserGlobals.id = await window.protectedGlobals.ReadFile(window.browserGlobals.profileUserIdPath, { text: true, direct: true }).then(res => res ? res.trim() : "").catch(() => "");
               await populateActivatedUserscripts();
               try { await loadActivatedUserscripts(); } catch (e) {}
             }
@@ -2675,9 +2616,7 @@ setTimeout(() => {
         "This will reset site settings and clear your browsing data. Continue?",
       );
       if (!confirmClear) return;
-      // dead code but dont delete so the thing works
-      id = window.browserGlobals.id;
-      await window.browserGlobals.writeBrowserUserId(id);
+
       window.browserGlobals.profile = {
         siteSettings: [],
         lazyloading: true,

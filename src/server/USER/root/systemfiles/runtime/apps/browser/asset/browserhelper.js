@@ -483,28 +483,11 @@ window.browserGlobals.writeBrowserProfile = async function (
     return true;
 };
 
-window.browserGlobals.writeBrowserUserId = async function (id) {
-  const encoded = String(id || "");
-  await window.protectedGlobals.WriteFile(
-    window.browserGlobals.profileUserIdPath,
-    encoded,
-  );
-  return;
-};
-
-
-
-window.browserGlobals.requestNewBrowserSessionId = async function () {
-  const res = await fetch("/server/newsession");
-  const id = (await res.text()).trim();
-  if (id) return id;
-};
-
 window.browserGlobals.profile = window.browserGlobals.defaultBrowserProfile();
 window.browserGlobals.profileState = window.browserGlobals.repairBrowserProfile(
   window.browserGlobals.profile,
 );
-// window.browserGlobals.id = "";
+
 window.browserGlobals.profileReadyPromise = (async () => {
   const loadedProfile = await window.browserGlobals.readBrowserProfile();
   window.browserGlobals.profile = loadedProfile;
@@ -528,30 +511,6 @@ window.browserGlobals.profileReadyPromise = (async () => {
       window.protectedGlobals.data.dark
     );
   }
-
-  const idRead = await window.browserGlobals.readProfileTextFileMeta(
-    window.browserGlobals.profileUserIdPath
-  );
-  const persistedId = String(idRead.text || "").trim();
-  if (persistedId) {
-    window.browserGlobals.id = persistedId;
-    return;
-  }
-
-
-  // One more confirmation pass before generating/writing a new session id.
-  // This avoids replacing an existing id when the first read was transiently empty.
-  const idReadConfirm = await window.browserGlobals.readProfileTextFileMeta(
-    window.browserGlobals.profileUserIdPath
-  );
-  const confirmedId = String(idReadConfirm.text || "").trim();
-  if (confirmedId) {
-    window.browserGlobals.id = confirmedId;
-    return;
-  }
-  const id = await window.browserGlobals.requestNewBrowserSessionId();
-  window.browserGlobals.id = id;
-  await window.browserGlobals.writeBrowserUserId(id);
 })().catch(() => {});
 
 window.browserGlobals.subWebsite = function (url) {

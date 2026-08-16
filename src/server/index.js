@@ -12,9 +12,11 @@ const setupRoutes = require('./setupRoutes');
 const setupPipeline = require('./setupPipeline');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const getSessionId = require('../util/getSessionId');
+const generateId = require('../util/generateId');
+const RammerheadSession = require('../classes/RammerheadSession');
 const systemRecovery = require('./systemRecovery');
-
-const { zmcdRateLimit, fetchFilesRateLimit, newSessionRateLimit, systemRecoveryRateLimit, getRequestIP } = require('./rateLimiters');
+const fs = require('fs/promises');
+const { zmcdRateLimit, fetchFilesRateLimit, newSessionRateLimit, systemRecoveryRateLimit, downloadRateLimit, getBrowserSessionRateLimit, getRequestIP } = require('./rateLimiters');
 
 
 
@@ -89,6 +91,24 @@ if (!config.enableWorkers || !cluster.isMaster) {
             }
             return;
         }
+        if (req.url.startsWith('/server/getBrowserSessionId')) {
+            if (!getBrowserSessionRateLimit(req, res)) return true;
+            const sessionsDir = config.fileCacheSessionConfig.saveDirectory;
+            fs.readdir(sessionsDir).then((files) => {
+                const sessionId = files.find((file) => file.replace(/\.rhfsession$/, '').length > 31)?.replace(/\.rhfsession$/, '');
+                if (sessionId) return res.end(sessionId);
+                const id = generateId();
+                const session = new RammerheadSession();
+                session.data.restrictIP = config.getIP(req);
+                sessionStore.addSerializedSession(id, session.serializeSession());
+                res.end(id);
+            }).catch((e) => {
+                logger.error('getBrowserSessionId error: ' + e.message);
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Server error');
+            });
+            return true;
+        }
         if (req.url.startsWith('/server/zmcd')) {
             // strip prefix so handler sees original paths
             let passed = zmcdRateLimit(req, res);
@@ -105,6 +125,8 @@ if (!config.enableWorkers || !cluster.isMaster) {
             return true;
         }
         if (req.url.startsWith('/server/download')) {
+            let passed = downloadRateLimit(req, res);
+            if (!passed) return true;
             req.url = req.url.slice('/server/download'.length) || '/';
             try {
                 const maybe = download.handleDownload(req, res);

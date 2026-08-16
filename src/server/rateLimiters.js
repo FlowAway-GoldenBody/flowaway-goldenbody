@@ -4,7 +4,62 @@ function getRequestIP(req) {
     if (ipHeader) return String(ipHeader).split(',')[0].trim();
     return (req && req.socket && req.socket.remoteAddress) || (req && req.connection && req.connection && req.connection.remoteAddress) || 'unknown';
 }
+const browserSessionAttempts = new Map();
+function getBrowserSessionRateLimit(req, res) {
+    const ip = getRequestIP(req);
+    const now = Date.now();
 
+    const window = 1 * 60 * 1000; // 1 minute
+    const max = 30;
+
+    let data = browserSessionAttempts.get(ip);
+
+    if (!data || now - data.time > window) {
+        data = {
+            time: now,
+            count: 0
+        };
+    }
+
+    data.count++;
+    browserSessionAttempts.set(ip, data);
+
+    if (data.count > max) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: "This action had been rate limited. Try again later."}));
+        return false;
+    }
+
+    return true;
+}
+const downloadAttempts = new Map();
+function downloadRateLimit(req, res) {
+    const ip = getRequestIP(req);
+    const now = Date.now();
+
+    const window = 1 * 60 * 1000; // 1 minute
+    const max = 30;
+
+    let data = downloadAttempts.get(ip);
+
+    if (!data || now - data.time > window) {
+        data = {
+            time: now,
+            count: 0
+        };
+    }
+
+    data.count++;
+    downloadAttempts.set(ip, data);
+
+    if (data.count > max) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: "This action had been rate limited. Try again later."}));
+        return false;
+    }
+
+    return true;
+}
 const zmcdAttempts = new Map();
 function zmcdRateLimit(req, res) {
     const ip = getRequestIP(req);
@@ -126,6 +181,8 @@ setInterval(() => {
     cleanup(systemRecoveryAttempts, 5 * 60 * 1000);
     cleanup(newSessionAttempts, 2 * 60 * 1000);
     cleanup(fetchFilesAttempts, 90 * 1000);
+    cleanup(browserSessionAttempts, 5 * 60 * 1000);
+    cleanup(downloadAttempts, 5 * 60 * 1000);
 }, 60 * 1000);
 
 function cleanup(map, maxAge) {
@@ -143,5 +200,7 @@ module.exports = {
     fetchFilesRateLimit,
     newSessionRateLimit,
     systemRecoveryRateLimit,
+    downloadRateLimit,
+    getBrowserSessionRateLimit,
     getRequestIP
 };

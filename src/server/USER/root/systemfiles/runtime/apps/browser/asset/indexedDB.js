@@ -354,11 +354,7 @@ Object.defineProperty(frameWin, "indexedDB", {
                     if (this.autoIncrement) {
                       finalKey = crypto.randomUUID(); // or counter
                     } else {
-                      
-                      throw new DOMException(
-                        "No key specified and object store does not use autoIncrement.",
-                        "DataError"
-                      );
+                      finalKey = crypto.randomUUID(); // so websites dont crash, temporarily allow auto-generated keys even if not autoIncrement (legacy behavior)
                     }
                   }
 
