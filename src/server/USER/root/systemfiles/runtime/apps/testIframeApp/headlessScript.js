@@ -1,0 +1,1 @@
+console.log('adfas');setInterval(() => {console.log('a');}, 3000);

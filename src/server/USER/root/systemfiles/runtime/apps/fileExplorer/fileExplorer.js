@@ -1986,7 +1986,7 @@ function makeIcon(type, size = 16) {
   const STORAGE_QUOTA_BYTES =
     Number.isFinite(maxSpaceGb) && maxSpaceGb > 0
       ? maxSpaceGb * 1024 * 1024 * 1024
-      : 5 * 1024 * 1024 * 1024; // fallback 5 GB
+      : 1 * 1024 * 1024 * 1024; // fallback 1 GB
   // Deselect when clicking outside file items
   root.addEventListener("click", (e) => {
     // Ignore clicks inside the context menu

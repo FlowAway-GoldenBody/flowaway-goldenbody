@@ -1,5 +1,4 @@
 "use strict";
-debugger;
 import { toPng } from '<REPLACE WITH PATH>';
 console.log('screenshot-esm.js loaded');
 function displayPreview(dataUrl) {

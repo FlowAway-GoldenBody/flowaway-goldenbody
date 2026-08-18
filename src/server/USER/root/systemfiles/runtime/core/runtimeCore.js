@@ -800,7 +800,6 @@ for (const element of window.tmpGlobals.coreESMUrls) {
       f = f.substring(0, replaceStart + 1) + newImportPath + f.substring(replaceEnd);
     }
   }
-  debugger;
   const script = document.createElement('script');
   script.type = 'module';
   const URL = window.URL.createObjectURL(new Blob([f], { type: 'text/javascript' }));
@@ -1018,6 +1017,10 @@ window.protectedGlobals.deleteApp = async function (obj) {
       window.protectedGlobals.saveStartMenuConfig();
       delete window[element.globalVarObjectString];
       delete window[element.functionName];
+      try { window.protectedGlobals.workers[element.id]?.terminate(); }
+      catch {
+        // this app have no worker, so nothing to terminate
+      }
       window.protectedGlobals.apps.splice(window.protectedGlobals.apps.indexOf(element), 1);
     }
   }

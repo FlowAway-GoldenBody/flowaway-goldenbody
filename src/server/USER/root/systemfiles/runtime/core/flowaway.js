@@ -5,6 +5,7 @@
 
   window.permGlobals = window.permGlobals || {};
   window.protectedGlobals.timerSpeed = 1;
+  window.protectedGlobals.workers = {};
 window.protectedGlobals.removeAllEventListenersInWindow = function() {
   for (const listener of window.protectedGlobals.____gbEventListners) {
     window.removeEventListener(listener.type, listener.handler, listener.options);

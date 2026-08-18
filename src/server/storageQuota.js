@@ -2,7 +2,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 
-const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 5 * 1024 * 1024 * 1024;
+const DEFAULT_QUOTA_BYTES = Number(process.env.STORAGE_QUOTA_BYTES) || 1 * 1024 * 1024 * 1024;
 const userUsageCache = new Map();
 
 function getUsernameFromUserRoot(userRoot) {

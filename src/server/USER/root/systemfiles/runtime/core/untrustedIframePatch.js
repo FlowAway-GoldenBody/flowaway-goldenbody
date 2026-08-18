@@ -339,6 +339,10 @@ window.__goldenbodyAPI = {
         });
     },
 
+    messageToWorker: (message) => {
+        window.parent.postMessage({messageToWorker: true, message}, '*');
+    },
+    
     Observer: class {
         constructor(callback, type) {
             this.callback = callback;

@@ -1,0 +1,13 @@
+{
+  "functionName": "nothing",
+  "id": "---",
+  "label": "---",
+  "globalVarObjectString": "shellnoob-noob2Globals",
+  "allAppArrayString": "shellnoob-noob2",
+  "jsFile": "script.js",
+  "iconFile": "icon.txt",
+  "headless": true,
+  "backgroundWorker": true,
+  "headlessJsFile": "headlessScript.js",
+  "openfileCapability": []
+}

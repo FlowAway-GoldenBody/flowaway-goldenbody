@@ -703,6 +703,15 @@ let getFilesFromFolder = async function (relPath) {
             }
             return;
           }
+          if (e.data.messageToWorker) {
+            const worker = window.protectedGlobals.workers[appObj.id];
+            if (worker) {
+              worker.postMessage({ messageToWorker: true, data: e.data.data });
+            } else {
+              e.source.postMessage({ error: "No worker found for app " + appObj.id }, "*");
+            }
+            return;
+          }
           window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id} }));
           if (e.data.setInstanceTitle) {
             instance.title = e.data.title || instance.title;
@@ -792,7 +801,15 @@ let getFilesFromFolder = async function (relPath) {
       entryObj.allAppArrayString = allAppArrayString;
       entryObj.functionName = functionName;
       jsFile = entryObj.jsFile || "";
-      createIframeContainerAppFunction(entryObj);
+      if (!entryObj.backgroundWorker && jsFile) createIframeContainerAppFunction(entryObj);
+      else if (entryObj.backgroundWorker && entryObj.headlessJsFile) {
+        if (jsFile) createIframeContainerAppFunction(entryObj);
+        let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.headlessJsFile, { text: true, direct: true });
+        let blob = new Blob([scriptText], { type: "text/javascript" });
+        let url = URL.createObjectURL(blob);
+        const worker = new Worker(url);
+        window.protectedGlobals.workers[entryObj.id] = worker;
+      }
     }
 
 
@@ -838,6 +855,7 @@ let getFilesFromFolder = async function (relPath) {
       headless: !!entryObj.headless,
       entryObjectfile: entryObjectfile,
       allIframe: allIframe,
+      backgroundWorker: !!entryObj.backgroundWorker,
       id: id,
       path: folderPath,
       jsFile: jsFile,
