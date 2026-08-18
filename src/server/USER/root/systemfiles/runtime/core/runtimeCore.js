@@ -757,7 +757,11 @@ window.tmpGlobals.coreScriptUrls = [
   "systemfiles/runtime/helpers/cleanupfunctions.js",
   "systemfiles/runtime/core/startMenu.js",
   "systemfiles/runtime/core/processes.js",
-  "systemfiles/runtime/core/goldenbody.js",
+  "systemfiles/runtime/core/goldenbody.js"
+];
+window.tmpGlobals.coreESMUrls = [
+  "systemfiles/runtime/helpers/screenshot-esm.js",
+  "systemfiles/runtime/core/screenshot-esm.js"
 ];
 window.tmpGlobals.scriptContents = [];
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {
@@ -768,8 +772,6 @@ window.tmpGlobals.loadCoreScriptsSequentially = async function() {
     script.type = 'text/javascript';
     script.textContent = f;
     window.tmpGlobals.scriptContents.push(script);
-    // yield to the event loop to ensure script execution side-effects settle
-    await new Promise(function (res) { setTimeout(res, 0); });
   }
 };
 
@@ -780,9 +782,36 @@ for (const script of window.tmpGlobals.scriptContents) {
     document.head.appendChild(script);
 }
 })();
+// import ESM scripts
+(async function() {
+  let firstObjectUrl = '';
+for (const element of window.tmpGlobals.coreESMUrls) {
+  let f = await window.protectedGlobals.ReadFile(element, { text: true, direct: true });
+  if (typeof f !== 'string') continue;
+  if (firstObjectUrl) {
+    let replaceStart = f.indexOf('<') - 1;
+    let replaceEnd = f.indexOf('>', replaceStart) + 1;
+    if (replaceStart !== -2 && replaceEnd !== 0) {
+      let importPath = f.substring(replaceStart + 1, replaceEnd).trim();
+      if (importPath.startsWith('/')) {
+        importPath = importPath.substring(1);
+      }
+      const newImportPath = firstObjectUrl;
+      f = f.substring(0, replaceStart + 1) + newImportPath + f.substring(replaceEnd);
+    }
+  }
+  debugger;
+  const script = document.createElement('script');
+  script.type = 'module';
+  const URL = window.URL.createObjectURL(new Blob([f], { type: 'text/javascript' }));
+  firstObjectUrl = firstObjectUrl || URL;
+  script.src = URL;
+  document.head.appendChild(script);
+}
+
+})();
 // if u wanna keep it just remove the next line
 delete window.tmpGlobals.coreScriptUrls;
-
 
 
 
