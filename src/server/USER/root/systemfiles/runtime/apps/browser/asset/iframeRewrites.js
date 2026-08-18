@@ -1134,20 +1134,14 @@ function getAbsoluteMousePosition(e) {
           if (!win.__gbWindowSwitchForwardKeydown) {
             win.__gbWindowSwitchForwardKeydown = function (e) {
               var keyRaw = String(e.key || "");
-              var key = keyRaw.toLowerCase();
-              var isCtrlLike = !!(e.ctrlKey || e.metaKey);
-              var isBrowserShortcutKey =
-                key === "w" ||
-                key === "t" ||
-                key === "n" ||
-                (!(key === "arrowleft" || key === "arrowright") && !!e.altKey);
-              if (isCtrlLike && isBrowserShortcutKey) {
-                e.preventDefault();
-                if ((e.stopPropagation)) {
-                  e.stopPropagation();
-                }
+              // forward any combos that include modifiers (Ctrl/Meta/Alt)
+              var hasModifier = !!(e.ctrlKey || e.metaKey || e.altKey);
+
+              if (hasModifier) {
+                  e.preventDefault && e.preventDefault();
+                  e.stopPropagation && e.stopPropagation();
                 try {
-                  root.dispatchEvent(
+                  window.dispatchEvent(
                     new KeyboardEvent("keydown", {
                       key: keyRaw || e.key,
                       code: e.code,
@@ -1204,7 +1198,14 @@ function getAbsoluteMousePosition(e) {
           }
           if (!win.__gbWindowSwitchForwardKeyup) {
             win.__gbWindowSwitchForwardKeyup = function (e) {
-              if (e.key !== "Alt" && e.key !== "Control") return;
+              // forward modifier key releases (Alt/Ctrl/Meta) and Tab releases
+              var shouldForward =
+                e.key === "Alt" ||
+                e.key === "Control" ||
+                e.key === "Meta" ||
+                e.key === "Tab" ||
+                !!(e.ctrlKey || e.altKey || e.metaKey);
+              if (!shouldForward) return;
               try {
                 if (
                   (window.commitWindowSwitchTarget) &&
@@ -1222,6 +1223,7 @@ function getAbsoluteMousePosition(e) {
                     code: e.code,
                     altKey: !!e.altKey,
                     ctrlKey: !!e.ctrlKey,
+                    metaKey: !!e.metaKey,
                     shiftKey: !!e.shiftKey,
                     bubbles: true,
                     cancelable: true,

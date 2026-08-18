@@ -42,3 +42,6 @@
 
 ## V 1.2.3
 - fixed a rate limit get IP bug, file organizations for the rate limit logic.
+
+## V 1.2.4
+- Added screenshot ability
