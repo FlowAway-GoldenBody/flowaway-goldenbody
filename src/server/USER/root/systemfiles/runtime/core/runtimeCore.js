@@ -2,6 +2,88 @@
 
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
 
+(function () {
+  if (window.__runtimeCoreWorkerHookInstalled || !window.Worker) return;
+
+  const NativeWorker = window.Worker;
+
+  const buildWorkerBootstrap = function (scriptURL) {
+    const sourceUrl = scriptURL == null ? "" : String(scriptURL);
+    const sourceLiteral = JSON.stringify(sourceUrl);
+    return [
+      "(function () {",
+      "  const notifyHost = function (eventName) {",
+      "    try { postMessage({ type: '__flowaway_worker_event__', event: eventName, ts: Date.now() }); } catch (err) {}",
+      "  };",
+      "  const nativeClose = typeof self.close === 'function' ? self.close.bind(self) : null;",
+      "  const nativeTerminate = typeof self.terminate === 'function' ? self.terminate.bind(self) : null;",
+      "  if (nativeClose) {",
+      "    self.close = function () {",
+      "      notifyHost('self.close');",
+      "      return nativeClose.apply(this, arguments);",
+      "    };",
+      "  }",
+      "  if (nativeTerminate) {",
+      "    self.terminate = function () {",
+      "      notifyHost('self.terminate');",
+      "      return nativeTerminate.apply(this, arguments);",
+      "    };",
+      "  }",
+      "  const __sourceUrl = " + sourceLiteral + ";",
+      "  if (__sourceUrl) {",
+      "    fetch(__sourceUrl).then(function (response) { return response.text(); }).then(function (code) {",
+      "      try { (0, eval)(code); } catch (error) { setTimeout(function () { throw error; }, 0); }",
+      "    }).catch(function (error) { setTimeout(function () { throw error; }, 0); });",
+      "  }",
+      "})();",
+    ].join("\n");
+  };
+
+  window.Worker = function WrappedWorker() {
+    const scriptURL = arguments.length > 0 ? arguments[0] : null;
+    const options = arguments.length > 1 ? arguments[1] : null;
+    const wrappedURL = scriptURL && typeof scriptURL === 'string'
+      ? URL.createObjectURL(new Blob([buildWorkerBootstrap(scriptURL)], { type: 'text/javascript' }))
+      : scriptURL;
+
+    const worker = arguments.length > 1
+      ? new NativeWorker(wrappedURL, options)
+      : new NativeWorker(wrappedURL);
+
+    const nativeTerminate = typeof worker.terminate === 'function' ? worker.terminate.bind(worker) : null;
+    if (nativeTerminate) {
+      worker.terminate = function () {
+        if (worker.__flowawayTerminationGuard) {
+          return nativeTerminate.apply(this, arguments);
+        }
+        worker.__flowawayTerminationGuard = true;
+        try {
+          if (window.protectedGlobals && typeof window.protectedGlobals.onWorkerTerminate === 'function') {
+            window.protectedGlobals.onWorkerTerminate(worker, arguments);
+          }
+        } catch (err) {}
+        const result = nativeTerminate.apply(this, arguments);
+        worker.__flowawayTerminationGuard = false;
+        return result;
+      };
+    }
+
+    worker.addEventListener('message', function (event) {
+      if (!event || !event.data || event.data.type !== '__flowaway_worker_event__') return;
+      try {
+        if (window.protectedGlobals && typeof window.protectedGlobals.onWorkerEvent === 'function') {
+          window.protectedGlobals.onWorkerEvent(worker, event.data);
+        }
+      } catch (err) {}
+    });
+
+    return worker;
+  };
+
+  window.Worker.prototype = NativeWorker.prototype;
+  window.__runtimeCoreWorkerHookInstalled = true;
+})();
+
 console.log("runtimeCore.js loaded");
 window.protectedGlobals.unzip = async function (path, destinationFolder) {
   if (!destinationFolder) {

@@ -45,3 +45,6 @@
 
 ## V 1.2.4
 - Added screenshot ability
+
+## V 2.0.0
+- New app (Terminal), the old one is removed.

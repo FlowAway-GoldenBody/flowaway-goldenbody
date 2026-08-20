@@ -1349,6 +1349,29 @@
 
     runtime._nativeWorkerConstructor = nativeWorker;
 
+    function clearWorkerProcessEntry(workerInstance, reason) {
+      if (!workerInstance || workerInstance.__flowawayProcessCleared) {
+        return false;
+      }
+
+      var pidValue = normalizeProcessPid(workerInstance.__flowawayPid);
+      if (typeof pidValue !== "number" || Number.isNaN(pidValue) || pidValue <= 0) {
+        workerInstance.__flowawayProcessCleared = true;
+        return false;
+      }
+
+      workerInstance.__flowawayProcessCleared = true;
+      try {
+        if (window.protectedGlobals && typeof window.protectedGlobals.killProcess === "function") {
+          window.protectedGlobals.killProcess(pidValue, reason || "worker-exit");
+        } else if (window.protectedGlobals && window.protectedGlobals.FlowawayProcess && typeof window.protectedGlobals.FlowawayProcess.killProcess === "function") {
+          window.protectedGlobals.FlowawayProcess.killProcess(pidValue, reason || "worker-exit");
+        }
+      } catch (e) {}
+
+      return true;
+    }
+
     window.Worker = function () {
       var scriptURL = arguments.length > 0 ? arguments[0] : null;
       var options = arguments.length > 1 ? arguments[1] : null;
@@ -1376,12 +1399,68 @@
       });
 
       if (createdProcess && createdProcess.pid) {
+        workerInstance.__flowawayPid = createdProcess.pid;
+        workerInstance.__flowawayProcessCleared = false;
+
         var bindingKey = "worker::" + String(createdProcess.pid) + "::" + String(Math.random().toString(36).slice(2, 8));
         runtime.workerProcessBindings[bindingKey] = {
           key: bindingKey,
           pid: createdProcess.pid,
           instance: workerInstance,
         };
+
+        var processMessageHandler = function (event) {
+          if (!event || !event.data || typeof event.data !== "object") return;
+          var data = event.data;
+          if (data.type === "__flowaway_worker_event__") {
+            if (data.event === "self.close" || data.event === "self.terminate") {
+              clearWorkerProcessEntry(workerInstance, data.event);
+            }
+            return;
+          }
+          if (data.type === "done" || data.type === "exit" || data.type === "terminate") {
+            clearWorkerProcessEntry(workerInstance, data.type);
+          }
+        };
+
+        try {
+          workerInstance.addEventListener("message", processMessageHandler);
+        } catch (e) {}
+        try {
+          workerInstance.addEventListener("error", function () {
+            clearWorkerProcessEntry(workerInstance, "worker-error");
+          });
+        } catch (e) {}
+
+        var nativeWorkerTerminate = typeof workerInstance.terminate === "function"
+          ? workerInstance.terminate.bind(workerInstance)
+          : null;
+        if (nativeWorkerTerminate) {
+          workerInstance.terminate = function () {
+            var result;
+            try {
+              result = nativeWorkerTerminate.apply(this, arguments);
+            } finally {
+              clearWorkerProcessEntry(workerInstance, "terminate");
+            }
+            return result;
+          };
+        }
+
+        var nativeWorkerClose = typeof workerInstance.close === "function"
+          ? workerInstance.close.bind(workerInstance)
+          : null;
+        if (nativeWorkerClose) {
+          workerInstance.close = function () {
+            var result;
+            try {
+              result = nativeWorkerClose.apply(this, arguments);
+            } finally {
+              clearWorkerProcessEntry(workerInstance, "close");
+            }
+            return result;
+          };
+        }
       }
 
       return workerInstance;

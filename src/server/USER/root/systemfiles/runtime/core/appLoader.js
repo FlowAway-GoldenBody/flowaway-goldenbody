@@ -773,6 +773,38 @@ let getFilesFromFolder = async function (relPath) {
     if (!checkEntryObject(entryObj)) {
       throw new Error("Invalid entry.json for app " + folderName);
     }
+    // Normalize and validate any custom command names defined by apps.
+    // Command names must consist only of the 26 lowercase letters a-z.
+    // If a name contains other characters we sanitize by lowercasing and
+    // stripping non-letters; if the result is empty we drop that command.
+    try {
+      const rawCommands = Array.isArray(entryObj.commands)
+        ? entryObj.commands
+        : (Array.isArray(entryObj.cmd) ? entryObj.cmd : []);
+      const processedCommands = [];
+      for (const c of rawCommands) {
+        if (!c || !c.name) continue;
+        const orig = String(c.name || "").trim();
+        const sanitized = orig.toLowerCase().replace(/[^a-z]/g, "");
+        if (!sanitized) {
+          console.warn(`App ${folderName} has invalid command name "${orig}", skipping`);
+          continue;
+        }
+        if (sanitized !== orig.toLowerCase()) {
+          console.warn(`Sanitized command name "${orig}" -> "${sanitized}" for app ${folderName}`);
+        }
+        processedCommands.push({
+          ...c,
+          name: sanitized,
+        });
+      }
+      // Attach processed commands back onto the entry object so apps later
+      // (eg. the Terminal app) can discover them via window.protectedGlobals.apps
+      entryObj._cmds = processedCommands;
+    } catch (e) {
+      console.warn('Failed to process app commands for ' + folderName, e);
+      entryObj._cmds = [];
+    }
     id = entryObj.id;
     let verify = await getVerification(folderPath + '/jsKey.txt');
     iconFile = entryObj.iconFile || null;
@@ -872,6 +904,7 @@ let getFilesFromFolder = async function (relPath) {
       pngEnabled: !!entryObj.pngEnabled,
       nonTextIcon: !!entryObj.nonTextIcon,
       openfileCapability: openfileCapability,
+      commands: entryObj._cmds || [],
     };
     let getPkg = () => {
       return pkg;
