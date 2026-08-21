@@ -189,7 +189,6 @@ window.taskManager = function (posX = 50, posY = 50) {
     disposed = true;
     clearAutoRefresh();
     root.remove();
-    clearInterval(memoryInterval);
     const index = window.taskManagerGlobals.allTaskManagers.findIndex(
       (instance) => instance.rootElement === root,
     );
@@ -438,12 +437,6 @@ window.taskManager = function (posX = 50, posY = 50) {
   title.style.fontWeight = "700";
   main.appendChild(title);
 
-  const subTitle = document.createElement("div");
-  subTitle.textContent = "Memory Used: " + formatSize(performance.memory.usedJSHeapSize) + " / " + formatSize(performance.memory.jsHeapSizeLimit) + '(' + parseInt((performance.memory.usedJSHeapSize / performance.memory.jsHeapSizeLimit) * 100) +'%)';
-  subTitle.style.fontSize = "15px";
-  subTitle.style.fontWeight = "700";
-  main.appendChild(subTitle);
-
   function formatSize(bytes) {
     if (bytes === 0) return "0 B";
     if (!bytes) return "";
@@ -453,13 +446,10 @@ window.taskManager = function (posX = 50, posY = 50) {
     return (bytes / 1024 ** 3).toFixed(1) + " GB";
   }
 
-  let memoryInterval = setInterval(() => {
-    subTitle.textContent = "Memory Used: " + formatSize(performance.memory.usedJSHeapSize) + " / " + formatSize(performance.memory.jsHeapSizeLimit) + '(' + parseInt((performance.memory.usedJSHeapSize / performance.memory.jsHeapSizeLimit) * 100) +'%)';
-  }, 5000);
   const summaryGrid = document.createElement("div");
   Object.assign(summaryGrid.style, {
     display: "grid",
-    gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: "8px",
     flexShrink: "0",
   });
@@ -497,9 +487,8 @@ window.taskManager = function (posX = 50, posY = 50) {
 
   const totalTasksValue = createSummaryCard("Total Tasks");
   const runningValue = createSummaryCard("Running");
-  const idleValue = createSummaryCard("Idle");
-  const unknownValue = createSummaryCard("Unknown");
   const totalInstancesValue = createSummaryCard("Instance Tasks");
+  const memoryValue = createSummaryCard("Memory Used");
 
   const controls = document.createElement("div");
   Object.assign(controls.style, {
@@ -571,7 +560,7 @@ window.taskManager = function (posX = 50, posY = 50) {
   table.appendChild(thead);
 
   const headerRow = document.createElement("tr");
-  ["Task", "Source", "Status", "PID", "Function/Global"].forEach((name) => {
+  ["Name", "Task", "Source", "PID"].forEach((name) => {
     const th = document.createElement("th");
     th.textContent = name;
     th.style.textAlign = "left";
@@ -672,7 +661,8 @@ window.taskManager = function (posX = 50, posY = 50) {
     const globalVar = String(item.globalVar || "");
     const sourceType = String(item.sourceType || item.appSourceType || "unknown");
     const status = String(item.status || item.appStatus || "unknown");
-    const appLabel = String(item.appLabel || resolveAppLabelById(appId) || appId);
+    const appLabel = String(item.source || resolveAppLabelById(appId) || "global").trim();
+    const sourceLabel = appLabel && appLabel !== "unknown-app" && appLabel !== "unknown" ? appLabel : "global";
     const entryOptions = Array.isArray(item.entryOptions)
       ? item.entryOptions
           .map((value) => String(value || "").trim())
@@ -687,6 +677,14 @@ window.taskManager = function (posX = 50, posY = 50) {
       item._goldenbodyid,
       null,
     );
+    const url = (() => {
+      const candidate = String(firstDefinedValue(item.url, item.sourceUrl, item.scriptURL, item.link, "") || "").trim();
+      if (!candidate) return "";
+      if (candidate.startsWith("blob:")) return "";
+      return candidate;
+    })();
+    const rawName = String(firstDefinedValue(item.name, item.workerName, item.title, label, "") || "").trim();
+    const name = rawName && rawName.indexOf("blob:") === -1 ? rawName : "process";
 
     return {
       appId,
@@ -695,9 +693,11 @@ window.taskManager = function (posX = 50, posY = 50) {
       functionName,
       globalVar,
       sourceType,
-      appLabel,
+      appLabel: sourceLabel,
       entryOptions,
       status,
+      name,
+      url,
       processId: Number.isFinite(processId) ? processId : 0,
       pid: Number.isFinite(processId) ? processId : 0,
       processKind: String(item.processKind || "app"),
@@ -821,30 +821,22 @@ window.taskManager = function (posX = 50, posY = 50) {
       return {
         totalEntries: Number(provided.totalEntries || rows.length),
         running: Number(provided.running || 0),
-        idle: Number(provided.idle || 0),
-        unknown: Number(provided.unknown || 0),
         totalInstances: Number(provided.totalInstances || 0),
       };
     }
 
     let running = 0;
-    let idle = 0;
-    let unknown = 0;
     let totalInstances = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       totalInstances += 1;
       if (row.status === "running") running++;
-      else if (row.status === "idle") idle++;
-      else unknown++;
     }
 
     return {
       totalEntries: rows.length,
       running,
-      idle,
-      unknown,
       totalInstances,
     };
   }
@@ -852,9 +844,15 @@ window.taskManager = function (posX = 50, posY = 50) {
   function renderSummary(summary) {
     totalTasksValue.textContent = String(Number(summary.totalEntries || 0));
     runningValue.textContent = String(Number(summary.running || 0));
-    idleValue.textContent = String(Number(summary.idle || 0));
-    unknownValue.textContent = String(Number(summary.unknown || 0));
     totalInstancesValue.textContent = String(Number(summary.totalInstances || 0));
+
+    if (performance && performance.memory) {
+      const used = Number(performance.memory.usedJSHeapSize || 0);
+      const limit = Number(performance.memory.jsHeapSizeLimit || used || 0);
+      memoryValue.textContent = limit > 0 ? formatSize(used) + " / " + formatSize(limit) : formatSize(used);
+    } else {
+      memoryValue.textContent = "n/a";
+    }
   }
 
   function renderRows(rows) {
@@ -869,7 +867,7 @@ window.taskManager = function (posX = 50, posY = 50) {
     if (!rows.length) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 5;
+      td.colSpan = 4;
       td.style.padding = "12px";
       td.style.opacity = "0.8";
       td.textContent = "No task entries available.";
@@ -888,32 +886,26 @@ window.taskManager = function (posX = 50, posY = 50) {
         tr.style.background = "rgba(127,127,127,0.18)";
       }
 
-      const firstCellText = row.title || row.label || row.appId;
-      const sourceCellText = row.appLabel
-        ? row.appLabel + " • " + row.sourceType
-        : row.sourceType;
-      const fallbackEntryText = row.entryOptions && row.entryOptions.length
-        ? row.entryOptions.slice(0, 3).join(" / ")
-        : "-";
-      const lastColBase = row.functionName && row.globalVar
-        ? row.functionName + " / " + row.globalVar
-        : row.functionName || row.globalVar || fallbackEntryText;
+      const nameCellText = row.name || "process";
+      const normalizedType = String(row.sourceType || row.processKind || "").toLowerCase();
+      const taskCellText = (() => {
+        if (normalizedType === "worker") return "Worker";
+        if (normalizedType === "iframe") return "Iframe";
+        return row.sourceType || row.processKind || "Process";
+      })();
+      const sourceCellText = row.appLabel && row.appLabel !== "unknown-app" && row.appLabel !== "unknown"
+        ? row.appLabel
+        : "global";
       const pidText =
         row.processId === null || typeof row.processId === "undefined"
           ? "-"
           : String(row.processId);
-      const appInstanceText =
-        row.appInstanceId === null || typeof row.appInstanceId === "undefined"
-          ? "-"
-          : String(row.appInstanceId);
-      const lastCol = lastColBase + "  •  appid:" + appInstanceText;
 
       const cells = [
-        firstCellText,
+        nameCellText,
+        taskCellText,
         sourceCellText,
-        row.status,
         pidText,
-        lastCol,
       ];
 
       cells.forEach((cellText, index) => {
@@ -922,7 +914,7 @@ window.taskManager = function (posX = 50, posY = 50) {
         td.style.overflow = "hidden";
         td.style.textOverflow = "ellipsis";
         td.style.whiteSpace = "nowrap";
-        if (index === 3) td.style.textAlign = "right";
+        td.style.textAlign = "left";
         td.textContent = cellText;
         tr.appendChild(td);
       });

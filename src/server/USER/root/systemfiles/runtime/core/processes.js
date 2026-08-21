@@ -1,5 +1,86 @@
 "use strict";
 (function () {
+  if (window.__runtimeCoreWorkerHookInstalled || !window.Worker) return;
+
+  const NativeWorker = window.Worker;
+
+  const buildWorkerBootstrap = function (scriptURL) {
+    const sourceUrl = scriptURL == null ? "" : String(scriptURL);
+    const sourceLiteral = JSON.stringify(sourceUrl);
+    return [
+      "(function () {",
+      "  const notifyHost = function (eventName) {",
+      "    try { postMessage({ type: '___worker_event__', event: eventName, ts: Date.now() }); } catch (err) {}",
+      "  };",
+      "  const nativeClose = typeof self.close === 'function' ? self.close.bind(self) : null;",
+      "  const nativeTerminate = typeof self.terminate === 'function' ? self.terminate.bind(self) : null;",
+      "  if (nativeClose) {",
+      "    self.close = function () {",
+      "      notifyHost('self.close');",
+      "      return nativeClose.apply(this, arguments);",
+      "    };",
+      "  }",
+      "  if (nativeTerminate) {",
+      "    self.terminate = function () {",
+      "      notifyHost('self.terminate');",
+      "      return nativeTerminate.apply(this, arguments);",
+      "    };",
+      "  }",
+      "  const __sourceUrl = " + sourceLiteral + ";",
+      "  if (__sourceUrl) {",
+      "    fetch(__sourceUrl).then(function (response) { return response.text(); }).then(function (code) {",
+      "      try { (0, eval)(code); } catch (error) { setTimeout(function () { throw error; }, 0); }",
+      "    }).catch(function (error) { setTimeout(function () { throw error; }, 0); });",
+      "  }",
+      "})();",
+    ].join("\n");
+  };
+
+  window.Worker = function WrappedWorker() {
+    const scriptURL = arguments.length > 0 ? arguments[0] : null;
+    const options = arguments.length > 1 ? arguments[1] : null;
+    const wrappedURL = scriptURL && typeof scriptURL === 'string'
+      ? URL.createObjectURL(new Blob([buildWorkerBootstrap(scriptURL)], { type: 'text/javascript' }))
+      : scriptURL;
+
+    const worker = arguments.length > 1
+      ? new NativeWorker(wrappedURL, options)
+      : new NativeWorker(wrappedURL);
+
+    const nativeTerminate = typeof worker.terminate === 'function' ? worker.terminate.bind(worker) : null;
+    if (nativeTerminate) {
+      worker.terminate = function () {
+        if (worker.__TerminationGuard) {
+          return nativeTerminate.apply(this, arguments);
+        }
+        worker.__TerminationGuard = true;
+        try {
+          if (window.protectedGlobals && typeof window.protectedGlobals.onWorkerTerminate === 'function') {
+            window.protectedGlobals.onWorkerTerminate(worker, arguments);
+          }
+        } catch (err) {}
+        const result = nativeTerminate.apply(this, arguments);
+        worker.__TerminationGuard = false;
+        return result;
+      };
+    }
+
+    worker.addEventListener('message', function (event) {
+      if (!event || !event.data || event.data.type !== '___worker_event__') return;
+      try {
+        if (window.protectedGlobals && typeof window.protectedGlobals.onWorkerEvent === 'function') {
+          window.protectedGlobals.onWorkerEvent(worker, event.data);
+        }
+      } catch (err) {}
+    });
+
+    return worker;
+  };
+
+  window.Worker.prototype = NativeWorker.prototype;
+  window.__runtimeCoreWorkerHookInstalled = true;
+})();
+(function () {
   window.protectedGlobals = window.protectedGlobals || {};
   if (window.protectedGlobals.FlowawayProcess && window.protectedGlobals.FlowawayProcess.__loaded) {
     return;
@@ -8,10 +89,7 @@
   var runtime = window.protectedGlobals.__processRuntime || {};
 
   runtime.__loaded = false;
-  runtime.listeners = runtime.listeners instanceof Set ? runtime.listeners : new Set();
-  runtime.manualProcesses = runtime.manualProcesses || {};
-  runtime.launchRegistry = runtime.launchRegistry || {};
-  runtime.dynamicProcesses = runtime.dynamicProcesses || {};
+  // manual/launch/dynamic registries removed for simplified runtime (only workers and iframes)
   runtime.processObjectsByPid = runtime.processObjectsByPid || (window.protectedGlobals.__processObjectsByPid || {});
   runtime.processes = Array.isArray(runtime.processes) ? runtime.processes : [];
   runtime.processRegistry = runtime.processRegistry || {};
@@ -26,10 +104,7 @@
   runtime.taskProcessObjectIdentityCounter = Number(
     runtime.taskProcessObjectIdentityCounter || window.protectedGlobals.__taskProcessObjectIdentityCounter || 0,
   );
-  runtime.timerProcessBindings = runtime.timerProcessBindings || {};
-  runtime.rafProcessBindings = runtime.rafProcessBindings || {};
-  runtime.observerProcessBindings = runtime.observerProcessBindings || {};
-  runtime.listenerProcessBindings = runtime.listenerProcessBindings || {};
+  // Removed unused hook placeholders: timer/raf/observer/listener
   runtime.iframeProcessBindings = runtime.iframeProcessBindings || {};
   runtime.iframeHookedElements = runtime.iframeHookedElements instanceof WeakSet
     ? runtime.iframeHookedElements
@@ -38,20 +113,17 @@
     ? runtime.iframeBindingByElement
     : new WeakMap();
   runtime.iframeHookObserver = runtime.iframeHookObserver || null;
-  runtime.serviceWorkerProcessBindings = runtime.serviceWorkerProcessBindings || {};
   runtime.workerProcessBindings = runtime.workerProcessBindings || {};
   runtime.workerInstances = runtime.workerInstances instanceof WeakMap
     ? runtime.workerInstances
     : new WeakMap();
   runtime.hookStatus = runtime.hookStatus || {};
   runtime.hookStatus.iframe = runtime.hookStatus.iframe || { hookable: false, reason: "not-initialized", hooked: false, hookedCount: 0, observed: false };
-  runtime.hookStatus.serviceWorker = runtime.hookStatus.serviceWorker || { hookable: false, reason: "not-initialized", hooked: false };
-  runtime._nativeServiceWorkerRegister = runtime._nativeServiceWorkerRegister || null;
   runtime._nativeWorkerConstructor = runtime._nativeWorkerConstructor || null;
 
   function getFirstDefinedValue() {
     for (var i = 0; i < arguments.length; i++) {
-      if (arguments[i] !== null && typeof arguments[i] !== "undefined") {
+        if (arguments[i] !== null && typeof arguments[i] !== "undefined" && arguments[i] !== "") {
         return arguments[i];
       }
     }
@@ -107,43 +179,7 @@
       }
     }
 
-    var launches = runtime.launchRegistry && typeof runtime.launchRegistry === "object"
-      ? runtime.launchRegistry
-      : {};
-    var launchKeys = Object.keys(launches);
-    for (var l = 0; l < launchKeys.length; l++) {
-      var launch = launches[launchKeys[l]];
-      if (launch && typeof launch === "object") {
-        markPid(getFirstDefinedValue(launch.pid, launch.processId));
-      }
-    }
-
-    var manuals = runtime.manualProcesses && typeof runtime.manualProcesses === "object"
-      ? runtime.manualProcesses
-      : {};
-    var manualKeys = Object.keys(manuals);
-    for (var m = 0; m < manualKeys.length; m++) {
-      var manual = manuals[manualKeys[m]];
-      if (manual && typeof manual === "object") {
-        markPid(getFirstDefinedValue(manual.pid, manual.processId));
-      }
-    }
-
-    var dynamicRoots = runtime.dynamicProcesses && typeof runtime.dynamicProcesses === "object"
-      ? runtime.dynamicProcesses
-      : {};
-    var rootKeys = Object.keys(dynamicRoots);
-    for (var r = 0; r < rootKeys.length; r++) {
-      var procMap = dynamicRoots[rootKeys[r]];
-      if (!procMap || typeof procMap !== "object") continue;
-      var procKeys = Object.keys(procMap);
-      for (var d = 0; d < procKeys.length; d++) {
-        var dynamicMeta = procMap[procKeys[d]];
-        if (dynamicMeta && typeof dynamicMeta === "object") {
-          markPid(getFirstDefinedValue(dynamicMeta.pid, dynamicMeta.processId));
-        }
-      }
-    }
+    // launch/manual/dynamic registries removed — no additional pids to scan
 
     return known;
   }
@@ -250,72 +286,7 @@
     window.protectedGlobals.__reusablePidPool = runtime.reusablePidPool;
   }
 
-  function uniqueStringList(values) {
-    var list = Array.isArray(values) ? values : [];
-    var seen = {};
-    var out = [];
-    for (var i = 0; i < list.length; i++) {
-      var value = String(list[i] || "").trim();
-      if (!value) continue;
-      var key = value.toLowerCase();
-      if (seen[key]) continue;
-      seen[key] = true;
-      out.push(value);
-    }
-    return out;
-  }
-
-  function uniqueNumberList(values) {
-    var list = Array.isArray(values) ? values : [];
-    var seen = {};
-    var out = [];
-    for (var i = 0; i < list.length; i++) {
-      var numeric = normalizeProcessPid(list[i]);
-      if (typeof numeric !== "number" || Number.isNaN(numeric)) continue;
-      var key = String(numeric);
-      if (seen[key]) continue;
-      seen[key] = true;
-      out.push(numeric);
-    }
-    return out;
-  }
-
-  function normalizeWindowIds(value) {
-    if (!Array.isArray(value)) return [];
-    var out = [];
-    var seen = {};
-    for (var i = 0; i < value.length; i++) {
-      var id = String(value[i] || "").trim();
-      if (!id) continue;
-      if (seen[id]) continue;
-      seen[id] = true;
-      out.push(id);
-    }
-    return out;
-  }
-
   function noopProcessFn() {}
-
-  function buildExecutionShape(inputExecution, existingExecution) {
-    var input = inputExecution && typeof inputExecution === "object" ? inputExecution : {};
-    var existing = existingExecution && typeof existingExecution === "object" ? existingExecution : {};
-    var originInput = input.origin && typeof input.origin === "object" ? input.origin : {};
-    var originExisting = existing.origin && typeof existing.origin === "object" ? existing.origin : {};
-
-    return {
-      fn: (input.fn) ? input.fn : ((existing.fn) ? existing.fn : noopProcessFn),
-      args: Array.isArray(input.args) ? input.args.slice() : (Array.isArray(existing.args) ? existing.args.slice() : []),
-      intervalId: getFirstDefinedValue(input.intervalId, existing.intervalId, null),
-      rafId: getFirstDefinedValue(input.rafId, existing.rafId, null),
-      ms: Number(getFirstDefinedValue(input.ms, existing.ms, 0)) || 0,
-      origin: {
-        appId: String(getFirstDefinedValue(originInput.appId, originExisting.appId, "system")),
-        appInstanceId: getFirstDefinedValue(originInput.appInstanceId, originExisting.appInstanceId, null),
-        listenerType: String(getFirstDefinedValue(originInput.listenerType, originExisting.listenerType, "api")),
-        stackTrace: String(getFirstDefinedValue(originInput.stackTrace, originExisting.stackTrace, "")),
-      },
-    };
-  }
 
   function ensureCanonicalProcessShape(config, options) {
     var input = config && typeof config === "object" ? config : {};
@@ -345,18 +316,6 @@
     var createdValue = Number(getFirstDefinedValue(input.created, input.createdAt, existing.created, existing.createdAt, Date.now()));
     if (!Number.isFinite(createdValue) || createdValue <= 0) createdValue = Date.now();
 
-    var statusValue = String(getFirstDefinedValue(input.status, existing.status, "running"));
-    var persistentValue = !!getFirstDefinedValue(input.persistent, existing.persistent, false);
-    var windowIdsValue = normalizeWindowIds(
-      getFirstDefinedValue(input.windowIds, existing.windowIds, []),
-    );
-    var hasWindowValue = !!getFirstDefinedValue(
-      input.hasWindow,
-      existing.hasWindow,
-      windowIdsValue.length > 0,
-      typeValue === "app" || typeValue === "launch",
-    );
-
     var cleanupFn = (input.cleanup)
       ? input.cleanup
       : (input.stop)
@@ -367,56 +326,22 @@
             ? existing.stop
             : noopProcessFn;
 
-    var runFn = (input.run)
-      ? input.run
-      : (existing.run)
-        ? existing.run
-        : noopProcessFn;
-
-    var handlerFn = (input.handler)
-      ? input.handler
-      : (existing.handler)
-        ? existing.handler
-        : runFn;
-
-    var parentPidValue = normalizeProcessPid(
-      getFirstDefinedValue(input.parentPid, existing.parentPid, null),
-    );
-    var childrenValue = uniqueNumberList(
-      getFirstDefinedValue(input.children, existing.children, []),
-    );
-
     return {
       pid: pidValue,
       processId: pidValue,
       id: pidValue,
       type: typeValue,
       processKind: typeValue,
-      sourceType: String(getFirstDefinedValue(input.sourceType, existing.sourceType, typeValue)),
       title: titleValue,
       name: titleValue,
-      label: String(getFirstDefinedValue(input.label, existing.label, titleValue)),
-      appId: appIdValue,
-      status: statusValue,
-      persistent: persistentValue,
-      hasWindow: hasWindowValue,
-      windowIds: windowIdsValue,
       created: createdValue,
       createdAt: createdValue,
       cleanup: cleanupFn,
-      run: runFn,
-      handler: handlerFn,
       stop: cleanupFn,
-      parentPid: parentPidValue,
-      children: childrenValue,
       options: Object.assign(
         {},
         existing.options && typeof existing.options === "object" ? existing.options : {},
         input.options && typeof input.options === "object" ? input.options : {},
-      ),
-      execution: buildExecutionShape(
-        getFirstDefinedValue(input.execution, existing.execution, {}),
-        existing.execution,
       ),
     };
   }
@@ -436,24 +361,6 @@
     return canonical;
   }
 
-  function removeChildPidFromParent(parentPidValue, childPidValue) {
-    var parent = getCanonicalProcessByPid(parentPidValue);
-    var childPid = normalizeProcessPid(childPidValue);
-    if (!parent || typeof childPid !== "number" || Number.isNaN(childPid)) return;
-    var nextChildren = uniqueNumberList(parent.children).filter(function (pid) {
-      return pid !== childPid;
-    });
-    parent.children = nextChildren;
-  }
-
-  function attachChildPidToParent(parentPidValue, childPidValue) {
-    var parent = getCanonicalProcessByPid(parentPidValue);
-    var childPid = normalizeProcessPid(childPidValue);
-    if (!parent || typeof childPid !== "number" || Number.isNaN(childPid)) return;
-    var nextChildren = uniqueNumberList([].concat(parent.children || [], [childPid]));
-    parent.children = nextChildren;
-  }
-
   function ensureProcessObjectsStore() {
     if (!runtime.processObjectsByPid || typeof runtime.processObjectsByPid !== "object") {
       runtime.processObjectsByPid = {};
@@ -466,320 +373,51 @@
     var e = entry && typeof entry === "object" ? entry : {};
     var instance = instanceRecord && typeof instanceRecord === "object" ? instanceRecord : {};
     var pidValue = normalizeProcessPid(getFirstDefinedValue(instance.processId, instance.pid));
-    var updatedAt = Number(e.updatedAt || Date.now());
+      var updatedAt = Number(e.updatedAt || Date.now()) || Date.now();
     var existingProcessObject = runtime.processObjectsByPid && runtime.processObjectsByPid[String(pidValue)]
       ? runtime.processObjectsByPid[String(pidValue)]
       : null;
-    var title = String(
-      instance.title ||
-        instance.label ||
-        e.label ||
-        e.appId ||
-        "Instance",
-    );
+    // Prefer explicit names for worker processes; do not infer names via atTop.
+    var isWorker = String(getFirstDefinedValue(e.sourceType, e.processKind, instance.sourceType, '')).toLowerCase() === 'worker';
+    var isIframe = String(getFirstDefinedValue(e.sourceType, e.processKind, instance.sourceType, '')).toLowerCase() === 'iframe';
+    var title = '';
+    var source = '';
+
+    if (isWorker || isIframe) {
+      var url = String(e.entry || (instance && instance.options && instance.options.iframeSrc) || '').trim();
+      // name: only use what the app/instance provides (do NOT infer from atTop)
+      var providedName = (instance && (instance.title || instance.label)) || e.label || null;
+      if (providedName) title = String(providedName);
+      else title = isWorker ? '(Worker Process)' : '(Iframe Process)';
+
+      if (instance && instance.options && instance.options.source) source = String(instance.options.source || '');
+      else if (instance && instance.options && instance.options.iframeSrc) source = String(instance.options.iframeSrc || '');
+      else if (window && window.protectedGlobals && window.protectedGlobals.atTop) {
+        source = String(window.protectedGlobals.atTop || '');
+        if (source) source += ' (inferred)';
+      }
+    } else {
+      title = String(instance.title || instance.label || e.label || e.appId || 'Instance');
+    }
 
     return {
       pid: pidValue,
       processId: pidValue,
-      appId: String(e.appId || "unknown-app"),
-      appInstanceId: getFirstDefinedValue(instance.appInstanceId, instance.instanceId, instance.sourceIndex),
-      goldenbodyId: getFirstDefinedValue(instance.goldenbodyId, null),
       title: title,
-      label: String(instance.label || title),
-      appLabel: String(e.label || e.appLabel || e.appId || "unknown-app"),
-      appEntry: String(e.entry || ""),
-      appGlobalVar: String(e.globalVar || ""),
-      appSourceType: String(e.sourceType || "unknown"),
-      appStatus: String(e.status || "unknown"),
-      sourceType: String(e.sourceType || "unknown"),
-      status: String(e.status || "unknown"),
       updatedAt: updatedAt,
-      processKind: String(e.processKind || "app"),
-      type: String(
-        getFirstDefinedValue(
-          existingProcessObject && existingProcessObject.type,
-          e.processKind,
-          e.sourceType,
-          "app",
-        ),
-      ),
-      persistent: !!getFirstDefinedValue(
-        instance.persistent,
-        existingProcessObject && existingProcessObject.persistent,
-        false,
-      ),
-      hasWindow: !!getFirstDefinedValue(
-        instance.hasWindow,
-        existingProcessObject && existingProcessObject.hasWindow,
-        true,
-      ),
-      windowIds: normalizeWindowIds(
-        getFirstDefinedValue(
-          instance.windowIds,
-          existingProcessObject && existingProcessObject.windowIds,
-          instance.goldenbodyId || instance.goldenbodyId === 0 ? [String(instance.goldenbodyId)] : [],
-        ),
-      ),
-      parentPid: getFirstDefinedValue(
-        instance.parentPid,
-        existingProcessObject && existingProcessObject.parentPid,
-        null,
-      ),
-      children: uniqueNumberList(
-        getFirstDefinedValue(
-          instance.children,
-          existingProcessObject && existingProcessObject.children,
-          [],
-        ),
-      ),
-      entryOptions: uniqueStringList(
-        [].concat(
-          Array.isArray(e.entryOptions) ? e.entryOptions : [],
-          [e.entry, e.globalVar, e.appId, e.label],
-        ),
-      ),
+      processKind: String(e.processKind || 'worker'),
+      type: String(getFirstDefinedValue(existingProcessObject && existingProcessObject.type, e.processKind, e.sourceType)),
+      source: String(source || ''),
     };
-  }
-
-  function buildAppLaunchRecord(appMeta, extraMeta) {
-    var app = appMeta && typeof appMeta === "object" ? appMeta : {};
-    var extra = extraMeta && typeof extraMeta === "object" ? extraMeta : {};
-    var appId = String(app.id || app.functionName || app.label || app.path || "unknown-app");
-    var label = String(app.label || app.functionName || appId);
-    var functionName = String(app.functionName || app.path || app.id || "");
-    var globalVar = typeof app.globalVarObjectString === "string" ? app.globalVarObjectString : "";
-    var stableKey = [appId, functionName, globalVar, String(extra.instanceKey || extra.rootId || "launch")].join("::");
-    var existing = runtime.launchRegistry[stableKey];
-    if (!existing) {
-      existing = {
-        key: stableKey,
-        pid: allocateProcessId("launch::" + stableKey, null),
-        appId: appId,
-        label: label,
-        functionName: functionName,
-        globalVar: globalVar,
-        sourceType: "launch",
-        status: "running",
-        appInstanceId: getFirstDefinedValue(extra.appInstanceId, extra.rootId, 1),
-        goldenbodyId: getFirstDefinedValue(extra.goldenbodyId, null),
-        updatedAt: Date.now(),
-        meta: {},
-      };
-      runtime.launchRegistry[stableKey] = existing;
-    }
-
-    existing.appId = appId;
-    existing.label = label;
-    existing.functionName = functionName;
-    existing.globalVar = globalVar;
-    existing.sourceType = "launch";
-    existing.status = extra.status || "running";
-    existing.appInstanceId = getFirstDefinedValue(extra.appInstanceId, existing.appInstanceId, 1);
-    existing.goldenbodyId = getFirstDefinedValue(extra.goldenbodyId, existing.goldenbodyId, null);
-    existing.updatedAt = Date.now();
-    existing.meta = Object.assign({}, existing.meta || {}, extra);
-    runtime.processRegistry[stableKey] = existing;
-    return existing;
-  }
-
-  function registerManualProcess(meta) {
-    var input = meta && typeof meta === "object" ? meta : {};
-    var appId = String(input.appId || (window.protectedGlobals._launchContext && window.protectedGlobals._launchContext.appId) || "global");
-    var name = String(input.name || input.processName || input.label || input.title || appId + " process");
-    var key = String(input.key || [appId, name, input.group || "manual"].join("::"));
-    var existing = runtime.manualProcesses[key];
-    if (existing && !input.replace) {
-      existing.updatedAt = Date.now();
-      existing.meta = Object.assign({}, existing.meta || {}, input);
-      return existing.handle;
-    }
-
-    var pid = allocateProcessId("manual::" + key, null);
-    var record = {
-      key: key,
-      pid: pid,
-      processId: pid,
-      appId: appId,
-      label: name,
-      title: String(input.title || name),
-      status: "running",
-      sourceType: "manual",
-      processKind: "manual",
-      appInstanceId: getFirstDefinedValue(input.appInstanceId, null),
-      goldenbodyId: getFirstDefinedValue(input.goldenbodyId, null),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      stop: (input.stop) ? input.stop : null,
-      meta: Object.assign({}, input),
-    };
-
-    var handle = {
-      id: pid,
-      pid: pid,
-      appId: appId,
-      key: key,
-      name: name,
-      status: "running",
-      meta: record.meta,
-      terminate: function (reason) {
-        return killProcess(pid, reason || "manual-terminate");
-      },
-      stop: function (reason) {
-        return killProcess(pid, reason || "manual-stop");
-      },
-      update: function (patch) {
-        if (!patch || typeof patch !== "object") return handle;
-        record.meta = Object.assign({}, record.meta || {}, patch);
-        record.updatedAt = Date.now();
-        return handle;
-      },
-    };
-
-    record.handle = handle;
-    var canonical = ensureCanonicalProcessShape(
-      {
-        pid: pid,
-        type: "manual",
-        title: String(record.title || name),
-        appId: appId,
-        status: String(record.status || "running"),
-        persistent: !!getFirstDefinedValue(input.persistent, false),
-        hasWindow: !!getFirstDefinedValue(input.hasWindow, false),
-        windowIds: getFirstDefinedValue(input.windowIds, []),
-        created: Number(record.createdAt || Date.now()),
-        cleanup: (record.stop) ? record.stop : noopProcessFn,
-        run: (input.run) ? input.run : noopProcessFn,
-        parentPid: getFirstDefinedValue(input.parentPid, null),
-        children: getFirstDefinedValue(input.children, []),
-      },
-      {
-        existing: runtime.processObjectsByPid[String(pid)] || {},
-        pid: pid,
-        identityKey: "manual::" + String(key),
-      },
-    );
-    runtime.processObjectsByPid[String(pid)] = canonical;
-    if (canonical.parentPid || canonical.parentPid === 0) {
-      attachChildPidToParent(canonical.parentPid, canonical.pid);
-    }
-    runtime.manualProcesses[key] = record;
-    runtime.processRegistry[key] = record;
-    return handle;
-  }
-
-  function getAppArrayKeys(app) {
-    var keys = [];
-    if (!app || typeof app !== "object") return keys;
-
-    if (typeof app.allAppArrayString === "string") {
-      var singleKey = String(app.allAppArrayString || "").trim();
-      if (singleKey) keys.push(singleKey);
-    } else if (Array.isArray(app.allAppArrayString)) {
-      for (var i = 0; i < app.allAppArrayString.length; i++) {
-        var keyValue = app.allAppArrayString[i];
-        if (typeof keyValue !== "string") continue;
-        var normalizedKey = String(keyValue || "").trim();
-        if (!normalizedKey) continue;
-        if (keys.indexOf(normalizedKey) === -1) keys.push(normalizedKey);
-      }
-    }
-
-    return keys;
-  }
-
-  function closeLiveAppInstance(instance, appMeta) {
-    if (!instance || typeof instance !== "object") return false;
-
-    if ((instance.closeWindow)) {
-      try {
-        instance.closeWindow();
-        return true;
-      } catch (e) {}
-    }
-
-    if ((instance.close)) {
-      try {
-        instance.close();
-        return true;
-      } catch (e) {}
-    }
-
-    if (instance.rootElement && (instance.rootElement.remove)) {
-      try {
-        instance.rootElement.remove();
-      } catch (e) {}
-
-      return true;
-    }
-
-    return false;
-  }
-
-  function terminateLiveAppInstance(pidValue) {
-    var apps = Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
-    var pidKey = String(pidValue);
-
-    for (var i = 0; i < apps.length; i++) {
-      var app = apps[i] && typeof apps[i] === "object" ? apps[i] : {};
-      var globalVar = typeof app.globalVarObjectString === "string" ? app.globalVarObjectString : "";
-      var arrayKeys = getAppArrayKeys(app);
-      if (!globalVar || !arrayKeys.length) continue;
-
-      var host = window[globalVar];
-      if (!host || typeof host !== "object") continue;
-
-      for (var k = 0; k < arrayKeys.length; k++) {
-        var arrayKey = arrayKeys[k];
-        var list = host[arrayKey];
-        if (!Array.isArray(list)) continue;
-
-        for (var j = 0; j < list.length; j++) {
-          var instance = list[j] && typeof list[j] === "object" ? list[j] : null;
-          if (!instance) continue;
-
-          var currentPid =
-            (typeof instance.pid !== "undefined" && instance.pid !== null ? instance.pid : null);
-          if (currentPid === null || typeof currentPid === "undefined") {
-            currentPid =
-              (typeof instance.processId !== "undefined" && instance.processId !== null ? instance.processId : null);
-          }
-          if (currentPid === null || typeof currentPid === "undefined") {
-            currentPid =
-              (typeof instance.id !== "undefined" && instance.id !== null ? instance.id : null);
-          }
-          if (currentPid === null || String(currentPid) !== pidKey) continue;
-
-          var closed = closeLiveAppInstance(instance, app);
-          if (!closed) continue;
-
-          try {
-            var removedRoot = instance.rootElement || null;
-            host[arrayKey] = list.filter(function (item) {
-              if (!item || typeof item !== "object") return true;
-              if (item === instance) return false;
-              if (removedRoot && item.rootElement === removedRoot) return false;
-              if (item.rootElement && item.rootElement.isConnected === false) return false;
-              return true;
-            });
-          } catch (e) {}
-
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 
   function terminateRecord(record, reason) {
     if (!record || typeof record !== "object") return false;
-    try {
-      if ((record.stop)) {
-        record.stop(reason || "terminate");
-      } else if (record.handle && (record.handle.stop)) {
-        record.handle.stop(reason || "terminate");
-      }
-    } catch (e) {}
+    if ((record.stop)) {
+      record.stop(reason || "terminate");
+    } else if (record.handle && (record.handle.stop)) {
+      record.handle.stop(reason || "terminate");
+    }
     record.status = "terminated";
     record.updatedAt = Date.now();
     return true;
@@ -787,78 +425,17 @@
 
   function terminateProcess(target, reason) {
     if (target === null || typeof target === "undefined") return false;
-    var terminated = false;
     var pidValue = normalizeProcessPid(target);
-    if (typeof pidValue !== "number" || Number.isNaN(pidValue)) {
-      return false;
-    }
-    var pidKey = pidValue === null || typeof pidValue === "undefined" ? "" : String(pidValue);
+    if (typeof pidValue !== "number" || Number.isNaN(pidValue)) return false;
+    var pidKey = String(pidValue);
 
-    if (pidKey && runtime.processObjectsByPid[pidKey]) {
-      var processObject = runtime.processObjectsByPid[pidKey];
-      if (processObject && (processObject.stop)) {
-        try {
-          processObject.stop(reason || "terminate");
-          terminated = true;
-        } catch (e) {}
-      } else if (processObject && processObject.handle && (processObject.handle.stop)) {
-        try {
-          processObject.handle.stop(reason || "terminate");
-          terminated = true;
-        } catch (e) {}
-      }
+    var processObject = runtime.processObjectsByPid && runtime.processObjectsByPid[pidKey];
+    if (processObject) {
+      if (processObject.stop) processObject.stop(reason || "terminate");
       delete runtime.processObjectsByPid[pidKey];
+      return true;
     }
-
-    var manualKeys = Object.keys(runtime.manualProcesses);
-    for (var i = 0; i < manualKeys.length; i++) {
-      var manual = runtime.manualProcesses[manualKeys[i]];
-      if (!manual) continue;
-      if (pidKey && String(manual.pid) === pidKey) {
-        terminateRecord(manual, reason);
-        delete runtime.manualProcesses[manualKeys[i]];
-        delete runtime.processRegistry[manualKeys[i]];
-        terminated = true;
-      }
-    }
-
-    var launchKeys = Object.keys(runtime.launchRegistry);
-    for (var j = 0; j < launchKeys.length; j++) {
-      var launch = runtime.launchRegistry[launchKeys[j]];
-      if (!launch) continue;
-      var matchesPid = pidKey && String(launch.pid) === pidKey;
-      if (matchesPid) {
-        terminateRecord(launch, reason);
-        delete runtime.launchRegistry[launchKeys[j]];
-        delete runtime.processRegistry[launchKeys[j]];
-        terminated = true;
-      }
-    }
-
-    var dynamicApps = Object.keys(runtime.dynamicProcesses);
-    for (var a = 0; a < dynamicApps.length; a++) {
-      var appId = dynamicApps[a];
-      var procMap = runtime.dynamicProcesses[appId];
-      for (var procName in procMap) {
-        if (!Object.prototype.hasOwnProperty.call(procMap, procName)) continue;
-        var dynamicMeta = procMap[procName] && typeof procMap[procName] === "object" ? procMap[procName] : {};
-        var dynamicPid = normalizeProcessPid(
-          getFirstDefinedValue(dynamicMeta.pid, dynamicMeta.processId),
-        );
-        if (String(dynamicPid) !== pidKey) continue;
-        delete procMap[procName];
-        terminated = true;
-      }
-      if (!Object.keys(procMap).length) {
-        delete runtime.dynamicProcesses[appId];
-      }
-    }
-
-    if (!terminated) {
-      terminated = terminateLiveAppInstance(pidValue);
-    }
-
-    return terminated;
+    return false;
   }
 
   function removePidFromGlobalProcessLists(pidValue) {
@@ -888,17 +465,14 @@
     if (!processObject || typeof processObject !== "object") return;
     if (processObject.__cleanupCalled) return;
     processObject.__cleanupCalled = true;
-    try {
-      if ((processObject.cleanup)) {
-        processObject.cleanup(reason || "kill");
-      }
-    } catch (e) {}
+    if ((processObject.cleanup)) {
+      processObject.cleanup(reason || "kill");
+    }
   }
 
   function getProcessHookStatus() {
     return {
       iframe: Object.assign({}, runtime.hookStatus && runtime.hookStatus.iframe ? runtime.hookStatus.iframe : {}),
-      serviceWorker: Object.assign({}, runtime.hookStatus && runtime.hookStatus.serviceWorker ? runtime.hookStatus.serviceWorker : {}),
     };
   }
 
@@ -916,19 +490,7 @@
     window.protectedGlobals.__processHookStatus = getProcessHookStatus();
   }
 
-  function setServiceWorkerHookStatus(hookable, reason, extra) {
-    var next = Object.assign(
-      {},
-      runtime.hookStatus && runtime.hookStatus.serviceWorker ? runtime.hookStatus.serviceWorker : {},
-      extra && typeof extra === "object" ? extra : {},
-      {
-        hookable: !!hookable,
-        reason: String(reason || "unknown"),
-      },
-    );
-    runtime.hookStatus.serviceWorker = next;
-    window.protectedGlobals.__processHookStatus = getProcessHookStatus();
-  }
+  
 
   function getIframeContextMeta(iframe) {
     var appId = String(
@@ -940,22 +502,13 @@
     );
     var root = null;
     if (iframe && (iframe.closest)) {
-      try {
-        root = iframe.closest(".app-window-root");
-      } catch (e) {
-        root = null;
-      }
+      root = iframe.closest(".app-window-root");
     }
     if (root && root.dataset && root.dataset.appId) {
       appId = String(root.dataset.appId);
     }
 
-    var src = "";
-    try {
-      src = String(getFirstDefinedValue(iframe && iframe.getAttribute && iframe.getAttribute("src"), iframe && iframe.src, ""));
-    } catch (e) {
-      src = "";
-    }
+    var src = String(getFirstDefinedValue(iframe && iframe.getAttribute && iframe.getAttribute("src"), iframe && iframe.src, ""));
 
     var title = String(
       getFirstDefinedValue(
@@ -1032,8 +585,6 @@
         existingProc.title = existingMeta.title;
         existingProc.label = existingMeta.title;
         existingProc.appId = existingMeta.appId;
-        existingProc.hasWindow = true;
-        existingProc.windowIds = normalizeWindowIds([existingMeta.windowId]);
         existingProc.status = "running";
       }
       return true;
@@ -1189,153 +740,6 @@
     return true;
   }
 
-  function getServiceWorkerHookability() {
-    if (!window || !window.navigator) {
-      return { hookable: false, reason: "navigator-unavailable" };
-    }
-
-    var swContainer;
-    try {
-      swContainer = window.navigator.serviceWorker;
-    } catch (e) {
-      return {
-        hookable: false,
-        reason: "service-worker-access-denied",
-        error: String(e && (e.message || e) || "service-worker-access-error"),
-      };
-    }
-
-    if (!swContainer || typeof swContainer !== "object") {
-      return { hookable: false, reason: "service-worker-unavailable" };
-    }
-
-    var nativeRegister;
-    try {
-      nativeRegister = swContainer.register;
-    } catch (e) {
-      return {
-        hookable: false,
-        reason: "register-access-denied",
-        error: String(e && (e.message || e) || "register-access-error"),
-      };
-    }
-
-    if (!(nativeRegister)) {
-      return { hookable: false, reason: "register-not-function" };
-    }
-
-    var desc = Object.getOwnPropertyDescriptor(swContainer, "register");
-    if (!desc) {
-      if (!Object.isExtensible(swContainer)) {
-        return {
-          hookable: false,
-          reason: "register-not-overridable-nonextensible",
-        };
-      }
-      return {
-        hookable: true,
-        reason: "register-overridable-via-own-property",
-        nativeRegister: nativeRegister,
-        container: swContainer,
-      };
-    }
-
-    if (desc.writable || desc.configurable || (desc.set)) {
-      return {
-        hookable: true,
-        reason: "register-overridable",
-        nativeRegister: nativeRegister,
-        container: swContainer,
-      };
-    }
-
-    return { hookable: false, reason: "register-readonly" };
-  }
-
-  function installServiceWorkerRegisterHook() {
-    var hookability = getServiceWorkerHookability();
-    if (!hookability.hookable) {
-      setServiceWorkerHookStatus(false, hookability.reason, {
-        hooked: false,
-        error: hookability.error || null,
-      });
-      return false;
-    }
-
-    var swContainer = hookability.container;
-    var nativeRegister = hookability.nativeRegister;
-    if (!(nativeRegister) || !swContainer) {
-      setServiceWorkerHookStatus(false, "register-native-missing", { hooked: false });
-      return false;
-    }
-
-    if (runtime._nativeServiceWorkerRegister === nativeRegister && swContainer.register !== nativeRegister) {
-      setServiceWorkerHookStatus(true, "register-hook-already-installed", { hooked: true });
-      return true;
-    }
-
-    runtime._nativeServiceWorkerRegister = nativeRegister;
-    swContainer.register = function () {
-      var scriptURL = arguments.length > 0 ? arguments[0] : null;
-      var options = arguments.length > 1 ? arguments[1] : null;
-      var scriptText = scriptURL === null || typeof scriptURL === "undefined" ? "unknown" : String(scriptURL);
-      var appId = String(getFirstDefinedValue(window.protectedGlobals.atTop, window.protectedGlobals.topAppId, "service-worker"));
-      var createdProcess = createProcess({
-        type: "service-worker",
-        title: "Service Worker: " + scriptText,
-        appId: appId,
-        status: "running",
-        persistent: true,
-        hasWindow: false,
-        windowIds: [],
-        cleanup: noopProcessFn,
-        options: {
-          scriptURL: scriptText,
-          fromRegister: true,
-        },
-        key: "service-worker::" + scriptText + "::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8)),
-      });
-      runtime.hookStatus.serviceWorker.lastRegistration = {
-        scriptURL: scriptText,
-        hasOptions: !!(options && typeof options === "object"),
-        pid: createdProcess && createdProcess.pid ? createdProcess.pid : null,
-        at: Date.now(),
-      };
-
-      var registrationResult = nativeRegister.apply(swContainer, arguments);
-      if (createdProcess && createdProcess.pid) {
-        runtime.serviceWorkerProcessBindings[String(createdProcess.pid)] = {
-          pid: createdProcess.pid,
-          scriptURL: scriptText,
-          appId: appId,
-          registration: null,
-        };
-      }
-
-      if (registrationResult && (registrationResult.then) && createdProcess && createdProcess.pid) {
-        registrationResult.then(function (registration) {
-          var proc = getCanonicalProcessByPid(createdProcess.pid);
-          if (!proc) return;
-          if (registration && registration.scope) {
-            proc.options = proc.options && typeof proc.options === "object" ? proc.options : {};
-            proc.options.scope = String(registration.scope);
-          }
-          if (createdProcess.pid && runtime.serviceWorkerProcessBindings[String(createdProcess.pid)]) {
-            runtime.serviceWorkerProcessBindings[String(createdProcess.pid)].registration = registration;
-          }
-        }).catch(function () {
-          setProcessStatus(createdProcess.pid, "failed");
-        });
-      }
-
-      return registrationResult;
-    };
-
-    setServiceWorkerHookStatus(true, hookability.reason, {
-      hooked: true,
-    });
-    return true;
-  }
 
   function installWorkerConstructorHook() {
     if (!window || !(window.Worker)) {
@@ -1350,24 +754,22 @@
     runtime._nativeWorkerConstructor = nativeWorker;
 
     function clearWorkerProcessEntry(workerInstance, reason) {
-      if (!workerInstance || workerInstance.__flowawayProcessCleared) {
+      if (!workerInstance || workerInstance.__ProcessCleared) {
         return false;
       }
 
-      var pidValue = normalizeProcessPid(workerInstance.__flowawayPid);
+      var pidValue = normalizeProcessPid(workerInstance.__Pid);
       if (typeof pidValue !== "number" || Number.isNaN(pidValue) || pidValue <= 0) {
-        workerInstance.__flowawayProcessCleared = true;
+        workerInstance.__ProcessCleared = true;
         return false;
       }
 
-      workerInstance.__flowawayProcessCleared = true;
-      try {
-        if (window.protectedGlobals && typeof window.protectedGlobals.killProcess === "function") {
-          window.protectedGlobals.killProcess(pidValue, reason || "worker-exit");
-        } else if (window.protectedGlobals && window.protectedGlobals.FlowawayProcess && typeof window.protectedGlobals.FlowawayProcess.killProcess === "function") {
-          window.protectedGlobals.FlowawayProcess.killProcess(pidValue, reason || "worker-exit");
-        }
-      } catch (e) {}
+      workerInstance.__ProcessCleared = true;
+      if (window.protectedGlobals && typeof window.protectedGlobals.killProcess === "function") {
+        window.protectedGlobals.killProcess(pidValue, reason || "worker-exit");
+      } else if (window.protectedGlobals && window.protectedGlobals.FlowawayProcess && typeof window.protectedGlobals.FlowawayProcess.killProcess === "function") {
+        window.protectedGlobals.FlowawayProcess.killProcess(pidValue, reason || "worker-exit");
+      }
 
       return true;
     }
@@ -1376,15 +778,27 @@
       var scriptURL = arguments.length > 0 ? arguments[0] : null;
       var options = arguments.length > 1 ? arguments[1] : null;
       var scriptText = scriptURL === null || typeof scriptURL === "undefined" ? "unknown" : String(scriptURL);
+      var appId = String(getFirstDefinedValue(window.protectedGlobals.atTop, window.protectedGlobals.topAppId, "worker"));
+      var workerName = "";
+      if (options && typeof options === "object") {
+        var inputName = options.name;
+        if (inputName !== null && typeof inputName !== "undefined") {
+          workerName = String(inputName).trim();
+        }
+      }
+      if (!workerName) {
+        workerName = appId && appId !== "worker" ? (String(appId).trim() + " Process") : "Worker Process";
+      }
 
       var workerInstance = 1 === arguments.length
         ? new nativeWorker(scriptURL)
         : new nativeWorker(scriptURL, options);
 
-      var appId = String(getFirstDefinedValue(window.protectedGlobals.atTop, window.protectedGlobals.topAppId, "worker"));
       var createdProcess = createProcess({
         type: "worker",
-        title: "Worker: " + scriptText,
+        title: workerName,
+        label: workerName,
+        name: workerName,
         appId: appId,
         status: "running",
         persistent: false,
@@ -1393,14 +807,17 @@
         cleanup: noopProcessFn,
         options: {
           scriptURL: scriptText,
+          url: scriptText,
+          name: workerName,
           hasOptions: !!(options && typeof options === "object"),
+          source: String((options && options.source) || ""),
         },
-        key: "worker::" + scriptText + "::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8)),
+        key: "worker::" + workerName + "::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8)),
       });
 
       if (createdProcess && createdProcess.pid) {
-        workerInstance.__flowawayPid = createdProcess.pid;
-        workerInstance.__flowawayProcessCleared = false;
+        workerInstance.__Pid = createdProcess.pid;
+        workerInstance.__ProcessCleared = false;
 
         var bindingKey = "worker::" + String(createdProcess.pid) + "::" + String(Math.random().toString(36).slice(2, 8));
         runtime.workerProcessBindings[bindingKey] = {
@@ -1412,7 +829,7 @@
         var processMessageHandler = function (event) {
           if (!event || !event.data || typeof event.data !== "object") return;
           var data = event.data;
-          if (data.type === "__flowaway_worker_event__") {
+          if (data.type === "___worker_event__") {
             if (data.event === "self.close" || data.event === "self.terminate") {
               clearWorkerProcessEntry(workerInstance, data.event);
             }
@@ -1423,14 +840,10 @@
           }
         };
 
-        try {
-          workerInstance.addEventListener("message", processMessageHandler);
-        } catch (e) {}
-        try {
-          workerInstance.addEventListener("error", function () {
-            clearWorkerProcessEntry(workerInstance, "worker-error");
-          });
-        } catch (e) {}
+        workerInstance.addEventListener("message", processMessageHandler);
+        workerInstance.addEventListener("error", function () {
+          clearWorkerProcessEntry(workerInstance, "worker-error");
+        });
 
         var nativeWorkerTerminate = typeof workerInstance.terminate === "function"
           ? workerInstance.terminate.bind(workerInstance)
@@ -1472,7 +885,6 @@
   function installProcessHooks() {
     scanAndHookIframes();
     installIframeHookObserver();
-    installServiceWorkerRegisterHook();
     installWorkerConstructorHook();
     window.protectedGlobals.__processHookStatus = getProcessHookStatus();
   }
@@ -1481,46 +893,12 @@
     var pid = normalizeProcessPid(pidValue);
     if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return;
 
-    var timerKeys = Object.keys(runtime.timerProcessBindings || {});
-    for (var i = 0; i < timerKeys.length; i++) {
-      var timerBinding = runtime.timerProcessBindings[timerKeys[i]];
-      if (!timerBinding || normalizeProcessPid(timerBinding.pid) !== pid) continue;
-      delete runtime.timerProcessBindings[timerKeys[i]];
-    }
-
-    var rafKeys = Object.keys(runtime.rafProcessBindings || {});
-    for (var r = 0; r < rafKeys.length; r++) {
-      var rafBinding = runtime.rafProcessBindings[rafKeys[r]];
-      if (!rafBinding || normalizeProcessPid(rafBinding.pid) !== pid) continue;
-      delete runtime.rafProcessBindings[rafKeys[r]];
-    }
-
-    var observerKeys = Object.keys(runtime.observerProcessBindings || {});
-    for (var o = 0; o < observerKeys.length; o++) {
-      var observerBinding = runtime.observerProcessBindings[observerKeys[o]];
-      if (!observerBinding || normalizeProcessPid(observerBinding.pid) !== pid) continue;
-      delete runtime.observerProcessBindings[observerKeys[o]];
-    }
-
-    var listenerKeys = Object.keys(runtime.listenerProcessBindings || {});
-    for (var l = 0; l < listenerKeys.length; l++) {
-      var listenerBinding = runtime.listenerProcessBindings[listenerKeys[l]];
-      if (!listenerBinding || normalizeProcessPid(listenerBinding.pid) !== pid) continue;
-      if ((listenerBinding.cleanupListener)) {
-        listenerBinding.cleanupListener("pid-remove");
-      } else {
-        delete runtime.listenerProcessBindings[listenerKeys[l]];
-      }
-    }
-
     var iframeKeys = Object.keys(runtime.iframeProcessBindings || {});
     for (var f = 0; f < iframeKeys.length; f++) {
       var iframeBinding = runtime.iframeProcessBindings[iframeKeys[f]];
       if (!iframeBinding || normalizeProcessPid(iframeBinding.pid) !== pid) continue;
       if (iframeBinding.iframe) {
-        try {
-          iframeBinding.iframe.src = "about:blank";
-        } catch (e) {}
+        iframeBinding.iframe.src = "about:blank";
       }
       if ((iframeBinding.cleanupListener)) {
         iframeBinding.cleanupListener("pid-remove");
@@ -1529,24 +907,14 @@
       }
     }
 
-    if (runtime.serviceWorkerProcessBindings && runtime.serviceWorkerProcessBindings[String(pid)]) {
-      var swBinding = runtime.serviceWorkerProcessBindings[String(pid)];
-      if (swBinding && swBinding.registration && (swBinding.registration.unregister)) {
-        try {
-          swBinding.registration.unregister();
-        } catch (e) {}
-      }
-      delete runtime.serviceWorkerProcessBindings[String(pid)];
-    }
+    // service workers are not tracked in this simplified runtime
 
     var workerKeys = Object.keys(runtime.workerProcessBindings || {});
     for (var w = 0; w < workerKeys.length; w++) {
       var workerBinding = runtime.workerProcessBindings[workerKeys[w]];
       if (!workerBinding || normalizeProcessPid(workerBinding.pid) !== pid) continue;
       if (workerBinding.instance && (workerBinding.instance.terminate)) {
-        try {
-          workerBinding.instance.terminate();
-        } catch (e) {}
+        workerBinding.instance.terminate();
       }
       delete runtime.workerProcessBindings[workerKeys[w]];
     }
@@ -1563,24 +931,11 @@
     visited.add(pidValue);
 
     var proc = getCanonicalProcessByPid(pidValue);
-    if (proc && Array.isArray(proc.children) && proc.children.length) {
-      var childPids = uniqueNumberList(proc.children);
-      for (var i = 0; i < childPids.length; i++) {
-        var childPid = childPids[i];
-        var childProcess = getCanonicalProcessByPid(childPid);
-        if (!childProcess) continue;
-        if (childProcess.persistent === true) continue;
-        killProcess(childPid, reason || "parent-kill", visited);
-      }
-    }
 
     if (proc) {
       runProcessCleanup(proc, reason || "kill");
     }
 
-    if (proc && (proc.parentPid || proc.parentPid === 0)) {
-      removeChildPidFromParent(proc.parentPid, pidValue);
-    }
     removeTrackedBindingsForPid(pidValue);
     var terminated = terminateProcess(pidValue, reason || "kill");
     delete runtime.processObjectsByPid[String(pidValue)];
@@ -1592,91 +947,9 @@
     return terminated;
   }
 
-  function setProcessStatus(pidValue, statusValue) {
-    var pid = normalizeProcessPid(pidValue);
-    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
-    var status = String(statusValue || "unknown");
-    var updated = false;
-
-    var canonical = getCanonicalProcessByPid(pid);
-    if (canonical) {
-      canonical.status = status;
-      updated = true;
-    }
-
-    var manualKeys = Object.keys(runtime.manualProcesses);
-    for (var i = 0; i < manualKeys.length; i++) {
-      var manual = runtime.manualProcesses[manualKeys[i]];
-      if (!manual) continue;
-      if (normalizeProcessPid(manual.pid) !== pid) continue;
-      manual.status = status;
-      manual.updatedAt = Date.now();
-      updated = true;
-    }
-
-    var launchKeys = Object.keys(runtime.launchRegistry);
-    for (var j = 0; j < launchKeys.length; j++) {
-      var launch = runtime.launchRegistry[launchKeys[j]];
-      if (!launch) continue;
-      if (normalizeProcessPid(launch.pid) !== pid) continue;
-      launch.status = status;
-      launch.updatedAt = Date.now();
-      updated = true;
-    }
-
-    var dynamicApps = Object.keys(runtime.dynamicProcesses);
-    for (var a = 0; a < dynamicApps.length; a++) {
-      var appId = dynamicApps[a];
-      var procMap = runtime.dynamicProcesses[appId];
-      for (var procName in procMap) {
-        if (!Object.prototype.hasOwnProperty.call(procMap, procName)) continue;
-        var dynamicMeta = procMap[procName] && typeof procMap[procName] === "object" ? procMap[procName] : {};
-        var dynamicPid = normalizeProcessPid(getFirstDefinedValue(dynamicMeta.pid, dynamicMeta.processId));
-        if (dynamicPid !== pid) continue;
-        dynamicMeta.status = status;
-        dynamicMeta.updatedAt = Date.now();
-        procMap[procName] = dynamicMeta;
-        updated = true;
-      }
-    }
-
-    if (updated) {
-      return true;
-    }
-
-    return updated;
-  }
-
-  function suspendProcess(pidValue) {
-    var pid = normalizeProcessPid(pidValue);
-    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
-    return setProcessStatus(pid, "suspended");
-  }
-
-  function resumeProcess(pidValue) {
-    var pid = normalizeProcessPid(pidValue);
-    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return false;
-    return setProcessStatus(pid, "running");
-  }
-
   function getProcess(pidValue) {
     var processObject = getCanonicalProcessByPid(pidValue);
     return processObject || null;
-  }
-
-  function getProcessesByApp(appIdValue) {
-    var appId = String(appIdValue || "").trim();
-    if (!appId) return [];
-    var store = ensureProcessObjectsStore();
-    var pids = Object.keys(store);
-    var out = [];
-    for (var i = 0; i < pids.length; i++) {
-      var processObject = getCanonicalProcessByPid(pids[i]);
-      if (!processObject) continue;
-      if (String(processObject.appId || "") !== appId) continue;
-      out.push(processObject);
-    }
-    return out;
   }
 
   function createProcess(config) {
@@ -1712,8 +985,6 @@
       status: canonical.status,
       sourceType: "manual",
       processKind: canonical.type,
-      appInstanceId: getFirstDefinedValue(input.appInstanceId, null),
-      goldenbodyId: getFirstDefinedValue(input.goldenbodyId, null),
       createdAt: Number(canonical.created || Date.now()),
       updatedAt: Date.now(),
       stop: canonical.cleanup,
@@ -1743,26 +1014,20 @@
     };
 
     manualRecord.handle = handle;
-    runtime.manualProcesses[manualKey] = manualRecord;
     runtime.processRegistry[manualKey] = manualRecord;
-
-    if (canonical.parentPid || canonical.parentPid === 0) {
-      attachChildPidToParent(canonical.parentPid, canonical.pid);
-    }
-
     return canonical;
   }
 
   function disposeAll(reason) {
-    var manualKeys = Object.keys(runtime.manualProcesses);
-    for (var i = 0; i < manualKeys.length; i++) {
-      terminateRecord(runtime.manualProcesses[manualKeys[i]], reason || "dispose-all");
+    var pids = runtime.processObjectsByPid ? Object.keys(runtime.processObjectsByPid) : [];
+    for (var i = 0; i < pids.length; i++) {
+      try {
+        var rec = runtime.processObjectsByPid[pids[i]];
+        if (rec) terminateRecord(rec, reason || "dispose-all");
+      } catch (e) {}
     }
-    runtime.manualProcesses = {};
-    runtime.launchRegistry = {};
-    runtime.dynamicProcesses = {};
-    runtime.processRegistry = {};
     runtime.processObjectsByPid = {};
+    runtime.processRegistry = {};
     if (runtime.iframeHookObserver && (runtime.iframeHookObserver.disconnect)) {
       runtime.iframeHookObserver.disconnect();
     }
@@ -1770,24 +1035,14 @@
     runtime.iframeHookedElements = new WeakSet();
     runtime.iframeBindingByElement = new WeakMap();
     runtime.iframeProcessBindings = {};
-    runtime.serviceWorkerProcessBindings = {};
     runtime.workerProcessBindings = {};
     runtime.workerInstances = new WeakMap();
-    runtime.timerProcessBindings = {};
-    runtime.rafProcessBindings = {};
-    runtime.observerProcessBindings = {};
-    runtime.listenerProcessBindings = {};
-    if (runtime._nativeServiceWorkerRegister && window.navigator && window.navigator.serviceWorker) {
-      window.navigator.serviceWorker.register = runtime._nativeServiceWorkerRegister;
-    }
-    runtime._nativeServiceWorkerRegister = null;
     if (runtime._nativeWorkerConstructor && window) {
       window.Worker = runtime._nativeWorkerConstructor;
     }
     runtime._nativeWorkerConstructor = null;
     runtime.hookStatus = {
       iframe: { hookable: false, reason: "disposed", hooked: false, hookedCount: 0, observed: false },
-      serviceWorker: { hookable: false, reason: "disposed", hooked: false },
     };
     runtime.taskProcessIdByIdentity = {};
     runtime.reusablePidPool = [];
@@ -1795,7 +1050,6 @@
     runtime.taskProcessCounter = 0;
     window.protectedGlobals.__processObjectsByPid = {};
     window.protectedGlobals.__taskProcessIdByIdentity = {};
-    runtime.listeners = new Set();
     window.protectedGlobals.__reusablePidPool = [];
     window.protectedGlobals.__processes = [];
     window.protectedGlobals.__processRegistry = {};
@@ -1803,51 +1057,6 @@
     window.protectedGlobals.__processHookStatus = getProcessHookStatus();
   }
 
-  function registerDynamicProcess(appId, processName, metadata) {
-    var registry = runtime.dynamicProcesses && typeof runtime.dynamicProcesses === "object"
-      ? runtime.dynamicProcesses
-      : {};
-    if (!registry[appId]) {
-      registry[appId] = {};
-    }
-    var meta = metadata && typeof metadata === "object" ? Object.assign({}, metadata) : {};
-    var pidValue = normalizeProcessPid(getFirstDefinedValue(meta.pid, meta.processId));
-    if (typeof pidValue !== "number" || Number.isNaN(pidValue)) {
-      pidValue = allocateProcessId("dynamic::" + String(appId) + "::" + String(processName), null);
-    }
-    meta.pid = pidValue;
-    meta.processId = pidValue;
-    meta.registered = Number(meta.registered || Date.now());
-    registry[appId][processName] = meta;
-    runtime.dynamicProcesses = registry;
-    window.protectedGlobals.__dynamicProcesses = registry;
-    return registry[appId][processName];
-  }
-
-  function unregisterDynamicProcess(appId, processName) {
-    var registry = runtime.dynamicProcesses && typeof runtime.dynamicProcesses === "object"
-      ? runtime.dynamicProcesses
-      : {};
-    if (registry[appId] && registry[appId][processName]) {
-      var existingMeta = registry[appId][processName] && typeof registry[appId][processName] === "object"
-        ? registry[appId][processName]
-        : {};
-      var existingPid = normalizeProcessPid(
-        getFirstDefinedValue(existingMeta.pid, existingMeta.processId),
-      );
-      delete registry[appId][processName];
-      if (!Object.keys(registry[appId]).length) {
-        delete registry[appId];
-      }
-      if (typeof existingPid === "number" && !Number.isNaN(existingPid)) {
-        releaseProcessId(existingPid);
-      }
-      runtime.dynamicProcesses = registry;
-      window.protectedGlobals.__dynamicProcesses = registry;
-      return true;
-    }
-    return false;
-  }
 
   function buildTaskManagerState() {
     var store = ensureProcessObjectsStore();
@@ -1865,41 +1074,36 @@
       var pidValue = normalizeProcessPid(getFirstDefinedValue(processObject.pid, processObject.processId));
       if (typeof pidValue !== "number" || Number.isNaN(pidValue) || pidValue <= 0) continue;
 
-      var appId = String(processObject.appId || "global");
-      var status = String(processObject.status || "unknown");
-      var title = String(processObject.title || processObject.label || appId + " process");
-      var label = String(processObject.label || title);
+      var title = String(processObject.title || processObject.label || "process");
       var updatedAt = Number(getFirstDefinedValue(processObject.updatedAt, processObject.createdAt, processObject.created, Date.now()));
+      var kind = String(processObject.processKind || processObject.type || "process");
+      var typeVal = String(processObject.type || processObject.processKind || "process");
+      var opts = processObject.options && typeof processObject.options === 'object' ? processObject.options : {};
+      var sourceVal = String(getFirstDefinedValue(processObject.source, opts.source, window.protectedGlobals.atTop + " (Inferred)", "") || "");
+      // Infer appId from explicit appId or fallback to atTop/global
+      var appIdVal = String(getFirstDefinedValue(processObject.appId, window && window.protectedGlobals && window.protectedGlobals.atTop + " (Inferred)", "global"));
+      var urlVal = String(getFirstDefinedValue(opts.iframeSrc, opts.scriptURL, opts.url, sourceVal, "") || "");
 
       flat.push({
         pid: pidValue,
         processId: pidValue,
-        appId: appId,
-        appInstanceId: getFirstDefinedValue(processObject.options && processObject.options.appInstanceId, processObject.options && processObject.options.goldenbodyId, null),
-        goldenbodyId: getFirstDefinedValue(processObject.options && processObject.options.goldenbodyId, null),
-        label: label,
         title: title,
-        appLabel: String(processObject.options && processObject.options.appLabel || appId),
-        sourceType: String(processObject.sourceType || processObject.type || "process"),
-        status: status,
-        functionName: String(processObject.options && processObject.options.entry || ""),
-        globalVar: String(processObject.options && processObject.options.globalVar || ""),
-        processKind: String(processObject.processKind || processObject.type || "process"),
-        type: String(processObject.type || processObject.processKind || "process"),
-        persistent: !!processObject.persistent,
-        hasWindow: !!processObject.hasWindow,
-        windowIds: normalizeWindowIds(processObject.windowIds),
-        parentPid: getFirstDefinedValue(processObject.parentPid, null),
-        children: uniqueNumberList(processObject.children),
-        entryOptions: uniqueStringList(processObject.options && processObject.options.entryOptions),
+        name: title,
+        appId: appIdVal,
+        appLabel: String(processObject.appLabel || ""),
+        processKind: kind,
+        type: typeVal,
+        sourceType: typeVal,
+        source: sourceVal,
+        url: urlVal,
         updatedAt: updatedAt,
-        rowKey: [appId, String(pidValue), String(i)].join("::"),
+        rowKey: [String(pidValue), String(i)].join("::"),
       });
 
+      var appId = String(processObject.appId || appIdVal || "global");
       if (!registry[appId]) {
         registry[appId] = {
           appId: appId,
-          label: String(processObject.options && processObject.options.appLabel || appId),
           updatedAt: updatedAt,
           entries: [],
         };
@@ -1907,25 +1111,15 @@
 
       registry[appId].entries.push({
         appId: appId,
-        label: label,
-        entry: String(processObject.options && processObject.options.entry || ""),
-        globalVar: String(processObject.options && processObject.options.globalVar || ""),
-        sourceType: String(processObject.sourceType || processObject.type || "process"),
+        label: title,
+        name: title,
+        sourceType: typeVal,
+        source: sourceVal,
+        url: urlVal,
         instanceCount: 1,
         instances: [title],
-        instanceRecords: [{
-          processId: pidValue,
-          pid: pidValue,
-          appInstanceId: getFirstDefinedValue(processObject.options && processObject.options.appInstanceId, null),
-          goldenbodyId: getFirstDefinedValue(processObject.options && processObject.options.goldenbodyId, null),
-          title: title,
-          label: label,
-          sourceIndex: i,
-          identityKey: [appId, String(pidValue), "process"].join("::"),
-        }],
-        status: status,
+        instanceRecords: [{ processId: pidValue, pid: pidValue, title: title }],
         updatedAt: updatedAt,
-        entryOptions: uniqueStringList(processObject.options && processObject.options.entryOptions),
       });
 
       registry[appId].updatedAt = Math.max(Number(registry[appId].updatedAt || 0), updatedAt);
@@ -1942,20 +1136,10 @@
         totalEntries: flat.length,
         totalInstances: flat.length,
         running: flat.filter(function (row) { return String(row.status || "") === "running"; }).length,
-        idle: flat.filter(function (row) { return String(row.status || "") === "idle"; }).length,
-        unknown: flat.filter(function (row) { return String(row.status || "") !== "running" && String(row.status || "") !== "idle"; }).length,
       },
       updatedAt: Date.now(),
     };
 
-    var listeners = runtime.listeners;
-    if (listeners && listeners.size) {
-      listeners.forEach(function (fn) {
-        try {
-          fn(safeClone(window.protectedGlobals.__taskManagerSnapshot));
-        } catch (e) {}
-      });
-    }
     return window.protectedGlobals.__taskManagerSnapshot;
   }
 
@@ -1964,19 +1148,6 @@
     return safeClone(window.protectedGlobals.__taskManagerSnapshot);
   }
 
-  function registerAppLaunch(appMeta, extraMeta) {
-    var record = buildAppLaunchRecord(appMeta, extraMeta);
-    buildTaskManagerState();
-    return record;
-  }
-
-  function start(meta) {
-    return registerManualProcess(meta);
-  }
-
-  function register(meta) {
-    return registerManualProcess(meta);
-  }
 
 
   function list() {
@@ -1984,34 +1155,17 @@
     return Array.isArray(snapshot.flat) ? snapshot.flat.slice() : [];
   }
 
-  function watch(fn) {
-    if (!(fn)) return function () {};
-    runtime.listeners.add(fn);
-    return function () {
-      runtime.listeners.delete(fn);
-    };
-  }
 
-  runtime.start = start;
-  runtime.register = register;
   runtime.list = list;
   runtime.snapshot = getTaskManagerSnapshot;
-  runtime.watch = watch;
   runtime.createProcess = createProcess;
   runtime.getProcess = getProcess;
-  runtime.getProcessesByApp = getProcessesByApp;
   runtime.killProcess = killProcess;
-  runtime.suspendProcess = suspendProcess;
-  runtime.resumeProcess = resumeProcess;
-  runtime.registerAppLaunch = registerAppLaunch;
-  runtime.registerDynamicProcess = registerDynamicProcess;
-  runtime.unregisterDynamicProcess = unregisterDynamicProcess;
   runtime.terminate = killProcess;
   runtime.disposeAll = disposeAll;
   runtime.buildTaskManagerState = buildTaskManagerState;
   runtime.getTaskManagerSnapshot = getTaskManagerSnapshot;
   runtime.getProcessHookStatus = getProcessHookStatus;
-  runtime.getServiceWorkerHookability = getServiceWorkerHookability;
   runtime.__loaded = true;
 
   window.protectedGlobals.__processRuntime = runtime;
@@ -2020,18 +1174,12 @@
     window.protectedGlobals.process = runtime;
   }
 
-  window.protectedGlobals.registerDynamicProcess = registerDynamicProcess;
-  window.protectedGlobals.unregisterDynamicProcess = unregisterDynamicProcess;
   window.protectedGlobals.createProcess = createProcess;
   window.protectedGlobals.getProcess = getProcess;
-  window.protectedGlobals.getProcessesByApp = getProcessesByApp;
   window.protectedGlobals.killProcess = killProcess;
-  window.protectedGlobals.suspendProcess = suspendProcess;
-  window.protectedGlobals.resumeProcess = resumeProcess;
   window.protectedGlobals.getTaskManagerSnapshot = getTaskManagerSnapshot;
   window.protectedGlobals.buildTaskManagerState = buildTaskManagerState;
   window.protectedGlobals.getProcessHookStatus = getProcessHookStatus;
-  window.protectedGlobals.getServiceWorkerHookability = getServiceWorkerHookability;
   installProcessHooks();
   buildTaskManagerState();
 })();

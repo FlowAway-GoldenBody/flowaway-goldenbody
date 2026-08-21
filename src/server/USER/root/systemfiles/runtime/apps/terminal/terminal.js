@@ -33,14 +33,22 @@ window.terminal = function (path, posX = 50, posY = 50) {
 
     const inputRow = document.createElement("div");
     inputRow.style.display = "flex";
+    inputRow.style.alignItems = "center";
     inputRow.style.gap = "8px";
-    inputRow.style.padding = "8px";
+    inputRow.style.padding = "0 8px 0 8px";
+    inputRow.style.minHeight = "28px";
+    inputRow.style.boxSizing = "border-box";
     inputRow.style.borderTop = "1px solid #222";
 
     const prompt = document.createElement("div");
     prompt.textContent = "$";
-    prompt.style.color = "#8b8b8b";
-    prompt.style.paddingTop = "6px";
+    prompt.style.color = "#3ddc97";
+    prompt.style.minWidth = "12px";
+    prompt.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
+    prompt.style.fontSize = "14px";
+    prompt.style.lineHeight = "1.5";
+    prompt.style.userSelect = "none";
+    prompt.style.paddingTop = "0";
 
     // Use a contenteditable div so there is no visible input box — looks more like a real terminal
     const input = document.createElement("div");
@@ -52,10 +60,13 @@ window.terminal = function (path, posX = 50, posY = 50) {
     input.style.background = "transparent";
     input.style.color = "#e6e6e6";
     input.style.border = "none";
-    input.style.padding = "6px 8px";
+    input.style.padding = "0";
     input.style.outline = "none";
     input.style.whiteSpace = "pre";
     input.style.caretColor = "#e6e6e6";
+    input.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
+    input.style.fontSize = "14px";
+    input.style.lineHeight = "1.5";
 
     inputRow.appendChild(prompt);
     inputRow.appendChild(input);
@@ -70,8 +81,113 @@ window.terminal = function (path, posX = 50, posY = 50) {
     let terminalWorkerGracefulKill = false;
     let terminalWorkerKillTimer = null;
     let awaitingPasswordPrompt = null;
+    let workerPrompt = null;
     // current working directory for this terminal instance
     let cwd = '/';
+
+    function updatePromptVisibility() {
+      const shouldShowPrompt = !terminalBusy && !awaitingPasswordPrompt && !workerPrompt;
+      prompt.style.display = shouldShowPrompt ? "inline-block" : "none";
+      prompt.style.color = "#3ddc97";
+      prompt.style.fontFamily = input.style.fontFamily;
+      prompt.style.fontSize = input.style.fontSize;
+      prompt.style.lineHeight = input.style.lineHeight;
+      prompt.style.paddingTop = input.style.paddingTop;
+    }
+
+    function normalizeLineStyleArgs(text, arg2, arg3, arg4) {
+      const value = text === null || typeof text === 'undefined' ? '' : String(text);
+      let font = '';
+      let color = '';
+      let size = null;
+
+      if (arguments.length > 1 && (typeof arg2 === 'string' || typeof arg2 === 'number' || arg2 === null || typeof arg2 === 'undefined')) {
+        if (arguments.length >= 4 && (typeof arg4 === 'number' || arg4 === null || typeof arg4 === 'undefined') && (typeof arg3 === 'string' || arg3 === null || typeof arg3 === 'undefined')) {
+          font = String(arg2 || '');
+          color = String(arg3 || '');
+          size = Number.isFinite(Number(arg4)) ? Number(arg4) : null;
+        } else if (typeof arg2 === 'string' && String(arg2).trim() !== '' && (typeof arg3 === 'string' || arg3 === null || typeof arg3 === 'undefined')) {
+          const maybeFont = String(arg2 || '');
+          const maybeColor = String(arg3 || '');
+          const maybeSize = arguments.length >= 4 ? (Number.isFinite(Number(arg4)) ? Number(arg4) : null) : null;
+          if (maybeColor && (maybeColor.toLowerCase().includes('rgb') || maybeColor.startsWith('#') || maybeColor.startsWith('hsl') || maybeColor.startsWith('var(') || maybeColor.includes('white') || maybeColor.includes('black') || maybeColor.includes('green') || maybeColor.includes('red') || maybeColor.includes('blue') || maybeColor.includes('gray'))) {
+            color = maybeColor;
+            font = maybeFont;
+            size = maybeSize;
+          } else {
+            color = maybeFont;
+            font = maybeColor;
+            size = maybeSize;
+          }
+        } else if (typeof arg2 === 'string' || arg2 === null || typeof arg2 === 'undefined') {
+          color = String(arg2 || '');
+          if (typeof arg3 === 'number' || arg3 === null || typeof arg3 === 'undefined') {
+            size = Number.isFinite(Number(arg3)) ? Number(arg3) : null;
+          }
+          if (typeof arg4 === 'string' || arg4 === null || typeof arg4 === 'undefined') {
+            font = String(arg4 || '');
+          }
+        }
+      }
+
+      if (typeof arg2 === 'number' || typeof arg3 === 'number' || typeof arg4 === 'number') {
+        const numeric = [arg2, arg3, arg4].find((entry) => typeof entry === 'number' && Number.isFinite(Number(entry)));
+        if (typeof numeric === 'number') size = Number(numeric);
+      }
+
+      if (typeof arg2 === 'string' && typeof arg3 === 'string' && typeof arg4 === 'number') {
+        font = String(arg2 || '');
+        color = String(arg3 || '');
+        size = Number.isFinite(Number(arg4)) ? Number(arg4) : null;
+      }
+
+      return { text: value, font: String(font || input.style.fontFamily || 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace'), color: String(color || input.style.color || '#e6e6e6'), size: Number.isFinite(Number(size)) ? Number(size) : null };
+    }
+
+    function renderCommandEcho(commandText) {
+      const raw = String(commandText ?? "").trim();
+      if (!raw) return;
+      const line = document.createElement("div");
+      line.style.display = "flex";
+      line.style.alignItems = "center";
+      line.style.gap = "8px";
+      line.style.padding = "0 8px 0 8px";
+      line.style.minHeight = "28px";
+      line.style.boxSizing = "border-box";
+      line.style.fontFamily = input.style.fontFamily;
+      line.style.fontSize = input.style.fontSize;
+      line.style.lineHeight = input.style.lineHeight;
+      line.style.whiteSpace = "pre-wrap";
+      line.style.color = input.style.color;
+
+      const prefix = document.createElement("div");
+      prefix.textContent = "$";
+      prefix.style.color = "#3ddc97";
+      prefix.style.userSelect = "none";
+      prefix.style.fontFamily = input.style.fontFamily;
+      prefix.style.fontSize = input.style.fontSize;
+      prefix.style.lineHeight = input.style.lineHeight;
+      prefix.style.paddingTop = "0";
+
+      const value = document.createElement("div");
+      value.textContent = raw;
+      value.style.flex = "1";
+      value.style.minWidth = "0";
+      value.style.color = input.style.color;
+      value.style.fontFamily = input.style.fontFamily;
+      value.style.fontSize = input.style.fontSize;
+      value.style.lineHeight = input.style.lineHeight;
+      value.style.paddingTop = "0";
+
+      line.appendChild(prefix);
+      line.appendChild(value);
+      if (output.contains(inputRow)) {
+        output.insertBefore(line, inputRow);
+      } else {
+        output.appendChild(line);
+      }
+      output.scrollTop = output.scrollHeight;
+    }
 
     function getTrackedWorkerPid(worker) {
       try {
@@ -102,10 +218,13 @@ window.terminal = function (path, posX = 50, posY = 50) {
         terminalBusy = false;
         terminalWorker = null;
         terminalWorkerGracefulKill = false;
+        workerPrompt = null;
+        awaitingPasswordPrompt = null;
         if (terminalWorkerKillTimer) {
           clearTimeout(terminalWorkerKillTimer);
           terminalWorkerKillTimer = null;
         }
+        updatePromptVisibility();
       }
     }
 
@@ -122,6 +241,10 @@ window.terminal = function (path, posX = 50, posY = 50) {
 
       worker.__terminalLifecycleBound = true;
       worker.__terminalWorkerLabel = label || 'worker';
+      try {
+        worker.__source = (instance && instance.options && instance.options.source) || (instance && instance.options && instance.options.iframeSrc) || (window && window.protectedGlobals && window.protectedGlobals.atTop) || '';
+        worker.__sourceInferred = !!(instance && instance.options && instance.options._sourceInferred);
+      } catch (e) {}
 
       const rawMessageListener = function (event) {
         const data = event && event.data;
@@ -166,17 +289,19 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if (!terminalWorker) {
         terminalBusy = false;
         terminalWorkerGracefulKill = false;
+        workerPrompt = null;
+        awaitingPasswordPrompt = null;
         if (terminalWorkerKillTimer) {
           clearTimeout(terminalWorkerKillTimer);
           terminalWorkerKillTimer = null;
         }
+        updatePromptVisibility();
         return;
       }
       const shouldGraceful = Boolean(graceful && terminalWorkerGracefulKill);
       if (shouldGraceful) {
-        printLine('Graceful kill requested...');
         if (terminalWorkerKillTimer) clearTimeout(terminalWorkerKillTimer);
-        terminalWorker.postMessage({ type: 'onkill', graceMs: 3000 });
+        terminalWorker.postMessage({ type: 'onkill', graceMs: 3000, __fromRuntime: true });
         terminalWorkerKillTimer = setTimeout(() => {
           try {
             if (terminalWorker && typeof terminalWorker.terminate === 'function') terminalWorker.terminate();
@@ -197,10 +322,58 @@ window.terminal = function (path, posX = 50, posY = 50) {
       printLine('Worker terminated');
     }
 
-    function printLine(text, klass) {
+    function createLineHandle(lineElement, initialText, initialStyle) {
+      const state = {
+        text: initialText === null || typeof initialText === 'undefined' ? '' : String(initialText),
+        font: initialStyle && initialStyle.font ? String(initialStyle.font) : input.style.fontFamily,
+        color: initialStyle && initialStyle.color ? String(initialStyle.color) : input.style.color,
+        size: Number.isFinite(Number(initialStyle && initialStyle.size)) ? Number(initialStyle.size) : null,
+      };
+
+      const updateStyle = (nextText, nextFont, nextColor, nextSize) => {
+        const resolved = normalizeLineStyleArgs(nextText, nextFont, nextColor, nextSize);
+        state.text = resolved.text;
+        state.font = resolved.font;
+        state.color = resolved.color;
+        state.size = Number.isFinite(Number(resolved.size)) ? Number(resolved.size) : null;
+
+        lineElement.textContent = state.text;
+        lineElement.style.color = state.color;
+        lineElement.style.fontFamily = state.font;
+        lineElement.style.fontSize = state.size ? `${Math.min(Math.max(Number(state.size), 8), 64)}px` : input.style.fontSize;
+        lineElement.style.lineHeight = input.style.lineHeight;
+        return handle;
+      };
+
+      const handle = {
+        element: lineElement,
+        text: state.text,
+        font: state.font,
+        color: state.color,
+        size: state.size,
+        update: updateStyle,
+        rewriteLine: updateStyle,
+      };
+
+      updateStyle(state.text, state.font, state.color, state.size);
+      return handle;
+    }
+
+    function printLine(text, klass, styleOptions = {}) {
+      const resolved = normalizeLineStyleArgs(text, styleOptions && styleOptions.font, styleOptions && styleOptions.color, styleOptions && styleOptions.size);
       const line = document.createElement("div");
-      line.textContent = text;
+      line.textContent = resolved.text;
       if (klass) line.className = klass;
+      line.style.display = "block";
+      line.style.padding = "0 8px 0 8px";
+      line.style.minHeight = "28px";
+      line.style.boxSizing = "border-box";
+      line.style.fontFamily = resolved.font;
+      line.style.fontSize = resolved.size ? `${Math.min(Math.max(Number(resolved.size), 8), 64)}px` : input.style.fontSize;
+      line.style.lineHeight = input.style.lineHeight;
+      line.style.whiteSpace = "pre-wrap";
+      line.style.color = resolved.color;
+
       // Insert before the inputRow so the input remains the last element
       if (output.contains(inputRow)) {
         output.insertBefore(line, inputRow);
@@ -208,6 +381,17 @@ window.terminal = function (path, posX = 50, posY = 50) {
         output.appendChild(line);
       }
       output.scrollTop = output.scrollHeight;
+      return createLineHandle(line, resolved.text, { font: resolved.font, color: resolved.color, size: resolved.size });
+    }
+
+    function writeline(text, arg2, arg3, arg4) {
+      const resolved = normalizeLineStyleArgs(text, arg2, arg3, arg4);
+      return printLine(resolved.text, "", { color: resolved.color, size: resolved.size, font: resolved.font });
+    }
+
+    function f(name, color = "", size = null, font = "") {
+      const safeName = name === null || typeof name === "undefined" ? "" : String(name);
+      return writeline(safeName, color, size, font);
     }
 
     function printError(err) {
@@ -466,81 +650,248 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if (!scriptText) throw new Error('No script');
       // Build worker bootstrap that provides a simple `api` proxy to the app
       const bootstrap = `
-        let _reqId = 0;
-        const _pending = new Map();
-        function nextId(){ return String(++_reqId); }
-        self._startArgs = [];
-        self._appScope = '';
-        // convenience alias for worker scripts
-        self.args = self._startArgs;
-        const _nativeClose = (typeof self.close === 'function') ? self.close.bind(self) : null;
-        function log(msg){ postMessage({type:'log', msg: String(msg)}); }
-        function exit(code){ postMessage({type:'done', code: code || 0}); if(_nativeClose) _nativeClose(); }
-        // override close inside worker so calls to self.close() notify the main thread first
-        try { if (_nativeClose) { self.close = function(){ postMessage({type:'done'}); _nativeClose(); }; } } catch(e) {}
-        self.api = {
-          readFile: (path, opts) => { const id = nextId(); postMessage({type:'api', id, op:'readFile', path, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          writeFile: (path, content, opts) => { const id = nextId(); postMessage({type:'api', id, op:'writeFile', path, content, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          readFolder: (path, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'readFolder', path, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          fileExists: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'fileExists', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          folderExists: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'folderExists', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          deleteFile: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'deleteFile', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          deleteFolder: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'deleteFolder', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          writeFolder: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'writeFolder', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          renameFile: (path, newName)=>{ const id = nextId(); postMessage({type:'api', id, op:'renameFile', path, newName}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          renameFolder: (path, newName)=>{ const id = nextId(); postMessage({type:'api', id, op:'renameFolder', path, newName}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          pasteFile: (destination, clipboardItems, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFile', path: destination, clipboardItems, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          pasteFolder: (destination, clipboardItems, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFolder', path: destination, clipboardItems, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-          writeline: (msg)=>{ postMessage({type:'log', msg: String(msg)}); return Promise.resolve(true); },
-          getStartArgs: ()=>{ return self._startArgs || {}; },
-        };
-        self.addEventListener('message', (ev)=>{
-          const d = ev.data;
-          if (!d) return;
-          if (d.type === 'start') {
-            self._startArgs = d.args || {};
-            self.args = self._startArgs;
-            self._appScope = d.appScope || '';
-            return;
-          }
-          if (d.type === 'onkill') {
-            const graceMs = Number(d.graceMs) || 3000;
-            if (typeof self.onkill === 'function') {
-              try {
-                self.onkill({ type: 'onkill', graceMs });
-              } catch (err) {
-                postMessage({type:'log', msg: 'onkill callback failed: ' + String(err)});
-                postMessage({type:'done'});
-                if (_nativeClose) _nativeClose();
+        (() => {
+          let _reqId = 0;
+          const _pending = new Map();
+          const _promptPending = new Map();
+          const _lineHandles = new Map();
+          function nextId(){ return String(++_reqId); }
+          function normalizeLineArgs(text, arg2, arg3, arg4) {
+            const value = text === null || typeof text === 'undefined' ? '' : String(text);
+            let color = '';
+            let size = null;
+            let font = '';
+
+            if (arguments.length > 1 && (typeof arg2 === 'string' || typeof arg2 === 'number' || arg2 === null || typeof arg2 === 'undefined')) {
+              if (arguments.length >= 4 && (typeof arg4 === 'number' || arg4 === null || typeof arg4 === 'undefined') && (typeof arg3 === 'string' || arg3 === null || typeof arg3 === 'undefined')) {
+                font = String(arg2 || '');
+                color = String(arg3 || '');
+                size = Number.isFinite(Number(arg4)) ? Number(arg4) : null;
+              } else if (typeof arg2 === 'string' && (typeof arg3 === 'string' || arg3 === null || typeof arg3 === 'undefined')) {
+                const candidateColor = String(arg2 || '');
+                const candidateFont = String(arg3 || '');
+                const numericSize = arguments.length >= 4 ? (Number.isFinite(Number(arg4)) ? Number(arg4) : null) : null;
+                if (candidateColor && (candidateColor.toLowerCase().includes('rgb') || candidateColor.startsWith('#') || candidateColor.startsWith('hsl') || candidateColor.startsWith('var(') || candidateColor.includes('white') || candidateColor.includes('black') || candidateColor.includes('green') || candidateColor.includes('red') || candidateColor.includes('blue') || candidateColor.includes('gray'))) {
+                  color = candidateColor;
+                  font = candidateFont;
+                  size = numericSize;
+                } else {
+                  color = candidateFont || candidateColor;
+                  font = candidateColor && candidateFont ? candidateFont : '';
+                  size = numericSize;
+                }
+              } else if (typeof arg2 === 'string' || arg2 === null || typeof arg2 === 'undefined') {
+                color = String(arg2 || '');
+                if (typeof arg3 === 'number' || arg3 === null || typeof arg3 === 'undefined') size = Number.isFinite(Number(arg3)) ? Number(arg3) : null;
+                if (typeof arg4 === 'string' || arg4 === null || typeof arg4 === 'undefined') font = String(arg4 || '');
               }
+            }
+
+            if (typeof arg2 === 'number' || typeof arg3 === 'number' || typeof arg4 === 'number') {
+              const numeric = [arg2, arg3, arg4].find((entry) => typeof entry === 'number' && Number.isFinite(Number(entry)));
+              if (typeof numeric === 'number') size = Number(numeric);
+            }
+
+            return { text: value, font: String(font || ''), color: String(color || ''), size: Number.isFinite(Number(size)) ? Number(size) : null };
+          }
+          function makeLineHandle(id, initialText, initialArgs) {
+            const handle = {
+              id,
+              text: String(initialText ?? ''),
+              font: initialArgs && initialArgs.font ? String(initialArgs.font) : '',
+              color: initialArgs && initialArgs.color ? String(initialArgs.color) : '',
+              size: Number.isFinite(Number(initialArgs && initialArgs.size)) ? Number(initialArgs.size) : null,
+              rewriteLine: function (...args) {
+                const spec = normalizeLineArgs(args[0], args[1], args[2], args[3]);
+                postMessage({ type: 'lineUpdate', id, text: spec.text, font: spec.font, color: spec.color, size: spec.size });
+                this.text = spec.text;
+                this.font = spec.font;
+                this.color = spec.color;
+                this.size = spec.size;
+                return this;
+              },
+              update: function (...args) {
+                return this.rewriteLine(...args);
+              },
+            };
+            _lineHandles.set(id, handle);
+            return handle;
+          }
+          self._startArgs = [];
+          self._appScope = '';
+          // convenience alias for worker scripts
+          self.args = self._startArgs;
+          const _nativeClose = (typeof self.close === 'function') ? self.close.bind(self) : null;
+          function log(msg){ postMessage({type:'log', msg: String(msg)}); }
+          function exit(code){ postMessage({type:'done', code: code || 0}); if(_nativeClose) _nativeClose(); }
+          // override close inside worker so calls to self.close() notify the main thread first
+          try { if (_nativeClose) { self.close = function(){ postMessage({type:'done'}); _nativeClose(); }; } } catch(e) {}
+          let workerNetworkAllowed = true;
+          const nativeFetch = (typeof self.fetch === 'function') ? self.fetch.bind(self) : null;
+          const nativeXHR = (typeof self.XMLHttpRequest === 'function') ? self.XMLHttpRequest : null;
+          const nativeWebSocket = (typeof self.WebSocket === 'function') ? self.WebSocket.bind(self) : null;
+
+          self.__setNetworkPolicy = function (enabled) {
+            workerNetworkAllowed = !!enabled;
+            return workerNetworkAllowed;
+          };
+          self.__getNetworkPolicy = function () {
+            return workerNetworkAllowed;
+          };
+
+          if (nativeFetch) {
+            Object.defineProperty(self, 'fetch', {
+              value: function (...args) {
+                if (!workerNetworkAllowed) {
+                  return Promise.reject(new TypeError('Network request blocked.'));
+                }
+                return nativeFetch(...args);
+              },
+              writable: false,
+              configurable: false,
+            });
+          }
+
+          if (nativeXHR) {
+            function GuardedXHR(...args) {
+              const xhr = new nativeXHR(...args);
+              const nativeOpen = xhr.open.bind(xhr);
+              xhr.open = function (...openArgs) {
+                if (!workerNetworkAllowed) {
+                  throw new Error('XHR blocked.');
+                }
+                return nativeOpen(...openArgs);
+              };
+              return xhr;
+            }
+            Object.defineProperty(self, 'XMLHttpRequest', {
+              value: GuardedXHR,
+              writable: false,
+              configurable: false,
+            });
+          }
+
+          if (nativeWebSocket) {
+            Object.defineProperty(self, 'WebSocket', {
+              value: function (...args) {
+                if (!workerNetworkAllowed) {
+                  throw new Error('WebSocket connection blocked.');
+                }
+                return new nativeWebSocket(...args);
+              },
+              writable: false,
+              configurable: false,
+            });
+          }
+
+          self.api = {
+            readFile: (path, opts) => { const id = nextId(); postMessage({type:'api', id, op:'readFile', path, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            writeFile: (path, content, opts) => { const id = nextId(); postMessage({type:'api', id, op:'writeFile', path, content, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            readFolder: (path, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'readFolder', path, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            fileExists: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'fileExists', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            folderExists: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'folderExists', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            deleteFile: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'deleteFile', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            deleteFolder: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'deleteFolder', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            writeFolder: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'writeFolder', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            renameFile: (path, newName)=>{ const id = nextId(); postMessage({type:'api', id, op:'renameFile', path, newName}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            renameFolder: (path, newName)=>{ const id = nextId(); postMessage({type:'api', id, op:'renameFolder', path, newName}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            pasteFile: (destination, clipboardItems, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFile', path: destination, clipboardItems, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            pasteFolder: (destination, clipboardItems, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFolder', path: destination, clipboardItems, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            launchApp: (appId, args = []) => { const id = nextId(); postMessage({type:'api', id, op:'launchApp', appId, args}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            writeline: function (...args) {
+              const id = nextId();
+              const spec = normalizeLineArgs(args[0], args[1], args[2], args[3]);
+              postMessage({ type: 'lineCreate', id, text: spec.text, font: spec.font, color: spec.color, size: spec.size });
+              return makeLineHandle(id, spec.text, spec);
+            },
+            f: function (name, color = '', size = null, font = '') { const text = String(name ?? ''); const spec = normalizeLineArgs(text, color, size, font); return this.writeline(spec.text, spec.color, spec.size, spec.font); },
+            prompt: (message, options = {}) => {
+              const id = nextId();
+              postMessage({ type: 'prompt', id, message: String(message ?? ''), options: options || {} });
+              return new Promise((res, rej) => _promptPending.set(id, { res, rej }));
+            },
+            getStartArgs: ()=>{ return self._startArgs || {}; },
+          };
+          self.addEventListener('message', (ev)=>{
+            const d = ev.data;
+            if (!d) return;
+            if (d.type === 'start') {
+              self._startArgs = d.args || {};
+              self.args = self._startArgs;
+              self._appScope = d.appScope || '';
               return;
             }
-            postMessage({type:'log', msg: 'No onkill handler; terminating immediately'});
-            postMessage({type:'done'});
-            if (_nativeClose) _nativeClose();
-            return;
-          }
-          if (d.type === 'apiResult') {
-            const p = _pending.get(d.id);
-            if (!p) return;
-            const result = d.result;
-            if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'error')) {
-              p.rej(new Error(String(result.error)));
-            } else {
-              p.res(result);
+            if (d.type === 'networkToggle' || d.type === 'allowNetwork') {
+              const nextState = typeof d.enabled === 'boolean' ? d.enabled : !!d.allowNetwork;
+              workerNetworkAllowed = !!nextState;
+              return;
             }
-            _pending.delete(d.id);
-          }
-        });
+            if (d.type === 'onkill') {
+              const graceMs = Number(d.graceMs) || 3000;
+              if (typeof self.onkill === 'function') {
+                try {
+                  self.onkill({ type: 'onkill', graceMs });
+                } catch (err) {
+                  postMessage({type:'log', msg: 'onkill callback failed: ' + String(err)});
+                  postMessage({type:'done'});
+                  if (_nativeClose) _nativeClose();
+                }
+                return;
+              }
+              postMessage({type:'done'});
+              if (_nativeClose) _nativeClose();
+              return;
+            }
+            if (d.type === 'promptResponse') {
+              const pending = _promptPending.get(d.id);
+              if (!pending) return;
+              pending.res(d.value ?? '');
+              _promptPending.delete(d.id);
+              return;
+            }
+            if (d.type === 'apiResult') {
+              const p = _pending.get(d.id);
+              if (!p) return;
+              const result = d.result;
+              if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'error')) {
+                p.rej(new Error(String(result.error)));
+              } else {
+                p.res(result);
+              }
+              _pending.delete(d.id);
+            }
+          });
+        })();
       `;
 
       const full = bootstrap + '\n' + scriptText;
       const blob = new Blob([full], { type: 'application/javascript' });
       const url = URL.createObjectURL(blob);
       const worker = new Worker(url);
+      const lineHandles = new Map();
 
       const startArgs = (initialArgs && typeof initialArgs === 'object' && !Array.isArray(initialArgs)) ? initialArgs : (Array.isArray(initialArgs) ? initialArgs : []);
-      worker.postMessage({ type: 'start', args: startArgs, appScope: appRoot || '', content: (Array.isArray(startArgs) && startArgs.length>0) ? startArgs[0] : undefined });
+      worker.postMessage({ type: 'start', args: startArgs, appScope: appRoot || '', content: (Array.isArray(startArgs) && startArgs.length>0) ? startArgs[0] : undefined, __fromRuntime: true });
+
+      const applyLineMessage = (payload) => {
+        const id = payload && payload.id;
+        const text = payload && payload.text !== undefined ? String(payload.text) : '';
+        const font = payload && payload.font ? String(payload.font) : input.style.fontFamily;
+        const color = payload && payload.color ? String(payload.color) : input.style.color;
+        const size = payload && Number.isFinite(Number(payload.size)) ? Number(payload.size) : null;
+        let handle = id ? lineHandles.get(id) : null;
+        if (!handle) {
+          const line = document.createElement('div');
+          line.style.display = 'block';
+          line.style.paddingLeft = '8px';
+          handle = createLineHandle(line, text, { font, color, size });
+          if (id) lineHandles.set(id, handle);
+          if (output.contains(inputRow)) output.insertBefore(line, inputRow); else output.appendChild(line);
+        }
+        handle.update(text, font, color, size);
+        output.scrollTop = output.scrollHeight;
+        return handle;
+      };
 
       // main-thread proxy for worker API
       worker.onmessage = async (ev) => {
@@ -550,8 +901,26 @@ window.terminal = function (path, posX = 50, posY = 50) {
           printLine(String(d.msg || ''));
           return;
         }
+        if (d.type === 'lineCreate' || d.type === 'lineUpdate') {
+          applyLineMessage(d);
+          return;
+        }
+        if (d.type === 'styledLog') {
+          printLine(String(d.text || ''), '', { color: d.color || '', size: d.size || null, font: d.font || '' });
+          return;
+        }
+        if (d.type === 'prompt') {
+          const promptMessage = String(d.message || 'Input');
+          workerPrompt = { id: d.id, message: promptMessage, worker };
+          output.insertBefore(document.createTextNode(''), inputRow);
+          printLine(promptMessage);
+          updatePromptVisibility();
+          input.focus();
+          return;
+        }
         if (d.type === 'done') {
           printLine('Worker finished');
+          workerPrompt = null;
           try { worker.terminate(); } catch (e) {}
           if (terminalWorkerKillTimer) {
             clearTimeout(terminalWorkerKillTimer);
@@ -560,6 +929,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
           terminalBusy = false;
           terminalWorker = null;
           terminalWorkerGracefulKill = false;
+          updatePromptVisibility();
           return;
         }
         if (d.type === 'api') {
@@ -588,9 +958,17 @@ window.terminal = function (path, posX = 50, posY = 50) {
               case 'renameFolder': result = await window.protectedGlobals.RenameFolder(resolved, d.newName); break;
               case 'pasteFile': result = await window.protectedGlobals.PasteFile(resolved, Array.isArray(d.clipboardItems) ? d.clipboardItems : []); break;
               case 'pasteFolder': result = await window.protectedGlobals.PasteFolder(resolved, Array.isArray(d.clipboardItems) ? d.clipboardItems : []); break;
+              case 'launchApp': {
+                const appId = d.appId ? String(d.appId) : '';
+                if (!appId) throw new Error('Missing appId');
+                const args = Array.isArray(d.args) ? d.args : (d.args === undefined ? [] : [d.args]);
+                if (typeof window.protectedGlobals.launchApp !== 'function') throw new Error('launchApp is not supported in this runtime');
+                result = await window.protectedGlobals.launchApp(appId, args);
+                break;
+              }
               default: throw new Error('Unknown op ' + op);
             }
-            worker.postMessage({ type: 'apiResult', id, result });
+            worker.postMessage({ type: 'apiResult', id, result, __fromRuntime: true });
           } catch (e) {
             worker.postMessage({ type: 'apiResult', id, result: { error: String(e && e.message ? e.message : e) } });
           }
@@ -602,8 +980,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
 
     async function handleCommand(cmdline) {
       if (!cmdline || !cmdline.trim()) return;
-      printLine(`$ ${cmdline}`);
-      const parts = tokenize(cmdline);
+      const commandText = String(cmdline).trim();
+      const parts = tokenize(commandText);
       if (parts.length === 0) return;
       const cmd = parts[0].toLowerCase();
 
@@ -616,6 +994,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
         printError('A process is alive rn, plz wait or kill it.');
         return;
       }
+
+      renderCommandEcho(commandText);
 
       // builtins
       if (cmd === "help") {
@@ -698,14 +1078,24 @@ window.terminal = function (path, posX = 50, posY = 50) {
           printLine('No active threads to kill');
           return;
         }
+        // Only attempt to kill positive numeric PIDs (ignore sentinel or invalid pids)
+        const pids = rows.map(r => Number(r.pid ?? r.processId ?? r.id)).filter(p => Number.isFinite(p) && p > 0);
+        if (!pids.length) {
+          printLine('No active threads to kill');
+          return;
+        }
         let count = 0;
-        rows.forEach((row) => {
-          const pid = Number(row.pid ?? row.processId ?? row.id);
-          if (!Number.isFinite(pid)) return;
-          const killed = killThreadByPid(pid);
-          if (killed) count += 1;
-        });
-        printLine(`Terminated ${count} active thread${count === 1 ? '' : 's'}`);
+        for (const pid of pids) {
+          try {
+            const killed = killThreadByPid(pid);
+            if (killed) count += 1;
+          } catch (e) {}
+        }
+        if (!count) {
+          printLine('No active threads were terminated');
+        } else {
+          printLine(`Terminated ${count} active thread${count === 1 ? '' : 's'}`);
+        }
         return;
       }
 
@@ -826,15 +1216,132 @@ window.terminal = function (path, posX = 50, posY = 50) {
       }
 
       if (cmd === 'mv' || cmd === 'rename') {
-        // mv "<path>" "newname"
+        // mv "<source>" "dest"  -- move a file (or rename within same folder)
         const tokens = tokenize(cmdline);
-        if (tokens.length < 3) { printError('Usage: mv "<path>" "newname"'); return; }
-        const pathArg = tokens[1];
-        const newName = tokens.slice(2).join(' ');
+        if (tokens.length < 3) { printError('Usage: mv "<source>" "dest"'); return; }
+        const srcArg = tokens[1];
+        const destArg = tokens.slice(2).join(' ');
         try {
-          const targetPath = resolveTerminalPath(pathArg, cwd);
-          await window.protectedGlobals.RenameFile(targetPath, newName);
-          printLine('Renamed ' + targetPath + ' -> ' + newName);
+          const srcPath = resolveTerminalPath(srcArg, cwd);
+          const destPathCandidate = resolveTerminalPath(destArg, cwd);
+          // Check existence
+          const srcIsFile = await (window.protectedGlobals.FileExists ? window.protectedGlobals.FileExists(srcPath) : false);
+          const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
+          if (!srcIsFile && !srcIsFolder) { printError('Source does not exist: ' + srcPath); return; }
+            if (srcIsFile) {
+            // Use paste semantics so server-side copy/paste logic and quotas apply,
+            // then permanently delete the trashed source.
+            const destIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destPathCandidate) : false);
+            let finalDest = destPathCandidate;
+            let destFolder = destPathCandidate;
+            const parts = srcPath.split('/');
+            const base = parts[parts.length - 1] || '';
+            if (destIsFolder) {
+              destFolder = destPathCandidate === '/' ? '/' : destPathCandidate;
+              finalDest = (destFolder === '/' ? '' : destFolder) + '/' + base;
+            } else {
+              // ensure parent of dest exists
+              const parentDir = destPathCandidate.lastIndexOf('/') >= 0 ? destPathCandidate.substring(0, destPathCandidate.lastIndexOf('/')) || '/' : '/';
+              const parentExists = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(parentDir) : true);
+              if (!parentExists) { printError('Destination parent folder does not exist: ' + parentDir); return; }
+              destFolder = parentDir;
+              finalDest = destPathCandidate;
+            }
+
+            try {
+              // Prepare clipboard item (use absolute /root-prefixed path)
+              let clipPath = srcPath;
+              if (!clipPath.startsWith('/')) clipPath = '/' + clipPath;
+              if (!clipPath.startsWith('/root')) clipPath = '/root' + (clipPath === '/' ? '' : clipPath);
+
+              const clipboardItems = [{ path: clipPath, kind: 'file' }];
+
+              // Paste into destination folder
+              await window.protectedGlobals.PasteFile(destFolder, clipboardItems);
+
+              // Soft-delete the source (moves into .trash)
+              await window.protectedGlobals.DeleteFile(srcPath);
+
+              // Now locate the trashed copy in /root/.trash and permanently delete it
+              const name = base;
+              const trashListing = await window.protectedGlobals.ReadFolder('/root/.trash', { detail: true }).catch(() => []);
+              const candidates = Array.isArray(trashListing) ? trashListing.filter((it) => typeof it.path === 'string' && it.path.endsWith(name)) : [];
+              let chosen = null;
+              if (candidates.length === 1) chosen = candidates[0];
+              else if (candidates.length > 1) {
+                // pick the most-recently modified
+                candidates.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+                chosen = candidates[0];
+              }
+
+              if (chosen && chosen.path) {
+                const permaPath = String(chosen.path).startsWith('/') ? String(chosen.path) : '/root/.trash/' + String(chosen.path);
+                // send permanentDelete direction
+                await window.protectedGlobals.filePost({ saveSnapshot: true, directions: [{ permanentDelete: true, path: permaPath }, { end: true }] });
+              } else {
+                // Couldn't determine trashed filename; inform user but operation succeeded as copy
+                printLine('Moved (copied) ' + srcPath + ' -> ' + finalDest + ' (source moved to .trash but permanent deletion not found)');
+                return;
+              }
+
+              printLine('Moved ' + srcPath + ' -> ' + finalDest);
+              return;
+            } catch (e) {
+              printError('Move failed: ' + (e && e.message ? e.message : String(e)));
+              return;
+            }
+          }
+          if (srcIsFolder) {
+            // Prefer server-side renameFolder when available and dest parent exists
+            const destParent = destPathCandidate.lastIndexOf('/') >= 0 ? destPathCandidate.substring(0, destPathCandidate.lastIndexOf('/')) || '/' : '/';
+            const parentExists = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destParent) : true);
+            if (!parentExists) { printError('Destination parent folder does not exist: ' + destParent); return; }
+            try {
+              // If destination is an existing folder, paste into it. Otherwise, treat destPathCandidate
+              // as the target path (parent + new name) and paste into parent then delete source.
+              const destIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destPathCandidate) : false);
+              let destFolder = destIsFolder ? destPathCandidate : destParent;
+              const parts = srcPath.split('/');
+              const base = parts[parts.length - 1] || '';
+              const finalDest = destIsFolder ? (destFolder === '/' ? '/' + base : destFolder + '/' + base) : destPathCandidate;
+
+              // Prepare clipboard item for directory
+              let clipPath = srcPath;
+              if (!clipPath.startsWith('/')) clipPath = '/' + clipPath;
+              if (!clipPath.startsWith('/root')) clipPath = '/root' + (clipPath === '/' ? '' : clipPath);
+              const clipboardItems = [{ path: clipPath, kind: 'directory' }];
+
+              // Paste into destination folder
+              await window.protectedGlobals.PasteFolder(destFolder, clipboardItems);
+
+              // Soft-delete the source (moves into .trash)
+              await window.protectedGlobals.DeleteFolder(srcPath);
+
+              // Now locate the trashed copy in /root/.trash and permanently delete it
+              const name = base;
+              const trashListing = await window.protectedGlobals.ReadFolder('/root/.trash', { detail: true }).catch(() => []);
+              const candidates = Array.isArray(trashListing) ? trashListing.filter((it) => typeof it.path === 'string' && it.path.endsWith(name)) : [];
+              let chosen = null;
+              if (candidates.length === 1) chosen = candidates[0];
+              else if (candidates.length > 1) {
+                candidates.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+                chosen = candidates[0];
+              }
+
+              if (chosen && chosen.path) {
+                const permaPath = String(chosen.path).startsWith('/') ? String(chosen.path) : '/root/.trash/' + String(chosen.path);
+                await window.protectedGlobals.filePost({ saveSnapshot: true, directions: [{ permanentDelete: true, path: permaPath }, { end: true }] });
+                printLine('Moved folder ' + srcPath + ' -> ' + finalDest);
+                return;
+              }
+
+              printLine('Moved (copied) folder ' + srcPath + ' -> ' + finalDest + ' (source moved to .trash but permanent deletion not found)');
+              return;
+            } catch (e) {
+              printError('Folder move failed: ' + (e && e.message ? e.message : String(e)));
+              return;
+            }
+          }
         } catch (e) { printError(e.message || String(e)); }
         return;
       }
@@ -849,6 +1356,36 @@ window.terminal = function (path, posX = 50, posY = 50) {
         printLine('Password:');
         return;
       }
+      if (cmd === 'cp' || cmd === 'copy') {
+        // cp "<source>" "dest"
+        const tokens = tokenize(cmdline);
+        if (tokens.length < 3) { printError('Usage: cp "<source>" "dest"'); return; }
+        const srcArg = tokens[1];
+        const destArg = tokens.slice(2).join(' ');
+        try {
+          const srcPath = resolveTerminalPath(srcArg, cwd);
+          const destPathCandidate = resolveTerminalPath(destArg, cwd);
+          const srcIsFile = await (window.protectedGlobals.FileExists ? window.protectedGlobals.FileExists(srcPath) : false);
+          const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
+          if (!srcIsFile && !srcIsFolder) { printError('Source does not exist: ' + srcPath); return; }
+          if (srcIsFile) {
+            const destIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destPathCandidate) : false);
+            let finalDest = destPathCandidate;
+            if (destIsFolder) {
+              const parts = srcPath.split('/');
+              const base = parts[parts.length - 1] || '';
+              finalDest = (destPathCandidate === '/' ? '' : destPathCandidate) + '/' + base;
+            }
+            const content = await window.protectedGlobals.ReadFile(srcPath, { text: true, direct: true });
+            await window.protectedGlobals.WriteFile(finalDest, content, { replace: true });
+            printLine('Copied ' + srcPath + ' -> ' + finalDest);
+            return;
+          }
+          printError('Copying folders is not supported');
+          return;
+        } catch (e) { printError(e.message || String(e)); }
+        return;
+      }
       if (cmd === 'worker') {
         // worker "<scriptPath>"
         // Built-in terminal workers are intentionally unrestricted so they can act as a
@@ -859,13 +1396,17 @@ window.terminal = function (path, posX = 50, posY = 50) {
         if (!workerPath) { printError('Usage: worker "<scriptPath>"'); return; }
         try {
           terminalBusy = true;
+          updatePromptVisibility();
           let worker;
           const resolvedScriptPath = scriptPath ? resolveTerminalPath(scriptPath, cwd) : null;
           if (resolvedScriptPath) {
             const txt = await window.protectedGlobals.ReadFile(resolvedScriptPath, { text: true, direct: true });
+            // record explicit source for process listing
+            try { instance.options = instance.options || {}; instance.options.source = workerPath || resolvedScriptPath; instance.options._sourceInferred = false; } catch (e) {}
             worker = await spawnWorkerFromScript(String(txt || ''), null, []);
           } else {
             const wrapper = `self.addEventListener('message',(e)=>{ if (e.data && e.data.type==='start') { (async ()=>{ try{ const listing = await api.readFolder('/'); postMessage({type:'log', msg: JSON.stringify(listing)}); postMessage({type:'done'}); }catch(err){ postMessage({type:'log', msg: 'Worker error: '+String(err)}); postMessage({type:'done'}); } })(); } });`;
+            // no explicit source, leave options.source unset so processes.js may infer atTop
             worker = await spawnWorkerFromScript(wrapper, null, []);
           }
           bindTerminalWorkerLifecycle(worker, scriptPath);
@@ -874,7 +1415,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
           terminalWorker = worker;
           printLine(`Worker started for ${workerPath}${trackedPid ? ` (pid ${trackedPid})` : ''}`);
           return;
-        } catch (e) { printError(e.message || String(e)); terminalBusy = false; terminalWorker = null; }
+        } catch (e) { printError(e.message || String(e)); terminalBusy = false; terminalWorker = null; updatePromptVisibility(); }
       }
       // try to match an app-provided command (case-insensitive)
       const apps = window.protectedGlobals.apps || [];
@@ -926,11 +1467,13 @@ window.terminal = function (path, posX = 50, posY = 50) {
                 const content = await window.protectedGlobals.ReadFile(cmdObj.src, { text: true, direct: true });
                 const isJs = String(cmdObj.src || '').toLowerCase().endsWith('.js') || String(content || '').trim().startsWith('(function') || String(content || '').includes('self.api') || String(content || '').includes('globalThis');
                 terminalBusy = true;
+                updatePromptVisibility();
                 terminalWorkerGracefulKill = Boolean(cmdObj.receive_onkill_handler);
                 let worker;
                 const appRoot = appMatch.path || getAppRootFromPath(cmdObj.src);
                 if (isJs) worker = await spawnWorkerFromScript(String(content || ''), appRoot, kvArgs);
                 else worker = await spawnWorkerFromScript(`self.addEventListener('message',(e)=>{ if (e.data && e.data.type==='start') { postMessage({type:'log', msg: e.data.content || ''}); postMessage({type:'done'}); } });`, appRoot, [String(content || '')]);
+                try { instance.options = instance.options || {}; instance.options.source = `${appMatch.id}:${cmdObj.name}`; instance.options._sourceInferred = false; } catch (e) {}
                 bindTerminalWorkerLifecycle(worker, `${appMatch.id}:${cmdObj.name}`);
                 const trackedPid = getTrackedWorkerPid(worker);
                 if (trackedPid) worker.__terminalWorkerPid = trackedPid;
@@ -960,6 +1503,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
                   const isJs = String(c.src || '').toLowerCase().endsWith('.js') || String(content || '').trim().startsWith('(function') || String(content || '').includes('self.api') || String(content || '').includes('globalThis');
                   let worker;
                   terminalBusy = true;
+                  updatePromptVisibility();
                   terminalWorkerGracefulKill = Boolean(c.receive_onkill_handler);
                   const kvArgs = parseJsonOrKvArgs(parts.slice(1));
                   const appRoot = a.path || getAppRootFromPath(c.src);
@@ -971,6 +1515,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
                     const combined = wrapper;
                     worker = await spawnWorkerFromScript(combined, appRoot, [String(content || '')]);
                   }
+                  try { instance.options = instance.options || {}; instance.options.source = `${a.id}:${c.name}`; instance.options._sourceInferred = false; } catch (e) {}
                   bindTerminalWorkerLifecycle(worker, `${a.id}:${c.name}`);
                   const trackedPid = getTrackedWorkerPid(worker);
                   if (trackedPid) worker.__terminalWorkerPid = trackedPid;
@@ -1093,7 +1638,18 @@ window.terminal = function (path, posX = 50, posY = 50) {
           const pending = awaitingPasswordPrompt;
           awaitingPasswordPrompt = null;
           input.innerText = '';
+          updatePromptVisibility();
           await runPermissionUpdate(pending.path, pending.permArg, value);
+          return;
+        }
+        if (workerPrompt) {
+          const pendingPrompt = workerPrompt;
+          workerPrompt = null;
+          input.innerText = '';
+          updatePromptVisibility();
+          try {
+            pendingPrompt.worker.postMessage({ type: 'promptResponse', id: pendingPrompt.id, value: value || '' });
+          } catch (e) {}
           return;
         }
         if (value) {
@@ -1101,6 +1657,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
           historyIndex = history.length;
         }
         input.innerText = '';
+        updatePromptVisibility();
         await handleCommand(value);
       } else if (ev.key === 'Tab') {
         ev.preventDefault();
@@ -1124,6 +1681,17 @@ window.terminal = function (path, posX = 50, posY = 50) {
         killActiveProcess({ graceful: terminalWorkerGracefulKill });
       }
     };
+
+    const workerWatchInterval = setInterval(() => {
+      if (!terminalWorker) return;
+      const pid = getTrackedWorkerPid(terminalWorker);
+      const processStillExists = pid && window.protectedGlobals && window.protectedGlobals.__processRuntime && (window.protectedGlobals.__processRuntime.processObjectsByPid || {})[String(pid)];
+      if (!processStillExists) {
+        finalizeTerminalWorker(terminalWorker, 'external-stop');
+      }
+    }, 250);
+
+    updatePromptVisibility();
 
     const originalCloseWindow = typeof instance.closeWindow === 'function' ? instance.closeWindow.bind(instance) : null;
     instance.closeWindow = function () {

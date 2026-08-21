@@ -839,7 +839,7 @@ let getFilesFromFolder = async function (relPath) {
         let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.headlessJsFile, { text: true, direct: true });
         let blob = new Blob([scriptText], { type: "text/javascript" });
         let url = URL.createObjectURL(blob);
-        const worker = new Worker(url);
+        const worker = new Worker(url, { name: entryObj.headlessJsFile, source: entryObj.id });
         window.protectedGlobals.workers[entryObj.id] = worker;
       }
     }
