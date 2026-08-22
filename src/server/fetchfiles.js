@@ -608,28 +608,33 @@ async function handleFetchfiles(req, res) {
         return safeResolve(dir, newName);
       }
 
-      async function applyDirections(rootPath, directions, username, userPathPermissions) {
+      async function applyDirections(rootPath, directions, username, userPathPermissions, options = {}) {
         let success = true;
+        const moveMode = Boolean(options && options.move);
         // result object used to return information back to the caller
         const result = {};
         // Initialize clipboard from server storage or create new
         let clipboard = userClipboards.get(username) || null;
 
+        const normalizePathInput = (p = "") => {
+          if (!p || p === "root") return "";
+
+          let text = String(p).replace(/\\/g, "/").trim();
+          while (text.startsWith("/")) text = text.slice(1);
+          if (text.startsWith("root/")) text = text.slice(5);
+          return text;
+        };
+
         const resolvePath = (p = "") => {
-          if (!p || p === "root") return rootPath;
-
-          if (p.startsWith("root/")) {
-            p = p.slice(5);
-          }
-
-          return safeResolve(rootPath, p);
+          const normalized = normalizePathInput(p);
+          if (!normalized) return rootPath;
+          return safeResolve(rootPath, normalized);
         };
 
         const directionPathToRelative = (p = "") => {
-          if (!p || p === "root") return "";
-          const parts = String(p).split("/").filter(Boolean);
-          if (parts[0] === "root") parts.shift();
-          return removeUnwantedStuffInPath(parts.join("/"));
+          const normalized = normalizePathInput(p);
+          if (!normalized) return "";
+          return removeUnwantedStuffInPath(normalized);
         };
 
         const isImmediateRootChild = (relativePath) => removeUnwantedStuffInPath(relativePath) === "/root";
@@ -706,10 +711,10 @@ async function handleFetchfiles(req, res) {
               if (!stat || !stat.isDirectory()) {
                 const err = new Error("Folder does not exist");
                 err.code = "ENOENT";
-                err.path = `/${folderRel}`;
+                err.path = `${folderRel}`;
                 throw err;
               }
-              result.checkFolder = { exists: true, path: `/${folderRel}` };
+              result.checkFolder = { exists: true, path: `${folderRel}` };
               continue;
             }
 
@@ -717,14 +722,15 @@ async function handleFetchfiles(req, res) {
               const filePath = resolvePath(dir.path);
               const fileRel = directionPathToRelative(dir.path || "");
               assertReadAllowed(fileRel);
+              console.log(filePath, fileRel);
               const stat = await fsp.stat(filePath).catch(() => null);
               if (!stat || !stat.isFile()) {
                 const err = new Error("File does not exist");
                 err.code = "ENOENT";
-                err.path = `/${fileRel}`;
+                err.path = `${fileRel}`;
                 throw err;
               }
-              result.checkFile = { exists: true, path: `/${fileRel}` };
+              result.checkFile = { exists: true, path: `${fileRel}` };
               continue;
             }
             if (dir.addFile) {
@@ -908,7 +914,9 @@ async function handleFetchfiles(req, res) {
               const destinationRelPath = directionPathToRelative(dir.path || "root");
               assertWriteAllowed(destinationRelPath);
 
-              const destinationDir = safeResolve(userRoot, dir.path);
+              const destinationPath = resolvePath(dir.path || "root");
+              const destinationExists = await exists(destinationPath);
+              const destinationStat = destinationExists ? await fsp.stat(destinationPath).catch(() => null) : null;
 
               const quota = await getUserQuotaBytes(userRoot);
               let currentUsed = await getUserUsage(username, userRoot);
@@ -923,7 +931,28 @@ async function handleFetchfiles(req, res) {
                   continue;
                 }
 
-                let dest = path.join(destinationDir, path.basename(item.path));
+                let dest;
+                const itemKind = item && (item.kind || item.type || "file");
+                const originalDestPath = String(dir.path || "root");
+                const looksLikeExplicitFileTarget =
+                  itemKind !== "directory" &&
+                  itemKind !== "folder" &&
+                  (/(?:^|\/)[^\/]+\.[^\/]+$/.test(originalDestPath.replace(/\\/g, "/")) ||
+                    originalDestPath.replace(/\\/g, "/").endsWith("/"));
+
+                if (destinationStat && destinationStat.isDirectory()) {
+                  dest = path.join(destinationPath, path.basename(item.path));
+                } else if (destinationStat && destinationStat.isFile()) {
+                  dest = destinationPath;
+                } else if (looksLikeExplicitFileTarget) {
+                  const parentDir = path.dirname(destinationPath);
+                  await ensureDir(parentDir);
+                  dest = destinationPath;
+                } else {
+                  await ensureDir(destinationPath);
+                  dest = path.join(destinationPath, path.basename(item.path));
+                }
+
                 dest = await getUniquePath(dest);
 
                 const destRelPath = removeUnwantedStuffInPath(
@@ -939,6 +968,26 @@ async function handleFetchfiles(req, res) {
                     continue;
                   }
                   throw err;
+                }
+
+                // If the caller requested a move instead of a copy, remove the source now.
+                const moveFlag = Boolean(dir.move ?? moveMode);
+                if (moveFlag) {
+                  try {
+                    // Ensure we have permission to remove the source
+                    // (assertWriteAllowed already enforced above when moveFlag was set by caller)
+                    const normalizedSrc = path.resolve(src);
+                    const normalizedDest = path.resolve(dest);
+                    // Reject moves where destination is inside source (would be recursive)
+                    if (normalizedDest.startsWith(normalizedSrc + path.sep) || normalizedDest === normalizedSrc) {
+                      success = false;
+                      continue;
+                    }
+                    await deletePathWithQuota(username, userRoot, src);
+                  } catch (e) {
+                    // deletion failed, mark operation as partially failed but continue
+                    success = false;
+                  }
                 }
               }
 
@@ -961,7 +1010,7 @@ async function handleFetchfiles(req, res) {
 
       if (data.saveSnapshot) {
         // Apply all frontend directions to build tree
-        const result = await withUserLock(username, () => applyDirections(userRoot, data.directions, username, userPathPermissions) );
+        const result = await withUserLock(username, () => applyDirections(userRoot, data.directions, username, userPathPermissions, { move: Boolean(data.move) }));
 
         const safePayload = {
           success: result.success,

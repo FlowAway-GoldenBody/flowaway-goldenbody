@@ -94,7 +94,7 @@
     const smokeLogFile = `${smokeDir}/log.txt`;
 
     await api.writeline('Worker feature smoke test started. scope=' + String(base));
-    await api.f('Worker feature smoke test', '#3ddc97', 18, 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace');
+    await api.writeline('Worker feature smoke test', '#3ddc97', 18, 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace');
 
     const probePaths = [
       ['app root read', appRoot],
@@ -150,9 +150,9 @@
     const deleteFile = await tryCall('deleteFile', async () => await api.deleteFile(`${renamedDir}/hello-renamed.txt`));
     const deleteFolder = await tryCall('deleteFolder', async () => await api.deleteFolder(renamedDir));
 
-    await api.writeline('Terminal style test: ' + String(typeof api.f === 'function' ? 'supported' : 'missing'));
-    if (typeof api.f === 'function') {
-      await api.f('Terminal style test: green prompt + matching text', '#3ddc97', 18, 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace');
+    await api.writeline('Terminal style test: ' + String(typeof api.writeline === 'function' ? 'supported' : 'missing'));
+    if (typeof api.writeline === 'function') {
+      await api.writeline('Terminal style test: green prompt + matching text', '#3ddc97', 18, 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace');
     }
     await api.writeline('Terminal text style test is active.');
 
@@ -202,7 +202,7 @@
     }
 
     if (typeof api.launchApp === 'function') {
-      const launchResult = await tryCall('launchApp settings', async () => await api.launchApp('settings'));
+      const launchResult = await tryCall('launchApp settings', async () => await api.launchApp('Settings'));
       await api.writeline('launchApp settings result: ' + (launchResult.ok ? 'OK' : 'FAIL: ' + launchResult.error));
     } else {
       await api.writeline('launchApp: not supported');

@@ -11,6 +11,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
     const instance = window.protectedGlobals.apptools.api.createAppInstance({ appId, posX: posX, posY: posY });
     window.protectedGlobals.apptools.api.trackInstance(instance, appId);
     const root = instance.rootElement;
+    root.dataset.themeManual = "true";
+    instance.applyTitlebarTheme(true, true);
     root.style.background = "#0b0b0b";
     root.style.color = "#e6e6e6";
     root.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
@@ -38,6 +40,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
     inputRow.style.padding = "0 8px 0 8px";
     inputRow.style.minHeight = "28px";
     inputRow.style.boxSizing = "border-box";
+    // Prefer scrollMarginBottom so scrollIntoView can leave space
+    inputRow.style.scrollMarginBottom = "8px";
     inputRow.style.borderTop = "1px solid #222";
 
     const prompt = document.createElement("div");
@@ -354,7 +358,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         update: updateStyle,
         rewriteLine: updateStyle,
       };
-
+      input.scrollIntoView();
       updateStyle(state.text, state.font, state.color, state.size);
       return handle;
     }
@@ -381,17 +385,13 @@ window.terminal = function (path, posX = 50, posY = 50) {
         output.appendChild(line);
       }
       output.scrollTop = output.scrollHeight;
+      input.scrollIntoView();
       return createLineHandle(line, resolved.text, { font: resolved.font, color: resolved.color, size: resolved.size });
     }
 
     function writeline(text, arg2, arg3, arg4) {
       const resolved = normalizeLineStyleArgs(text, arg2, arg3, arg4);
       return printLine(resolved.text, "", { color: resolved.color, size: resolved.size, font: resolved.font });
-    }
-
-    function f(name, color = "", size = null, font = "") {
-      const safeName = name === null || typeof name === "undefined" ? "" : String(name);
-      return writeline(safeName, color, size, font);
     }
 
     function printError(err) {
@@ -648,9 +648,11 @@ window.terminal = function (path, posX = 50, posY = 50) {
 
     async function spawnWorkerFromScript(scriptText, appRoot, initialArgs) {
       if (!scriptText) throw new Error('No script');
+      const seededArgs = (initialArgs && typeof initialArgs === 'object') ? initialArgs : [];
       // Build worker bootstrap that provides a simple `api` proxy to the app
       const bootstrap = `
         (() => {
+          const __initialArgs = ${JSON.stringify(seededArgs)};
           let _reqId = 0;
           const _pending = new Map();
           const _promptPending = new Map();
@@ -717,7 +719,12 @@ window.terminal = function (path, posX = 50, posY = 50) {
             _lineHandles.set(id, handle);
             return handle;
           }
-          self._startArgs = [];
+          const __resolveStartArgs = (value) => {
+            if (Array.isArray(value)) return value.slice();
+            if (value && typeof value === 'object') return value;
+            return [];
+          };
+          self._startArgs = __resolveStartArgs(__initialArgs);
           self._appScope = '';
           // convenience alias for worker scripts
           self.args = self._startArgs;
@@ -804,7 +811,6 @@ window.terminal = function (path, posX = 50, posY = 50) {
               postMessage({ type: 'lineCreate', id, text: spec.text, font: spec.font, color: spec.color, size: spec.size });
               return makeLineHandle(id, spec.text, spec);
             },
-            f: function (name, color = '', size = null, font = '') { const text = String(name ?? ''); const spec = normalizeLineArgs(text, color, size, font); return this.writeline(spec.text, spec.color, spec.size, spec.font); },
             prompt: (message, options = {}) => {
               const id = nextId();
               postMessage({ type: 'prompt', id, message: String(message ?? ''), options: options || {} });
@@ -816,7 +822,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
             const d = ev.data;
             if (!d) return;
             if (d.type === 'start') {
-              self._startArgs = d.args || {};
+              const nextArgs = d.args !== undefined ? d.args : __initialArgs;
+              self._startArgs = __resolveStartArgs(nextArgs);
               self.args = self._startArgs;
               self._appScope = d.appScope || '';
               return;
@@ -867,7 +874,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
       const full = bootstrap + '\n' + scriptText;
       const blob = new Blob([full], { type: 'application/javascript' });
       const url = URL.createObjectURL(blob);
-      const worker = new Worker(url);
+      const worker = new Worker(url, { source: 'Terminal' });
       const lineHandles = new Map();
 
       const startArgs = (initialArgs && typeof initialArgs === 'object' && !Array.isArray(initialArgs)) ? initialArgs : (Array.isArray(initialArgs) ? initialArgs : []);
@@ -915,7 +922,11 @@ window.terminal = function (path, posX = 50, posY = 50) {
           output.insertBefore(document.createTextNode(''), inputRow);
           printLine(promptMessage);
           updatePromptVisibility();
-          input.focus();
+          try {
+            input.focus({ preventScroll: true });
+          } catch (e) {
+            try { input.focus(); } catch (e2) {}
+          }
           return;
         }
         if (d.type === 'done') {
@@ -962,7 +973,6 @@ window.terminal = function (path, posX = 50, posY = 50) {
                 const appId = d.appId ? String(d.appId) : '';
                 if (!appId) throw new Error('Missing appId');
                 const args = Array.isArray(d.args) ? d.args : (d.args === undefined ? [] : [d.args]);
-                if (typeof window.protectedGlobals.launchApp !== 'function') throw new Error('launchApp is not supported in this runtime');
                 result = await window.protectedGlobals.launchApp(appId, args);
                 break;
               }
@@ -1003,7 +1013,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         // list custom app commands
         const appCmds = [];
         (window.protectedGlobals.apps || []).forEach(a => {
-          (a.commands || []).forEach(c => appCmds.push({ app: a.label || a.id, name: c.name }));
+          (a.commands || []).forEach(c => appCmds.push({ app: a.id, name: c.name }));
         });
         if (appCmds.length) {
           printLine("\nApp commands:");
@@ -1215,134 +1225,23 @@ window.terminal = function (path, posX = 50, posY = 50) {
         return;
       }
 
-      if (cmd === 'mv' || cmd === 'rename') {
+      if (cmd === 'mv') {
         // mv "<source>" "dest"  -- move a file (or rename within same folder)
         const tokens = tokenize(cmdline);
         if (tokens.length < 3) { printError('Usage: mv "<source>" "dest"'); return; }
         const srcArg = tokens[1];
         const destArg = tokens.slice(2).join(' ');
-        try {
-          const srcPath = resolveTerminalPath(srcArg, cwd);
-          const destPathCandidate = resolveTerminalPath(destArg, cwd);
-          // Check existence
-          const srcIsFile = await (window.protectedGlobals.FileExists ? window.protectedGlobals.FileExists(srcPath) : false);
-          const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
-          if (!srcIsFile && !srcIsFolder) { printError('Source does not exist: ' + srcPath); return; }
-            if (srcIsFile) {
-            // Use paste semantics so server-side copy/paste logic and quotas apply,
-            // then permanently delete the trashed source.
-            const destIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destPathCandidate) : false);
-            let finalDest = destPathCandidate;
-            let destFolder = destPathCandidate;
-            const parts = srcPath.split('/');
-            const base = parts[parts.length - 1] || '';
-            if (destIsFolder) {
-              destFolder = destPathCandidate === '/' ? '/' : destPathCandidate;
-              finalDest = (destFolder === '/' ? '' : destFolder) + '/' + base;
-            } else {
-              // ensure parent of dest exists
-              const parentDir = destPathCandidate.lastIndexOf('/') >= 0 ? destPathCandidate.substring(0, destPathCandidate.lastIndexOf('/')) || '/' : '/';
-              const parentExists = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(parentDir) : true);
-              if (!parentExists) { printError('Destination parent folder does not exist: ' + parentDir); return; }
-              destFolder = parentDir;
-              finalDest = destPathCandidate;
-            }
-
-            try {
-              // Prepare clipboard item (use absolute /root-prefixed path)
-              let clipPath = srcPath;
-              if (!clipPath.startsWith('/')) clipPath = '/' + clipPath;
-              if (!clipPath.startsWith('/root')) clipPath = '/root' + (clipPath === '/' ? '' : clipPath);
-
-              const clipboardItems = [{ path: clipPath, kind: 'file' }];
-
-              // Paste into destination folder
-              await window.protectedGlobals.PasteFile(destFolder, clipboardItems);
-
-              // Soft-delete the source (moves into .trash)
-              await window.protectedGlobals.DeleteFile(srcPath);
-
-              // Now locate the trashed copy in /root/.trash and permanently delete it
-              const name = base;
-              const trashListing = await window.protectedGlobals.ReadFolder('/root/.trash', { detail: true }).catch(() => []);
-              const candidates = Array.isArray(trashListing) ? trashListing.filter((it) => typeof it.path === 'string' && it.path.endsWith(name)) : [];
-              let chosen = null;
-              if (candidates.length === 1) chosen = candidates[0];
-              else if (candidates.length > 1) {
-                // pick the most-recently modified
-                candidates.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
-                chosen = candidates[0];
-              }
-
-              if (chosen && chosen.path) {
-                const permaPath = String(chosen.path).startsWith('/') ? String(chosen.path) : '/root/.trash/' + String(chosen.path);
-                // send permanentDelete direction
-                await window.protectedGlobals.filePost({ saveSnapshot: true, directions: [{ permanentDelete: true, path: permaPath }, { end: true }] });
-              } else {
-                // Couldn't determine trashed filename; inform user but operation succeeded as copy
-                printLine('Moved (copied) ' + srcPath + ' -> ' + finalDest + ' (source moved to .trash but permanent deletion not found)');
-                return;
-              }
-
-              printLine('Moved ' + srcPath + ' -> ' + finalDest);
-              return;
-            } catch (e) {
-              printError('Move failed: ' + (e && e.message ? e.message : String(e)));
-              return;
-            }
-          }
-          if (srcIsFolder) {
-            // Prefer server-side renameFolder when available and dest parent exists
-            const destParent = destPathCandidate.lastIndexOf('/') >= 0 ? destPathCandidate.substring(0, destPathCandidate.lastIndexOf('/')) || '/' : '/';
-            const parentExists = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destParent) : true);
-            if (!parentExists) { printError('Destination parent folder does not exist: ' + destParent); return; }
-            try {
-              // If destination is an existing folder, paste into it. Otherwise, treat destPathCandidate
-              // as the target path (parent + new name) and paste into parent then delete source.
-              const destIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destPathCandidate) : false);
-              let destFolder = destIsFolder ? destPathCandidate : destParent;
-              const parts = srcPath.split('/');
-              const base = parts[parts.length - 1] || '';
-              const finalDest = destIsFolder ? (destFolder === '/' ? '/' + base : destFolder + '/' + base) : destPathCandidate;
-
-              // Prepare clipboard item for directory
-              let clipPath = srcPath;
-              if (!clipPath.startsWith('/')) clipPath = '/' + clipPath;
-              if (!clipPath.startsWith('/root')) clipPath = '/root' + (clipPath === '/' ? '' : clipPath);
-              const clipboardItems = [{ path: clipPath, kind: 'directory' }];
-
-              // Paste into destination folder
-              await window.protectedGlobals.PasteFolder(destFolder, clipboardItems);
-
-              // Soft-delete the source (moves into .trash)
-              await window.protectedGlobals.DeleteFolder(srcPath);
-
-              // Now locate the trashed copy in /root/.trash and permanently delete it
-              const name = base;
-              const trashListing = await window.protectedGlobals.ReadFolder('/root/.trash', { detail: true }).catch(() => []);
-              const candidates = Array.isArray(trashListing) ? trashListing.filter((it) => typeof it.path === 'string' && it.path.endsWith(name)) : [];
-              let chosen = null;
-              if (candidates.length === 1) chosen = candidates[0];
-              else if (candidates.length > 1) {
-                candidates.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
-                chosen = candidates[0];
-              }
-
-              if (chosen && chosen.path) {
-                const permaPath = String(chosen.path).startsWith('/') ? String(chosen.path) : '/root/.trash/' + String(chosen.path);
-                await window.protectedGlobals.filePost({ saveSnapshot: true, directions: [{ permanentDelete: true, path: permaPath }, { end: true }] });
-                printLine('Moved folder ' + srcPath + ' -> ' + finalDest);
-                return;
-              }
-
-              printLine('Moved (copied) folder ' + srcPath + ' -> ' + finalDest + ' (source moved to .trash but permanent deletion not found)');
-              return;
-            } catch (e) {
-              printError('Folder move failed: ' + (e && e.message ? e.message : String(e)));
-              return;
-            }
-          }
-        } catch (e) { printError(e.message || String(e)); }
+        const srcPath = resolveTerminalPath(srcArg, cwd);
+        const destPathCandidate = resolveTerminalPath(destArg, cwd);
+        // Check existence
+        const srcIsFile = await (window.protectedGlobals.FileExists ? window.protectedGlobals.FileExists(srcPath) : false);
+        const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
+        if (!srcIsFile && !srcIsFolder) { printError('Source does not exist: ' + srcPath); return; }
+        let result;
+        if (srcIsFile) result = await window.protectedGlobals.PasteFile(destPathCandidate, [{ path: srcPath, kind: 'file' }], { move: true });
+        if (srcIsFolder) result = await window.protectedGlobals.PasteFolder(destPathCandidate, [{ path: srcPath, kind: 'directory' }], { move: true });
+        if (!result.success) { printError('Failed to move file: ' + srcPath); return; }
+        printLine('Moved ' + srcPath + ' -> ' + destPathCandidate);
         return;
       }
 
@@ -1367,21 +1266,11 @@ window.terminal = function (path, posX = 50, posY = 50) {
           const destPathCandidate = resolveTerminalPath(destArg, cwd);
           const srcIsFile = await (window.protectedGlobals.FileExists ? window.protectedGlobals.FileExists(srcPath) : false);
           const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
-          if (!srcIsFile && !srcIsFolder) { printError('Source does not exist: ' + srcPath); return; }
-          if (srcIsFile) {
-            const destIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(destPathCandidate) : false);
-            let finalDest = destPathCandidate;
-            if (destIsFolder) {
-              const parts = srcPath.split('/');
-              const base = parts[parts.length - 1] || '';
-              finalDest = (destPathCandidate === '/' ? '' : destPathCandidate) + '/' + base;
-            }
-            const content = await window.protectedGlobals.ReadFile(srcPath, { text: true, direct: true });
-            await window.protectedGlobals.WriteFile(finalDest, content, { replace: true });
-            printLine('Copied ' + srcPath + ' -> ' + finalDest);
-            return;
-          }
-          printError('Copying folders is not supported');
+          let result;
+          if (srcIsFile) result = await window.protectedGlobals.PasteFile(destPathCandidate, [{ path: srcPath, kind: 'file' }]);
+          if (srcIsFolder) result = await window.protectedGlobals.PasteFolder(destPathCandidate, [{ path: srcPath, kind: 'directory' }]);
+          if (!result.success) { printError('Failed to copy file: ' + srcPath); return; }
+          printLine('Copied ' + srcPath + ' -> ' + destPathCandidate);
           return;
         } catch (e) { printError(e.message || String(e)); }
         return;
@@ -1702,13 +1591,19 @@ window.terminal = function (path, posX = 50, posY = 50) {
     };
     window.addEventListener('beforeunload', cleanupInstance, { once: true });
 
-    // clicking anywhere in the output focuses the prompt
-    output.addEventListener('click', () => {
-      try { input.focus(); } catch (e) {}
+    // clicking in the output usually focuses the prompt, but avoid stealing
+    // focus when the user is selecting text. Use preventScroll to avoid
+    // jumping the viewport.
+    output.addEventListener('click', (ev) => {
+      try {
+        const sel = typeof window.getSelection === 'function' ? window.getSelection() : null;
+        const hasSelection = sel && String(sel.toString() || '').length > 0;
+        // If the user clicked while text is selected, do not change focus.
+        if (hasSelection) return;
+        // Only focus on single clicks to reduce interference with double-click selection.
+        if (ev && typeof ev.detail === 'number' && ev.detail !== 1) return;
+      } catch (e) {}
     });
-
-    // focus the prompt when instance is opened
-    setTimeout(() => { try { input.focus(); } catch (e) {} }, 50);
     return instance;
   } catch (err) {
     console.error('terminal app failed to start', err);

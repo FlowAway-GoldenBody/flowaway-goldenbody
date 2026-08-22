@@ -1,9 +1,9 @@
 "use strict";
 (function () {
-  if (window.__runtimeCoreWorkerHookInstalled || !window.Worker) return;
+  if (window.protectedGlobals.__runtimeCoreWorkerHookInstalled || !window.Worker) return;
 
   const NativeWorker = window.Worker;
-
+  window.protectedGlobals.__nativeWorkerConstructor = NativeWorker;
   const buildWorkerBootstrap = function (scriptURL) {
     const sourceUrl = scriptURL == null ? "" : String(scriptURL);
     const sourceLiteral = JSON.stringify(sourceUrl);
@@ -78,7 +78,7 @@
   };
 
   window.Worker.prototype = NativeWorker.prototype;
-  window.__runtimeCoreWorkerHookInstalled = true;
+  window.protectedGlobals.__runtimeCoreWorkerHookInstalled = true;
 })();
 (function () {
   window.protectedGlobals = window.protectedGlobals || {};
@@ -86,40 +86,26 @@
     return;
   }
 
-  var runtime = window.protectedGlobals.__processRuntime || {};
+  var runtime = {};
 
   runtime.__loaded = false;
-  // manual/launch/dynamic registries removed for simplified runtime (only workers and iframes)
-  runtime.processObjectsByPid = runtime.processObjectsByPid || (window.protectedGlobals.__processObjectsByPid || {});
-  runtime.processes = Array.isArray(runtime.processes) ? runtime.processes : [];
-  runtime.processRegistry = runtime.processRegistry || {};
-  runtime.taskProcessCounter = Number(runtime.taskProcessCounter || window.protectedGlobals.__taskProcessCounter || 0);
-  runtime.reusablePidPool = Array.isArray(runtime.reusablePidPool)
-    ? runtime.reusablePidPool
-    : (Array.isArray(window.protectedGlobals.__reusablePidPool) ? window.protectedGlobals.__reusablePidPool : []);
-  runtime.taskProcessIdByIdentity = runtime.taskProcessIdByIdentity || (window.protectedGlobals.__taskProcessIdByIdentity || {});
-  runtime.taskProcessObjectIdentity = runtime.taskProcessObjectIdentity instanceof WeakMap
-    ? runtime.taskProcessObjectIdentity
-    : (window.protectedGlobals.__taskProcessObjectIdentity instanceof WeakMap ? window.protectedGlobals.__taskProcessObjectIdentity : new WeakMap());
-  runtime.taskProcessObjectIdentityCounter = Number(
-    runtime.taskProcessObjectIdentityCounter || window.protectedGlobals.__taskProcessObjectIdentityCounter || 0,
-  );
-  // Removed unused hook placeholders: timer/raf/observer/listener
-  runtime.iframeProcessBindings = runtime.iframeProcessBindings || {};
-  runtime.iframeHookedElements = runtime.iframeHookedElements instanceof WeakSet
-    ? runtime.iframeHookedElements
-    : new WeakSet();
-  runtime.iframeBindingByElement = runtime.iframeBindingByElement instanceof WeakMap
-    ? runtime.iframeBindingByElement
-    : new WeakMap();
-  runtime.iframeHookObserver = runtime.iframeHookObserver || null;
-  runtime.workerProcessBindings = runtime.workerProcessBindings || {};
-  runtime.workerInstances = runtime.workerInstances instanceof WeakMap
-    ? runtime.workerInstances
-    : new WeakMap();
-  runtime.hookStatus = runtime.hookStatus || {};
-  runtime.hookStatus.iframe = runtime.hookStatus.iframe || { hookable: false, reason: "not-initialized", hooked: false, hookedCount: 0, observed: false };
-  runtime._nativeWorkerConstructor = runtime._nativeWorkerConstructor || null;
+  runtime.processObjectsByPid = {};
+  runtime.processes = [];
+  runtime.processRegistry = {};
+  runtime.taskProcessCounter = 0;
+  runtime.reusablePidPool = [];
+  runtime.taskProcessIdByIdentity = {};
+  runtime.taskProcessObjectIdentity = new WeakMap();
+  runtime.taskProcessObjectIdentityCounter = 0;
+  runtime.iframeProcessBindings = {};
+  runtime.iframeHookedElements = new WeakSet();
+  runtime.iframeBindingByElement = new WeakMap();
+  runtime.iframeHookObserver = null;
+  runtime.workerProcessBindings = {};
+  runtime.workerInstances = new WeakMap();
+  runtime.hookStatus = {};
+  runtime.hookStatus.iframe = { hookable: false, reason: "not-initialized", hooked: false, hookedCount: 0, observed: false };
+  runtime._nativeWorkerConstructor = null;
 
   function getFirstDefinedValue() {
     for (var i = 0; i < arguments.length; i++) {
@@ -161,7 +147,6 @@
      for (var i = 0; i < identityKeys.length; i++) {
        markPid(identityMap[identityKeys[i]]);
      }
- 
      var processes = Array.isArray(runtime.processes) ? runtime.processes : [];
      for (var p = 0; p < processes.length; p++) {
        var record = processes[p] || null;
@@ -441,7 +426,7 @@
   function removePidFromGlobalProcessLists(pidValue) {
     var pid = normalizeProcessPid(pidValue);
     if (typeof pid !== "number" || Number.isNaN(pid)) return;
-    runtime.processes = (Array.isArray(runtime.processes) ? runtime.processes : []).filter(function (record) {
+    runtime.processes = runtime.processes.filter(function (record) {
       if (!record || typeof record !== "object") return false;
       var recordPid = normalizeProcessPid(getFirstDefinedValue(record.pid, record.processId));
       return recordPid !== pid;
@@ -787,7 +772,7 @@
         }
       }
       if (!workerName) {
-        workerName = appId && appId !== "worker" ? (String(appId).trim() + " Process") : "Worker Process";
+        workerName = "Worker Process";
       }
 
       var workerInstance = 1 === arguments.length
@@ -1015,6 +1000,7 @@
 
     manualRecord.handle = handle;
     runtime.processRegistry[manualKey] = manualRecord;
+    window.protectedGlobals.__processes.push(manualRecord);
     return canonical;
   }
 

@@ -334,8 +334,8 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 return;
             }
             try {
-                await window.protectedGlobals.launchApp(appId, e.detail.data.args);
-                source.postMessage({ launchAppResult: true, result: true, requestId: requestId }, "*");
+                let launchResult = await window.protectedGlobals.launchApp(appId, e.detail.data.args);
+                source.postMessage({ launchAppResult: true, result: launchResult, requestId: requestId }, "*");
             } catch (err) {
                 source.postMessage({ error: err.message || String(err), requestId: requestId }, "*");
             }

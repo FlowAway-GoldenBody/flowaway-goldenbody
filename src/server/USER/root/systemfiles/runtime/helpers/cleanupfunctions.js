@@ -10,14 +10,13 @@ window.protectedGlobals.rebuildhandler = function () {
   window.protectedGlobals.goldenbody.clearSystemInterval();
   // Mark rebuilding
   window.protectedGlobals.isRebuilding = true;
-
+  window.Worker = window.protectedGlobals.__nativeWorkerConstructor;
   // Dispose processes if present
-  if (
-    window.protectedGlobals.FlowawayProcess &&
-    (window.protectedGlobals.FlowawayProcess.disposeAll)
-  ) {
-    window.protectedGlobals.FlowawayProcess.disposeAll("rebuild");
-  }
+  for (let i = 0; i < window.protectedGlobals.__processes.length; i++) {
+    try {
+      window.protectedGlobals.killProcess(i + 1);
+    } catch (e) {}
+  };
   window.protectedGlobals.apps.forEach((app) => {
     try {
     window[app.globalVarObjectString][app.allAppArrayString][0].closeAll();

@@ -317,7 +317,7 @@ window.protectedGlobals.initAppTools = function () {
     resize();
     root.tabIndex = "0";
   };
-
+  let applyTitlebarTheme = null;
   existing.createtitlebar = function (root) {
     if (!root) return null;
     var existingTop = root.querySelector(".appTopBar");
@@ -408,8 +408,9 @@ window.protectedGlobals.initAppTools = function () {
       el.style.cursor = "pointer";
     });
 
-    function applyTitlebarTheme() {
-      var dark = !!(window.protectedGlobals.data.dark);
+    applyTitlebarTheme = function (forced = false, overrideDark = null) {
+      if (forced !== true && root.dataset.themeManual === "true") return;
+      var dark = overrideDark !== null ? !!overrideDark : !!(window.protectedGlobals.data.dark);
       root.classList.toggle("dark", dark);
       root.classList.toggle("light", !dark);
       topBar.style.background = dark ? "#444" : "#ccc";
@@ -422,7 +423,7 @@ window.protectedGlobals.initAppTools = function () {
       applyWindowControlStyles();
     }
 
-    applyTitlebarTheme();
+    applyTitlebarTheme(true);
     root.addEventListener("styleapplied", applyTitlebarTheme);
 
     function getInstance() {
@@ -586,6 +587,7 @@ window.protectedGlobals.initAppTools = function () {
       topbarElement: topbar,
       titlebar: topbar,
       titlebarElement: topbar,
+      applyTitlebarTheme,
       goldenbodyId: Number(options.goldenbodyId) || 0,
     };
 

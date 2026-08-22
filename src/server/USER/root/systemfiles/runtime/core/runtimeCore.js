@@ -357,7 +357,7 @@ window.protectedGlobals.RenameFolder = async function (relPath, newName) {
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems) {
+window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems, options = { move: false }) {
   if (!destinationRelPath) throw new Error("No destination path");
   if (!Array.isArray(clipboardItems) || !clipboardItems.length)
     throw new Error("No clipboard items");
@@ -366,10 +366,10 @@ window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboar
     { paste: true, path: String(destinationRelPath) },
     { end: true },
   ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
 };
 
-window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipboardItems) {
+window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipboardItems, options = { move: false }) {
   if (!destinationRelPath) throw new Error("No destination path");
   if (!Array.isArray(clipboardItems) || !clipboardItems.length)
     throw new Error("No clipboard items");
@@ -378,7 +378,7 @@ window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipbo
     { pasteFolder: true, path: String(destinationRelPath) },
     { end: true },
   ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
 };
 
 // Helper function to extract auth token from response
@@ -1089,7 +1089,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
     }
   })();
 
-  function buildPickerSelectionState({
+  window.protectedGlobals.buildPickerSelectionState = function ({
     selected,
     clickedPath,
     clickedIndex,
@@ -1135,7 +1135,6 @@ window.protectedGlobals.writeStatus = function writeStatus() {
     return singleSelection;
   }
 
-  window.protectedGlobals.buildPickerSelectionState = buildPickerSelectionState;
 
   // accept file/folder
   // return path or array of paths
@@ -1451,7 +1450,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
 
             if (isFolder) {
               if (isFolderMode) {
-                const nextSelection = buildPickerSelectionState({
+                const nextSelection = window.protectedGlobals.buildPickerSelectionState({
                   selected,
                   clickedPath: filePath,
                   clickedIndex: index,
@@ -1471,7 +1470,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
               return;
             }
 
-            const nextSelection = buildPickerSelectionState({
+            const nextSelection = window.protectedGlobals.buildPickerSelectionState({
               selected,
               clickedPath: filePath,
               clickedIndex: index,
