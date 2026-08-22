@@ -447,12 +447,24 @@ var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPrevie
     if (active) selectedRow = row;
   }
 
-  if (selectedRow && selectedRow.scrollIntoView) {
-    selectedRow.scrollIntoView({
-      behavior: "auto",
-      block: "nearest",
-      inline: "center",
-    });
+  if (selectedRow && windowSwitchState.previewRoot) {
+    var previewRoot = windowSwitchState.previewRoot;
+    var previewRect = previewRoot.getBoundingClientRect();
+    var rowRect = selectedRow.getBoundingClientRect();
+    var relativeTop = rowRect.top - previewRect.top + previewRoot.scrollTop;
+    var targetScroll = previewRoot.scrollTop;
+    var rowHeight = Math.max(selectedRow.offsetHeight, 1);
+    var containerHeight = Math.max(previewRoot.clientHeight, 1);
+
+    if (relativeTop < previewRoot.scrollTop) {
+      targetScroll = Math.max(0, relativeTop - 12);
+    } else if (relativeTop + rowHeight > previewRoot.scrollTop + containerHeight) {
+      targetScroll = Math.max(0, relativeTop + rowHeight - containerHeight + 12);
+    }
+
+    if (previewRoot.scrollTop !== targetScroll) {
+      previewRoot.scrollTop = targetScroll;
+    }
   }
 
   windowSwitchState.previewRoot.style.display = "flex";

@@ -1572,10 +1572,11 @@ window.protectedGlobals.writeStatus = function writeStatus() {
     });
   };
 
-window.protectedGlobals.sendMsgToAllIframes = (msg) => {
-  const iframes = document.querySelectorAll("iframe");
-  iframes.forEach((iframe) => {
-    iframe.contentWindow.postMessage(msg, "*");
+window.protectedGlobals.sendMsgToAllThreads = (msg) => {
+  let threads = window.protectedGlobals.__processes || [];
+  threads.forEach((thread) => {
+    if (thread.processKind === "worker") thread.window.postMessage(msg);
+    else thread.window.postMessage(msg, "*");
   });
 };
 (async () => {

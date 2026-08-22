@@ -22,7 +22,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
     const container = document.createElement("div");
     container.style.display = "flex";
     container.style.flexDirection = "column";
-    container.style.height = "100%";
+    container.style.height = "calc(100% - 32px)";
     container.style.boxSizing = "border-box";
 
     const output = document.createElement("div");
@@ -59,6 +59,14 @@ window.terminal = function (path, posX = 50, posY = 50) {
     input.contentEditable = true;
     input.setAttribute('role', 'textbox');
     input.spellcheck = false;
+    input.scrollIntoView = function () {
+      if (output && typeof output.scrollTo === 'function') {
+        output.scrollTo({ top: output.scrollHeight + 30, behavior: 'auto' });
+      } else if (output) {
+        output.scrollTop = output.scrollHeight;
+      }
+      return false;
+    };
     input.style.flex = "1";
     input.style.minWidth = "20px";
     input.style.background = "transparent";
@@ -358,7 +366,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         update: updateStyle,
         rewriteLine: updateStyle,
       };
-      input.scrollIntoView();
+      if (input && typeof input.scrollIntoView === 'function') input.scrollIntoView();
       updateStyle(state.text, state.font, state.color, state.size);
       return handle;
     }
@@ -385,7 +393,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         output.appendChild(line);
       }
       output.scrollTop = output.scrollHeight;
-      input.scrollIntoView();
+      if (input && typeof input.scrollIntoView === 'function') input.scrollIntoView();
       return createLineHandle(line, resolved.text, { font: resolved.font, color: resolved.color, size: resolved.size });
     }
 
@@ -733,23 +741,16 @@ window.terminal = function (path, posX = 50, posY = 50) {
           function exit(code){ postMessage({type:'done', code: code || 0}); if(_nativeClose) _nativeClose(); }
           // override close inside worker so calls to self.close() notify the main thread first
           try { if (_nativeClose) { self.close = function(){ postMessage({type:'done'}); _nativeClose(); }; } } catch(e) {}
-          let workerNetworkAllowed = true;
+          let networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled};
+          let workerNetworkAllowed = () => { return networkAllowed; };
           const nativeFetch = (typeof self.fetch === 'function') ? self.fetch.bind(self) : null;
           const nativeXHR = (typeof self.XMLHttpRequest === 'function') ? self.XMLHttpRequest : null;
           const nativeWebSocket = (typeof self.WebSocket === 'function') ? self.WebSocket.bind(self) : null;
 
-          self.__setNetworkPolicy = function (enabled) {
-            workerNetworkAllowed = !!enabled;
-            return workerNetworkAllowed;
-          };
-          self.__getNetworkPolicy = function () {
-            return workerNetworkAllowed;
-          };
-
           if (nativeFetch) {
             Object.defineProperty(self, 'fetch', {
               value: function (...args) {
-                if (!workerNetworkAllowed) {
+                if (!workerNetworkAllowed()) {
                   return Promise.reject(new TypeError('Network request blocked.'));
                 }
                 return nativeFetch(...args);
@@ -764,7 +765,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
               const xhr = new nativeXHR(...args);
               const nativeOpen = xhr.open.bind(xhr);
               xhr.open = function (...openArgs) {
-                if (!workerNetworkAllowed) {
+                if (!workerNetworkAllowed()) {
                   throw new Error('XHR blocked.');
                 }
                 return nativeOpen(...openArgs);
@@ -781,7 +782,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
           if (nativeWebSocket) {
             Object.defineProperty(self, 'WebSocket', {
               value: function (...args) {
-                if (!workerNetworkAllowed) {
+                if (!workerNetworkAllowed()) {
                   throw new Error('WebSocket connection blocked.');
                 }
                 return new nativeWebSocket(...args);
@@ -828,10 +829,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
               self._appScope = d.appScope || '';
               return;
             }
-            if (d.type === 'networkToggle' || d.type === 'allowNetwork') {
-              const nextState = typeof d.enabled === 'boolean' ? d.enabled : !!d.allowNetwork;
-              workerNetworkAllowed = !!nextState;
-              return;
+            if (typeof d.allowNetwork === 'boolean' && d.verify === 'syfamr') {
+                networkAllowed = d.allowNetwork;
             }
             if (d.type === 'onkill') {
               const graceMs = Number(d.graceMs) || 3000;

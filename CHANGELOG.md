@@ -48,3 +48,6 @@
 
 ## V 2.0.0
 - New app (Terminal), the old one is removed.
+
+## V 2.1.0
+- Massive update for terminal. it has reached its 1st stable version.

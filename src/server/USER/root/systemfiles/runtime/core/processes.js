@@ -297,6 +297,13 @@
     var titleValue = String(
       getFirstDefinedValue(input.title, input.label, input.name, existing.title, existing.label, appIdValue + " process"),
     );
+    var labelValue = String(getFirstDefinedValue(input.label, input.title, existing.label, existing.title, titleValue));
+    var statusValue = String(getFirstDefinedValue(input.status, existing.status, "running"));
+    var sourceValue = String(getFirstDefinedValue(input.source, existing.source, input.options && input.options.source, existing.options && existing.options.source, ""));
+    var processWindow = getFirstDefinedValue(input.window, existing.window, input.targetWindow, existing.targetWindow, input.instance, existing.instance, null);
+    var targetWindowValue = getFirstDefinedValue(input.targetWindow, existing.targetWindow, processWindow, null);
+    var instanceValue = getFirstDefinedValue(input.instance, existing.instance, processWindow, null);
+    var windowTypeValue = String(getFirstDefinedValue(input.windowType, existing.windowType, typeValue, "process"));
 
     var createdValue = Number(getFirstDefinedValue(input.created, input.createdAt, existing.created, existing.createdAt, Date.now()));
     if (!Number.isFinite(createdValue) || createdValue <= 0) createdValue = Date.now();
@@ -317,8 +324,17 @@
       id: pidValue,
       type: typeValue,
       processKind: typeValue,
+      appId: appIdValue,
+      appLabel: String(getFirstDefinedValue(input.appLabel, existing.appLabel, "")),
+      label: labelValue,
       title: titleValue,
       name: titleValue,
+      status: statusValue,
+      source: sourceValue,
+      window: processWindow && typeof processWindow === "object" ? processWindow : null,
+      targetWindow: targetWindowValue && typeof targetWindowValue === "object" ? targetWindowValue : null,
+      instance: instanceValue && typeof instanceValue === "object" ? instanceValue : null,
+      windowType: windowTypeValue,
       created: createdValue,
       createdAt: createdValue,
       cleanup: cleanupFn,
@@ -461,6 +477,24 @@
     };
   }
 
+  function attachProcessWindow(processObject, targetWindow, kind) {
+    if (!processObject || typeof processObject !== "object") return processObject;
+    var resolvedTarget = targetWindow && typeof targetWindow === "object" ? targetWindow : null;
+    var windowKind = typeof kind === "string" && kind ? kind : "process";
+    if (resolvedTarget) {
+      processObject.window = resolvedTarget;
+      processObject.targetWindow = resolvedTarget;
+      processObject.instance = resolvedTarget;
+      processObject.windowType = windowKind;
+    } else {
+      processObject.window = null;
+      processObject.targetWindow = null;
+      processObject.instance = null;
+      processObject.windowType = windowKind;
+    }
+    return processObject;
+  }
+
   function setIframeHookStatus(hookable, reason, extra) {
     var next = Object.assign(
       {},
@@ -567,6 +601,9 @@
       var existingProc = getCanonicalProcessByPid(existingBinding.pid);
       if (existingProc) {
         var existingMeta = getIframeContextMeta(iframe);
+        try {
+          attachProcessWindow(existingProc, iframe.contentWindow, "iframe");
+        } catch (e) {}
         existingProc.title = existingMeta.title;
         existingProc.label = existingMeta.title;
         existingProc.appId = existingMeta.appId;
@@ -581,6 +618,12 @@
     runtime.iframeHookedElements.add(iframe);
 
     var contextMeta = getIframeContextMeta(iframe);
+    var iframeWindow = null;
+    try {
+      iframeWindow = iframe.contentWindow;
+    } catch (e) {
+      iframeWindow = null;
+    }
     var createdProcess = createProcess({
       type: "iframe",
       title: contextMeta.title,
@@ -588,6 +631,10 @@
       status: "running",
       persistent: false,
       hasWindow: true,
+      window: iframeWindow,
+      targetWindow: iframeWindow,
+      instance: iframeWindow,
+      windowType: "iframe",
       windowIds: [contextMeta.windowId],
       cleanup: noopProcessFn,
       options: {
@@ -596,6 +643,10 @@
       },
       key: "iframe::" + contextMeta.windowId + "::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8)),
     });
+
+    if (createdProcess) {
+      attachProcessWindow(createdProcess, iframeWindow, "iframe");
+    }
 
     var bindingKey = "iframe::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8));
     var binding = {
@@ -787,7 +838,11 @@
         appId: appId,
         status: "running",
         persistent: false,
-        hasWindow: false,
+        hasWindow: true,
+        window: workerInstance,
+        targetWindow: workerInstance,
+        instance: workerInstance,
+        windowType: "worker",
         windowIds: [],
         cleanup: noopProcessFn,
         options: {
@@ -799,6 +854,10 @@
         },
         key: "worker::" + workerName + "::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8)),
       });
+
+      if (createdProcess) {
+        attachProcessWindow(createdProcess, workerInstance, "worker");
+      }
 
       if (createdProcess && createdProcess.pid) {
         workerInstance.__Pid = createdProcess.pid;
@@ -960,6 +1019,11 @@
     runtime.processObjectsByPid[String(canonical.pid)] = canonical;
 
     var manualKey = String(getFirstDefinedValue(input.key, "contract::" + String(canonical.pid)));
+    var processWindow = getFirstDefinedValue(input.window, input.targetWindow, input.instance, null);
+    if (processWindow && typeof processWindow === "object") {
+      attachProcessWindow(canonical, processWindow, String(getFirstDefinedValue(input.windowType, canonical.type, "process")));
+    }
+
     var manualRecord = {
       key: manualKey,
       pid: canonical.pid,
@@ -973,6 +1037,10 @@
       createdAt: Number(canonical.created || Date.now()),
       updatedAt: Date.now(),
       stop: canonical.cleanup,
+      window: canonical.window || null,
+      targetWindow: canonical.targetWindow || null,
+      instance: canonical.instance || null,
+      windowType: canonical.windowType || canonical.type || "process",
       meta: Object.assign({}, input),
     };
 
@@ -1082,6 +1150,10 @@
         sourceType: typeVal,
         source: sourceVal,
         url: urlVal,
+        window: processObject.window || null,
+        targetWindow: processObject.targetWindow || null,
+        instance: processObject.instance || null,
+        windowType: processObject.windowType || typeVal || "process",
         updatedAt: updatedAt,
         rowKey: [String(pidValue), String(i)].join("::"),
       });
