@@ -55,6 +55,79 @@ This is copied directly from the dev docs in the settings app
         <li>No direct access to DOM APIs like file inputs, localStorage, sessionStorage, IndexedDB, caches, or fullscreen exit APIs. (EXPERIMENTAL, aka not done)</li>
         <li>Only the exposed runtime API surface available through <code>window.__goldenbodyAPI</code>.</li>
       </ul>
+      <h3>Custom commands in <code>entry.json</code></h3>
+      <p>App commands are declared in the <code>cmd</code> array or the <code>commands</code> array. The runtime normalizes them to lowercase letters only and strips anything else, so a name like <code>WorkerTest</code> becomes <code>workertest</code>. The terminal command runner reads those entries and launches the matching script as a worker.</p>
+      <pre><code>{
+  "id": "demoApp",
+  "label": "Demo App",
+  "jsFile": "script.js",
+  "iconFile": "icon.txt",
+  "cmd": [
+    { "name": "workerTest", "src": "/systemfiles/runtime/apps/demoApp/workerTest.js", "receive_onkill_handler": true },
+    { "name": "doThing", "src": "/systemfiles/runtime/apps/demoApp/doThing.js" }
+  ]
+}</code></pre>
+      <p>This is the same pattern used by <code>testIframeApp/entry.json</code>. The terminal app supports invoking it as:</p>
+      <pre><code>demoApp workerTest --mode=fast --count=3
+# or
+workerTest
+</code></pre>
+      <p>When the command is backed by a JS file, the runtime reads the file, creates a worker, passes the argument object as <code>self.args</code> / <code>self._startArgs</code>, and then calls the worker with a runtime <code>start</code> message. The arguments are parsed from the terminal command line as JSON or key/value pairs when possible.</p>
+      <p><code>receive_onkill_handler</code> tells the runtime to treat <code>onkill</code> as graceful shutdown logic and wait for the worker to handle it before terminating the process. If you omit it, the runtime terminates more aggressively.</p>
+      <h3>Background worker apps</h3>
+      <p>To make an app run a worker in the background, set <code>backgroundWorker: true</code> and provide <code>headlessJsFile</code>. The loader in <code>appLoader.js</code> will start the worker automatically once the app is discovered, and it stores it in <code>window.protectedGlobals.workers[entryObj.id]</code>.</p>
+      <pre><code>{
+  "id": "watcherApp",
+  "label": "Watcher App",
+  "headless": true,
+  "backgroundWorker": true,
+  "headlessJsFile": "headlessWorker.js",
+  "iconFile": "icon.txt",
+  "jsFile": "script.js"
+}</code></pre>
+      <p>The background worker is created with <code>new Worker(url, { name: entryObj.headlessJsFile, source: entryObj.id })</code>, so it can live independently from the iframe. This pattern is used for long-running helper workers, polling loops, or OS-like background services.</p>
+      <pre><code>(async () =&gt; {
+  await api.writeline('Worker booted');
+  self.addEventListener('message', async (event) =&gt; {
+    const data = event.data || {};
+    if (data.type === 'onkill') {
+      await api.writeline('shutting down');
+      self.close();
+    }
+  });
+
+  while (true) {
+    await api.writeline('heartbeat');
+    await new Promise((resolve) =&gt; setTimeout(resolve, 5000));
+  }
+})();</code></pre>
+      <h3>Worker API reference</h3>
+      <p>Workers receive a runtime API object named <code>self.api</code> and a few helper globals. The exact implementation is created in the terminal worker bootstrap and mirrors the same protections used by the sandboxed iframe patches.</p>
+      <ul>
+        <li><code>self.args</code> and <code>self._startArgs</code> - the startup argument object/array passed when the worker is spawned.</li>
+        <li><code>self.api.readFile(path, options)</code> - read a file from the VFS.</li>
+        <li><code>self.api.writeFile(path, content, options)</code> - write text or binary content.</li>
+        <li><code>self.api.readFolder(path, options)</code> - read folder entries.</li>
+        <li><code>self.api.writeFolder(path, options)</code> - create a folder.</li>
+        <li><code>self.api.fileExists(path)</code> and <code>self.api.folderExists(path)</code> - existence checks.</li>
+        <li><code>self.api.deleteFile(path)</code>, <code>self.api.deleteFolder(path)</code> - delete paths.</li>
+        <li><code>self.api.renameFile(path, newName)</code> and <code>self.api.renameFolder(path, newName)</code> - rename paths.</li>
+        <li><code>self.api.pasteFile(destination, clipboardItems, options)</code> and <code>self.api.pasteFolder(destination, clipboardItems, options)</code> - copy or move items.</li>
+        <li><code>self.api.launchApp(appId, args)</code> - launch another app from the worker.</li>
+        <li><code>self.api.writeline(...args)</code> - print a terminal-style line, including optional text color, size, and font.</li>
+        <li><code>self.api.prompt(message, options)</code> - show a prompt and await the response through <code>promptResponse</code>.</li>
+        <li><code>self.api.getStartArgs()</code> - return the original startup arguments object.</li>
+        <li><code>self.__setNetworkPolicy(enabled)</code> and <code>self.__getNetworkPolicy()</code> - update or read the worker network gate.</li>
+      </ul>
+      <h4>Using the line handle</h4>
+      <p><code>self.api.writeline()</code> returns a handle object you can update in place instead of writing a completely new line. The handle exposes <code>.update(...args)</code> and <code>.rewriteLine(...args)</code>, and it also keeps the original DOM element at <code>.element</code>.</p>
+      <pre><code>const status = await api.writeline('Downloading...', '#ffcc66', 14, 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace');
+status.update('Downloading... 25%', '#3ddc97', 14);
+await new Promise((resolve) => setTimeout(resolve, 1000));
+status.rewriteLine('Downloading... 100%', '#3ddc97', 16, 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace');</code></pre>
+      <p>The first argument can be a string and the optional arguments are the same as terminal styling: <code>(text, color, size, font)</code>. This is the easiest way to make progress indicators or status rows that update live without spamming the terminal output.</p>
+      <p>Workers also see a guarded network surface: <code>fetch</code>, <code>XMLHttpRequest</code>, and <code>WebSocket</code> are replaced so they fail when the runtime blocks network access. The runtime relays the current Wi‑Fi/user network policy via <code>networkToggle</code> / <code>allowNetwork</code> and the worker updates its local policy from the broadcast state.</p>
+      <p>Incoming runtime messages include <code>start</code>, <code>networkToggle</code>, <code>allowNetwork</code>, <code>onkill</code>, <code>promptResponse</code>, and <code>apiResult</code>. Outgoing messages can use <code>postMessage({ type: 'log' })</code>, <code>postMessage({ type: 'done' })</code>, <code>postMessage({ type: 'api' })</code>, and the terminal line helpers to render output or request file actions.</p>
       <h3>Iframe API reference</h3>
       <p>Sandboxed apps should call <code>window.__goldenbodyAPI</code>. Every method returns a promise, so await it in async code.</p>
       <ul>
