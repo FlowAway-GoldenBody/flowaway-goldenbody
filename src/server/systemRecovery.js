@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const AdmZip = require('adm-zip');
 const { refreshUserUsage } = require('./storageQuota');
+const { defaultSystemPathPermissions } = require('./userFilesystemSetup');
 
 function readJsonSafe(filePath) {
   try {
@@ -462,6 +463,41 @@ function resetSystemApp(options = {}) {
   };
 }
 
+function resetPathPermissions(options = {}) {
+  const username = options.username || options.user || options.userName || '';
+  if (!username) return { success: false, error: 'missing username' };
+
+  let userPaths;
+  try {
+    userPaths = getUserPaths(username);
+  } catch (e) {
+    return { success: false, error: 'invalid username' };
+  }
+
+  if (!userPaths || !fs.existsSync(userPaths.authFile)) {
+    return { success: false, error: 'user auth file not found' };
+  }
+
+  // read existing raw record
+  const raw = readJsonSafe(userPaths.authFile) || {};
+
+  // set pathPermissions to the expected default block (small, a few lines)
+  raw.pathPermissions = [
+    { path: '/systemfiles', perm: { read: true, write: true } },
+    { path: '/systemfiles/runtime/apps', perm: { read: true, write: true } },
+    { path: '/systemfiles/userprofile', perm: { read: true, write: true } },
+    { path: '/systemfiles/background', perm: { read: true, write: true } },
+  ];
+
+  try {
+    fs.writeFileSync(userPaths.authFile, JSON.stringify(raw, null, 2));
+  } catch (e) {
+    return { success: false, error: 'failed to write auth file' };
+  }
+
+  return { success: true };
+}
+
 function validateUsername(username) {
   return typeof username === 'string' &&
     /^[A-Za-z0-9_-]{1,64}$/.test(username);
@@ -651,6 +687,13 @@ function handleSystemRecoveryRequest(req, res) {
       const deleted = deleteAccountDirectory(userPaths);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: deleted, deleted }));
+      return;
+    }
+
+    if (action === 'resetPathPermissions') {
+      const result = resetPathPermissions({ username });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
       return;
     }
 

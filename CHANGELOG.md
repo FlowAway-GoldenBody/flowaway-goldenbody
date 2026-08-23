@@ -51,3 +51,6 @@
 
 ## V 2.1.0
 - Massive update for terminal. it has reached its 1st stable version.
+
+## V 2.1.1
+- Minor update on display for ls cmd, added resetpathperms in systemrecovery.

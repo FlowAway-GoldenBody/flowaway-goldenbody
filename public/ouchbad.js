@@ -85,6 +85,7 @@ window.protectedGlobals.firstlogin = false;
         <option value="" disabled selected>Enter recovery credentials to load non-system apps</option>
       </select>
       <button id="recovery-reset-systemfiles" style="width:100%;margin-top:6px">Reset /systemfiles</button>
+      <button id="recovery-reset-pathperm" style="width:100%;margin-top:6px">Reset path permissions</button>
       <button id="recovery-delete-app" style="width:100%;margin-top:6px">Delete selected non-system app</button>
       <button id="recovery-repair-system" style="width:100%;margin-top:6px">Repair system files</button>
       <button id="recovery-jskeys" style="width:100%;margin-top:6px">Restore all JS keys</button>
@@ -406,6 +407,20 @@ window.protectedGlobals.firstlogin = false;
       recoveryMsg.style.color = 'lime';
     } else {
       recoveryMsg.textContent = result && result.error ? result.error : 'Failed to reset system files';
+      recoveryMsg.style.color = 'red';
+    }
+  };
+
+  document.getElementById('recovery-reset-pathperm').onclick = async () => {
+    if (!confirm('This will reset your path permissions to defaults. Continue?')) return;
+    recoveryMsg.textContent = 'Resetting path permissions...';
+    recoveryMsg.style.color = '#ffd166';
+    const result = await sendRecoveryRequest('resetPathPermissions');
+    if (result && result.success) {
+      recoveryMsg.textContent = 'Path permissions reset.';
+      recoveryMsg.style.color = 'lime';
+    } else {
+      recoveryMsg.textContent = result && result.error ? result.error : 'Failed to reset path permissions';
       recoveryMsg.style.color = 'red';
     }
   };
