@@ -1158,7 +1158,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
           const targetPath = resolveTerminalPath(path, cwd);
           const listing = await window.protectedGlobals.ReadFolder(targetPath, { detail: true });
           if (Array.isArray(listing)) {
-            listing.forEach(i => printLine(`${i.type === "folder" ? '<DIR>' : '<FILE>'}     ${i.path}     size: ${i.size}     modified: ${formatDate(i.mtime)}`));
+            listing.forEach(i => printLine(`${i.type === "folder" ? '<DIR>' : '<FILE>'}     ${i.path}     size: ${i.size ? i.size : '--'}     modified: ${formatDate(i.mtime)}`));
           }
         } catch (e) {
           printError(e.message || String(e));
