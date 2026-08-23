@@ -508,7 +508,7 @@ async function handleFetchfiles(req, res) {
           return res.end(
             JSON.stringify({
               error: "Not a directory",
-              path: `/${relForPerm}`,
+              path: `${relForPerm}`,
             }),
           );
         }

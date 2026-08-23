@@ -1143,22 +1143,22 @@ window.terminal = function (path, posX = 50, posY = 50) {
         return;
       }
 
+      function formatDate(ts) {
+        if (!ts) return "";
+        try {
+          const d = new Date(Number(ts));
+          return d.toLocaleString();
+        } catch (e) {
+          return String(ts);
+        }
+      }
       if (cmd === "ls") {
         const path = parseQuotedPath(cmdline) || parts[1] || cwd || "/";
         try {
           const targetPath = resolveTerminalPath(path, cwd);
-          const listing = await window.protectedGlobals.ReadFolder ? await window.protectedGlobals.ReadFolder(targetPath) : null;
+          const listing = await window.protectedGlobals.ReadFolder(targetPath, { detail: true });
           if (Array.isArray(listing)) {
-            listing.forEach(i => printLine(String(i)));
-          } else {
-            // fallback: use findNodeByPath
-            const node = window.protectedGlobals.findNodeByPath(path);
-            if (node && Array.isArray(node[1])) {
-              const children = node[1].map(c => c[0]);
-              children.forEach(c => printLine(c));
-            } else {
-              printError('Not a directory or unable to list: ' + path);
-            }
+            listing.forEach(i => printLine(`${i.type === "folder" ? '<DIR>' : '<FILE>'}     ${i.path}     size: ${i.size}     modified: ${formatDate(i.mtime)}`));
           }
         } catch (e) {
           printError(e.message || String(e));
