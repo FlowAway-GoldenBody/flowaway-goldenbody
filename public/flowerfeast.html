@@ -7,142 +7,284 @@
       console.log(indexedDB);
     }, 10);
   </script>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>New Tab</title>
 
-<style>
-:root {
-  --bg: #f4f6f8;
-  --card: #ffffff;
-  --text: #111;
-  --input-bg: #ffffff;
-  --input-border: #ccc;
-  --button-bg: #0078ff;
-  --button-hover: #005fcc;
-  --shadow: rgba(0,0,0,0.1);
-}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Tab</title>
 
-body.dark {
-  --bg: #0f1115;
-  --card: #1a1d24;
-  --text: #e6e6e6;
-  --input-bg: #11141a;
-  --input-border: #2a2f3a;
-  --button-bg: #3b82f6;
-  --button-hover: #2563eb;
-  --shadow: rgba(0,0,0,0.6);
-}
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: rgba(255, 255, 255, 0.82);
+      --text: #111827;
+      --muted: #6b7280;
+      --input-bg: #ffffff;
+      --input-border: #d1d5db;
+      --input-focus: #0078ff;
+      --button-bg: #0078ff;
+      --button-hover: #0068dd;
+      --shadow: rgba(0, 0, 0, 0.12);
+      --card-border: rgba(255, 255, 255, 0.7);
+    }
 
-body {
-  font-family: Arial, sans-serif;
-  transform: scale(1.1);
-  transform-origin: top center;
-  background: var(--bg);
+    body.dark {
+      --bg: #0b0d12;
+      --card: rgba(24, 27, 35, 0.82);
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --input-bg: #11141a;
+      --input-border: #2d3440;
+      --input-focus: #3b82f6;
+      --button-bg: #3b82f6;
+      --button-hover: #2563eb;
+      --shadow: rgba(0, 0, 0, 0.5);
+      --card-border: rgba(255, 255, 255, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+ body {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(0, 120, 255, 0.08),
+      transparent 35%
+    ),
+    var(--bg);
+
   display: flex;
   justify-content: center;
   align-items: center;
+
+  width: 100%;
   height: 100vh;
+  min-height: 100vh;
+
   margin: 0;
+  padding: 0;
+
   color: var(--text);
+
+  transition:
+    background 0.25s ease,
+    color 0.25s ease;
 }
 
 .search-box {
-  margin-top: -200px;
+  width: 55%;
+  min-height: 25%;
+
+  margin-top: -12%;
+
   background: var(--card);
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 5px 15px var(--shadow);
-  width: 55vw;
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+
+  padding: 4%;
+
+  box-shadow:
+    0 24px 70px var(--shadow),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+
   text-align: center;
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.search-icon {
+  width: 12%;
+  aspect-ratio: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 auto 3%;
+
+  border-radius: 18px;
+
+  background: linear-gradient(
+    135deg,
+    var(--button-bg),
+    #6aa7ff
+  );
+
+  color: white;
+  font-size: 2vw;
+
+  box-shadow:
+    0 10px 25px rgba(0, 120, 255, 0.25);
 }
 
 h2 {
-  margin-top: 0;
+  margin: 0 0 1.5%;
+
+  font-size: 2.5vw;
+  letter-spacing: -1px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0 0 4%;
+
+  color: var(--muted);
+  font-size: 1.1vw;
+}
+
+.search-row {
+  display: flex;
+  gap: 1.5%;
+  width: 100%;
 }
 
 input {
-  width: 50vw;
-  padding: 10px;
+  width: 78%;
+  min-width: 0;
+
+  padding: 2.5%;
+
   background: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 5px;
-  font-size: 16px;
-  margin-bottom: 10px;
+  border-radius: 14px;
+
+  font-family: inherit;
+  font-size: 1.1vw;
+
   color: var(--text);
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.25s ease;
 }
 
 input::placeholder {
-  color: #888;
+  color: var(--muted);
+}
+
+input:focus {
+  border-color: var(--input-focus);
+
+  box-shadow:
+    0 0 0 4px rgba(0, 120, 255, 0.12);
 }
 
 button {
-  width: 53vw;
-  padding: 10px;
+  width: 20.5%;
+
+  padding: 2.5%;
+
   border: none;
-  border-radius: 5px;
+  border-radius: 14px;
+
   background: var(--button-bg);
   color: white;
-  font-size: 16px;
+
+  font-family: inherit;
+  font-size: 1.1vw;
+  font-weight: 600;
+
   cursor: pointer;
+
+  box-shadow:
+    0 8px 20px rgba(0, 120, 255, 0.2);
+
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 button:hover {
   background: var(--button-hover);
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 12px 25px rgba(0, 120, 255, 0.28);
 }
-</style>
+
+button:active {
+  transform: translateY(0);
+}
+  </style>
 </head>
 
 <body>
 
-<div class="search-box">
-  <h2>Search the Web</h2>
-  <input
-    type="text"
-    id="query"
-    placeholder="Search or Type URL..."
-  />
-  <br><br>
-  <button onclick="searchRedirect()">Search</button>
-</div>
+  <div class="search-box">
+    <div class="search-icon">⌕</div>
 
-<script>
-  let id = 0;
-  let goldenbodywebsite = '';
+    <h2>Search the Web</h2>
 
-  // Theme + ID listener
-  window.addEventListener('message', function(e) {
-    const data = e.data;
-    if (!data.__goldenbodyChangeTheme__) return;
-    if (data?.message === "GOLDENBODY_id") {
-      goldenbodywebsite = data.website;
-      id = data.value;
+    <p class="subtitle">
+      Search the web or enter a website URL
+    </p>
+
+    <div class="search-row">
+      <input
+        type="text"
+        id="query"
+        placeholder="Search or type a URL..."
+        autocomplete="off"
+        autofocus
+      />
+
+      <button onclick="searchRedirect()">
+        Search
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let id = 0;
+    let goldenbodywebsite = '';
+
+    // Theme + ID listener
+    window.addEventListener('message', function(e) {
+      const data = e.data;
+      if (!data.__goldenbodyChangeTheme__) return;
+      if (data?.message === "GOLDENBODY_id") {
+        goldenbodywebsite = data.website;
+        id = data.value;
+      }
+
+      // ✅ DARK MODE SUPPORT
+      if (typeof data?.dark === "boolean") {
+        document.body.classList.toggle("dark", data.dark);
+      }
+    });
+
+    document.getElementById('query').addEventListener('keydown', e => {
+      if (e.key === 'Enter') searchRedirect();
+    });
+
+    function searchRedirect() {
+      const query = document.getElementById("query").value.trim();
+      if (!query) return;
+
+      const encoded = encodeURIComponent(query);
+
+      if (query.startsWith('https://') || query.startsWith('http://')) {
+        window.location.href = id + '/' + query;
+      } else {
+        window.location.href =
+          id + '/' + "https://www.bing.com/search?q=" + encoded;
+      }
     }
-
-    // ✅ DARK MODE SUPPORT
-    if (typeof data?.dark === "boolean") {
-      document.body.classList.toggle("dark", data.dark);
-    }
-  });
-
-  document.getElementById('query').addEventListener('keydown', e => {
-    if (e.key === 'Enter') searchRedirect();
-  });
-
-  function searchRedirect() {
-    const query = document.getElementById("query").value.trim();
-    if (!query) return;
-
-    const encoded = encodeURIComponent(query);
-
-    if (query.startsWith('https://') || query.startsWith('http://')) {
-      window.location.href = id + '/' + query;
-    } else {
-      window.location.href =
-        id + '/' + "https://www.bing.com/search?q=" + encoded;
-    }
-  }
-</script>
+  </script>
 
 </body>
 </html>
