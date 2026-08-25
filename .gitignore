@@ -9,9 +9,6 @@ archive/
 .vscode/
 .env
 
-# don't commit session and cache data
-sessions/*
-
 # but commit the empty folders
 !sessions/.gitkeep
 !cache-js/.gitkeep
