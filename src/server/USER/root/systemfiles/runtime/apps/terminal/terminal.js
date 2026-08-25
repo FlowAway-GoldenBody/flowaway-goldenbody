@@ -992,7 +992,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
       const commandText = String(cmdline).trim();
       const parts = tokenize(commandText);
       if (parts.length === 0) return;
-      const cmd = parts[0].toLowerCase();
+      // Keep command case as-typed to make commands case-sensitive
+      const cmd = parts[0];
 
       // If a worker is active, only allow control commands
       if (terminalBusy) {
@@ -1287,16 +1288,10 @@ window.terminal = function (path, posX = 50, posY = 50) {
           updatePromptVisibility();
           let worker;
           const resolvedScriptPath = scriptPath ? resolveTerminalPath(scriptPath, cwd) : null;
-          if (resolvedScriptPath) {
-            const txt = await window.protectedGlobals.ReadFile(resolvedScriptPath, { text: true, direct: true });
-            // record explicit source for process listing
-            try { instance.options = instance.options || {}; instance.options.source = workerPath || resolvedScriptPath; instance.options._sourceInferred = false; } catch (e) {}
-            worker = await spawnWorkerFromScript(String(txt || ''), null, []);
-          } else {
-            const wrapper = `self.addEventListener('message',(e)=>{ if (e.data && e.data.type==='start') { (async ()=>{ try{ const listing = await api.readFolder('/'); postMessage({type:'log', msg: JSON.stringify(listing)}); postMessage({type:'done'}); }catch(err){ postMessage({type:'log', msg: 'Worker error: '+String(err)}); postMessage({type:'done'}); } })(); } });`;
-            // no explicit source, leave options.source unset so processes.js may infer atTop
-            worker = await spawnWorkerFromScript(wrapper, null, []);
-          }
+          const txt = await window.protectedGlobals.ReadFile(resolvedScriptPath, { text: true, direct: true });
+          // record explicit source for process listing
+          try { instance.options = instance.options || {}; instance.options.source = workerPath || resolvedScriptPath; instance.options._sourceInferred = false; } catch (e) {}
+          try { worker = await spawnWorkerFromScript(String(txt || ''), null, []); } catch (e) { printError('Failed to spawn worker: ' + String(e)); terminalBusy = false; updatePromptVisibility(); return; }
           bindTerminalWorkerLifecycle(worker, scriptPath);
           const trackedPid = getTrackedWorkerPid(worker);
           if (trackedPid) worker.__terminalWorkerPid = trackedPid;
@@ -1310,15 +1305,17 @@ window.terminal = function (path, posX = 50, posY = 50) {
       // Support invoking as: <appId> <cmd> [args...]
       if (parts.length >= 2) {
         const appIdCandidate = parts[0];
-        const appMatch = apps.find(a => (a.id || '').toLowerCase() === String(appIdCandidate || '').toLowerCase());
+        // Match app id case-sensitively
+        const appMatch = apps.find(a => (a.id || '') === String(appIdCandidate || ''));
         if (appMatch) {
           // if app has no commands, inform the user
           if (!appMatch.commands || !Array.isArray(appMatch.commands) || appMatch.commands.length === 0) {
             printError(`This app has no command available: ${appMatch.id}`);
             return;
           }
-          const cmdCandidate = parts[1].toLowerCase();
-          const cmdObj = (appMatch.commands || []).find(c => (c.name || '').toLowerCase() === cmdCandidate);
+          // Match app command name case-sensitively
+          const cmdCandidate = parts[1];
+          const cmdObj = (appMatch.commands || []).find(c => (c.name || '') === cmdCandidate);
           if (!cmdObj) {
             // suggest closest command name
             const levenshtein = (a, b) => {
@@ -1380,7 +1377,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
         if (!a.commands || !Array.isArray(a.commands)) continue;
         for (const c of a.commands) {
           if (!c || !c.name) continue;
-          if (c.name.toLowerCase() === cmd) {
+          // Compare command names case-sensitively
+          if (c.name === cmd) {
             // if command has a src that looks like an absolute path, print its contents
             try {
               if (c.src && String(c.src).startsWith('/')) {
@@ -1441,7 +1439,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
         }
       }
       // If user typed an app id alone, try launching that app
-      const appById = apps.find(a => (a.id || '').toLowerCase() === String(cmd || '').toLowerCase());
+      // If user typed an app id alone, try launching that app (case-sensitive)
+      const appById = apps.find(a => (a.id || '') === String(cmd || ''));
       if (appById) {
         try {
           await window.protectedGlobals.launchApp(appById.id);
