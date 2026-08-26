@@ -27,9 +27,7 @@ const height = screen.availHeight;
     b.style.height = '100px';
     b.onclick = () => launchHomepage(true);
     document.body.appendChild(b);
-    let constructionlbl = document.createElement('h1');
-    constructionlbl.textContent = 'The statefarm client demo is in construction. To use the web vm, click 1 of the 2 buttons above.';
-    document.body.appendChild(constructionlbl);
+
       (async () => {
         let sessionId = await fetch('/server/getBrowserSessionId').then(res => res.text());
         let shellIframe = document.createElement('iframe');
