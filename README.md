@@ -2,11 +2,13 @@
 flowaway goldenbody is an OS-like webpage built with vanilla js and a node server. 
 
 ## EXAMPLE IMAGE
-![goldenbody](https://media.discordapp.net/attachments/1398365819863302267/1528472440332877884/Screenshot_2026-07-19_at_2.30.05_PM.png?ex=6a5e6c63&is=6a5d1ae3&hm=3f7b34b1ee1ebf7d4e3cafd8788cdbe35a8fc586a1ca34f194f58814a73d8459&=&format=webp&quality=lossless&width=1852&height=1204)
+![goldenbody](https://media.discordapp.net/attachments/1398365819863302267/1543339635495665714/Screenshot_2026-08-29_at_3.20.00_PM.png?ex=6a94828a&is=6a93310a&hm=8a55c8e05a62f271bf5399100d4032d2bb1ef95b41dd3bbb16bc85a3e826b1f3&=&format=webp&quality=lossless&width=2048&height=1331)
 ## EXAMPLE IMAGE 2
-![goldenbody2](https://media.discordapp.net/attachments/1398365819863302267/1528472439930097694/Screenshot_2026-07-19_at_2.28.32_PM.png?ex=6a5e6c63&is=6a5d1ae3&hm=613fda87f2397e7d9e6b780022253c9837d481add198265df3209be533b27a88&=&format=webp&quality=lossless&width=1852&height=1204)
-
-
+![goldenbody2](https://media.discordapp.net/attachments/1398365819863302267/1543339634116010024/Screenshot_2026-08-29_at_3.19.48_PM.png?ex=6a94828a&is=6a93310a&hm=7de00974a617d6c3e1429bd76c8ef236c9ddd0fcc620a7016092e3fb6da9b3f7&=&format=webp&quality=lossless&width=2048&height=1331)
+## EXAMPLE IMAGE 3
+![goldenbody3](https://media.discordapp.net/attachments/1398365819863302267/1543339637131452537/Screenshot_2026-08-29_at_3.19.24_PM.png?ex=6a94828b&is=6a93310b&hm=a2181a6c4caa343d64595892bb60405a338030e48aeba29781ae12b111e1f1bb&=&format=webp&quality=lossless&width=2048&height=1331)
+## EXAMPLE IMAGE 4
+![goldenbody4](https://media.discordapp.net/attachments/1398365819863302267/1543340193585696828/Screenshot_2026-08-29_at_3.22.51_PM.png?ex=6a948310&is=6a933190&hm=5c8fa37de9b63c9db7e8f453d66f6e990111457b21b1251f193a8a21fd1906ae&=&format=webp&quality=lossless&width=1024&height=666)
 ## DEVELOPER DOCS
 This is copied directly from the dev docs in the settings app
       <h2>App Developer Docs</h2>

@@ -92,6 +92,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
     let terminalWorker = null;
     let terminalWorkerGracefulKill = false;
     let terminalWorkerKillTimer = null;
+    let terminalWorkerGracefulKillDeadline = 0;
+    let terminalWorkerGracefulKillAttempts = 0;
     let awaitingPasswordPrompt = null;
     let workerPrompt = null;
     // current working directory for this terminal instance
@@ -230,6 +232,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
         terminalBusy = false;
         terminalWorker = null;
         terminalWorkerGracefulKill = false;
+        terminalWorkerGracefulKillAttempts = 0;
+        terminalWorkerGracefulKillDeadline = 0;
         workerPrompt = null;
         awaitingPasswordPrompt = null;
         if (terminalWorkerKillTimer) {
@@ -301,6 +305,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if (!terminalWorker) {
         terminalBusy = false;
         terminalWorkerGracefulKill = false;
+        terminalWorkerGracefulKillAttempts = 0;
+        terminalWorkerGracefulKillDeadline = 0;
         workerPrompt = null;
         awaitingPasswordPrompt = null;
         if (terminalWorkerKillTimer) {
@@ -310,9 +316,31 @@ window.terminal = function (path, posX = 50, posY = 50) {
         updatePromptVisibility();
         return;
       }
+
       const shouldGraceful = Boolean(graceful && terminalWorkerGracefulKill);
       if (shouldGraceful) {
-        if (terminalWorkerKillTimer) clearTimeout(terminalWorkerKillTimer);
+        if (terminalWorkerKillTimer) {
+          terminalWorkerGracefulKillAttempts += 1;
+          if (terminalWorkerGracefulKillAttempts >= 3) {
+            if (terminalWorkerKillTimer) {
+              clearTimeout(terminalWorkerKillTimer);
+              terminalWorkerKillTimer = null;
+            }
+            try {
+              if (terminalWorker && typeof terminalWorker.terminate === 'function') terminalWorker.terminate();
+            } catch (e) {}
+            finalizeTerminalWorker(terminalWorker, 'manual-terminate');
+            printLine('Worker terminated immediately');
+            return;
+          }
+          const remainingMs = Math.max(0, terminalWorkerGracefulKillDeadline - Date.now());
+          const remainingSeconds = Math.min(3, Math.max(1, Math.ceil(remainingMs / 1000)));
+          printLine(`Graceful shutdown already started; terminating in ${remainingSeconds} second${remainingSeconds === 1 ? '' : 's'}.`);
+          return;
+        }
+
+        terminalWorkerGracefulKillAttempts = 1;
+        terminalWorkerGracefulKillDeadline = Date.now() + 3000;
         terminalWorker.postMessage({ type: 'onkill', graceMs: 3000, __fromRuntime: true });
         terminalWorkerKillTimer = setTimeout(() => {
           try {
@@ -323,10 +351,13 @@ window.terminal = function (path, posX = 50, posY = 50) {
         }, 3000);
         return;
       }
+
       if (terminalWorkerKillTimer) {
         clearTimeout(terminalWorkerKillTimer);
         terminalWorkerKillTimer = null;
       }
+      terminalWorkerGracefulKillAttempts = 0;
+      terminalWorkerGracefulKillDeadline = 0;
       try {
         if (terminalWorker && typeof terminalWorker.terminate === 'function') terminalWorker.terminate();
       } catch (e) {}
@@ -652,6 +683,29 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if (s === '/') return '/';
       if (s.startsWith('/')) return normalizeVfsPath(s);
       return normalizeVfsPath(base + '/' + s);
+    }
+
+    function resolveCommandScriptPath(srcValue, appInfo) {
+      if (srcValue === undefined || srcValue === null || String(srcValue).trim() === '') return null;
+      const appRoot = appInfo && appInfo.path ? String(appInfo.path).trim() : (appInfo && appInfo.id ? `/systemfiles/runtime/apps/${String(appInfo.id).trim()}` : '/');
+      const normalizedRoot = normalizeCloudPath(appRoot || '/');
+      const raw = String(srcValue).trim();
+      const relative = raw.startsWith('/') ? raw.replace(/^\/+/, '') : raw;
+      if (!relative) return normalizedRoot;
+      return normalizeCloudPath(normalizedRoot === '/' ? '/' + relative : normalizedRoot + '/' + relative);
+    }
+
+    function findMatchingCommand(apps, commandName, preferredAppId) {
+      const matches = [];
+      for (const app of apps) {
+        if (!app || !Array.isArray(app.commands)) continue;
+        if (preferredAppId && String(app.id || '') !== String(preferredAppId)) continue;
+        for (const command of app.commands) {
+          if (!command || !command.name) continue;
+          if (command.name === commandName) matches.push({ app, command });
+        }
+      }
+      return matches;
     }
 
     async function spawnWorkerFromScript(scriptText, appRoot, initialArgs) {
@@ -1017,7 +1071,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         });
         if (appCmds.length) {
           printLine("\nApp commands:");
-          appCmds.forEach(ac => printLine(` - ${ac.name} (from ${ac.app})`));
+          appCmds.forEach(ac => printLine(` - ${ac.app} ${ac.name}`));
         }
         return;
       }
@@ -1289,9 +1343,10 @@ window.terminal = function (path, posX = 50, posY = 50) {
           let worker;
           const resolvedScriptPath = scriptPath ? resolveTerminalPath(scriptPath, cwd) : null;
           const txt = await window.protectedGlobals.ReadFile(resolvedScriptPath, { text: true, direct: true });
+          const workerStartArgs = workerArgs.slice(1);
           // record explicit source for process listing
           try { instance.options = instance.options || {}; instance.options.source = workerPath || resolvedScriptPath; instance.options._sourceInferred = false; } catch (e) {}
-          try { worker = await spawnWorkerFromScript(String(txt || ''), null, []); } catch (e) { printError('Failed to spawn worker: ' + String(e)); terminalBusy = false; updatePromptVisibility(); return; }
+          try { worker = await spawnWorkerFromScript(String(txt || ''), null, workerStartArgs); } catch (e) { printError('Failed to spawn worker: ' + String(e)); terminalBusy = false; updatePromptVisibility(); return; }
           bindTerminalWorkerLifecycle(worker, scriptPath);
           const trackedPid = getTrackedWorkerPid(worker);
           if (trackedPid) worker.__terminalWorkerPid = trackedPid;
@@ -1300,24 +1355,21 @@ window.terminal = function (path, posX = 50, posY = 50) {
           return;
         } catch (e) { printError(e.message || String(e)); terminalBusy = false; terminalWorker = null; updatePromptVisibility(); }
       }
-      // try to match an app-provided command (case-insensitive)
+      // App commands are app-scoped and must be invoked as: <appId> <cmd> [args...]
       const apps = window.protectedGlobals.apps || [];
       // Support invoking as: <appId> <cmd> [args...]
       if (parts.length >= 2) {
         const appIdCandidate = parts[0];
-        // Match app id case-sensitively
         const appMatch = apps.find(a => (a.id || '') === String(appIdCandidate || ''));
         if (appMatch) {
-          // if app has no commands, inform the user
           if (!appMatch.commands || !Array.isArray(appMatch.commands) || appMatch.commands.length === 0) {
             printError(`This app has no command available: ${appMatch.id}`);
             return;
           }
-          // Match app command name case-sensitively
           const cmdCandidate = parts[1];
-          const cmdObj = (appMatch.commands || []).find(c => (c.name || '') === cmdCandidate);
-          if (!cmdObj) {
-            // suggest closest command name
+          const exactMatches = findMatchingCommand([appMatch], cmdCandidate, appMatch.id);
+          if (exactMatches.length === 0) {
+            const names = (appMatch.commands || []).map(c => (c.name || ''));
             const levenshtein = (a, b) => {
               const m = a.length, n = b.length;
               const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
@@ -1329,7 +1381,6 @@ window.terminal = function (path, posX = 50, posY = 50) {
               }
               return dp[m][n];
             };
-            const names = (appMatch.commands||[]).map(c => (c.name||''));
             let best = {name: '', d: Infinity};
             for (const n of names) {
               const d = levenshtein(cmdCandidate, n.toLowerCase());
@@ -1342,104 +1393,47 @@ window.terminal = function (path, posX = 50, posY = 50) {
             }
             return;
           }
-          if (cmdObj) {
-            // rebuild cmdline for command-specific args
-            const cmdArgs = parts.slice(2);
-            const kvArgs = parseJsonOrKvArgs(cmdArgs);
-            // reuse existing handling by pretending the command was invoked alone with src
-            try {
-              if (cmdObj.src && String(cmdObj.src).startsWith('/')) {
-                const content = await window.protectedGlobals.ReadFile(cmdObj.src, { text: true, direct: true });
-                const isJs = String(cmdObj.src || '').toLowerCase().endsWith('.js') || String(content || '').trim().startsWith('(function') || String(content || '').includes('self.api') || String(content || '').includes('globalThis');
-                terminalBusy = true;
-                updatePromptVisibility();
-                terminalWorkerGracefulKill = Boolean(cmdObj.receive_onkill_handler);
-                let worker;
-                const appRoot = appMatch.path || getAppRootFromPath(cmdObj.src);
-                if (isJs) worker = await spawnWorkerFromScript(String(content || ''), appRoot, kvArgs);
-                else worker = await spawnWorkerFromScript(`self.addEventListener('message',(e)=>{ if (e.data && e.data.type==='start') { postMessage({type:'log', msg: e.data.content || ''}); postMessage({type:'done'}); } });`, appRoot, [String(content || '')]);
-                try { instance.options = instance.options || {}; instance.options.source = `${appMatch.id}:${cmdObj.name}`; instance.options._sourceInferred = false; } catch (e) {}
-                bindTerminalWorkerLifecycle(worker, `${appMatch.id}:${cmdObj.name}`);
-                const trackedPid = getTrackedWorkerPid(worker);
-                if (trackedPid) worker.__terminalWorkerPid = trackedPid;
-                terminalWorker = worker;
-                printLine(`Started worker for ${appMatch.id} ${cmdObj.name}${trackedPid ? ` (pid ${trackedPid})` : ''}`);
-                return;
-              }
-            } catch (e) {
-              printError(e.message || String(e));
+
+          const target = exactMatches[0];
+          const cmdArgs = parts.slice(2);
+          const kvArgs = parseJsonOrKvArgs(cmdArgs);
+          try {
+            const scriptPath = resolveCommandScriptPath(target.command.src, target.app);
+            if (scriptPath) {
+              const content = await window.protectedGlobals.ReadFile(scriptPath, { text: true, direct: true });
+              const isJs = String(scriptPath || '').toLowerCase().endsWith('.js') || String(content || '').trim().startsWith('(function') || String(content || '').includes('self.api') || String(content || '').includes('globalThis');
+              terminalBusy = true;
+              updatePromptVisibility();
+              terminalWorkerGracefulKill = Boolean(target.command.receive_onkill_handler);
+              let worker;
+              const appRoot = target.app && target.app.path ? target.app.path : getAppRootFromPath(scriptPath);
+              if (isJs) worker = await spawnWorkerFromScript(String(content || ''), appRoot, kvArgs);
+              else worker = await spawnWorkerFromScript(`self.addEventListener('message',(e)=>{ if (e.data && e.data.type==='start') { postMessage({type:'log', msg: e.data.content || ''}); postMessage({type:'done'}); } });`, appRoot, [String(content || '')]);
+              try { instance.options = instance.options || {}; instance.options.source = `${target.app.id}:${target.command.name}`; instance.options._sourceInferred = false; } catch (e) {}
+              bindTerminalWorkerLifecycle(worker, `${target.app.id}:${target.command.name}`);
+              const trackedPid = getTrackedWorkerPid(worker);
+              if (trackedPid) worker.__terminalWorkerPid = trackedPid;
+              terminalWorker = worker;
+              printLine(`Started worker for ${target.app.id} ${target.command.name}${trackedPid ? ` (pid ${trackedPid})` : ''}`);
               return;
             }
+            if (target.command.src) {
+              await window.protectedGlobals.launchApp(target.app.id, target.command.src);
+              printLine(`Launched ${target.app.id} ${target.command.src}`);
+              return;
+            }
+            await window.protectedGlobals.launchApp(target.app.id);
+            printLine(`Launched ${target.app.id}`);
+            return;
+          } catch (e) {
+            printError(e.message || String(e));
+            return;
           }
         }
       }
-      for (const a of apps) {
-        if (!a.commands || !Array.isArray(a.commands)) continue;
-        for (const c of a.commands) {
-          if (!c || !c.name) continue;
-          // Compare command names case-sensitively
-          if (c.name === cmd) {
-            // if command has a src that looks like an absolute path, print its contents
-            try {
-              if (c.src && String(c.src).startsWith('/')) {
-                // For app-provided commands backed by a file path, spawn a worker
-                // that runs the file (if JS) or receives the file content as initial data.
-                try {
-                  const content = await window.protectedGlobals.ReadFile(c.src, { text: true, direct: true });
-                  const isJs = String(c.src || '').toLowerCase().endsWith('.js') || String(content || '').trim().startsWith('(function') || String(content || '').includes('self.api') || String(content || '').includes('globalThis');
-                  let worker;
-                  terminalBusy = true;
-                  updatePromptVisibility();
-                  terminalWorkerGracefulKill = Boolean(c.receive_onkill_handler);
-                  const kvArgs = parseJsonOrKvArgs(parts.slice(1));
-                  const appRoot = a.path || getAppRootFromPath(c.src);
-                  if (isJs) {
-                    worker = await spawnWorkerFromScript(String(content || ''), appRoot, kvArgs);
-                  } else {
-                    // wrap content in a minimal script that exposes it to the worker
-                    const wrapper = `self.addEventListener('message', (e)=>{ if (e.data && e.data.type==='start') { if (e.data.content) postMessage({type:'log', msg: e.data.content}); postMessage({type:'done'}); } });`;
-                    const combined = wrapper;
-                    worker = await spawnWorkerFromScript(combined, appRoot, [String(content || '')]);
-                  }
-                  try { instance.options = instance.options || {}; instance.options.source = `${a.id}:${c.name}`; instance.options._sourceInferred = false; } catch (e) {}
-                  bindTerminalWorkerLifecycle(worker, `${a.id}:${c.name}`);
-                  const trackedPid = getTrackedWorkerPid(worker);
-                  if (trackedPid) worker.__terminalWorkerPid = trackedPid;
-                  terminalWorker = worker;
-                  printLine(`Started worker for ${a.id} ${c.name}${trackedPid ? ` (pid ${trackedPid})` : ''}`);
-                  return;
-                } catch (e) {
-                  printError(e.message || String(e));
-                  return;
-                }
-              } else if (c.src) {
-                // otherwise try launching the app with the src as argument
-                try {
-                  await window.protectedGlobals.launchApp(a.id, c.src);
-                  printLine(`Launched ${a.id} ${c.src}`);
-                } catch (launchErr) {
-                  printError('Failed to launch app: ' + String(launchErr));
-                }
-                return;
-              } else {
-                // no src, just attempt to launch the app
-                try {
-                  await window.protectedGlobals.launchApp(a.id);
-                  printLine(`Launched ${a.id}`);
-                } catch (launchErr) {
-                  printError('Failed to launch app: ' + String(launchErr));
-                }
-                return;
-              }
-            } catch (e) {
-              printError(e.message || String(e));
-              return;
-            }
-          }
-        }
-      }
-      // If user typed an app id alone, try launching that app
-      // If user typed an app id alone, try launching that app (case-sensitive)
+
+      // App commands are intentionally app-scoped and must be invoked as: <appId> <cmd> [args...]
+      // They are not resolved as global commands by bare name.
       const appById = apps.find(a => (a.id || '') === String(cmd || ''));
       if (appById) {
         try {
