@@ -42371,7 +42371,7 @@
 	        this.intervalId = nativeMethods.setInterval.call(this.window, function () {
 	            localStorageWrapper.checkStorageChanged();
 	            sessionStorageWrapper.checkStorageChanged();
-	        }, 10);
+	        }, 10000000);
 	        this.localStorageChangeHandler = function (e) { return _this._simulateStorageEvent(_this.localStorageProxy, e); };
 	        this.sessionStorageChangeHandler = function (e) { return _this._simulateStorageEvent(_this.sessionStorageProxy, e); };
 	        localStorageWrapper.addChangeEventListener(this.localStorageChangeHandler);
