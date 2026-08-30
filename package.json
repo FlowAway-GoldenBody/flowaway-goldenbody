@@ -1,6 +1,6 @@
 {
   "name": "FlowAway GoldenBody",
-  "version": "1.0.0",
+  "version": "2.1.2",
   "description": "An OS-like webpage built with vanilla js and a node server, with 1 extra optional dependency and some rammerhead ones",
   "main": "src/index.js",
   "scripts": {

@@ -54,3 +54,10 @@
 
 ## V 2.1.1
 - Minor update on display for ls cmd, added resetpathperms in systemrecovery.
+
+## V 2.1.2
+- update readme, fixed a bug in terminal where you can run app custom commands without the apps name in front, fixed a security hole where app command scripts can be from files out of their app program folder
+
+## No version increase
+- fixed server performance issue, various bug fixes
+- remove the iframe hook after sign out
