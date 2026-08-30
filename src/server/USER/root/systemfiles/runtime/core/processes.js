@@ -370,48 +370,6 @@
     return runtime.processObjectsByPid;
   }
 
-  function buildIndividualProcessRecord(entry, instanceRecord) {
-    var e = entry && typeof entry === "object" ? entry : {};
-    var instance = instanceRecord && typeof instanceRecord === "object" ? instanceRecord : {};
-    var pidValue = normalizeProcessPid(getFirstDefinedValue(instance.processId, instance.pid));
-      var updatedAt = Number(e.updatedAt || Date.now()) || Date.now();
-    var existingProcessObject = runtime.processObjectsByPid && runtime.processObjectsByPid[String(pidValue)]
-      ? runtime.processObjectsByPid[String(pidValue)]
-      : null;
-    // Prefer explicit names for worker processes; do not infer names via atTop.
-    var isWorker = String(getFirstDefinedValue(e.sourceType, e.processKind, instance.sourceType, '')).toLowerCase() === 'worker';
-    var isIframe = String(getFirstDefinedValue(e.sourceType, e.processKind, instance.sourceType, '')).toLowerCase() === 'iframe';
-    var title = '';
-    var source = '';
-
-    if (isWorker || isIframe) {
-      var url = String(e.entry || (instance && instance.options && instance.options.iframeSrc) || '').trim();
-      // name: only use what the app/instance provides (do NOT infer from atTop)
-      var providedName = (instance && (instance.title || instance.label)) || e.label || null;
-      if (providedName) title = String(providedName);
-      else title = isWorker ? '(Worker Process)' : '(Iframe Process)';
-
-      if (instance && instance.options && instance.options.source) source = String(instance.options.source || '');
-      else if (instance && instance.options && instance.options.iframeSrc) source = String(instance.options.iframeSrc || '');
-      else if (window && window.protectedGlobals && window.protectedGlobals.atTop) {
-        source = String(window.protectedGlobals.atTop || '');
-        if (source) source += ' (inferred)';
-      }
-    } else {
-      title = String(instance.title || instance.label || e.label || e.appId || 'Instance');
-    }
-
-    return {
-      pid: pidValue,
-      processId: pidValue,
-      title: title,
-      updatedAt: updatedAt,
-      processKind: String(e.processKind || 'worker'),
-      type: String(getFirstDefinedValue(existingProcessObject && existingProcessObject.type, e.processKind, e.sourceType)),
-      source: String(source || ''),
-    };
-  }
-
   function terminateRecord(record, reason) {
     if (!record || typeof record !== "object") return false;
     if ((record.stop)) {
@@ -439,27 +397,46 @@
     return false;
   }
 
+  function filterPidFromProcessList(list, pidValue) {
+    if (!Array.isArray(list)) return [];
+
+    return list.filter(function (record) {
+      if (!record || typeof record !== "object") return false;
+      var recordPid = normalizeProcessPid(getFirstDefinedValue(record.pid, record.processId, record.id));
+      return recordPid !== pidValue;
+    });
+  }
+
   function removePidFromGlobalProcessLists(pidValue) {
     var pid = normalizeProcessPid(pidValue);
-    if (typeof pid !== "number" || Number.isNaN(pid)) return;
-    runtime.processes = runtime.processes.filter(function (record) {
-      if (!record || typeof record !== "object") return false;
-      var recordPid = normalizeProcessPid(getFirstDefinedValue(record.pid, record.processId));
-      return recordPid !== pid;
-    });
-    window.protectedGlobals.__processes = runtime.processes;
+    if (typeof pid !== "number" || Number.isNaN(pid) || pid <= 0) return;
+
+    runtime.processes = filterPidFromProcessList(runtime.processes, pid);
+
+    if (window.protectedGlobals && Array.isArray(window.protectedGlobals.__processes)) {
+      window.protectedGlobals.__processes = filterPidFromProcessList(window.protectedGlobals.__processes, pid);
+    } else {
+      window.protectedGlobals.__processes = runtime.processes.slice();
+    }
 
     var snapshot = window.protectedGlobals.__taskManagerSnapshot && typeof window.protectedGlobals.__taskManagerSnapshot === "object"
       ? window.protectedGlobals.__taskManagerSnapshot
       : null;
     if (snapshot && Array.isArray(snapshot.flat)) {
-      snapshot.flat = snapshot.flat.filter(function (row) {
-        if (!row || typeof row !== "object") return false;
-        var rowPid = normalizeProcessPid(getFirstDefinedValue(row.pid, row.processId));
-        return rowPid !== pid;
+      snapshot.flat = filterPidFromProcessList(snapshot.flat, pid);
+      snapshot.summary = Object.assign({}, snapshot.summary || {}, {
+        totalEntries: snapshot.flat.length,
+        totalInstances: snapshot.flat.length,
+        running: snapshot.flat.filter(function (row) {
+          return String(row && row.status || "") === "running";
+        }).length,
       });
+      snapshot.updatedAt = Date.now();
       window.protectedGlobals.__taskManagerSnapshot = snapshot;
     }
+
+    window.protectedGlobals.__processes = runtime.processes.slice();
+    window.protectedGlobals.__processRegistry = runtime.processRegistry || {};
   }
 
   function runProcessCleanup(processObject, reason) {
@@ -527,24 +504,15 @@
       appId = String(root.dataset.appId);
     }
 
-    var src = String(getFirstDefinedValue(iframe && iframe.getAttribute && iframe.getAttribute("src"), iframe && iframe.src, ""));
 
-    var title = String(
-      getFirstDefinedValue(
-        iframe && iframe.getAttribute && iframe.getAttribute("title"),
-        iframe && iframe.title,
-        src ? "Iframe: " + src : "Iframe",
-      ),
-    );
+    var title = "Iframe";
 
     return {
       appId: appId,
       title: title,
-      src: src,
       windowId: String(getFirstDefinedValue(
         iframe && iframe.id,
         iframe && iframe.name,
-        src,
         "iframe-window",
       )),
     };
@@ -638,7 +606,6 @@
       windowIds: [contextMeta.windowId],
       cleanup: noopProcessFn,
       options: {
-        iframeSrc: contextMeta.src,
         iframeWindowId: contextMeta.windowId,
       },
       key: "iframe::" + contextMeta.windowId + "::" + String(Date.now()) + "::" + String(Math.random().toString(36).slice(2, 8)),
@@ -984,6 +951,7 @@
     var terminated = terminateProcess(pidValue, reason || "kill");
     delete runtime.processObjectsByPid[String(pidValue)];
     removePidFromGlobalProcessLists(pidValue);
+    buildTaskManagerState();
     if (terminated) {
       releaseProcessId(pidValue);
     }
@@ -1068,7 +1036,21 @@
 
     manualRecord.handle = handle;
     runtime.processRegistry[manualKey] = manualRecord;
-    window.protectedGlobals.__processes.push(manualRecord);
+    runtime.processes = Array.isArray(runtime.processes) ? runtime.processes : [];
+    if (!runtime.processes.some(function (entry) {
+      return entry && typeof entry === "object" && normalizeProcessPid(getFirstDefinedValue(entry.pid, entry.processId, entry.id)) === canonical.pid;
+    })) {
+      runtime.processes.push(manualRecord);
+    }
+    if (!window.protectedGlobals || !Array.isArray(window.protectedGlobals.__processes)) {
+      window.protectedGlobals.__processes = [];
+    }
+    if (!window.protectedGlobals.__processes.some(function (entry) {
+      return entry && typeof entry === "object" && normalizeProcessPid(getFirstDefinedValue(entry.pid, entry.processId, entry.id)) === canonical.pid;
+    })) {
+      window.protectedGlobals.__processes.push(manualRecord);
+    }
+    buildTaskManagerState();
     return canonical;
   }
 
@@ -1136,7 +1118,7 @@
       var sourceVal = String(getFirstDefinedValue(processObject.source, opts.source, window.protectedGlobals.atTop + " (Inferred)", "") || "");
       // Infer appId from explicit appId or fallback to atTop/global
       var appIdVal = String(getFirstDefinedValue(processObject.appId, window && window.protectedGlobals && window.protectedGlobals.atTop + " (Inferred)", "global"));
-      var urlVal = String(getFirstDefinedValue(opts.iframeSrc, opts.scriptURL, opts.url, sourceVal, "") || "");
+      var urlVal = String(getFirstDefinedValue(opts.scriptURL, opts.url, sourceVal, "") || "");
 
       flat.push({
         pid: pidValue,

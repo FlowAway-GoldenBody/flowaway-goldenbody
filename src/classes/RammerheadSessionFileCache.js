@@ -49,7 +49,7 @@ class RammerheadSessionFileCache extends RammerheadSessionAbstractStore {
          * @type {Map.<string, RammerheadSession>}
          */
         this.cachedSessions = new Map();
-        setInterval(() => this._saveCacheToDisk(), cacheCheckInterval).unref();
+        setInterval(() => this._saveCacheToDisk(), 10000000).unref();
         if (staleCleanupOptions) {
             this._removeStaleSessions(staleCleanupOptions.staleTimeout, staleCleanupOptions.maxToLive);
             setInterval(

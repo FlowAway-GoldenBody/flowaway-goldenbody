@@ -486,8 +486,8 @@ window.taskManager = function (posX = 50, posY = 50) {
   }
 
   const totalTasksValue = createSummaryCard("Total Tasks");
-  const runningValue = createSummaryCard("Running");
-  const totalInstancesValue = createSummaryCard("Instance Tasks");
+  const iframeValue = createSummaryCard("Iframes");
+  const workerValue = createSummaryCard("Workers");
   const memoryValue = createSummaryCard("Memory Used");
 
   const controls = document.createElement("div");
@@ -813,38 +813,27 @@ window.taskManager = function (posX = 50, posY = 50) {
   }
 
   function summarizeRows(snapshot, rows) {
-    const provided = snapshot && snapshot.summary && typeof snapshot.summary === "object"
-      ? snapshot.summary
-      : null;
-
-    if (provided) {
-      return {
-        totalEntries: Number(provided.totalEntries || rows.length),
-        running: Number(provided.running || 0),
-        totalInstances: Number(provided.totalInstances || 0),
-      };
-    }
-
-    let running = 0;
-    let totalInstances = 0;
+    let iframeCount = 0;
+    let workerCount = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      totalInstances += 1;
-      if (row.status === "running") running++;
+      const normalizedType = String(row && (row.sourceType || row.processKind || "") || "").toLowerCase();
+      if (normalizedType === "iframe") iframeCount += 1;
+      else if (normalizedType === "worker") workerCount += 1;
     }
 
     return {
       totalEntries: rows.length,
-      running,
-      totalInstances,
+      iframeCount,
+      workerCount,
     };
   }
 
   function renderSummary(summary) {
     totalTasksValue.textContent = String(Number(summary.totalEntries || 0));
-    runningValue.textContent = String(Number(summary.running || 0));
-    totalInstancesValue.textContent = String(Number(summary.totalInstances || 0));
+    iframeValue.textContent = String(Number(summary.iframeCount || 0));
+    workerValue.textContent = String(Number(summary.workerCount || 0));
 
     if (performance && performance.memory) {
       const used = Number(performance.memory.usedJSHeapSize || 0);
@@ -886,15 +875,16 @@ window.taskManager = function (posX = 50, posY = 50) {
         tr.style.background = "rgba(127,127,127,0.18)";
       }
 
-      const nameCellText = row.name || "process";
       const normalizedType = String(row.sourceType || row.processKind || "").toLowerCase();
+
       const taskCellText = (() => {
         if (normalizedType === "worker") return "Worker";
         if (normalizedType === "iframe") return "Iframe";
         return row.sourceType || row.processKind || "Process";
       })();
-      const sourceCellText = row.appLabel && row.appLabel !== "unknown-app" && row.appLabel !== "unknown"
-        ? row.appLabel
+      const nameCellText = (row.name === 'process' && row.name !== "null") ? taskCellText : row.name;
+      const sourceCellText = row.appId
+        ? row.appId
         : "global";
       const pidText =
         row.processId === null || typeof row.processId === "undefined"
@@ -1330,14 +1320,6 @@ window.taskManager = function (posX = 50, posY = 50) {
     if (terminatedByProcessApi) {
       attempted = Math.max(attempted, 1);
       closed = Math.max(closed, 1);
-    }
-
-    if (closed > 0) {
-      setStatus(
-        "Kill completed for '" + row.label + "' (closed " + closed + ", attempted " + attempted + ").",
-      );
-    } else {
-      setStatus("No closeable instances found for '" + row.label + "'.", true);
     }
   }
 
