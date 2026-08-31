@@ -23,7 +23,6 @@ window.addEventListener("appUpdated", window.protectedGlobals.systemAPIs.onAppUp
 window.protectedGlobals.oldLoadTree = window.protectedGlobals.loadTree;
 window.protectedGlobals.loadTree = async function () {
   await window.protectedGlobals.oldLoadTree();
-  await window.protectedGlobals.loadAppsFromTree();
   window.protectedGlobals.annotateTreeWithPaths(window.protectedGlobals.treeData);
 };
 
@@ -705,11 +704,6 @@ window.protectedGlobals.applyStyles = function applyStyles() {
 setTimeout(() => {
   window.protectedGlobals.applyStyles();
 }, 100);
-
-// Ensure apps are loaded shortly after startup (safe-guard if tree already present)
-setTimeout(() => {
-  window.protectedGlobals.loadAppsFromTree();
-}, 200);
 
 setTimeout(() => {
 document.documentElement.style.filter = `brightness(${window.protectedGlobals.statusData && window.protectedGlobals.statusData.brightness}%)`;

@@ -103,8 +103,6 @@ window.protectedGlobals.setAppDataTitle = function (targetOrTitle, maybeTitle) {
   return true;
 };
 window.protectedGlobals.loadAppsFromTree = async function () {
-  if (window.protectedGlobals.loaded) return;
-  window.protectedGlobals.loaded = true;
   window.protectedGlobals.apps = [];
   if (!window.protectedGlobals.treeData) await window.protectedGlobals.loadTree();
   try {

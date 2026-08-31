@@ -32,7 +32,6 @@ window.protectedGlobals.savedScrollY = 0;
 window.protectedGlobals.nhjd = 1;
 window.protectedGlobals.systemAPIs = window.protectedGlobals.systemAPIs || {};
 window.protectedGlobals.USER_PROFILE_PATH = "systemfiles/userprofile/profile.json";
-window.protectedGlobals.loaded = false;
 window.protectedGlobals.APP_VERSION = "this app is not versioned";
 window.protectedGlobals.hasChanges = false;
 window.protectedGlobals.atTop = "";
