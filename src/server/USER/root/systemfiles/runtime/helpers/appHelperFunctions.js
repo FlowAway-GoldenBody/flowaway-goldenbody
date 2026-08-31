@@ -122,18 +122,27 @@ window.protectedGlobals.loadAppsFromTree = async function () {
         : null;
     if (!appsNode) return;
     var appFolders = window.protectedGlobals.dedupefiles(appsNode[1]);
-    for (const appFolder of appFolders) {
+    // Load app folders in parallel to reduce startup latency. Preserve per-folder error handling.
+    const loaders = (appFolders || []).map(async (appFolder) => {
       try {
         const appData = await window.protectedGlobals.extractAppData(appFolder);
         if (appData) {
           window.protectedGlobals.initAppRuntimeState(appData);
-          window.protectedGlobals.apps.push(appData);
+          return appData;
         }
       } catch (e) {
-        window.protectedGlobals.throwError("loadAppsFromTree", "Failed to parse app folder", e, {
-          folder: appFolder && appFolder[0],
-        });
+        try {
+          window.protectedGlobals.throwError("loadAppsFromTree", "Failed to parse app folder", e, {
+            folder: appFolder && appFolder[0],
+          });
+        } catch {}
       }
+      return null;
+    });
+
+    const loadedApps = (await Promise.all(loaders)).filter(Boolean);
+    if (loadedApps.length) {
+      window.protectedGlobals.apps.push(...loadedApps);
     }
 
     // Sort apps alphabetically by label

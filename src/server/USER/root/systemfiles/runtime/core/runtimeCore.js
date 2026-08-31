@@ -765,11 +765,15 @@ window.tmpGlobals.coreESMUrls = [
 ];
 window.tmpGlobals.scriptContents = [];
 window.tmpGlobals.loadCoreScriptsSequentially = async function() {
-  for (const element of window.tmpGlobals.coreScriptUrls) {
-    let f = await window.protectedGlobals.ReadFile(element, { text: true, direct: true });
-    if (typeof f !== 'string') continue;
-    var script = document.createElement('script');
-    script.type = 'text/javascript';
+  const urls = Array.isArray(window.tmpGlobals.coreScriptUrls) ? window.tmpGlobals.coreScriptUrls.slice() : [];
+  const reads = urls.map((u) => window.protectedGlobals.ReadFile(u, { text: true, direct: true }).catch(() => null));
+  const results = await Promise.all(reads);
+  window.tmpGlobals.scriptContents = [];
+  for (let i = 0; i < results.length; i++) {
+    const f = results[i];
+    if (typeof f !== "string") continue;
+    const script = document.createElement("script");
+    script.type = "text/javascript";
     script.textContent = f;
     window.tmpGlobals.scriptContents.push(script);
   }
@@ -784,29 +788,45 @@ for (const script of window.tmpGlobals.scriptContents) {
 })();
 // import ESM scripts
 (async function() {
+  const urls = Array.isArray(window.tmpGlobals.coreESMUrls) ? window.tmpGlobals.coreESMUrls.slice() : [];
+  if (urls.length === 0) return;
+
+  // Read first ESM file first (it provides the object URL used by others), then read the rest in parallel.
+  const firstRaw = await window.protectedGlobals.ReadFile(urls[0], { text: true, direct: true }).catch(() => null);
   let firstObjectUrl = '';
-for (const element of window.tmpGlobals.coreESMUrls) {
-  let f = await window.protectedGlobals.ReadFile(element, { text: true, direct: true });
-  if (typeof f !== 'string') continue;
-  if (firstObjectUrl) {
-    let replaceStart = f.indexOf('<') - 1;
-    let replaceEnd = f.indexOf('>', replaceStart) + 1;
-    if (replaceStart !== -2 && replaceEnd !== 0) {
-      let importPath = f.substring(replaceStart + 1, replaceEnd).trim();
-      if (importPath.startsWith('/')) {
-        importPath = importPath.substring(1);
-      }
-      const newImportPath = firstObjectUrl;
-      f = f.substring(0, replaceStart + 1) + newImportPath + f.substring(replaceEnd);
-    }
+  if (typeof firstRaw === 'string') {
+    const firstURL = window.URL.createObjectURL(new Blob([firstRaw], { type: 'text/javascript' }));
+    firstObjectUrl = firstURL;
+    const firstScript = document.createElement('script');
+    firstScript.type = 'module';
+    firstScript.src = firstURL;
+    document.head.appendChild(firstScript);
   }
-  const script = document.createElement('script');
-  script.type = 'module';
-  const URL = window.URL.createObjectURL(new Blob([f], { type: 'text/javascript' }));
-  firstObjectUrl = firstObjectUrl || URL;
-  script.src = URL;
-  document.head.appendChild(script);
-}
+
+  const restUrls = urls.slice(1);
+  const restReads = restUrls.map((u) => window.protectedGlobals.ReadFile(u, { text: true, direct: true }).catch(() => null));
+  const restResults = await Promise.all(restReads);
+  for (let i = 0; i < restResults.length; i++) {
+    let f = restResults[i];
+    if (typeof f !== 'string') continue;
+    if (firstObjectUrl) {
+      let replaceStart = f.indexOf('<') - 1;
+      let replaceEnd = f.indexOf('>', replaceStart) + 1;
+      if (replaceStart !== -2 && replaceEnd !== 0) {
+        let importPath = f.substring(replaceStart + 1, replaceEnd).trim();
+        if (importPath.startsWith('/')) {
+          importPath = importPath.substring(1);
+        }
+        const newImportPath = firstObjectUrl;
+        f = f.substring(0, replaceStart + 1) + newImportPath + f.substring(replaceEnd);
+      }
+    }
+    const script = document.createElement('script');
+    script.type = 'module';
+    const URL = window.URL.createObjectURL(new Blob([f], { type: 'text/javascript' }));
+    script.src = URL;
+    document.head.appendChild(script);
+  }
 
 })();
 // if u wanna keep it just remove the next line
@@ -1580,7 +1600,11 @@ window.protectedGlobals.sendMsgToAllThreads = (msg) => {
   });
 };
 (async () => {
-  window.protectedGlobals.erudaText = await window.protectedGlobals.ReadFile('/systemfiles/runtime/helpers/eruda.min.js', { text: true, direct: true });
-  window.protectedGlobals.fflateText = await window.protectedGlobals.ReadFile('/systemfiles/runtime/helpers/unzip.min.js', { text: true, direct: true });
+  const [erudaText, fflateText] = await Promise.all([
+    window.protectedGlobals.ReadFile('/systemfiles/runtime/helpers/eruda.min.js', { text: true, direct: true }).catch(() => null),
+    window.protectedGlobals.ReadFile('/systemfiles/runtime/helpers/unzip.min.js', { text: true, direct: true }).catch(() => null)
+  ]);
+  window.protectedGlobals.erudaText = erudaText;
+  window.protectedGlobals.fflateText = fflateText;
 })();
 window.addEventListener("contextmenu", (e) => {e.preventDefault();});

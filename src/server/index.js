@@ -69,7 +69,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
 
     proxyServer.addToOnRequestPipeline((req, res) => {
-        console.log('(server) incoming ip: ' + getRequestIP(req));
+        console.log('(server) incoming ip: ' + getRequestIP(req) + ' url: ' + req.url + " username: " + (req.headers['x-username'] || 'unknown'));
         if (!req.url) return;
         if (req.url.startsWith('/server/newsession')) {
             if (!newSessionRateLimit(req, res)) {
