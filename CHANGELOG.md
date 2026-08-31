@@ -64,3 +64,6 @@
 
 ## V 2.1.3
 - Dramatically increased the startup speed of the os, 8 sec to 1 sec.
+
+## No version increase
+- removed the excessive loadappsfromtrees
