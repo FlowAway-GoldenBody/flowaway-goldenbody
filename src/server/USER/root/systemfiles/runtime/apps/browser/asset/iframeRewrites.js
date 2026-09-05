@@ -1138,8 +1138,6 @@ function getAbsoluteMousePosition(e) {
               var hasModifier = !!(e.ctrlKey || e.metaKey || e.altKey);
 
               if (hasModifier) {
-                  e.preventDefault && e.preventDefault();
-                  e.stopPropagation && e.stopPropagation();
                 try {
                   window.dispatchEvent(
                     new KeyboardEvent("keydown", {

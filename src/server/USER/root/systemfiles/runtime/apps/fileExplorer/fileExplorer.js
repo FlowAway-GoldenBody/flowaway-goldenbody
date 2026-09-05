@@ -19,7 +19,6 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   let isMaximized = false;
   let _isMinimized = false;
   let disposed = false;
-  let autoRefreshTimer = null;
   const root = document.createElement("div");
   root.className = "app-root app-window-root";
   Object.assign(root.style, {
@@ -176,17 +175,9 @@ window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
     window.protectedGlobals.bringToFront(root);
   }
 
-  function clearAutoRefresh() {
-    if (autoRefreshTimer) {
-      clearInterval(autoRefreshTimer);
-      autoRefreshTimer = null;
-    }
-  }
-
   function closeWindow() {
     if (disposed) return;
     disposed = true;
-    clearAutoRefresh();
     root.remove();
 
     const index = window.explorerGlobals.allExplorers.findIndex(
@@ -2060,13 +2051,16 @@ function makeIcon(type, size = 16) {
         newNode[2] = newNode[2] || {};
         newNode[2].mtime = Date.now();
 
-        // Generate a unique name if conflict exists
+        // Recreate the old behavior: copy into the destination folder and give the pasted
+        // item a unique name if that name already exists.
         newNode[0] = getUniqueName(newNode[0], "", node[1]);
-
         node[1].push(newNode);
+
+        const pasteTarget = [...targetPath];
+        pasteTarget.splice(0, 1);
+        pasteTarget.push(newNode[0]);
+        directions.push({ paste: true, path: pasteTarget.join("/") });
       }
-      targetPath.splice(0, 1);
-      directions.push({ paste: true, path: targetPath.join("/") });
       render();
       triggerAutosave();
     }

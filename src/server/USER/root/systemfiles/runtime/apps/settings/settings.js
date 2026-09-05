@@ -1619,6 +1619,12 @@ window.settings = function (posX = 50, posY = 50) {
         <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
         <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
         <li><code>enableDebugging</code> - boolean flag to enable debugging features for the app.</li>
+        <li><code>cmd</code> or <code>commands</code> - array of command objects for the app.</li>
+        <li><code>headless</code> - boolean flag to indicate if the app runs in headless mode (no UI).</li>
+        <li><code>functionName</code> - name of the globally exported launch function. (admin app only)</li>
+        <li><code>globalVarObjectString</code> - name of the global object for app instances. (admin app only)</li>
+        <li><code>allAppArrayString</code> - array name under the global object for tracking instances. (admin app only)</li>
+        <li><code>cmf</code> and <code>cmfl1</code> - app button context menu hooks. (admin app only)</li>
       </ul>
       <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text, SVG, or PNG.</p>
       <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>

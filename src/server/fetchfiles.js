@@ -931,7 +931,6 @@ async function handleFetchfiles(req, res) {
                   continue;
                 }
 
-                let dest;
                 const itemKind = item && (item.kind || item.type || "file");
                 const originalDestPath = String(dir.path || "root");
                 const looksLikeExplicitFileTarget =
@@ -940,24 +939,17 @@ async function handleFetchfiles(req, res) {
                   (/(?:^|\/)[^\/]+\.[^\/]+$/.test(originalDestPath.replace(/\\/g, "/")) ||
                     originalDestPath.replace(/\\/g, "/").endsWith("/"));
 
-                if (destinationStat && destinationStat.isDirectory()) {
-                  dest = path.join(destinationPath, path.basename(item.path));
-                } else if (destinationStat && destinationStat.isFile()) {
-                  dest = destinationPath;
-                } else if (looksLikeExplicitFileTarget) {
-                  const parentDir = path.dirname(destinationPath);
-                  await ensureDir(parentDir);
-                  dest = destinationPath;
-                } else {
-                  await ensureDir(destinationPath);
-                  dest = path.join(destinationPath, path.basename(item.path));
+                // New behavior: paste/move should place source at the destination path directly
+                // and must fail if the destination already exists.
+                let dest = destinationPath;
+                // Ensure parent directory exists
+                const parentDir = path.dirname(dest);
+                await ensureDir(parentDir);
+                if (await exists(dest)) {
+                  throw new Error(`Destination already exists: ${dest}`);
                 }
 
-                dest = await getUniquePath(dest);
-
-                const destRelPath = removeUnwantedStuffInPath(
-                  path.relative(userRoot, dest).replace(/\\/g, "/")
-                );
+                const destRelPath = removeUnwantedStuffInPath(path.relative(userRoot, dest).replace(/\\/g, "/"));
                 assertWriteAllowed(destRelPath);
 
                 try {

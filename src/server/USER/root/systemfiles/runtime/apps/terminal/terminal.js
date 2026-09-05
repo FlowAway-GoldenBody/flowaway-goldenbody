@@ -1264,7 +1264,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         if (!pathArg) { cwd = '/'; printLine(cwd); return; }
         try {
           const target = resolveTerminalPath(pathArg, cwd);
-          const exists = await window.protectedGlobals.FolderExists ? await window.protectedGlobals.FolderExists(target) : true;
+          const exists = await window.protectedGlobals.FolderExists(target);
           if (!exists) { printError('No such directory: ' + target); return; }
           cwd = target;
           printLine(cwd);
