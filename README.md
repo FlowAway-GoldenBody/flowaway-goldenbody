@@ -34,6 +34,25 @@ This is copied directly from the dev docs in the settings app
       </ul>
       <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text, SVG, or PNG.</p>
       <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>
+
+      <h3>Runtime worker API (new)</h3>
+      <p>Two new runtime APIs are available to worker scripts:</p>
+      <h4><code>api.cwd()</code></h4>
+      <p>Returns an object with two string properties: <code>relative</code> and <code>full</code>. Use <code>relative</code> when showing paths to the user (preserves app-relative view). Use <code>full</code> when resolving or writing files in the VFS.</p>
+      <pre style="white-space:pre-wrap;background:#f6f6f6;padding:8px;border-radius:6px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;">const cwd = api.cwd();
+// cwd.relative -> './data' (user-facing)
+// cwd.full -> '/systemfiles/runtime/apps/myapp/data' (absolute VFS path)</pre>
+
+      <h4><code>api.prompt(message, options)</code> (prefill + multiline)</h4>
+      <p>Workers can prompt the user inline via the terminal. The <code>options</code> object supports:</p>
+      <ul>
+        <li><code>prefill</code> - a string that will be placed into the terminal input for inline editing.</li>
+        <li><code>multiline</code> - boolean; when <code>true</code> the prompt is intended for multi-line text (Shift+Enter inserts newlines).</li>
+      </ul>
+      <pre style="white-space:pre-wrap;background:#f6f6f6;padding:8px;border-radius:6px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;">const edited = await api.prompt('Edit file contents', { prefill: existingText, multiline: true });
+// 'edited' contains the final string the user submitted.</pre>
+
+      <p>Note: the runtime preserves the original argument string shown to the user (relative paths) while resolving absolute paths internally. Do not rely on the worker receiving an <code>appRoot</code> value; the runtime supplies cwd info only.</p>
       <ul>
         <li><code>functionName</code> - globally exported launch function that the runtime calls.</li>
         <li><code>globalVarObjectString</code> - name of the global object for app instances.</li>

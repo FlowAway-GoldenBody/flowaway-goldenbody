@@ -4,7 +4,6 @@ window.protectedGlobals.rebuildhandler = function () {
   for (let i = 0; i < 10000; i++) {
     clearInterval(i, { nolog: true });
   }
-  window.protectedGlobals.process.disposeAll();
   delete window.protectedGlobals.brightnessOverlayEl;
   delete window.protectedGlobals.brightnessOverlayLabel;
   delete window.protectedGlobals.brightnessOverlaySlider;
@@ -24,6 +23,7 @@ window.protectedGlobals.rebuildhandler = function () {
     } catch (e) {}
   });
   // remove all iframes
+  window.protectedGlobals.process.disposeAll();
   document.querySelectorAll("iframe").forEach((f) => {
     f.src = "about:blank";
     f.contentWindow && f.contentWindow.close && f.contentWindow.close();

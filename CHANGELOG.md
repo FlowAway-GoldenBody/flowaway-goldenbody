@@ -67,3 +67,6 @@
 
 ## No version increase
 - removed the excessive loadappsfromtrees
+
+## V 2.2.0
+- Added cli file create/edit tool

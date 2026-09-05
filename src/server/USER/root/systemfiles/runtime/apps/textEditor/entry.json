@@ -13,4 +13,12 @@
   "openfileCapability": [
     "*"
   ]
+  ,
+  "commands": [
+    {
+      "name": "writefile",
+      "src": "commands/writefile.js",
+      "receive_onkill_handler": false
+    }
+  ]
 }

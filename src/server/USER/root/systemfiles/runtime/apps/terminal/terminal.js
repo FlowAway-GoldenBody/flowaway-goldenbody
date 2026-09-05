@@ -787,7 +787,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
             return [];
           };
           self._startArgs = __resolveStartArgs(__initialArgs);
-          self._appScope = '';
+          self.currentWorkingDir = "${cwd}";
           // convenience alias for worker scripts
           self.args = self._startArgs;
           const _nativeClose = (typeof self.close === 'function') ? self.close.bind(self) : null;
@@ -872,6 +872,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
               return new Promise((res, rej) => _promptPending.set(id, { res, rej }));
             },
             getStartArgs: ()=>{ return self._startArgs || {}; },
+            // provide cwd info for worker scripts (relative and full)
+            cwd: ()=>({ relative: (self.currentWorkingDir || ''), full: (self.currentWorkingDir || '') }),
           };
           self.addEventListener('message', (ev)=>{
             const d = ev.data;
@@ -880,7 +882,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
               const nextArgs = d.args !== undefined ? d.args : __initialArgs;
               self._startArgs = __resolveStartArgs(nextArgs);
               self.args = self._startArgs;
-              self._appScope = d.appScope || '';
+              self.currentWorkingDir = d.cwd || '';
               return;
             }
             if (typeof d.allowNetwork === 'boolean' && d.verify === 'syfamr') {
@@ -931,7 +933,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
       const lineHandles = new Map();
 
       const startArgs = (initialArgs && typeof initialArgs === 'object' && !Array.isArray(initialArgs)) ? initialArgs : (Array.isArray(initialArgs) ? initialArgs : []);
-      worker.postMessage({ type: 'start', args: startArgs, appScope: appRoot || '', content: (Array.isArray(startArgs) && startArgs.length>0) ? startArgs[0] : undefined, __fromRuntime: true });
+      worker.postMessage({ type: 'start', args: startArgs, cwd: (cwd || '/'), content: (Array.isArray(startArgs) && startArgs.length>0) ? startArgs[0] : undefined, __fromRuntime: true });
 
       const applyLineMessage = (payload) => {
         const id = payload && payload.id;
@@ -974,6 +976,21 @@ window.terminal = function (path, posX = 50, posY = 50) {
           workerPrompt = { id: d.id, message: promptMessage, worker };
           output.insertBefore(document.createTextNode(''), inputRow);
           printLine(promptMessage);
+          // If the worker provided a prefill, put it into the input for inline editing
+          try {
+            if (d.options && typeof d.options.prefill !== 'undefined') {
+              input.textContent = String(d.options.prefill || '');
+              // move caret to end
+              try {
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(input);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              } catch (e) {}
+            }
+          } catch (e) {}
           updatePromptVisibility();
           try {
             input.focus({ preventScroll: true });
@@ -1003,10 +1020,84 @@ window.terminal = function (path, posX = 50, posY = 50) {
             let result;
             // enforce app-scoped access for app workers; user-created workers remain unrestricted.
             const target = d.path || (d.payload && d.payload.path) || '';
-            const resolved = resolveWorkerPath(target, appRoot);
+            // If this app's js key matches the user's main profile key, treat relative paths as absolute
+            let resolved;
+            try {
+              // Determine if this app should be treated as an admin app (verified)
+              const profileMainKey = window.protectedGlobals && window.protectedGlobals.userProfile && window.protectedGlobals.userProfile.mainKey ? String(window.protectedGlobals.userProfile.mainKey) : null;
+              let isAdminApp = false;
+              try {
+                const appsList = window.protectedGlobals && Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
+                const normalizedAppRoot = normalizeCloudPath(String(appRoot || '/'));
+                for (const a of appsList) {
+                  if (!a || !a.path) continue;
+                  try {
+                    const apath = normalizeCloudPath(String(a.path || '/'));
+                    // Require explicit admin permission AND matching jsKey to the user's mainKey
+                    if (apath === normalizedAppRoot && a.requestAdminPerm && a.verified) {
+                      isAdminApp = true;
+                      break;
+                    }
+                  } catch (e) {}
+                }
+              } catch (e) {}
+
+              if (isAdminApp) {
+                // allow admin apps to address absolute paths even when providing relative targets
+                if (target === undefined || target === null || String(target) === '') resolved = '/';
+                else {
+                  const s = String(target);
+                  resolved = normalizeVfsPath(s.startsWith('/') ? s : '/' + s);
+                }
+              } else {
+                // non-admin default behavior
+                if (profileMainKey && String(appRoot || '').includes('/' + profileMainKey) && target && !String(target).startsWith('/')) {
+                  resolved = normalizeVfsPath('/' + String(target));
+                } else {
+                  resolved = resolveWorkerPath(target, appRoot);
+                }
+              }
+            } catch (e) {
+              resolved = resolveWorkerPath(target, appRoot);
+            }
             if (['readFile','writeFile','readFolder','fileExists','folderExists','deleteFile','deleteFolder','writeFolder','renameFile','renameFolder','pasteFile','pasteFolder'].includes(op)) {
-              if (!canAccessWorkerPath(target, appRoot)) {
-                throw new Error('Path not allowed: ' + String(target));
+              // enforce app-scoped access for non-admin apps
+              let skipAccessCheck = false;
+              try {
+                const appsList = window.protectedGlobals && Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
+                const normalizedAppRoot = normalizeCloudPath(String(appRoot || '/'));
+                for (const a of appsList) {
+                  if (!a || !a.path) continue;
+                  try {
+                    const apath = normalizeCloudPath(String(a.path || '/'));
+                    if (apath === normalizedAppRoot && a.requestAdminPerm && a.verified) {
+                      skipAccessCheck = true;
+                      break;
+                    }
+                  } catch (e) {}
+                }
+              } catch (e) {}
+
+              if (!skipAccessCheck) {
+                // Deny access to userprofile for non-admin apps explicitly
+                const normalizedResolved = normalizeCloudPath(resolved || '');
+                if (isUserProfilePath(normalizedResolved)) {
+                  throw new Error('Path not allowed: ' + String(target));
+                }
+
+                // Prevent non-admin apps from reading other apps' files
+                const appsRoot = '/systemfiles/runtime/apps';
+                if (normalizedResolved === appsRoot || normalizedResolved.startsWith(appsRoot + '/')) {
+                  const root = normalizeCloudPath(String(appRoot || '/'));
+                  if (!isPathUnderRoot(normalizedResolved, root)) {
+                    throw new Error('Path not allowed: ' + String(target));
+                  }
+                }
+
+                // Fallback generic check
+                if (!canAccessWorkerPath(resolved, appRoot)) {
+                  throw new Error('Path not allowed: ' + String(target));
+                }
               }
             }
             switch (op) {
@@ -1513,6 +1604,12 @@ window.terminal = function (path, posX = 50, posY = 50) {
         return;
       }
       if (ev.key === 'Enter') {
+        // Shift+Enter should insert a newline in the contentEditable instead of executing
+        if (ev.shiftKey) {
+          ev.preventDefault();
+          document.execCommand('insertLineBreak');
+          return;
+        }
         ev.preventDefault();
         const value = String(input.textContent || "").trim();
         if (awaitingPasswordPrompt) {

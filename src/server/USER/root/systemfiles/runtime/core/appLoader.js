@@ -898,6 +898,8 @@ let getFilesFromFolder = async function (relPath) {
       scriptLoaded: false,
       globalVarObjectString: globalVarObjectString,
       requestAdminPerm: entryObj.requestAdminPerm,
+      // whether the loader verified the app's jsKey against the user's master key
+      verified: !!verify,
       cmf: cmf,
       cmfl1: cmfl1,
       svgEnabled: !!entryObj.svgEnabled,
