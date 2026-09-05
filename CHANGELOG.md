@@ -70,3 +70,6 @@
 
 ## V 2.2.0
 - Added cli file create/edit tool
+
+## No version increase
+- cmd autocomplete disabled during prompt input via workers. Ctrl+C will also remove existing text in cmd input other than killing the thread.

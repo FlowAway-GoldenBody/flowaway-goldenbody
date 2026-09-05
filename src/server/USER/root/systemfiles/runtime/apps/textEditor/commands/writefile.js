@@ -7,7 +7,7 @@
     else if (args && typeof args === 'object') rawPath = String(args.path || args.file || args.target || '');
     rawPath = String(rawPath || '').trim();
     if (!rawPath) {
-      try { await self.api.writeline('writefile: missing path argument'); } catch (e) {}
+      try { await self.api.writeline('writefile: missing path argument'); self.close(); } catch (e) {}
       return;
     }
 

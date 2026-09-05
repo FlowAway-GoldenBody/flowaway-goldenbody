@@ -1601,6 +1601,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if ((ev.key === 'c' || ev.key === 'C') && (ev.ctrlKey) && terminalBusy) {
         ev.preventDefault();
         killActiveProcess({ graceful: terminalWorkerGracefulKill });
+        input.innerText = '';
         return;
       }
       if (ev.key === 'Enter') {
@@ -1641,11 +1642,13 @@ window.terminal = function (path, posX = 50, posY = 50) {
         ev.preventDefault();
         await autocompletePath();
       } else if (ev.key === 'ArrowUp') {
+        if (workerPrompt || awaitingPasswordPrompt) return;
         ev.preventDefault();
         if (history.length === 0) return;
         if (historyIndex > 0) historyIndex -= 1;
         setInputText(history[historyIndex] || '');
       } else if (ev.key === 'ArrowDown') {
+        if (workerPrompt || awaitingPasswordPrompt) return;
         ev.preventDefault();
         if (history.length === 0) return;
         if (historyIndex < history.length - 1) historyIndex += 1;
