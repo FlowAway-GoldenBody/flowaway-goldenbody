@@ -449,10 +449,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if (!targetPid && targetPid !== 0) return false;
       const pid = Number(targetPid);
       if (!Number.isFinite(pid)) return false;
-      if (window.protectedGlobals && typeof window.protectedGlobals.killProcess === 'function') {
-        return !!window.protectedGlobals.killProcess(pid, 'terminal-thread-kill');
-      }
-      return false;
+      return !!window.protectedGlobals.killProcess(pid, 'terminal-thread-kill');
     }
 
     async function runPermissionUpdate(pathValue, permArg, passwordValue) {

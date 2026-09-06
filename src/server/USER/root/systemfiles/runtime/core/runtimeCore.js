@@ -1014,8 +1014,8 @@ document.addEventListener("keydown", (e) => {
   );
 
 
-window.protectedGlobals.deleteApp = async function (obj) {
-  window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${obj.folderName}`);
+window.protectedGlobals.deleteApp = async function (obj, cleanupOnly = false) {
+  if (!cleanupOnly) await window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${obj.folderName}`);
   for (const element of window.protectedGlobals.apps) {
     if (element.id == obj.id) {
       try {
@@ -1047,6 +1047,10 @@ window.protectedGlobals.deleteApp = async function (obj) {
 };
 
 window.protectedGlobals.installApp = async function (folderName, options = {}) {
+  if (options.update) {
+    let targetApp = window.protectedGlobals.apps.find((a) => a.folderName === folderName);
+    window.protectedGlobals.deleteApp(targetApp, true);
+  }
   await window.protectedGlobals.onlyloadTree();
   var rootChildren = (window.protectedGlobals.treeData && window.protectedGlobals.treeData[1]) || [];
   var systemfilesNode = rootChildren.find(
@@ -1064,7 +1068,7 @@ window.protectedGlobals.installApp = async function (folderName, options = {}) {
   var appFolders = window.protectedGlobals.dedupefiles(appsNode[1]);
   appFolders.forEach(async (f) => {
     if (f[0] === folderName) {
-      let appData = await window.protectedGlobals.extractAppData(f, options);
+      let appData = await window.protectedGlobals.extractAppData(f);
       window.protectedGlobals.apps.sort((a, b) => a.label.localeCompare(b.label));
       window.protectedGlobals.initAppRuntimeState(appData);
       window.protectedGlobals.apps.push(appData);

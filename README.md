@@ -1,11 +1,6 @@
 ## WHAT THIS IS
 flowaway goldenbody is an OS-like webpage built with vanilla js and a node server. 
 
-## EXAMPLE VIDEO
-<video width="100%" height="600" controls>
-  <source src="https://www.youtube.com/watch?v=2rnNoVpCxwU" type="video/mp4">
-</video>
-
 ## DEVELOPER DOCS
 This is copied directly from the dev docs in the settings app
       <h2>App Developer Docs</h2>
@@ -328,20 +323,27 @@ window.myadminapp = () => {
   "label": "My App",
   "jsFile": "script.js",
   "iconFile": "icon.svg",
+  "nonTextIcon": true,
+  "svgEnabled": true,
+  "pngEnabled": false,
   "requestAdminPerm": false,
   "nonTextIcon": true, /* important */
   "svgEnabled": true, /* important */
   "pngEnabled": false, /* important */
   "openfileCapability": [".txt", ".md"],
-  "enableDebugging": true
+  "enableDebugging": true,
+  "headless": false
 }
 </code></pre>
-      <p>For admin apps, include the launcher hooks and optionally a <code>headless</code> flag:</p>
+      <p>For admin apps</p>
       <pre><code>{
   "id": "myAdminApp",
   "label": "My Admin App",
   "jsFile": "app.js",
   "iconFile": "icon.svg",
+  "nonTextIcon": true,
+  "svgEnabled": true,
+  "pngEnabled": false,
   "requestAdminPerm": true,
   "functionName": "myAdminAppLauncher",
   "globalVarObjectString": "myAdminAppGlobals",

@@ -1690,12 +1690,11 @@ workerTest
       <p>When the command is backed by a JS file, the runtime reads the file, creates a worker, passes the argument object as <code>self.args</code> / <code>self._startArgs</code>, and then calls the worker with a runtime <code>start</code> message. The arguments are parsed from the terminal command line as JSON or key/value pairs when possible.</p>
       <p><code>receive_onkill_handler</code> tells the runtime to treat <code>onkill</code> as graceful shutdown logic and wait for the worker to handle it before terminating the process. If you omit it, the runtime terminates more aggressively.</p>
       <h3>Background worker apps</h3>
-      <p>To make an app run a worker in the background, set <code>backgroundWorker: true</code> and provide <code>headlessJsFile</code>. The loader in <code>appLoader.js</code> will start the worker automatically once the app is discovered, and it stores it in <code>window.protectedGlobals.workers[entryObj.id]</code>.</p>
+      <p>To make an app run a worker in the background, provide <code>headlessJsFile</code>. The loader in <code>appLoader.js</code> will start the worker automatically once the app is discovered, and it stores it in <code>window.protectedGlobals.workers[entryObj.id]</code>.</p>
       <pre><code>{
   "id": "watcherApp",
   "label": "Watcher App",
   "headless": true,
-  "backgroundWorker": true,
   "headlessJsFile": "headlessWorker.js",
   "iconFile": "icon.txt",
   "jsFile": "script.js"
@@ -1919,20 +1918,27 @@ window.myadminapp = () => {
   "label": "My App",
   "jsFile": "script.js",
   "iconFile": "icon.svg",
+  "nonTextIcon": true,
+  "svgEnabled": true,
+  "pngEnabled": false,
   "requestAdminPerm": false,
   "nonTextIcon": true, /* important */
   "svgEnabled": true, /* important */
   "pngEnabled": false, /* important */
   "openfileCapability": [".txt", ".md"],
-  "enableDebugging": true
+  "enableDebugging": true,
+  "headless": false
 }
 </code></pre>
-      <p>For admin apps, include the launcher hooks and optionally a <code>headless</code> flag:</p>
+      <p>For admin apps</p>
       <pre><code>{
   "id": "myAdminApp",
   "label": "My Admin App",
   "jsFile": "app.js",
   "iconFile": "icon.svg",
+  "nonTextIcon": true,
+  "svgEnabled": true,
+  "pngEnabled": false,
   "requestAdminPerm": true,
   "functionName": "myAdminAppLauncher",
   "globalVarObjectString": "myAdminAppGlobals",

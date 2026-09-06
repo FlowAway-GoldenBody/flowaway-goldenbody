@@ -382,21 +382,6 @@
     return true;
   }
 
-  function terminateProcess(target, reason) {
-    if (target === null || typeof target === "undefined") return false;
-    var pidValue = normalizeProcessPid(target);
-    if (typeof pidValue !== "number" || Number.isNaN(pidValue)) return false;
-    var pidKey = String(pidValue);
-
-    var processObject = runtime.processObjectsByPid && runtime.processObjectsByPid[pidKey];
-    if (processObject) {
-      if (processObject.stop) processObject.stop(reason || "terminate");
-      delete runtime.processObjectsByPid[pidKey];
-      return true;
-    }
-    return false;
-  }
-
   function filterPidFromProcessList(list, pidValue) {
     if (!Array.isArray(list)) return [];
 
@@ -948,15 +933,11 @@
     }
 
     removeTrackedBindingsForPid(pidValue);
-    var terminated = terminateProcess(pidValue, reason || "kill");
     delete runtime.processObjectsByPid[String(pidValue)];
     removePidFromGlobalProcessLists(pidValue);
     buildTaskManagerState();
-    if (terminated) {
-      releaseProcessId(pidValue);
-    }
 
-    return terminated;
+    return true;
   }
 
   function getProcess(pidValue) {

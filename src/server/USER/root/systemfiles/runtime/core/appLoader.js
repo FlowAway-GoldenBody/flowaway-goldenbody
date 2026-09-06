@@ -14,27 +14,26 @@
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
   }
-  function checkEntryObject(entryObj, force = false) {
-    if (!entryObj.id) return false;
-    if (knownAppId.includes(entryObj.id) && !force) {console.error(`Identifier ${entryObj.id} is already declared`); return false;}
-    else if (!force) knownAppId.push(entryObj.id);
+  function checkEntryObject(entryObj) {
+    if (!entryObj.id) { console.error("Invalid app ID"); return false; }
+    if (knownAppId.includes(entryObj.id)) {console.error(`Identifier ${entryObj.id} is already declared`); return false;}
 
-    if (!entryObj.jsFile) return false;
-    if (!entryObj.label && !entryObj.headless) return false;
-    if (!entryObj.iconFile && !entryObj.headless) return false;
+    if (!entryObj.jsFile) { console.error("Invalid app JS file"); return false; }
+    if (!entryObj.label && !entryObj.headless) { console.error("Invalid app label"); return false; }
+    if (!entryObj.iconFile && !entryObj.headless) { console.error("Invalid app icon file"); return false; }
 
     if (entryObj.requestAdminPerm) {
-      if (!entryObj.allAppArrayString) return false;
+      if (!entryObj.allAppArrayString) { console.error("Invalid app allAppArrayString"); return false; }
 
-      if (!entryObj.functionName) return false;
-      if (knownAppFuncs.includes(entryObj.functionName) && !force) {console.error(`Identifier ${entryObj.functionName} is already declared`); return false;}
-      else if (!force) knownAppFuncs.push(entryObj.functionName);
+      if (!entryObj.functionName) { console.error("Invalid app functionName"); return false; }
+      if (knownAppFuncs.includes(entryObj.functionName)) {console.error(`Identifier ${entryObj.functionName} is already declared`); return false;}
       
-      if (!entryObj.globalVarObjectString) return false;
-      if (knownAppGlobals.includes(entryObj.globalVarObjectString) && !force) {console.error(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
-      else if (!force) knownAppGlobals.push(entryObj.globalVarObjectString);
+      if (!entryObj.globalVarObjectString) { console.error("Invalid app globalVarObjectString"); return false; }
+      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {console.error(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
     }
-    
+    knownAppId.push(entryObj.id);
+    knownAppFuncs.push(entryObj.functionName);
+    knownAppGlobals.push(entryObj.globalVarObjectString);
     return true;
   }
   async function getVerification(path) {
@@ -570,7 +569,7 @@ let getFilesFromFolder = async function (relPath) {
     });
   }
 
-  window.protectedGlobals.extractAppData = async function (appFolder, options = {}) {
+  window.protectedGlobals.extractAppData = async function (appFolder) {
     
     var folderName = appFolder[0];
     var folderPath =
@@ -770,7 +769,7 @@ let getFilesFromFolder = async function (relPath) {
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
-    if (!checkEntryObject(entryObj, options.force)) {
+    if (!checkEntryObject(entryObj)) {
       throw new Error("Invalid entry.json for app " + folderName);
     }
     // Normalize and validate any custom command names defined by apps.
@@ -833,9 +832,8 @@ let getFilesFromFolder = async function (relPath) {
       entryObj.allAppArrayString = allAppArrayString;
       entryObj.functionName = functionName;
       jsFile = entryObj.jsFile || "";
-      if (!entryObj.backgroundWorker && jsFile) createIframeContainerAppFunction(entryObj);
-      else if (entryObj.backgroundWorker && entryObj.headlessJsFile) {
-        if (jsFile) createIframeContainerAppFunction(entryObj);
+      if (jsFile) createIframeContainerAppFunction(entryObj);
+      if (entryObj.headlessJsFile) {
         let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.headlessJsFile, { text: true, direct: true });
         let blob = new Blob([scriptText], { type: "text/javascript" });
         let url = URL.createObjectURL(blob);

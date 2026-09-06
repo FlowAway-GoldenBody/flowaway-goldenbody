@@ -456,7 +456,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
         await window.protectedGlobals.WriteFile(`${baseFolder}/jsKey.txt`, masterKey, { text: true });
       }
     }
-    await window.protectedGlobals.installApp(folderName, { force: exists });
+    await window.protectedGlobals.installApp(folderName, { update: exists });
     statusDiv.textContent = 'Installation complete!';
     statusDiv.style.color = '#107c10';
   }
