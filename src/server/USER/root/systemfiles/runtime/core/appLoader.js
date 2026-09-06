@@ -14,10 +14,10 @@
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
   }
-  function checkEntryObject(entryObj) {
+  function checkEntryObject(entryObj, force = false) {
     if (!entryObj.id) return false;
-    if (knownAppId.includes(entryObj.id)) {console.error(`Identifier ${entryObj.id} is already declared`); return false;}
-    else knownAppId.push(entryObj.id);
+    if (knownAppId.includes(entryObj.id) && !force) {console.error(`Identifier ${entryObj.id} is already declared`); return false;}
+    else if (!force) knownAppId.push(entryObj.id);
 
     if (!entryObj.jsFile) return false;
     if (!entryObj.label && !entryObj.headless) return false;
@@ -27,12 +27,12 @@
       if (!entryObj.allAppArrayString) return false;
 
       if (!entryObj.functionName) return false;
-      if (knownAppFuncs.includes(entryObj.functionName)) {console.error(`Identifier ${entryObj.functionName} is already declared`); return false;}
-      else knownAppFuncs.push(entryObj.functionName);
+      if (knownAppFuncs.includes(entryObj.functionName) && !force) {console.error(`Identifier ${entryObj.functionName} is already declared`); return false;}
+      else if (!force) knownAppFuncs.push(entryObj.functionName);
       
       if (!entryObj.globalVarObjectString) return false;
-      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {console.error(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
-      else knownAppGlobals.push(entryObj.globalVarObjectString);
+      if (knownAppGlobals.includes(entryObj.globalVarObjectString) && !force) {console.error(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
+      else if (!force) knownAppGlobals.push(entryObj.globalVarObjectString);
     }
     
     return true;
@@ -570,7 +570,7 @@ let getFilesFromFolder = async function (relPath) {
     });
   }
 
-  window.protectedGlobals.extractAppData = async function (appFolder) {
+  window.protectedGlobals.extractAppData = async function (appFolder, options = {}) {
     
     var folderName = appFolder[0];
     var folderPath =
@@ -770,7 +770,7 @@ let getFilesFromFolder = async function (relPath) {
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
-    if (!checkEntryObject(entryObj)) {
+    if (!checkEntryObject(entryObj, options.force)) {
       throw new Error("Invalid entry.json for app " + folderName);
     }
     // Normalize and validate any custom command names defined by apps.

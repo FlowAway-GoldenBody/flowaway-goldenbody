@@ -87,8 +87,8 @@ This is copied directly from the dev docs in the settings app
   "jsFile": "script.js",
   "iconFile": "icon.txt",
   "cmd": [
-    { "name": "workerTest", "src": "/systemfiles/runtime/apps/demoApp/workerTest.js", "receive_onkill_handler": true },
-    { "name": "doThing", "src": "/systemfiles/runtime/apps/demoApp/doThing.js" }
+    { "name": "workerTest", "src": "workerTest.js", "receive_onkill_handler": true },
+    { "name": "doThing", "src": "doThing.js" }
   ]
 }</code></pre>
       <p>This is the same pattern used by <code>testIframeApp/entry.json</code>. The terminal app supports invoking it as:</p>
