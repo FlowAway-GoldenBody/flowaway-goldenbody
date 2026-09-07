@@ -929,7 +929,7 @@ window.settings = function (posX = 50, posY = 50) {
       permsContainer.style.gap = "8px";
       permsContainer.style.flexDirection = "column";
 
-      const existingPerms = window.protectedGlobals.appPerms && window.protectedGlobals.appPerms[appMeta.name] ? window.protectedGlobals.appPerms[appMeta.name] : {};
+      const existingPerms = window.protectedGlobals?.appPerms[appMeta.id] || {};
       const pendingPerms = { ...existingPerms };
       const permsList = ["storage", "notification", "launchApp"];
       const permToggles = {};
@@ -1767,14 +1767,16 @@ status.rewriteLine('Downloading... 100%', '#3ddc97', 16, 'ui-monospace, SFMono-R
         <li><code>getTheme()</code> - return <code>dark</code> or <code>light</code>.</li>
       </ul>
       <p>These methods send a message to the host frame and return a promise.</p>
+      <p><strong>Permission note:</strong> read-like operations such as <code>readFile</code>, <code>readFolder</code>, <code>fileExists</code>, and <code>folderExists</code> do not require the write permission gate. Write-like operations that change files, folders, or storage usage, such as <code>writeFile</code>, <code>deleteFile</code>, <code>renameFile</code>, and similar actions, are checked against the saved permission key for the picked target.</p>
       <h4>How handles work</h4>
       <p>A handle in this platform is not a browser <code>FileSystemHandle</code> and it is not a special object you need to open or close. It is a small runtime record shaped like:</p>
       <pre><code>{ path: '/some/path.txt', key: 'uuid-key' }</code></pre>
-      <p>The <code>path</code> field tells the runtime which VFS path to use. The <code>key</code> field is the permission token that was created when the user picked that file or folder. You keep this object and pass it back to later FS calls whenever you want to keep using the same picked target.</p>
+      <p>The <code>path</code> field tells the runtime which VFS path to use. The <code>key</code> field is the permission token created when the user picked that file or folder. You keep this object and pass it back to later FS calls whenever you want to keep using the same picked target.</p>
+      <p><strong>Important:</strong> this is a custom runtime capability object, not a native browser filesystem handle. A picked directory handle does not become a special “directory context” object that automatically applies to every child file. For child-file operations inside a picked folder, you still build a child path with the same key, such as <code>{ path: folderHandle.path + '/notes.txt', key: folderHandle.key }</code>.</p>
       <p>There are two common patterns:</p>
       <ol>
         <li><strong>Plain path</strong>: use a normal string such as <code>/root/demo/notes.txt</code> when the target is already known and you are not using a picker token. This is the simplest pattern for paths you already know.</li>
-        <li><strong>Handle object</strong>: use the object returned by <code>showOpenFilePicker</code>, <code>showSaveFilePicker</code>, or <code>showDirectoryPicker</code> when you want to keep editing the same picked target after the picker closes. The runtime uses the saved <code>path</code> plus the saved <code>key</code> for future calls. This is the pattern you want for writes and edits to a picked file or folder.</li>
+        <li><strong>Handle object</strong>: use the object returned by <code>showOpenFilePicker</code>, <code>showSaveFilePicker</code>, or <code>showDirectoryPicker</code> when you want to keep editing the same picked target after the picker closes. The runtime uses the saved <code>path</code> plus the saved <code>key</code> for future calls. This is the pattern you want for writes and edits to a picked file or folder. For a picked folder, you must usually append the child file name to <code>folderHandle.path</code> and reuse <code>folderHandle.key</code>.</li>
       </ol>
       <h4>How to use each FS API</h4>
       <ul>
@@ -1801,7 +1803,7 @@ await window.__goldenbodyAPI.writeFile(
   { text: true }
 );
 </code></pre>
-      <p>The important detail is that the folder handle object is not the file itself. It describes a directory, and you create the real file path by appending the file name to that directory path.</p>
+      <p>The important detail is that the folder handle object is not the file itself and it is not a native directory context object. It describes a directory, and you create the real child file path by appending the file name to that directory path while reusing the same <code>key</code> from the folder handle. In other words, a picked directory is effectively a saved <code>{ path, key }</code> pair, not a live browser directory handle.</p>
       <h4>How to modify a file you picked</h4>
       <p>If you want to edit a file the user picked, keep the picker result and reuse it for later read/write calls.</p>
       <pre><code>const pickedFile = await window.__goldenbodyAPI.showOpenFilePicker();

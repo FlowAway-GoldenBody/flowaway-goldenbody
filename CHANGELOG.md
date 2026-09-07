@@ -76,3 +76,4 @@
 - edited pastefile behavior
 - fixed some minor bugs with app update and outdated docs
 - last update cont, also fixed a bug with app update intoduced last time
+- fixed a bug introduced by recent updates regarding unable to reuse pid

@@ -29,8 +29,8 @@
       "  const __sourceUrl = " + sourceLiteral + ";",
       "  if (__sourceUrl) {",
       "    fetch(__sourceUrl).then(function (response) { return response.text(); }).then(function (code) {",
-      "      try { (0, eval)(code); } catch (error) { setTimeout(function () { throw error; }, 0); }",
-      "    }).catch(function (error) { setTimeout(function () { throw error; }, 0); });",
+      "      try { (0, eval)(code); } catch { self.close(); }",
+      "    })",
       "  }",
       "})();",
     ].join("\n");
@@ -935,8 +935,8 @@
     removeTrackedBindingsForPid(pidValue);
     delete runtime.processObjectsByPid[String(pidValue)];
     removePidFromGlobalProcessLists(pidValue);
+    releaseProcessId(pidValue);
     buildTaskManagerState();
-
     return true;
   }
 

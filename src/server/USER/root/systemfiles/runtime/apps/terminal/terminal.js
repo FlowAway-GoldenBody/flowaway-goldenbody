@@ -223,11 +223,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
       if (worker.__terminalFinalized) return;
       worker.__terminalFinalized = true;
       const pid = getTrackedWorkerPid(worker);
-      if (pid && window.protectedGlobals && typeof window.protectedGlobals.killProcess === 'function') {
-        try {
-          window.protectedGlobals.killProcess(pid, reason || 'terminal-worker-exit');
-        } catch (e) {}
-      }
+      window.protectedGlobals.killProcess(pid, reason || 'terminal-worker-exit');
       if (terminalWorker === worker) {
         terminalBusy = false;
         terminalWorker = null;
