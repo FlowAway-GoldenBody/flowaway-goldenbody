@@ -304,13 +304,8 @@ async function handleRawFileUpload(req, res) {
 
   const authFilePath = safeResolve(directoryPath, `${username}/${username}.txt`);
   let userPathPermissions = [];
-  try {
-    const authContent = await fsp.readFile(authFilePath, "utf8");
-    const authObj = JSON.parse(authContent);
-    userPathPermissions = authObj.pathPermissions;
-  } catch (e) {
-    userPathPermissions = [];
-  }
+  let authObj = null;
+  try { authObj = JSON.parse(await fsp.readFile(authFilePath, 'utf8')); userPathPermissions = authObj.pathPermissions; } catch (e) { }
 
   const permission = getPermissionForRelativePath(normalizedPath, userPathPermissions);
   if (!permission.write) {
@@ -321,6 +316,16 @@ async function handleRawFileUpload(req, res) {
         path: `${normalizedPath}`,
       }),
     );
+  }
+
+  // Require explicit password (not token) when writing under /systemfiles/runtime/apps
+  if (normalizedPath.startsWith('/systemfiles/runtime/apps')) {
+    // allow direct file writes like /systemfiles/runtime/apps/file.txt (one segment after apps)
+    const isDirectFile = /^\/systemfiles\/runtime\/apps\/[^\/]+$/.test(normalizedPath);
+    if (!isDirectFile && (!authObj || password !== authObj.password)) {
+      res.writeHead(403);
+      return res.end(JSON.stringify({ error: "password required for writes to /systemfiles/runtime/apps" }));
+    }
   }
 
   const replace = String(headers["x-file-replace"] || "true") !== "false";
@@ -408,12 +413,14 @@ async function handleFetchfiles(req, res) {
     const authFilePath = safeResolve(directoryPath, `${username}/${username}.txt`);
 
     let userPathPermissions = [];
+    let authObj = null;
     try {
       const authContent = await fsp.readFile(authFilePath, "utf8");
-      const authObj = JSON.parse(authContent);
+      authObj = JSON.parse(authContent);
       userPathPermissions = authObj && authObj.pathPermissions;
     } catch (e) {
       userPathPermissions = [];
+      authObj = null;
     }
 
     const userRoot = path.join(directoryPath, username, "root");
@@ -1001,7 +1008,14 @@ async function handleFetchfiles(req, res) {
       }
 
       if (data.saveSnapshot) {
-        // Apply all frontend directions to build tree
+        // If any addFolder under /systemfiles/runtime/apps is present, require the user's password
+        const dirs = Array.isArray(data.directions) ? data.directions : [];
+        const needsPw = dirs.some(d => d && d.addFolder && (removeUnwantedStuffInPath(d.path || '') || '').startsWith('/systemfiles/runtime/apps')) || dirs.some(d => d && d.addFolder && d.name && (removeUnwantedStuffInPath(`${d.path||''}/${d.name}`)).startsWith('/systemfiles/runtime/apps'));
+        if (needsPw && (!authObj || data.password !== authObj.password)) {
+          res.writeHead(403);
+          return res.end(JSON.stringify({ error: 'password required for creating folders in /systemfiles/runtime/apps' }));
+        }
+
         const result = await withUserLock(username, () => applyDirections(userRoot, data.directions, username, userPathPermissions, { move: Boolean(data.move) }));
 
         const safePayload = {

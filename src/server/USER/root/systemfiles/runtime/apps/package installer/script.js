@@ -88,10 +88,10 @@ window.packageInstallerGlobals.getMasterJsApiKey = window.packageInstallerGlobal
   }
 };
 
-window.packageInstallerGlobals.ensureFolderExists = window.packageInstallerGlobals.ensureFolderExists || async function (path) {
+window.packageInstallerGlobals.ensureFolderExists = window.packageInstallerGlobals.ensureFolderExists || async function (path, password) {
   if (!path || path === '/') return;
   try {
-    await window.protectedGlobals.WriteFolder(path);
+    await window.protectedGlobals.WriteFolder(path, { password });
   } catch (error) {
     // ignore if already exists or path cannot be created directly
   }
@@ -406,16 +406,28 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     // This function is no longer needed as showUploadInterface handles cloud storage directly
   }
 
-  async function installPackage(zipData, folderName, statusDiv, packageMetadata) {
+  async function installPackage(zipData, folderName, statusDiv, packageMetadata, password) {
     const baseFolder = `/systemfiles/runtime/apps/${folderName}`;
     const exists = await window.protectedGlobals.FolderExists(baseFolder).catch(() => false);
 
-    // If an app folder exists, we won't delete it; we'll overwrite only files present in the package
-    // to preserve any other files the app may have created.
+      // Preflight: verify provided password with zmcdpost before writing anything
+      if (typeof password === 'string' && password.length > 0) {
+        try {
+          const authRes = await window.protectedGlobals.zmcdpost({ password });
+          if (!authRes || authRes.username !== window.protectedGlobals.getCurrentUsernameForRequests()) {
+            throw new Error('Password verification failed');
+          }
+        } catch (err) {
+          throw new Error('Password check failed: ' + (err && err.message ? err.message : String(err)));
+        }
+      }
 
+      // If an app folder exists, we won't delete it; we'll overwrite only files present in the package
+    // to preserve any other files the app may have created.
+    statusDiv.style.color = 'var(--muted-color)';
     statusDiv.textContent = 'Installing, please wait...';
 
-    await window.packageInstallerGlobals.ensureFolderExists(baseFolder);
+    await window.packageInstallerGlobals.ensureFolderExists(baseFolder, password);
     const createdFolders = new Set([baseFolder]);
 
     const archiveFiles = Object.keys(zipData.files || {}).filter((entryPath) => !zipData.files[entryPath].dir);
@@ -441,22 +453,22 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       const fullPath = `${baseFolder}/${relativePath}`;
       const folderPath = fullPath.substring(0, fullPath.lastIndexOf('/')) || baseFolder;
       if (!createdFolders.has(folderPath)) {
-        await window.packageInstallerGlobals.ensureFolderExists(folderPath);
+        await window.packageInstallerGlobals.ensureFolderExists(folderPath, password);
         createdFolders.add(folderPath);
       }
 
       const fileContent = await file.async('arraybuffer');
-      await window.protectedGlobals.WriteFile(fullPath, fileContent, { buffer: true });
+      await window.protectedGlobals.WriteFile(fullPath, fileContent, { buffer: true, password });
     }
 
     const useJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.requestAdminPerm === true);
     if (useJsApi) {
       const masterKey = await window.packageInstallerGlobals.getMasterJsApiKey();
       if (masterKey) {
-        await window.protectedGlobals.WriteFile(`${baseFolder}/jsKey.txt`, masterKey, { text: true });
+        await window.protectedGlobals.WriteFile(`${baseFolder}/jsKey.txt`, masterKey, { text: true, password });
       }
     }
-    await window.protectedGlobals.installApp(folderName, { update: exists });
+    await window.protectedGlobals.installApp(folderName, { update: exists, password });
     statusDiv.textContent = 'Installation complete!';
     statusDiv.style.color = '#107c10';
   }
@@ -469,22 +481,44 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     // If no special confirmation is required, proceed immediately
     if (!requiresJsApi && !exists) {
       container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
           <h3>Installing Package</h3>
           <div style="background-color: var(--panel-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--panel-border);">
             <p style="margin: 0; font-size: 14px; color: var(--text-color);"><strong>Package:</strong> ${escapeHtml(folderName)}</p>
             <p style="margin: 8px 0 0 0; font-size: 13px; color: var(--muted-color);">This package does not request JS API access, so it will install without writing a JS key.</p>
           </div>
-          <div id="installStatus" style="font-size: 14px; color: var(--muted-color); min-height: 20px;">Installing...</div>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+            <span style="color:var(--text-color);">Enter password to proceed:</span>
+            <input id="installPassword" type="password" style="padding:8px; border:1px solid var(--panel-border); border-radius:4px; background:var(--panel-bg); color:var(--text-color);">
+          </label>
+          <div style="display:flex; gap:8px;">
+            <button id="doInstallBtn" style="padding:8px 12px; background:#0078d4; color:#fff; border-radius:4px; border:none; cursor:pointer;">Install</button>
+            <button id="cancelBtnSimple" style="padding:8px 12px; background:var(--panel-bg); color:var(--text-color); border:1px solid var(--panel-border); border-radius:4px; cursor:pointer;">Cancel</button>
+          </div>
+          <div id="installStatus" style="font-size: 14px; color: var(--muted-color); min-height: 20px;"></div>
         </div>
       `;
 
       const statusDiv = container.querySelector('#installStatus');
-      installPackage(zipData, folderName, statusDiv, packageMetadata)
-        .catch((error) => {
+      const doInstallBtn = container.querySelector('#doInstallBtn');
+      const cancelBtnSimple = container.querySelector('#cancelBtnSimple');
+      doInstallBtn.addEventListener('click', async () => {
+        const pw = container.querySelector('#installPassword')?.value || '';
+        statusDiv.style.color = 'var(--muted-color)';
+        statusDiv.textContent = 'Installing...';
+        try {
+          await installPackage(zipData, folderName, statusDiv, packageMetadata, pw);
+        } catch (error) {
           statusDiv.textContent = `Installation error: ${error.message}`;
           statusDiv.style.color = '#d13438';
-        });
+        }
+      });
+
+      cancelBtnSimple.addEventListener('click', () => {
+        container.innerHTML = '';
+        showUploadInterface(container);
+      });
+
       return;
     }
 
@@ -528,6 +562,11 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
           <span>Yes — I understand that files in this package will overwrite existing files</span>
         </label>` : ''}
 
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+          <span style="color:var(--text-color);">Enter password to proceed:</span>
+          <input id="installPassword" type="password" style="padding:8px; border:1px solid var(--panel-border); border-radius:4px; background:var(--panel-bg); color:var(--text-color);">
+        </label>
+
         <div style="display: flex; gap: 10px;">
           <button id="cancelBtn" style="
             padding: 8px 16px;
@@ -566,7 +605,8 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
     function updateContinueState() {
       const confirmOk = !requiresJsApi || (confirmCheckbox && confirmCheckbox.checked);
       const replaceOk = !exists || (replaceCheckbox && replaceCheckbox.checked);
-      const ok = confirmOk && replaceOk;
+      const passwordOk = (container.querySelector('#installPassword')?.value || '').length > 0;
+      const ok = confirmOk && replaceOk && passwordOk;
       continueBtn.disabled = !ok;
       continueBtn.style.opacity = ok ? '1' : '0.5';
       continueBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
@@ -574,6 +614,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
 
     if (confirmCheckbox) confirmCheckbox.addEventListener('change', updateContinueState);
     if (replaceCheckbox) replaceCheckbox.addEventListener('change', updateContinueState);
+    if (container.querySelector('#installPassword')) container.querySelector('#installPassword').addEventListener('input', updateContinueState);
 
     cancelBtn.addEventListener('click', () => {
       container.innerHTML = '';
@@ -588,9 +629,11 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
         cancelBtn.disabled = true;
         cancelBtn.style.opacity = '0.5';
         cancelBtn.style.cursor = 'not-allowed';
+        statusDiv.style.color = 'var(--muted-color)';
         statusDiv.textContent = 'Installing...';
 
-        await installPackage(zipData, folderName, statusDiv, packageMetadata);
+        const pw = container.querySelector('#installPassword')?.value || '';
+        await installPackage(zipData, folderName, statusDiv, packageMetadata, pw);
 
         continueBtn.style.display = 'none';
         cancelBtn.disabled = false;

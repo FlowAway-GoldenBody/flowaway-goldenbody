@@ -11,10 +11,12 @@ window.protectedGlobals.unzip = async function (path, destinationFolder) {
   const res = await window.protectedGlobals.filePost({ unzip: true, path: String(path), destinationFolder });
   return res;
 };
-window.protectedGlobals.WriteFolder = async function (relPath) {
+window.protectedGlobals.WriteFolder = async function (relPath, options = {}) {
   if (!relPath) throw new Error("No path");
   const directions = [{ path: String(relPath), addFolder: true }, { end: true }];
-  const res = await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
+  const payload = { saveSnapshot: true, directions };
+  if (options && options.password) payload.password = options.password;
+  const res = await window.protectedGlobals.filePost(payload);
   if (res && res.success) {
     window.protectedGlobals.missingFolders.delete(relPath);
   }
@@ -230,9 +232,12 @@ window.protectedGlobals.WriteFile = async function (
     "Content-Type": "application/octet-stream",
     "X-File-Action": "write",
     "X-File-Path": utf8ToBase64(normalizedPath),
-    "X-Username":
-      window.protectedGlobals.getCurrentUsernameForRequests(),
+    "X-Username": window.protectedGlobals.getCurrentUsernameForRequests(),
   };
+  // Forward optional password for server-side checks
+  if (options && options.password) {
+    baseHeaders["X-Password"] = String(options.password);
+  }
 
   const maxAttempts = 15;
 

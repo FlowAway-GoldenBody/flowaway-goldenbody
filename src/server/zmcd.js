@@ -107,23 +107,11 @@ function pruneExpiredTokens(authRecord) {
   authRecord.authTokens = authRecord.authTokens.filter((tokenRow) => tokenRow && tokenRow.expires && tokenRow.expires > now);
 }
 
-function tokenFromHeader(authHeader) {
-  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7).trim();
-  }
-  return '';
-}
-
-function isAuthorized(authRecord, data, authHeader) {
+function isAuthorized(authRecord, data/*, authHeader */) {
   pruneExpiredTokens(authRecord);
-  const now = Date.now();
-  const headerToken = tokenFromHeader(authHeader);
-  const bodyToken = typeof data.sessionToken === 'string' ? data.sessionToken.trim() : '';
-  const tokenValid = (headerToken && authRecord.authTokens.some((row) => row.token === headerToken && row.expires > now))
-    || (bodyToken && authRecord.authTokens.some((row) => row.token === bodyToken && row.expires > now));
   const passwordValid = typeof data.password === 'string' && data.password === authRecord.password;
   const oldPasswordValid = typeof data.oldPassword === 'string' && data.oldPassword === authRecord.password;
-  return tokenValid || passwordValid || oldPasswordValid;
+  return passwordValid || oldPasswordValid;
 }
 
 function issueToken(authRecord) {

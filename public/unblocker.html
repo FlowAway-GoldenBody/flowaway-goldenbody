@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Learn</title>
+</head>
+<body>
+    <script>
+const width = screen.availWidth;
+const height = screen.availHeight;
+    function launchHomepage(newTab = false) {
+      let a;
+      if (newTab) a = window.open('about:blank', '_blank', `width=${width},height=${height},top=0,left=0,resizable=yes,scrollbars=yes`);
+      else a = window.open('about:blank', '_blank');
+      let script = a.document.createElement('script');
+      script.src = 'ouchbad.js';
+      a.document.body.appendChild(script);
+    }
+    let a = document.createElement('button');
+    a.textContent = 'lauch homepage in new tab';
+    a.style.width = '300px';
+    a.style.height = '100px';
+    a.onclick = () => launchHomepage(false);
+    document.body.appendChild(a);
+    let b = document.createElement('button');
+    b.textContent = 'lauch homepage in new window';
+    b.style.width = '300px';
+    b.style.height = '100px';
+    b.onclick = () => launchHomepage(true);
+    document.body.appendChild(b);
+    let downloadh1 = document.createElement('h1');
+    downloadh1.innerHTML = "<a href='https://sfc.mathvariables.xyz/inject' target='_blank'>Statefarm Client chromebook edition is avaliable now!</a>";
+    let discordlink = document.createElement('a');
+    discordlink.target = '_blank';
+    discordlink.href = 'https://discord.gg/MXxNtJThDJ';
+    discordlink.textContent = 'Join our discord server for more info or updates.';
+    document.body.appendChild(downloadh1);
+    document.body.appendChild(discordlink);
+    </script>
+    <br><br><br><br><br><br><br><br>
+</body>
+</html>
