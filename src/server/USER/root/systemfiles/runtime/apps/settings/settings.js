@@ -609,57 +609,22 @@ window.settings = function (posX = 50, posY = 50) {
     return d;
   }
 
-  async function loadInstalledApps() {
-    const appsRoot = "/systemfiles/runtime/apps";
-    const entries = (await window.protectedGlobals.ReadFolder(appsRoot).catch(() => [])) || [];
-    if (!Array.isArray(entries)) return [];
-
-    const validApps = [];
-    for (const entry of entries) {
-      if (!entry || typeof entry !== "string") continue;
-      if (entry.startsWith(".")) continue;
-
-      try {
-        const entryJson = await window.protectedGlobals.ReadFile(
-          `${appsRoot}/${entry}/entry.json`,
-          { text: true, direct: true },
-        );
-        if (entryJson) {
-          validApps.push(entry);
-        }
-      } catch (e) {
-        continue;
-      }
-    }
-
-    return validApps;
-  }
-
   async function readAppMetadata(appFolderName) {
     const appPath = `/systemfiles/runtime/apps/${appFolderName}`;
     const entryPath = `${appPath}/entry.json`;
-    const meta = { folderName: appFolderName, name: appFolderName, label: appFolderName, icon: null, iconType: "text", functionName: appFolderName, requestAdminPerm: false, id: appFolderName };
-    let entryText = null;
+    const meta = { folderName: appFolderName, name: appFolderName, label: appFolderName, icon: null, iconType: "text", iconFile: null, pngEnabled: false, svgEnabled: false, functionName: appFolderName, requestAdminPerm: false, id: appFolderName };
     function iconDataToBase64(raw) {
       if (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw)) {
         const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
         const chunkSize = 0x8000;
         let binary = "";
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-        }
+        for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
         return btoa(binary);
       }
-      if (typeof raw === "string") {
-        return raw.trim();
-      }
-      return null;
+      return typeof raw === "string" ? raw.trim() : null;
     }
-    try {
-      entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true });
-    } catch (e) {
-      entryText = null;
-    }
+    let entryText = null;
+    try { entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true }); } catch (e) {}
     if (entryText) {
       try {
         const data = JSON.parse(entryText);
@@ -669,49 +634,28 @@ window.settings = function (posX = 50, posY = 50) {
           meta.id = data.id || appFolderName;
           meta.name = data.label || appFolderName;
           meta.requestAdminPerm = !!data.requestAdminPerm;
-          let iconFile = data.iconFile;
-          if (!iconFile) {
-            if (data.icon) iconFile = data.icon;
-          }
+          meta.pngEnabled = !!data.pngEnabled;
+          meta.svgEnabled = !!data.svgEnabled;
+          let iconFile = data.iconFile || data.icon || null;
+          meta.iconFile = iconFile;
           if (iconFile) {
             const iconPath = `${appPath}/${iconFile}`;
             try {
-              if (data.pngEnabled) {
+              if (meta.pngEnabled) {
                 const raw = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
-                const iconString = iconDataToBase64(raw);
-                if (iconString) {
-                  meta.icon = iconString;
-                  meta.iconType = "img";
-                }
-              } else if (data.svgEnabled) {
-                const svgText = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
-                if (svgText) {
-                  meta.icon = svgText.trim();
-                  meta.iconType = "svg";
-                }
-              } else if (data.nonTextIcon) {
-                const raw = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
-                const iconString = iconDataToBase64(raw);
-                if (iconString) {
-                  meta.icon = iconString;
-                  meta.iconType = iconFile.toLowerCase().endsWith(".png") ? "img" : iconFile.toLowerCase().endsWith(".svg") ? "svg" : "text";
-                }
+                const b64 = iconDataToBase64(raw);
+                if (b64) { meta.icon = b64; meta.iconType = "img"; }
+              } else if (meta.svgEnabled) {
+                const svg = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
+                if (svg) { meta.icon = String(svg).trim(); meta.iconType = "svg"; }
               } else {
                 const textIcon = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
-                if (textIcon) {
-                  meta.icon = String(textIcon).trim();
-                  meta.iconType = "text";
-                }
+                if (textIcon) { meta.icon = String(textIcon).trim(); meta.iconType = "text"; }
               }
-            } catch (e) {
-              meta.icon = null;
-              meta.iconType = "text";
-            }
+            } catch (e) { meta.icon = null; meta.iconType = "text"; }
           }
         }
-      } catch (e) {
-        // ignore invalid entry.json
-      }
+      } catch (e) {}
     }
     return meta;
   }
@@ -809,29 +753,24 @@ window.settings = function (posX = 50, posY = 50) {
     iconWrapper.style.overflow = "hidden";
     iconWrapper.style.flexShrink = "0";
 
-    if (appMeta.iconType === "img" && appMeta.icon) {
+    const iconMode = appMeta.pngEnabled ? "img" : appMeta.svgEnabled ? "svg" : appMeta.iconType || "text";
+    if (iconMode === "img" && appMeta.icon) {
       const img = document.createElement("img");
-      img.src = `data:image/png;base64,${appMeta.icon}`;
+      img.src = appMeta.icon.startsWith("data:image/") ? appMeta.icon : `data:image/png;base64,${appMeta.icon}`;
       img.style.maxWidth = "100%";
       img.style.maxHeight = "100%";
       img.style.display = "block";
       iconWrapper.appendChild(img);
-    } else if (appMeta.iconType === "svg" && appMeta.icon) {
+    } else if (iconMode === "svg" && appMeta.icon) {
       iconWrapper.innerHTML = appMeta.icon;
       const svg = iconWrapper.querySelector("svg");
       if (svg) {
         svg.style.width = "100%";
         svg.style.height = "100%";
       }
-    } else if (appMeta.icon) {
-      const text = document.createElement("div");
-      text.textContent = appMeta.icon[0] || appMeta.label[0] || "A";
-      text.style.fontSize = "16px";
-      text.style.fontWeight = "700";
-      iconWrapper.appendChild(text);
     } else {
       const text = document.createElement("div");
-      text.textContent = appMeta.label[0] ? appMeta.label[0].toUpperCase() : "A";
+      text.textContent = (appMeta.icon || appMeta.label || "A").toString().trim().charAt(0) || "A";
       text.style.fontSize = "16px";
       text.style.fontWeight = "700";
       iconWrapper.appendChild(text);
@@ -873,7 +812,7 @@ window.settings = function (posX = 50, posY = 50) {
       deleteBtn.disabled = true;
       deleteBtn.textContent = "Deleting...";
       try {
-        window.protectedGlobals.deleteApp(appMeta);
+        await window.protectedGlobals.deleteApp(appMeta);
         await refreshAppList();
       } catch (err) {
         deleteBtn.disabled = false;
@@ -1057,7 +996,7 @@ window.settings = function (posX = 50, posY = 50) {
     loading.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
     container.appendChild(loading);
     try {
-      const apps = await loadInstalledApps();
+      const apps = window.protectedGlobals.apps;
       container.innerHTML = "";
       if (!apps.length) {
         const empty = document.createElement("div");
@@ -1066,9 +1005,8 @@ window.settings = function (posX = 50, posY = 50) {
         container.appendChild(empty);
         return;
       }
-      for (const appName of apps) {
-        const meta = await readAppMetadata(appName);
-        container.appendChild(createAppItem(meta, refreshAppList));
+      for (const appMeta of apps) {
+        container.appendChild(createAppItem(appMeta, refreshAppList));
       }
     } catch (e) {
       container.innerHTML = "";

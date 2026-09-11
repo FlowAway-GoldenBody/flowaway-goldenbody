@@ -80,3 +80,6 @@
 
 ## V 2.2.1
 - require password for app installations
+
+## No version increase
+- app management settings in the settings app loads faster than before now.
