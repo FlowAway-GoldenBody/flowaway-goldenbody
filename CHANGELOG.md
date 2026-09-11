@@ -83,3 +83,4 @@
 
 ## No version increase
 - app management settings in the settings app loads faster than before now.
+- for users that have removed their app dir, the reset system app option still works now

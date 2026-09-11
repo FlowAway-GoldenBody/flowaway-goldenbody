@@ -1012,7 +1012,7 @@ function makeIcon(type, size = 16) {
       const node = findNode(treeData, currentPath);
       if (!node || !node[1]) return;
       
-      const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+      const items = node[1];
       const queryLower = query.toLowerCase();
       const matching = items.filter(item => item[0].toLowerCase().includes(queryLower));
       
@@ -1405,7 +1405,7 @@ function makeIcon(type, size = 16) {
     fileArea.innerHTML = "";
     const node = findNode(treeData, currentPath);
     if (!node || !node[1]) return;
-    const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+    const items = node[1];
 
     if (profile.displayMode === "tiles") {
       const grid = document.createElement("div");
@@ -2105,7 +2105,7 @@ function makeIcon(type, size = 16) {
       e.stopPropagation();
       const node = findNode(treeData, currentPath);
       if (!node || !node[1]) return;
-      const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+      const items = node[1];
       selectedItems = items.slice();
       lastSelectedIndex = items.length - 1;
       refreshSelectionUI(items);
@@ -2186,7 +2186,7 @@ function makeIcon(type, size = 16) {
       addItem("Select All", () => {
         const node = findNode(treeData, currentPath);
         if (!node || !node[1]) return;
-        const items = node[1].filter(item => !(item[0] == ".DS_Store" || item[0].startsWith(".temp")));
+        const items = node[1];
         selectedItems = items.slice();
         lastSelectedIndex = items.length - 1;
         refreshSelectionUI(items);

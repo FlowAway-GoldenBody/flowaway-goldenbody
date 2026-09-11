@@ -402,10 +402,6 @@ function resetSystemApp(options = {}) {
   const targetAppsRoot = appsRoot || path.join(userRoot, 'systemfiles', 'runtime', 'apps');
   const fallbackAppsRoot = sampleAppsRoot || path.join(sampleRoot, 'systemfiles', 'runtime', 'apps');
 
-  if (!targetAppsRoot || !fs.existsSync(targetAppsRoot)) {
-    return { success: false, error: 'user apps directory is missing' };
-  }
-
   const { systemApps } = splitRecoveryAppDefinitions(options);
   let match = findMatchingAppDefinition(systemApps, options.appIdentifier);
 
@@ -483,7 +479,7 @@ function resetPathPermissions(options = {}) {
 
   // set pathPermissions to the expected default block (small, a few lines)
   raw.pathPermissions = [
-    { path: '/systemfiles', perm: { read: true, write: true } },
+    { path: '/systemfiles', perm: { read: true, write: false } },
     { path: '/systemfiles/runtime/apps', perm: { read: true, write: true } },
     { path: '/systemfiles/userprofile', perm: { read: true, write: true } },
     { path: '/systemfiles/background', perm: { read: true, write: true } },
