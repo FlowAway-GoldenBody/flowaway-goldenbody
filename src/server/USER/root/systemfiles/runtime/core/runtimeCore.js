@@ -1,27 +1,60 @@
 "use strict";
 
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
+window.protectedGlobals.validatePath = function (path, {
+  allowRoot = false
+} = {}) {
+  if (typeof path !== "string") {
+    throw new TypeError("Path must be a string");
+  }
+
+  let p = path.trim().replace(/\\/g, "/");
+
+  // Remove leading slashes.
+  p = p.replace(/^\/+/, "");
+
+  // Remove legacy leading "root/" or "root".
+  if (p === "root") {
+    p = "";
+  } else if (p.startsWith("root/")) {
+    p = p.slice("root/".length);
+  }
+
+  // Remove "." / ".." components and repeated slashes.
+  const parts = p
+    .split("/")
+    .filter(part =>
+      part !== "" &&
+      part !== "." &&
+      part !== ".."
+    );
+
+  const result = parts.join("/");
+
+  if (!result && !allowRoot) {
+    throw new Error("No path");
+  }
+
+  return result;
+};
+
+
 
 console.log("runtimeCore.js loaded");
-window.protectedGlobals.unzip = async function (path, destinationFolder) {
-  if (!destinationFolder) {
-    destinationFolder = path.split("/").slice(0, -1).join("/"); // default to the folder containing the zip file
-  }
-  if (!path) throw new Error("No path");
-  const res = await window.protectedGlobals.filePost({ unzip: true, path: String(path), destinationFolder });
-  return res;
+window.protectedGlobals.normalizeFsPath = function normalizeFsPath(path, options = {}) {
+  return window.protectedGlobals.validatePath(path, options);
 };
 window.protectedGlobals.WriteFolder = async function (relPath, options = {}) {
-  if (!relPath) throw new Error("No path");
-  const directions = [{ path: String(relPath), addFolder: true }, { end: true }];
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath, { allowRoot: true });
+  const directions = [{ path: normalizedPath, addFolder: true }, { end: true }];
   const payload = { saveSnapshot: true, directions };
   if (options && options.password) payload.password = options.password;
   const res = await window.protectedGlobals.filePost(payload);
   if (res && res.success) {
-    window.protectedGlobals.missingFolders.delete(relPath);
+    window.protectedGlobals.missingFolders.delete(normalizedPath);
   }
   return res;
-}
+};
 window.protectedGlobals.FolderExists = async function (relPath) {
   if (!relPath) throw new Error("No path");
   const normalizedPath = String(relPath || "").trim().replace(/\\/g, "/");
@@ -50,7 +83,7 @@ window.protectedGlobals.ReadFile = async function (
   relPath,
   options = { text: true, buffer: false, direct: false, stream: false }
 ) {
-  if (!relPath) throw new Error("No path");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath);
 
   const isBuffer = !!options.buffer;
   const isText = !!options.text;
@@ -86,7 +119,7 @@ window.protectedGlobals.ReadFile = async function (
         body: JSON.stringify({
           username: window.protectedGlobals.getCurrentUsernameForRequests(),
           requestFile: true,
-          requestFileName: String(relPath),
+          requestFileName: normalizedPath,
         }),
       });
 
@@ -110,7 +143,7 @@ window.protectedGlobals.ReadFile = async function (
 
   if (response.status === 401) {
     const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
-    if (refilled) return await window.protectedGlobals.ReadFile(relPath, options);
+    if (refilled) return await window.protectedGlobals.ReadFile(normalizedPath, options);
     return { error: "unauthorized" };
   }
 
@@ -129,7 +162,7 @@ window.protectedGlobals.ReadFile = async function (
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to read file: ${response.status} ${relPath}`);
+    throw new Error(`Failed to read file: ${response.status} ${normalizedPath}`);
   }
 
   const fileSize = Number(response.headers.get("content-length") || 0);
@@ -153,22 +186,21 @@ window.protectedGlobals.ReadFile = async function (
   };
 };
 window.protectedGlobals.ReadFolder = async function (relPath, options = { detail: false, directoryDetail: false }) {
-  if (!relPath) throw new Error("No path");
+  const requestPath = window.protectedGlobals.normalizeFsPath(relPath, { allowRoot: true });
   let res = await window.protectedGlobals.filePost({
     requestFolder: true,
-    requestFolderName: String(relPath),
+    requestFolderName: requestPath,
     detail: options.detail,
     directoryDetail: options.directoryDetail
   });
   return res.files;
-}
+};
 window.protectedGlobals.WriteFile = async function (
   relPath,
   contents,
   options = { replace: true, stream: false }
 ) {
-  let normalizedPath = String(relPath || "").trim();
-  if (!normalizedPath) throw new Error("No path");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath);
 
   if (!options.retrytimeout) {
     options.retrytimeout = 15000; // default 15 seconds
@@ -179,23 +211,6 @@ window.protectedGlobals.WriteFile = async function (
     const binaryString = String.fromCharCode(...bytes);
     return btoa(binaryString);
   }
-
-  // Normalize legacy prefixes and leading slashes.
-  normalizedPath = normalizedPath.replace(/\\/g, "/");
-
-  if (normalizedPath === "root") {
-    normalizedPath = "";
-  } else if (normalizedPath.startsWith("root/")) {
-    normalizedPath = normalizedPath.slice("root/".length);
-  } else if (normalizedPath.startsWith("/root/")) {
-    normalizedPath = normalizedPath.slice("/root/".length);
-  }
-
-  while (normalizedPath.startsWith("/")) {
-    normalizedPath = normalizedPath.slice(1);
-  }
-
-  if (!normalizedPath) throw new Error("No path");
 
   const replace =
     options && typeof options === "object"
@@ -296,7 +311,9 @@ window.protectedGlobals.WriteFile = async function (
       if (refilled) return await sendChunk(chunk, chunkReplace);
       return { error: "unauthorized" };
     }
-
+    else if (response.status === 403) {
+      window.protectedGlobals.notification(body.error || "Access denied.");
+    }
     return {
       response,
       body,
@@ -333,54 +350,54 @@ window.protectedGlobals.WriteFile = async function (
   return lastResult.body;
 };
 window.protectedGlobals.DeleteFile = async function (relPath) {
-  if (!relPath) throw new Error("No path");
-  const directions = [{ delete: true, path: String(relPath) }, { end: true }];
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath);
+  const directions = [{ delete: true, path: normalizedPath }, { end: true }];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 window.protectedGlobals.DeleteFolder = async function (relPath) {
-  if (!relPath) throw new Error("No path");
-  const directions = [{ deleteFolder: true, path: String(relPath) }, { end: true }];
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath, { allowRoot: true });
+  const directions = [{ deleteFolder: true, path: normalizedPath }, { end: true }];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
-}
+};
 window.protectedGlobals.RenameFile = async function (relPath, newName) {
-  if (!relPath) throw new Error("No path");
-  if (!newName) throw new Error("No new name");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath);
+  const normalizedNewName = window.protectedGlobals.normalizeFsPath(newName);
   const directions = [
-    { rename: true, path: String(relPath), newName: String(newName) },
+    { rename: true, path: normalizedPath, newName: normalizedNewName },
     { end: true },
   ];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
 window.protectedGlobals.RenameFolder = async function (relPath, newName) {
-  if (!relPath) throw new Error("No path");
-  if (!newName) throw new Error("No new name");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath, { allowRoot: true });
+  const normalizedNewName = window.protectedGlobals.normalizeFsPath(newName);
   const directions = [
-    { renameFolder: true, path: String(relPath), newName: String(newName) },
+    { renameFolder: true, path: normalizedPath, newName: normalizedNewName },
     { end: true },
   ];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
 window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems, options = { move: false }) {
-  if (!destinationRelPath) throw new Error("No destination path");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(destinationRelPath, { allowRoot: true });
   if (!Array.isArray(clipboardItems) || !clipboardItems.length)
     throw new Error("No clipboard items");
   const directions = [
     { copy: true, directions: clipboardItems },
-    { paste: true, path: String(destinationRelPath) },
+    { paste: true, path: normalizedPath },
     { end: true },
   ];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
 };
 
 window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipboardItems, options = { move: false }) {
-  if (!destinationRelPath) throw new Error("No destination path");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(destinationRelPath, { allowRoot: true });
   if (!Array.isArray(clipboardItems) || !clipboardItems.length)
     throw new Error("No clipboard items");
   const directions = [
     { copy: true, directions: clipboardItems },
-    { pasteFolder: true, path: String(destinationRelPath) },
+    { pasteFolder: true, path: normalizedPath },
     { end: true },
   ];
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
@@ -1028,17 +1045,22 @@ window.protectedGlobals.deleteApp = async function (obj, cleanupOnly = false) {
       } catch {
         // no instance of the app is running, so nothing to close
       }
-      window.protectedGlobals.knownAppStuff.knownAppId.splice(window.protectedGlobals.knownAppStuff.knownAppId.indexOf(element.id), 1);
-      window.protectedGlobals.knownAppStuff.knownAppGlobals.splice(window.protectedGlobals.knownAppStuff.knownAppGlobals.indexOf(element.globalVarObjectString), 1);
-      window.protectedGlobals.knownAppStuff.knownAppFuncs.splice(window.protectedGlobals.knownAppStuff.knownAppFuncs.indexOf(element.functionName), 1);
+      const knownAppIdIndex = window.protectedGlobals.knownAppStuff.knownAppId.indexOf(element.id);
+      if (knownAppIdIndex !== -1) window.protectedGlobals.knownAppStuff.knownAppId.splice(knownAppIdIndex, 1);
+      const knownAppGlobalsIndex = window.protectedGlobals.knownAppStuff.knownAppGlobals.indexOf(element.globalVarObjectString);
+      if (knownAppGlobalsIndex !== -1) window.protectedGlobals.knownAppStuff.knownAppGlobals.splice(knownAppGlobalsIndex, 1);
+      const knownAppFuncsIndex = window.protectedGlobals.knownAppStuff.knownAppFuncs.indexOf(element.functionName);
+      if (knownAppFuncsIndex !== -1) window.protectedGlobals.knownAppStuff.knownAppFuncs.splice(knownAppFuncsIndex, 1);
       window.protectedGlobals.renderAppsGrid();
       [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")].forEach(b => {
         if (b.dataset.appId === element.id) b.remove();
         window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
       });
       window.protectedGlobals.persistUserProfilePatch({ taskbuttons: window.protectedGlobals.data.taskbuttons });
-      window.protectedGlobals._startMenuConfig.pinnedApps.splice(window.protectedGlobals._startMenuConfig.pinnedApps.indexOf(element.id), 1);
-      window.protectedGlobals._startMenuConfig.recents.splice(window.protectedGlobals._startMenuConfig.recents.indexOf(element.id), 1);
+      const pinnedIndex = window.protectedGlobals._startMenuConfig.pinnedApps.indexOf(element.id);
+      if (pinnedIndex !== -1) window.protectedGlobals._startMenuConfig.pinnedApps.splice(pinnedIndex, 1);
+      const recentIndex = window.protectedGlobals._startMenuConfig.recents.indexOf(element.id);
+      if (recentIndex !== -1) window.protectedGlobals._startMenuConfig.recents.splice(recentIndex, 1);
       window.protectedGlobals.saveStartMenuConfig();
       delete window[element.globalVarObjectString];
       delete window[element.functionName];
@@ -1071,14 +1093,14 @@ window.protectedGlobals.installApp = async function (folderName, options = {}) {
       : null;
   if (!appsNode) return;
   var appFolders = window.protectedGlobals.dedupefiles(appsNode[1]);
-  appFolders.forEach(async (f) => {
+  for (const f of appFolders) {
     if (f[0] === folderName) {
-      let appData = await window.protectedGlobals.extractAppData(f);
-      window.protectedGlobals.apps.sort((a, b) => a.label.localeCompare(b.label));
-      window.protectedGlobals.initAppRuntimeState(appData);
-      window.protectedGlobals.apps.push(appData);
-    }
-  });
+        let appData = await window.protectedGlobals.extractAppData(f);
+        window.protectedGlobals.apps.sort((a, b) => a.label.localeCompare(b.label));
+        window.protectedGlobals.initAppRuntimeState(appData);
+        window.protectedGlobals.apps.push(appData);
+      }
+  }
   window.protectedGlobals.renderAppsGrid();
 };
 

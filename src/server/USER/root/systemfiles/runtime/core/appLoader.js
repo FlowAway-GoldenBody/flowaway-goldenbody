@@ -15,21 +15,21 @@
     return;
   }
   function checkEntryObject(entryObj) {
-    if (!entryObj.id) { console.error("Invalid app ID"); return false; }
-    if (knownAppId.includes(entryObj.id)) {console.error(`Identifier ${entryObj.id} is already declared`); return false;}
+    if (!entryObj.id) { window.protectedGlobals.notification("Invalid app ID"); return false; }
+    if (knownAppId.includes(entryObj.id)) {window.protectedGlobals.notification(`Identifier ${entryObj.id} is already declared`); return false;}
 
-    if (!entryObj.jsFile) { console.error("Invalid app JS file"); return false; }
-    if (!entryObj.label && !entryObj.headless) { console.error("Invalid app label"); return false; }
-    if (!entryObj.iconFile && !entryObj.headless) { console.error("Invalid app icon file"); return false; }
+    if (!entryObj.jsFile) { window.protectedGlobals.notification("Invalid app JS file"); return false; }
+    if (!entryObj.label && !entryObj.headless) { window.protectedGlobals.notification("Invalid app label"); return false; }
+    if (!entryObj.iconFile && !entryObj.headless) { window.protectedGlobals.notification("Invalid app icon file"); return false; }
 
     if (entryObj.requestAdminPerm) {
-      if (!entryObj.allAppArrayString) { console.error("Invalid app allAppArrayString"); return false; }
+      if (!entryObj.allAppArrayString) { window.protectedGlobals.notification("Invalid app allAppArrayString"); return false; }
 
-      if (!entryObj.functionName) { console.error("Invalid app functionName"); return false; }
-      if (knownAppFuncs.includes(entryObj.functionName)) {console.error(`Identifier ${entryObj.functionName} is already declared`); return false;}
+      if (!entryObj.functionName) { window.protectedGlobals.notification("Invalid app functionName"); return false; }
+      if (knownAppFuncs.includes(entryObj.functionName)) {window.protectedGlobals.notification(`Identifier ${entryObj.functionName} is already declared`); return false;}
       
-      if (!entryObj.globalVarObjectString) { console.error("Invalid app globalVarObjectString"); return false; }
-      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {console.error(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
+      if (!entryObj.globalVarObjectString) { window.protectedGlobals.notification("Invalid app globalVarObjectString"); return false; }
+      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {window.protectedGlobals.notification(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
     }
     knownAppId.push(entryObj.id);
     knownAppFuncs.push(entryObj.functionName);

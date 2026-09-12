@@ -209,6 +209,49 @@ function stripLeadingSlash(value) {
   return text.replace(/^\/+/, "");
 }
 
+function isExistingAppFolderPath(userRoot, normalizedPath) {
+  if (!normalizedPath || typeof normalizedPath !== "string") return false;
+
+  const appsRoot = "/systemfiles/runtime/apps";
+  if (!normalizedPath.startsWith(appsRoot)) return false;
+
+  const relative = normalizedPath.slice(appsRoot.length).replace(/^\/+/, "");
+  if (!relative) return false;
+
+  const firstSegment = relative.split("/")[0];
+  if (!firstSegment) return false;
+
+  const candidatePath = safeResolve(userRoot, `systemfiles/runtime/apps/${firstSegment}`);
+
+  try {
+    const stat = fs.statSync(candidatePath);
+    return Boolean(stat && stat.isDirectory());
+  } catch {
+    return false;
+  }
+}
+
+function requiresPasswordForAppsWrite(userRoot, normalizedPath) {
+  if (!normalizedPath || typeof normalizedPath !== "string") return false;
+  if (!normalizedPath.startsWith("/systemfiles/runtime/apps")) return false;
+
+  const relative = normalizedPath.slice("/systemfiles/runtime/apps".length).replace(/^\/+/, "");
+  if (!relative) return false;
+
+  if (!relative.includes("/")) {
+    return false;
+  }
+
+  return !isExistingAppFolderPath(userRoot, normalizedPath);
+}
+
+function requiresPasswordForAppsFolderCreate(userRoot, normalizedPath) {
+  if (!normalizedPath || typeof normalizedPath !== "string") return false;
+  if (!normalizedPath.startsWith("/systemfiles/runtime/apps")) return false;
+
+  return !isExistingAppFolderPath(userRoot, normalizedPath);
+}
+
 function getPermissionForRelativePath(relPath, permissionEntries) {
   const normalizedTarget = removeUnwantedStuffInPath(relPath);
 
@@ -318,14 +361,11 @@ async function handleRawFileUpload(req, res) {
     );
   }
 
-  // Require explicit password (not token) when writing under /systemfiles/runtime/apps
-  if (normalizedPath.startsWith('/systemfiles/runtime/apps')) {
-    // allow direct file writes like /systemfiles/runtime/apps/file.txt (one segment after apps)
-    const isDirectFile = /^\/systemfiles\/runtime\/apps\/[^\/]+$/.test(normalizedPath);
-    if (!isDirectFile && (!authObj || password !== authObj.password)) {
-      res.writeHead(403);
-      return res.end(JSON.stringify({ error: "password required for writes to /systemfiles/runtime/apps" }));
-    }
+  // Require explicit password (not token) when writing under /systemfiles/runtime/apps,
+  // except when the path is inside an already-created app folder.
+  if (requiresPasswordForAppsWrite(userRoot, normalizedPath) && (!authObj || password !== authObj.password)) {
+    res.writeHead(403);
+    return res.end(JSON.stringify({ error: "password required for folder writes to /systemfiles/runtime/apps" }));
   }
 
   const replace = String(headers["x-file-replace"] || "true") !== "false";
@@ -1009,8 +1049,23 @@ async function handleFetchfiles(req, res) {
 
       if (data.saveSnapshot) {
         // If any addFolder under /systemfiles/runtime/apps is present, require the user's password
+        // unless the target is inside an already-created app folder.
         const dirs = Array.isArray(data.directions) ? data.directions : [];
-        const needsPw = dirs.some(d => d && d.addFolder && (removeUnwantedStuffInPath(d.path || '') || '').startsWith('/systemfiles/runtime/apps')) || dirs.some(d => d && d.addFolder && d.name && (removeUnwantedStuffInPath(`${d.path||''}/${d.name}`)).startsWith('/systemfiles/runtime/apps'));
+        const needsPw = dirs.some((d) => {
+          if (!d.addFolder && !d.paste && !d.addFile) return false;
+
+          const baseTarget = removeUnwantedStuffInPath(d.path || '');
+          if (baseTarget.startsWith('/systemfiles/runtime/apps')) {
+            return requiresPasswordForAppsFolderCreate(userRoot, baseTarget);
+          }
+
+          const combinedTarget = d.name
+            ? removeUnwantedStuffInPath(`${d.path || ''}/${d.name}`)
+            : '';
+
+          return combinedTarget.startsWith('/systemfiles/runtime/apps') && requiresPasswordForAppsFolderCreate(userRoot, combinedTarget);
+        });
+
         if (needsPw && (!authObj || data.password !== authObj.password)) {
           res.writeHead(403);
           return res.end(JSON.stringify({ error: 'password required for creating folders in /systemfiles/runtime/apps' }));
