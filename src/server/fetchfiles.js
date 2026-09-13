@@ -613,47 +613,6 @@ async function handleFetchfiles(req, res) {
       async function ensureDir(p) {
         await fsp.mkdir(p, { recursive: true });
       }
-      async function getUniquePath(destPath) {
-        const dir = path.dirname(destPath);
-        const ext = path.extname(destPath);
-        let base = path.basename(destPath, ext);
-
-        // Strip any leading numeric prefix of the form "(n) " to avoid nesting like "(1)(24) name.ext"
-        const leadMatch = base.match(/^\((\d+)\)\s*(.*)$/);
-        if (leadMatch) base = leadMatch[2] || "";
-
-        const compareName = base + ext;
-
-        // Read existing entries in the directory and determine the maximum numeric prefix for compareName
-        let entries = [];
-        try {
-          entries = await fsp.readdir(dir);
-        } catch (e) {
-          // Directory may not exist yet; fall back to returning the original candidate
-          return safeResolve(dir, compareName);
-        }
-
-        let found = false;
-        let maxNum = -Infinity;
-        for (const name of entries) {
-          if (name === compareName) {
-            found = true;
-            maxNum = Math.max(maxNum, 0);
-            continue;
-          }
-          const m = name.match(/^\((\d+)\)\s*(.*)$/);
-          if (m && m[2] === compareName) {
-            found = true;
-            const n = parseInt(m[1], 10);
-            if (!Number.isNaN(n)) maxNum = Math.max(maxNum, n);
-          }
-        }
-
-        if (!found) return safeResolve(dir, compareName);
-
-        const newName = `(${maxNum + 1}) ${base}${ext}`;
-        return safeResolve(dir, newName);
-      }
 
       async function applyDirections(rootPath, directions, username, userPathPermissions, options = {}) {
         let success = true;

@@ -7,8 +7,6 @@
   "id": "Your App",
   "iconFile": "icon.png",
   "pngEnabled": true,
-  "nonTextIcon": true,
-  "svgEnabled": false,
   "jsFile": "apptemplate.js",
   "openfileCapability": []
 }

@@ -6,8 +6,6 @@
   "allAppArrayString": "allSettings",
   "requestAdminPerm": true,
   "pngEnabled": true,
-  "svgEnabled": false,
-  "nonTextIcon": true,
   "jsFile": "settings.js",
   "iconFile": "image.png",
   "openfileCapability": []

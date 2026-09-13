@@ -8,8 +8,6 @@
   "jsFile": "/browser.js",
   "iconFile": "icon.png",
   "pngEnabled": true,
-  "nonTextIcon": true,
-  "svgEnabled": false,
   "openfileCapability": [
     ".html",
     ".htm",

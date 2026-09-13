@@ -1657,11 +1657,9 @@ setTimeout(() => {
         eventLike.preventDefault();
       }
       if (normalized === "t") {
-        addTab("goldenbody://newtab/", "New Tab");
+        addTab("goldenbody://newtab/", "Untitled");
         return true;
       }
-      console.log("Running browser shortcut for new window");
-      browser();
       return true;
     }
 
@@ -3247,12 +3245,17 @@ setTimeout(() => {
       activatedTab = tab;
       eval(window.browserGlobals.iframePatch);
       stopIframePatchWatcher = exposedToTabs.stopIframePatchWatcher;
+      let pendingNavigation = null;
       Object.defineProperty(tab.iframe, "src", {
-        set: function (value) {
-          this.setAttribute("src", 'about:blank');
-          setTimeout(() => {
+        set(value) {
+          clearTimeout(pendingNavigation);
+
+          this.setAttribute("src", "about:blank");
+
+          pendingNavigation = setTimeout(() => {
+            pendingNavigation = null;
             this.setAttribute("src", value);
-          }, 10);
+          }, 50);
         },
         get: function () {
           if ((this.getAttribute("src") !== tab.iframe.contentWindow.location.href) && (tab.iframe.contentWindow.location.href === 'about:blank')) { return undefined; }
@@ -3517,6 +3520,7 @@ setTimeout(() => {
       };
       reloadBtn.onclick = function () {
         if (reloadBtn.dataset.mode === "stop") {
+          tab.iframe.src = 'about:blank'; // Reset the src to stop loading
           tab.iframe.contentWindow.stop();
         } else {
           let tmp = window.browserGlobals.unshuffleURL(
@@ -3596,7 +3600,7 @@ setTimeout(() => {
             previousUrlMain = currentUrl;
           }
           resizeDiv.innerText = tab.resizeP + "%";
-          if (tab.iframe.contentDocument.readyState !== "complete") {
+          if (tab.iframe.contentDocument.readyState !== "complete" || !tab.iframe.src) {
             setAddressButtonIcon(reloadBtn, "stop_loading");
             reloadBtn.dataset.mode = "stop";
 
@@ -3655,7 +3659,7 @@ setTimeout(() => {
         renderTabs(forceRender);
       }
     }
-    if (!preloadlink) addTab("goldenbody://newtab/", "New Tab");
+    if (!preloadlink) addTab("goldenbody://newtab/", "Untitled");
 
     // --- Open button behavior ---
     function normalizeUrl(input) {
@@ -3989,7 +3993,7 @@ setTimeout(() => {
 
     // new tab
     newTabBtn.addEventListener("click", () => {
-      const id = addTab("goldenbody://newtab/", "New Tab");
+      const id = addTab("goldenbody://newtab/", "Untitled");
       activateTab(id);
       // urlInput.focus();
     });

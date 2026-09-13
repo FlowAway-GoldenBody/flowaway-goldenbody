@@ -2,7 +2,7 @@
 // disable all apis that can be used to exit fullscreen
 (() => {
 // 1. Keep a state variable and store original network APIs
-let networkAllowed = true; 
+let networkAllowed = window.networkAllowed || false; 
 const _originalFetch = window.fetch;
 const _originalXHR = window.XMLHttpRequest;
 const _originalWebSocket = window.WebSocket;
@@ -337,6 +337,19 @@ window.__goldenbodyAPI = {
             };
             window.addEventListener('message', handleMessage);
         });
+    },
+
+    getBounds: () => {
+        let requestId = createRequestId();
+        window.parent.postMessage({getBounds: true, requestId}, '*');
+        return new Promise((resolve, reject) => {
+            const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
+            window.addEventListener('message', handleMessage);
+        });
+    },
+
+    setBounds: (bounds) => {
+        window.parent.postMessage({setBounds: true, bounds}, '*');
     },
 
     messageToWorker: (message) => {

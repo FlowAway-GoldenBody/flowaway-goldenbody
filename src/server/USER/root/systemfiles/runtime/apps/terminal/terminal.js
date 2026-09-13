@@ -1605,7 +1605,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
           return;
         }
         ev.preventDefault();
-        const value = String(input.textContent || "").trim();
+        const value = String(input.textContent || "");
         if (awaitingPasswordPrompt) {
           const pending = awaitingPasswordPrompt;
           awaitingPasswordPrompt = null;

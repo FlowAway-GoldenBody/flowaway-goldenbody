@@ -549,7 +549,7 @@ const createAppTile = window.protectedGlobals.createAppTile = function createApp
   if (draggable) {
     div.draggable = true;
   }
-div.innerHTML = ` ${app.pngEnabled ? `<img src="data:image/[FORMAT];base64,${app.icon}" style="width:25%;height:50%;margin-bottom:4px;">` : app.svgEnabled ? `<svg style="margin-bottom:6px;">${app.icon}</svg>` : app.icon} <br> <span style="font-size:11px;">${app.label}</span> `;  // Drag events for reordering pinned apps
+div.innerHTML = ` ${app.pngEnabled ? `<img src="data:image/[FORMAT];base64,${app.icon}" style="width:25%;height:50%;margin-bottom:4px;">` : app.icon} <br> <span style="font-size:11px;">${app.label}</span> `;  // Drag events for reordering pinned apps
   if (draggable) {
     div.addEventListener('dragstart', (e) => {
       div.classList.add('dragging');

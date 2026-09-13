@@ -8,6 +8,7 @@ build/
 archive/
 .vscode/
 .env
+moderation/
 
 # don't commit session and cache data
 sessions/*
@@ -15,5 +16,5 @@ sessions/*
 # but commit the empty folders
 !sessions/.gitkeep
 !cache-js/.gitkeep
-
+!moderation/.gitkeep
 # ignore any custom configurations

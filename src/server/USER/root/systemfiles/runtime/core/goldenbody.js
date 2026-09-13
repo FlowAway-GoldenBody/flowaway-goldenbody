@@ -1350,7 +1350,7 @@
   }
   function addTaskButton(name, onclickFunc, appcontextmenuhandler = false, globalVarObjectString = '', appId = '', fixedTaskbar = false, pinned = false, __startMenu = false, options = {}) {
     var btn = document.createElement("button");
-    if (!options.svg && !options.png) {
+    if (!options.png) {
       btn.innerText = name;
     } else if (options.png) {
       // the image base64 string is passed in options.pngContent
@@ -1359,9 +1359,6 @@
       btn.img.style.width = "55%";
       btn.img.style.height = "45%";
       btn.appendChild(btn.img);
-    }
-    else if (options.svg) {
-      btn.innerHTML = options.svgContent;
     }
     btn.value = name;
     if (!__startMenu) {
@@ -1508,22 +1505,22 @@
       if (appInfo) {
         if (appInfo.cmf) {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.nonTextIcon ? appInfo.id : appInfo.icon,
+            appInfo.pngEnabled ? appInfo.id : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window[appInfo.globalVarObjectString][appInfo.cmf],
             "",
             atTop,
-            false, false, false, { svg: appInfo.svgEnabled, svgContent: appInfo.icon, png: appInfo.pngEnabled, pngContent: appInfo.icon }
+            false, false, false, { png: appInfo.pngEnabled, pngContent: appInfo.icon }
           );
         }
         else {
           btn = window.protectedGlobals.addTaskButton(
-            appInfo.nonTextIcon ? appInfo.id : appInfo.icon,
+            appInfo.pngEnabled ? appInfo.id : appInfo.icon,
             () => window.protectedGlobals.launchApp(atTop),
             window.protectedGlobals.cmf,
             "",
             atTop,
-            false, false, false, { svg: appInfo.svgEnabled, svgContent: appInfo.icon, png: appInfo.pngEnabled, pngContent: appInfo.icon }
+            false, false, false, { png: appInfo.pngEnabled, pngContent: appInfo.icon }
           );
         }
         if (btn) btn.dataset.appId = atTop;

@@ -609,57 +609,6 @@ window.settings = function (posX = 50, posY = 50) {
     return d;
   }
 
-  async function readAppMetadata(appFolderName) {
-    const appPath = `/systemfiles/runtime/apps/${appFolderName}`;
-    const entryPath = `${appPath}/entry.json`;
-    const meta = { folderName: appFolderName, name: appFolderName, label: appFolderName, icon: null, iconType: "text", iconFile: null, pngEnabled: false, svgEnabled: false, functionName: appFolderName, requestAdminPerm: false, id: appFolderName };
-    function iconDataToBase64(raw) {
-      if (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw)) {
-        const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
-        const chunkSize = 0x8000;
-        let binary = "";
-        for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-        return btoa(binary);
-      }
-      return typeof raw === "string" ? raw.trim() : null;
-    }
-    let entryText = null;
-    try { entryText = await window.protectedGlobals.ReadFile(entryPath, { text: true, direct: true }); } catch (e) {}
-    if (entryText) {
-      try {
-        const data = JSON.parse(entryText);
-        if (data && typeof data === "object") {
-          meta.label = data.label || appFolderName;
-          meta.functionName = data.functionName || appFolderName;
-          meta.id = data.id || appFolderName;
-          meta.name = data.label || appFolderName;
-          meta.requestAdminPerm = !!data.requestAdminPerm;
-          meta.pngEnabled = !!data.pngEnabled;
-          meta.svgEnabled = !!data.svgEnabled;
-          let iconFile = data.iconFile || data.icon || null;
-          meta.iconFile = iconFile;
-          if (iconFile) {
-            const iconPath = `${appPath}/${iconFile}`;
-            try {
-              if (meta.pngEnabled) {
-                const raw = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
-                const b64 = iconDataToBase64(raw);
-                if (b64) { meta.icon = b64; meta.iconType = "img"; }
-              } else if (meta.svgEnabled) {
-                const svg = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
-                if (svg) { meta.icon = String(svg).trim(); meta.iconType = "svg"; }
-              } else {
-                const textIcon = await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true });
-                if (textIcon) { meta.icon = String(textIcon).trim(); meta.iconType = "text"; }
-              }
-            } catch (e) { meta.icon = null; meta.iconType = "text"; }
-          }
-        }
-      } catch (e) {}
-    }
-    return meta;
-  }
-
   function applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer) {
     const dark = !!window.protectedGlobals.data.dark;
     if (row) {
@@ -753,7 +702,7 @@ window.settings = function (posX = 50, posY = 50) {
     iconWrapper.style.overflow = "hidden";
     iconWrapper.style.flexShrink = "0";
 
-    const iconMode = appMeta.pngEnabled ? "img" : appMeta.svgEnabled ? "svg" : appMeta.iconType || "text";
+    const iconMode = appMeta.pngEnabled ? "img" : appMeta.iconType || "text";
     if (iconMode === "img" && appMeta.icon) {
       const img = document.createElement("img");
       img.src = appMeta.icon.startsWith("data:image/") ? appMeta.icon : `data:image/png;base64,${appMeta.icon}`;
@@ -761,16 +710,9 @@ window.settings = function (posX = 50, posY = 50) {
       img.style.maxHeight = "100%";
       img.style.display = "block";
       iconWrapper.appendChild(img);
-    } else if (iconMode === "svg" && appMeta.icon) {
-      iconWrapper.innerHTML = appMeta.icon;
-      const svg = iconWrapper.querySelector("svg");
-      if (svg) {
-        svg.style.width = "100%";
-        svg.style.height = "100%";
-      }
     } else {
       const text = document.createElement("div");
-      text.textContent = (appMeta.icon || appMeta.label || "A").toString().trim().charAt(0) || "A";
+      text.textContent = appMeta.icon;
       text.style.fontSize = "16px";
       text.style.fontWeight = "700";
       iconWrapper.appendChild(text);
@@ -1551,8 +1493,6 @@ window.settings = function (posX = 50, posY = 50) {
         <li><code>jsFile</code> - entry script file relative to the app folder.</li>
         <li><code>label</code> - display name for the app.</li>
         <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
-        <li><code>nonTextIcon</code> - boolean flag that tells the runtime the icon is not plain text. Use this for binary or complex icon rendering.</li>
-        <li><code>svgEnabled</code> - boolean flag to render <code>iconFile</code> as SVG markup.</li>
         <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
         <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
         <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
@@ -1564,7 +1504,7 @@ window.settings = function (posX = 50, posY = 50) {
         <li><code>allAppArrayString</code> - array name under the global object for tracking instances. (admin app only)</li>
         <li><code>cmf</code> and <code>cmfl1</code> - app button context menu hooks. (admin app only)</li>
       </ul>
-      <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text, SVG, or PNG.</p>
+      <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text or PNG.</p>
       <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>
 
       <h3>Runtime worker API (new)</h3>
@@ -1669,7 +1609,6 @@ workerTest
         <li><code>self.api.writeline(...args)</code> - print a terminal-style line, including optional text color, size, and font.</li>
         <li><code>self.api.prompt(message, options)</code> - show a prompt and await the response through <code>promptResponse</code>.</li>
         <li><code>self.api.getStartArgs()</code> - return the original startup arguments object.</li>
-        <li><code>self.__setNetworkPolicy(enabled)</code> and <code>self.__getNetworkPolicy()</code> - update or read the worker network gate.</li>
       </ul>
       <h4>Using the line handle</h4>
       <p><code>self.api.writeline()</code> returns a handle object you can update in place instead of writing a completely new line. The handle exposes <code>.update(...args)</code> and <code>.rewriteLine(...args)</code>, and it also keeps the original DOM element at <code>.element</code>.</p>
@@ -1698,6 +1637,8 @@ status.rewriteLine('Downloading... 100%', '#3ddc97', 16, 'ui-monospace, SFMono-R
         <li><code>showOpenFilePicker(options)</code> - return a picker handle object describing the selected file or folder.</li>
         <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
         <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
+        <li><code>getBounds() { return { left: root.offsetLeft, top: root.offsetTop, width: root.offsetWidth, height: root.offsetHeight }; }</code> - return the bounds of the current instance window.</li>
+        <li><code>setBounds(bounds = { top, left, width, height, maximize })</code> - set the bounds of the current instance window. If you want to maximize the window, set the <code>maximize</code> property to <code>true</code>.</li>
         <li><code>setInstanceTitle(title)</code> - set the instance title of your current instance.</li>
         <li><code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to broadcast.</li>
         <li><code>getCurInstanceNum()</code> - return the index of the current instance.</li>
@@ -1857,14 +1798,9 @@ window.myadminapp = () => {
   "id": "myApp",
   "label": "My App",
   "jsFile": "script.js",
-  "iconFile": "icon.svg",
-  "nonTextIcon": true,
-  "svgEnabled": true,
-  "pngEnabled": false,
+  "iconFile": "icon.png",
+  "pngEnabled": true,
   "requestAdminPerm": false,
-  "nonTextIcon": true, /* important */
-  "svgEnabled": true, /* important */
-  "pngEnabled": false, /* important */
   "openfileCapability": [".txt", ".md"],
   "enableDebugging": true,
   "headless": false
@@ -1875,10 +1811,8 @@ window.myadminapp = () => {
   "id": "myAdminApp",
   "label": "My Admin App",
   "jsFile": "app.js",
-  "iconFile": "icon.svg",
-  "nonTextIcon": true,
-  "svgEnabled": true,
-  "pngEnabled": false,
+  "iconFile": "icon.png",
+  "pngEnabled": true,
   "requestAdminPerm": true,
   "functionName": "myAdminAppLauncher",
   "globalVarObjectString": "myAdminAppGlobals",

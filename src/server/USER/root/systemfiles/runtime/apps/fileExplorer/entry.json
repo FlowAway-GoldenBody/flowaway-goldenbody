@@ -5,8 +5,6 @@
   "jsFile": "fileExplorer.js",
   "iconFile": "icon.png",
   "pngEnabled": true,
-  "nonTextIcon": true,
-  "svgEnabled": false,
   "id": "File Explorer",
   "globalVarObjectString": "explorerGlobals",
   "allAppArrayString": "allExplorers",

@@ -15,10 +15,24 @@ const getSessionId = require('../util/getSessionId');
 const generateId = require('../util/generateId');
 const RammerheadSession = require('../classes/RammerheadSession');
 const systemRecovery = require('./systemRecovery');
-const fs = require('fs/promises');
+const fsp = require('fs/promises');
+const fs = require('fs');
+const path = require('path');
+
 const { zmcdRateLimit, fetchFilesRateLimit, newSessionRateLimit, systemRecoveryRateLimit, downloadRateLimit, getBrowserSessionRateLimit, getRequestIP } = require('./rateLimiters');
-
-
+const moderationDir = path.resolve(__dirname, '../../moderation');
+const knownIpsPath = path.join(moderationDir, 'known_ips.txt');
+const bannedIpsPath = path.join(moderationDir, 'banned_ips.txt');
+const ipLogsPath = path.join(moderationDir, 'ip_logs.txt');
+const readIpList = (filePath) => {
+    try {
+        return fs.readFileSync(filePath, 'utf8').split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    } catch (e) {
+        return [];
+    }
+};
+const knownIps = readIpList(knownIpsPath);
+const bannedIps = readIpList(bannedIpsPath);
 
 
 
@@ -69,7 +83,19 @@ if (!config.enableWorkers || !cluster.isMaster) {
     const MAX_REQUEST_BODY = 100 * 1024 * 1024; // 100 MB
 
     proxyServer.addToOnRequestPipeline((req, res) => {
-        console.log('(server) incoming ip: ' + getRequestIP(req) + ' url: ' + req.url + " username: " + (req.headers['x-username'] || 'unknown'));
+        const ip = getRequestIP(req);
+        console.log('(server) incoming ip: ' + ip + ' url: ' + req.url + " username: " + (req.headers['x-username'] || 'unknown'));
+        fsp.appendFile(ipLogsPath, `${ip} - ${req.url} - ${req.headers['x-username'] || 'unknown'}` + '\n').catch(() => {});
+        if (!knownIps.includes(ip)) {
+            knownIps.push(ip);
+            fsp.appendFile(knownIpsPath, ip + '\n').catch(() => {});
+        }
+        if (bannedIps.includes(ip)) {
+            console.log('(SERVER) banned ip: ' + ip + ' url: ' + req.url + " username: " + (req.headers['x-username'] || 'unknown'));
+            res.writeHead(403);
+            res.end(JSON.stringify({ error: "You have been banned. Yep." }));
+            return true;
+        }
         if (!req.url) return;
         if (req.url.startsWith('/server/newsession')) {
             if (!newSessionRateLimit(req, res)) {
@@ -94,7 +120,7 @@ if (!config.enableWorkers || !cluster.isMaster) {
         if (req.url.startsWith('/server/getBrowserSessionId')) {
             if (!getBrowserSessionRateLimit(req, res)) return true;
             const sessionsDir = config.fileCacheSessionConfig.saveDirectory;
-            fs.readdir(sessionsDir).then((files) => {
+            fsp.readdir(sessionsDir).then((files) => {
                 const sessionId = files.find((file) => file.replace(/\.rhfsession$/, '').length > 31)?.replace(/\.rhfsession$/, '');
                 if (sessionId) return res.end(sessionId);
                 const id = generateId();

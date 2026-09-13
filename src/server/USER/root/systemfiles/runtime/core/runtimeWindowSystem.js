@@ -111,7 +111,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
       
       if (app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.id : app.icon,
+          app.pngEnabled ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window[app.globalVarObjectString][app.cmf],
           "",
@@ -119,12 +119,12 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
           false,
           true, // pinned by default if in saved taskbuttons
           false,
-          { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
+          { png: app.pngEnabled, pngContent: app.icon }
         );
       }
       else {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.id : app.icon,
+          app.pngEnabled ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
@@ -132,7 +132,7 @@ window.protectedGlobals.applyTaskButtons = function applyTaskButtons() {
           false,
           true,
           false,
-          { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
+          { png: app.pngEnabled, pngContent: app.icon }
         );
       }
       if (btn) btn.dataset.appId = appId;
@@ -412,11 +412,9 @@ var renderWindowSwitchPreview = window.protectedGlobals.renderWindowSwitchPrevie
     var icon = document.createElement("div");
     var iconApp = findAppByIdentifier(appId);
     var iconValue = iconApp.icon;
-    if (iconApp.svgEnabled) {
-      icon.innerHTML = iconValue;
-    } else if (!iconApp.nonTextIcon) {
+    if (!iconApp.pngEnabled) {
       icon.textContent = iconValue;
-    } else if (iconApp.pngEnabled) {
+    } else {
       let img = document.createElement("img");
       img.src = "data:image/png;base64," + iconValue;
       img.style.maxWidth = "28px";

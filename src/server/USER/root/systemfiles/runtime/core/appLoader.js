@@ -14,27 +14,49 @@
   if (window.protectedGlobals.AppLoaderAPIs && window.protectedGlobals.AppLoaderAPIs.__loaded) {
     return;
   }
-  function checkEntryObject(entryObj) {
-    if (!entryObj.id) { window.protectedGlobals.notification("Invalid app ID"); return false; }
-    if (knownAppId.includes(entryObj.id)) {window.protectedGlobals.notification(`Identifier ${entryObj.id} is already declared`); return false;}
+  async function checkEntryObject(entryObj, folderName) {
+    let status = true;
+    if (!entryObj.id) { window.protectedGlobals.notification("Invalid app ID"); status = false; }
+    if (entryObj.id.toLowerCase().includes("<script")) { window.protectedGlobals.notification("App id cannot contain script tags"); status = false; }
+    if (knownAppId.includes(entryObj.id)) {window.protectedGlobals.notification(`Identifier ${entryObj.id} is already declared`); status = false;}
 
-    if (!entryObj.jsFile) { window.protectedGlobals.notification("Invalid app JS file"); return false; }
-    if (!entryObj.label && !entryObj.headless) { window.protectedGlobals.notification("Invalid app label"); return false; }
-    if (!entryObj.iconFile && !entryObj.headless) { window.protectedGlobals.notification("Invalid app icon file"); return false; }
-
+    if (!entryObj.jsFile) { window.protectedGlobals.notification("Invalid app JS file"); status = false; }
+    if (!entryObj.label && !entryObj.headless) { window.protectedGlobals.notification("Invalid app label"); status = false; }
+    if (entryObj.label && entryObj.label.toLowerCase().includes("<script")) { window.protectedGlobals.notification("App label cannot contain script tags"); status = false; }
+    if (!entryObj.iconFile && !entryObj.headless) { window.protectedGlobals.notification("Invalid app icon file"); status = false; }
     if (entryObj.requestAdminPerm) {
-      if (!entryObj.allAppArrayString) { window.protectedGlobals.notification("Invalid app allAppArrayString"); return false; }
+      if (!entryObj.allAppArrayString) { window.protectedGlobals.notification("Invalid app allAppArrayString"); status = false; }
 
-      if (!entryObj.functionName) { window.protectedGlobals.notification("Invalid app functionName"); return false; }
-      if (knownAppFuncs.includes(entryObj.functionName)) {window.protectedGlobals.notification(`Identifier ${entryObj.functionName} is already declared`); return false;}
+      if (!entryObj.functionName) { window.protectedGlobals.notification("Invalid app functionName"); status = false; }
+      if (knownAppFuncs.includes(entryObj.functionName)) {window.protectedGlobals.notification(`Identifier ${entryObj.functionName} is already declared`); status = false;}
       
-      if (!entryObj.globalVarObjectString) { window.protectedGlobals.notification("Invalid app globalVarObjectString"); return false; }
-      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {window.protectedGlobals.notification(`Identifier ${entryObj.globalVarObjectString} is already declared`); return false;}
+      if (!entryObj.globalVarObjectString) { window.protectedGlobals.notification("Invalid app globalVarObjectString"); status = false; }
+      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {window.protectedGlobals.notification(`Identifier ${entryObj.globalVarObjectString} is already declared`); status = false;}
     }
-    knownAppId.push(entryObj.id);
-    knownAppFuncs.push(entryObj.functionName);
-    knownAppGlobals.push(entryObj.globalVarObjectString);
-    return true;
+    if (status) {
+      knownAppId.push(entryObj.id);
+      if (entryObj.requestAdminPerm) {
+        knownAppFuncs.push(entryObj.functionName);
+        knownAppGlobals.push(entryObj.globalVarObjectString);
+      }
+    }
+    try {
+      let iconFileContents = await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/${folderName}/${entryObj.iconFile}`, { buffer: true, direct: true });
+      let iconFileContentText = new TextDecoder().decode(iconFileContents);
+      if (iconFileContentText.toLowerCase().includes("<script")) { 
+        window.protectedGlobals.notification("App icon file cannot contain script tags"); status = false;
+        let indexes = [knownAppId.indexOf(entryObj.id), knownAppFuncs.indexOf(entryObj.functionName), knownAppGlobals.indexOf(entryObj.globalVarObjectString)];
+        for (let i = 0; i < indexes.length; i++) {
+          if (indexes[i] === -1) indexes[i] = false;
+        }
+        if (indexes[0] !== false) knownAppId.splice(indexes[0], 1);
+        if (indexes[1] !== false) knownAppFuncs.splice(indexes[1], 1);
+        if (indexes[2] !== false) knownAppGlobals.splice(indexes[2], 1);
+      }
+    } catch {
+      // ignore, it's probably a binary file
+    }
+    return status;
   }
   async function getVerification(path) {
     let result = await window.protectedGlobals.ReadFile(path, { text: true, direct: true });
@@ -638,7 +660,7 @@ let getFilesFromFolder = async function (relPath) {
         // with a target, the iframe can inspect window.__path__ and use that as its initial file/folder target.
         const launchTarget = path || null;
         let html = '';
-        if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? 'true' : 'false'};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         const blob = new Blob([html], { type: "text/html" });
         iframe.src = URL.createObjectURL(blob);
@@ -700,6 +722,30 @@ let getFilesFromFolder = async function (relPath) {
             } catch (err) {
               e.source.postMessage({ error: err.message || String(err), requestId: e.data.requestId }, "*");
             }
+            return;
+          }
+          if (e.data.getBounds) {
+            let requestId = e.data.requestId;
+            const bounds = {
+              left: root.offsetLeft,
+              top: root.offsetTop,
+              width: root.offsetWidth,
+              height: root.offsetHeight,
+            };
+            e.source.postMessage({ result: bounds, requestId }, "*");
+            return;
+          }
+          if (e.data.setBounds) {
+            const { left, top, width, height, maximize } = e.data.bounds;
+            if (maximize) {
+              instance.maximizeWindow();
+              return;
+            }
+            instance.restoreWindow();
+            root.style.left = left + "px";
+            root.style.top = top + "px";
+            root.style.width = width + "px";
+            root.style.height = height + "px";
             return;
           }
           if (e.data.messageToWorker) {
@@ -769,7 +815,7 @@ let getFilesFromFolder = async function (relPath) {
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
-    if (!checkEntryObject(entryObj)) {
+    if (!await checkEntryObject(entryObj, folderName)) {
       throw new Error("Invalid entry.json for app " + folderName);
     }
     // Normalize and validate any custom command names defined by apps.
@@ -865,13 +911,10 @@ let getFilesFromFolder = async function (relPath) {
         }
         return null;
       }
-      if (!entryObj.nonTextIcon) {
+      if (!entryObj.pngEnabled) {
         var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
         icon = parsedIcon || icon;
-      } else if (entryObj.svgEnabled) {
-        var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
-        icon = parsedIcon || icon;
-      } else if (entryObj.pngEnabled) {
+      } else {
         var rawIcon = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
         var parsedIcon = iconDataToBase64(rawIcon || "");
         icon = parsedIcon || icon;
@@ -900,9 +943,7 @@ let getFilesFromFolder = async function (relPath) {
       verified: !!verify,
       cmf: cmf,
       cmfl1: cmfl1,
-      svgEnabled: !!entryObj.svgEnabled,
       pngEnabled: !!entryObj.pngEnabled,
-      nonTextIcon: !!entryObj.nonTextIcon,
       openfileCapability: openfileCapability,
       commands: entryObj._cmds || [],
     };

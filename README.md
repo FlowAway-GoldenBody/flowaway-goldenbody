@@ -17,8 +17,6 @@ This is copied directly from the dev docs in the settings app
         <li><code>jsFile</code> - entry script file relative to the app folder.</li>
         <li><code>label</code> - display name for the app.</li>
         <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
-        <li><code>nonTextIcon</code> - boolean flag that tells the runtime the icon is not plain text. Use this for binary or complex icon rendering.</li>
-        <li><code>svgEnabled</code> - boolean flag to render <code>iconFile</code> as SVG markup.</li>
         <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
         <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
         <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
@@ -30,7 +28,7 @@ This is copied directly from the dev docs in the settings app
         <li><code>allAppArrayString</code> - array name under the global object for tracking instances. (admin app only)</li>
         <li><code>cmf</code> and <code>cmfl1</code> - app button context menu hooks. (admin app only)</li>
       </ul>
-      <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text, SVG, or PNG.</p>
+      <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text or PNG.</p>
       <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>
 
       <h3>Runtime worker API (new)</h3>
@@ -135,7 +133,6 @@ workerTest
         <li><code>self.api.writeline(...args)</code> - print a terminal-style line, including optional text color, size, and font.</li>
         <li><code>self.api.prompt(message, options)</code> - show a prompt and await the response through <code>promptResponse</code>.</li>
         <li><code>self.api.getStartArgs()</code> - return the original startup arguments object.</li>
-        <li><code>self.__setNetworkPolicy(enabled)</code> and <code>self.__getNetworkPolicy()</code> - update or read the worker network gate.</li>
       </ul>
       <h4>Using the line handle</h4>
       <p><code>self.api.writeline()</code> returns a handle object you can update in place instead of writing a completely new line. The handle exposes <code>.update(...args)</code> and <code>.rewriteLine(...args)</code>, and it also keeps the original DOM element at <code>.element</code>.</p>
@@ -164,6 +161,8 @@ status.rewriteLine('Downloading... 100%', '#3ddc97', 16, 'ui-monospace, SFMono-R
         <li><code>showOpenFilePicker(options)</code> - return a picker handle object describing the selected file or folder.</li>
         <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
         <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
+        <li><code>getBounds() { return { left: root.offsetLeft, top: root.offsetTop, width: root.offsetWidth, height: root.offsetHeight }; }</code> - return the bounds of the current instance window.</li>
+        <li><code>setBounds(bounds = { top, left, width, height, maximize })</code> - set the bounds of the current instance window. If you want to maximize the window, set the <code>maximize</code> property to <code>true</code>.</li>
         <li><code>setInstanceTitle(title)</code> - set the instance title of your current instance.</li>
         <li><code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to broadcast.</li>
         <li><code>getCurInstanceNum()</code> - return the index of the current instance.</li>
@@ -323,14 +322,9 @@ window.myadminapp = () => {
   "id": "myApp",
   "label": "My App",
   "jsFile": "script.js",
-  "iconFile": "icon.svg",
-  "nonTextIcon": true,
-  "svgEnabled": true,
-  "pngEnabled": false,
+  "iconFile": "icon.png",
+  "pngEnabled": true,
   "requestAdminPerm": false,
-  "nonTextIcon": true, /* important */
-  "svgEnabled": true, /* important */
-  "pngEnabled": false, /* important */
   "openfileCapability": [".txt", ".md"],
   "enableDebugging": true,
   "headless": false
@@ -341,10 +335,8 @@ window.myadminapp = () => {
   "id": "myAdminApp",
   "label": "My Admin App",
   "jsFile": "app.js",
-  "iconFile": "icon.svg",
-  "nonTextIcon": true,
-  "svgEnabled": true,
-  "pngEnabled": false,
+  "iconFile": "icon.png",
+  "pngEnabled": true,
   "requestAdminPerm": true,
   "functionName": "myAdminAppLauncher",
   "globalVarObjectString": "myAdminAppGlobals",
@@ -356,7 +348,6 @@ window.myadminapp = () => {
 </code></pre>
       <h3>Bottom line</h3>
       <p>There are no hidden files or directories anywhere in cloud storage. You can edit <code>systemfiles</code> to change how the client behaves. If you break it, you can restore the system tree from the login page and remove broken non-system apps there. A copy of broken files will also be stored in your cloud storage.</p>
-
 ## QUICK DEV & RUN
 
 - Requirements: Node.js (latest recommended, v24+). IDK if bun works... prob not.

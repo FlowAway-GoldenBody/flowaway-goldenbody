@@ -87,3 +87,9 @@
 
 ## V 2.2.2
 - Patched some security vulns via ai
+
+## V 2.2.3
+- added getbounds and setbounds for windows
+
+## No version increase
+- removed support for svg app icons because png is enough also svg rendering is a huge mess

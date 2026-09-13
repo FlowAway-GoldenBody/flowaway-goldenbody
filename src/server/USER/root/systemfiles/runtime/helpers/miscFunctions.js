@@ -569,22 +569,22 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e,   appOverride =
         let btn;
         if(app.cmf) {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.id : app.icon,
+          app.pngEnabled ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window[app.globalVarObjectString][app.cmf],
           "",
           appId,
-          false, true, false, { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
+          false, true, false, { png: app.pngEnabled, pngContent: app.icon }
         );
         }
         else {
         btn = window.protectedGlobals.addTaskButton(
-          app.nonTextIcon ? app.id : app.icon,
+          app.pngEnabled ? app.id : app.icon,
           () => window.protectedGlobals.launchApp(appId),
           window.protectedGlobals.cmf,
           "",
           appId,
-          false, true, false, { svg: app.svgEnabled, png: app.pngEnabled, svgContent: app.icon, pngContent: app.icon }
+          false, true, false, { png: app.pngEnabled, pngContent: app.icon }
         );
       }
         if (btn) btn.dataset.appId = appId;
