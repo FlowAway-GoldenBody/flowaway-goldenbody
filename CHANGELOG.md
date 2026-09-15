@@ -93,3 +93,4 @@
 
 ## No version increase
 - removed support for svg app icons because png is enough also svg rendering is a huge mess
+- combined some tiny systemfiles together

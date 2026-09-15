@@ -769,15 +769,12 @@ window.protectedGlobals.delay = ms => new Promise(resolve => setTimeout(resolve,
 window.tmpGlobals = {};
 window.tmpGlobals.coreScriptUrls = [
   "/systemfiles/runtime/core/untrustedAppsIframeBg.js",
-  "systemfiles/runtime/helpers/coreVariables.js",
-  "systemfiles/runtime/helpers/fsFunctions.js",
+  "systemfiles/runtime/helpers/miscFunctionsAndVariables.js",
   "systemfiles/runtime/helpers/appHelperFunctions.js",
-  "systemfiles/runtime/helpers/miscFunctions.js",
   "systemfiles/runtime/core/runtimeWindowSystem.js",
   "systemfiles/runtime/core/processes.js",
   "systemfiles/runtime/core/appLoader.js",
   "systemfiles/runtime/helpers/initapptools.js",
-  "systemfiles/runtime/helpers/cleanupfunctions.js",
   "systemfiles/runtime/core/startMenu.js",
   "systemfiles/runtime/core/goldenbody.js"
 ];
