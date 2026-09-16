@@ -27,7 +27,6 @@ window.protectedGlobals.fileIconSet = {
   <path d="M68.193 77.319H55.544a1.5 1.5 0 010-3h12.649a1.5 1.5 0 010 3z"/>
 </svg>`,
 };
-window.protectedGlobals.appVerify = "syfamr";
 window.protectedGlobals.savedScrollX = 0;
 window.protectedGlobals.savedScrollY = 0;
 window.protectedGlobals.nhjd = 1;

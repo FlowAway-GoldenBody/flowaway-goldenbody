@@ -39,7 +39,7 @@ return new _originalWebSocket(...args);
 
 // 5. Listen for the toggle message from your main page switch
 window.addEventListener('message', (event) => {
-if (event.data && typeof event.data.allowNetwork === 'boolean' && event.data.verify === 'syfamr') {
+if (event.data && typeof event.data.allowNetwork === 'boolean') {
     networkAllowed = event.data.allowNetwork;
 }
 });
@@ -58,6 +58,152 @@ window.lockAPI = (api, parent) => {
     });
 };
 })();
+// Additional protections: mutation observer and extra API guards
+(function(){
+    const iframeBlockedMessage = "Creation or insertion of iframe elements is blocked.";
+
+    // Prevent cloning nodes that contain iframes
+    try {
+        const _cloneNode = Node.prototype.cloneNode;
+        Object.defineProperty(Node.prototype, 'cloneNode', {
+            value: function(deep) {
+                try {
+                    if (this && this.nodeType === 1) {
+                        if (this.tagName && String(this.tagName).toLowerCase() === 'iframe') {
+                            throw new Error(iframeBlockedMessage);
+                        }
+                        if (deep && this.querySelector && this.querySelector('iframe')) {
+                            throw new Error(iframeBlockedMessage);
+                        }
+                    }
+                } catch (e) {
+                    throw e;
+                }
+                return _cloneNode.call(this, deep);
+            },
+            writable: false,
+            configurable: false,
+        });
+    } catch (e) {}
+
+    // Block common insertion helpers: append, prepend, before, after, replaceWith, insertAdjacentElement
+    const safeGuardAppendLike = (proto, name) => {
+        try {
+            const orig = proto[name];
+            if (!orig) return;
+            Object.defineProperty(proto, name, {
+                value: function() {
+                    for (let i = 0; i < arguments.length; i++) {
+                        const node = arguments[i];
+                        if (node && ((typeof node.tagName === 'string' && node.tagName.toUpperCase() === 'IFRAME') || (typeof HTMLIFrameElement !== 'undefined' && node instanceof HTMLIFrameElement))) {
+                            throw new Error(iframeBlockedMessage);
+                        }
+                        // if a string is provided (e.g., insertAdjacentElement not relevant) skip
+                    }
+                    return orig.apply(this, arguments);
+                },
+                writable: false,
+                configurable: false,
+            });
+        } catch (e) {}
+    };
+
+    safeGuardAppendLike(Element.prototype, 'append');
+    safeGuardAppendLike(Element.prototype, 'prepend');
+    safeGuardAppendLike(Element.prototype, 'before');
+    safeGuardAppendLike(Element.prototype, 'after');
+    safeGuardAppendLike(Element.prototype, 'replaceWith');
+    safeGuardAppendLike(Element.prototype, 'insertAdjacentElement');
+
+    // Block setting outerHTML that contains iframe tags
+    try {
+        const descOuter = Object.getOwnPropertyDescriptor(Element.prototype, 'outerHTML');
+        if (descOuter && descOuter.set) {
+            Object.defineProperty(Element.prototype, 'outerHTML', {
+                get: descOuter.get,
+                set: function(html) {
+                    if (typeof html === 'string' && /<iframe[\s>]/i.test(html)) {
+                        throw new Error(iframeBlockedMessage);
+                    }
+                    return descOuter.set.call(this, html);
+                },
+                configurable: false,
+                enumerable: descOuter.enumerable
+            });
+        }
+    } catch (e) {}
+
+    // Block Range.createContextualFragment
+    try {
+        if (typeof Range !== 'undefined' && Range.prototype && Range.prototype.createContextualFragment) {
+            const _createCF = Range.prototype.createContextualFragment;
+            Object.defineProperty(Range.prototype, 'createContextualFragment', {
+                value: function(html) {
+                    if (typeof html === 'string' && /<iframe[\s>]/i.test(html)) {
+                        throw new Error(iframeBlockedMessage);
+                    }
+                    return _createCF.call(this, html);
+                },
+                writable: false,
+                configurable: false,
+            });
+        }
+    } catch (e) {}
+
+    // Block DOMParser.parseFromString
+    try {
+        if (typeof DOMParser !== 'undefined' && DOMParser.prototype && DOMParser.prototype.parseFromString) {
+            const _parse = DOMParser.prototype.parseFromString;
+            Object.defineProperty(DOMParser.prototype, 'parseFromString', {
+                value: function(str, type) {
+                    if (typeof str === 'string' && /<iframe[\s>]/i.test(str)) {
+                        throw new Error(iframeBlockedMessage);
+                    }
+                    return _parse.call(this, str, type);
+                },
+                writable: false,
+                configurable: false,
+            });
+        }
+    } catch (e) {}
+
+    // MutationObserver to remove any iframes that bypass API guards
+    try {
+        const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                if (m.addedNodes && m.addedNodes.length) {
+                    for (const node of Array.from(m.addedNodes)) {
+                        try {
+                            if (node && node.tagName && String(node.tagName).toLowerCase() === 'iframe') {
+                                node.remove();
+                                continue;
+                            }
+                            // if subtree contains iframe, remove them
+                            if (node && node.querySelector) {
+                                const list = node.querySelectorAll('iframe');
+                                for (const f of Array.from(list)) {
+                                    f.remove();
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+        });
+        observer.observe(document.documentElement || document, { childList: true, subtree: true });
+
+        // Periodic sweep fallback
+        setInterval(() => {
+            try {
+                const els = document.querySelectorAll('iframe');
+                for (const el of Array.from(els)) {
+                    el.remove();
+                }
+            } catch (e) {}
+        }, 500);
+    } catch (e) {}
+
+})();
 window.lockAPI("showOpenFilePicker", window);
 window.lockAPI("showSaveFilePicker", window);
 window.lockAPI("showDirectoryPicker", window);
@@ -71,6 +217,153 @@ window.lockAPI("localStorage", window);
 window.lockAPI("sessionStorage", window);
 window.lockAPI("caches", window);
 window.lockAPI("cookie", document);
+// Prevent creation and insertion of new iframes from inside this sandboxed iframe.
+(function(){
+    const iframeBlockedMessage = "Creation or insertion of iframe elements is blocked.";
+
+    // Block document.createElement('iframe')
+    const _createElement = Document.prototype.createElement;
+    Object.defineProperty(Document.prototype, 'createElement', {
+        value: function(tagName, options) {
+            if (String(tagName).toLowerCase() === 'iframe') {
+                throw new Error(iframeBlockedMessage);
+            }
+            return _createElement.call(this, tagName, options);
+        },
+        writable: false,
+        configurable: false,
+    });
+
+    // Block document.createElementNS(..., 'iframe')
+    const _createElementNS = Document.prototype.createElementNS;
+    if (_createElementNS) {
+        Object.defineProperty(Document.prototype, 'createElementNS', {
+            value: function(ns, tagName, options) {
+                if (String(tagName).toLowerCase() === 'iframe') {
+                    throw new Error(iframeBlockedMessage);
+                }
+                return _createElementNS.call(this, ns, tagName, options);
+            },
+            writable: false,
+            configurable: false,
+        });
+    }
+
+    // Block appending/inserting/replacing iframe nodes
+    const _appendChild = Node.prototype.appendChild;
+    Object.defineProperty(Node.prototype, 'appendChild', {
+        value: function(node) {
+            if (node && ((typeof node.tagName === 'string' && node.tagName.toUpperCase() === 'IFRAME') || (typeof HTMLIFrameElement !== 'undefined' && node instanceof HTMLIFrameElement))) {
+                throw new Error(iframeBlockedMessage);
+            }
+            return _appendChild.call(this, node);
+        },
+        writable: false,
+        configurable: false,
+    });
+
+    const _insertBefore = Node.prototype.insertBefore;
+    Object.defineProperty(Node.prototype, 'insertBefore', {
+        value: function(node, refNode) {
+            if (node && ((typeof node.tagName === 'string' && node.tagName.toUpperCase() === 'IFRAME') || (typeof HTMLIFrameElement !== 'undefined' && node instanceof HTMLIFrameElement))) {
+                throw new Error(iframeBlockedMessage);
+            }
+            return _insertBefore.call(this, node, refNode);
+        },
+        writable: false,
+        configurable: false,
+    });
+
+    const _replaceChild = Node.prototype.replaceChild;
+    Object.defineProperty(Node.prototype, 'replaceChild', {
+        value: function(newChild, oldChild) {
+            if (newChild && ((typeof newChild.tagName === 'string' && newChild.tagName.toUpperCase() === 'IFRAME') || (typeof HTMLIFrameElement !== 'undefined' && newChild instanceof HTMLIFrameElement))) {
+                throw new Error(iframeBlockedMessage);
+            }
+            return _replaceChild.call(this, newChild, oldChild);
+        },
+        writable: false,
+        configurable: false,
+    });
+
+    // Prevent inserting iframe HTML via innerHTML
+    try {
+        const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        if (desc && desc.set) {
+            Object.defineProperty(Element.prototype, 'innerHTML', {
+                get: desc.get,
+                set: function(html) {
+                    if (typeof html === 'string' && /<iframe[\s>]/i.test(html)) {
+                        throw new Error(iframeBlockedMessage);
+                    }
+                    return desc.set.call(this, html);
+                },
+                configurable: false,
+                enumerable: desc.enumerable
+            });
+        }
+    } catch (e) {}
+
+    // Prevent insertAdjacentHTML from injecting iframes
+    try {
+        const _insertAdjacentHTML = Element.prototype.insertAdjacentHTML;
+        Object.defineProperty(Element.prototype, 'insertAdjacentHTML', {
+            value: function(position, text) {
+                if (typeof text === 'string' && /<iframe[\s>]/i.test(text)) {
+                    throw new Error(iframeBlockedMessage);
+                }
+                return _insertAdjacentHTML.call(this, position, text);
+            },
+            writable: false,
+            configurable: false,
+        });
+    } catch (e) {}
+
+    // Prevent document.write / writeln from adding iframes
+    try {
+        const _docWrite = document.write;
+        if (_docWrite) {
+            Object.defineProperty(document, 'write', {
+                value: function(...args) {
+                    if (args.some(a => typeof a === 'string' && /<iframe[\s>]/i.test(a))) {
+                        throw new Error(iframeBlockedMessage);
+                    }
+                    return _docWrite.apply(document, args);
+                },
+                writable: false,
+                configurable: false,
+            });
+        }
+    } catch (e) {}
+    try {
+        const _docWriteln = document.writeln;
+        if (_docWriteln) {
+            Object.defineProperty(document, 'writeln', {
+                value: function(...args) {
+                    if (args.some(a => typeof a === 'string' && /<iframe[\s>]/i.test(a))) {
+                        throw new Error(iframeBlockedMessage);
+                    }
+                    return _docWriteln.apply(document, args);
+                },
+                writable: false,
+                configurable: false,
+            });
+        }
+    } catch (e) {}
+
+    // Prevent opening new windows (which can be targeted to create frames)
+    try {
+        const _windowOpen = window.open;
+        Object.defineProperty(window, 'open', {
+            value: function() {
+                throw new Error("Opening new windows or iframes is blocked.");
+            },
+            writable: false,
+            configurable: false,
+        });
+    } catch (e) {}
+
+})();
 let createRequestId;
 (function () {
     let __goldenbodyRequestCounter = 0;
@@ -365,7 +658,7 @@ window.__goldenbodyAPI = {
         }
         // appName is a const defined in the iframe patch script, which is the app's id
         callbackWrapper(event) {
-            if ((event.data.type !== this.type) || event.data.verify !== 'syfamr' || ((event.data.channel !== appName) && (event.data.channel !== '*'))) return;
+            if ((event.data.type !== this.type) || ((event.data.channel !== appName) && (event.data.channel !== '*'))) return;
             this.callback(event.data);
         }
         disconnect() {

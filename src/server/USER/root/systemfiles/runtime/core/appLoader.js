@@ -4,7 +4,7 @@
   window.addEventListener("styleapplied", () => {
     let iframes = document.querySelectorAll("iframe");
     iframes.forEach((iframe) => {
-      iframe.contentWindow.postMessage({ type: 'themechange', verify: window.protectedGlobals.appVerify, channel: '*', darkTheme: window.protectedGlobals.data.dark }, "*");
+      iframe.contentWindow.postMessage({ type: 'themechange', channel: '*', darkTheme: window.protectedGlobals.data.dark }, "*");
     });
   });
   let knownAppId = [];
@@ -643,7 +643,7 @@ let getFilesFromFolder = async function (relPath) {
           }
         });
         appObj.allIframe.forEach(iframe => {
-          iframe.contentWindow.postMessage({ type: 'newinstance', verify: window.protectedGlobals.appVerify, channel: appObj.id }, "*");
+          iframe.contentWindow.postMessage({ type: 'newinstance', channel: appObj.id }, "*");
         });
         var root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
         var topbar = window.protectedGlobals.apptools.createtitlebar(root);

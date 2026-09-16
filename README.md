@@ -31,7 +31,7 @@ This is copied directly from the dev docs in the settings app
       <p>These icon fields are used by start menu, taskbar, and runtime window rendering logic in <code>startMenu.js</code>, <code>goldenbody.js</code>, and <code>runtimeWindowSystem.js</code>. They determine whether the icon is rendered as text or PNG.</p>
       <p>If <code>requestAdminPerm</code> is <code>true</code>, these extra fields are required:</p>
 
-      <h3>Runtime worker API (new)</h3>
+      <h3>Runtime worker API</h3>
       <p>Two new runtime APIs are available to worker scripts:</p>
       <h4><code>api.cwd()</code></h4>
       <p>Returns an object with two string properties: <code>relative</code> and <code>full</code>. Use <code>relative</code> when showing paths to the user (preserves app-relative view). Use <code>full</code> when resolving or writing files in the VFS.</p>
@@ -69,7 +69,7 @@ This is copied directly from the dev docs in the settings app
       <p>When <code>requestAdminPerm</code> is <code>false</code>, the app runs inside a sandboxed iframe using <code>untrustedIframePatch.js</code>. That iframe has:</p>
       <ul>
         <li><code>sandbox="allow-scripts allow-pointer-lock"</code></li>
-        <li>No direct access to DOM APIs like file inputs, localStorage, sessionStorage, IndexedDB, caches, or fullscreen exit APIs. (EXPERIMENTAL, aka not done)</li>
+        <li>No direct access to DOM APIs like file inputs, localStorage, sessionStorage, IndexedDB, caches, or fullscreen exit APIs.</li>
         <li>Only the exposed runtime API surface available through <code>window.__goldenbodyAPI</code>.</li>
       </ul>
       <h3>Custom commands in <code>entry.json</code></h3>
@@ -167,7 +167,11 @@ status.rewriteLine('Downloading... 100%', '#3ddc97', 16, 'ui-monospace, SFMono-R
         <li><code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to broadcast.</li>
         <li><code>getCurInstanceNum()</code> - return the index of the current instance.</li>
         <li><code>getLiveInstanceIndex()</code> - return the number of live instances for your app.</li>
+        <li><code>getInstanceTitle(instanceIndex)</code> - return the title of the specified instance.</li>
+        <li><code>launchApp(appId, [arg1, arg2, ..., argN])</code> - launch another app from the iframe.</li>
         <li><code>getTheme()</code> - return <code>dark</code> or <code>light</code>.</li>
+        <li><code>Observer()</code> - observe postmessages with the specified type. For example: <code>let themeObserver = new __goldenbodyAPI.Observer((e) => console.log(e.darkTheme), 'themechange');</code>.</li>
+        <li><code>observer.disconnect()</code> - stop observing a previously created observer.</li>
       </ul>
       <p>These methods send a message to the host frame and return a promise.</p>
       <p><strong>Permission note:</strong> read-like operations such as <code>readFile</code>, <code>readFolder</code>, <code>fileExists</code>, and <code>folderExists</code> do not require the write permission gate. Write-like operations that change files, folders, or storage usage, such as <code>writeFile</code>, <code>deleteFile</code>, <code>renameFile</code>, and similar actions, are checked against the saved permission key for the picked target.</p>

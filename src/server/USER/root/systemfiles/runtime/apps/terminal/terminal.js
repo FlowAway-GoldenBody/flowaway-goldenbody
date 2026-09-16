@@ -878,7 +878,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
               self.currentWorkingDir = d.cwd || '';
               return;
             }
-            if (typeof d.allowNetwork === 'boolean' && d.verify === 'syfamr') {
+            if (typeof d.allowNetwork === 'boolean') {
                 networkAllowed = d.allowNetwork;
             }
             if (d.type === 'onkill') {

@@ -94,3 +94,6 @@
 ## No version increase
 - removed support for svg app icons because png is enough also svg rendering is a huge mess
 - combined some tiny systemfiles together
+
+## V 2.2.4
+- Added nested iframe creation blocks for iframe apps
