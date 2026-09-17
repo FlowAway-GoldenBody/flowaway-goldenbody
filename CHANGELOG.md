@@ -97,3 +97,6 @@
 
 ## V 2.2.4
 - Added nested iframe creation blocks for iframe apps
+
+## V 2.2.5
+- Iframe apps will be redirected back if it tries to navigate itself. Iframe apps cannot create more Iframes. Iframe apps cannot make workers in workers. Iframe apps cannot use network api in workers.

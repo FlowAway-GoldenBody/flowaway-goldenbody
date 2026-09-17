@@ -6,7 +6,6 @@ let networkAllowed = window.networkAllowed || false;
 const _originalFetch = window.fetch;
 const _originalXHR = window.XMLHttpRequest;
 const _originalWebSocket = window.WebSocket;
-
 // 2. Override Fetch API
 let fetch = function(...args) {
 if (!networkAllowed) {
@@ -57,6 +56,45 @@ window.lockAPI = (api, parent) => {
         configurable: false,
     });
 };
+})();
+
+(function () {
+    const buildWorkerBootstrap = function (scriptURL) {
+        const sourceUrl = scriptURL == null ? "" : String(scriptURL);
+        const sourceLiteral = JSON.stringify(sourceUrl);
+        return [
+            "(function () {",
+            "  self.Worker = undefined;",
+            "  self.SharedWorker = undefined;",
+            "  const blockFetch = function () { return Promise.reject(new TypeError('Network request blocked.')); };",
+            "  const blockXHR = function () { throw new Error('XHR blocked.'); };",
+            "  const blockWebSocket = function () { throw new Error('WebSocket connection blocked.'); };",
+            "  self.fetch = blockFetch;",
+            "  self.XMLHttpRequest = function GuardedXHR() { return blockXHR(); };",
+            "  self.WebSocket = function GuardedWebSocket() { return blockWebSocket(); };",
+            "  const __sourceUrl = " + sourceLiteral + ";",
+            "  if (__sourceUrl) {",
+            "    try { importScripts(__sourceUrl); } catch (err) { throw err; }",
+            "  }",
+            "})();",
+        ].join("\n");
+    };
+
+    const NativeWorker = window.Worker;
+    if (NativeWorker) {
+        const WrappedWorker = function WrappedWorker(scriptURL, options) {
+            const sourceUrl = scriptURL == null ? "" : String(scriptURL);
+            const wrappedUrl = URL.createObjectURL(new Blob([buildWorkerBootstrap(sourceUrl)], { type: 'text/javascript' }));
+            const worker = options ? new NativeWorker(wrappedUrl, options) : new NativeWorker(wrappedUrl);
+            return worker;
+        };
+        WrappedWorker.prototype = NativeWorker.prototype;
+        Object.defineProperty(window, 'Worker', {
+            value: WrappedWorker,
+            writable: true,
+            configurable: true,
+        });
+    }
 })();
 // Additional protections: mutation observer and extra API guards
 (function(){

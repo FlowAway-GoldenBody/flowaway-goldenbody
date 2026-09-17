@@ -660,11 +660,17 @@ let getFilesFromFolder = async function (relPath) {
         // with a target, the iframe can inspect window.__path__ and use that as its initial file/folder target.
         const launchTarget = path || null;
         let html = '';
+        let loadtimes = false;
         if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? 'true' : 'false'};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
+        iframe.addEventListener("load", () => {
+          loadtimes++;
+          if (loadtimes % 2 === 1) { return; }
+          else { iframe.src = URL.createObjectURL(new Blob([`<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`], { type: "text/html" })); }
+        });
         const blob = new Blob([html], { type: "text/html" });
-        iframe.src = URL.createObjectURL(blob);
         iframe.sandbox = "allow-scripts allow-pointer-lock";
+        iframe.src = URL.createObjectURL(blob);
         appObj.allIframe.push(iframe);
         root.appendChild(iframe);
         window.addEventListener(appObj.id + root.goldenbodyId, 'message', async (e) => {
@@ -751,7 +757,7 @@ let getFilesFromFolder = async function (relPath) {
           if (e.data.messageToWorker) {
             const worker = window.protectedGlobals.workers[appObj.id];
             if (worker) {
-              worker.postMessage({ messageToWorker: true, data: e.data.data });
+              worker.postMessage({ messageToWorker: true, data: e.data.message });
             } else {
               e.source.postMessage({ error: "No worker found for app " + appObj.id }, "*");
             }
