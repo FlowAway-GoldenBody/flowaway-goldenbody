@@ -627,7 +627,7 @@ let getFilesFromFolder = async function (relPath) {
       let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
       window[entryObj.functionName] = async function (path, posX = 50, posY = 50) {
         entryObj = getPkg();
-        if (posX == 50 && posY == 50) {
+        if (posX == 50 && posY == 50 && !entryObj.startupPos) {
           let pos = window.protectedGlobals.getNextWindowXY();
           posX = pos.x;
           posY = pos.y;
@@ -635,6 +635,7 @@ let getFilesFromFolder = async function (relPath) {
         let filehandlekey = "invalid key";
         if (path) {
           filehandlekey = crypto.randomUUID();
+          window.protectedGlobals.__externalPickerKeys.set(filehandlekey, { kind: "file", path, appName: entryObj.id });
         }
         let appObj;
         window.protectedGlobals.apps.forEach(app => {
@@ -645,7 +646,24 @@ let getFilesFromFolder = async function (relPath) {
         appObj.allIframe.forEach(iframe => {
           iframe.contentWindow.postMessage({ type: 'newinstance', channel: appObj.id }, "*");
         });
-        var root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
+        let appWidth = false;
+        let appHeight = false;
+        if (entryObj.startupPos) {
+          posX = entryObj.startupPos.x;
+          posY = entryObj.startupPos.y;
+          appWidth = entryObj.startupPos?.width;
+          appHeight = entryObj.startupPos?.height;
+        }
+        let root;
+        if (typeof appWidth === "number" && typeof appHeight === "number") {
+          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY, appWidth, appHeight);
+        } else if (typeof appWidth === "number") {
+          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY, appWidth);
+        } else if (typeof appHeight === "number") {
+          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY, undefined, appHeight);
+        } else {
+          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
+        }
         var topbar = window.protectedGlobals.apptools.createtitlebar(root);
         // create an iframe that fills the whole window;
         let iframe = document.createElement("iframe");
@@ -742,10 +760,17 @@ let getFilesFromFolder = async function (relPath) {
             return;
           }
           if (e.data.setBounds) {
-            const { left, top, width, height, maximize } = e.data.bounds;
+            const { left, top, width, height, maximize, minimize } = e.data.bounds;
             if (maximize) {
               instance.maximizeWindow();
               return;
+            }
+            if (minimize) {
+              instance.hideWindow();
+              return;
+            }
+            if (minimize === false) {
+              instance.showWindow();
             }
             instance.restoreWindow();
             root.style.left = left + "px";
@@ -818,6 +843,7 @@ let getFilesFromFolder = async function (relPath) {
     let jsFile = null;
     let iconFile = null;
     let allIframe = [];
+    let startupPos = {};
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
@@ -860,6 +886,7 @@ let getFilesFromFolder = async function (relPath) {
     let verify = await getVerification(folderPath + '/jsKey.txt');
     iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
+    startupPos = entryObj.startupPos || {};
     openfileCapability = entryObj.openfileCapability || [];
     let getEntryObj = () => {
       return entryObj;
@@ -930,6 +957,7 @@ let getFilesFromFolder = async function (relPath) {
 
     let pkg = {
       folderName: folderName,
+      startupPos,
       enableDebugging: !!entryObj.enableDebugging,
       headless: !!entryObj.headless,
       entryObjectfile: entryObjectfile,

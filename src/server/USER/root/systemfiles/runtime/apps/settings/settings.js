@@ -1494,6 +1494,7 @@ window.settings = function (posX = 50, posY = 50) {
         <li><code>label</code> - display name for the app.</li>
         <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
         <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
+        <li><code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use <code>{ x, y, width, height }</code> to position and size the window when the app is first launched (each property is optional). For example, <code>"startupPos": { "x": 120, "y": 90, "width": 800, "height": 520 }</code> will open the app at those coordinates and dimensions. If omitted, the runtime chooses a sensible default or cascades windows.
         <li><code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe mode.</li>
         <li><code>openfileCapability</code> - optional list of VFS file/folder patterns or capabilities used by File Explorer to determine if a file extension can be opened by this app. (extension is the .something behind a file), (VFS aka. cloud storage)</li>
         <li><code>enableDebugging</code> - boolean flag to enable debugging features for the app.</li>
@@ -1638,7 +1639,20 @@ status.rewriteLine('Downloading... 100%', '#3ddc97', 16, 'ui-monospace, SFMono-R
         <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
         <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
         <li><code>getBounds() { return { left: root.offsetLeft, top: root.offsetTop, width: root.offsetWidth, height: root.offsetHeight }; }</code> - return the bounds of the current instance window.</li>
-        <li><code>setBounds(bounds = { top, left, width, height, maximize })</code> - set the bounds of the current instance window. If you want to maximize the window, set the <code>maximize</code> property to <code>true</code>.</li>
+        <li><code>setBounds(bounds = { left, top, width, height, maximize, minimize })</code> - set the bounds of the current instance window. You may pass a single object with named properties. For convenience some runtimes also accept positional arguments as <code>setBounds(left, top, width, height, maximize, minimize)</code>. The <code>maximize</code> and <code>minimize</code> flags are optional booleans; <code>minimize</code> also supports <code>false</code> to explicitly restore from a minimized state.</li>
+        <li>Examples:</li>
+      </ul>
+      <pre style="white-space:pre-wrap;background:#f6f6f6;padding:8px;border-radius:6px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;">// object form
+await window.__goldenbodyAPI.setBounds({ left: 120, top: 90, width: 900, height: 640 });
+
+// object form: maximize
+await window.__goldenbodyAPI.setBounds({ maximize: true });
+
+// minimize: true will minimize the window, false will restore it
+await window.__goldenbodyAPI.setBounds({ minimize: true });
+
+// other fields are ignored if you use maximize or minimize, if you use both maximize and minimize, maximize takes precedence
+        </pre>
         <li><code>setInstanceTitle(title)</code> - set the instance title of your current instance.</li>
         <li><code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to broadcast.</li>
         <li><code>getCurInstanceNum()</code> - return the index of the current instance.</li>
@@ -1698,6 +1712,29 @@ await window.__goldenbodyAPI.writeFile(
 );
 </code></pre>
       <p>The same handle object can be passed to <code>readFile</code>, <code>writeFile</code>, <code>deleteFile</code>, and the other file APIs. You do not need to re-pick the file for each operation as long as you keep the object around.</p>
+
+      <h4>File Explorer "Open with" (immediate handle from explorer)</h4>
+      <p>When a user chooses "Open with" from the File Explorer (rather than using the runtime pickers), the runtime injects an immediate handle into sandboxed iframe apps so the app can operate on the opened file without showing a picker. The iframe patch sets two helpers for this flow:</p>
+      <ul>
+        <li><code>window.__path__</code> - the VFS path of the file the user opened.</li>
+        <li><code>window.__filehandle__</code> - an internal permission key string for that file.</li>
+        <li><code>window.userPickedFileHandle</code> - a convenience {@code { path, key }} handle created from the above values (available inside the iframe after load).</li>
+      </ul>
+      <p>Because this is a runtime-provided handle (not a picker promise), you can use it directly. Example:</p>
+      <pre><code>// read the file that the user opened via Explorer
+if (window.userPickedFileHandle) {
+  const text = await window.__goldenbodyAPI.readFile(window.userPickedFileHandle, { text: true });
+  console.log('opened file contents:', text);
+}
+
+// write back to the same file
+if (window.userPickedFileHandle) {
+  await window.__goldenbodyAPI.writeFile(window.userPickedFileHandle, 'updated content', { text: true });
+}
+
+// if you need the raw path or key you can also inspect:
+// window.__path__ (string) and window.__filehandle__ (permission key)
+      </code></pre>
       <h4>Picker results</h4>
       <p>Results from external pickers include:</p>
       <pre><code>{ kind: 'file' | 'directory', path, key, name }</code></pre>

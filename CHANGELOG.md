@@ -100,3 +100,8 @@
 
 ## V 2.2.5
 - Iframe apps will be redirected back if it tries to navigate itself. Iframe apps cannot create more Iframes. Iframe apps cannot make workers in workers. Iframe apps cannot use network api in workers.
+
+## V 2.2.6
+- Iframe apps can reference user picked files from file explorer (NOT File Picker), using window.userPickedFileHandle
+- Iframe apps can also do setBounds({left, top, width, height, minimize(true/false), maximize(true/false)})
+- Iframe apps can have a startup pos, which tells the runtime what its initial dimensions is

@@ -188,6 +188,7 @@ const bringToFront = window.protectedGlobals.bringToFront = function bringToFron
   var appId = resolveWindowAppId(el);
   window.protectedGlobals.atTop = appId || "";
   el.style.zIndex = String(++window.protectedGlobals.zTop);
+  window.protectedGlobals.atTopElement = el;
 }
 
 const resolveWindowAppId = window.protectedGlobals.resolveWindowAppId = function resolveWindowAppId(el) {

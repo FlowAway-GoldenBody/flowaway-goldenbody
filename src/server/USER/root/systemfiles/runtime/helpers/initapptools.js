@@ -56,7 +56,7 @@ window.protectedGlobals.initAppTools = function () {
     });
   }
 
-  existing.createRoot = function (appId, posX, posY) {
+  existing.createRoot = function (appId, posX, posY, width, height) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
@@ -70,8 +70,8 @@ window.protectedGlobals.initAppTools = function () {
     root.style.position = "fixed";
     root.style.left = Number.isFinite(Number(posX)) ? String(Number(posX)) + "px" : "70px";
     root.style.top = Number.isFinite(Number(posY)) ? String(Number(posY)) + "px" : "70px";
-    root.style.width = "1000px";
-    root.style.height = "640px";
+    root.style.width = Number.isFinite(Number(width)) ? String(Number(width)) + "px" : "1000px";
+    root.style.height = Number.isFinite(Number(height)) ? String(Number(height)) + "px" : "640px";
     if (document && document.body) {
       document.body.appendChild(root);
     }
@@ -569,7 +569,7 @@ window.protectedGlobals.initAppTools = function () {
     var title = String(options.title || options.apptitle || "").trim();
 
     if (!root) {
-      root = existing.createRoot(appId, options.posX, options.posY);
+      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height);
     }
     if (!topbar) {
       topbar = existing.createtitlebar(root);
@@ -681,6 +681,7 @@ window.protectedGlobals.initAppTools = function () {
       }
       instance.rootElement.style.display = "none";
       instance._isMinimized = true;
+      window.protectedGlobals.bringToFront(window.protectedGlobals.atTopElement);
     };
 
     instance.closeWindow = function () {

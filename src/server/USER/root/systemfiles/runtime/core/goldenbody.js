@@ -1501,6 +1501,7 @@
     if (!exist) {
       // If no task button exists for this app, add one
       const appInfo = window.protectedGlobals.apps.find(app => app.id === atTop);
+      if (appInfo.headless) return; // Don't add task button for headless apps
       let btn = null;
       if (appInfo) {
         if (appInfo.cmf) {

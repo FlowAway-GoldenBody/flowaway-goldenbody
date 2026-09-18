@@ -2298,13 +2298,22 @@ function makeIcon(type, size = 16) {
       addItem("Rename", () => {
         const oldName = selectedItem[0];
 
-        const items = [...fileArea.children];
-        const row = items.find(
-          (r) => r.querySelector("div:nth-child(2)").textContent === oldName,
-        );
+        // Find any element that represents an item (works for list rows and tile items)
+        const candidates = Array.from(fileArea.querySelectorAll('[data-fs-item]'));
+        const row = candidates.find((r) => {
+          const textChild = Array.from(r.children).find((ch) => (ch.textContent || "").trim());
+          return textChild && textChild.textContent.trim() === oldName;
+        });
         if (!row) return;
 
-        const nameDiv = row.children[1];
+        let nameDiv = Array.from(row.children).find((ch) => (ch.textContent || "").trim() === oldName);
+        // fallback: try descendant match
+        if (!nameDiv) {
+          const desc = row.querySelector("*");
+          if (desc && (desc.textContent || "").trim() === oldName) nameDiv = desc;
+        }
+        if (!nameDiv) return;
+
         const input = document.createElement("input");
         input.value = oldName;
         input.style.width = "100%";
@@ -2320,10 +2329,12 @@ function makeIcon(type, size = 16) {
             return;
           }
 
-          for (let i = 0; i < fileArea.children.length; i++) {
+          // Ensure new name is unique among siblings
+          const existingRows = Array.from(fileArea.querySelectorAll('[data-fs-item]'));
+          for (let i = 0; i < existingRows.length; i++) {
             try {
-              if (fileArea.children[i].children[1].textContent === newName)
-                newName = getUniqueName(newName);
+              const candidateName = Array.from(existingRows[i].children).map(c => (c.textContent||"").trim()).find(t => t);
+              if (candidateName === newName) newName = getUniqueName(newName);
             } catch (e) {}
           }
 

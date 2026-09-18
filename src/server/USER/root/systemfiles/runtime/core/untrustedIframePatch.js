@@ -784,3 +784,5 @@ window.addEventListener("pointerup", (e) => {
         meta: e.metaKey,
     }, '*');
 });
+
+window.userPickedFileHandle = new __goldenbodyAPI.FShandle({path: window.__path__, key: window.__filehandle__});
