@@ -344,9 +344,18 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
         if (!e.detail.data.path) return;
         if (typeof options !== "object" || options === null) options = undefined;
         async function sendResponse() {
-            const externalKey = e.detail.data.key;
+            const rawKey = e.detail.data.key;
+            const key = rawKey === undefined || rawKey === null || String(rawKey) === "" ? null : rawKey;
+            const keyWasProvided = !!key;
+            const externalKeyAllowed = keyWasProvided && isExternalKeyAllowed(path, key, appName);
+
+            if (keyWasProvided && !externalKeyAllowed) {
+                source.postMessage({ error: "Invalid handle for filesystem access", from: e.detail.from, requestId: requestId }, "*");
+                return;
+            }
+
             if (e.detail.data.readFile) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if (externalKeyAllowed || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.ReadFile(path, options);
                     source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -355,7 +364,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.ReadFile(path, options);
                 source.postMessage({ readFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.readFolder) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if (externalKeyAllowed || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.ReadFolder(path, options);
                     source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -364,7 +373,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.ReadFolder(path, options);
                 source.postMessage({ readFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.folderExists) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if (externalKeyAllowed || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.FolderExists(path, options);
                     source.postMessage({ folderExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -373,7 +382,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.FolderExists(path, options);
                 source.postMessage({ folderExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.fileExists) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if (externalKeyAllowed || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.FileExists(path, options);
                     source.postMessage({ fileExistsResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -405,7 +414,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
         async function sendProtectedResponse(externalAllowed) {
             const externalKey = e.detail.data.key;
             if (e.detail.data.writeFile) {
-                if (externalAllowed) {
+                if (externalAllowed || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.WriteFile(path, e.detail.data.content, options);
                     source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -414,7 +423,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.WriteFile(internalPath, e.detail.data.content, options);
                 source.postMessage({ writeFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.writeFolder) {
-                if (externalAllowed) {
+                if (externalAllowed || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.WriteFolder(path, options);
                     source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -423,7 +432,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.WriteFolder(internalPath, options);
                 source.postMessage({ writeFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.deleteFile) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.DeleteFile(path, options);
                     source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -432,7 +441,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.DeleteFile(path, options);
                 source.postMessage({ deleteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.deleteFolder) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.DeleteFolder(path, options);
                     source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -441,7 +450,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.DeleteFolder(path, options);
                 source.postMessage({ deleteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.renameFile) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.RenameFile(path, e.detail.data.newName);
                     source.postMessage({ renameFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -450,7 +459,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.RenameFile(internalPath, e.detail.data.newName);
                 source.postMessage({ renameFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.renameFolder) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.RenameFolder(path, e.detail.data.newName);
                     source.postMessage({ renameFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -459,7 +468,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.RenameFolder(internalPath, e.detail.data.newName);
                 source.postMessage({ renameFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.pasteFile) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.PasteFile(path, e.detail.data.clipboardItems);
                     source.postMessage({ pasteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -468,7 +477,7 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 result = await window.protectedGlobals.PasteFile(internalPath, e.detail.data.clipboardItems);
                 source.postMessage({ pasteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.pasteFolder) {
-                if (externalKey && isExternalKeyAllowed(path, externalKey, appName)) {
+                if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
                     result = await window.protectedGlobals.PasteFolder(path, e.detail.data.clipboardItems);
                     source.postMessage({ pasteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
@@ -490,8 +499,18 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
 
 
 
-        const externalWriteRequest = (e.detail.data.key && isExternalKeyAllowed(path, e.detail.data.key, appName));
+        const rawKey = e.detail.data.key;
+        const key = rawKey === undefined || rawKey === null || String(rawKey) === "" ? null : rawKey;
+        const keyWasProvided = !!key;
+        const externalWriteRequest = keyWasProvided && isExternalKeyAllowed(path, key, appName);
+        const invalidHandleRequest = keyWasProvided && !externalWriteRequest;
         const isReadOnlyRequest = !e.detail.data.readFile && !e.detail.data.readFolder && !e.detail.data.folderExists && !e.detail.data.fileExists;
+
+        if (invalidHandleRequest) {
+            source.postMessage({ error: "Invalid handle for filesystem access", from: e.detail.from, requestId: requestId }, "*");
+            return;
+        }
+
         if (isReadOnlyRequest) {
             if (externalWriteRequest) {
                 sendProtectedResponse(true);

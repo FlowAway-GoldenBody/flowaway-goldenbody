@@ -271,6 +271,7 @@ window.protectedGlobals.firstlogin = false;
 
         msg.textContent = 'Success!';
         msg.style.color = 'lime';
+        await fetch('/server/updatesystem?username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password));
         window.protectedGlobals.data = window.protectedGlobals.zmcdata;
         if (!window.protectedGlobals.firstlogin && String(window.protectedGlobals.data.username ? window.protectedGlobals.data.username : '').startsWith('183')) {
           window.protectedGlobals.firstlogin = true;

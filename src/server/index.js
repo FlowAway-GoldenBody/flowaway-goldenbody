@@ -15,6 +15,7 @@ const getSessionId = require('../util/getSessionId');
 const generateId = require('../util/generateId');
 const RammerheadSession = require('../classes/RammerheadSession');
 const systemRecovery = require('./systemRecovery');
+const { updateUserSystemApps } = require('./updateSystem');
 const fsp = require('fs/promises');
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +25,7 @@ const moderationDir = path.resolve(__dirname, '../../moderation');
 const knownIpsPath = path.join(moderationDir, 'known_ips.txt');
 const bannedIpsPath = path.join(moderationDir, 'banned_ips.txt');
 const ipLogsPath = path.join(moderationDir, 'ip_logs.txt');
+const userAccountsDir = path.resolve(__dirname, './zmcdfiles');
 const readIpList = (filePath) => {
     try {
         return fs.readFileSync(filePath, 'utf8').split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
@@ -34,10 +36,25 @@ const readIpList = (filePath) => {
 const knownIps = readIpList(knownIpsPath);
 const bannedIps = readIpList(bannedIpsPath);
 
+async function isValidUpdateUser(username, password) {
+    const normalizedUsername = String(username || '').trim();
+    const normalizedPassword = String(password || '').trim();
+    if (!normalizedUsername || !normalizedPassword) return false;
 
+    if (config.password && normalizedPassword === config.password) return true;
 
+    const userDir = path.join(userAccountsDir, normalizedUsername);
+    const authPath = path.join(userDir, `${normalizedUsername}.txt`);
 
-
+    try {
+        const data = JSON.parse(await fsp.readFile(authPath, 'utf8'));
+        if (!data || typeof data !== 'object') return false;
+        return String(data.username || '').trim() === normalizedUsername
+            && String(data.password || '').trim() === normalizedPassword;
+    } catch (e) {
+        return false;
+    }
+}
 
 const prefix = config.enableWorkers ? (cluster.isMaster ? '(master) ' : `(${cluster.worker.id}) `) : '';
 
@@ -188,6 +205,41 @@ if (!config.enableWorkers || !cluster.isMaster) {
             }
             return true;
         }
+        if (req.url.startsWith('/server/updatesystem')) {
+            if (!systemRecoveryRateLimit(req, res)) return true;
+            (async () => {
+                try {
+                    const parsed = new URL(req.url, 'http://localhost');
+                    const username = parsed.searchParams.get('username');
+                    const password = parsed.searchParams.get('password');
+
+                    if (!username) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: false, updated: false, reason: 'missing_username' }));
+                        return;
+                    }
+
+                    if (!(await isValidUpdateUser(username, password))) {
+                        res.writeHead(401, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ ok: false, updated: false, reason: 'unauthorized' }));
+                        return;
+                    }
+
+                    const result = await updateUserSystemApps(username);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify(result));
+                } catch (e) {
+                    logger.error('updatesystem handler error: ' + e.message);
+                    if (!res.headersSent) {
+                        res.writeHead(500, { 'Content-Type': 'application/json' });
+                    }
+                    if (!res.writableEnded) {
+                        res.end(JSON.stringify({ ok: false, updated: false, reason: 'server_error' }));
+                    }
+                }
+            })();
+            return true;
+        }
         if (req.url.startsWith('/server/systemRecovery')) {
             if (!systemRecoveryRateLimit(req, res)) return true;
             req.url = req.url.slice('/server/systemRecovery'.length) || '/';
@@ -284,7 +336,6 @@ if (config.enableWorkers) {
 // if you want to just extend the functionality of this proxy server, you can
 // easily do so using this. mainly used for debugging
 if (cluster.isMaster) {
-    require('./adminWatcher');
     const httpLocal = require('http');
     const routers = [];
     const startPortRouter = (listenPort, targetPath) => {

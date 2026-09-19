@@ -894,7 +894,7 @@
       var iframeBinding = runtime.iframeProcessBindings[iframeKeys[f]];
       if (!iframeBinding || normalizeProcessPid(iframeBinding.pid) !== pid) continue;
       if (iframeBinding.iframe) {
-        iframeBinding.iframe.src = "about:blank";
+        iframeBinding.iframe.remove();
       }
       if ((iframeBinding.cleanupListener)) {
         iframeBinding.cleanupListener("pid-remove");

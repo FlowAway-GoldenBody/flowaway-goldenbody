@@ -105,3 +105,12 @@
 - Iframe apps can reference user picked files from file explorer (NOT File Picker), using window.userPickedFileHandle
 - Iframe apps can also do setBounds({left, top, width, height, minimize(true/false), maximize(true/false)})
 - Iframe apps can have a startup pos, which tells the runtime what its initial dimensions is
+
+## V 2.3.0
+- Patched a security vulnerability where apps can call their own function with the path argument and then enables them to access all files.
+- Added maximize and minimze options for startup pos.
+- Added /__public which is a folder that all apps can read and write (shared space)
+- rewrite the docs via (AI slop)
+
+## V 2.3.1
+- reworked how update system works.

@@ -2555,7 +2555,9 @@ function makeIcon(type, size = 16) {
                   let path = node[2].path;
                   console.log("Opening with app", app.functionName, path, node);
                   try {
-                    window[app.functionName](path);
+                    const adminkey = await window.protectedGlobals.ReadFile('/systemfiles/userprofile/jsApiKey.txt', { text: true, direct: true });
+                    if (!app.requestAdminPerm) window[app.functionName](path, adminkey);
+                    else window[app.functionName](path);
                   } catch (e) {
                     console.error("open with app error", e);
                   }

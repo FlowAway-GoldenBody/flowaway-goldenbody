@@ -1501,7 +1501,7 @@
     if (!exist) {
       // If no task button exists for this app, add one
       const appInfo = window.protectedGlobals.apps.find(app => app.id === atTop);
-      if (appInfo.headless) return; // Don't add task button for headless apps
+      if (appInfo && appInfo.headless) return; // Don't add task button for headless apps
       let btn = null;
       if (appInfo) {
         if (appInfo.cmf) {
@@ -1564,8 +1564,8 @@
             }
  
             if (closedApps + headlessApps === window.protectedGlobals.apps.length) {
-              // reset ztop to 1
-              window.protectedGlobals.zTop = 1;
+              // reset ztop to 10
+              window.protectedGlobals.zTop = 10;
               window.protectedGlobals.resetWindowXY();
             }
             // An app window was removed, find corresponding task button and mark as closed

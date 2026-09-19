@@ -42,7 +42,9 @@ window.protectedGlobals.launchApp = async function (appId, args) {
     throw new Error("App not found: " + String(appId));
   }
   window.protectedGlobals._launchContext = { appId: String(appId || ""), args: args === undefined ? [] : Array.isArray(args) ? args : [args] };
-  var result = window[app.functionName](...window.protectedGlobals._launchContext.args);
+  let result = null;
+  if (app.requestAdminPerm) result = window[app.functionName](...window.protectedGlobals._launchContext.args);
+  else result = await window[app.functionName](undefined, undefined, args);
   return result;
 };
 

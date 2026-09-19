@@ -56,7 +56,7 @@ window.protectedGlobals.initAppTools = function () {
     });
   }
 
-  existing.createRoot = function (appId, posX, posY, width, height) {
+  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
@@ -70,11 +70,9 @@ window.protectedGlobals.initAppTools = function () {
     root.style.position = "fixed";
     root.style.left = Number.isFinite(Number(posX)) ? String(Number(posX)) + "px" : "70px";
     root.style.top = Number.isFinite(Number(posY)) ? String(Number(posY)) + "px" : "70px";
-    root.style.width = Number.isFinite(Number(width)) ? String(Number(width)) + "px" : "1000px";
-    root.style.height = Number.isFinite(Number(height)) ? String(Number(height)) + "px" : "640px";
-    if (document && document.body) {
-      document.body.appendChild(root);
-    }
+    root.style.width = typeof width === "number" ? String(width) + "px" : "1000px";
+    root.style.height = typeof height === "number" ? String(height) + "px" : "640px";
+    document.body.appendChild(root);
     ensureResizeHandles(root);
     window.protectedGlobals.bringToFront(root);
     if (ctx.appId) window.protectedGlobals.atTop = ctx.appId;
@@ -567,17 +565,7 @@ window.protectedGlobals.initAppTools = function () {
     var app = ctx.app;
     var appId = ctx.appId;
     var title = String(options.title || options.apptitle || "").trim();
-
-    if (!root) {
-      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height);
-    }
-    if (!topbar) {
-      topbar = existing.createtitlebar(root);
-    }
-    if (title) {
-      window.protectedGlobals.setAppDataTitle(root, title);
-    }
-
+  
     var instance = {
       rootElement: root,
       btnMax: options.btnMax || (root && root.querySelector ? root.querySelector(".btnMaxColor") : null),
@@ -753,6 +741,26 @@ window.protectedGlobals.initAppTools = function () {
       }
     }
 
+    if (!root) {
+      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height);
+      instance.rootElement = root;
+    }
+    if (!topbar) {
+      topbar = existing.createtitlebar(root);
+      instance.topbar = topbar;
+      instance.topbarElement = topbar;
+      instance.titlebar = topbar;
+      instance.titlebarElement = topbar;
+      instance.btnMax = root.querySelector(".btnMaxColor");
+      // Ensure the instance gets the titlebar theme applier function
+      // createtitlebar assigns to the outer `applyTitlebarTheme` variable,
+      // so copy that function onto the instance after creation.
+      instance.applyTitlebarTheme = applyTitlebarTheme || null;
+      // Also attach to the DOM root for external callers that expect it there.
+      if (instance.rootElement) instance.rootElement._applyTitlebarTheme = instance.applyTitlebarTheme;
+    }
+
+    // Ensure the DOM root element references this instance (set after root/topbar creation)
     if (instance.rootElement) {
       instance.rootElement._appInstance = instance;
       instance.rootElement._goldenbodyId = instance.goldenbodyId;
@@ -761,7 +769,16 @@ window.protectedGlobals.initAppTools = function () {
         if (appId) instance.rootElement.dataset.appId = String(appId);
       }
     }
+    if (title) {
+      window.protectedGlobals.setAppDataTitle(root, title);
+    }
 
+    if (options.maximize) {
+      instance.maximizeWindow();
+    }
+    if (options.minimize) {
+      instance.hideWindow();
+    }
     return instance;
   };
 

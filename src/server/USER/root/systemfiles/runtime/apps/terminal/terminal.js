@@ -97,7 +97,11 @@ window.terminal = function (path, posX = 50, posY = 50) {
     let awaitingPasswordPrompt = null;
     let workerPrompt = null;
     // current working directory for this terminal instance
-    let cwd = '/';
+    let cwd = (() => {
+      const raw = path === undefined || path === null ? '' : String(path).trim();
+      if (!raw) return '/';
+      return normalizeCloudPath(raw.startsWith('/') ? raw : '/' + raw);
+    })();
 
     function updatePromptVisibility() {
       const shouldShowPrompt = !terminalBusy && !awaitingPasswordPrompt && !workerPrompt;

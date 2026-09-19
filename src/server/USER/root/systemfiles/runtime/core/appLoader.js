@@ -1,6 +1,7 @@
 "use strict";
 
-(function () {
+(async function () {
+  let jskey = await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true })
   window.addEventListener("styleapplied", () => {
     let iframes = document.querySelectorAll("iframe");
     iframes.forEach((iframe) => {
@@ -625,7 +626,7 @@ let getFilesFromFolder = async function (relPath) {
       let entryObj = getEntryObj();
       let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.jsFile, { text: true, direct: true });
       let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
-      window[entryObj.functionName] = async function (path, posX = 50, posY = 50) {
+      window[entryObj.functionName] = async function (path, verify, argObj, posX = 50, posY = 50) {
         entryObj = getPkg();
         if (posX == 50 && posY == 50 && !entryObj.startupPos) {
           let pos = window.protectedGlobals.getNextWindowXY();
@@ -633,7 +634,7 @@ let getFilesFromFolder = async function (relPath) {
           posY = pos.y;
         }
         let filehandlekey = "invalid key";
-        if (path) {
+        if (path && verify === jskey) {
           filehandlekey = crypto.randomUUID();
           window.protectedGlobals.__externalPickerKeys.set(filehandlekey, { kind: "file", path, appName: entryObj.id });
         }
@@ -648,23 +649,18 @@ let getFilesFromFolder = async function (relPath) {
         });
         let appWidth = false;
         let appHeight = false;
+        let windowMaximize = false;
+        let windowMinimize = false;
         if (entryObj.startupPos) {
           posX = entryObj.startupPos.x;
           posY = entryObj.startupPos.y;
           appWidth = entryObj.startupPos?.width;
           appHeight = entryObj.startupPos?.height;
+          windowMaximize = entryObj.startupPos?.maximize;
+          windowMinimize = entryObj.startupPos?.minimize;
         }
-        let root;
-        if (typeof appWidth === "number" && typeof appHeight === "number") {
-          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY, appWidth, appHeight);
-        } else if (typeof appWidth === "number") {
-          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY, appWidth);
-        } else if (typeof appHeight === "number") {
-          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY, undefined, appHeight);
-        } else {
-          root = window.protectedGlobals.apptools.createRoot(entryObj.id, posX, posY);
-        }
-        var topbar = window.protectedGlobals.apptools.createtitlebar(root);
+        var instance = window.protectedGlobals.apptools.api.createAppInstance({appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize});
+        const root = instance.rootElement;
         // create an iframe that fills the whole window;
         let iframe = document.createElement("iframe");
         iframe.style.top = "0";
@@ -679,7 +675,7 @@ let getFilesFromFolder = async function (relPath) {
         const launchTarget = path || null;
         let html = '';
         let loadtimes = false;
-        if (!entryObj.enableDebugging) html = `<html><head><script>const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? 'true' : 'false'};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        if (!entryObj.enableDebugging) html = `<html><head><script>window.__args = ${JSON.stringify(argObj)};const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? 'true' : 'false'};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         iframe.addEventListener("load", () => {
           loadtimes++;
@@ -814,11 +810,6 @@ let getFilesFromFolder = async function (relPath) {
             iframe.contentWindow.postMessage({ requestId: e.data.requestId, theme: window.protectedGlobals.data.dark ? 'dark' : 'light' }, '*');
           }
         });
-        var instance = window.protectedGlobals.apptools.api.createAppInstance({
-          rootElement: root,
-          title: entryObj.label,
-          btnMax: topbar ? topbar.querySelector(".btnMaxColor") : null,
-        });
         instance.iframe = iframe;
         instance.instanceNum = instanceNum;
         let origClose = instance.closeWindow;
@@ -827,7 +818,7 @@ let getFilesFromFolder = async function (relPath) {
           appObj.allIframe.splice(appObj.allIframe.indexOf(iframe), 1);
         };
         window.protectedGlobals.apptools.api.trackInstance(instance, entryObj.id);
-        return instance;
+        return;
       }
     }
 
@@ -886,7 +877,7 @@ let getFilesFromFolder = async function (relPath) {
     let verify = await getVerification(folderPath + '/jsKey.txt');
     iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
-    startupPos = entryObj.startupPos || {};
+    startupPos = entryObj.startupPos || null;
     openfileCapability = entryObj.openfileCapability || [];
     let getEntryObj = () => {
       return entryObj;
@@ -927,7 +918,7 @@ let getFilesFromFolder = async function (relPath) {
 
 
     console.log("Found icon file for app " + folderName + ": " + iconFile); 
-    if (!entryObj.headless || !iconFile) {
+    if (!entryObj.headless || iconFile) {
       var iconPath = folderPath + "/" + iconFile;
       function iconDataToBase64(raw) {
         if (raw instanceof ArrayBuffer || ArrayBuffer.isView(raw)) {
