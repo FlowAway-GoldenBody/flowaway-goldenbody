@@ -117,3 +117,7 @@
 
 ## V 2.3.2
 - Added filesystem access key revoke menu in settings, added ping system to detect unresponsive apps, a bug fix for headless apps being able to be shown in all apps section of startmenu.
+
+## V 2.3.3-pre
+- removed some sync operations in server (WARNING: more testing required to see if theres any issues introduced)
+- fixed an ai introduced bug for (File/Folder)Exists() regarding the api contract between client and server.

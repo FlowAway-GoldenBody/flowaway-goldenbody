@@ -6,15 +6,29 @@ const { defaultSystemPathPermissions, setupUserFilesystem } = require('./userFil
 let directoryPath = path.resolve(__dirname, './zmcdfiles');
 directoryPath += '/';
 
-function readJsonSafe(filePath, fallback) {
+async function pathExists(filePath) {
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    await fs.promises.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJsonSafe(filePath, fallback) {
+  try {
+    return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
   } catch {
     return fallback;
   }
 }
 
-function writeJsonPretty(filePath, value) {
+async function writeJsonPretty(filePath, value) {
+  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.promises.writeFile(filePath, JSON.stringify(value, null, 2));
+}
+
+function writeJsonPrettySync(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
@@ -86,8 +100,8 @@ function sanitizeAuthRecord(raw, username, passwordHint = '') {
   };
 }
 
-function readAuthRecord(userPaths) {
-  const raw = readJsonSafe(userPaths.authFile, null);
+async function readAuthRecord(userPaths) {
+  const raw = await readJsonSafe(userPaths.authFile, null);
   if (!raw || typeof raw !== 'object') return null;
   return {
     raw,
@@ -95,9 +109,15 @@ function readAuthRecord(userPaths) {
   };
 }
 
-function writeAuthRecord(userPaths, authRecord) {
+async function writeAuthRecord(userPaths, authRecord) {
   const sanitized = sanitizeAuthRecord(authRecord, userPaths.username);
-  writeJsonPretty(userPaths.authFile, sanitized);
+  await writeJsonPretty(userPaths.authFile, sanitized);
+  return sanitized;
+}
+
+function writeAuthRecordSync(userPaths, authRecord) {
+  const sanitized = sanitizeAuthRecord(authRecord, userPaths.username);
+  writeJsonPrettySync(userPaths.authFile, sanitized);
   return sanitized;
 }
 
@@ -151,7 +171,7 @@ function handleZMCd(req, res) {
     body += chunk;
   });
 
-  req.on('end', () => {
+  req.on('end', async () => {
     let responseContent = null;
     try {
       const data = JSON.parse(body);
@@ -160,7 +180,7 @@ function handleZMCd(req, res) {
       if (!/^[a-zA-Z0-9_-]+$/.test(data.username)) {
         return sendJson(res, 400, { error: 'Invalid username format' });
       }
-      if (!fs.existsSync(directoryPath)) fs.mkdirSync(directoryPath, { recursive: true });
+      if (!(await pathExists(directoryPath))) await fs.promises.mkdir(directoryPath, { recursive: true });
 
       const userPaths = getUserPaths(data.username);
 
@@ -168,22 +188,22 @@ function handleZMCd(req, res) {
         if (!/^[a-zA-Z0-9_-]+$/.test(data.username) || data.username.length < 3 || password.length < 3) {
           return sendJson(res, 403, { error: "Username or password don't meet server requirements" });
         }
-        if (fs.existsSync(userPaths.userDir)) {
+        if (fs.existsSync(userPaths.userDir) || fs.existsSync(userPaths.authFile)) {
           responseContent = { error: 'user already exists' };
         } else {
           fs.mkdirSync(userPaths.userDir, { recursive: true });
           const authRecord = sanitizeAuthRecord(null, userPaths.username, password);
           const token = issueToken(authRecord);
-          writeAuthRecord(userPaths, authRecord);
+          writeAuthRecordSync(userPaths, authRecord);
           try {
-            setupUserFilesystem(userPaths);
+            await setupUserFilesystem(userPaths);
           } catch (e) {
             console.error('setupUserFilesystem failed', e && e.message ? e.message : String(e));
           }
           responseContent = buildLoginResponse(authRecord, token);
         }
       } else {
-        const authResult = readAuthRecord(userPaths);
+        const authResult = await readAuthRecord(userPaths);
         if (!authResult) {
           responseContent = { error: 'invalid username or password' };
         } else {
@@ -192,14 +212,14 @@ function handleZMCd(req, res) {
             responseContent = { error: 'invalid username or password' };
           } else {
             const token = issueToken(authRecord);
-            writeAuthRecord(userPaths, authRecord);
+            await writeAuthRecord(userPaths, authRecord);
             responseContent = buildLoginResponse(authRecord, token);
           }
         }
       }
 
       if (data.refillSession) {
-        const authResult = readAuthRecord(userPaths);
+        const authResult = await readAuthRecord(userPaths);
         if (!authResult) {
           return sendJson(res, 404, { error: 'User file not found' });
         }
@@ -210,12 +230,12 @@ function handleZMCd(req, res) {
         }
 
         const newToken = issueToken(authRecord);
-        writeAuthRecord(userPaths, authRecord);
+        await writeAuthRecord(userPaths, authRecord);
         return res.end(JSON.stringify({ success: true, authToken: newToken }));
       }
 
       if (data.updatePathPermission || data.setPathPermissions) {
-        const authResult = readAuthRecord(userPaths);
+        const authResult = await readAuthRecord(userPaths);
         if (!authResult) {
           return sendJson(res, 404, { error: 'User file not found' });
         }
@@ -234,7 +254,7 @@ function handleZMCd(req, res) {
         }
 
         if (data.updatePathPermission) {
-          const userfile = fs.readFileSync(userPaths.authFile, 'utf8');
+          const userfile = await fs.promises.readFile(userPaths.authFile, 'utf8');
           const parsedUserfile = JSON.parse(userfile);
           if (password !== parsedUserfile.password) {
             return sendJson(res, 403, { error: 'incorrect password' });
@@ -258,7 +278,7 @@ function handleZMCd(req, res) {
         }
 
         authRecord.pathPermissions = mergePathPermissionsWithDefaults(nextPermissions);
-        writeAuthRecord(userPaths, authRecord);
+        await writeAuthRecord(userPaths, authRecord);
         return res.end(JSON.stringify({
           success: true,
           pathPermissions: authRecord.pathPermissions,
@@ -266,7 +286,7 @@ function handleZMCd(req, res) {
       }
 
       if (data.updatePassword) {
-        const authResult = readAuthRecord(userPaths);
+        const authResult = await readAuthRecord(userPaths);
         if (!authResult) {
           return sendJson(res, 404, { error: 'User file not found' });
         }
@@ -279,10 +299,10 @@ function handleZMCd(req, res) {
         authRecord.password = String(data.newPassword || '');
         authRecord.authTokens = [];
         const newToken = issueToken(authRecord);
-        writeAuthRecord(userPaths, authRecord);
+        await writeAuthRecord(userPaths, authRecord);
         return res.end(JSON.stringify({ success: true, authToken: newToken }));
       } else if (data.deleteAcc) {
-        const authResult = readAuthRecord(userPaths);
+        const authResult = await readAuthRecord(userPaths);
         if (!authResult) {
           return sendJson(res, 404, { error: 'User file not found' });
         }
@@ -294,8 +314,8 @@ function handleZMCd(req, res) {
 
         const targetDir = userPaths.userDir;
         try {
-          if (fs.existsSync(targetDir)) {
-            fs.rmSync(targetDir, { recursive: true, force: true });
+          if (await pathExists(targetDir)) {
+            await fs.promises.rm(targetDir, { recursive: true, force: true });
           }
           return res.end(JSON.stringify({ success: true }));
         } catch (e) {

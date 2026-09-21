@@ -27,6 +27,15 @@ function defaultSystemPathPermissions() {
   ];
 }
 
+async function pathExists(filePath) {
+  try {
+    await fs.promises.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function defaultStartMenuConfig() {
   return {
     version: '1.0',
@@ -36,60 +45,60 @@ function defaultStartMenuConfig() {
   };
 }
 
-function ensureStartMenuConfig(userPaths) {
-  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
+async function ensureStartMenuConfig(userPaths) {
+  await fs.promises.mkdir(userPaths.userProfileDir, { recursive: true });
 
-  // Ensure start menu config exists (copy from template or write default)
   try {
-    if (!fs.existsSync(userPaths.startMenuPath)) {
-      if (fs.existsSync(START_MENU_SOURCE_PATH)) {
-        try { fs.copyFileSync(START_MENU_SOURCE_PATH, userPaths.startMenuPath); } catch (e) {}
+    if (!(await pathExists(userPaths.startMenuPath))) {
+      if (await pathExists(START_MENU_SOURCE_PATH)) {
+        try { await fs.promises.copyFile(START_MENU_SOURCE_PATH, userPaths.startMenuPath); } catch (e) {}
       } else {
-        try { fs.writeFileSync(userPaths.startMenuPath, JSON.stringify(defaultStartMenuConfig(), null, 2)); } catch (e) {}
+        try { await fs.promises.writeFile(userPaths.startMenuPath, JSON.stringify(defaultStartMenuConfig(), null, 2)); } catch (e) {}
       }
     }
   } catch (e) {}
 
-  // If a profile.json exists in the USER template, copy it into the user's profile directory
   try {
     const profileDest = path.join(userPaths.userProfileDir, 'profile.json');
-    if (!fs.existsSync(profileDest) && fs.existsSync(PROFILE_SOURCE_PATH)) {
-      try { fs.copyFileSync(PROFILE_SOURCE_PATH, profileDest); } catch (e) {}
+    if (!(await pathExists(profileDest)) && (await pathExists(PROFILE_SOURCE_PATH))) {
+      try { await fs.promises.copyFile(PROFILE_SOURCE_PATH, profileDest); } catch (e) {}
     }
   } catch (e) {}
 }
 
-function ensureAppIntegrityKey(userPaths) {
-  fs.mkdirSync(userPaths.userProfileDir, { recursive: true });
+async function ensureAppIntegrityKey(userPaths) {
+  await fs.promises.mkdir(userPaths.userProfileDir, { recursive: true });
   const keyPath = path.join(userPaths.userProfileDir, 'jsApiKey.txt');
-  if (fs.existsSync(keyPath)) {
-    return String(fs.readFileSync(keyPath, 'utf8')).trim();
-  }
 
-  const randomKey = crypto.randomBytes(16).toString('hex');
-  fs.writeFileSync(keyPath, randomKey);
-  return randomKey;
+  try {
+    const existing = await fs.promises.readFile(keyPath, 'utf8');
+    return String(existing).trim();
+  } catch (e) {
+    const randomKey = crypto.randomBytes(16).toString('hex');
+    await fs.promises.writeFile(keyPath, randomKey);
+    return randomKey;
+  }
 }
 
-function syncAppKeysToUserKey(userPaths, userKey) {
+async function syncAppKeysToUserKey(userPaths, userKey) {
   const resolvedKey = String(userKey || '').trim();
   if (!resolvedKey) return;
 
   const appsDir = path.join(userPaths.systemfilesDir, 'runtime', 'apps');
-  if (!fs.existsSync(appsDir)) return;
+  if (!(await pathExists(appsDir))) return;
 
-  const appFolders = fs.readdirSync(appsDir, { withFileTypes: true });
+  const appFolders = await fs.promises.readdir(appsDir, { withFileTypes: true });
   for (const folder of appFolders) {
     if (!folder.isDirectory() || folder.name.startsWith('.')) continue;
     const appFolderPath = path.join(appsDir, folder.name);
 
     try {
-      const items = fs.readdirSync(appFolderPath, { withFileTypes: true });
+      const items = await fs.promises.readdir(appFolderPath, { withFileTypes: true });
       for (const item of items) {
         if (!item.isFile()) continue;
         if (item.name.toLowerCase() === 'jskey.txt') {
           try {
-            fs.unlinkSync(path.join(appFolderPath, item.name));
+            await fs.promises.unlink(path.join(appFolderPath, item.name));
           } catch (e) {}
         }
       }
@@ -97,56 +106,56 @@ function syncAppKeysToUserKey(userPaths, userKey) {
 
     const appKeyPath = path.join(appFolderPath, 'jsKey.txt');
     try {
-      fs.writeFileSync(appKeyPath, resolvedKey);
+      await fs.promises.writeFile(appKeyPath, resolvedKey);
     } catch (e) {}
   }
 }
 
-function copyTemplateToUser(userPaths) {
+async function copyTemplateToUser(userPaths) {
   try {
     const templateSystemFilesPath = path.join(USER_TEMPLATE_PATH, 'systemfiles');
-    if (!fs.existsSync(templateSystemFilesPath)) return;
+    if (!(await pathExists(templateSystemFilesPath))) return;
 
     const userSystemfilesPath = userPaths.systemfilesDir;
     const userAppsPath = path.join(userSystemfilesPath, 'runtime', 'apps');
 
-    const copyFileSafe = (src, dst) => {
+    const copyFileSafe = async (src, dst) => {
       try {
-        fs.mkdirSync(path.dirname(dst), { recursive: true });
-        fs.copyFileSync(src, dst);
+        await fs.promises.mkdir(path.dirname(dst), { recursive: true });
+        await fs.promises.copyFile(src, dst);
       } catch (e) {}
     };
 
-    const copyDirSkipKeys = (srcDir, dstDir) => {
-      if (!fs.existsSync(srcDir)) return;
-      fs.mkdirSync(dstDir, { recursive: true });
-      const items = fs.readdirSync(srcDir, { withFileTypes: true });
+    const copyDirSkipKeys = async (srcDir, dstDir) => {
+      if (!(await pathExists(srcDir))) return;
+      await fs.promises.mkdir(dstDir, { recursive: true });
+      const items = await fs.promises.readdir(srcDir, { withFileTypes: true });
       for (const item of items) {
         if (item.name === 'userprofile') continue;
         const src = path.join(srcDir, item.name);
         const dst = path.join(dstDir, item.name);
         try {
           if (item.isDirectory()) {
-            copyDirSkipKeys(src, dst);
+            await copyDirSkipKeys(src, dst);
           } else {
             if (item.name.toLowerCase() === 'jskey.txt') continue;
-            if (!fs.existsSync(dst)) copyFileSafe(src, dst);
+            if (!(await pathExists(dst))) await copyFileSafe(src, dst);
           }
         } catch (e) {}
       }
     };
 
-    copyDirSkipKeys(templateSystemFilesPath, userSystemfilesPath);
+    await copyDirSkipKeys(templateSystemFilesPath, userSystemfilesPath);
 
     const templateAppsPath = path.join(templateSystemFilesPath, 'runtime', 'apps');
-    if (fs.existsSync(templateAppsPath)) {
-      const appEntries = fs.readdirSync(templateAppsPath, { withFileTypes: true });
+    if (await pathExists(templateAppsPath)) {
+      const appEntries = await fs.promises.readdir(templateAppsPath, { withFileTypes: true });
       for (const appEntry of appEntries) {
         if (!appEntry.isDirectory() || appEntry.name.startsWith('.')) continue;
         const srcApp = path.join(templateAppsPath, appEntry.name);
         const dstApp = path.join(userAppsPath, appEntry.name);
         try {
-          copyDirSkipKeys(srcApp, dstApp);
+          await copyDirSkipKeys(srcApp, dstApp);
         } catch (e) {}
       }
     }
@@ -155,11 +164,11 @@ function copyTemplateToUser(userPaths) {
   }
 }
 
-function setupUserFilesystem(userPaths) {
-  ensureStartMenuConfig(userPaths);
-  const userKey = ensureAppIntegrityKey(userPaths);
-  copyTemplateToUser(userPaths);
-  syncAppKeysToUserKey(userPaths, userKey);
+async function setupUserFilesystem(userPaths) {
+  await ensureStartMenuConfig(userPaths);
+  const userKey = await ensureAppIntegrityKey(userPaths);
+  await copyTemplateToUser(userPaths);
+  await syncAppKeysToUserKey(userPaths, userKey);
   return userKey;
 }
 

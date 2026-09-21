@@ -714,13 +714,8 @@ async function handleFetchfiles(req, res) {
               const folderRel = directionPathToRelative(dir.path || "");
               assertReadAllowed(folderRel);
               const stat = await fsp.stat(folderPath).catch(() => null);
-              if (!stat || !stat.isDirectory()) {
-                const err = new Error("Folder does not exist");
-                err.code = "ENOENT";
-                err.path = `${folderRel}`;
-                throw err;
-              }
-              result.checkFolder = { exists: true, path: `${folderRel}` };
+              if (!stat || !stat.isDirectory()) result.checkFolder = { exists: false, path: `${folderRel}` };
+              else result.checkFolder = { exists: true, path: `${folderRel}` };
               continue;
             }
 
@@ -730,13 +725,8 @@ async function handleFetchfiles(req, res) {
               assertReadAllowed(fileRel);
               console.log(filePath, fileRel);
               const stat = await fsp.stat(filePath).catch(() => null);
-              if (!stat || !stat.isFile()) {
-                const err = new Error("File does not exist");
-                err.code = "ENOENT";
-                err.path = `${fileRel}`;
-                throw err;
-              }
-              result.checkFile = { exists: true, path: `${fileRel}` };
+              if (!stat || !stat.isFile()) result.checkFile = { exists: false, path: `${fileRel}` };
+              else result.checkFile = { exists: true, path: `${fileRel}` };
               continue;
             }
             if (dir.addFile) {
