@@ -114,3 +114,6 @@
 
 ## V 2.3.1
 - reworked how update system works.
+
+## V 2.3.2
+- Added filesystem access key revoke menu in settings, added ping system to detect unresponsive apps, a bug fix for headless apps being able to be shown in all apps section of startmenu.

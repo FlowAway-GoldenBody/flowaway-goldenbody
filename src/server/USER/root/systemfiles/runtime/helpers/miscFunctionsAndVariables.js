@@ -296,7 +296,7 @@ window.alert = function (message) {
   window.protectedGlobals.showModal("Alert", String(message || ""), "info");
 };
 
-window.protectedGlobals.showConfirmDialog = (title, message) => {
+window.protectedGlobals.showConfirmDialog = (title, message, okText, cancelText) => {
     return new Promise((resolve) => {
       document.getElementById("confirm-dialog")?.remove();
 
@@ -354,7 +354,7 @@ window.protectedGlobals.showConfirmDialog = (title, message) => {
       btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
 
       const btnCancel = document.createElement("button");
-      btnCancel.textContent = "Cancel";
+      btnCancel.textContent = cancelText || "Cancel";
       btnCancel.style.cssText =
         "padding:8px 16px;border-radius:6px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font-size:14px;";
       btnCancel.onmouseenter = () => (btnCancel.style.background = "#e8e8e8");
@@ -362,7 +362,7 @@ window.protectedGlobals.showConfirmDialog = (title, message) => {
       btnCancel.onclick = () => closeConfirmDialog(false);
 
       const btnConfirm = document.createElement("button");
-      btnConfirm.textContent = "Continue";
+      btnConfirm.textContent = okText || "Continue";
       btnConfirm.style.cssText =
         "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
       btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");

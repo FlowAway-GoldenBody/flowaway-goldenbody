@@ -496,7 +496,7 @@ app.id, app
 
   for (const appId of pinnedApps) {
     const app = appsMap.get(appId);
-    if (!app || !app.icon) continue;
+    if (!app || app.headless) continue;
     createAppTile(app, container, true);
   }
 }
@@ -515,7 +515,7 @@ app.id, app
 
   for (const appId of recents) {
     const app = appsMap.get(appId);
-    if (!app || !app.icon) continue;
+    if (!app || app.headless) continue;
     createAppTile(app, container, false);
   }
 
@@ -531,7 +531,7 @@ const renderAllAppsGrid = window.protectedGlobals.renderAllAppsGrid = async func
 
   if (!window.protectedGlobals.apps) return;
   for (const app of window.protectedGlobals.apps) {
-    if (!app.icon) continue;
+    if (app.headless) continue;
     createAppTile(app, container, false);
   }
 }

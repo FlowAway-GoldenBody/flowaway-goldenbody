@@ -574,9 +574,115 @@ window.settings = function (posX = 50, posY = 50) {
   appListHeaderText.textContent = "App Settings";
   appListHeaderText.style.fontSize = "16px";
   appListHeaderText.style.fontWeight = "700";
-
+  appListHeaderText.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
 
   appListHeader.append(appListHeaderText);
+
+  const filesystemAccessSection = document.createElement("div");
+  filesystemAccessSection.style.marginBottom = "18px";
+  filesystemAccessSection.style.border = "1px solid rgba(255,255,255,0.08)";
+  filesystemAccessSection.style.borderRadius = "8px";
+  filesystemAccessSection.style.padding = "10px";
+  filesystemAccessSection.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)";
+
+  const filesystemAccessHeader = document.createElement("div");
+  filesystemAccessHeader.textContent = "Active filesystem access keys";
+  filesystemAccessHeader.style.fontSize = "14px";
+  filesystemAccessHeader.style.fontWeight = "700";
+  filesystemAccessHeader.style.marginBottom = "8px";
+  filesystemAccessHeader.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+
+  const filesystemAccessList = document.createElement("div");
+  filesystemAccessList.style.display = "flex";
+  filesystemAccessList.style.flexDirection = "column";
+  filesystemAccessList.style.gap = "8px";
+
+  function getFilesystemAccessEntries() {
+    const keys = window.protectedGlobals.__externalPickerKeys || new Map();
+    window.protectedGlobals.__externalPickerKeys = keys;
+    if (!(keys instanceof Map)) return [];
+    return Array.from(keys.entries()).map(([key, value]) => ({
+      key,
+      appName: value && value.appName ? String(value.appName) : "unknown",
+      kind: value && value.kind ? String(value.kind) : "unknown",
+      path: value && value.path ? String(value.path) : "(unknown path)",
+    }));
+  }
+
+  function renderFilesystemAccessList() {
+    filesystemAccessHeader.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+    appListHeaderText.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+    appListDesc.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
+    filesystemAccessList.innerHTML = "";
+    const entries = getFilesystemAccessEntries();
+
+    if (!entries.length) {
+      const empty = document.createElement("div");
+      empty.textContent = "No active filesystem access keys.";
+      empty.style.fontSize = "12px";
+      empty.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
+      filesystemAccessList.appendChild(empty);
+      return;
+    }
+
+    entries.forEach(({ key, appName, kind, path }) => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.alignItems = "flex-start";
+      row.style.justifyContent = "space-between";
+      row.style.gap = "10px";
+      row.style.padding = "8px 10px";
+      row.style.borderRadius = "6px";
+      row.style.border = "1px solid rgba(255,255,255,0.08)";
+      row.style.background = window.protectedGlobals.data.dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
+
+      const info = document.createElement("div");
+      info.style.minWidth = "0";
+      info.style.flex = "1";
+      info.style.fontSize = "11px";
+      info.style.lineHeight = "1.45";
+      info.style.wordBreak = "break-word";
+
+      const title = document.createElement("div");
+      title.style.fontWeight = "600";
+      title.style.marginBottom = "2px";
+      title.textContent = `${appName} • ${kind}`;
+
+      const details = document.createElement("div");
+      details.style.color = window.protectedGlobals.data.dark ? "#ccc" : "#555";
+      details.textContent = `${path || "(unknown path)"}`;
+
+      const keyText = document.createElement("div");
+      keyText.style.color = window.protectedGlobals.data.dark ? "#9ec5ff" : "#1d4ed8";
+      keyText.style.fontFamily = "monospace";
+      keyText.style.marginTop = "2px";
+      keyText.textContent = key;
+
+      info.append(title, details, keyText);
+
+      const revokeBtn = document.createElement("button");
+      revokeBtn.textContent = "Revoke";
+      revokeBtn.style.border = "none";
+      revokeBtn.style.borderRadius = "6px";
+      revokeBtn.style.padding = "6px 10px";
+      revokeBtn.style.cursor = "pointer";
+      revokeBtn.style.background = "rgba(220, 38, 38, 0.15)";
+      revokeBtn.style.color = window.protectedGlobals.data.dark ? "#fca5a5" : "#b91c1c";
+      revokeBtn.style.flexShrink = "0";
+      revokeBtn.onclick = () => {
+        const map = window.protectedGlobals.__externalPickerKeys;
+        if (map instanceof Map) {
+          map.delete(key);
+        }
+        renderFilesystemAccessList();
+      };
+
+      row.append(info, revokeBtn);
+      filesystemAccessList.appendChild(row);
+    });
+  }
+
+  filesystemAccessSection.append(filesystemAccessHeader, filesystemAccessList);
 
   const appListDesc = document.createElement("div");
   appListDesc.textContent = "Installed app folders from /systemfiles/runtime/apps.";
@@ -589,8 +695,8 @@ window.settings = function (posX = 50, posY = 50) {
   appListContainer.style.flexDirection = "column";
   appListContainer.style.gap = "8px";
 
-  rightPanel.append(appListHeader, appListDesc, appListContainer);
-  window.settingsGlobals.appListContainer = appListContainer;
+  rightPanel.append(filesystemAccessSection, appListHeader, appListDesc, appListContainer);
+  renderFilesystemAccessList();
   refreshAppList().catch(() => {});
 
   function sectionTitle(text) {
@@ -653,7 +759,7 @@ window.settings = function (posX = 50, posY = 50) {
   }
 
   function syncAppRowsTheme() {
-    const container = window.settingsGlobals.appListContainer;
+    const container = appListContainer;
     if (!container) return;
     const appItems = Array.from(container.children || []).filter((child) => child instanceof HTMLElement && child.dataset.appItem === "true");
     appItems.forEach((appWrapper) => {
@@ -927,11 +1033,15 @@ window.settings = function (posX = 50, posY = 50) {
     return appWrapper;
   }
 
-  root.addEventListener("styleapplied", syncAppRowsTheme);
+  root.addEventListener("styleapplied", () => {
+    syncAppRowsTheme();
+    renderFilesystemAccessList();
+  });
 
   async function refreshAppList() {
-    if (!window.settingsGlobals.appListContainer) return;
-    const container = window.settingsGlobals.appListContainer;
+    if (!appListContainer) return;
+    renderFilesystemAccessList();
+    const container = appListContainer;
     container.innerHTML = "";
     const loading = document.createElement("div");
     loading.textContent = "Loading apps...";

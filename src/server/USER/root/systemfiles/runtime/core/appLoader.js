@@ -687,6 +687,30 @@ let getFilesFromFolder = async function (relPath) {
         iframe.src = URL.createObjectURL(blob);
         appObj.allIframe.push(iframe);
         root.appendChild(iframe);
+        let listenerAdded = false;
+        let awaitingDlg = false;
+        const pingInterval = setInterval(async () => {
+          if (listenerAdded || awaitingDlg) return;
+          iframe.contentWindow.postMessage({ type: 'ping', channel: appObj.id }, "*");
+          let pongReceived = false;
+          listenerAdded = true;
+          window.addEventListener('message', function (e) {
+            if (e.source !== iframe.contentWindow) {
+              return;
+            }
+            if (e.data.type === 'pong' && e.data.channel === appObj.id) {
+              pongReceived = true;
+            }
+            listenerAdded = false;
+          }, { once: true });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          if (!pongReceived) {
+            awaitingDlg = true;
+            const terminate = await window.protectedGlobals.showConfirmDialog("App Unresponsive", `Instance "${instance.title}" (${instanceNum}) of "${entryObj.label}" is not responding.`, "Close App", "Wait");
+            awaitingDlg = false;
+            if (terminate) instance.closeWindow();
+          }
+        }, 1000);
         window.addEventListener(appObj.id + root.goldenbodyId, 'message', async (e) => {
           if (e.source !== iframe.contentWindow) {
             return;
@@ -815,6 +839,7 @@ let getFilesFromFolder = async function (relPath) {
         let origClose = instance.closeWindow;
         instance.closeWindow = function () {
           origClose();
+          clearInterval(pingInterval);
           appObj.allIframe.splice(appObj.allIframe.indexOf(iframe), 1);
         };
         window.protectedGlobals.apptools.api.trackInstance(instance, entryObj.id);

@@ -8,6 +8,7 @@
   "iconFile": "icon.txt",
   "headless": true,
   "backgroundWorker": true,
+  "startupPos": { "minimize": true },
   "headlessJsFile": "headlessScript.js",
   "cmd": [
     { "name": "workerTest", "src": "/src/workerPermissionTest.js", "receive_onkill_handler": true },

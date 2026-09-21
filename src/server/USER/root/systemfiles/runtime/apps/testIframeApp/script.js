@@ -349,8 +349,5 @@
 
 // buildUI();
 (async () => {
-  __goldenbodyAPI.setBounds({minimize: true});
-  __goldenbodyAPI.setBounds({left: 0, top: 0, width: 0, height: 0});
   console.log(await __goldenbodyAPI.readFile(userPickedFileHandle, { text: true }));
-  __goldenbodyAPI.closeWindow();
 })();
