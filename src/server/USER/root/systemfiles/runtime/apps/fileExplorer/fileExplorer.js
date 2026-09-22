@@ -2497,6 +2497,29 @@ function makeIcon(type, size = 16) {
           return [];
         }
 
+        function normalizeProtectedPath(value) {
+          const raw = String(value || "").replace(/\\/g, "/").trim();
+          return raw.startsWith("/") ? raw : `/${raw}`;
+        }
+
+        function isProtectedKeyFilePath(filePath) {
+          const normalized = normalizeProtectedPath(filePath).toLowerCase();
+          if (normalized === "/systemfiles/userprofile/jsapikey.txt") return true;
+          return /^\/systemfiles\/runtime\/apps\/[^/]+\/jskey\.txt$/i.test(normalized);
+        }
+
+        function appCanOpenSelectedFiles(app) {
+          const selectedPaths = toOpen
+            .filter((node) => node && !Array.isArray(node[1]))
+            .map((node) => String(node[2]?.path || ""));
+
+          const containsProtectedFile = selectedPaths.some((path) => isProtectedKeyFilePath(path));
+          if (containsProtectedFile) {
+            return app.requestAdminPerm === true;
+          }
+          return true;
+        }
+
         function appSupportsSelectedExtensions(app) {
           const caps = normalizeOpenFileCapability(app.openfileCapability);
           if (!caps.length) return false;
@@ -2505,7 +2528,7 @@ function makeIcon(type, size = 16) {
           return selectedExtensions.every((ext) => caps.includes(ext));
         }
 
-        const apps = (Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [])
+        const apps = window.protectedGlobals.apps
           .map((app) => {
             const functionName = app && (app.functionName || app.id);
             if (!functionName || !(window[functionName])) return null;
@@ -2513,6 +2536,7 @@ function makeIcon(type, size = 16) {
               label: app.label || functionName,
               functionName,
               openfileCapability: app.openfileCapability,
+              requestAdminPerm: app.requestAdminPerm === true,
             };
           })
           .filter(Boolean)
@@ -2520,6 +2544,7 @@ function makeIcon(type, size = 16) {
             const ownId = String(root.dataset.appId || "").toLowerCase();
             return String(app.functionName || "").toLowerCase() !== ownId;
           })
+          .filter((app) => appCanOpenSelectedFiles(app))
           .filter((app) => appSupportsSelectedExtensions(app));
 
         if (!apps.length) {
@@ -2549,6 +2574,16 @@ function makeIcon(type, size = 16) {
             });
             appItem.onclick = async () => {
               try {
+                // 2nd layer protection, can be removed
+                const blockedByKeyProtection = toOpen.some((node) => {
+                  if (!node || Array.isArray(node[1])) return false;
+                  return isProtectedKeyFilePath(node[2]?.path || "");
+                });
+                if (blockedByKeyProtection && app.requestAdminPerm !== true) {
+                  console.warn("Blocked app from opening protected key file without admin permission:", app.functionName);
+                  return;
+                }
+
                 hideContextMenu();
                 for (const node of toOpen) {
                   if (!node || Array.isArray(node[1])) continue;

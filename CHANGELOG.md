@@ -121,3 +121,6 @@
 ## V 2.3.3-pre
 - removed some sync operations in server (WARNING: more testing required to see if theres any issues introduced)
 - fixed an ai introduced bug for (File/Folder)Exists() regarding the api contract between client and server.
+
+## No Version Increase
+- added extra key protections in file explorer open file.
