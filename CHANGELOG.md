@@ -124,3 +124,4 @@
 
 ## No Version Increase
 - added extra key protections in file explorer open file.
+- fixed a bug where zmcdpost ask for token refill when recieved 401 which it shouldn't because the endpoint requires password.

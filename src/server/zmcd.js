@@ -145,7 +145,6 @@ function issueToken(authRecord) {
 function buildLoginResponse(authRecord, token) {
   return {
     username: authRecord.username,
-    authTokens: authRecord.authTokens,
     authToken: token,
     pathPermissions: Array.isArray(authRecord.pathPermissions) ? authRecord.pathPermissions : [],
     maxSpace: authRecord.maxSpace,

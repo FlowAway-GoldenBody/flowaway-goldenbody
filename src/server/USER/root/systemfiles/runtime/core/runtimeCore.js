@@ -411,29 +411,24 @@ function extractAuthTokenFromResponse(body) {
 }
 
 // auth related stuff
-  window.protectedGlobals.zmcdpost = async function (data) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (window.protectedGlobals.data.authToken) headers['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
-    var res = await fetch(window.protectedGlobals.zmcdserver, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            username: window.protectedGlobals.getCurrentUsernameForRequests(),
-            ...data
-        })
-    });
-    let body = await res.json();
-    extractAuthTokenFromResponse(body);
-    var zmcdErrorMessage = body && body.error ? String(body.error) : "";
-    if (res.status === 403 || /denied/i.test(zmcdErrorMessage)) {
-      window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
-    }
-    if (res.status === 401) {
-      const refilled = await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
-      if (refilled) return await window.protectedGlobals.zmcdpost(data);
-      return { error: 'unauthorized' };
-    }
-    return body;
+window.protectedGlobals.zmcdpost = async function (data) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (window.protectedGlobals.data.authToken) headers['Authorization'] = 'Bearer ' + window.protectedGlobals.data.authToken;
+  var res = await fetch(window.protectedGlobals.zmcdserver, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+          username: window.protectedGlobals.getCurrentUsernameForRequests(),
+          ...data
+      })
+  });
+  let body = await res.json();
+  extractAuthTokenFromResponse(body);
+  var zmcdErrorMessage = body && body.error ? String(body.error) : "";
+  if (res.status === 403 || /denied/i.test(zmcdErrorMessage)) {
+    window.protectedGlobals.notification(zmcdErrorMessage || "Access denied.");
+  }
+  return body;
 }
 window.protectedGlobals._sessionExpiredPromiseQueue = window.protectedGlobals._sessionExpiredPromiseQueue || [];
 window.protectedGlobals._sessionExpiredDialogOpen = window.protectedGlobals._sessionExpiredDialogOpen || false;
