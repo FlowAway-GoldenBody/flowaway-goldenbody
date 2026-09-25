@@ -1604,10 +1604,11 @@ window.settings = function (posX = 50, posY = 50) {
     <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
     <li>
         <code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use
-        <code>{ x, y, width, height }</code> to position and size the window when the app is first launched (each
+        <code>{ x, y, width, height, maximize, minimize }</code> to position and size the window when the app is first launched (each
         property is optional). For example,
         <code>"startupPos": { "x": 120, "y": 90, "width": 800, "height": 520 }</code> will open the app at those
         coordinates and dimensions. If omitted, the runtime chooses a sensible default or cascades windows.
+        <code>maximize</code> and <code>minimize</code> are boolean flags to start the app maximized or minimized.
     </li>
     <li>
         <code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe
@@ -1947,16 +1948,14 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
     <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
     <li>
-        <code
-            >getBounds() { return { left: root.offsetLeft, top: root.offsetTop, width: root.offsetWidth, height:
-            root.offsetHeight }; }</code
-        >
+        <code>getBounds() { return { x: root.offsetLeft, y: root.offsetTop, width: root.offsetWidth, height:
+            root.offsetHeight }; }</code>
         - return the bounds of the current instance window.
     </li>
     <li>
-        <code>setBounds(bounds = { left, top, width, height, maximize, minimize })</code> - set the bounds of the
+        <code>setBounds(bounds = { x, y, width, height, maximize, minimize })</code> - set the bounds of the
         current instance window. You may pass a single object with named properties. For convenience some runtimes also
-        accept positional arguments as <code>setBounds(left, top, width, height, maximize, minimize)</code>. The
+        accept positional arguments as <code>setBounds(x, y, width, height, maximize, minimize)</code>. The
         <code>maximize</code> and <code>minimize</code> flags are optional booleans; <code>minimize</code> also supports
         <code>false</code> to explicitly restore from a minimized state.
     </li>
@@ -1970,7 +1969,7 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     "
 >
-// object form await window.__goldenbodyAPI.setBounds({ left: 120, top: 90, width: 900, height: 640 });
+// object form await window.__goldenbodyAPI.setBounds({ x: 120, y: 90, width: 900, height: 640 });
 
 // object form: maximize
 await window.__goldenbodyAPI.setBounds({ maximize: true });
@@ -1993,8 +1992,10 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
     <li><code>getTheme()</code> - return <code>dark</code> or <code>light</code>.</li>
     <li>
         <code>Observer()</code> - observe postmessages with the specified type. For example:
-        <code>let themeObserver = new __goldenbodyAPI.Observer((e) =&gt; console.log(e.darkTheme), 'themechange');</code
-        >.
+        <code>
+          let themeObserver = new __goldenbodyAPI.Observer((e) => console.log(e.darkTheme), 'themechange');
+          let messageObserver = new __goldenbodyAPI.Observer((e) => console.log(e), 'message');
+        </code>
     </li>
     <li><code>observer.disconnect()</code> - stop observing a previously created observer.</li>
 </ul>
@@ -2090,7 +2091,7 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
 <h4>WriteFile (options, chunking, and retries)</h4>
 <p>Signature: <code>writeFile(pathOrHandle, contents, options)</code>. Important options:</p>
 <ul>
-    <li><code>{ replace: true|false }</code> — whether to replace the target (default true for first chunk).</li>
+    <li><code>{ replace: true|false }</code> — whether to replace the target (default true). If set false it will append the contents.</li>
     <li>
         <code>{ stream: true }</code> — caller supplies a ReadableStream or Blob; runtime will convert to bytes and
         upload.

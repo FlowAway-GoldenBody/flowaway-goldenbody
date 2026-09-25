@@ -94,23 +94,33 @@ class RammerheadSession extends Session {
     }
     serializeSession() {
         return JSON.stringify({
-            data: this.data,
-            serializedCookieJar: this.cookies.serializeJar()
+            data: this.data
         });
     }
+
     // hook system and serializing are for two different store systems
     static DeserializeSession(id, serializedSession) {
         const parsed = JSON.parse(serializedSession);
-        if (!parsed.data) throw new Error('expected serializedSession to contain data object');
-        if (!parsed.serializedCookieJar)
-            throw new Error('expected serializedSession to contain serializedCookieJar object');
 
-        const session = new RammerheadSession({ id, dontConnectToData: true });
+        if (!parsed.data)
+            throw new Error('expected serializedSession to contain data object');
+
+        const session = new RammerheadSession({
+            id,
+            dontConnectToData: true
+        });
+
         session.data = parsed.data;
         session.connectHammerheadToData(true);
-        session.cookies.setJar(parsed.serializedCookieJar);
+
+        // Only restore cookies if they were explicitly persisted.
+        if (parsed.serializedCookieJar) {
+            session.cookies.setJar(parsed.serializedCookieJar);
+        }
+
         return session;
     }
+
 
     hasRequestEventListeners() {
         // force forceProxySrcForImage to be true

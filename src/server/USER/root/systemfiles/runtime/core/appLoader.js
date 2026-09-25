@@ -203,7 +203,7 @@ let getFilesFromFolder = async function (relPath) {
     panel.style.transform = "translate(-50%, -50%)";
     panel.style.minWidth = "400px";
     panel.style.maxWidth = "100vw";
-    panel.style.maxHeight = "100vh";
+    panel.style.maxHeight = "75vh";
     panel.style.width = "640px";
     panel.style.resize = "both";
     panel.style.overflow = "hidden";
@@ -373,33 +373,40 @@ let getFilesFromFolder = async function (relPath) {
 
     function renderBreadcrumb() {
       breadcrumb.innerHTML = "";
-      const parts = currentPath ? currentPath.split("/") : [];
+      const parts = currentPath ? currentPath.split("/").filter(Boolean) : [];
+
       const homeLink = document.createElement("span");
       homeLink.textContent = "Home";
       homeLink.style.cursor = "pointer";
+      homeLink.style.padding = "2px 4px";
+      homeLink.style.borderRadius = "4px";
+      homeLink.onmouseenter = () => { homeLink.style.background = theme.hoverBg; };
+      homeLink.onmouseleave = () => { homeLink.style.background = "transparent"; };
       homeLink.onclick = () => {
         currentPath = "";
         selectedPath = "";
         renderEntries();
       };
       breadcrumb.appendChild(homeLink);
-      let pathSoFar = "";
+
       parts.forEach((part, index) => {
-        if (!part) return;
-        pathSoFar = index === 0 ? part : pathSoFar + "/" + part;
+        const targetPath = parts.slice(0, index + 1).join("/");
         const sep = document.createElement("span");
         sep.textContent = " / ";
         sep.style.color = theme.muted;
         breadcrumb.appendChild(sep);
+
         const link = document.createElement("span");
         link.textContent = part;
         link.style.cursor = "pointer";
         link.style.textDecoration = "underline";
         link.style.marginLeft = "2px";
-        link.onmouseenter = () => { link.style.opacity = "0.8"; };
-        link.onmouseleave = () => { link.style.opacity = "1"; };
+        link.style.padding = "2px 4px";
+        link.style.borderRadius = "4px";
+        link.onmouseenter = () => { link.style.background = theme.hoverBg; };
+        link.onmouseleave = () => { link.style.background = "transparent"; };
         link.onclick = () => {
-          currentPath = pathSoFar;
+          currentPath = targetPath;
           selectedPath = "";
           renderEntries();
         };
@@ -627,11 +634,13 @@ let getFilesFromFolder = async function (relPath) {
       let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.jsFile, { text: true, direct: true });
       let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
       window[entryObj.functionName] = async function (path, verify, argObj, posX = 50, posY = 50) {
+        let useRelativeXY = false;
         entryObj = getPkg();
-        if (posX == 50 && posY == 50 && !entryObj.startupPos) {
+        if (posX == 50 && posY == 50 && !entryObj.startupPos?.x && !entryObj.startupPos?.y) {
           let pos = window.protectedGlobals.getNextWindowXY();
           posX = pos.x;
           posY = pos.y;
+          useRelativeXY = true;
         }
         let filehandlekey = "invalid key";
         if (path && verify === jskey) {
@@ -652,8 +661,10 @@ let getFilesFromFolder = async function (relPath) {
         let windowMaximize = false;
         let windowMinimize = false;
         if (entryObj.startupPos) {
-          posX = entryObj.startupPos.x;
-          posY = entryObj.startupPos.y;
+          if (!useRelativeXY) {
+            posX = entryObj.startupPos.x;
+            posY = entryObj.startupPos.y;
+          }
           appWidth = entryObj.startupPos?.width;
           appHeight = entryObj.startupPos?.height;
           windowMaximize = entryObj.startupPos?.maximize;
@@ -670,6 +681,7 @@ let getFilesFromFolder = async function (relPath) {
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask", launch: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
+        instance.title = entryObj.label + " " + (instanceNum + 1);
         // Preserve an already-passed path or picker handle for the iframe. If the app was launched
         // with a target, the iframe can inspect window.__path__ and use that as its initial file/folder target.
         const launchTarget = path || null;
@@ -703,7 +715,7 @@ let getFilesFromFolder = async function (relPath) {
             }
             listenerAdded = false;
           }, { once: true });
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 5000));
           if (!pongReceived) {
             awaitingDlg = true;
             const terminate = await window.protectedGlobals.showConfirmDialog("App Unresponsive", `Instance "${instance.title}" (${instanceNum}) of "${entryObj.label}" is not responding.`, "Close App", "Wait");
@@ -771,8 +783,8 @@ let getFilesFromFolder = async function (relPath) {
           if (e.data.getBounds) {
             let requestId = e.data.requestId;
             const bounds = {
-              left: root.offsetLeft,
-              top: root.offsetTop,
+              x: root.offsetLeft,
+              y: root.offsetTop,
               width: root.offsetWidth,
               height: root.offsetHeight,
             };
@@ -780,7 +792,7 @@ let getFilesFromFolder = async function (relPath) {
             return;
           }
           if (e.data.setBounds) {
-            const { left, top, width, height, maximize, minimize } = e.data.bounds;
+            const { x, y, width, height, maximize, minimize } = e.data.bounds;
             if (maximize) {
               instance.maximizeWindow();
               return;
@@ -793,8 +805,8 @@ let getFilesFromFolder = async function (relPath) {
               instance.showWindow();
             }
             instance.restoreWindow();
-            root.style.left = left + "px";
-            root.style.top = top + "px";
+            root.style.left = x + "px";
+            root.style.top = y + "px";
             root.style.width = width + "px";
             root.style.height = height + "px";
             return;
@@ -811,20 +823,20 @@ let getFilesFromFolder = async function (relPath) {
           window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id} }));
           if (e.data.setInstanceTitle) {
             instance.title = e.data.title || instance.title;
-          } else if (e.data.instanceMessage) {
+          } else if (e.data.type === "message" && e.data.toInstance) {
             let toInstance = e.data.toInstance;
             let fromInstance = instance.instanceNum;
             let message = e.data.message;
             if (toInstance === "*" || toInstance === "all") {
               window[appObj.globalVarObjectString][appObj.allAppArrayString].forEach(inst => {
                 if (inst.instanceNum !== fromInstance) {
-                  inst.iframe.contentWindow.postMessage({instanceMessage: true, message: message, fromInstance: fromInstance}, '*');
+                  inst.iframe.contentWindow.postMessage({type: e.data.type, message: message, fromInstance: fromInstance, channel: entryObj.id}, '*');
                 }
               });
             } else {
               let targetInstance = window[appObj.globalVarObjectString][appObj.allAppArrayString].find(inst => inst.instanceNum === toInstance);
               if (targetInstance) {
-                targetInstance.iframe.contentWindow.postMessage({instanceMessage: true, message: message, fromInstance: fromInstance}, '*');
+                targetInstance.iframe.contentWindow.postMessage({type: e.data.type, message: message, fromInstance: fromInstance, channel: entryObj.id}, '*');
               }
             }
           } else if (e.data.getLiveInstanceIndex) {

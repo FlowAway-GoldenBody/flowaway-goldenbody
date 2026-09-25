@@ -632,7 +632,7 @@ window.__goldenbodyAPI = {
     },
 
     message: (message, toInstance) => {
-        window.parent.postMessage({instanceMessage: true, message: message, toInstance: toInstance}, '*');
+        window.parent.postMessage({type: 'message', message: message, toInstance: toInstance}, '*');
     },
 
     getCurInstanceNum: () => {

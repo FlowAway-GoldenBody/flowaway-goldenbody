@@ -160,8 +160,6 @@ async function syncTemplateAppTree(srcDir, dstDir) {
     if (!entry.isFile()) continue;
 
     const ext = path.extname(entry.name).toLowerCase();
-    if (ext !== '.js') continue;
-
     if (!(await pathExists(dstPath)) || (await fileContentsDiffer(srcPath, dstPath))) {
       await fsp.mkdir(path.dirname(dstPath), { recursive: true });
       await fsp.copyFile(srcPath, dstPath);
@@ -204,12 +202,8 @@ async function updateUserSystemApps(username) {
 
   const sourceStartMenuConfigPath = path.join(templateSystemFilesPath, 'userprofile', 'startMenu-config.json');
   try {
-    if (await pathExists(sourceStartMenuConfigPath)) {
-      if (!(await pathExists(userStartMenuConfigPath))) {
-        await fsp.copyFile(sourceStartMenuConfigPath, userStartMenuConfigPath);
-      }
-    } else if (!(await pathExists(userStartMenuConfigPath))) {
-      await writeJsonPretty(userStartMenuConfigPath, defaultStartMenuConfig());
+    if (!(await pathExists(userStartMenuConfigPath))) {
+      await fsp.copyFile(sourceStartMenuConfigPath, userStartMenuConfigPath);
     }
   } catch (e) {
     console.error(`Failed to ensure startMenu-config.json for user ${username}:`, e);
@@ -255,31 +249,6 @@ async function updateUserSystemApps(username) {
   return { ok: true, updated: true, username };
 }
 
-async function updateAllSystemApps() {
-  try {
-    const directoryPath = path.resolve(__dirname, './zmcdfiles');
-    if (!(await pathExists(directoryPath))) return;
-
-    const entries = await fsp.readdir(directoryPath, { withFileTypes: true });
-    const userDirs = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(d => d.name);
-
-    for (const username of userDirs) {
-      try {
-        await updateUserSystemApps(username);
-      } catch (err) {
-        console.error(`Error updating apps for user ${username}:`, err);
-      }
-    }
-  } catch (err) {
-    console.error('Error in updateAllSystemApps:', err);
-  }
-}
-
-if (require.main === module) {
-  updateAllSystemApps();
-}
-
 module.exports = {
   updateUserSystemApps,
-  updateAllSystemApps,
 };

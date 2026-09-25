@@ -1,0 +1,15 @@
+{
+  "id": "zipUtility",
+  "label": "ZIP Utility",
+  "jsFile": "app.js",
+  "iconFile": "icon.png",
+  "pngEnabled": true,
+  "requestAdminPerm": false,
+  "openfileCapability": [".zip"],
+  "enableDebugging": false,
+  "headless": false,
+  "startupPos": {
+    "width": 760,
+    "height": 560
+  }
+}
