@@ -854,8 +854,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
             writeFolder: (path)=>{ const id = nextId(); postMessage({type:'api', id, op:'writeFolder', path}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             renameFile: (path, newName)=>{ const id = nextId(); postMessage({type:'api', id, op:'renameFile', path, newName}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             renameFolder: (path, newName)=>{ const id = nextId(); postMessage({type:'api', id, op:'renameFolder', path, newName}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-            pasteFile: (destination, clipboardItems, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFile', path: destination, clipboardItems, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
-            pasteFolder: (destination, clipboardItems, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFolder', path: destination, clipboardItems, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            pasteFile: (destination, clipboard, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFile', path: destination, clipboard, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            pasteFolder: (destination, clipboard, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFolder', path: destination, clipboard, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             launchApp: (appId, args = []) => { const id = nextId(); postMessage({type:'api', id, op:'launchApp', appId, args}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             writeline: function (...args) {
               const id = nextId();
@@ -1108,8 +1108,8 @@ window.terminal = function (path, posX = 50, posY = 50) {
               case 'writeFolder': result = await window.protectedGlobals.WriteFolder(resolved); break;
               case 'renameFile': result = await window.protectedGlobals.RenameFile(resolved, d.newName); break;
               case 'renameFolder': result = await window.protectedGlobals.RenameFolder(resolved, d.newName); break;
-              case 'pasteFile': result = await window.protectedGlobals.PasteFile(resolved, Array.isArray(d.clipboardItems) ? d.clipboardItems : []); break;
-              case 'pasteFolder': result = await window.protectedGlobals.PasteFolder(resolved, Array.isArray(d.clipboardItems) ? d.clipboardItems : []); break;
+              case 'pasteFile': result = await window.protectedGlobals.PasteFile(resolved, d.clipboard); break;
+              case 'pasteFolder': result = await window.protectedGlobals.PasteFolder(resolved, d.clipboard); break;
               case 'launchApp': {
                 const appId = d.appId ? String(d.appId) : '';
                 if (!appId) throw new Error('Missing appId');
@@ -1380,9 +1380,9 @@ window.terminal = function (path, posX = 50, posY = 50) {
         const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
         if (!srcIsFile && !srcIsFolder) { printError('Source does not exist: ' + srcPath); return; }
         let result;
-        if (srcIsFile) result = await window.protectedGlobals.PasteFile(destPathCandidate, [{ path: srcPath, kind: 'file' }], { move: true });
-        if (srcIsFolder) result = await window.protectedGlobals.PasteFolder(destPathCandidate, [{ path: srcPath, kind: 'directory' }], { move: true });
-        if (!result.success) { printError('Failed to move file: ' + srcPath); return; }
+        if (srcIsFile) result = await window.protectedGlobals.PasteFile(destPathCandidate, { path: srcPath, kind: 'file' }, { move: true });
+        if (srcIsFolder) result = await window.protectedGlobals.PasteFolder(destPathCandidate, { path: srcPath, kind: 'directory' }, { move: true });
+        if (!result.success) { printError(result.error || 'Failed to move file: ' + srcPath); return; }
         printLine('Moved ' + srcPath + ' -> ' + destPathCandidate);
         return;
       }
@@ -1409,9 +1409,9 @@ window.terminal = function (path, posX = 50, posY = 50) {
           const srcIsFile = await (window.protectedGlobals.FileExists ? window.protectedGlobals.FileExists(srcPath) : false);
           const srcIsFolder = await (window.protectedGlobals.FolderExists ? window.protectedGlobals.FolderExists(srcPath) : false);
           let result;
-          if (srcIsFile) result = await window.protectedGlobals.PasteFile(destPathCandidate, [{ path: srcPath, kind: 'file' }]);
-          if (srcIsFolder) result = await window.protectedGlobals.PasteFolder(destPathCandidate, [{ path: srcPath, kind: 'directory' }]);
-          if (!result.success) { printError('Failed to copy file: ' + srcPath); return; }
+          if (srcIsFile) result = await window.protectedGlobals.PasteFile(destPathCandidate, { path: srcPath, kind: 'file' });
+          if (srcIsFolder) result = await window.protectedGlobals.PasteFolder(destPathCandidate, { path: srcPath, kind: 'directory' });
+          if (!result.success) { printError(result.error || 'Failed to copy file: ' + srcPath); return; }
           printLine('Copied ' + srcPath + ' -> ' + destPathCandidate);
           return;
         } catch (e) { printError(e.message || String(e)); }

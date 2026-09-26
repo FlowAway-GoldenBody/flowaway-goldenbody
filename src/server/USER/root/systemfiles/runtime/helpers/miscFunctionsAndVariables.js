@@ -280,11 +280,22 @@ window.protectedGlobals.showModal = function(title, body, level) {
   bodyEl.textContent = String(body || "");
   bodyEl.style.padding = "10px 12px 12px";
   bodyEl.style.whiteSpace = "pre-wrap";
+  bodyEl.style.wordBreak = "break-word";
+  bodyEl.style.maxWidth = "min(420px, calc(100vw - 64px))";
+  bodyEl.style.maxHeight = document.body.offsetHeight * 0.06 + "px";
+  bodyEl.style.overflowY = "auto";
 
   header.appendChild(titleEl);
   header.appendChild(closeBtn);
   card.appendChild(header);
   card.appendChild(bodyEl);
+  // limit concurrent on-screen messages to 3
+  try {
+    while (container.childElementCount >= 3) {
+      // remove the oldest (top) message to make room
+      container.removeChild(container.firstElementChild);
+    }
+  } catch (e) {}
   container.appendChild(card);
 
   setTimeout(function () {

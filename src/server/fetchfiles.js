@@ -616,6 +616,7 @@ async function handleFetchfiles(req, res) {
 
       async function applyDirections(rootPath, directions, username, userPathPermissions, options = {}) {
         let success = true;
+        let error = null;
         const moveMode = Boolean(options && options.move);
         // result object used to return information back to the caller
         const result = {};
@@ -769,20 +770,13 @@ async function handleFetchfiles(req, res) {
 
               // Update any server-side clipboard entries that reference the renamed path
               try {
-                if (clipboard && Array.isArray(clipboard)) {
-                  clipboard = clipboard.map((c) => {
-                    if (!c || typeof c.path !== "string") return c;
-                    if (c.path === oldRel) {
-                      return { ...c, path: newRel, name: dir.newName };
-                    }
-                    if (c.path.startsWith(oldRel + "/")) {
-                      return {
-                        ...c,
-                        path: newRel + c.path.slice(oldRel.length),
-                      };
-                    }
-                    return c;
-                  });
+                if (clipboard && typeof clipboard.path === "string") {
+                  // Update single-object clipboard path if it references the renamed item
+                  if (clipboard.path === oldRel) {
+                    clipboard = { ...clipboard, path: newRel, name: dir.newName };
+                  } else if (clipboard.path.startsWith(oldRel + "/")) {
+                    clipboard = { ...clipboard, path: newRel + clipboard.path.slice(oldRel.length) };
+                  }
                 }
               } catch (e) {
                 // ignore clipboard update failures
@@ -832,15 +826,13 @@ async function handleFetchfiles(req, res) {
                 }
               }
 
-              // Clean up any server-side clipboard entries that reference this path
+              // Clean up server-side single-object clipboard if it references the deleted path
               try {
                 const rel = dir.path.split("/").slice(1).join("/"); // remove leading "root"
-                if (clipboard && Array.isArray(clipboard)) {
-                  clipboard = clipboard.filter((c) => {
-                    if (!c || typeof c.path !== "string") return true;
-                    // If deleting a folder, remove entries inside it as well
-                    return !(c.path === rel || c.path.startsWith(rel + "/"));
-                  });
+                if (clipboard && typeof clipboard.path === "string") {
+                  if (clipboard.path === rel || clipboard.path.startsWith(rel + "/")) {
+                    clipboard = null;
+                  }
                 }
               } catch (e) {
                 // ignore cleanup failures
@@ -891,15 +883,15 @@ async function handleFetchfiles(req, res) {
             }
 
             if (dir.copy) {
-              const copyRows = Array.isArray(dir.directions) ? dir.directions : [];
-              for (const row of copyRows) {
-                const copyRelPath = removeUnwantedStuffInPath(row && row.path ? row.path : "");
-                assertReadAllowed(copyRelPath);
+              // Expect a single clipboard object (no arrays).
+              const entry = dir.directions;
+              if (!entry || Array.isArray(entry)) {
+                throw new Error("Invalid clipboard entry: expected single object");
               }
-              // Store the list of items to clipboard and avoid creating on-disk temp copies.
-              // Copy will be performed at paste time from the live location; if the source
-              // no longer exists when pasting, the operation will fail (matching real cloud drive behavior).
-              clipboard = dir.directions;
+              const copyRelPath = removeUnwantedStuffInPath(entry && entry.path ? entry.path : "");
+              assertReadAllowed(copyRelPath);
+              // Store the single object to clipboard; copy will be performed at paste time
+              clipboard = entry;
               continue;
             }
 
@@ -917,65 +909,67 @@ async function handleFetchfiles(req, res) {
               const quota = await getUserQuotaBytes(userRoot);
               let currentUsed = await getUserUsage(username, userRoot);
 
-              for (const item of clipboard) {
-                const sourceRelPath = removeUnwantedStuffInPath(item?.path || "");
-                assertReadAllowed(sourceRelPath);
+              // Single-object clipboard paste
+              const item = clipboard;
+              if (!item || typeof item.path !== "string") {
+                success = false;
+                continue;
+              }
 
-                const src = safeResolve(userRoot, item.path);
+              const sourceRelPath = removeUnwantedStuffInPath(item.path || "");
+              assertReadAllowed(sourceRelPath);
 
-                if (!(await exists(src))) {
-                  continue;
-                }
+              const src = safeResolve(userRoot, item.path);
+              if (!(await exists(src))) {
+                success = false;
+                continue;
+              }
 
-                const itemKind = item && (item.kind || item.type || "file");
-                const originalDestPath = String(dir.path || "root");
-                const looksLikeExplicitFileTarget =
-                  itemKind !== "directory" &&
-                  itemKind !== "folder" &&
-                  (/(?:^|\/)[^\/]+\.[^\/]+$/.test(originalDestPath.replace(/\\/g, "/")) ||
-                    originalDestPath.replace(/\\/g, "/").endsWith("/"));
+              const itemKind = item && (item.kind || item.type || "file");
+              const originalDestPath = String(dir.path || "root");
+              const looksLikeExplicitFileTarget =
+                itemKind !== "directory" &&
+                itemKind !== "folder" &&
+                (/(?:^|\/)[^\/]+\.[^\/]+$/.test(originalDestPath.replace(/\\/g, "/")) ||
+                  originalDestPath.replace(/\\/g, "/").endsWith("/"));
 
-                // New behavior: paste/move should place source at the destination path directly
-                // and must fail if the destination already exists.
-                let dest = destinationPath;
-                // Ensure parent directory exists
-                const parentDir = path.dirname(dest);
-                await ensureDir(parentDir);
-                if (await exists(dest)) {
-                  throw new Error(`Destination already exists: ${dest}`);
-                }
+              // New behavior: paste/move should place source at the destination path directly
+              // and must fail if the destination already exists.
+              let dest = destinationPath;
+              // Ensure parent directory exists
+              const parentDir = path.dirname(dest);
+              await ensureDir(parentDir);
+              if (await exists(dest)) {
+                error = 'Destination already exists';
+                throw new Error(`Destination already exists`);
+              }
 
-                const destRelPath = removeUnwantedStuffInPath(path.relative(userRoot, dest).replace(/\\/g, "/"));
-                assertWriteAllowed(destRelPath);
+              const destRelPath = removeUnwantedStuffInPath(path.relative(userRoot, dest).replace(/\\/g, "/"));
+              assertWriteAllowed(destRelPath);
 
-                try {
-                  currentUsed = await copyPathWithQuota(username, userRoot, src, dest, currentUsed);
-                } catch (err) {
-                  if (err?.code === "QUOTA_EXCEEDED") {
-                    success = false;
-                    continue;
-                  }
+              try {
+                currentUsed = await copyPathWithQuota(username, userRoot, src, dest, currentUsed);
+              } catch (err) {
+                if (err?.code === "QUOTA_EXCEEDED") {
+                  success = false;
+                } else {
                   throw err;
                 }
+              }
 
-                // If the caller requested a move instead of a copy, remove the source now.
-                const moveFlag = Boolean(dir.move ?? moveMode);
-                if (moveFlag) {
-                  try {
-                    // Ensure we have permission to remove the source
-                    // (assertWriteAllowed already enforced above when moveFlag was set by caller)
-                    const normalizedSrc = path.resolve(src);
-                    const normalizedDest = path.resolve(dest);
-                    // Reject moves where destination is inside source (would be recursive)
-                    if (normalizedDest.startsWith(normalizedSrc + path.sep) || normalizedDest === normalizedSrc) {
-                      success = false;
-                      continue;
-                    }
-                    await deletePathWithQuota(username, userRoot, src);
-                  } catch (e) {
-                    // deletion failed, mark operation as partially failed but continue
+              // If the caller requested a move instead of a copy, remove the source now.
+              const moveFlag = Boolean(dir.move ?? moveMode);
+              if (moveFlag) {
+                try {
+                  const normalizedSrc = path.resolve(src);
+                  const normalizedDest = path.resolve(dest);
+                  if (normalizedDest.startsWith(normalizedSrc + path.sep) || normalizedDest === normalizedSrc) {
                     success = false;
+                  } else {
+                    await deletePathWithQuota(username, userRoot, src);
                   }
+                } catch (e) {
+                  success = false;
                 }
               }
 

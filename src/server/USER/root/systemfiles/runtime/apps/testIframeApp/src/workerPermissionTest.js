@@ -144,7 +144,7 @@
       await api.writeFolder(sourceCopyDir);
       await api.writeFile(`${sourceCopyDir}/copied.txt`, 'copied from worker\n', { replace: true });
       await api.writeFolder(clipboardTarget);
-      return await api.pasteFolder(clipboardTarget, [{ path: sourceCopyDir, kind: 'directory' }]);
+      return await api.pasteFolder(clipboardTarget, { path: sourceCopyDir, kind: 'directory' });
     }, { timeoutMs: 15000 });
 
     const deleteFile = await tryCall('deleteFile', async () => await api.deleteFile(`${renamedDir}/hello-renamed.txt`));

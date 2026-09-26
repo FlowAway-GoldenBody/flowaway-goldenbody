@@ -4,10 +4,8 @@
 window.explorerGlobals = {};
 window.explorerGlobals.allExplorers = [];
 window.explorerGlobals.goldenbodyId = 0;
-window.explorerGlobals.clipboard = {
-  item: null, // tree node reference
-  path: null, // full path string
-};
+// clipboard is an array of entries: { node, path, name, isFolder }
+window.explorerGlobals.clipboard = [];
 
 window.fileExplorer = async function (path = '/', posX = 50, posY = 50) {
   let needRefresh = false;
@@ -2008,7 +2006,7 @@ function makeIcon(type, size = 16) {
     pathArray.push(node[0]);
     return pathArray.join("/");
   }
-  let handlepaste = (e) => {
+  let handlepaste = async (e) => {
     if (e !== "cmp") {
       if (!e || !e.target || !root.contains(e.target)) return;
       if (e.repeat) return;
@@ -2059,6 +2057,8 @@ function makeIcon(type, size = 16) {
         const pasteTarget = [...targetPath];
         pasteTarget.splice(0, 1);
         pasteTarget.push(newNode[0]);
+        // Add a copy directive for this specific source, then a paste to the destination.
+        directions.push({ copy: true, directions: { path: item.path, kind: item.isFolder ? 'directory' : 'file' } });
         directions.push({ paste: true, path: pasteTarget.join("/") });
       }
       render();
@@ -2080,17 +2080,8 @@ function makeIcon(type, size = 16) {
         isFolder: Array.isArray(item[1])
       }));
       const targetPath = [...currentPath]; // current folder path array
-      let predirections = [];
-      targetPath.splice(0, 1);
-      for (let i = 0; i < window.explorerGlobals.clipboard.length; i++) {
-        if (targetPath.length !== 0)
-          predirections.push({
-            path:
-              targetPath.join("/") + "/" + window.explorerGlobals.clipboard[i].name,
-          });
-        else predirections.push({ path: window.explorerGlobals.clipboard[i].name });
-      }
-      directions.push({ copy: true, directions: predirections });
+      // Store clipboard items locally; actual copy operations happen at paste time.
+      // We still prepare client-side pending UI changes in the paste handler.
     }
   };
   root.addEventListener("keydown", handlepaste);

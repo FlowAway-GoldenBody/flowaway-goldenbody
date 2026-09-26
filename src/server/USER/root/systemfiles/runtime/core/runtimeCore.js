@@ -379,28 +379,43 @@ window.protectedGlobals.RenameFolder = async function (relPath, newName) {
   return await window.protectedGlobals.filePost({ saveSnapshot: true, directions });
 };
 
-window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboardItems, options = { move: false }) {
+window.protectedGlobals.PasteFile = async function (destinationRelPath, clipboard, options = { move: false }) {
   const normalizedPath = window.protectedGlobals.normalizeFsPath(destinationRelPath, { allowRoot: true });
-  if (!Array.isArray(clipboardItems) || !clipboardItems.length)
-    throw new Error("No clipboard items");
-  const directions = [
-    { copy: true, directions: clipboardItems },
-    { paste: true, path: normalizedPath },
-    { end: true },
-  ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
+  // Accept either a single clipboard object or an array; perform individual copy/paste requests per item.
+  const entries = Array.isArray(clipboard) ? clipboard : [clipboard];
+  if (!entries.length) return { success: true };
+
+  let lastResult = null;
+  for (const entry of entries) {
+    const directions = [
+      { copy: true, directions: entry },
+      { paste: true, path: normalizedPath },
+      { end: true },
+    ];
+    lastResult = await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
+    // If any operation returns an error, stop and return that result.
+    if (!lastResult || lastResult.error) return lastResult;
+  }
+  return lastResult;
 };
 
-window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipboardItems, options = { move: false }) {
+window.protectedGlobals.PasteFolder = async function (destinationRelPath, clipboard, options = { move: false }) {
   const normalizedPath = window.protectedGlobals.normalizeFsPath(destinationRelPath, { allowRoot: true });
-  if (!Array.isArray(clipboardItems) || !clipboardItems.length)
-    throw new Error("No clipboard items");
-  const directions = [
-    { copy: true, directions: clipboardItems },
-    { pasteFolder: true, path: normalizedPath },
-    { end: true },
-  ];
-  return await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
+  // Accept either a single clipboard object or an array; perform individual copy+pasteFolder requests per item.
+  const entries = Array.isArray(clipboard) ? clipboard : [clipboard];
+  if (!entries.length) return { success: true };
+
+  let lastResult = null;
+  for (const entry of entries) {
+    const directions = [
+      { copy: true, directions: entry },
+      { pasteFolder: true, path: normalizedPath },
+      { end: true },
+    ];
+    lastResult = await window.protectedGlobals.filePost({ saveSnapshot: true, directions, move: !!options.move });
+    if (!lastResult || lastResult.error) return lastResult;
+  }
+  return lastResult;
 };
 
 // Helper function to extract auth token from response

@@ -469,21 +469,21 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 source.postMessage({ renameFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.pasteFile) {
                 if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
-                    result = await window.protectedGlobals.PasteFile(path, e.detail.data.clipboardItems);
+                    result = await window.protectedGlobals.PasteFile(path, e.detail.data.clipboard);
                     source.postMessage({ pasteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
                 }
                 const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-                result = await window.protectedGlobals.PasteFile(internalPath, e.detail.data.clipboardItems);
+                result = await window.protectedGlobals.PasteFile(internalPath, e.detail.data.clipboard);
                 source.postMessage({ pasteFileResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             } else if (e.detail.data.pasteFolder) {
                 if ((externalKey && isExternalKeyAllowed(path, externalKey, appName)) || path.startsWith("/__public") || path.startsWith("__public")) {
-                    result = await window.protectedGlobals.PasteFolder(path, e.detail.data.clipboardItems);
+                    result = await window.protectedGlobals.PasteFolder(path, e.detail.data.clipboard);
                     source.postMessage({ pasteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
                     return;
                 }
                 const internalPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + path;
-                result = await window.protectedGlobals.PasteFolder(internalPath, e.detail.data.clipboardItems);
+                result = await window.protectedGlobals.PasteFolder(internalPath, e.detail.data.clipboard);
                 source.postMessage({ pasteFolderResult: true, result: result, from: e.detail.from, requestId: requestId }, "*");
             }
         };

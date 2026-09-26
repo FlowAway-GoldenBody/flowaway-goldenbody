@@ -643,6 +643,202 @@
   statusMenu.id = 'status-menu';
   document.body.appendChild(statusMenu);
 
+  // Notification panel (stacked notifications + alerts)
+  var notificationPanel = document.createElement('div');
+  notificationPanel.className = 'notification-panel';
+  if (window.protectedGlobals.data.dark) notificationPanel.classList.add('dark');
+  notificationPanel.id = 'notification-panel';
+  Object.assign(notificationPanel.style, {
+    position: 'fixed',
+    right: '10px',
+    zIndex: 100001,
+    width: '360px',
+    maxHeight: '50vh',
+    overflowY: 'auto',
+    display: 'none',
+    flexDirection: 'column',
+    gap: '8px',
+    padding: '10px',
+    boxSizing: 'border-box',
+    borderRadius: '12px',
+    background: window.protectedGlobals.data.dark ? 'rgba(30,30,30,0.98)' : 'rgba(250,250,250,0.98)',
+    boxShadow: window.protectedGlobals.data.dark ? '0 10px 36px rgba(0,0,0,0.6)' : '0 10px 36px rgba(0,0,0,0.12)',
+    color: window.protectedGlobals.data.dark ? '#fff' : '#111'
+  });
+  document.body.appendChild(notificationPanel);
+
+  // ensure stack exists
+  window.protectedGlobals.notificationStack = window.protectedGlobals.notificationStack || [];
+
+  // visibility state and helpers (avoid direct style checks to prevent desync)
+  window.protectedGlobals.notificationPanelVisible = !!window.protectedGlobals.notificationPanelVisible;
+  window.protectedGlobals.setNotificationPanelVisible = function (v) {
+    try {
+      window.protectedGlobals.notificationPanelVisible = !!v;
+      notificationPanel.style.display = window.protectedGlobals.notificationPanelVisible ? 'flex' : 'none';
+      if (window.protectedGlobals.notificationPanelVisible) {
+        positionNotificationPanel();
+        renderNotificationPanel();
+      }
+    } catch (e) {}
+  };
+  window.protectedGlobals.toggleNotificationPanel = function () {
+    window.protectedGlobals.setNotificationPanelVisible(!window.protectedGlobals.notificationPanelVisible);
+  };
+
+  function formatTs(ts) {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleTimeString();
+    } catch (e) { return '' + ts; }
+  }
+
+  function positionNotificationPanel() {
+    try {
+      var tb = document.getElementById('taskbar');
+      var taskbarHeight = tb ? tb.offsetHeight : 0;
+      // If taskbar is on top, show notifications at the bottom; if taskbar is on bottom, show at the top (slightly higher)
+      if (window.protectedGlobals.data.taskbarOnTop) {
+        notificationPanel.style.bottom = '10px';
+        notificationPanel.style.top = 'auto';
+      } else {
+        notificationPanel.style.top = '10px';
+        notificationPanel.style.bottom = 'auto';
+      }
+      notificationPanel.style.right = '10px';
+    } catch (e) {}
+  }
+
+  function renderNotificationPanel() {
+    notificationPanel.innerHTML = '';
+    // header with title and clear button
+    var hdr = document.createElement('div');
+    hdr.style.display = 'flex';
+    hdr.style.justifyContent = 'space-between';
+    hdr.style.alignItems = 'center';
+    hdr.style.marginBottom = '8px';
+
+    var title = document.createElement('div');
+    title.textContent = 'Notifications';
+    title.style.fontWeight = 700;
+    title.style.fontSize = '13px';
+    hdr.appendChild(title);
+
+    var clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    Object.assign(clearBtn.style, { padding: '6px 8px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: 'transparent', color: window.protectedGlobals.data.dark ? '#ddd' : '#333' });
+    clearBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      window.protectedGlobals.notificationStack = [];
+      renderNotificationPanel();
+    });
+    hdr.appendChild(clearBtn);
+    notificationPanel.appendChild(hdr);
+
+    if (!window.protectedGlobals.notificationStack.length) {
+      var empty = document.createElement('div');
+      empty.textContent = 'No notifications';
+      Object.assign(empty.style, { padding: '12px', opacity: 0.7, textAlign: 'center' });
+      notificationPanel.appendChild(empty);
+      return;
+    }
+
+    for (let i = window.protectedGlobals.notificationStack.length - 1; i >= 0; i--) {
+      const n = window.protectedGlobals.notificationStack[i];
+      const item = document.createElement('div');
+      item.className = 'notification-item';
+      Object.assign(item.style, {
+        padding: '8px',
+        borderRadius: '8px',
+        background: window.protectedGlobals.data.dark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+        color: window.protectedGlobals.data.dark ? '#fff' : '#111',
+        position: 'relative'
+      });
+
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      Object.assign(closeBtn.style, { position: 'absolute', right: '8px', top: '8px', border: 'none', background: 'transparent', cursor: 'pointer', color: window.protectedGlobals.data.dark ? '#ccc' : '#555', zIndex: 3, pointerEvents: 'auto' });
+      closeBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        window.protectedGlobals.notificationStack.splice(i, 1);
+        renderNotificationPanel();
+      });
+      item.appendChild(closeBtn);
+
+      const header = document.createElement('div');
+      header.style.fontSize = '12px';
+      header.style.opacity = 0.75;
+      header.textContent = formatTs(n.ts || Date.now());
+      const body = document.createElement('div');
+      Object.assign(body.style, {
+        marginTop: '6px',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        maxHeight: '120px',
+        overflowY: 'auto'
+      });
+      body.textContent = String(n.message || '');
+      item.appendChild(header);
+      item.appendChild(body);
+      notificationPanel.appendChild(item);
+    }
+  }
+
+  // API to push notifications into the stack
+  window.protectedGlobals.notification = function (message) {
+    try {
+      window.protectedGlobals.notificationStack = window.protectedGlobals.notificationStack || [];
+      window.protectedGlobals.notificationStack.push({ message: String(message || ''), ts: Date.now() });
+      // keep reasonable cap
+      if (window.protectedGlobals.notificationStack.length > 250) window.protectedGlobals.notificationStack.shift();
+      renderNotificationPanel();
+    } catch (e) { console.error('notification push failed', e); }
+  };
+
+  // Also wrap window.alert to record alerts in the stack while keeping existing behavior
+  (function wrapAlert() {
+    var origAlert = window.alert && window.alert.bind(window);
+    window.alert = function (msg) {
+      try { window.protectedGlobals.notification(String(msg)); } catch (e) {}
+      if (typeof origAlert === 'function') {
+        try { origAlert(String(msg)); } catch (e) { /* ignore */ }
+      }
+    };
+  })();
+
+  // close notification panel by clicking outside
+  document.addEventListener('click', function (e) {
+    // keep notification panel open if clicking inside the status menu or the time button
+    if (!notificationPanel.contains(e.target) && !timeItem.contains(e.target) && !statusMenu.contains(e.target)) {
+      window.protectedGlobals.setNotificationPanelVisible(false);
+    }
+  }, true);
+
+  // sync theme when style applied
+  window.addEventListener('styleapplied', function () {
+    if (notificationPanel) {
+      if (window.protectedGlobals.data.dark) notificationPanel.classList.add('dark');
+      else notificationPanel.classList.remove('dark');
+      notificationPanel.style.background = window.protectedGlobals.data.dark ? 'rgba(30,30,30,0.98)' : 'rgba(250,250,250,0.98)';
+      notificationPanel.style.color = window.protectedGlobals.data.dark ? '#fff' : '#111';
+      // Re-render panel so inner elements (time, text, buttons) update colors
+      try { renderNotificationPanel(); } catch (e) {}
+    }
+  });
+
+  // core notifications
+  setTimeout(async () => {
+    let startupNotifications = await window.protectedGlobals.ReadFolder("/systemfiles/userprofile/startupNotifications");
+    if (!Array.isArray(startupNotifications)) return;
+    for (const notif of startupNotifications) {
+      const notifPath = "/systemfiles/userprofile/startupNotifications/" + notif;
+      const notifData = await window.protectedGlobals.ReadFile(notifPath, { text: true, direct: true }).catch(() => null);
+      if (!notifData) continue;
+      alert(notifData);
+      await window.protectedGlobals.DeleteFile(notifPath).catch(() => {});
+    }
+  }, 1500);
+
   var syncBrightnessStatusMenu = function syncBrightnessStatusMenu() {
     if (!statusMenu || !statusMenu.isConnected) return;
     var slider = statusMenu.querySelector('#brightness-slider');
@@ -827,6 +1023,7 @@
   // Time click handler - toggle status menu
   timeItem.addEventListener('click', function(e) {
     e.stopPropagation();
+    // Restore original status menu toggle
     statusMenu.classList.toggle('show');
     if (window.protectedGlobals.data.taskbarOnTop) {
       statusMenu.style.top = window.protectedGlobals.currentTaskbarHeight;
@@ -838,11 +1035,16 @@
     if (statusMenu.classList.contains('show')) {
       window.protectedGlobals.buildStatusMenu();
     }
+
+    // Toggle notification panel via centralized function to avoid desync
+    window.protectedGlobals.toggleNotificationPanel();
   });
   
   // Close menu when clicking outside
+  // Close menu when clicking outside
   document.addEventListener('click', function(e) {
-    if (!statusMenu.contains(e.target) && !timeItem.contains(e.target)) {
+    // keep status menu open if clicking inside the notification panel or the time button
+    if (!statusMenu.contains(e.target) && !timeItem.contains(e.target) && !notificationPanel.contains(e.target)) {
       statusMenu.classList.remove('show');
     }
   });
@@ -1608,15 +1810,4 @@
     });
   });
   appObserver.observe(document.body, { childList: true, subtree: true });
-
-
-
-
-
-
-
-
-
-
 })();
-

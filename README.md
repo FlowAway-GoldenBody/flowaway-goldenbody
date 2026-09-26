@@ -18,10 +18,11 @@ This is copied directly from the dev docs in the settings app
     <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
     <li>
         <code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use
-        <code>{ x, y, width, height }</code> to position and size the window when the app is first launched (each
+        <code>{ x, y, width, height, maximize, minimize }</code> to position and size the window when the app is first launched (each
         property is optional). For example,
         <code>"startupPos": { "x": 120, "y": 90, "width": 800, "height": 520 }</code> will open the app at those
         coordinates and dimensions. If omitted, the runtime chooses a sensible default or cascades windows.
+        <code>maximize</code> and <code>minimize</code> are boolean flags to start the app maximized or minimized.
     </li>
     <li>
         <code>requestAdminPerm</code> - <code>true</code> for full admin mode, <code>false</code> for sandboxed iframe
@@ -270,8 +271,8 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
         paths.
     </li>
     <li>
-        <code>self.api.pasteFile(destination, clipboardItems, options)</code> and
-        <code>self.api.pasteFolder(destination, clipboardItems, options)</code> - copy or move items.
+        <code>self.api.pasteFile(destination, clipboard, options)</code> and
+        <code>self.api.pasteFolder(destination, clipboard, options)</code> - copy or move items.
     </li>
     <li><code>self.api.launchApp(appId, args)</code> - launch another app from the worker.</li>
     <li>
@@ -341,11 +342,11 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     <li><code>renameFile(pathOrHandle, newName, options)</code> - rename a file.</li>
     <li><code>renameFolder(pathOrHandle, newName, options)</code> - rename a folder.</li>
     <li>
-        <code>pasteFile(destinationOrHandle, clipboardItems, options)</code> - paste a file payload into a destination
+        <code>pasteFile(destinationOrHandle, clipboard, options)</code> - paste a file payload into a destination
         folder.
     </li>
     <li>
-        <code>pasteFolder(destinationOrHandle, clipboardItems, options)</code> - paste a folder payload into a
+        <code>pasteFolder(destinationOrHandle, clipboard, options)</code> - paste a folder payload into a
         destination folder.
     </li>
     <li>
@@ -361,16 +362,14 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
     <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
     <li>
-        <code
-            >getBounds() { return { left: root.offsetLeft, top: root.offsetTop, width: root.offsetWidth, height:
-            root.offsetHeight }; }</code
-        >
+        <code>getBounds() { return { x: root.offsetLeft, y: root.offsetTop, width: root.offsetWidth, height:
+            root.offsetHeight }; }</code>
         - return the bounds of the current instance window.
     </li>
     <li>
-        <code>setBounds(bounds = { left, top, width, height, maximize, minimize })</code> - set the bounds of the
+        <code>setBounds(bounds = { x, y, width, height, maximize, minimize })</code> - set the bounds of the
         current instance window. You may pass a single object with named properties. For convenience some runtimes also
-        accept positional arguments as <code>setBounds(left, top, width, height, maximize, minimize)</code>. The
+        accept positional arguments as <code>setBounds(x, y, width, height, maximize, minimize)</code>. The
         <code>maximize</code> and <code>minimize</code> flags are optional booleans; <code>minimize</code> also supports
         <code>false</code> to explicitly restore from a minimized state.
     </li>
@@ -384,7 +383,7 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     "
 >
-// object form await window.__goldenbodyAPI.setBounds({ left: 120, top: 90, width: 900, height: 640 });
+// object form await window.__goldenbodyAPI.setBounds({ x: 120, y: 90, width: 900, height: 640 });
 
 // object form: maximize
 await window.__goldenbodyAPI.setBounds({ maximize: true });
@@ -407,8 +406,10 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
     <li><code>getTheme()</code> - return <code>dark</code> or <code>light</code>.</li>
     <li>
         <code>Observer()</code> - observe postmessages with the specified type. For example:
-        <code>let themeObserver = new __goldenbodyAPI.Observer((e) =&gt; console.log(e.darkTheme), 'themechange');</code
-        >.
+        <code>
+          let themeObserver = new __goldenbodyAPI.Observer((e) => console.log(e.darkTheme), 'themechange');
+          let messageObserver = new __goldenbodyAPI.Observer((e) => console.log(e), 'message');
+        </code>
     </li>
     <li><code>observer.disconnect()</code> - stop observing a previously created observer.</li>
 </ul>
@@ -432,8 +433,8 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
     <li><code>deleteFile(pathOrHandle)</code>, <code>deleteFolder(pathOrHandle)</code></li>
     <li><code>renameFile(pathOrHandle, newName)</code>, <code>renameFolder(pathOrHandle, newName)</code></li>
     <li>
-        <code>pasteFile(destination, clipboardItems, options)</code>,
-        <code>pasteFolder(destination, clipboardItems, options)</code>
+        <code>pasteFile(destination, clipboard, options)</code>,
+        <code>pasteFolder(destination, clipboard, options)</code>
     </li>
     <li><code>fileExists(pathOrHandle)</code>, <code>folderExists(pathOrHandle)</code></li>
     <li>
@@ -504,7 +505,7 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
 <h4>WriteFile (options, chunking, and retries)</h4>
 <p>Signature: <code>writeFile(pathOrHandle, contents, options)</code>. Important options:</p>
 <ul>
-    <li><code>{ replace: true|false }</code> — whether to replace the target (default true for first chunk).</li>
+    <li><code>{ replace: true|false }</code> — whether to replace the target (default true). If set false it will append the contents.</li>
     <li>
         <code>{ stream: true }</code> — caller supplies a ReadableStream or Blob; runtime will convert to bytes and
         upload.
@@ -538,10 +539,10 @@ await window.__goldenbodyAPI.writeFile(savedHandle, fileBytes, { replace: true }
 <h4>PasteFile / PasteFolder</h4>
 <p>
     These APIs are used to copy or move clipboard-style payloads into a destination folder. The
-    <code>clipboardItems</code> array contains objects like
+    <code>clipboard</code> array contains objects like
     <code>{ path: '/root/source/thing.txt', kind: 'file' }</code>. Example:
 </p>
-<pre><code>await window.__goldenbodyAPI.pasteFile('/root/dest', [{ path: '/root/source/template.txt', kind: 'file' }]); // use options: { move: true } to move instead of copy await window.__goldenbodyAPI.pasteFolder(destHandle, items, { move: false });</code></pre>
+<pre><code>await window.__goldenbodyAPI.pasteFile('/root/dest', { path: '/root/source/template.txt', kind: 'file' }); // use options: { move: true } to move instead of copy await window.__goldenbodyAPI.pasteFolder(destHandle, { path: '/root/source/template.txt', kind: 'file' }, { move: false });</code></pre>
 <h4>Permission note</h4>
 <p>
     Read-like operations such as <code>readFile</code>, <code>readFolder</code>, <code>fileExists</code>, and
@@ -710,11 +711,11 @@ console.log(listing);
 
 await window.__goldenbodyAPI.renameFolder(folderHandle, 'new-name');
 </code></pre>
-<pre><code>const targetFolder = '/root/demo'; const clipboardItems = [ { path: '/root/demo/template.txt', kind: 'file' } ];
+<pre><code>const targetFolder = '/root/demo'; const clipboard = { path: '/root/demo/template.txt', kind: 'file' };
 
 await window.__goldenbodyAPI.pasteFile(
 targetFolder,
-clipboardItems
+clipboard
 );
 </code></pre>
 <h3>Error handling, retries, and best practices</h3>

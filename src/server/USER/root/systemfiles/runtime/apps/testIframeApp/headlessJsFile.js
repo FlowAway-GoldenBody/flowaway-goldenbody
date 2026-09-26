@@ -90,7 +90,7 @@
 
     await check('pasteFolder', async () => {
       await api.writeFolder('/root/worker-smoke/clipboard-target');
-      await api.pasteFolder('/root/worker-smoke/clipboard-target', [{ path: '/root/worker-smoke/subdir-renamed', kind: 'directory' }]);
+      await api.pasteFolder('/root/worker-smoke/clipboard-target', { path: '/root/worker-smoke/subdir-renamed', kind: 'directory' });
     });
 
     await check('deleteFile', async () => {

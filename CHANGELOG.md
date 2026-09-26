@@ -122,6 +122,10 @@
 - removed some sync operations in server (WARNING: more testing required to see if theres any issues introduced)
 - fixed an ai introduced bug for (File/Folder)Exists() regarding the api contract between client and server.
 
-## No Version Increase
+## V 2.3.3
 - added extra key protections in file explorer open file.
 - fixed a bug where zmcdpost ask for token refill when recieved 401 which it shouldn't because the endpoint requires password.
+
+## V 2.3.4
+- tweaked how paste/clipboard works.
+- added notification lists and startupNotifications

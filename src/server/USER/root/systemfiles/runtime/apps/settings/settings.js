@@ -1857,8 +1857,8 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
         paths.
     </li>
     <li>
-        <code>self.api.pasteFile(destination, clipboardItems, options)</code> and
-        <code>self.api.pasteFolder(destination, clipboardItems, options)</code> - copy or move items.
+        <code>self.api.pasteFile(destination, clipboard, options)</code> and
+        <code>self.api.pasteFolder(destination, clipboard, options)</code> - copy or move items.
     </li>
     <li><code>self.api.launchApp(appId, args)</code> - launch another app from the worker.</li>
     <li>
@@ -1928,11 +1928,11 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     <li><code>renameFile(pathOrHandle, newName, options)</code> - rename a file.</li>
     <li><code>renameFolder(pathOrHandle, newName, options)</code> - rename a folder.</li>
     <li>
-        <code>pasteFile(destinationOrHandle, clipboardItems, options)</code> - paste a file payload into a destination
+        <code>pasteFile(destinationOrHandle, clipboard, options)</code> - paste a file payload into a destination
         folder.
     </li>
     <li>
-        <code>pasteFolder(destinationOrHandle, clipboardItems, options)</code> - paste a folder payload into a
+        <code>pasteFolder(destinationOrHandle, clipboard, options)</code> - paste a folder payload into a
         destination folder.
     </li>
     <li>
@@ -2019,8 +2019,8 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
     <li><code>deleteFile(pathOrHandle)</code>, <code>deleteFolder(pathOrHandle)</code></li>
     <li><code>renameFile(pathOrHandle, newName)</code>, <code>renameFolder(pathOrHandle, newName)</code></li>
     <li>
-        <code>pasteFile(destination, clipboardItems, options)</code>,
-        <code>pasteFolder(destination, clipboardItems, options)</code>
+        <code>pasteFile(destination, clipboard, options)</code>,
+        <code>pasteFolder(destination, clipboard, options)</code>
     </li>
     <li><code>fileExists(pathOrHandle)</code>, <code>folderExists(pathOrHandle)</code></li>
     <li>
@@ -2125,10 +2125,10 @@ await window.__goldenbodyAPI.writeFile(savedHandle, fileBytes, { replace: true }
 <h4>PasteFile / PasteFolder</h4>
 <p>
     These APIs are used to copy or move clipboard-style payloads into a destination folder. The
-    <code>clipboardItems</code> array contains objects like
+    <code>clipboard</code> array contains objects like
     <code>{ path: '/root/source/thing.txt', kind: 'file' }</code>. Example:
 </p>
-<pre><code>await window.__goldenbodyAPI.pasteFile('/root/dest', [{ path: '/root/source/template.txt', kind: 'file' }]); // use options: { move: true } to move instead of copy await window.__goldenbodyAPI.pasteFolder(destHandle, items, { move: false });</code></pre>
+<pre><code>await window.__goldenbodyAPI.pasteFile('/root/dest', { path: '/root/source/template.txt', kind: 'file' }); // use options: { move: true } to move instead of copy await window.__goldenbodyAPI.pasteFolder(destHandle, { path: '/root/source/template.txt', kind: 'file' }, { move: false });</code></pre>
 <h4>Permission note</h4>
 <p>
     Read-like operations such as <code>readFile</code>, <code>readFolder</code>, <code>fileExists</code>, and
@@ -2297,11 +2297,11 @@ console.log(listing);
 
 await window.__goldenbodyAPI.renameFolder(folderHandle, 'new-name');
 </code></pre>
-<pre><code>const targetFolder = '/root/demo'; const clipboardItems = [ { path: '/root/demo/template.txt', kind: 'file' } ];
+<pre><code>const targetFolder = '/root/demo'; const clipboard = { path: '/root/demo/template.txt', kind: 'file' };
 
 await window.__goldenbodyAPI.pasteFile(
 targetFolder,
-clipboardItems
+clipboard
 );
 </code></pre>
 <h3>Error handling, retries, and best practices</h3>

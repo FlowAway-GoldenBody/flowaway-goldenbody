@@ -553,26 +553,20 @@ window.__goldenbodyAPI = {
         });
     },
 
-    pasteFile: async (destinationOrHandle, clipboardItems, options) => {
+    pasteFile: async (destinationOrHandle, clipboard, options) => {
         const { path, key } = normalizePathInput(destinationOrHandle);
-        if (!Array.isArray(clipboardItems) || !clipboardItems.length) {
-            throw new Error('No clipboard items');
-        }
         let requestId = createRequestId();
-        window.parent.postMessage({pasteFile: true, path, key, clipboardItems, options, requestId}, '*');
+        window.parent.postMessage({pasteFile: true, path, key, clipboard, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
     },
 
-    pasteFolder: async (destinationOrHandle, clipboardItems, options) => {
+    pasteFolder: async (destinationOrHandle, clipboard, options) => {
         const { path, key } = normalizePathInput(destinationOrHandle);
-        if (!Array.isArray(clipboardItems) || !clipboardItems.length) {
-            throw new Error('No clipboard items');
-        }
         let requestId = createRequestId();
-        window.parent.postMessage({pasteFolder: true, path, key, clipboardItems, options, requestId}, '*');
+        window.parent.postMessage({pasteFolder: true, path, key, clipboard, options, requestId}, '*');
         return new Promise((resolve, reject) => {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
