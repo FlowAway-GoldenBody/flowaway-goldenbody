@@ -670,14 +670,14 @@ let getFilesFromFolder = async function (relPath) {
           windowMaximize = entryObj.startupPos?.maximize;
           windowMinimize = entryObj.startupPos?.minimize;
         }
-        var instance = window.protectedGlobals.apptools.api.createAppInstance({appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize});
+        var instance = window.protectedGlobals.apptools.api.createAppInstance({appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragResizeStrip: !!entryObj.hiddenDragResizeStrip});
         const root = instance.rootElement;
         // create an iframe that fills the whole window;
         let iframe = document.createElement("iframe");
         iframe.style.top = "0";
         iframe.style.left = "0";
         iframe.style.width = "100%";
-        iframe.style.height = "100%";
+        iframe.style.height = !!entryObj.hiddenDragResizeStrip ? "100%" : "calc(100% - 28px)";
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask", launch: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
@@ -1015,6 +1015,7 @@ let getFilesFromFolder = async function (relPath) {
 
     let pkg = {
       folderName: folderName,
+      hiddenDragResizeStrip: !!entryObj.hiddenDragResizeStrip,
       startupPos,
       enableDebugging: !!entryObj.enableDebugging,
       headless: !!entryObj.headless,

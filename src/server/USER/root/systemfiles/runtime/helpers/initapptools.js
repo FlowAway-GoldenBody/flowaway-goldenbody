@@ -3,64 +3,315 @@ window.protectedGlobals.initAppTools = function () {
   var existing = window.protectedGlobals.apptools || {};
   existing.api = existing.api || {};
 
-  function ensureResizeHandles(root) {
-    if (!root || root._apptoolsResizeHandlesReady) return;
-    root._apptoolsResizeHandlesReady = true;
+function ensureResizeHandles(root) {
+if (!root || root._apptoolsResizeHandlesReady) return;
+root._apptoolsResizeHandlesReady = true;
 
-    var handleSize = 7;
-    var cornerSize = 10;
-    var handleConfigs = [
-      {
-        className: "app-resize-handle-left",
-        style: { left: "0px", top: "0px", bottom: "0px", width: handleSize + "px", cursor: "ew-resize" },
-      },
-      {
-        className: "app-resize-handle-right",
-        style: { right: "0px", top: "0px", bottom: "0px", width: handleSize + "px", cursor: "ew-resize" },
-      },
-      {
-        className: "app-resize-handle-bottom",
-        style: { left: "0px", right: "0px", bottom: "0px", height: handleSize + "px", cursor: "ns-resize" },
-      },
-      {
-        className: "app-resize-handle-topleft",
-        style: { left: "0px", top: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nwse-resize" },
-      },
-      {
-        className: "app-resize-handle-topright",
-        style: { right: "0px", top: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nesw-resize" },
-      },
-      {
-        className: "app-resize-handle-bottomleft",
-        style: { left: "0px", bottom: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nesw-resize" },
-      },
-      {
-        className: "app-resize-handle-bottomright",
-        style: { right: "0px", bottom: "0px", width: cornerSize + "px", height: cornerSize + "px", cursor: "nwse-resize" },
-      },
-    ];
+var handleSize = 7;
+var cornerSize = 10;
+var minW = 450;
+var minH = 350;
 
-    handleConfigs.forEach(function (cfg) {
-      var handle = document.createElement("div");
-      handle.className = "app-resize-handle " + cfg.className;
-      handle.style.position = "absolute";
-      handle.style.zIndex = "9999";
-      handle.style.background = "transparent";
-      handle.style.opacity = "0";
-      handle.style.pointerEvents = "auto";
-      handle.style.touchAction = "none";
-      Object.keys(cfg.style).forEach(function (key) {
-        handle.style[key] = cfg.style[key];
-      });
-      root.appendChild(handle);
-    });
+var active = null;
+var activeHandle = null;
+
+function finishResize(e, saveBounds) {
+if (!active) return;
+
+if (
+  e &&
+  e.pointerId !== undefined &&
+  e.pointerId !== active.pointerId
+) {
+  return;
+}
+
+var completed = saveBounds !== false;
+var pointerId = active.pointerId;
+var handle = activeHandle;
+
+active = null;
+activeHandle = null;
+
+document.body.style.userSelect = "";
+
+try {
+  if (handle && handle.hasPointerCapture(pointerId)) {
+    handle.releasePointerCapture(pointerId);
+  }
+} catch (_) {}
+
+if (!completed) return;
+
+var bounds = {
+  left: root.style.left || root.offsetLeft + "px",
+  top: root.style.top || root.offsetTop + "px",
+  width: root.style.width || root.offsetWidth + "px",
+  height: root.style.height || root.offsetHeight + "px",
+};
+
+var instance = root._appInstance || null;
+
+if (instance) {
+  instance.savedBounds = bounds;
+}
+
+root._apptoolsSavedBounds = bounds;
+
+
+}
+
+var resizeBlurHandler = function () {
+finishResize(null, false);
+};
+
+var resizePointerUpHandler = function (e) {
+if (active && e.pointerId === active.pointerId) {
+finishResize(e, true);
+}
+};
+
+window.addEventListener("blur", resizeBlurHandler);
+document.addEventListener("pointerup", resizePointerUpHandler);
+
+root._destroyResizeListeners = function () {
+window.removeEventListener("blur", resizeBlurHandler);
+document.removeEventListener("pointerup", resizePointerUpHandler);
+finishResize(null, false);
+};
+
+var handleConfigs = [
+{
+className: "app-resize-handle-left",
+direction: "w",
+style: {
+left: "0px",
+top: "0px",
+bottom: "0px",
+width: handleSize + "px",
+cursor: "ew-resize",
+},
+},
+{
+className: "app-resize-handle-top",
+direction: "n",
+style: {
+left: "0px",
+right: "0px",
+top: "0px",
+height: handleSize + "px",
+cursor: "ns-resize",
+},
+},
+{
+className: "app-resize-handle-right",
+direction: "e",
+style: {
+right: "0px",
+top: "0px",
+bottom: "0px",
+width: handleSize + "px",
+cursor: "ew-resize",
+},
+},
+{
+className: "app-resize-handle-bottom",
+direction: "s",
+style: {
+left: "0px",
+right: "0px",
+bottom: "0px",
+height: handleSize + "px",
+cursor: "ns-resize",
+},
+},
+{
+className: "app-resize-handle-topleft",
+direction: "nw",
+style: {
+left: "0px",
+top: "0px",
+width: cornerSize + "px",
+height: cornerSize + "px",
+cursor: "nwse-resize",
+},
+},
+{
+className: "app-resize-handle-topright",
+direction: "ne",
+style: {
+right: "0px",
+top: "0px",
+width: cornerSize + "px",
+height: cornerSize + "px",
+cursor: "nesw-resize",
+},
+},
+{
+className: "app-resize-handle-bottomleft",
+direction: "sw",
+style: {
+left: "0px",
+bottom: "0px",
+width: cornerSize + "px",
+height: cornerSize + "px",
+cursor: "nesw-resize",
+},
+},
+{
+className: "app-resize-handle-bottomright",
+direction: "se",
+style: {
+right: "0px",
+bottom: "0px",
+width: cornerSize + "px",
+height: cornerSize + "px",
+cursor: "nwse-resize",
+},
+},
+];
+
+handleConfigs.forEach(function (cfg) {
+var handle = document.createElement("div");
+
+handle.className = "app-resize-handle " + cfg.className;
+handle.style.position = "absolute";
+handle.style.zIndex = root.style.zIndex;
+handle.style.background = "transparent";
+handle.style.opacity = "0";
+handle.style.pointerEvents = "auto";
+handle.style.touchAction = "none";
+
+handle._finishResize = function (saveBounds) {
+  finishResize(null, saveBounds);
+};
+
+Object.keys(cfg.style).forEach(function (key) {
+  handle.style[key] = cfg.style[key];
+});
+
+handle.addEventListener("pointerdown", function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  var instance = root._appInstance || null;
+  var isMaximized = !!(
+    (instance && instance._isMaximized) ||
+    root._apptoolsMaximized
+  );
+
+  activeHandle = handle;
+
+  active = {
+    direction: cfg.direction,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    width: root.offsetWidth,
+    height: root.offsetHeight,
+    left: root.offsetLeft,
+    top: root.offsetTop,
+    startedMaximized: isMaximized,
+    restoredFromMax: false,
+  };
+
+  document.body.style.userSelect = "none";
+
+  handle.setPointerCapture(e.pointerId);
+});
+
+handle.addEventListener("pointermove", function (e) {
+  if (!active || e.pointerId !== active.pointerId) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  /*
+   * If the window is maximized, the first resize movement restores it.
+   * restoreWindow(false) only changes the state/border and does not
+   * restore the old bounds, which lets the resize continue naturally.
+   */
+  if (
+    active.startedMaximized &&
+    !active.restoredFromMax &&
+    (
+      Math.abs(e.clientX - active.startX) > 1 ||
+      Math.abs(e.clientY - active.startY) > 1
+    )
+  ) {
+    var instance = root._appInstance || null;
+
+    if (instance) {
+      instance.restoreWindow(false);
+    }
+
+    active.startX = e.clientX;
+    active.startY = e.clientY;
+    active.width = root.offsetWidth;
+    active.height = root.offsetHeight;
+    active.left = root.offsetLeft;
+    active.top = root.offsetTop;
+    active.restoredFromMax = true;
   }
 
+  var dx = e.clientX - active.startX;
+  var dy = e.clientY - active.startY;
+
+  var newWidth = active.width;
+  var newHeight = active.height;
+  var newLeft = active.left;
+  var newTop = active.top;
+
+  if (cfg.direction.indexOf("e") !== -1) {
+    newWidth = Math.max(minW, active.width + dx);
+  }
+
+  if (cfg.direction.indexOf("s") !== -1) {
+    newHeight = Math.max(minH, active.height + dy);
+  }
+
+  if (cfg.direction.indexOf("w") !== -1) {
+    newWidth = Math.max(minW, active.width - dx);
+
+    if (newWidth !== minW || dx < 0) {
+      newLeft = active.left + (active.width - newWidth);
+    }
+  }
+
+  if (cfg.direction.indexOf("n") !== -1) {
+    var requestedTop = active.top + dy;
+    var maxTop = active.top + active.height - minH;
+
+    newTop = Math.max(0, Math.min(requestedTop, maxTop));
+    newHeight = active.height + (active.top - newTop);
+  }
+
+  root.style.width = newWidth + "px";
+  root.style.height = newHeight + "px";
+
+  if (cfg.direction.indexOf("w") !== -1) {
+    root.style.left = newLeft + "px";
+  }
+
+  if (cfg.direction.indexOf("n") !== -1) {
+    root.style.top = newTop + "px";
+  }
+});
+
+handle.addEventListener("pointercancel", function (e) {
+  finishResize(e, false);
+});
+
+root.appendChild(handle);
+
+
+});
+}
   existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
-    var isDark = !!(window.protectedGlobals.data.dark);
+    var isDark = !!window.protectedGlobals.data.dark;
     root.classList.toggle("dark", isDark);
     root.classList.toggle("light", !isDark);
     if (ctx.appId) {
@@ -74,247 +325,183 @@ window.protectedGlobals.initAppTools = function () {
     root.style.height = typeof height === "number" ? String(height) + "px" : "640px";
     document.body.appendChild(root);
     ensureResizeHandles(root);
+    root._cancelResize = function () {
+      var handles = root.querySelectorAll(".app-resize-handle");
+
+      handles.forEach(function (handle) {
+        if (typeof handle._finishResize === "function") {
+          handle._finishResize(false);
+        }
+      });
+
+      document.body.style.userSelect = "";
+    };
     window.protectedGlobals.bringToFront(root);
     if (ctx.appId) window.protectedGlobals.atTop = ctx.appId;
     return root;
   };
 
-  existing.api.makeDraggableResizable = function (root, dragTarget, btnMax) {
-    if (!root || !dragTarget || root._apptoolsDragResizeBound) return;
-    root._apptoolsDragResizeBound = true;
-    ensureResizeHandles(root);
+existing.api.makeDraggableResizable = function (root, dragTarget) {
+  if (!root || !dragTarget || root._apptoolsDragResizeBound) return;
+  root._apptoolsDragResizeBound = true;
+  ensureResizeHandles(root);
 
-    function getInstance() {
-      return root._appInstance || null;
+  function getInstance() {
+    return root._appInstance || null;
+  }
+
+  function getBounds() {
+    return {
+      left: root.style.left || root.offsetLeft + "px",
+      top: root.style.top || root.offsetTop + "px",
+      width: root.style.width || root.offsetWidth + "px",
+      height: root.style.height || root.offsetHeight + "px",
+    };
+  }
+
+  function applyBounds(bounds) {
+    if (!bounds) return;
+    root.style.left = bounds.left;
+    root.style.top = bounds.top;
+    root.style.width = bounds.width;
+    root.style.height = bounds.height;
+  }
+
+  (function makeDraggable() {
+    var dragging = false;
+    var startX = 0;
+    var startY = 0;
+    var origLeft = 0;
+    var origTop = 0;
+    var thresholdCrossed = false;
+
+    function getDragThreshold() {
+      var v = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
+      if (!Number.isFinite(v)) return 15;
+      return Math.max(2, Math.min(128, Math.round(v)));
     }
 
-    function getBounds() {
-      return {
-        left: root.style.left || root.offsetLeft + "px",
-        top: root.style.top || root.offsetTop + "px",
-        width: root.style.width || root.offsetWidth + "px",
-        height: root.style.height || root.offsetHeight + "px",
-      };
-    }
+    function dragPointerDownHandler(ev) {
+      var configuredThreshold =
+        Number(window.protectedGlobals.data.DRAG_THRESHOLD);
 
-    function applyBounds(bounds) {
-      if (!bounds) return;
-      root.style.left = bounds.left;
-      root.style.top = bounds.top;
-      root.style.width = bounds.width;
-      root.style.height = bounds.height;
-    }
-
-    function setMaximizedIcon(maximized) {
-        window.protectedGlobals.setWindowMaximizeIcon(btnMax, !!maximized);
-    }
-    let active = null;
-    (function makeDraggable() {
-      var dragging = false;
-      var startX = 0;
-      var startY = 0;
-      var origLeft = 0;
-      var origTop = 0;
-      var thresholdCrossed = false;
-
-      function getDragThreshold() {
-        var v = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
-        if (!Number.isFinite(v)) return 15;
-        return Math.max(2, Math.min(128, Math.round(v)));
+      if (
+        Number.isFinite(configuredThreshold) &&
+        configuredThreshold > 0
+      ) {
+        window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
       }
 
-      var currentX;
-      var currentY;
+      dragging = true;
+      thresholdCrossed = false;
+      startX = ev.clientX;
+      startY = ev.clientY;
+      origLeft = root.offsetLeft;
+      origTop = root.offsetTop;
 
-      dragTarget.addEventListener("pointerdown", function (ev) {
-        if (active) return;
-        var configuredThreshold = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
-        if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
-          window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
-        }
-        dragging = true;
-        thresholdCrossed = false;
-        startX = ev.clientX;
-        startY = ev.clientY;
-        origLeft = root.offsetLeft;
-        origTop = root.offsetTop;
-        currentX = ev.clientX;
-        currentY = ev.clientY;
-        document.body.style.userSelect = "none";
-      });
+      document.body.style.userSelect = "none";
+    }
 
-      window.addEventListener("pointermove", function (ev) {
-        if (!dragging) return;
-        if (active) return;
-        var dragDistance = Math.sqrt(
-          Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2),
-        );
-        if (!thresholdCrossed && dragDistance >= getDragThreshold()) {
-          thresholdCrossed = true;
-          var instance = getInstance();
-          var isMaximized = !!((instance && instance._isMaximized) || root._apptoolsMaximized);
-          if (isMaximized) {
-            applyBounds(
-              (instance && instance.savedBounds) ||
-                root._apptoolsSavedBounds ||
-                getBounds(),
-            );
-            if (instance) {
-              instance.restoreWindow(false);
-            } else {
-              root.style.borderRadius = "10px";
-              if (instance) instance._isMaximized = false;
-              root._apptoolsMaximized = false;
-              setMaximizedIcon(false);
-            }
-            root.style.left = ev.clientX - root.clientWidth / 2 + "px";
-            origLeft = ev.clientX - root.clientWidth / 2;
-          }
-        }
-        if (!thresholdCrossed) return;
-        var dx = ev.clientX - startX;
-        var dy = ev.clientY - startY;
-        root.style.left = origLeft + dx + "px";
-        root.style.top = Math.max(0, origTop + dy) + "px";
-      });
+    function dragPointerMoveHandler(ev) {
+      if (!dragging) return;
 
-      window.addEventListener("pointerup", function () {
-        if (!dragging) return;
-        dragging = false;
-        thresholdCrossed = false;
-        document.body.style.userSelect = "";
-      });
-    })();
+      var dragDistance = Math.sqrt(
+        Math.pow(ev.clientX - startX, 2) +
+        Math.pow(ev.clientY - startY, 2)
+      );
 
-    function resize() {
-      var el = root;
-      var BW = 8;
-      var minW = 450;
-      var minH = 350;
-      active = null;
+      if (
+        !thresholdCrossed &&
+        dragDistance >= getDragThreshold()
+      ) {
+        thresholdCrossed = true;
 
-      function hitTest(e) {
-        var r = el.getBoundingClientRect();
-        var x = e.clientX;
-        var y = e.clientY;
-        var onL = x >= r.left && x <= r.left + BW;
-        var onR = x <= r.right && x >= r.right - BW;
-        var onT = y >= r.top && y <= r.top + BW;
-        var onB = y <= r.bottom && y >= r.bottom - BW;
-        if (onT && onL) return "nw";
-        if (onT && onR) return "ne";
-        if (onB && onL) return "sw";
-        if (onB && onR) return "se";
-        if (onL) return "w";
-        if (onR) return "e";
-        if (onT) return "n";
-        if (onB) return "s";
-        return "";
-      }
-
-      el.addEventListener("pointermove", function (e) {
-        if (active) return;
-        var d = hitTest(e);
-        el.style.cursor = d
-          ? d === "nw" || d === "se"
-            ? "nwse-resize"
-            : d === "ne" || d === "sw"
-              ? "nesw-resize"
-              : d === "n" || d === "s"
-                ? "ns-resize"
-                : "ew-resize"
-          : "default";
-      });
-
-      el.addEventListener("pointerdown", function (e) {
-        var dir = hitTest(e);
-        if (!dir) return;
         var instance = getInstance();
-        active = {
-          dir: dir,
-          sx: e.clientX,
-          sy: e.clientY,
-          sw: el.offsetWidth,
-          sh: el.offsetHeight,
-          sl: el.offsetLeft,
-          st: el.offsetTop,
-          startedMaximized: !!((instance && instance._isMaximized) || root._apptoolsMaximized),
-          restoredFromMax: false,
-        };
-        document.body.style.userSelect = "none";
-        el.setPointerCapture(e.pointerId);
-      });
+        var isMaximized = !!(
+          (instance && instance._isMaximized) ||
+          root._apptoolsMaximized
+        );
 
-      el.addEventListener("pointermove", function (e) {
-        if (!active) return;
-        if (
-          active.startedMaximized &&
-          !active.restoredFromMax &&
-          (Math.abs(e.clientX - active.sx) > 1 ||
-            Math.abs(e.clientY - active.sy) > 1)
-        ) {
-          var instance = getInstance();
+        if (isMaximized) {
+          applyBounds(
+            (instance && instance.savedBounds) ||
+            root._apptoolsSavedBounds ||
+            getBounds()
+          );
+
           if (instance) {
             instance.restoreWindow(false);
-          } else {
-            root.style.borderRadius = "10px";
-            if (instance) instance._isMaximized = false;
-            root._apptoolsMaximized = false;
-            setMaximizedIcon(false);
           }
-          active.sx = e.clientX;
-          active.sy = e.clientY;
-          active.sw = el.offsetWidth;
-          active.sh = el.offsetHeight;
-          active.sl = el.offsetLeft;
-          active.st = el.offsetTop;
-          active.restoredFromMax = true;
-        }
-        var dx = e.clientX - active.sx;
-        var dy = e.clientY - active.sy;
-        if (active.dir.includes("e")) {
-          el.style.width = Math.max(minW, active.sw + dx) + "px";
-        }
-        if (active.dir.includes("s")) {
-          el.style.height = Math.max(minH, active.sh + dy) + "px";
-        }
-        if (active.dir.includes("w")) {
-          el.style.width = Math.max(minW, active.sw - dx) + "px";
-          el.style.left = active.sl + dx + "px";
-        }
-        if (active.dir.includes("n")) {
-          el.style.height = Math.max(minH, active.sh - dy) + "px";
-          el.style.top = Math.max(0, active.st + dy) + "px";
-        }
-      });
 
-      el.addEventListener("pointerup", function () {
-        active = null;
-        document.body.style.userSelect = "";
-        var bounds = getBounds();
-        if (bounds.width == "100%" || bounds.height == "100%") {
-        } else {
-          var instance = getInstance();
-          if (instance) instance.savedBounds = bounds;
-          root._apptoolsSavedBounds = bounds;
+          root.style.left =
+            ev.clientX - root.clientWidth / 2 + "px";
+
+          origLeft =
+            ev.clientX - root.clientWidth / 2;
         }
-      });
+      }
 
-      el.addEventListener("pointercancel", function () {
-        active = null;
-        document.body.style.userSelect = "";
-        var bounds = getBounds();
-        var instance = getInstance();
-        if (instance) instance.savedBounds = bounds;
-        root._apptoolsSavedBounds = bounds;
-      });
+      if (!thresholdCrossed) return;
 
-      el.style.touchAction = "none";
+      var dx = ev.clientX - startX;
+      var dy = ev.clientY - startY;
+
+      root.style.left = origLeft + dx + "px";
+      root.style.top =
+        Math.max(0, origTop + dy) + "px";
     }
 
-    resize();
-    root.tabIndex = "0";
-  };
+    function dragPointerUpHandler() {
+      if (!dragging) return;
+
+      dragging = false;
+      thresholdCrossed = false;
+      document.body.style.userSelect = "";
+    }
+
+    dragTarget.addEventListener(
+      "pointerdown",
+      dragPointerDownHandler
+    );
+
+    window.addEventListener(
+      "pointermove",
+      dragPointerMoveHandler
+    );
+
+    window.addEventListener(
+      "pointerup",
+      dragPointerUpHandler
+    );
+
+    /*
+     * Store the exact handlers so closeWindow() can remove
+     * the listeners later.
+     */
+    root._destroyDragListeners = function () {
+      dragTarget.removeEventListener(
+        "pointerdown",
+        dragPointerDownHandler
+      );
+
+      window.removeEventListener(
+        "pointermove",
+        dragPointerMoveHandler
+      );
+
+      window.removeEventListener(
+        "pointerup",
+        dragPointerUpHandler
+      );
+
+      dragging = false;
+      thresholdCrossed = false;
+      document.body.style.userSelect = "";
+    };
+  })();
+
+  root.tabIndex = "0";
+};
   let applyTitlebarTheme = null;
   existing.createTitlebar = function (root) {
     if (!root) return null;
@@ -325,7 +512,7 @@ window.protectedGlobals.initAppTools = function () {
     if (!dragStrip) {
       dragStrip = document.createElement("div");
       dragStrip.className = "appTopDragStrip";
-      dragStrip.style.height = "14px";
+      dragStrip.style.height = "28px";
       dragStrip.style.flexShrink = "0";
       dragStrip.style.display = "flex";
       dragStrip.style.cursor = "move";
@@ -334,20 +521,6 @@ window.protectedGlobals.initAppTools = function () {
         window.protectedGlobals.bringToFront(root);
       });
       root.prepend(dragStrip);
-    }
-
-    var barrier = root.querySelector(".appTopBarrier");
-    if (!barrier) {
-      barrier = document.createElement("div");
-      barrier.className = "appTopBarrier";
-      barrier.style.flexShrink = "0";
-      barrier.style.display = "flex";
-      barrier.style.height = "14px";
-      barrier.style.width = "100%";
-      barrier.addEventListener("click", function () {
-        window.protectedGlobals.bringToFront(root);
-      });
-      root.prepend(barrier);
     }
 
     var topBar = document.createElement("div");
@@ -363,9 +536,9 @@ window.protectedGlobals.initAppTools = function () {
     topBar.style.top = "6px";
     topBar.style.right = "6px";
     topBar.style.width = "auto";
-    topBar.style.paddingTop = "14px"; // drag area height
+    topBar.style.paddingTop = "28px"; // drag area height
     topBar.style.paddingBottom = "2px";
-    
+
     var btnMin = document.createElement("button");
     btnMin.className = "btnMinColor";
     btnMin.title = "Minimize";
@@ -393,7 +566,6 @@ window.protectedGlobals.initAppTools = function () {
       el.style.margin = "0 2px";
       el.style.border = "none";
       el.style.padding = "4px 6px";
-      el.style.fontSize = "14px";
       el.style.cursor = "pointer";
       topBar.appendChild(el);
     });
@@ -402,13 +574,12 @@ window.protectedGlobals.initAppTools = function () {
       el.style.margin = "0 2px";
       el.style.border = "none";
       el.style.padding = "4px 6px";
-      el.style.fontSize = "14px";
       el.style.cursor = "pointer";
     });
 
     applyTitlebarTheme = function (forced = false, overrideDark = null) {
       if (forced !== true && root.dataset.themeManual === "true") return;
-      var dark = overrideDark !== null ? !!overrideDark : !!(window.protectedGlobals.data.dark);
+      var dark = overrideDark !== null ? !!overrideDark : !!window.protectedGlobals.data.dark;
       root.classList.toggle("dark", dark);
       root.classList.toggle("light", !dark);
       topBar.style.background = dark ? "#444" : "#ccc";
@@ -419,7 +590,7 @@ window.protectedGlobals.initAppTools = function () {
       btnClose.style.backgroundColor = "red";
       btnClose.style.color = "white";
       applyWindowControlStyles();
-    }
+    };
 
     applyTitlebarTheme(true);
     root.addEventListener("styleapplied", applyTitlebarTheme);
@@ -434,41 +605,13 @@ window.protectedGlobals.initAppTools = function () {
 
     function maximizeOrRestore() {
       var instance = getInstance();
-      var isMax = (instance && !!instance._isMaximized) || !!root._apptoolsMaximized;
-      if (!isMax) {
-        if (instance) {
-          instance.maximizeWindow();
-          return;
-        }
-        var savedBounds = {
-          left: root.style.left || root.offsetLeft + "px",
-          top: root.style.top || root.offsetTop + "px",
-          width: root.style.width || root.offsetWidth + "px",
-          height: root.style.height || root.offsetHeight + "px",
-        };
-        root._apptoolsSavedBounds = savedBounds;
-        root.style.left = "0";
-        root.style.top = window.protectedGlobals.data.autohidetaskbar ? '0px' : window.protectedGlobals.currentAppMaximizedTop;        root.style.width = "100%";
-        root.style.height = !(window.protectedGlobals.data.autohidetaskbar) ? `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)` : "100%";
-        root.style.borderRadius = "0";
-        root._apptoolsMaximized = true;
-        setMaximizedIcon(true);
-        return;
-      }
-      if (instance) {
+      if (!instance) return;
+
+      if (instance._isMaximized) {
         instance.restoreWindow(true);
-        return;
+      } else {
+        instance.maximizeWindow();
       }
-      var restoreBounds = root._apptoolsSavedBounds || null;
-      if (restoreBounds) {
-        root.style.left = restoreBounds.left;
-        root.style.top = restoreBounds.top;
-        root.style.width = restoreBounds.width;
-        root.style.height = restoreBounds.height;
-      }
-      root.style.borderRadius = "10px";
-      root._apptoolsMaximized = false;
-      setMaximizedIcon(false);
     }
 
     btnMin.addEventListener("click", function () {
@@ -498,14 +641,14 @@ window.protectedGlobals.initAppTools = function () {
     });
 
     root.appendChild(topBar);
-    existing.api.makeDraggableResizable(root, dragStrip, btnMax);
+    existing.api.makeDraggableResizable(root, dragStrip);
     return topBar;
   };
 
   existing.api.trackInstance = function (instance, appOrId) {
     var app = null;
-    
-    if (appOrId && typeof appOrId === 'object') {
+
+    if (appOrId && typeof appOrId === "object") {
       app = appOrId;
     } else {
       var hintedAppId = String(appOrId || "").trim();
@@ -516,9 +659,10 @@ window.protectedGlobals.initAppTools = function () {
         hintedAppId = String(instance.appId || "").trim();
       }
       if (hintedAppId) {
-        app = (window.protectedGlobals.apps || []).find(function (candidate) {
-          return window.protectedGlobals.appMatchesIdentifier(candidate, hintedAppId);
-        }) || null;
+        app =
+          (window.protectedGlobals.apps || []).find(function (candidate) {
+            return window.protectedGlobals.appMatchesIdentifier(candidate, hintedAppId);
+          }) || null;
       }
     }
 
@@ -553,19 +697,17 @@ window.protectedGlobals.initAppTools = function () {
     return instance;
   };
 
-
-
   existing.api.createAppInstance = function (ops) {
     var options = ops || {};
     var root = options.rootElement || options.root || null;
     var topbar = options.topbar || options.titlebar || null;
     var initialAppId = options.appId || options.appid || "";
-    
+
     var ctx = window.protectedGlobals.resolveApptoolsContext(initialAppId, root);
     var app = ctx.app;
     var appId = ctx.appId;
     var title = String(options.title || options.apptitle || "").trim();
-  
+
     var instance = {
       rootElement: root,
       btnMax: options.btnMax || (root && root.querySelector ? root.querySelector(".btnMaxColor") : null),
@@ -616,13 +758,15 @@ window.protectedGlobals.initAppTools = function () {
     };
 
     instance.maximizeWindow = function () {
+      instance.rootElement._cancelResize();
       if (!instance.rootElement || !instance.rootElement.style) return;
       var savedBounds = instance.getBounds();
       instance.savedBounds = savedBounds;
       instance.rootElement._apptoolsSavedBounds = savedBounds;
       instance.rootElement.style.left = "0";
-      instance.rootElement.style.top = window.protectedGlobals.data.autohidetaskbar ? '0px' : window.protectedGlobals.currentAppMaximizedTop;      instance.rootElement.style.width = "100%";
-      instance.rootElement.style.height = window.protectedGlobals.data.autohidetaskbar ? '100%' : `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
+      instance.rootElement.style.top = window.protectedGlobals.data.autohidetaskbar ? "0px" : window.protectedGlobals.currentAppMaximizedTop;
+      instance.rootElement.style.width = "100%";
+      instance.rootElement.style.height = window.protectedGlobals.data.autohidetaskbar ? "100%" : `calc(100% - ${window.protectedGlobals.currentTaskbarHeight}px)`;
       instance.rootElement.style.borderRadius = "0px";
       instance._isMaximized = true;
       instance._isMinimized = false;
@@ -634,12 +778,10 @@ window.protectedGlobals.initAppTools = function () {
 
     instance.restoreWindow = function (useOriginalBounds) {
       if (!instance.rootElement || !instance.rootElement.style) return;
+      instance.rootElement._cancelResize();
       var shouldUseOriginal = useOriginalBounds !== false;
       if (shouldUseOriginal) {
-        var restoreBounds =
-          instance.savedBounds ||
-          instance.rootElement._apptoolsSavedBounds ||
-          null;
+        var restoreBounds = instance.savedBounds || instance.rootElement._apptoolsSavedBounds || null;
         if (restoreBounds) {
           instance.applyBounds(restoreBounds);
         }
@@ -655,8 +797,7 @@ window.protectedGlobals.initAppTools = function () {
     instance.showWindow = function () {
       if (!instance.rootElement || !instance.rootElement.style) return;
       var previousDisplay = instance.previousDisplay || "";
-      instance.rootElement.style.display =
-        previousDisplay && previousDisplay !== "none" ? previousDisplay : "";
+      instance.rootElement.style.display = previousDisplay && previousDisplay !== "none" ? previousDisplay : "";
       instance._isMinimized = false;
       window.protectedGlobals.bringToFront(instance.rootElement);
     };
@@ -673,7 +814,10 @@ window.protectedGlobals.initAppTools = function () {
     };
 
     instance.closeWindow = function () {
-      if (instance.rootElement && instance.rootElement.remove) {
+      instance.rootElement._cancelResize();
+      instance.rootElement._destroyResizeListeners();
+      instance.rootElement._destroyDragListeners();
+      if (instance.rootElement?.remove) {
         instance.rootElement.remove();
       }
       if (app && window[app.globalVarObjectString] && window[app.globalVarObjectString][app.allAppArrayString]) {

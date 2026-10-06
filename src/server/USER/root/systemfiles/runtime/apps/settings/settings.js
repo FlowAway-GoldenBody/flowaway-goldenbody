@@ -1602,6 +1602,7 @@ window.settings = function (posX = 50, posY = 50) {
     <li><code>label</code> - display name for the app.</li>
     <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
     <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
+    <li><code>hiddenDragResizeStrip</code> - boolean flag to hide the drag/resize strip on the app window.</li>
     <li><code>createShortcutUponInstallation</code> - boolean flag to create a desktop shortcut when the app is installed.</li>
     <li>
         <code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use
