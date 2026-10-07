@@ -754,9 +754,14 @@ window.addEventListener("keyup", (e) => {
         repeat: e.repeat,
     }, '*');
 });
+let __dragPointerId = null;
+
 window.addEventListener("pointerdown", (e) => {
+    __dragPointerId = e.pointerId;
+
     window.parent.postMessage({
         pointerdownOnApp: true,
+        pointerId: e.pointerId,
         button: e.button,
         clientX: e.clientX,
         clientY: e.clientY,
@@ -766,9 +771,28 @@ window.addEventListener("pointerdown", (e) => {
         meta: e.metaKey,
     }, '*');
 });
+
+window.addEventListener("pointermove", (e) => {
+    if (__dragPointerId !== e.pointerId) return;
+
+    window.parent.postMessage({
+        pointermoveOnApp: true,
+        pointerId: e.pointerId,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        ctrl: e.ctrlKey,
+        alt: e.altKey,
+        shift: e.shiftKey,
+        meta: e.metaKey,
+    }, '*');
+});
+
 window.addEventListener("pointerup", (e) => {
+    if (__dragPointerId !== e.pointerId) return;
+
     window.parent.postMessage({
         pointerupOnApp: true,
+        pointerId: e.pointerId,
         button: e.button,
         clientX: e.clientX,
         clientY: e.clientY,
@@ -777,7 +801,44 @@ window.addEventListener("pointerup", (e) => {
         shift: e.shiftKey,
         meta: e.metaKey,
     }, '*');
+
+    __dragPointerId = null;
 });
+
+window.addEventListener("pointercancel", (e) => {
+    if (__dragPointerId !== e.pointerId) return;
+
+    window.parent.postMessage({
+        pointercancelOnApp: true,
+        pointerId: e.pointerId,
+        clientX: e.clientX,
+        clientY: e.clientY,
+    }, '*');
+
+    __dragPointerId = null;
+});
+
+__goldenbodyAPI.setDragThreshold = (options = {}) => {
+    window.parent.postMessage({
+        setDragThreshold: true,
+        options: {
+            percent: options.percent,
+            px: options.px
+        }
+    }, '*');
+};
+
+__goldenbodyAPI.setDragstripHeight = (options = {}) => {
+    window.parent.postMessage({
+        setDragstripHeight: true,
+        options: {
+            percent: options.percent,
+            px: options.px
+        }
+    }, '*');
+};
+
+
 (() => {
     let Observer = window.__goldenbodyAPI.Observer;
     let pingObserver = new Observer((data) => {

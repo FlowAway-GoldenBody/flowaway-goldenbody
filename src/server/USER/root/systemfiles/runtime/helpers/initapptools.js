@@ -3,311 +3,293 @@ window.protectedGlobals.initAppTools = function () {
   var existing = window.protectedGlobals.apptools || {};
   existing.api = existing.api || {};
 
-function ensureResizeHandles(root) {
-if (!root || root._apptoolsResizeHandlesReady) return;
-root._apptoolsResizeHandlesReady = true;
+  function ensureResizeHandles(root) {
+    if (!root || root._apptoolsResizeHandlesReady) return;
+    root._apptoolsResizeHandlesReady = true;
 
-var handleSize = 7;
-var cornerSize = 10;
-var minW = 450;
-var minH = 350;
+    var handleSize = 7;
+    var cornerSize = 10;
+    var minW = 450;
+    var minH = 350;
 
-var active = null;
-var activeHandle = null;
+    var active = null;
+    var activeHandle = null;
 
-function finishResize(e, saveBounds) {
-if (!active) return;
+    function finishResize(e, saveBounds) {
+      if (!active) return;
 
-if (
-  e &&
-  e.pointerId !== undefined &&
-  e.pointerId !== active.pointerId
-) {
-  return;
-}
+      if (e && e.pointerId !== undefined && e.pointerId !== active.pointerId) {
+        return;
+      }
 
-var completed = saveBounds !== false;
-var pointerId = active.pointerId;
-var handle = activeHandle;
+      var completed = saveBounds !== false;
+      var pointerId = active.pointerId;
+      var handle = activeHandle;
 
-active = null;
-activeHandle = null;
+      active = null;
+      activeHandle = null;
 
-document.body.style.userSelect = "";
+      document.body.style.userSelect = "";
 
-try {
-  if (handle && handle.hasPointerCapture(pointerId)) {
-    handle.releasePointerCapture(pointerId);
-  }
-} catch (_) {}
+      try {
+        if (handle && handle.hasPointerCapture(pointerId)) {
+          handle.releasePointerCapture(pointerId);
+        }
+      } catch (_) {}
 
-if (!completed) return;
+      if (!completed) return;
 
-var bounds = {
-  left: root.style.left || root.offsetLeft + "px",
-  top: root.style.top || root.offsetTop + "px",
-  width: root.style.width || root.offsetWidth + "px",
-  height: root.style.height || root.offsetHeight + "px",
-};
+      var bounds = {
+        left: root.style.left || root.offsetLeft + "px",
+        top: root.style.top || root.offsetTop + "px",
+        width: root.style.width || root.offsetWidth + "px",
+        height: root.style.height || root.offsetHeight + "px",
+      };
 
-var instance = root._appInstance || null;
+      var instance = root._appInstance || null;
 
-if (instance) {
-  instance.savedBounds = bounds;
-}
+      if (instance) {
+        instance.savedBounds = bounds;
+      }
 
-root._apptoolsSavedBounds = bounds;
-
-
-}
-
-var resizeBlurHandler = function () {
-finishResize(null, false);
-};
-
-var resizePointerUpHandler = function (e) {
-if (active && e.pointerId === active.pointerId) {
-finishResize(e, true);
-}
-};
-
-window.addEventListener("blur", resizeBlurHandler);
-document.addEventListener("pointerup", resizePointerUpHandler);
-
-root._destroyResizeListeners = function () {
-window.removeEventListener("blur", resizeBlurHandler);
-document.removeEventListener("pointerup", resizePointerUpHandler);
-finishResize(null, false);
-};
-
-var handleConfigs = [
-{
-className: "app-resize-handle-left",
-direction: "w",
-style: {
-left: "0px",
-top: "0px",
-bottom: "0px",
-width: handleSize + "px",
-cursor: "ew-resize",
-},
-},
-{
-className: "app-resize-handle-top",
-direction: "n",
-style: {
-left: "0px",
-right: "0px",
-top: "0px",
-height: handleSize + "px",
-cursor: "ns-resize",
-},
-},
-{
-className: "app-resize-handle-right",
-direction: "e",
-style: {
-right: "0px",
-top: "0px",
-bottom: "0px",
-width: handleSize + "px",
-cursor: "ew-resize",
-},
-},
-{
-className: "app-resize-handle-bottom",
-direction: "s",
-style: {
-left: "0px",
-right: "0px",
-bottom: "0px",
-height: handleSize + "px",
-cursor: "ns-resize",
-},
-},
-{
-className: "app-resize-handle-topleft",
-direction: "nw",
-style: {
-left: "0px",
-top: "0px",
-width: cornerSize + "px",
-height: cornerSize + "px",
-cursor: "nwse-resize",
-},
-},
-{
-className: "app-resize-handle-topright",
-direction: "ne",
-style: {
-right: "0px",
-top: "0px",
-width: cornerSize + "px",
-height: cornerSize + "px",
-cursor: "nesw-resize",
-},
-},
-{
-className: "app-resize-handle-bottomleft",
-direction: "sw",
-style: {
-left: "0px",
-bottom: "0px",
-width: cornerSize + "px",
-height: cornerSize + "px",
-cursor: "nesw-resize",
-},
-},
-{
-className: "app-resize-handle-bottomright",
-direction: "se",
-style: {
-right: "0px",
-bottom: "0px",
-width: cornerSize + "px",
-height: cornerSize + "px",
-cursor: "nwse-resize",
-},
-},
-];
-
-handleConfigs.forEach(function (cfg) {
-var handle = document.createElement("div");
-
-handle.className = "app-resize-handle " + cfg.className;
-handle.style.position = "absolute";
-handle.style.zIndex = root.style.zIndex;
-handle.style.background = "transparent";
-handle.style.opacity = "0";
-handle.style.pointerEvents = "auto";
-handle.style.touchAction = "none";
-
-handle._finishResize = function (saveBounds) {
-  finishResize(null, saveBounds);
-};
-
-Object.keys(cfg.style).forEach(function (key) {
-  handle.style[key] = cfg.style[key];
-});
-
-handle.addEventListener("pointerdown", function (e) {
-  e.preventDefault();
-  e.stopPropagation();
-
-  var instance = root._appInstance || null;
-  var isMaximized = !!(
-    (instance && instance._isMaximized) ||
-    root._apptoolsMaximized
-  );
-
-  activeHandle = handle;
-
-  active = {
-    direction: cfg.direction,
-    pointerId: e.pointerId,
-    startX: e.clientX,
-    startY: e.clientY,
-    width: root.offsetWidth,
-    height: root.offsetHeight,
-    left: root.offsetLeft,
-    top: root.offsetTop,
-    startedMaximized: isMaximized,
-    restoredFromMax: false,
-  };
-
-  document.body.style.userSelect = "none";
-
-  handle.setPointerCapture(e.pointerId);
-});
-
-handle.addEventListener("pointermove", function (e) {
-  if (!active || e.pointerId !== active.pointerId) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  /*
-   * If the window is maximized, the first resize movement restores it.
-   * restoreWindow(false) only changes the state/border and does not
-   * restore the old bounds, which lets the resize continue naturally.
-   */
-  if (
-    active.startedMaximized &&
-    !active.restoredFromMax &&
-    (
-      Math.abs(e.clientX - active.startX) > 1 ||
-      Math.abs(e.clientY - active.startY) > 1
-    )
-  ) {
-    var instance = root._appInstance || null;
-
-    if (instance) {
-      instance.restoreWindow(false);
+      root._apptoolsSavedBounds = bounds;
     }
 
-    active.startX = e.clientX;
-    active.startY = e.clientY;
-    active.width = root.offsetWidth;
-    active.height = root.offsetHeight;
-    active.left = root.offsetLeft;
-    active.top = root.offsetTop;
-    active.restoredFromMax = true;
+    var resizeBlurHandler = function () {
+      finishResize(null, false);
+    };
+
+    var resizePointerUpHandler = function (e) {
+      if (active && e.pointerId === active.pointerId) {
+        finishResize(e, true);
+      }
+    };
+
+    window.addEventListener("blur", resizeBlurHandler);
+    document.addEventListener("pointerup", resizePointerUpHandler);
+
+    root._destroyResizeListeners = function () {
+      window.removeEventListener("blur", resizeBlurHandler);
+      document.removeEventListener("pointerup", resizePointerUpHandler);
+      finishResize(null, false);
+    };
+
+    var handleConfigs = [
+      {
+        className: "app-resize-handle-left",
+        direction: "w",
+        style: {
+          left: "0px",
+          top: "0px",
+          bottom: "0px",
+          width: handleSize + "px",
+          cursor: "ew-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-top",
+        direction: "n",
+        style: {
+          left: "0px",
+          right: "0px",
+          top: "0px",
+          height: handleSize + "px",
+          cursor: "ns-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-right",
+        direction: "e",
+        style: {
+          right: "0px",
+          top: "0px",
+          bottom: "0px",
+          width: handleSize + "px",
+          cursor: "ew-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-bottom",
+        direction: "s",
+        style: {
+          left: "0px",
+          right: "0px",
+          bottom: "0px",
+          height: handleSize + "px",
+          cursor: "ns-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-topleft",
+        direction: "nw",
+        style: {
+          left: "0px",
+          top: "0px",
+          width: cornerSize + "px",
+          height: cornerSize + "px",
+          cursor: "nwse-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-topright",
+        direction: "ne",
+        style: {
+          right: "0px",
+          top: "0px",
+          width: cornerSize + "px",
+          height: cornerSize + "px",
+          cursor: "nesw-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-bottomleft",
+        direction: "sw",
+        style: {
+          left: "0px",
+          bottom: "0px",
+          width: cornerSize + "px",
+          height: cornerSize + "px",
+          cursor: "nesw-resize",
+        },
+      },
+      {
+        className: "app-resize-handle-bottomright",
+        direction: "se",
+        style: {
+          right: "0px",
+          bottom: "0px",
+          width: cornerSize + "px",
+          height: cornerSize + "px",
+          cursor: "nwse-resize",
+        },
+      },
+    ];
+
+    handleConfigs.forEach(function (cfg) {
+      var handle = document.createElement("div");
+
+      handle.className = "app-resize-handle " + cfg.className;
+      handle.style.position = "absolute";
+      handle.style.zIndex = root.style.zIndex;
+      handle.style.background = "transparent";
+      handle.style.opacity = "0";
+      handle.style.pointerEvents = "auto";
+      handle.style.touchAction = "none";
+
+      handle._finishResize = function (saveBounds) {
+        finishResize(null, saveBounds);
+      };
+
+      Object.keys(cfg.style).forEach(function (key) {
+        handle.style[key] = cfg.style[key];
+      });
+
+      handle.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var instance = root._appInstance || null;
+        var isMaximized = !!((instance && instance._isMaximized) || root._apptoolsMaximized);
+
+        activeHandle = handle;
+
+        active = {
+          direction: cfg.direction,
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          width: root.offsetWidth,
+          height: root.offsetHeight,
+          left: root.offsetLeft,
+          top: root.offsetTop,
+          startedMaximized: isMaximized,
+          restoredFromMax: false,
+        };
+
+        document.body.style.userSelect = "none";
+
+        handle.setPointerCapture(e.pointerId);
+      });
+
+      handle.addEventListener("pointermove", function (e) {
+        if (!active || e.pointerId !== active.pointerId) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        /*
+         * If the window is maximized, the first resize movement restores it.
+         * restoreWindow(false) only changes the state/border and does not
+         * restore the old bounds, which lets the resize continue naturally.
+         */
+        if (active.startedMaximized && !active.restoredFromMax && (Math.abs(e.clientX - active.startX) > 1 || Math.abs(e.clientY - active.startY) > 1)) {
+          var instance = root._appInstance || null;
+
+          if (instance) {
+            instance.restoreWindow(false);
+          }
+
+          active.startX = e.clientX;
+          active.startY = e.clientY;
+          active.width = root.offsetWidth;
+          active.height = root.offsetHeight;
+          active.left = root.offsetLeft;
+          active.top = root.offsetTop;
+          active.restoredFromMax = true;
+        }
+
+        var dx = e.clientX - active.startX;
+        var dy = e.clientY - active.startY;
+
+        var newWidth = active.width;
+        var newHeight = active.height;
+        var newLeft = active.left;
+        var newTop = active.top;
+
+        if (cfg.direction.indexOf("e") !== -1) {
+          newWidth = Math.max(minW, active.width + dx);
+        }
+
+        if (cfg.direction.indexOf("s") !== -1) {
+          newHeight = Math.max(minH, active.height + dy);
+        }
+
+        if (cfg.direction.indexOf("w") !== -1) {
+          newWidth = Math.max(minW, active.width - dx);
+
+          if (newWidth !== minW || dx < 0) {
+            newLeft = active.left + (active.width - newWidth);
+          }
+        }
+
+        if (cfg.direction.indexOf("n") !== -1) {
+          var requestedTop = active.top + dy;
+          var maxTop = active.top + active.height - minH;
+
+          newTop = Math.max(0, Math.min(requestedTop, maxTop));
+          newHeight = active.height + (active.top - newTop);
+        }
+
+        root.style.width = newWidth + "px";
+        root.style.height = newHeight + "px";
+
+        if (cfg.direction.indexOf("w") !== -1) {
+          root.style.left = newLeft + "px";
+        }
+
+        if (cfg.direction.indexOf("n") !== -1) {
+          root.style.top = newTop + "px";
+        }
+      });
+
+      handle.addEventListener("pointercancel", function (e) {
+        finishResize(e, false);
+      });
+
+      root.appendChild(handle);
+    });
   }
-
-  var dx = e.clientX - active.startX;
-  var dy = e.clientY - active.startY;
-
-  var newWidth = active.width;
-  var newHeight = active.height;
-  var newLeft = active.left;
-  var newTop = active.top;
-
-  if (cfg.direction.indexOf("e") !== -1) {
-    newWidth = Math.max(minW, active.width + dx);
-  }
-
-  if (cfg.direction.indexOf("s") !== -1) {
-    newHeight = Math.max(minH, active.height + dy);
-  }
-
-  if (cfg.direction.indexOf("w") !== -1) {
-    newWidth = Math.max(minW, active.width - dx);
-
-    if (newWidth !== minW || dx < 0) {
-      newLeft = active.left + (active.width - newWidth);
-    }
-  }
-
-  if (cfg.direction.indexOf("n") !== -1) {
-    var requestedTop = active.top + dy;
-    var maxTop = active.top + active.height - minH;
-
-    newTop = Math.max(0, Math.min(requestedTop, maxTop));
-    newHeight = active.height + (active.top - newTop);
-  }
-
-  root.style.width = newWidth + "px";
-  root.style.height = newHeight + "px";
-
-  if (cfg.direction.indexOf("w") !== -1) {
-    root.style.left = newLeft + "px";
-  }
-
-  if (cfg.direction.indexOf("n") !== -1) {
-    root.style.top = newTop + "px";
-  }
-});
-
-handle.addEventListener("pointercancel", function (e) {
-  finishResize(e, false);
-});
-
-root.appendChild(handle);
-
-
-});
-}
-  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize) {
+  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize, hiddenDragResizeStrip) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
@@ -319,6 +301,7 @@ root.appendChild(handle);
       root.setAttribute("data-app-id", ctx.appId);
     }
     root.style.position = "fixed";
+    root.hiddenDragResizeStrip = !!hiddenDragResizeStrip;
     root.style.left = Number.isFinite(Number(posX)) ? String(Number(posX)) + "px" : "70px";
     root.style.top = Number.isFinite(Number(posY)) ? String(Number(posY)) + "px" : "70px";
     root.style.width = typeof width === "number" ? String(width) + "px" : "1000px";
@@ -341,175 +324,138 @@ root.appendChild(handle);
     return root;
   };
 
-existing.api.makeDraggableResizable = function (root, dragTarget) {
-  if (!root || !dragTarget || root._apptoolsDragResizeBound) return;
-  root._apptoolsDragResizeBound = true;
-  ensureResizeHandles(root);
+  existing.api.makeDraggableResizable = function (root, dragTarget) {
+    if (!root  || root._apptoolsDragResizeBound) return;
+    root._apptoolsDragResizeBound = true;
+    ensureResizeHandles(root);
 
-  function getInstance() {
-    return root._appInstance || null;
-  }
-
-  function getBounds() {
-    return {
-      left: root.style.left || root.offsetLeft + "px",
-      top: root.style.top || root.offsetTop + "px",
-      width: root.style.width || root.offsetWidth + "px",
-      height: root.style.height || root.offsetHeight + "px",
-    };
-  }
-
-  function applyBounds(bounds) {
-    if (!bounds) return;
-    root.style.left = bounds.left;
-    root.style.top = bounds.top;
-    root.style.width = bounds.width;
-    root.style.height = bounds.height;
-  }
-
-  (function makeDraggable() {
-    var dragging = false;
-    var startX = 0;
-    var startY = 0;
-    var origLeft = 0;
-    var origTop = 0;
-    var thresholdCrossed = false;
-
-    function getDragThreshold() {
-      var v = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
-      if (!Number.isFinite(v)) return 15;
-      return Math.max(2, Math.min(128, Math.round(v)));
+    function getInstance() {
+      return root._appInstance || null;
     }
 
-    function dragPointerDownHandler(ev) {
-      var configuredThreshold =
-        Number(window.protectedGlobals.data.DRAG_THRESHOLD);
+    function getBounds() {
+      return {
+        left: root.style.left || root.offsetLeft + "px",
+        top: root.style.top || root.offsetTop + "px",
+        width: root.style.width || root.offsetWidth + "px",
+        height: root.style.height || root.offsetHeight + "px",
+      };
+    }
 
-      if (
-        Number.isFinite(configuredThreshold) &&
-        configuredThreshold > 0
-      ) {
-        window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
+    function applyBounds(bounds) {
+      if (!bounds) return;
+      root.style.left = bounds.left;
+      root.style.top = bounds.top;
+      root.style.width = bounds.width;
+      root.style.height = bounds.height;
+    }
+
+    function makeDraggable() {
+      var dragging = false;
+      var startX = 0;
+      var startY = 0;
+      var origLeft = 0;
+      var origTop = 0;
+      var thresholdCrossed = false;
+
+      function getDragThreshold() {
+        var v = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
+        if (!Number.isFinite(v)) return 15;
+        return Math.max(2, Math.min(128, Math.round(v)));
       }
 
-      dragging = true;
-      thresholdCrossed = false;
-      startX = ev.clientX;
-      startY = ev.clientY;
-      origLeft = root.offsetLeft;
-      origTop = root.offsetTop;
+      function dragPointerDownHandler(ev) {
+        if (ev.target !== dragTarget) return;
+        var configuredThreshold = Number(window.protectedGlobals.data.DRAG_THRESHOLD);
 
-      document.body.style.userSelect = "none";
-    }
-
-    function dragPointerMoveHandler(ev) {
-      if (!dragging) return;
-
-      var dragDistance = Math.sqrt(
-        Math.pow(ev.clientX - startX, 2) +
-        Math.pow(ev.clientY - startY, 2)
-      );
-
-      if (
-        !thresholdCrossed &&
-        dragDistance >= getDragThreshold()
-      ) {
-        thresholdCrossed = true;
-
-        var instance = getInstance();
-        var isMaximized = !!(
-          (instance && instance._isMaximized) ||
-          root._apptoolsMaximized
-        );
-
-        if (isMaximized) {
-          applyBounds(
-            (instance && instance.savedBounds) ||
-            root._apptoolsSavedBounds ||
-            getBounds()
-          );
-
-          if (instance) {
-            instance.restoreWindow(false);
-          }
-
-          root.style.left =
-            ev.clientX - root.clientWidth / 2 + "px";
-
-          origLeft =
-            ev.clientX - root.clientWidth / 2;
+        if (Number.isFinite(configuredThreshold) && configuredThreshold > 0) {
+          window.protectedGlobals.DRAG_THRESHOLD = configuredThreshold;
         }
+
+        dragging = true;
+        thresholdCrossed = false;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        origLeft = root.offsetLeft;
+        origTop = root.offsetTop;
+
+        document.body.style.userSelect = "none";
       }
 
-      if (!thresholdCrossed) return;
+      function dragPointerMoveHandler(ev) {
+        if (!dragging) return;
 
-      var dx = ev.clientX - startX;
-      var dy = ev.clientY - startY;
+        var dragDistance = Math.sqrt(Math.pow(ev.clientX - startX, 2) + Math.pow(ev.clientY - startY, 2));
 
-      root.style.left = origLeft + dx + "px";
-      root.style.top =
-        Math.max(0, origTop + dy) + "px";
-    }
+        if (!thresholdCrossed && dragDistance >= getDragThreshold()) {
+          thresholdCrossed = true;
 
-    function dragPointerUpHandler() {
-      if (!dragging) return;
+          var instance = getInstance();
+          var isMaximized = !!((instance && instance._isMaximized) || root._apptoolsMaximized);
 
-      dragging = false;
-      thresholdCrossed = false;
-      document.body.style.userSelect = "";
-    }
+          if (isMaximized) {
+            applyBounds((instance && instance.savedBounds) || root._apptoolsSavedBounds || getBounds());
 
-    dragTarget.addEventListener(
-      "pointerdown",
-      dragPointerDownHandler
-    );
+            if (instance) {
+              instance.restoreWindow(false);
+            }
 
-    window.addEventListener(
-      "pointermove",
-      dragPointerMoveHandler
-    );
+            root.style.left = ev.clientX - root.clientWidth / 2 + "px";
 
-    window.addEventListener(
-      "pointerup",
-      dragPointerUpHandler
-    );
+            origLeft = ev.clientX - root.clientWidth / 2;
+          }
+        }
 
-    /*
-     * Store the exact handlers so closeWindow() can remove
-     * the listeners later.
-     */
-    root._destroyDragListeners = function () {
-      dragTarget.removeEventListener(
-        "pointerdown",
-        dragPointerDownHandler
-      );
+        if (!thresholdCrossed) return;
 
-      window.removeEventListener(
-        "pointermove",
-        dragPointerMoveHandler
-      );
+        var dx = ev.clientX - startX;
+        var dy = ev.clientY - startY;
 
-      window.removeEventListener(
-        "pointerup",
-        dragPointerUpHandler
-      );
+        root.style.left = origLeft + dx + "px";
+        root.style.top = Math.max(0, origTop + dy) + "px";
+      }
 
-      dragging = false;
-      thresholdCrossed = false;
-      document.body.style.userSelect = "";
+      function dragPointerUpHandler() {
+        if (!dragging) return;
+
+        dragging = false;
+        thresholdCrossed = false;
+        document.body.style.userSelect = "";
+      }
+
+      dragTarget.addEventListener("pointerdown", dragPointerDownHandler);
+
+      window.addEventListener("pointermove", dragPointerMoveHandler);
+
+      window.addEventListener("pointerup", dragPointerUpHandler);
+
+      /*
+       * Store the exact handlers so closeWindow() can remove
+       * the listeners later.
+       */
+      root._destroyDragListeners = function () {
+        dragTarget.removeEventListener("pointerdown", dragPointerDownHandler);
+
+        window.removeEventListener("pointermove", dragPointerMoveHandler);
+
+        window.removeEventListener("pointerup", dragPointerUpHandler);
+
+        dragging = false;
+        thresholdCrossed = false;
+        document.body.style.userSelect = "";
+      };
     };
-  })();
-
-  root.tabIndex = "0";
-};
+    makeDraggable();
+    root.tabIndex = "0";
+  };
   let applyTitlebarTheme = null;
   existing.createTitlebar = function (root) {
     if (!root) return null;
     var existingTop = root.querySelector(".appTopBar");
     if (existingTop) return existingTop;
 
-    var dragStrip = root.querySelector(".appTopDragStrip");
-    if (!dragStrip) {
+    var dragStrip = !root.hiddenDragResizeStrip ? root.querySelector(".appTopDragStrip") : false;
+    if (!dragStrip && !root.hiddenDragResizeStrip) {
       dragStrip = document.createElement("div");
       dragStrip.className = "appTopDragStrip";
       dragStrip.style.height = "28px";
@@ -641,7 +587,7 @@ existing.api.makeDraggableResizable = function (root, dragTarget) {
     });
 
     root.appendChild(topBar);
-    existing.api.makeDraggableResizable(root, dragStrip);
+    existing.api.makeDraggableResizable(root, dragStrip || root);
     return topBar;
   };
 
@@ -886,7 +832,7 @@ existing.api.makeDraggableResizable = function (root, dragTarget) {
     }
 
     if (!root) {
-      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height);
+      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height, undefined, undefined, options.hiddenDragResizeStrip);
       instance.rootElement = root;
     }
     if (!topbar) {
