@@ -289,7 +289,7 @@ window.protectedGlobals.initAppTools = function () {
       root.appendChild(handle);
     });
   }
-  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize, hiddenDragResizeStrip) {
+  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize, hiddenDragstrip) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
@@ -301,7 +301,7 @@ window.protectedGlobals.initAppTools = function () {
       root.setAttribute("data-app-id", ctx.appId);
     }
     root.style.position = "fixed";
-    root.hiddenDragResizeStrip = !!hiddenDragResizeStrip;
+    root.hiddenDragstrip = !!hiddenDragstrip;
     root.style.left = Number.isFinite(Number(posX)) ? String(Number(posX)) + "px" : "70px";
     root.style.top = Number.isFinite(Number(posY)) ? String(Number(posY)) + "px" : "70px";
     root.style.width = typeof width === "number" ? String(width) + "px" : "1000px";
@@ -454,8 +454,8 @@ window.protectedGlobals.initAppTools = function () {
     var existingTop = root.querySelector(".appTopBar");
     if (existingTop) return existingTop;
 
-    var dragStrip = !root.hiddenDragResizeStrip ? root.querySelector(".appTopDragStrip") : false;
-    if (!dragStrip && !root.hiddenDragResizeStrip) {
+    var dragStrip = !root.hiddenDragstrip ? root.querySelector(".appTopDragStrip") : false;
+    if (!dragStrip && !root.hiddenDragstrip) {
       dragStrip = document.createElement("div");
       dragStrip.className = "appTopDragStrip";
       dragStrip.style.height = "28px";
@@ -832,7 +832,7 @@ window.protectedGlobals.initAppTools = function () {
     }
 
     if (!root) {
-      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height, undefined, undefined, options.hiddenDragResizeStrip);
+      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height, undefined, undefined, options.hiddenDragstrip);
       instance.rootElement = root;
     }
     if (!topbar) {

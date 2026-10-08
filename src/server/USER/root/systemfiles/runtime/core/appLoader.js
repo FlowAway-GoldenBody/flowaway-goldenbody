@@ -191,10 +191,14 @@ let getFilesFromFolder = async function (relPath) {
   }
 
   async function showVfsPickerDialog({ title, mode, suggestedName }) {
+    if (document.getElementById("vfs-picker-overlay")) {
+      return Promise.reject(new Error("A file picker dialog is already open."));
+    }
     await window.protectedGlobals.onlyloadTree();
     let currentPath = "";
     let selectedPath = "";
     const overlay = document.createElement("div");
+    overlay.id = "vfs-picker-overlay";
     overlay.style.cssText = `position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,0.35);`;
     const panel = document.createElement("div");
     panel.style.position = "absolute";
@@ -670,14 +674,361 @@ let getFilesFromFolder = async function (relPath) {
           windowMaximize = entryObj.startupPos?.maximize;
           windowMinimize = entryObj.startupPos?.minimize;
         }
-        var instance = window.protectedGlobals.apptools.api.createAppInstance({appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragResizeStrip: !!entryObj.hiddenDragResizeStrip});
+        var instance = window.protectedGlobals.apptools.api.createAppInstance({appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragstrip: !!entryObj.hiddenDragstrip});
         const root = instance.rootElement;
+        // Per-instance drag configuration.
+        instance.dragThreshold = 15;
+        instance.dragstripHeight = 28;
+
+        const dragState = {
+          active: false,
+          pending: false,
+          pointerId: null,
+
+          startPointerX: 0,
+          startPointerY: 0,
+
+          startLeft: 0,
+          startTop: 0,
+
+          width: 0,
+          height: 0,
+
+          wasMaximized: false,
+        };
+
+        function iframePointToParent(e) {
+          const iframeRect = iframe.getBoundingClientRect();
+
+          return {
+            x: iframeRect.left + e.clientX,
+            y: iframeRect.top + e.clientY,
+          };
+        }
+
+        function getDragThreshold() {
+          return Number.isFinite(instance.dragThreshold)
+            ? Math.max(0, instance.dragThreshold)
+            : 5;
+        }
+
+        function getDragstripHeight() {
+          return Number.isFinite(instance.dragstripHeight)
+            ? Math.max(0, instance.dragstripHeight)
+            : 28;
+        }
+
+        /*
+        * Get the viewport size from the parent window.
+        */
+        function getViewportSize() {
+          return {
+            width: Math.max(
+              document.documentElement.clientWidth || 0,
+              window.innerWidth || 0
+            ),
+            height: Math.max(
+              document.documentElement.clientHeight || 0,
+              window.innerHeight || 0
+            ),
+          };
+        }
+
+        /*
+        * Clamp a window position so it can never be completely
+        * outside the viewport.
+        *
+        * The window must:
+        *   - never go above y = 0
+        *   - always leave at least 40px visible horizontally
+        *   - always leave at least 40px visible vertically
+        */
+        function clampWindowPosition(left, top, width, height) {
+          const viewport = getViewportSize();
+
+          const MIN_VISIBLE_X = Math.min(40, width);
+          const MIN_VISIBLE_Y = Math.min(40, height);
+
+          const minLeft = MIN_VISIBLE_X - width;
+          const maxLeft = viewport.width - MIN_VISIBLE_X;
+
+          // Explicit requirement: window can never exceed the top.
+          const minTop = 0;
+          const maxTop = Math.max(
+            minTop,
+            viewport.height - MIN_VISIBLE_Y
+          );
+
+          return {
+            left: Math.min(Math.max(left, minLeft), maxLeft),
+            top: Math.min(Math.max(top, minTop), maxTop),
+          };
+        }
+
+        /*
+        * Apply a position without touching transforms.
+        */
+        function setWindowPosition(left, top) {
+          const position = clampWindowPosition(
+            left,
+            top,
+            dragState.width || root.offsetWidth,
+            dragState.height || root.offsetHeight
+          );
+
+          root.style.left = `${position.left}px`;
+          root.style.top = `${position.top}px`;
+        }
+
+        /*
+        * Once dragging starts, the parent window owns the pointer.
+        *
+        * This prevents the drag from getting "stuck" when the pointer
+        * leaves the iframe.
+        */
+        function releaseDragListeners() {
+          window.removeEventListener("pointermove", parentPointerMove);
+          window.removeEventListener("pointerup", parentPointerUp);
+          window.removeEventListener("pointercancel", parentPointerCancel);
+          window.removeEventListener("blur", parentPointerCancel);
+        }
+
+        function beginPotentialDrag(e) {
+          if (!e || e.button !== 0) return;
+
+          const dragstripHeight = getDragstripHeight();
+
+          if (dragstripHeight <= 0) return;
+
+          if (
+            !Number.isFinite(e.clientY) ||
+            e.clientY < 0 ||
+            e.clientY > dragstripHeight
+          ) {
+            return;
+          }
+          window.protectedGlobals.bringToFront(root);
+          if (dragState.pending || dragState.active) {
+            return;
+          }
+
+          const iframeRect = iframe.getBoundingClientRect();
+
+          const parentX = iframeRect.left + e.clientX;
+          const parentY = iframeRect.top + e.clientY;
+
+          dragState.pointerId = e.pointerId;
+
+          // IMPORTANT: these are now parent/viewport coordinates.
+          dragState.startPointerX = parentX;
+          dragState.startPointerY = parentY;
+
+          dragState.startLeft = root.offsetLeft;
+          dragState.startTop = root.offsetTop;
+
+          const rect = root.getBoundingClientRect();
+
+          dragState.width = rect.width;
+          dragState.height = rect.height;
+
+          dragState.wasMaximized = !!(
+            instance.maximized ||
+            instance.isMaximized ||
+            instance._isMaximized ||
+            root._apptoolsMaximized
+          );
+
+          dragState.pending = true;
+          dragState.active = false;
+
+          window.addEventListener("pointermove", parentPointerMove);
+          window.addEventListener("pointerup", parentPointerUp);
+          window.addEventListener("pointercancel", parentPointerCancel);
+          window.addEventListener("blur", parentPointerCancel);
+        }
+
+
+        function updatePotentialDrag(e) {
+          if (!dragState.pending || dragState.pointerId !== e.pointerId) {
+            return;
+          }
+
+          const dx = e.clientX - dragState.startPointerX;
+          const dy = e.clientY - dragState.startPointerY;
+          const threshold = getDragThreshold();
+
+          /*
+          * ---------------------------------------------------------
+          * PENDING
+          * ---------------------------------------------------------
+          *
+          * Do absolutely nothing until the threshold is crossed.
+          */
+          if (!dragState.active) {
+            if (Math.hypot(dx, dy) < threshold) {
+              return;
+            }
+
+            dragState.active = true;
+
+            /*
+            * -------------------------------------------------------
+            * MAXIMIZED -> RESTORED
+            * -------------------------------------------------------
+            *
+            * This happens exactly once.
+            */
+            if (dragState.wasMaximized) {
+              instance.restoreWindow(true);
+
+              /*
+              * restoreWindow(true) -> applyBounds() has now established
+              * the normal window geometry.
+              *
+              * Read the geometry AFTER restoration.
+              */
+              const rect = root.getBoundingClientRect();
+
+              dragState.width = rect.width;
+              dragState.height = rect.height;
+
+              /*
+              * style.left/top are offset-parent coordinates.
+              *
+              * The pointer coordinates are viewport coordinates, so
+              * convert the pointer into the offset-parent coordinate
+              * system before positioning the restored window.
+              */
+              const parent = root.offsetParent;
+              const parentRect = parent
+                ? parent.getBoundingClientRect()
+                : { left: 0, top: 0 };
+
+              const pointerXInParent =
+                e.clientX - parentRect.left;
+
+              const pointerYInParent =
+                e.clientY - parentRect.top;
+
+              /*
+              * Put the restored window under the pointer.
+              */
+              const restoredLeft =
+                pointerXInParent - dragState.width / 2;
+
+              const restoredTop =
+                pointerYInParent - 14;
+
+              const position = clampWindowPosition(
+                restoredLeft,
+                restoredTop,
+                dragState.width,
+                dragState.height
+              );
+
+              root.style.left = `${position.left}px`;
+              root.style.top = `${position.top}px`;
+
+              /*
+              * From this point onward the current pointer position
+              * is the drag origin.
+              */
+              dragState.startPointerX = e.clientX;
+              dragState.startPointerY = e.clientY;
+
+              dragState.startLeft = position.left;
+              dragState.startTop = position.top;
+
+              /*
+              * IMPORTANT:
+              *
+              * Do not also apply movement using the old dx/dy.
+              * The current event established the new origin.
+              */
+              return;
+            }
+
+            /*
+            * Non-maximized window:
+            *
+            * The coordinates captured during pointerdown are already
+            * the drag origin.
+            */
+          }
+
+          /*
+          * ---------------------------------------------------------
+          * ACTIVE DRAG
+          * ---------------------------------------------------------
+          *
+          * From here onward there are NO restoreWindow() calls and
+          * no geometry reads.
+          *
+          * It is simply:
+          *
+          *     start position + pointer delta
+          */
+          const moveDx = e.clientX - dragState.startPointerX;
+          const moveDy = e.clientY - dragState.startPointerY;
+
+          const position = clampWindowPosition(
+            dragState.startLeft + moveDx,
+            dragState.startTop + moveDy,
+            dragState.width || root.offsetWidth,
+            dragState.height || root.offsetHeight
+          );
+
+          root.style.left = `${position.left}px`;
+          root.style.top = `${position.top}px`;
+        }
+
+
+        function endPotentialDrag(e) {
+          if (
+            dragState.pointerId !== null &&
+            e &&
+            e.pointerId !== undefined &&
+            dragState.pointerId !== e.pointerId
+          ) {
+            return;
+          }
+
+          dragState.pending = false;
+          dragState.active = false;
+          dragState.pointerId = null;
+
+          releaseDragListeners();
+        }
+
+        function cancelPotentialDrag() {
+          dragState.pending = false;
+          dragState.active = false;
+          dragState.pointerId = null;
+
+          releaseDragListeners();
+        }
+
+        /*
+        * These are deliberately parent-level handlers.
+        */
+        function parentPointerMove(e) {
+          updatePotentialDrag(e);
+        }
+
+        function parentPointerUp(e) {
+          endPotentialDrag(e);
+        }
+
+        function parentPointerCancel() {
+          cancelPotentialDrag();
+        }
+
         // create an iframe that fills the whole window;
         let iframe = document.createElement("iframe");
         iframe.style.top = "0";
         iframe.style.left = "0";
         iframe.style.width = "100%";
-        iframe.style.height = !!entryObj.hiddenDragResizeStrip ? "100%" : "calc(100% - 28px)";
+        iframe.style.height = !!entryObj.hiddenDragstrip ? "100%" : "calc(100% - 28px)";
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask", launch: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
@@ -839,6 +1190,58 @@ let getFilesFromFolder = async function (relPath) {
             root.style.height = height + "px";
             return;
           }
+          if (e.data.setDragThreshold) {
+              const value = e.data.options || {};
+              const threshold = Number(value.px);
+
+              if (Number.isFinite(threshold)) {
+                  instance.dragThreshold = Math.max(0, Math.round(threshold));
+              }
+
+              e.source.postMessage({
+                  setDragThresholdResult: {
+                      px: instance.dragThreshold
+                  },
+                  requestId: e.data.requestId
+              }, "*");
+
+              return;
+          }
+
+          if (e.data.setDragstripHeight) {
+              const value = e.data.options || {};
+              let height;
+
+              // Percent takes priority over px.
+              if (Number.isFinite(Number(value.percent))) {
+                  const percent = Number(value.percent);
+                  height = root.offsetHeight * percent / 100;
+              } else if (Number.isFinite(Number(value.px))) {
+                  height = Number(value.px);
+              }
+
+              if (Number.isFinite(height)) {
+                  height = Math.max(0, Math.round(height));
+                  instance.dragstripHeight = height;
+
+                  if (entryObj.hiddenDragstrip) {
+                      iframe.style.top = "0";
+                      iframe.style.height = "100%";
+                  } else {
+                      iframe.style.top = height + "px";
+                      iframe.style.height = `calc(100% - ${height}px)`;
+                  }
+              }
+
+              e.source.postMessage({
+                  setDragstripHeightResult: {
+                      px: instance.dragstripHeight
+                  },
+                  requestId: e.data.requestId
+              }, "*");
+
+              return;
+          }
           if (e.data.messageToWorker) {
             const worker = window.protectedGlobals.workers[appObj.id];
             if (worker) {
@@ -846,6 +1249,41 @@ let getFilesFromFolder = async function (relPath) {
             } else {
               e.source.postMessage({ error: "No worker found for app " + appObj.id }, "*");
             }
+            return;
+          }
+          if (e.data.pointerdownOnApp) {
+            if (!entryObj.hiddenDragstrip) return;
+
+            beginPotentialDrag(e.data);
+            return;
+          }
+
+          if (e.data.pointermoveOnApp) {
+            if (!entryObj.hiddenDragstrip) return;
+
+            /*
+            * Only the iframe needs to send movement while the pointer
+            * is still inside it. Once the parent owns the drag, the
+            * parent-level pointermove listener takes over.
+            */
+            if (dragState.pending) {
+              updatePotentialDrag(e.data);
+            }
+
+            return;
+          }
+
+          if (e.data.pointerupOnApp) {
+            if (!entryObj.hiddenDragstrip) return;
+
+            endPotentialDrag(e.data);
+            return;
+          }
+
+          if (e.data.pointercancelOnApp) {
+            if (!entryObj.hiddenDragstrip) return;
+
+            cancelPotentialDrag();
             return;
           }
           window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id} }));
@@ -1015,7 +1453,7 @@ let getFilesFromFolder = async function (relPath) {
 
     let pkg = {
       folderName: folderName,
-      hiddenDragResizeStrip: !!entryObj.hiddenDragResizeStrip,
+      hiddenDragstrip: !!entryObj.hiddenDragstrip,
       startupPos,
       enableDebugging: !!entryObj.enableDebugging,
       headless: !!entryObj.headless,

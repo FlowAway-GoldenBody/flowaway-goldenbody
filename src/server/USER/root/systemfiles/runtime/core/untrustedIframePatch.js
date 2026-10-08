@@ -363,10 +363,7 @@ window.lockAPI("cookie", document);
         if (_docWrite) {
             Object.defineProperty(document, 'write', {
                 value: function(...args) {
-                    if (args.some(a => typeof a === 'string' && /<iframe[\s>]/i.test(a))) {
-                        throw new Error(iframeBlockedMessage);
-                    }
-                    return _docWrite.apply(document, args);
+                    throw new Error("document.write is blocked.");
                 },
                 writable: false,
                 configurable: false,
@@ -378,10 +375,7 @@ window.lockAPI("cookie", document);
         if (_docWriteln) {
             Object.defineProperty(document, 'writeln', {
                 value: function(...args) {
-                    if (args.some(a => typeof a === 'string' && /<iframe[\s>]/i.test(a))) {
-                        throw new Error(iframeBlockedMessage);
-                    }
-                    return _docWriteln.apply(document, args);
+                    throw new Error("document.writeln is blocked.");
                 },
                 writable: false,
                 configurable: false,
@@ -822,7 +816,6 @@ __goldenbodyAPI.setDragThreshold = (options = {}) => {
     window.parent.postMessage({
         setDragThreshold: true,
         options: {
-            percent: options.percent,
             px: options.px
         }
     }, '*');

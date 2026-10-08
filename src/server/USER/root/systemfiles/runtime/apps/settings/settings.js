@@ -1602,7 +1602,7 @@ window.settings = function (posX = 50, posY = 50) {
     <li><code>label</code> - display name for the app.</li>
     <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
     <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
-    <li><code>hiddenDragResizeStrip</code> - boolean flag to hide the drag/resize strip on the app window.</li>
+    <li><code>hiddenDragstrip</code> - boolean flag to hide the drag/resize strip on the app window.</li>
     <li><code>createShortcutUponInstallation</code> - boolean flag to create a desktop shortcut when the app is installed.</li>
     <li>
         <code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use
@@ -1748,7 +1748,7 @@ window.myadminapp = () => {
 // necessary for the runtime to track this app instance
 const appId = "myAdminApp";
 let pos = window.protectedGlobals.getNextWindowXY();
-const instance = window.protectedGlobals.apptools.api.createAppInstance({ appId, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize });
+const instance = window.protectedGlobals.apptools.api.createAppInstance({ appId, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragstrip: false });
 window.protectedGlobals.apptools.api.trackInstance(instance, appId);
 
 // vars u prob need
@@ -1962,6 +1962,8 @@ await window.__goldenbodyAPI.setBounds({ minimize: true });
 </pre>
 <ul>
     <li><code>setInstanceTitle(title)</code> - set the instance title of your current instance.</li>
+    <li><code>setDragThreshold({ px: threshold })</code> - set the drag threshold for your current instance. The default is 15px.</li>
+    <li><code>setDragstripHeight({ percent || px: height })</code> - set the resize threshold for your current instance. The default is 28px. If both percent and px are provided, percent takes precedence.</li>
     <li>
         <code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to
         broadcast.
