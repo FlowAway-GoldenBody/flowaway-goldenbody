@@ -683,17 +683,15 @@ let getFilesFromFolder = async function (relPath) {
         const dragState = {
           active: false,
           pending: false,
+          startScreenX: 0,
+          startScreenY: 0,
           pointerId: null,
-
           startPointerX: 0,
           startPointerY: 0,
-
           startLeft: 0,
           startTop: 0,
-
           width: 0,
           height: 0,
-
           wasMaximized: false,
         };
 
@@ -797,31 +795,31 @@ let getFilesFromFolder = async function (relPath) {
           if (!e || e.button !== 0) return;
 
           const dragstripHeight = getDragstripHeight();
-
+          const point = iframePointToParent(e);
           if (dragstripHeight <= 0) return;
 
-          if (
-            !Number.isFinite(e.clientY) ||
-            e.clientY < 0 ||
-            e.clientY > dragstripHeight
-          ) {
-            return;
-          }
+  if (
+    !Number.isFinite(e.clientY) ||
+    e.clientY < 0 ||
+    e.clientY > dragstripHeight
+  ) {
+    return;
+  }
+
           window.protectedGlobals.bringToFront(root);
           if (dragState.pending || dragState.active) {
             return;
           }
 
-          const iframeRect = iframe.getBoundingClientRect();
-
-          const parentX = iframeRect.left + e.clientX;
-          const parentY = iframeRect.top + e.clientY;
-
           dragState.pointerId = e.pointerId;
 
-          // IMPORTANT: these are now parent/viewport coordinates.
-          dragState.startPointerX = parentX;
-          dragState.startPointerY = parentY;
+          // The iframe reports pointer coordinates in its own viewport space.
+          // Drag movement should be based on relative delta, not absolute window
+          // offsets, otherwise the position keeps drifting as the iframe moves.
+          dragState.startScreenX = e.screenX;
+          dragState.startScreenY = e.screenY;
+          dragState.startPointerX = e.screenX;
+          dragState.startPointerY = e.screenY;
 
           dragState.startLeft = root.offsetLeft;
           dragState.startTop = root.offsetTop;
@@ -848,139 +846,97 @@ let getFilesFromFolder = async function (relPath) {
         }
 
 
-        function updatePotentialDrag(e) {
-          if (!dragState.pending || dragState.pointerId !== e.pointerId) {
-            return;
-          }
+function updatePotentialDrag(e, fromIframe = false) {
+  if (!dragState.pending || dragState.pointerId !== e.pointerId) {
+    return;
+  }
+const threshold = getDragThreshold();
+const pointerX = e.screenX;
+const pointerY = e.screenY;
 
-          const dx = e.clientX - dragState.startPointerX;
-          const dy = e.clientY - dragState.startPointerY;
-          const threshold = getDragThreshold();
+const dx = pointerX - dragState.startScreenX;
+const dy = pointerY - dragState.startScreenY;
+if (!dragState.active && Math.hypot(dx, dy) < threshold) {
+  return;
+}
 
-          /*
-          * ---------------------------------------------------------
-          * PENDING
-          * ---------------------------------------------------------
-          *
-          * Do absolutely nothing until the threshold is crossed.
-          */
-          if (!dragState.active) {
-            if (Math.hypot(dx, dy) < threshold) {
-              return;
-            }
+    /*
+     * The threshold has been crossed.
+     *
+     * From this exact pointer position onward, this is an
+     * active drag.
+     */
+    dragState.active = true;
+    /*
+     * -------------------------------------------------------
+     * MAXIMIZED -> RESTORED
+     * -------------------------------------------------------
+     */
+    if (dragState.wasMaximized) {
+      instance.restoreWindow(true);
 
-            dragState.active = true;
+      const rect = root.getBoundingClientRect();
 
-            /*
-            * -------------------------------------------------------
-            * MAXIMIZED -> RESTORED
-            * -------------------------------------------------------
-            *
-            * This happens exactly once.
-            */
-            if (dragState.wasMaximized) {
-              instance.restoreWindow(true);
+      dragState.width = rect.width;
+      dragState.height = rect.height;
 
-              /*
-              * restoreWindow(true) -> applyBounds() has now established
-              * the normal window geometry.
-              *
-              * Read the geometry AFTER restoration.
-              */
-              const rect = root.getBoundingClientRect();
+      const parent = root.offsetParent;
+      const parentRect = parent
+        ? parent.getBoundingClientRect()
+        : { left: 0, top: 0 };
 
-              dragState.width = rect.width;
-              dragState.height = rect.height;
+      const pointerXInParent =
+        pointerX - parentRect.left;
 
-              /*
-              * style.left/top are offset-parent coordinates.
-              *
-              * The pointer coordinates are viewport coordinates, so
-              * convert the pointer into the offset-parent coordinate
-              * system before positioning the restored window.
-              */
-              const parent = root.offsetParent;
-              const parentRect = parent
-                ? parent.getBoundingClientRect()
-                : { left: 0, top: 0 };
+      const pointerYInParent =
+        pointerY - parentRect.top;
 
-              const pointerXInParent =
-                e.clientX - parentRect.left;
+      const restoredLeft =
+        pointerXInParent - dragState.width / 2;
 
-              const pointerYInParent =
-                e.clientY - parentRect.top;
+const restoredTop = Math.max(0, pointerYInParent - getDragstripHeight() / 2);
 
-              /*
-              * Put the restored window under the pointer.
-              */
-              const restoredLeft =
-                pointerXInParent - dragState.width / 2;
 
-              const restoredTop =
-                pointerYInParent - 14;
+      const position = clampWindowPosition(
+        restoredLeft,
+        restoredTop,
+        dragState.width,
+        dragState.height
+      );
 
-              const position = clampWindowPosition(
-                restoredLeft,
-                restoredTop,
-                dragState.width,
-                dragState.height
-              );
+      root.style.left = `${position.left}px`;
+      root.style.top = `${position.top}px`;
 
-              root.style.left = `${position.left}px`;
-              root.style.top = `${position.top}px`;
+      /*
+       * The current pointer event is now the new drag origin.
+       */
+      dragState.startPointerX = pointerX;
+      dragState.startPointerY = pointerY;
 
-              /*
-              * From this point onward the current pointer position
-              * is the drag origin.
-              */
-              dragState.startPointerX = e.clientX;
-              dragState.startPointerY = e.clientY;
+      dragState.startLeft = position.left;
+      dragState.startTop = position.top;
 
-              dragState.startLeft = position.left;
-              dragState.startTop = position.top;
+      return;
+    }
 
-              /*
-              * IMPORTANT:
-              *
-              * Do not also apply movement using the old dx/dy.
-              * The current event established the new origin.
-              */
-              return;
-            }
+  /*
+   * ---------------------------------------------------------
+   * ACTIVE DRAG
+   * ---------------------------------------------------------
+   */
+  const moveDx = pointerX - dragState.startPointerX;
+  const moveDy = pointerY - dragState.startPointerY;
 
-            /*
-            * Non-maximized window:
-            *
-            * The coordinates captured during pointerdown are already
-            * the drag origin.
-            */
-          }
+  const position = clampWindowPosition(
+    dragState.startLeft + moveDx,
+    dragState.startTop + moveDy,
+    dragState.width || root.offsetWidth,
+    dragState.height || root.offsetHeight
+  );
+  root.style.left = `${position.left}px`;
+  root.style.top = `${position.top}px`;
+}
 
-          /*
-          * ---------------------------------------------------------
-          * ACTIVE DRAG
-          * ---------------------------------------------------------
-          *
-          * From here onward there are NO restoreWindow() calls and
-          * no geometry reads.
-          *
-          * It is simply:
-          *
-          *     start position + pointer delta
-          */
-          const moveDx = e.clientX - dragState.startPointerX;
-          const moveDy = e.clientY - dragState.startPointerY;
-
-          const position = clampWindowPosition(
-            dragState.startLeft + moveDx,
-            dragState.startTop + moveDy,
-            dragState.width || root.offsetWidth,
-            dragState.height || root.offsetHeight
-          );
-
-          root.style.left = `${position.left}px`;
-          root.style.top = `${position.top}px`;
-        }
 
 
         function endPotentialDrag(e) {
@@ -996,6 +952,7 @@ let getFilesFromFolder = async function (relPath) {
           dragState.pending = false;
           dragState.active = false;
           dragState.pointerId = null;
+const threshold = getDragThreshold();
 
           releaseDragListeners();
         }
@@ -1012,7 +969,7 @@ let getFilesFromFolder = async function (relPath) {
         * These are deliberately parent-level handlers.
         */
         function parentPointerMove(e) {
-          updatePotentialDrag(e);
+          updatePotentialDrag(e, false);
         }
 
         function parentPointerUp(e) {
@@ -1267,7 +1224,7 @@ let getFilesFromFolder = async function (relPath) {
             * parent-level pointermove listener takes over.
             */
             if (dragState.pending) {
-              updatePotentialDrag(e.data);
+              updatePotentialDrag(e.data, true);
             }
 
             return;

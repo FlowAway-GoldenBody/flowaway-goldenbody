@@ -187,7 +187,7 @@
   function getShortcutThemePalette() {
     return {
       text: "#f8fafc",
-      label: "rgba(15, 23, 42, 0.82)",
+      label: "rgb(88, 88, 88)",
       iconBg: "rgba(15, 23, 42, 0.46)",
       iconBorder: "rgba(255,255,255,0.12)",
       iconShadow: "rgba(0,0,0,0.18)",

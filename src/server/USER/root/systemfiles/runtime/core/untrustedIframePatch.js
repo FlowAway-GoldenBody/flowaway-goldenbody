@@ -759,6 +759,8 @@ window.addEventListener("pointerdown", (e) => {
         button: e.button,
         clientX: e.clientX,
         clientY: e.clientY,
+        screenX: e.screenX,
+        screenY: e.screenY,
         ctrl: e.ctrlKey,
         alt: e.altKey,
         shift: e.shiftKey,
@@ -774,6 +776,8 @@ window.addEventListener("pointermove", (e) => {
         pointerId: e.pointerId,
         clientX: e.clientX,
         clientY: e.clientY,
+        screenX: e.screenX,
+        screenY: e.screenY,
         ctrl: e.ctrlKey,
         alt: e.altKey,
         shift: e.shiftKey,
@@ -790,6 +794,8 @@ window.addEventListener("pointerup", (e) => {
         button: e.button,
         clientX: e.clientX,
         clientY: e.clientY,
+        screenX: e.screenX,
+        screenY: e.screenY,
         ctrl: e.ctrlKey,
         alt: e.altKey,
         shift: e.shiftKey,
@@ -807,6 +813,8 @@ window.addEventListener("pointercancel", (e) => {
         pointerId: e.pointerId,
         clientX: e.clientX,
         clientY: e.clientY,
+        screenX: e.screenX,
+        screenY: e.screenY,
     }, '*');
 
     __dragPointerId = null;
