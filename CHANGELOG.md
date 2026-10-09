@@ -149,4 +149,4 @@
 - Added all member mail feature
 
 ## V 2.5.2
-- added invisible dragstrip, so you can still do stuff with the top of the window for iframe apps
+- added invisible dragstrip, so you can still do stuff with the top of the window for iframe apps. Use element.addEventListener('pointerdown', (event) => event.stopPropagation()); on elements that dont want to be able to drag the window.

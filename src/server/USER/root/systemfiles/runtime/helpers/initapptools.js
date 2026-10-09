@@ -256,10 +256,7 @@ window.protectedGlobals.initAppTools = function () {
 
         if (cfg.direction.indexOf("w") !== -1) {
           newWidth = Math.max(minW, active.width - dx);
-
-          if (newWidth !== minW || dx < 0) {
-            newLeft = active.left + (active.width - newWidth);
-          }
+          newLeft = active.left + (active.width - newWidth);
         }
 
         if (cfg.direction.indexOf("n") !== -1) {
@@ -394,15 +391,29 @@ window.protectedGlobals.initAppTools = function () {
           var isMaximized = !!((instance && instance._isMaximized) || root._apptoolsMaximized);
 
           if (isMaximized) {
-            applyBounds((instance && instance.savedBounds) || root._apptoolsSavedBounds || getBounds());
+            var maximizedRect = root.getBoundingClientRect();
+            var anchorX = maximizedRect.width > 0 ? (ev.clientX - maximizedRect.left) / maximizedRect.width : 0.5;
+            var anchorY = maximizedRect.height > 0 ? (ev.clientY - maximizedRect.top) / maximizedRect.height : 0.5;
+
+            var savedBounds = (instance && instance.savedBounds) || root._apptoolsSavedBounds || getBounds();
+            applyBounds(savedBounds);
 
             if (instance) {
               instance.restoreWindow(false);
             }
 
-            root.style.left = ev.clientX - root.clientWidth / 2 + "px";
+            var restoredRect = root.getBoundingClientRect();
+            var parentRect = root.offsetParent ? root.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+            var restoredLeft = ev.clientX - parentRect.left - anchorX * restoredRect.width;
+            var restoredTop = ev.clientY - parentRect.top - anchorY * restoredRect.height;
 
-            origLeft = ev.clientX - root.clientWidth / 2;
+            root.style.left = restoredLeft + "px";
+            root.style.top = Math.max(0, restoredTop) + "px";
+
+            origLeft = restoredLeft;
+            origTop = Math.max(0, restoredTop);
+            startX = ev.clientX;
+            startY = ev.clientY;
           }
         }
 

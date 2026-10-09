@@ -1603,6 +1603,9 @@ window.settings = function (posX = 50, posY = 50) {
     <li><code>iconFile</code> - icon asset path relative to the app folder.</li>
     <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
     <li><code>hiddenDragstrip</code> - boolean flag to hide the drag/resize strip on the app window.</li>
+    <li>
+        If you don't want an element to be able to be dragged in your iframe, do <code>undraggableElement.addEventListener('pointerdown', (event) => event.stopPropagation());</code>
+    </li>
     <li><code>createShortcutUponInstallation</code> - boolean flag to create a desktop shortcut when the app is installed.</li>
     <li>
         <code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use

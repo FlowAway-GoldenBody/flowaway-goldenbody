@@ -1,11 +1,11 @@
 "use strict";
 
 (async function () {
-  let jskey = await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true })
+  let jskey = await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true });
   window.addEventListener("styleapplied", () => {
     let iframes = document.querySelectorAll("iframe");
     iframes.forEach((iframe) => {
-      iframe.contentWindow.postMessage({ type: 'themechange', channel: '*', darkTheme: window.protectedGlobals.data.dark }, "*");
+      iframe.contentWindow.postMessage({ type: "themechange", channel: "*", darkTheme: window.protectedGlobals.data.dark }, "*");
     });
   });
   let knownAppId = [];
@@ -17,22 +17,58 @@
   }
   async function checkEntryObject(entryObj, folderName) {
     let status = true;
-    if (!entryObj.id) { window.protectedGlobals.notification("Invalid app ID"); status = false; }
-    if (entryObj.id.toLowerCase().includes("<script")) { window.protectedGlobals.notification("App id cannot contain script tags"); status = false; }
-    if (knownAppId.includes(entryObj.id)) {window.protectedGlobals.notification(`Identifier ${entryObj.id} is already declared`); status = false;}
+    if (!entryObj.id) {
+      window.protectedGlobals.notification("Invalid app ID");
+      status = false;
+    }
+    if (entryObj.id.toLowerCase().includes("<script")) {
+      window.protectedGlobals.notification("App id cannot contain script tags");
+      status = false;
+    }
+    if (knownAppId.includes(entryObj.id)) {
+      window.protectedGlobals.notification(`Identifier ${entryObj.id} is already declared`);
+      status = false;
+    }
 
-    if (!entryObj.jsFile) { window.protectedGlobals.notification("Invalid app JS file"); status = false; }
-    if (!entryObj.label && !entryObj.headless) { window.protectedGlobals.notification("Invalid app label"); status = false; }
-    if (entryObj.label && entryObj.label.toLowerCase().includes("<script")) { window.protectedGlobals.notification("App label cannot contain script tags"); status = false; }
-    if (!entryObj.iconFile && !entryObj.headless) { window.protectedGlobals.notification("Invalid app icon file"); status = false; }
+    if (!entryObj.jsFile) {
+      window.protectedGlobals.notification("Invalid app JS file");
+      status = false;
+    }
+    if (!entryObj.label && !entryObj.headless) {
+      window.protectedGlobals.notification("Invalid app label");
+      status = false;
+    }
+    if (entryObj.label && entryObj.label.toLowerCase().includes("<script")) {
+      window.protectedGlobals.notification("App label cannot contain script tags");
+      status = false;
+    }
+    if (!entryObj.iconFile && !entryObj.headless) {
+      window.protectedGlobals.notification("Invalid app icon file");
+      status = false;
+    }
     if (entryObj.requestAdminPerm) {
-      if (!entryObj.allAppArrayString) { window.protectedGlobals.notification("Invalid app allAppArrayString"); status = false; }
+      if (!entryObj.allAppArrayString) {
+        window.protectedGlobals.notification("Invalid app allAppArrayString");
+        status = false;
+      }
 
-      if (!entryObj.functionName) { window.protectedGlobals.notification("Invalid app functionName"); status = false; }
-      if (knownAppFuncs.includes(entryObj.functionName)) {window.protectedGlobals.notification(`Identifier ${entryObj.functionName} is already declared`); status = false;}
-      
-      if (!entryObj.globalVarObjectString) { window.protectedGlobals.notification("Invalid app globalVarObjectString"); status = false; }
-      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {window.protectedGlobals.notification(`Identifier ${entryObj.globalVarObjectString} is already declared`); status = false;}
+      if (!entryObj.functionName) {
+        window.protectedGlobals.notification("Invalid app functionName");
+        status = false;
+      }
+      if (knownAppFuncs.includes(entryObj.functionName)) {
+        window.protectedGlobals.notification(`Identifier ${entryObj.functionName} is already declared`);
+        status = false;
+      }
+
+      if (!entryObj.globalVarObjectString) {
+        window.protectedGlobals.notification("Invalid app globalVarObjectString");
+        status = false;
+      }
+      if (knownAppGlobals.includes(entryObj.globalVarObjectString)) {
+        window.protectedGlobals.notification(`Identifier ${entryObj.globalVarObjectString} is already declared`);
+        status = false;
+      }
     }
     if (status) {
       knownAppId.push(entryObj.id);
@@ -44,8 +80,9 @@
     try {
       let iconFileContents = await window.protectedGlobals.ReadFile(`/systemfiles/runtime/apps/${folderName}/${entryObj.iconFile}`, { buffer: true, direct: true });
       let iconFileContentText = new TextDecoder().decode(iconFileContents);
-      if (iconFileContentText.toLowerCase().includes("<script")) { 
-        window.protectedGlobals.notification("App icon file cannot contain script tags"); status = false;
+      if (iconFileContentText.toLowerCase().includes("<script")) {
+        window.protectedGlobals.notification("App icon file cannot contain script tags");
+        status = false;
         let indexes = [knownAppId.indexOf(entryObj.id), knownAppFuncs.indexOf(entryObj.functionName), knownAppGlobals.indexOf(entryObj.globalVarObjectString)];
         for (let i = 0; i < indexes.length; i++) {
           if (indexes[i] === -1) indexes[i] = false;
@@ -69,14 +106,13 @@
     return crypto.randomUUID();
   }
 
-
   async function loadAppScript(pkg) {
     if (!pkg || !pkg.jsFile || pkg.scriptLoaded || !pkg.requestAdminPerm) return false;
 
     var jsKeyOk = true;
     try {
-      var appKey = String(await window.protectedGlobals.ReadFile(`${pkg.path}/jsKey.txt`, { text: true, direct: true }) || "").trim();
-      var masterKey = String(await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true }) || "").trim();
+      var appKey = String((await window.protectedGlobals.ReadFile(`${pkg.path}/jsKey.txt`, { text: true, direct: true })) || "").trim();
+      var masterKey = String((await window.protectedGlobals.ReadFile("systemfiles/userprofile/jsApiKey.txt", { text: true, direct: true })) || "").trim();
       jsKeyOk = !!appKey && !!masterKey && appKey === masterKey;
     } catch (e) {
       jsKeyOk = false;
@@ -87,7 +123,7 @@
       return false;
     }
 
-    var scriptText = String(await window.protectedGlobals.ReadFile(`${pkg.path}/${pkg.jsFile}`, { text: true, direct: true }) || "");
+    var scriptText = String((await window.protectedGlobals.ReadFile(`${pkg.path}/${pkg.jsFile}`, { text: true, direct: true })) || "");
     if (!String(scriptText || "").trim()) {
       console.warn("App script is empty; skipping load", { appId: pkg && pkg.id, path: pkg && pkg.path, jsFile: pkg && pkg.jsFile });
       return false;
@@ -96,12 +132,7 @@
     try {
       var globalVarObjectString = pkg.globalVarObjectString;
       if (pkg.functionName) delete window[pkg.functionName];
-      if (
-        pkg.cmf &&
-        globalVarObjectString &&
-        window[globalVarObjectString] &&
-        !window.protectedGlobals.isProtectedAppGlobalName(pkg.cmf)
-      ) {
+      if (pkg.cmf && globalVarObjectString && window[globalVarObjectString] && !window.protectedGlobals.isProtectedAppGlobalName(pkg.cmf)) {
         delete window[globalVarObjectString][pkg.cmf];
       }
     } catch (e) {}
@@ -115,37 +146,22 @@
     return true;
   }
 
+  let getFilesFromFolder = async function (relPath) {
+    window.protectedGlobals.missingFolders.delete(relPath);
+    var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
+    if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
 
+    var isMissing = !!(r && (r.missing || r.kind === "missing" || r.error === "ENOENT" || r.code === "ENOENT"));
 
+    if (isMissing) {
+      window.protectedGlobals.missingFolders.add(relPath);
+      var missingError = new Error("ENOENT: Missing folder " + String(relPath));
+      missingError.code = "ENOENT";
+      throw missingError;
+    }
 
-
-
-
-let getFilesFromFolder = async function (relPath) {
-  window.protectedGlobals.missingFolders.delete(relPath);
-  var r = await window.protectedGlobals.filePost({ requestFile: true, requestFileName: relPath });
-  if (r && r.kind === "folder" && Array.isArray(r.files)) return r.files;
-
-  var isMissing =
-    !!(
-      r &&
-      (
-        r.missing ||
-        r.kind === "missing" ||
-        r.error === "ENOENT" ||
-        r.code === "ENOENT"
-      )
-    );
-
-  if (isMissing) {
-    window.protectedGlobals.missingFolders.add(relPath);
-    var missingError = new Error("ENOENT: Missing folder " + String(relPath));
-    missingError.code = "ENOENT";
-    throw missingError;
-  }
-
-  throw new Error("Invalid folder response for " + String(relPath));
-}
+    throw new Error("Invalid folder response for " + String(relPath));
+  };
 
   window.protectedGlobals.__externalPickerKeys = window.protectedGlobals.__externalPickerKeys || new Map();
 
@@ -278,9 +294,9 @@ let getFilesFromFolder = async function (relPath) {
     actionButton.style.fontWeight = "700";
     buttonBar.appendChild(actionButton);
 
-    let theme = createPickerTheme(!!(window.protectedGlobals.data.dark));
+    let theme = createPickerTheme(!!window.protectedGlobals.data.dark);
     const updateStyles = () => {
-      const isDark = !!(window.protectedGlobals.data.dark);
+      const isDark = !!window.protectedGlobals.data.dark;
       theme = createPickerTheme(isDark);
       panel.style.background = theme.panelBg;
       panel.style.color = theme.panelText;
@@ -347,9 +363,7 @@ let getFilesFromFolder = async function (relPath) {
       svg.style.flexShrink = "0";
       svg.style.display = "block";
       svg.style.verticalAlign = "middle";
-      svg.innerHTML = kind === "folder"
-        ? '<path d="M3 7a2.5 2.5 0 0 1 2.5-2.5h4.2c.6 0 1.2.2 1.6.6l1.2 1.1c.2.2.5.3.8.3h5.2A2.5 2.5 0 0 1 21 9v8.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5V7Z" fill="#FDCB22" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round" /><path d="M3 11.2H21" stroke="#000000" stroke-opacity="0.35" stroke-width="1" stroke-linecap="round" />'
-        : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />';
+      svg.innerHTML = kind === "folder" ? '<path d="M3 7a2.5 2.5 0 0 1 2.5-2.5h4.2c.6 0 1.2.2 1.6.6l1.2 1.1c.2.2.5.3.8.3h5.2A2.5 2.5 0 0 1 21 9v8.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5V7Z" fill="#FDCB22" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round" /><path d="M3 11.2H21" stroke="#000000" stroke-opacity="0.35" stroke-width="1" stroke-linecap="round" />' : '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />';
       return svg;
     }
 
@@ -384,8 +398,12 @@ let getFilesFromFolder = async function (relPath) {
       homeLink.style.cursor = "pointer";
       homeLink.style.padding = "2px 4px";
       homeLink.style.borderRadius = "4px";
-      homeLink.onmouseenter = () => { homeLink.style.background = theme.hoverBg; };
-      homeLink.onmouseleave = () => { homeLink.style.background = "transparent"; };
+      homeLink.onmouseenter = () => {
+        homeLink.style.background = theme.hoverBg;
+      };
+      homeLink.onmouseleave = () => {
+        homeLink.style.background = "transparent";
+      };
       homeLink.onclick = () => {
         currentPath = "";
         selectedPath = "";
@@ -407,8 +425,12 @@ let getFilesFromFolder = async function (relPath) {
         link.style.marginLeft = "2px";
         link.style.padding = "2px 4px";
         link.style.borderRadius = "4px";
-        link.onmouseenter = () => { link.style.background = theme.hoverBg; };
-        link.onmouseleave = () => { link.style.background = "transparent"; };
+        link.onmouseenter = () => {
+          link.style.background = theme.hoverBg;
+        };
+        link.onmouseleave = () => {
+          link.style.background = "transparent";
+        };
         link.onclick = () => {
           currentPath = targetPath;
           selectedPath = "";
@@ -604,12 +626,8 @@ let getFilesFromFolder = async function (relPath) {
   }
 
   window.protectedGlobals.extractAppData = async function (appFolder) {
-    
     var folderName = appFolder[0];
-    var folderPath =
-      appFolder[2] && appFolder[2].path
-        ? appFolder[2].path
-        : "systemfiles/runtime/apps/" + folderName;
+    var folderPath = appFolder[2] && appFolder[2].path ? appFolder[2].path : "systemfiles/runtime/apps/" + folderName;
     var files = await getFilesFromFolder(folderPath);
     if (!Array.isArray(files)) {
       throw new Error("Invalid folder listing for " + String(folderPath));
@@ -620,23 +638,17 @@ let getFilesFromFolder = async function (relPath) {
         return f.name.toLowerCase() === "entry.json";
       })?.relativePath || null;
 
-
-
-
-
-
-
     function createPlaceholderFunction() {
       let entryObj = getEntryObj();
       window[entryObj.functionName] = function () {
         console.warn("App integrity check failed: jsKey.txt does not match master key for " + String(folderName));
         window.protectedGlobals.notification(`unable to start app "${entryObj.label}" because of JS key check error, if you believe this is a mistake, use the fix account feature of the login page. (CODE: JSKEYMISMATCH)`);
-      }
+      };
     }
     async function createIframeContainerAppFunction() {
       let entryObj = getEntryObj();
-      let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.jsFile, { text: true, direct: true });
-      let untrustedIframePatch = await window.protectedGlobals.ReadFile('systemfiles/runtime/core/untrustedIframePatch.js', { text: true, direct: true });
+      let scriptText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObj.jsFile, { text: true, direct: true });
+      let untrustedIframePatch = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/untrustedIframePatch.js", { text: true, direct: true });
       window[entryObj.functionName] = async function (path, verify, argObj, posX = 50, posY = 50) {
         let useRelativeXY = false;
         entryObj = getPkg();
@@ -652,13 +664,13 @@ let getFilesFromFolder = async function (relPath) {
           window.protectedGlobals.__externalPickerKeys.set(filehandlekey, { kind: "file", path, appName: entryObj.id });
         }
         let appObj;
-        window.protectedGlobals.apps.forEach(app => {
+        window.protectedGlobals.apps.forEach((app) => {
           if (app.id === entryObj.id) {
             appObj = app;
           }
         });
-        appObj.allIframe.forEach(iframe => {
-          iframe.contentWindow.postMessage({ type: 'newinstance', channel: appObj.id }, "*");
+        appObj.allIframe.forEach((iframe) => {
+          iframe.contentWindow.postMessage({ type: "newinstance", channel: appObj.id }, "*");
         });
         let appWidth = false;
         let appHeight = false;
@@ -674,7 +686,7 @@ let getFilesFromFolder = async function (relPath) {
           windowMaximize = entryObj.startupPos?.maximize;
           windowMinimize = entryObj.startupPos?.minimize;
         }
-        var instance = window.protectedGlobals.apptools.api.createAppInstance({appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragstrip: !!entryObj.hiddenDragstrip});
+        var instance = window.protectedGlobals.apptools.api.createAppInstance({ appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragstrip: !!entryObj.hiddenDragstrip });
         const root = instance.rootElement;
         // Per-instance drag configuration.
         instance.dragThreshold = 15;
@@ -705,42 +717,32 @@ let getFilesFromFolder = async function (relPath) {
         }
 
         function getDragThreshold() {
-          return Number.isFinite(instance.dragThreshold)
-            ? Math.max(0, instance.dragThreshold)
-            : 5;
+          return Number.isFinite(instance.dragThreshold) ? Math.max(0, instance.dragThreshold) : 5;
         }
 
         function getDragstripHeight() {
-          return Number.isFinite(instance.dragstripHeight)
-            ? Math.max(0, instance.dragstripHeight)
-            : 28;
+          return Number.isFinite(instance.dragstripHeight) ? Math.max(0, instance.dragstripHeight) : 28;
         }
 
         /*
-        * Get the viewport size from the parent window.
-        */
+         * Get the viewport size from the parent window.
+         */
         function getViewportSize() {
           return {
-            width: Math.max(
-              document.documentElement.clientWidth || 0,
-              window.innerWidth || 0
-            ),
-            height: Math.max(
-              document.documentElement.clientHeight || 0,
-              window.innerHeight || 0
-            ),
+            width: Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0),
+            height: Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0),
           };
         }
 
         /*
-        * Clamp a window position so it can never be completely
-        * outside the viewport.
-        *
-        * The window must:
-        *   - never go above y = 0
-        *   - always leave at least 40px visible horizontally
-        *   - always leave at least 40px visible vertically
-        */
+         * Clamp a window position so it can never be completely
+         * outside the viewport.
+         *
+         * The window must:
+         *   - never go above y = 0
+         *   - always leave at least 40px visible horizontally
+         *   - always leave at least 40px visible vertically
+         */
         function clampWindowPosition(left, top, width, height) {
           const viewport = getViewportSize();
 
@@ -752,10 +754,7 @@ let getFilesFromFolder = async function (relPath) {
 
           // Explicit requirement: window can never exceed the top.
           const minTop = 0;
-          const maxTop = Math.max(
-            minTop,
-            viewport.height - MIN_VISIBLE_Y
-          );
+          const maxTop = Math.max(minTop, viewport.height - MIN_VISIBLE_Y);
 
           return {
             left: Math.min(Math.max(left, minLeft), maxLeft),
@@ -764,26 +763,21 @@ let getFilesFromFolder = async function (relPath) {
         }
 
         /*
-        * Apply a position without touching transforms.
-        */
+         * Apply a position without touching transforms.
+         */
         function setWindowPosition(left, top) {
-          const position = clampWindowPosition(
-            left,
-            top,
-            dragState.width || root.offsetWidth,
-            dragState.height || root.offsetHeight
-          );
+          const position = clampWindowPosition(left, top, dragState.width || root.offsetWidth, dragState.height || root.offsetHeight);
 
           root.style.left = `${position.left}px`;
           root.style.top = `${position.top}px`;
         }
 
         /*
-        * Once dragging starts, the parent window owns the pointer.
-        *
-        * This prevents the drag from getting "stuck" when the pointer
-        * leaves the iframe.
-        */
+         * Once dragging starts, the parent window owns the pointer.
+         *
+         * This prevents the drag from getting "stuck" when the pointer
+         * leaves the iframe.
+         */
         function releaseDragListeners() {
           window.removeEventListener("pointermove", parentPointerMove);
           window.removeEventListener("pointerup", parentPointerUp);
@@ -798,13 +792,9 @@ let getFilesFromFolder = async function (relPath) {
           const point = iframePointToParent(e);
           if (dragstripHeight <= 0) return;
 
-  if (
-    !Number.isFinite(e.clientY) ||
-    e.clientY < 0 ||
-    e.clientY > dragstripHeight
-  ) {
-    return;
-  }
+          if (!Number.isFinite(e.clientY) || e.clientY < 0 || e.clientY > dragstripHeight) {
+            return;
+          }
 
           window.protectedGlobals.bringToFront(root);
           if (dragState.pending || dragState.active) {
@@ -829,12 +819,7 @@ let getFilesFromFolder = async function (relPath) {
           dragState.width = rect.width;
           dragState.height = rect.height;
 
-          dragState.wasMaximized = !!(
-            instance.maximized ||
-            instance.isMaximized ||
-            instance._isMaximized ||
-            root._apptoolsMaximized
-          );
+          dragState.wasMaximized = !!(instance.maximized || instance.isMaximized || instance._isMaximized || root._apptoolsMaximized);
 
           dragState.pending = true;
           dragState.active = false;
@@ -845,114 +830,94 @@ let getFilesFromFolder = async function (relPath) {
           window.addEventListener("blur", parentPointerCancel);
         }
 
+        function updatePotentialDrag(e, fromIframe = false) {
+          if (!dragState.pending || dragState.pointerId !== e.pointerId) {
+            return;
+          }
+          const threshold = getDragThreshold();
+          const pointerX = e.screenX;
+          const pointerY = e.screenY;
 
-function updatePotentialDrag(e, fromIframe = false) {
-  if (!dragState.pending || dragState.pointerId !== e.pointerId) {
-    return;
-  }
-const threshold = getDragThreshold();
-const pointerX = e.screenX;
-const pointerY = e.screenY;
+          const dx = pointerX - dragState.startScreenX;
+          const dy = pointerY - dragState.startScreenY;
+          if (!dragState.active && Math.hypot(dx, dy) < threshold) {
+            return;
+          }
 
-const dx = pointerX - dragState.startScreenX;
-const dy = pointerY - dragState.startScreenY;
-if (!dragState.active && Math.hypot(dx, dy) < threshold) {
-  return;
-}
+          /*
+           * The threshold has been crossed.
+           *
+           * From this exact pointer position onward, this is an
+           * active drag.
+           */
+          dragState.active = true;
+          /*
+           * -------------------------------------------------------
+           * MAXIMIZED -> RESTORED
+           * -------------------------------------------------------
+           */
+          if (dragState.wasMaximized) {
+            const maximizedRect = root.getBoundingClientRect();
+            const anchorX = maximizedRect.width > 0 ? (pointerX - maximizedRect.left) / maximizedRect.width : 0.5;
+            const anchorY = maximizedRect.height > 0 ? (pointerY - maximizedRect.top) / maximizedRect.height : 0.5;
 
-    /*
-     * The threshold has been crossed.
-     *
-     * From this exact pointer position onward, this is an
-     * active drag.
-     */
-    dragState.active = true;
-    /*
-     * -------------------------------------------------------
-     * MAXIMIZED -> RESTORED
-     * -------------------------------------------------------
-     */
-    if (dragState.wasMaximized) {
-      instance.restoreWindow(true);
+            instance.restoreWindow(true);
 
-      const rect = root.getBoundingClientRect();
+            const rect = root.getBoundingClientRect();
 
-      dragState.width = rect.width;
-      dragState.height = rect.height;
+            dragState.width = rect.width;
+            dragState.height = rect.height;
 
-      const parent = root.offsetParent;
-      const parentRect = parent
-        ? parent.getBoundingClientRect()
-        : { left: 0, top: 0 };
+            const parent = root.offsetParent;
+            const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
 
-      const pointerXInParent =
-        pointerX - parentRect.left;
+            const pointerXInParent = pointerX - parentRect.left;
+            const pointerYInParent = pointerY - parentRect.top;
 
-      const pointerYInParent =
-        pointerY - parentRect.top;
+            const restoredLeft = pointerXInParent - anchorX * dragState.width;
+            const restoredTop = pointerYInParent - anchorY * dragState.height;
 
-      const restoredLeft =
-        pointerXInParent - dragState.width / 2;
+            const position = clampWindowPosition(restoredLeft, restoredTop, dragState.width, dragState.height);
 
-const restoredTop = Math.max(0, pointerYInParent - getDragstripHeight() / 2);
+            root.style.left = `${position.left}px`;
+            root.style.top = `${position.top}px`;
 
+            /*
+             * The current pointer event becomes the new drag origin, but the drag
+             * must continue normally on subsequent pointer moves instead of ending.
+             */
+            dragState.startScreenX = pointerX;
+            dragState.startScreenY = pointerY;
+            dragState.startPointerX = pointerX;
+            dragState.startPointerY = pointerY;
 
-      const position = clampWindowPosition(
-        restoredLeft,
-        restoredTop,
-        dragState.width,
-        dragState.height
-      );
+            dragState.startLeft = position.left;
+            dragState.startTop = position.top;
+            dragState.wasMaximized = false;
+          }
 
-      root.style.left = `${position.left}px`;
-      root.style.top = `${position.top}px`;
+          /*
+           * ---------------------------------------------------------
+           * ACTIVE DRAG
+           * ---------------------------------------------------------
+           */
+          const moveDx = pointerX - dragState.startPointerX;
+          const moveDy = pointerY - dragState.startPointerY;
 
-      /*
-       * The current pointer event is now the new drag origin.
-       */
-      dragState.startPointerX = pointerX;
-      dragState.startPointerY = pointerY;
-
-      dragState.startLeft = position.left;
-      dragState.startTop = position.top;
-
-      return;
-    }
-
-  /*
-   * ---------------------------------------------------------
-   * ACTIVE DRAG
-   * ---------------------------------------------------------
-   */
-  const moveDx = pointerX - dragState.startPointerX;
-  const moveDy = pointerY - dragState.startPointerY;
-
-  const position = clampWindowPosition(
-    dragState.startLeft + moveDx,
-    dragState.startTop + moveDy,
-    dragState.width || root.offsetWidth,
-    dragState.height || root.offsetHeight
-  );
-  root.style.left = `${position.left}px`;
-  root.style.top = `${position.top}px`;
-}
-
-
+          const position = clampWindowPosition(dragState.startLeft + moveDx, dragState.startTop + moveDy, dragState.width || root.offsetWidth, dragState.height || root.offsetHeight);
+          root.style.left = `${position.left}px`;
+          root.style.top = `${position.top}px`;
+        }
 
         function endPotentialDrag(e) {
-          if (
-            dragState.pointerId !== null &&
-            e &&
-            e.pointerId !== undefined &&
-            dragState.pointerId !== e.pointerId
-          ) {
+          if (dragState.pointerId !== null && e && e.pointerId !== undefined && dragState.pointerId !== e.pointerId) {
             return;
           }
 
           dragState.pending = false;
           dragState.active = false;
           dragState.pointerId = null;
-const threshold = getDragThreshold();
+          const threshold = getDragThreshold();
 
           releaseDragListeners();
         }
@@ -966,8 +931,8 @@ const threshold = getDragThreshold();
         }
 
         /*
-        * These are deliberately parent-level handlers.
-        */
+         * These are deliberately parent-level handlers.
+         */
         function parentPointerMove(e) {
           updatePotentialDrag(e, false);
         }
@@ -993,14 +958,17 @@ const threshold = getDragThreshold();
         // Preserve an already-passed path or picker handle for the iframe. If the app was launched
         // with a target, the iframe can inspect window.__path__ and use that as its initial file/folder target.
         const launchTarget = path || null;
-        let html = '';
+        let html = "";
         let loadtimes = false;
-        if (!entryObj.enableDebugging) html = `<html><head><script>window.__args = ${JSON.stringify(argObj)};const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? 'true' : 'false'};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        if (!entryObj.enableDebugging) html = `<html><head><script>window.__args = ${JSON.stringify(argObj)};const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? "true" : "false"};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         iframe.addEventListener("load", () => {
           loadtimes++;
-          if (loadtimes % 2 === 1) { return; }
-          else { iframe.src = URL.createObjectURL(new Blob([`<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`], { type: "text/html" })); }
+          if (loadtimes % 2 === 1) {
+            return;
+          } else {
+            iframe.src = URL.createObjectURL(new Blob([`<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`], { type: "text/html" }));
+          }
         });
         const blob = new Blob([html], { type: "text/html" });
         iframe.sandbox = "allow-scripts allow-pointer-lock";
@@ -1011,11 +979,11 @@ const threshold = getDragThreshold();
         let lastPongAt = performance.now();
         let pageHidden = document.hidden;
         const visibilityChangeHandler = () => {
-            pageHidden = document.hidden;
+          pageHidden = document.hidden;
 
-            if (!pageHidden) {
-                lastPongAt = performance.now();
-            }
+          if (!pageHidden) {
+            lastPongAt = performance.now();
+          }
         };
         document.addEventListener("visibilitychange", visibilityChangeHandler);
 
@@ -1029,24 +997,19 @@ const threshold = getDragThreshold();
         const pingInterval = setInterval(() => {
           if (pageHidden) return;
           // Keep pinging the app once per second.
-          iframe.contentWindow.postMessage({
-            type: "ping",
-            channel: appObj.id
-          }, "*");
+          iframe.contentWindow.postMessage(
+            {
+              type: "ping",
+              channel: appObj.id,
+            },
+            "*",
+          );
 
           // No pong received from this iframe for 15 seconds.
-          if (
-            !awaitingDlg &&
-            performance.now() - lastPongAt >= 15000
-          ) {
+          if (!awaitingDlg && performance.now() - lastPongAt >= 15000) {
             awaitingDlg = true;
 
-            window.protectedGlobals.showConfirmDialog(
-              "App Unresponsive",
-              `Instance "${instance.title}" (${instanceNum}) of "${entryObj.label}" is not responding.`,
-              "Close App",
-              "Wait"
-            ).then((terminate) => {
+            window.protectedGlobals.showConfirmDialog("App Unresponsive", `Instance "${instance.title}" (${instanceNum}) of "${entryObj.label}" is not responding.`, "Close App", "Wait").then((terminate) => {
               awaitingDlg = false;
 
               if (terminate) {
@@ -1059,7 +1022,7 @@ const threshold = getDragThreshold();
           }
         }, 1000);
 
-        window.addEventListener(appObj.id + root.goldenbodyId, 'message', async (e) => {
+        window.addEventListener(appObj.id + root.goldenbodyId, "message", async (e) => {
           if (e.source !== iframe.contentWindow) {
             return;
           }
@@ -1148,56 +1111,62 @@ const threshold = getDragThreshold();
             return;
           }
           if (e.data.setDragThreshold) {
-              const value = e.data.options || {};
-              const threshold = Number(value.px);
+            const value = e.data.options || {};
+            const threshold = Number(value.px);
 
-              if (Number.isFinite(threshold)) {
-                  instance.dragThreshold = Math.max(0, Math.round(threshold));
-              }
+            if (Number.isFinite(threshold)) {
+              instance.dragThreshold = Math.max(0, Math.round(threshold));
+            }
 
-              e.source.postMessage({
-                  setDragThresholdResult: {
-                      px: instance.dragThreshold
-                  },
-                  requestId: e.data.requestId
-              }, "*");
+            e.source.postMessage(
+              {
+                setDragThresholdResult: {
+                  px: instance.dragThreshold,
+                },
+                requestId: e.data.requestId,
+              },
+              "*",
+            );
 
-              return;
+            return;
           }
 
           if (e.data.setDragstripHeight) {
-              const value = e.data.options || {};
-              let height;
+            const value = e.data.options || {};
+            let height;
 
-              // Percent takes priority over px.
-              if (Number.isFinite(Number(value.percent))) {
-                  const percent = Number(value.percent);
-                  height = root.offsetHeight * percent / 100;
-              } else if (Number.isFinite(Number(value.px))) {
-                  height = Number(value.px);
+            // Percent takes priority over px.
+            if (Number.isFinite(Number(value.percent))) {
+              const percent = Number(value.percent);
+              height = (root.offsetHeight * percent) / 100;
+            } else if (Number.isFinite(Number(value.px))) {
+              height = Number(value.px);
+            }
+
+            if (Number.isFinite(height)) {
+              height = Math.max(0, Math.round(height));
+              instance.dragstripHeight = height;
+
+              if (entryObj.hiddenDragstrip) {
+                iframe.style.top = "0";
+                iframe.style.height = "100%";
+              } else {
+                iframe.style.top = height + "px";
+                iframe.style.height = `calc(100% - ${height}px)`;
               }
+            }
 
-              if (Number.isFinite(height)) {
-                  height = Math.max(0, Math.round(height));
-                  instance.dragstripHeight = height;
+            e.source.postMessage(
+              {
+                setDragstripHeightResult: {
+                  px: instance.dragstripHeight,
+                },
+                requestId: e.data.requestId,
+              },
+              "*",
+            );
 
-                  if (entryObj.hiddenDragstrip) {
-                      iframe.style.top = "0";
-                      iframe.style.height = "100%";
-                  } else {
-                      iframe.style.top = height + "px";
-                      iframe.style.height = `calc(100% - ${height}px)`;
-                  }
-              }
-
-              e.source.postMessage({
-                  setDragstripHeightResult: {
-                      px: instance.dragstripHeight
-                  },
-                  requestId: e.data.requestId
-              }, "*");
-
-              return;
+            return;
           }
           if (e.data.messageToWorker) {
             const worker = window.protectedGlobals.workers[appObj.id];
@@ -1219,10 +1188,10 @@ const threshold = getDragThreshold();
             if (!entryObj.hiddenDragstrip) return;
 
             /*
-            * Only the iframe needs to send movement while the pointer
-            * is still inside it. Once the parent owns the drag, the
-            * parent-level pointermove listener takes over.
-            */
+             * Only the iframe needs to send movement while the pointer
+             * is still inside it. Once the parent owns the drag, the
+             * parent-level pointermove listener takes over.
+             */
             if (dragState.pending) {
               updatePotentialDrag(e.data, true);
             }
@@ -1243,7 +1212,7 @@ const threshold = getDragThreshold();
             cancelPotentialDrag();
             return;
           }
-          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: {data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id} }));
+          window.dispatchEvent(new CustomEvent("translatedmessage", { detail: { data: e.data, from: appObj.folderName, source: e.source, appName: appObj.id } }));
           if (e.data.setInstanceTitle) {
             instance.title = e.data.title || instance.title;
           } else if (e.data.type === "message" && e.data.toInstance) {
@@ -1251,22 +1220,22 @@ const threshold = getDragThreshold();
             let fromInstance = instance.instanceNum;
             let message = e.data.message;
             if (toInstance === "*" || toInstance === "all") {
-              window[appObj.globalVarObjectString][appObj.allAppArrayString].forEach(inst => {
+              window[appObj.globalVarObjectString][appObj.allAppArrayString].forEach((inst) => {
                 if (inst.instanceNum !== fromInstance) {
-                  inst.iframe.contentWindow.postMessage({type: e.data.type, message: message, fromInstance: fromInstance, channel: entryObj.id}, '*');
+                  inst.iframe.contentWindow.postMessage({ type: e.data.type, message: message, fromInstance: fromInstance, channel: entryObj.id }, "*");
                 }
               });
             } else {
-              let targetInstance = window[appObj.globalVarObjectString][appObj.allAppArrayString].find(inst => inst.instanceNum === toInstance);
+              let targetInstance = window[appObj.globalVarObjectString][appObj.allAppArrayString].find((inst) => inst.instanceNum === toInstance);
               if (targetInstance) {
-                targetInstance.iframe.contentWindow.postMessage({type: e.data.type, message: message, fromInstance: fromInstance, channel: entryObj.id}, '*');
+                targetInstance.iframe.contentWindow.postMessage({ type: e.data.type, message: message, fromInstance: fromInstance, channel: entryObj.id }, "*");
               }
             }
           } else if (e.data.getLiveInstanceIndex) {
             let liveInstanceIndex = window[appObj.globalVarObjectString][appObj.allAppArrayString].length;
-            iframe.contentWindow.postMessage({liveInstanceIndex: liveInstanceIndex, requestId: e.data.requestId}, '*');
+            iframe.contentWindow.postMessage({ liveInstanceIndex: liveInstanceIndex, requestId: e.data.requestId }, "*");
           } else if (e.data.getTheme) {
-            iframe.contentWindow.postMessage({ requestId: e.data.requestId, theme: window.protectedGlobals.data.dark ? 'dark' : 'light' }, '*');
+            iframe.contentWindow.postMessage({ requestId: e.data.requestId, theme: window.protectedGlobals.data.dark ? "dark" : "light" }, "*");
           }
         });
         instance.iframe = iframe;
@@ -1281,7 +1250,7 @@ const threshold = getDragThreshold();
         };
         window.protectedGlobals.apptools.api.trackInstance(instance, entryObj.id);
         return;
-      }
+      };
     }
 
     var functionName = null;
@@ -1300,7 +1269,7 @@ const threshold = getDragThreshold();
 
     var entryText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObjectfile, { text: true, direct: true });
     var entryObj = JSON.parse(entryText);
-    if (!await checkEntryObject(entryObj, folderName)) {
+    if (!(await checkEntryObject(entryObj, folderName))) {
       throw new Error("Invalid entry.json for app " + folderName);
     }
     // Normalize and validate any custom command names defined by apps.
@@ -1308,9 +1277,7 @@ const threshold = getDragThreshold();
     // If a name contains other characters we sanitize by lowercasing and
     // stripping non-letters; if the result is empty we drop that command.
     try {
-      const rawCommands = Array.isArray(entryObj.commands)
-        ? entryObj.commands
-        : (Array.isArray(entryObj.cmd) ? entryObj.cmd : []);
+      const rawCommands = Array.isArray(entryObj.commands) ? entryObj.commands : Array.isArray(entryObj.cmd) ? entryObj.cmd : [];
       const processedCommands = [];
       for (const c of rawCommands) {
         if (!c || !c.name) continue;
@@ -1332,11 +1299,11 @@ const threshold = getDragThreshold();
       // (eg. the Terminal app) can discover them via window.protectedGlobals.apps
       entryObj._cmds = processedCommands;
     } catch (e) {
-      console.warn('Failed to process app commands for ' + folderName, e);
+      console.warn("Failed to process app commands for " + folderName, e);
       entryObj._cmds = [];
     }
     id = entryObj.id;
-    let verify = await getVerification(folderPath + '/jsKey.txt');
+    let verify = await getVerification(folderPath + "/jsKey.txt");
     iconFile = entryObj.iconFile || null;
     label = entryObj.label || label;
     startupPos = entryObj.startupPos || null;
@@ -1366,7 +1333,7 @@ const threshold = getDragThreshold();
       jsFile = entryObj.jsFile || "";
       if (jsFile) createIframeContainerAppFunction(entryObj);
       if (entryObj.headlessJsFile) {
-        let scriptText = await window.protectedGlobals.ReadFile(folderPath + '/' + entryObj.headlessJsFile, { text: true, direct: true });
+        let scriptText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObj.headlessJsFile, { text: true, direct: true });
         let blob = new Blob([scriptText], { type: "text/javascript" });
         let url = URL.createObjectURL(blob);
         const worker = new Worker(url, { name: entryObj.headlessJsFile, source: entryObj.id });
@@ -1374,12 +1341,7 @@ const threshold = getDragThreshold();
       }
     }
 
-
-
-
-
-
-    console.log("Found icon file for app " + folderName + ": " + iconFile); 
+    console.log("Found icon file for app " + folderName + ": " + iconFile);
     if (!entryObj.headless || iconFile) {
       var iconPath = folderPath + "/" + iconFile;
       function iconDataToBase64(raw) {
@@ -1398,7 +1360,7 @@ const threshold = getDragThreshold();
         return null;
       }
       if (!entryObj.pngEnabled) {
-        var parsedIcon = String(await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true }) || "").trim();
+        var parsedIcon = String((await window.protectedGlobals.ReadFile(iconPath, { text: true, direct: true })) || "").trim();
         icon = parsedIcon || icon;
       } else {
         var rawIcon = await window.protectedGlobals.ReadFile(iconPath, { buffer: true, direct: true });
@@ -1406,7 +1368,6 @@ const threshold = getDragThreshold();
         icon = parsedIcon || icon;
       }
     }
-
 
     let pkg = {
       folderName: folderName,
@@ -1442,7 +1403,7 @@ const threshold = getDragThreshold();
     window.protectedGlobals.initAppRuntimeState(pkg);
     await loadAppScript(pkg);
     return pkg;
-  }
+  };
 
   window.protectedGlobals.AppLoaderAPIs = {
     extractAppData: window.protectedGlobals.extractAppData,

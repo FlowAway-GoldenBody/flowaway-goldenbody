@@ -7,6 +7,10 @@
     <script>
 const width = screen.availWidth;
 const height = screen.availHeight;
+    function playAudio(url) {
+      let audio = new Audio(url);
+      audio.play();
+    }
     function launchHomepage(newTab = false) {
       let a;
       if (newTab) a = window.open('about:blank', '_blank', `width=${width},height=${height},top=0,left=0,resizable=yes,scrollbars=yes`);
@@ -14,6 +18,10 @@ const height = screen.availHeight;
       let script = a.document.createElement('script');
       script.src = 'ouchbad.js';
       a.document.body.appendChild(script);
+      playAudio('https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/enterMusic.wav');
+      setTimeout(() => {
+        playAudio("https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/Karazhan'sDoors.wav");
+      }, 200);
     }
     let a = document.createElement('button');
     a.textContent = 'lauch homepage in new tab';
