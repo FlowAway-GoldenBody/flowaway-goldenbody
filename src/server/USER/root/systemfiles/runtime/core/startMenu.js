@@ -427,7 +427,6 @@ const closeFocusedAppWindow = window.protectedGlobals.closeFocusedAppWindow = fu
             (top && top._goldenbodyId && (inst._goldenbodyId === top._goldenbodyId || (instRoot && instRoot._goldenbodyId === top._goldenbodyId)))
           ) {
             arr[i].closeWindow();
-            arr.splice(i, 1);
           }
         }
       }

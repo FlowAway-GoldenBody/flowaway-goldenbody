@@ -215,6 +215,7 @@
     let selectedPath = "";
     const overlay = document.createElement("div");
     overlay.id = "vfs-picker-overlay";
+    overlay.addEventListener('keydown', (e) => e.stopPropagation());
     overlay.style.cssText = `position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,0.35);`;
     const panel = document.createElement("div");
     panel.style.position = "absolute";
@@ -232,7 +233,7 @@
     panel.style.boxSizing = "border-box";
     panel.style.borderRadius = "12px";
     overlay.appendChild(panel);
-
+    panel.tabIndex = 0;
     const titleBar = document.createElement("div");
     titleBar.textContent = title;
     titleBar.style.fontWeight = "700";
@@ -613,6 +614,7 @@
     }
 
     document.body.appendChild(overlay);
+    panel.focus();
     updateStyles();
     makeDraggable(titleBar, panel);
 
@@ -692,6 +694,7 @@
         }
         var instance = window.protectedGlobals.apptools.api.createAppInstance({ appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragstrip: !!entryObj.hiddenDragstrip });
         const root = instance.rootElement;
+        if (entryObj.hiddenTitlebar) instance.titlebarElement.style.display = "none";
         // Per-instance drag configuration.
         instance.dragThreshold = 15;
         instance.dragstripHeight = 28;
@@ -965,13 +968,13 @@
         let html = "";
         let loadtimes = false;
         if (!entryObj.enableDebugging) html = `<html><head><script>window.__args = ${JSON.stringify(argObj)};const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? "true" : "false"};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
-        else html = html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
+        else html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         iframe.addEventListener("load", () => {
           loadtimes++;
           if (loadtimes % 2 === 1) {
             return;
           } else {
-            iframe.src = URL.createObjectURL(new Blob([`<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`], { type: "text/html" }));
+            iframe.src = URL.createObjectURL(new Blob([html], { type: "text/html" }));
           }
         });
         const blob = new Blob([html], { type: "text/html" });
@@ -1018,7 +1021,7 @@
                 awaitingDlg = false;
 
                 if (terminate) {
-                  instance.closeWindow();
+                  instance.closeWindow(true);
                 } else {
                   // Start a fresh 15-second window after choosing Wait.
                   lastPongAt = performance.now();
@@ -1185,6 +1188,44 @@
             }
             return;
           }
+          if (e.data.setAskUserBeforeClose) {
+            instance.askUserBeforeClose = !!e.data.value;
+            return;
+          }
+          if (e.data.setTitlebarVisibility) {
+            const visible = !!e.data.visible;
+            instance.titlebarElement.style.display = visible ? "" : "none";
+            return;
+          }
+          if (e.data.setTheme) {
+            const theme = e.data.theme;
+            if (theme === "dark") {
+              root.dataset.themeManual = "true";
+              instance.applyTitlebarTheme(true, true);
+              root.style.background = "#1e1e1e";
+              root.style.color = "#ddd";
+            } else if (theme === "light") {
+              root.dataset.themeManual = "true";
+              instance.applyTitlebarTheme(true, false);
+              root.style.background = "#eee";
+              root.style.color = "#222";
+            } else if (theme === "auto") {
+              root.style.background = "";
+              root.style.color = "";
+              if (window.protectedGlobals.data.dark) {
+                root.dataset.themeManual = "false";
+                instance.applyTitlebarTheme(false, true);
+                root.classList.remove("light");
+                root.classList.add("dark");
+              } else {
+                root.dataset.themeManual = "false";
+                instance.applyTitlebarTheme(false, false);
+                root.classList.remove("dark");
+                root.classList.add("light");
+              }
+            }
+            return;
+          }
           if (e.data.pointerdownOnApp) {
             if (!entryObj.hiddenDragstrip) return;
 
@@ -1249,8 +1290,13 @@
         instance.iframe = iframe;
         instance.instanceNum = instanceNum;
         let origClose = instance.closeWindow;
-        instance.closeWindow = function () {
-          origClose();
+        instance.closeWindow = async function (force = false) {
+          let confirmed = true;
+          if (instance.askUserBeforeClose && !force) {
+            confirmed = await window.protectedGlobals.showConfirmDialog("Close App", "Are you sure you want to close this app instance? Changes may not be saved.", "Close", "Cancel");
+          }
+          if (!confirmed) return;
+          origClose(force);
           clearInterval(pingInterval);
           window.removeEventListener("message", pongHandler);
           window.removeEventListener("visibilitychange", visibilityChangeHandler);
@@ -1383,6 +1429,7 @@
     let pkg = {
       folderName: folderName,
       hiddenDragstrip: !!entryObj.hiddenDragstrip,
+      hiddenTitlebar: !!entryObj.hiddenTitlebar,
       startupPos,
       enableDebugging: !!entryObj.enableDebugging,
       headless: !!entryObj.headless,

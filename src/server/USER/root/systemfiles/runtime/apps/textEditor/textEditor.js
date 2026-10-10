@@ -840,7 +840,7 @@ window.textEditor = function (path, posX = 50, posY = 50) {
     let pickerCurrentPath = ["root"];
     let pickerSelection = [];
     let pickerOverlay = document.createElement("div");
-
+    pickerOverlay.addEventListener('keydown', (e) => e.stopPropagation());
     Object.assign(pickerOverlay.style, {
       position: "fixed",
       top: "0",
@@ -868,6 +868,8 @@ window.textEditor = function (path, posX = 50, posY = 50) {
       overflow: "hidden",
     });
     pickerOverlay.appendChild(pickerBox);
+    pickerBox.tabIndex = 0;
+    pickerBox.focus();
 
     const breadcrumbDiv = document.createElement("div");
     breadcrumbDiv.style.padding = "6px";
@@ -1094,7 +1096,8 @@ window.textEditor = function (path, posX = 50, posY = 50) {
     let pickerCurrentPath = ["root"];
     let pickerSelection = [];
     let pickerOverlay = document.createElement("div");
-
+    pickerOverlay.tabIndex = "0";
+    pickerOverlay.addEventListener('keydown', (e) => e.stopPropagation());
     Object.assign(pickerOverlay.style, {
       position: "fixed",
       top: "0",
@@ -1121,7 +1124,8 @@ window.textEditor = function (path, posX = 50, posY = 50) {
       overflow: "hidden",
     });
     pickerOverlay.appendChild(pickerBox);
-
+    pickerBox.tabIndex = "0";
+    pickerBox.focus();
     const breadcrumbDiv = document.createElement("div");
     breadcrumbDiv.style.padding = "6px";
     pickerBox.appendChild(breadcrumbDiv);

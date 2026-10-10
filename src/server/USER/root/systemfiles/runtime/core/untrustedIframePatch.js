@@ -675,6 +675,18 @@ window.__goldenbodyAPI = {
         window.parent.postMessage({messageToWorker: true, message}, '*');
     },
     
+    setAskUserBeforeClose: (value) => {
+        window.parent.postMessage({setAskUserBeforeClose: true, value}, '*');
+    },
+
+    setTitlebarVisibility: (visible) => {
+        window.parent.postMessage({setTitlebarVisibility: true, visible}, '*');
+    },
+
+    setTheme: (theme) => {
+        window.parent.postMessage({setTheme: true, theme}, '*');
+    },
+
     Observer: class {
         constructor(callback, type) {
             this.callback = callback;

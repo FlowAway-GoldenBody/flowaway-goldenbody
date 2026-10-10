@@ -260,7 +260,6 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
             keyEvent.__gbOriginalKey = event.data.key || "";
             window.dispatchEvent(keyEvent);
             document.dispatchEvent(keyEvent);
-            if (document.body) document.body.dispatchEvent(keyEvent);
         } else if (event.data.pointerdownOnApp || event.data.pointerupOnApp) {
             const type = event.data.pointerdownOnApp ? "pointerdown" : "pointerup";
             const mouseEvent = new MouseEvent(type, {
@@ -278,7 +277,6 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
             });
             window.dispatchEvent(mouseEvent);
             document.dispatchEvent(mouseEvent);
-            if (document.body) document.body.dispatchEvent(mouseEvent);
         }
     });
 

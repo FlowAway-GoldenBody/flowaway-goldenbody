@@ -1760,16 +1760,13 @@
         mutation.removedNodes.forEach(removedNode => {
           if (removedNode.classList && removedNode.classList.contains('app-window-root')) {
             let closedApps = 0;
-            let headlessApps = 0;
             for (let app of window.protectedGlobals.apps) {
-              if (window[app.globalVarObjectString] && window[app.globalVarObjectString]?.[app.allAppArrayString]?.length == 0) {
+              if ((window[app.globalVarObjectString] && window[app.globalVarObjectString]?.[app.allAppArrayString]?.length == 0) || app.headless) {
                 closedApps++;
-              } else if (!app.icon) {
-                headlessApps++;
               }
             }
  
-            if (closedApps + headlessApps === window.protectedGlobals.apps.length) {
+            if (closedApps === window.protectedGlobals.apps.length) {
               // reset ztop to 10
               window.protectedGlobals.zTop = 10;
               window.protectedGlobals.resetWindowXY();
@@ -1797,8 +1794,10 @@
         });
       }
       if (mutation.type === 'childList' && mutation.removedNodes.length > 0 && mutation.removedNodes[0].classList && mutation.removedNodes[0].classList.contains('app-window-root')) {
+        window.protectedGlobals.atTop = calcTop();
         setTimeout(() => {
           let atTop = calcTop();
+          window.protectedGlobals.atTop = atTop;
           for (let btn of window.protectedGlobals.taskbuttons) {
             const btnAppId = btn.dataset && btn.dataset.appId ? btn.dataset.appId : (btn.value && String(btn.value).trim());
             if (btnAppId === atTop) {

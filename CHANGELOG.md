@@ -156,3 +156,8 @@
 - Prevent headless apps be launched in shortcuts
 - Added launch app feature for headless background services
 - Various bug fixes
+
+## V 2.5.2
+- Fixed some bugs.
+- Close windows via keyboard shortcut now dont require focus anymore, it closes the window at top.
+- Added setAskUserBeforeClose, setTitlebarVisibility, setTheme apis for iframe apps and some corresponding fields in entry.json if any.

@@ -314,8 +314,8 @@ window.protectedGlobals.showConfirmDialog = (title, message, okText, cancelText)
       const dialog = document.createElement("div");
       dialog.id = "confirm-dialog";
       dialog.className = "panel";
-      dialog.classList.toggle("dark", window.browserGlobals.dark);
-      dialog.classList.toggle("light", !window.browserGlobals.dark);
+      dialog.classList.toggle("dark", window.protectedGlobals.data.dark);
+      dialog.classList.toggle("light", !window.protectedGlobals.data.dark);
       dialog.style.cssText =
         "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:999999;width:380px;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:20px;font-family:system-ui;font-size:14px;";
 
@@ -357,7 +357,7 @@ window.protectedGlobals.showConfirmDialog = (title, message, okText, cancelText)
       dialog.appendChild(titleEl);
 
       const msgEl = document.createElement("div");
-      msgEl.style.cssText = `font-size:14px;color:#${window.browserGlobals.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
+      msgEl.style.cssText = `font-size:14px;color:#${window.protectedGlobals.data.dark ? "ccc" : "666"};margin-bottom:20px;line-height:1.5;`;
       msgEl.textContent = message;
       dialog.appendChild(msgEl);
 

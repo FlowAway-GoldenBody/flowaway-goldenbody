@@ -819,13 +819,13 @@ window.protectedGlobals.initAppTools = function () {
 
     instance.closeAll = function () {
       if (!app) {
-        instance.closeWindow();
+        instance.closeWindow(true);
         return;
       }
       var allInstances = [...window[app.globalVarObjectString][app.allAppArrayString]];
       for (var i = 0; i < allInstances.length; i++) {
         if (allInstances[i]) {
-          allInstances[i].closeWindow();
+          allInstances[i].closeWindow(true);
         }
       }
     };

@@ -393,7 +393,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e, appOverride = n
       }
       for (const instance of [...instances]) {
         if (instance && (instance.closeWindow)) {
-          instance.closeWindow();
+          instance.closeWindow(true);
         }
       }
     });

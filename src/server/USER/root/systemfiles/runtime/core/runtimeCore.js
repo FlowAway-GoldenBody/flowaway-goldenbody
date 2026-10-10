@@ -1243,7 +1243,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
         z-index: 10000;
         font-family: system-ui, -apple-system, sans-serif;
       `;
-
+      modal.addEventListener("keydown", (e) => e.stopPropagation());
       // Create picker dialog
       const dialog = document.createElement("div");
       dialog.style.cssText = `
@@ -1257,7 +1257,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
         background: ${isDark ? "#1e1e1e" : "#ffffff"};
         color: ${isDark ? "#ffffff" : "#000000"};
       `;
-
+      dialog.tabIndex = 0; // Make dialog focusable for keyboard navigation
       // Header
       const header = document.createElement("div");
       header.style.cssText = `
@@ -1626,6 +1626,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
       // Add to page
       modal.appendChild(dialog);
       document.body.appendChild(modal);
+      dialog.focus();
 
       // Update theme on styleapplied event
       const updateTheme = () => {

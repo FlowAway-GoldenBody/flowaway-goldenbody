@@ -1628,6 +1628,7 @@ window.settings = function (posX = 50, posY = 50) {
     <li>
         If you don't want an element to be able to be dragged in your iframe, do <code>undraggableElement.addEventListener('pointerdown', (event) => event.stopPropagation());</code>
     </li>
+    <li><code>hiddenTitlebar</code> - boolean flag to hide the titlebar on the app window. Only works for iframe apps.</li>
     <li><code>createShortcutUponInstallation</code> - boolean flag to create a desktop shortcut when the app is installed.</li>
     <li>
         <code>startupPos</code> - (Iframe Apps Only) optional object controlling the initial window placement/size. Use
@@ -1924,54 +1925,44 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     Sandboxed apps should call <code>window.__goldenbodyAPI</code>. Every method returns a promise, so await it in async
     code.
 </p>
+<p>API summary:</p>
 <ul>
-    <li>
-        <code>readFile(pathOrHandle, options)</code> - read a file from the VFS. The first argument can be a plain
-        string path or a picker result object like <code>{ path, key }</code>.
-    </li>
-    <li><code>writeFile(pathOrHandle, content, options)</code> - write text or binary data to a file.</li>
-    <li>
-        <code>readFolder(pathOrHandle, options)</code> - list the children of a folder. If
-        <code>options.detail === true</code>, the runtime returns objects with <code>path</code> and <code>type</code>.
-    </li>
-    <li><code>writeFolder(pathOrHandle, options)</code> - create a folder.</li>
+    <li><code>readFile(pathOrHandle, options)</code> - read a file from the VFS as text, binary data, or a stream.</li>
+    <li><code>writeFile(pathOrHandle, contents, options)</code> - write text or binary content to a file.</li>
+    <li><code>readFolder(pathOrHandle, options)</code> - list the contents of a folder, with optional detail metadata.</li>
+    <li><code>writeFolder(pathOrHandle, options)</code> - create a folder in the VFS.</li>
     <li><code>deleteFile(pathOrHandle, options)</code> - delete a file.</li>
     <li><code>deleteFolder(pathOrHandle, options)</code> - delete a folder.</li>
     <li><code>renameFile(pathOrHandle, newName, options)</code> - rename a file.</li>
     <li><code>renameFolder(pathOrHandle, newName, options)</code> - rename a folder.</li>
-    <li>
-        <code>pasteFile(destinationOrHandle, clipboard, options)</code> - paste a file payload into a destination
-        folder.
-    </li>
-    <li>
-        <code>pasteFolder(destinationOrHandle, clipboard, options)</code> - paste a folder payload into a
-        destination folder.
-    </li>
-    <li>
-        <code>folderExists(pathOrHandle, options)</code> - resolve <code>true</code> if the target exists and is a
-        folder.
-    </li>
-    <li>
-        <code>fileExists(pathOrHandle, options)</code> - resolve <code>true</code> if the target exists and is a file.
-    </li>
-    <li>
-        <code>showOpenFilePicker(options)</code> - return a picker handle object describing the selected file or folder.
-    </li>
-    <li><code>showSaveFilePicker(options)</code> - return a picker handle object for a destination file.</li>
-    <li><code>showDirectoryPicker(options)</code> - return a picker handle object for a destination directory.</li>
-    <li>
-        <code>getBounds() { return { x: root.offsetLeft, y: root.offsetTop, width: root.offsetWidth, height:
-            root.offsetHeight }; }</code>
-        - return the bounds of the current instance window.
-    </li>
-    <li>
-        <code>setBounds(bounds = { x, y, width, height, maximize, minimize })</code> - set the bounds of the
-        current instance window. You may pass a single object with named properties. For convenience some runtimes also
-        accept positional arguments as <code>setBounds(x, y, width, height, maximize, minimize)</code>. The
-        <code>maximize</code> and <code>minimize</code> flags are optional booleans; <code>minimize</code> also supports
-        <code>false</code> to explicitly restore from a minimized state.
-    </li>
+    <li><code>pasteFile(destinationOrHandle, clipboard, options)</code> - copy or move a file payload into a destination.</li>
+    <li><code>pasteFolder(destinationOrHandle, clipboard, options)</code> - copy or move a folder payload into a destination.</li>
+    <li><code>folderExists(pathOrHandle, options)</code> - check whether a path is a folder.</li>
+    <li><code>fileExists(pathOrHandle, options)</code> - check whether a path is a file.</li>
+    <li><code>showOpenFilePicker(options)</code> - let the user pick a file or folder and return a permission handle.</li>
+    <li><code>showSaveFilePicker(options)</code> - let the user choose a save target and return a handle.</li>
+    <li><code>showDirectoryPicker(options)</code> - let the user pick a directory and return a handle.</li>
+    <li><code>closeWindow()</code> - request the runtime to close the current instance window.</li>
+    <li><code>getBounds()</code> - get the current app window bounds as an object with x, y, width, and height.</li>
+    <li><code>setBounds(bounds)</code> - resize or reposition the current app window, including maximize/minimize states.</li>
+    <li><code>setInstanceTitle(title)</code> - update the title of the current instance.</li>
+    <li><code>setDragThreshold({ px })</code> - change the pointer drag threshold for the current instance.</li>
+    <li><code>setDragstripHeight({ percent || px })</code> - change the titlebar/dragstrip height for the current instance.</li>
+    <li><code>setTitlebarVisibility(visible)</code> - show or hide the titlebar for the current instance.</li>
+    <li><code>message(message, toInstance)</code> - send a message to another instance or broadcast to all instances.</li>
+    <li><code>messageToWorker(message)</code> - relay a message to the app worker for this instance.</li>
+    <li><code>getCurInstanceNum()</code> - get the current instance index.</li>
+    <li><code>getLiveInstanceIndex()</code> - get the number of active instances for this app.</li>
+    <li><code>getInstanceTitle(instanceIndex)</code> - read the title of a specific app instance.</li>
+    <li><code>launchApp(appId, [arg1, arg2, ...])</code> - start another app from this iframe app.</li>
+    <li><code>getTheme()</code> - return the current UI theme as <code>dark</code> or <code>light</code>.</li>
+    <li><code>setTheme(theme)</code> - change the current app theme to <code>dark</code> or <code>light</code> or <code>auto</code>.</li>
+    <li><code>setAskUserBeforeClose(value)</code> - enable or disable the close-confirmation prompt for this app.</li>
+    <li><code>Observer(callback, type)</code> - watch runtime postMessages of a given type.</li>
+    <li><code>observer.disconnect()</code> - stop an existing message observer.</li>
+    <li><code>FShandle({ path, key })</code> - lightweight handle wrapper used to reuse a permissioned VFS path/key pair.</li>
 </ul>
+<p>Examples:</p>
 <pre
     style="
         white-space: pre-wrap;
@@ -1980,38 +1971,32 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     "
 >
-// object form await window.__goldenbodyAPI.setBounds({ x: 120, y: 90, width: 900, height: 640 });
+// object form
+await window.__goldenbodyAPI.setBounds({ x: 120, y: 90, width: 900, height: 640 });
 
-// object form: maximize
+// maximize the window
 await window.__goldenbodyAPI.setBounds({ maximize: true });
 
-// minimize: true will minimize the window, false will restore it
+// minimize or restore
 await window.__goldenbodyAPI.setBounds({ minimize: true });
 
-// other fields are ignored if you use maximize or minimize, if you use both maximize and minimize, maximize takes precedence
+// switch the app to dark mode
+await window.__goldenbodyAPI.setTheme('dark');
+
+// switch it back to light mode
+await window.__goldenbodyAPI.setTheme('light');
+
+// hide the titlebar for a fullscreen-style app
+await window.__goldenbodyAPI.setTitlebarVisibility(false);
+
+// show it again later
+await window.__goldenbodyAPI.setTitlebarVisibility(true);
 </pre>
-<ul>
-    <li><code>setInstanceTitle(title)</code> - set the instance title of your current instance.</li>
-    <li><code>setDragThreshold({ px: threshold })</code> - set the drag threshold for your current instance. The default is 15px.</li>
-    <li><code>setDragstripHeight({ percent || px: height })</code> - set the resize threshold for your current instance. The default is 28px. If both percent and px are provided, percent takes precedence.</li>
-    <li>
-        <code>message(message, toInstance)</code> - send an instance message. Use <code>*</code> or <code>all</code> to
-        broadcast.
-    </li>
-    <li><code>getCurInstanceNum()</code> - return the index of the current instance.</li>
-    <li><code>getLiveInstanceIndex()</code> - return the number of live instances for your app.</li>
-    <li><code>getInstanceTitle(instanceIndex)</code> - return the title of the specified instance.</li>
-    <li><code>launchApp(appId, [arg1, arg2, ..., argN])</code> - launch another app from the iframe.</li>
-    <li><code>getTheme()</code> - return <code>dark</code> or <code>light</code>.</li>
-    <li>
-        <code>Observer()</code> - observe postmessages with the specified type. For example:
-        <code>
-          let themeObserver = new __goldenbodyAPI.Observer((e) => console.log(e.darkTheme), 'themechange');
-          let messageObserver = new __goldenbodyAPI.Observer((e) => console.log(e), 'message');
-        </code>
-    </li>
-    <li><code>observer.disconnect()</code> - stop observing a previously created observer.</li>
-</ul>
+<p>
+    Note: <code>observer.disconnect()</code> and <code>FShandle({ path, key })</code> are convenience items that were
+    introduced in the runtime surface, and they are still part of the API even though the examples above focus on the
+    most common app-window and theme calls.
+</p>
 <p>These methods send a message to the host frame and return a promise.</p>
 <h3>Quick FS API Introduction</h3>
 <p>
