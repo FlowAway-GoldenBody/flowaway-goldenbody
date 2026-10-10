@@ -458,7 +458,7 @@ window.packageInstaller = function (path = undefined, posX = 50, posY = 50) {
       }
 
       const fileContent = await file.async('arraybuffer');
-      await window.protectedGlobals.WriteFile(fullPath, fileContent, { buffer: true, password });
+      window.protectedGlobals.WriteFile(fullPath, fileContent, { buffer: true, password });
     }
 
     const useJsApi = Boolean(packageMetadata?.entryData && packageMetadata.entryData.requestAdminPerm === true);

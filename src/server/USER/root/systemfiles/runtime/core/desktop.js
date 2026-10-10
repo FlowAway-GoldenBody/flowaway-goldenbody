@@ -768,7 +768,9 @@
         const appId = effectiveShortcut.appId || effectiveShortcut.id;
 
         try {
-          await window.protectedGlobals.launchApp(appId);
+          const app = window.protectedGlobals.apps.find((candidate) => candidate.id === appId);
+          if (!app.headless) await window.protectedGlobals.launchApp(appId);
+          else alert(`"${app.label}" is a background service app and cannot be launched directly.`);
         } catch (err) {
           console.warn("Failed to open desktop shortcut app", err);
         }
@@ -1066,7 +1068,9 @@
       item.addEventListener("dblclick", async () => {
         if (normalized.type === "app") {
           try {
-            await window.protectedGlobals.launchApp(normalized.appId || normalized.id);
+            const app = window.protectedGlobals.apps.find((candidate) => candidate.id === normalized.appId);
+            if (!app.headless) await window.protectedGlobals.launchApp(normalized.appId);
+            else alert(`"${app.label}" is a background service app and cannot be launched directly.`);
           } catch (err) {
             console.warn("Failed to launch app shortcut", err);
           }

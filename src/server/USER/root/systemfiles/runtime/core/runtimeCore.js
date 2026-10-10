@@ -1084,6 +1084,15 @@ window.protectedGlobals.deleteApp = async function (obj, cleanupOnly = false) {
   }
 };
 
+window.protectedGlobals.forceStopApp = async function (obj) {
+  if (!obj) return;
+  for (const element of window.protectedGlobals.apps) {
+    if (element.id == obj.id) {
+        window[element.globalVarObjectString][element.allAppArrayString][0].closeAll();
+    }
+  }
+};
+
 window.protectedGlobals.installApp = async function (folderName, options = {}) {
   if (options.update) {
     let targetApp = window.protectedGlobals.apps.find((a) => a.folderName === folderName);

@@ -414,7 +414,8 @@ window.protectedGlobals.rebuildhandler = function () {
   window.protectedGlobals.isRebuilding = true;
   window.Worker = window.protectedGlobals.__nativeWorkerConstructor;
   // Dispose processes if present
-  for (let i = 0; i < window.protectedGlobals.__processes.length; i++) {
+  const processLength = window.protectedGlobals.__processes.length;
+  for (let i = 0; i < processLength; i++) {
     try {
       window.protectedGlobals.killProcess(i + 1);
     } catch (e) {}

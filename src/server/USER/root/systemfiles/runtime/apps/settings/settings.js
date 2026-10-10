@@ -715,7 +715,7 @@ window.settings = function (posX = 50, posY = 50) {
     return d;
   }
 
-  function applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer) {
+  function applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer, forceQuitBtn) {
     const dark = !!window.protectedGlobals.data.dark;
     if (row) {
       row.style.borderColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
@@ -726,6 +726,11 @@ window.settings = function (posX = 50, posY = 50) {
     }
     if (iconWrapper) {
       iconWrapper.style.background = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+    }
+    if (forceQuitBtn) {
+      forceQuitBtn.style.background = dark ? "rgba(245, 158, 11, 0.22)" : "rgba(245, 158, 11, 0.14)";
+      forceQuitBtn.style.color = dark ? "#fff" : "#111";
+      forceQuitBtn.style.borderColor = dark ? "rgba(251, 191, 36, 0.45)" : "rgba(217, 119, 6, 0.3)";
     }
     if (deleteBtn) {
       deleteBtn.style.background = "#c0392b";
@@ -766,13 +771,14 @@ window.settings = function (posX = 50, posY = 50) {
       const row = appWrapper.querySelector("[data-app-row='true']");
       const label = appWrapper.querySelector("[data-app-row-label='true']");
       const iconWrapper = appWrapper.querySelector("[data-app-row-icon='true']");
+      const forceQuitBtn = appWrapper.querySelector("[data-app-row-force-quit='true']");
       const deleteBtn = appWrapper.querySelector("[data-app-row-delete='true']");
       const permsToggleBtn = appWrapper.querySelector("[data-app-row-perms-toggle='true']");
       const saveBtn = appWrapper.querySelector("[data-app-row-save='true']");
       const adminPermsBtn = appWrapper.querySelector("[data-app-row-admin-toggle='true']");
       const adminPermsInfo = appWrapper.querySelector("[data-app-row-admin-info='true']");
       const detailsContainer = appWrapper.querySelector("[data-app-row-perms-container='true']") || appWrapper.querySelector("[data-app-row-admin-perms-container='true']");
-      applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer);
+      applyAppRowTheme(row, label, iconWrapper, deleteBtn, permsToggleBtn, saveBtn, adminPermsBtn, adminPermsInfo, detailsContainer, forceQuitBtn);
     });
   }
 
@@ -841,6 +847,22 @@ window.settings = function (posX = 50, posY = 50) {
     right.style.alignItems = "center";
     right.style.gap = "8px";
 
+    const forceQuitBtn = document.createElement("button");
+    forceQuitBtn.dataset.appRowForceQuit = "true";
+    forceQuitBtn.textContent = "Force Quit";
+    forceQuitBtn.style.background = window.protectedGlobals.data.dark ? "rgba(245, 158, 11, 0.22)" : "rgba(245, 158, 11, 0.14)";
+    forceQuitBtn.style.color = window.protectedGlobals.data.dark ? "#fff" : "#111";
+    forceQuitBtn.style.border = "1px solid rgba(251, 191, 36, 0.45)";
+    forceQuitBtn.style.padding = "6px 10px";
+    forceQuitBtn.style.borderRadius = "6px";
+    forceQuitBtn.style.cursor = "pointer";
+    forceQuitBtn.style.whiteSpace = "nowrap";
+    forceQuitBtn.addEventListener("click", async () => {
+      const result = await window.protectedGlobals.showConfirmDialog("Force Quit App", "Are you sure you want to force quit this app? This will terminate the all app processes and it may lose unsaved data.");
+      if (!result) return;
+      window.protectedGlobals.forceStopApp(appMeta);
+    });
+
     const deleteBtn = document.createElement("button");
     deleteBtn.dataset.appRowDelete = "true";
     deleteBtn.textContent = "Delete";
@@ -852,7 +874,7 @@ window.settings = function (posX = 50, posY = 50) {
     deleteBtn.style.cursor = "pointer";
     deleteBtn.style.whiteSpace = "nowrap";
 
-    applyAppRowTheme(row, label, iconWrapper, deleteBtn);
+    applyAppRowTheme(row, label, iconWrapper, deleteBtn, null, null, null, null, null, forceQuitBtn);
 
     deleteBtn.addEventListener("click", async () => {
       let userConfirm = await window.protectedGlobals.showConfirmDialog("Delete App", "This will delete this app and all the data it wrote in it's own folder. (Note: If you accidentally deleted a system app you can recover it in the login page in the Reset System App section)");
@@ -869,7 +891,7 @@ window.settings = function (posX = 50, posY = 50) {
       }
     });
 
-    right.append(deleteBtn);
+    right.append(forceQuitBtn, deleteBtn);
     row.append(left, right);
     appWrapper.appendChild(row);
 
@@ -1626,7 +1648,10 @@ window.settings = function (posX = 50, posY = 50) {
     </li>
     <li><code>enableDebugging</code> - boolean flag to enable debugging features for the app.</li>
     <li><code>cmd</code> or <code>commands</code> - array of command objects for the app.</li>
-    <li><code>headless</code> - boolean flag to indicate if the app runs in headless mode (no UI).</li>
+    <li><code>headless</code> - boolean flag to indicate if the app runs in headless mode (no entry shown in the UI).</li>
+    <p>Non iframe headless apps can choose to not have a window, but if it is an iframe app, it will still have a window, but it will not show on the taskbar and will not have a start menu entry.</p>
+    <p>You can make it appear to be headless by setting "startupPos": { "minimize": true } in the entry.json, which will make it start minimized and not show.</p>
+    <p>Headless apps can be used for background tasks, services, file operations, or other non-interactive functionality.</p>
     <li><code>functionName</code> - name of the globally exported launch function. (admin app only)</li>
     <li><code>globalVarObjectString</code> - name of the global object for app instances. (admin app only)</li>
     <li>
@@ -1729,6 +1754,8 @@ const args = window.__args; // [{ view: 'recent', id: 42 }, { obj2: 'favorites' 
     <code>new Worker(url, { name: entryObj.headlessJsFile, source: entryObj.id })</code>, so it can live independently
     from the iframe. This pattern is used for long-running helper workers, polling loops, or OS-like background
     services.
+    The worker is able to launch its gui through <code>postMessage({ type: 'launchApp' })</code> to the main runtime.
+    HeadlessJsFile can also exist if an app is not headless, it will still be launched as a worker in the background.
     The worker is not allowed to interact with anything in the VFS, it can only complete communication by sharing a server with the main app instance and use the 3rd party server as a bridge.
     It may also choose to use minimized or 0 by 0 windows at startup to stimulate a background service, but the service requires a user interation (launch the app in file explorer by opening a file or terminal) to start.
 </p>

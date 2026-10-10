@@ -1175,6 +1175,7 @@ window.terminal = function (path, posX = 50, posY = 50) {
         if (appCmds.length) {
           printLine("\nApp commands:");
           appCmds.forEach(ac => printLine(` - ${ac.app} ${ac.name}`));
+          printLine("Use <appId> <command> to run an app command, if appId, argument name, or any arguments you want to pass to the command contains spaces, wrap it in double quotes. if it contains double quotes, escape them with a backslash (\\\").");
         }
         return;
       }

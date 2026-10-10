@@ -2304,17 +2304,12 @@ function makeIcon(type, size = 16) {
         // Find any element that represents an item (works for list rows and tile items)
         const candidates = Array.from(fileArea.querySelectorAll('[data-fs-item]'));
         const row = candidates.find((r) => {
-          const textChild = Array.from(r.children).find((ch) => (ch.textContent || "").trim());
-          return textChild && textChild.textContent.trim() === oldName;
+          const textChild = Array.from(r.children).find((ch) => ch.textContent.trim());
+          return textChild && textChild.textContent === oldName;
         });
         if (!row) return;
 
-        let nameDiv = Array.from(row.children).find((ch) => (ch.textContent || "").trim() === oldName);
-        // fallback: try descendant match
-        if (!nameDiv) {
-          const desc = row.querySelector("*");
-          if (desc && (desc.textContent || "").trim() === oldName) nameDiv = desc;
-        }
+        let nameDiv = Array.from(row.children).find((ch) => ch.textContent === oldName);
         if (!nameDiv) return;
 
         const input = document.createElement("input");

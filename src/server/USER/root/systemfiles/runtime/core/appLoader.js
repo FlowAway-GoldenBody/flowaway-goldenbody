@@ -670,7 +670,11 @@
           }
         });
         appObj.allIframe.forEach((iframe) => {
-          iframe.contentWindow.postMessage({ type: "newinstance", channel: appObj.id }, "*");
+          try {
+            iframe.contentWindow.postMessage({ type: "newinstance", channel: appObj.id }, "*");
+          } catch {
+            // instance killed by task manager, contentWindow is gone.
+          }
         });
         let appWidth = false;
         let appHeight = false;
@@ -995,30 +999,34 @@
         window.addEventListener("message", pongHandler);
 
         const pingInterval = setInterval(() => {
-          if (pageHidden) return;
-          // Keep pinging the app once per second.
-          iframe.contentWindow.postMessage(
-            {
-              type: "ping",
-              channel: appObj.id,
-            },
-            "*",
-          );
+          try {
+            if (pageHidden) return;
+            // Keep pinging the app once per second.
+            iframe.contentWindow.postMessage(
+              {
+                type: "ping",
+                channel: appObj.id,
+              },
+              "*",
+            );
 
-          // No pong received from this iframe for 15 seconds.
-          if (!awaitingDlg && performance.now() - lastPongAt >= 15000) {
-            awaitingDlg = true;
+            // No pong received from this iframe for 15 seconds.
+            if (!awaitingDlg && performance.now() - lastPongAt >= 15000) {
+              awaitingDlg = true;
 
-            window.protectedGlobals.showConfirmDialog("App Unresponsive", `Instance "${instance.title}" (${instanceNum}) of "${entryObj.label}" is not responding.`, "Close App", "Wait").then((terminate) => {
-              awaitingDlg = false;
+              window.protectedGlobals.showConfirmDialog("App Unresponsive", `Instance "${instance.title}" (${instanceNum}) of "${entryObj.label}" is not responding.`, "Close App", "Wait").then((terminate) => {
+                awaitingDlg = false;
 
-              if (terminate) {
-                instance.closeWindow();
-              } else {
-                // Start a fresh 15-second window after choosing Wait.
-                lastPongAt = performance.now();
-              }
-            });
+                if (terminate) {
+                  instance.closeWindow();
+                } else {
+                  // Start a fresh 15-second window after choosing Wait.
+                  lastPongAt = performance.now();
+                }
+              });
+            }
+          } catch {
+            clearInterval(pingInterval);
           }
         }, 1000);
 
@@ -1337,6 +1345,9 @@
         let blob = new Blob([scriptText], { type: "text/javascript" });
         let url = URL.createObjectURL(blob);
         const worker = new Worker(url, { name: entryObj.headlessJsFile, source: entryObj.id });
+        worker.onmessage = (e) => {
+          if (e.data?.type === 'launchApp') window.protectedGlobals.launchApp(entryObj.id, e.data?.args);
+        };
         window.protectedGlobals.workers[entryObj.id] = worker;
       }
     }

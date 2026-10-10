@@ -65,7 +65,7 @@ function zmcdRateLimit(req, res) {
     const ip = getRequestIP(req);
     const now = Date.now();
 
-    const window = 5000; // 1 second
+    const window = 5000; // 5 seconds
     const max = 5;
 
     let data = zmcdAttempts.get(ip);
@@ -152,8 +152,8 @@ function fetchFilesRateLimit(req, res) {
     const ip = getRequestIP(req);
     const now = Date.now();
 
-    const window = 10 * 1000; // 10 seconds
-    const max = 5000;
+    const window = 5 * 1000; // 5 seconds
+    const max = 1000;
 
     let data = fetchFilesAttempts.get(ip);
 

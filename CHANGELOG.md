@@ -148,5 +148,11 @@
 ## No Version Increase
 - Added all member mail feature
 
-## V 2.5.2
+## V 2.5.0
 - added invisible dragstrip, so you can still do stuff with the top of the window for iframe apps. Use element.addEventListener('pointerdown', (event) => event.stopPropagation()); on elements that dont want to be able to drag the window.
+
+## V 2.5.1
+- Fixed a thread/process termination bug in cleanup, Added Force Stop Option
+- Prevent headless apps be launched in shortcuts
+- Added launch app feature for headless background services
+- Various bug fixes

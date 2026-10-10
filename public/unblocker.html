@@ -12,14 +12,16 @@ const height = screen.availHeight;
       audio.play();
     }
     function launchHomepage(newTab = false) {
+      try {
+        playAudio('https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/enterMusic.wav');
+        playAudio("https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/Karazhan'sDoors.wav");
+      } catch {}
       let a;
       if (newTab) a = window.open('about:blank', '_blank', `width=${width},height=${height},top=0,left=0,resizable=yes,scrollbars=yes`);
       else a = window.open('about:blank', '_blank');
       let script = a.document.createElement('script');
       script.src = 'ouchbad.js';
       a.document.body.appendChild(script);
-      playAudio('https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/enterMusic.wav');
-      playAudio("https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/Karazhan'sDoors.wav");
     }
     let a = document.createElement('button');
     a.textContent = 'lauch homepage in new tab';
