@@ -61,13 +61,18 @@ window.protectedGlobals.firstlogin = false;
   box.style.alignItems = 'center';
 
   box.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:10px">Login</h2>
+    <h2 style="text-align:center;margin-bottom:10px">Login / Register</h2>
 
     <input id="zmc-user" placeholder="Username" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
     <input id="zmc-pass" type="password" placeholder="Password" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;">
 
     <button id="zmc-login" style="width:100%;margin-top:10px">Login</button>
     <button id="zmc-register" style="width:100%;margin-top:6px">Create Account</button>
+
+    <label style="display:flex;align-items:flex-start;gap:8px;width:100%;margin-top:10px;font-size:13px;line-height:1.4;color:#dfe7f1;">
+      <input id="zmc-consent" type="checkbox" style="margin-top:2px;flex-shrink:0;">
+      <span>By continuing, I agree the <a href="termsofservice.html" target="_blank" rel="noreferrer" style="color:#7dd3fc;">Terms of Service</a> and <a href="privacypolicy.html" target="_blank" rel="noreferrer" style="color:#7dd3fc;">Privacy Policy</a>.</span>
+    </label>
 
     <div id="zmc-msg" style="margin-top:10px;font-size:14px;text-align:center"></div>
 
@@ -103,6 +108,7 @@ window.protectedGlobals.firstlogin = false;
   const recoveryDeleteAppSelect = document.getElementById('recovery-delete-app-select');
   const recoveryUserInput = document.getElementById('zmc-user');
   const recoveryPassInput = document.getElementById('zmc-pass');
+  const consentCheckbox = document.getElementById('zmc-consent');
 
   function resetSelectPlaceholder(select, message) {
     select.innerHTML = `<option value="" disabled selected>${message}</option>`;
@@ -211,6 +217,12 @@ window.protectedGlobals.firstlogin = false;
   function send(needNewAcc) {
     const username = document.getElementById('zmc-user').value;
     const password = document.getElementById('zmc-pass').value;
+
+    if (needNewAcc && !consentCheckbox.checked) {
+      msg.textContent = 'You must agree to the Terms of Service and Privacy Policy before creating an account.';
+      msg.style.color = 'red';
+      return;
+    }
 
     if (!username || !password) {
       msg.textContent = 'Fill all fields';

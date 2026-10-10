@@ -1,49 +1,195 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Learn</title>
+    <style>
+        :root {
+            --bg-1: #0f172a;
+            --bg-2: #111827;
+            --panel: rgba(15, 23, 42, 0.72);
+            --panel-border: rgba(148, 163, 184, 0.22);
+            --text: #e2e8f0;
+            --muted: #cbd5e1;
+            --primary: #38bdf8;
+            --primary-strong: #0ea5e9;
+            --secondary: rgba(148, 163, 184, 0.12);
+            --shadow: rgba(15, 23, 42, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 32%),
+                linear-gradient(135deg, var(--bg-1), var(--bg-2));
+            color: var(--text);
+        }
+
+        .panel {
+            width: min(760px, calc(100vw - 32px));
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 28px;
+            padding: 32px 28px;
+            box-shadow: 0 26px 80px var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        .eyebrow {
+            margin: 0 0 12px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 4vw, 2.9rem);
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            margin: 14px 0 28px;
+            color: var(--muted);
+            font-size: 1.02rem;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .action-btn {
+            appearance: none;
+            border: 0;
+            border-radius: 14px;
+            padding: 16px 22px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+            box-shadow: 0 12px 30px rgba(14, 165, 233, 0.22);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+            color: #06131d;
+        }
+
+        .action-btn.secondary {
+            background: var(--secondary);
+            color: var(--text);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: none;
+        }
+
+        .links {
+            display: grid;
+            gap: 14px;
+        }
+
+        .links a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            background: rgba(148, 163, 184, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 12px;
+            padding: 14px 16px;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .links a:hover {
+            background: rgba(56, 189, 248, 0.08);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+    </style>
 </head>
 <body>
+    <div class="panel">
+        <p class="eyebrow">FlowAway GoldenBody</p>
+        <h1>The Sanctuary For Students With Managed Devices</h1>
+        <p class="subtitle"></p>
+        <div class="actions" id="actions"></div>
+        <div class="links">
+            <p>
+              More Products made by FlowAway GoldenBody:
+            </p>
+            <p>
+              This is the shell shockers userscript injector (http and ws proxy) designed to inject popular userscripts and utility mods for shell shockers, the benefits of using that is it do not require a userscript manager such as TamperMonkey. Userscripts supported includes as StateFarm Client, a popular utility mod that boosts the game.
+              If you feel the official statefarm client from https://sfc.best has significant framerate drops (lag), check out the one we posted in #general-announcements in our discord server. It is a modified version of the official statefarm client that is faster and more stable.
+            </p>
+            <p>
+              Before trying it, you will need to create an account in here (FlowAway GoldenBody) to be able to use it. AND agree
+            </p>
+            <a href="https://docs.google.com/document/d/18A226mG4kVyd-BoNSxXxoXOuhwtm9M3CFwTaFf0-sZU/edit?tab=t.0" target="_blank" rel="noreferrer">Terms of Service</a>
+            <p>
+              Try the userscript injector below:
+            </p>
+            <a href="https://sfc.mathvariables.xyz/inject" onclick="playCompoundAudio()" target="_blank" rel="noreferrer">[Button] Statefarm Client Chromebook edition</a>
+            <p>
+              Discord:
+            </p>
+            <a href="https://discord.gg/MXxNtJThDJ" onclick="playCompoundAudio()" target="_blank" rel="noreferrer">[Button] Join our Discord server for more info or updates.</a>
+        </div>
+    </div>
+
     <script>
-const width = screen.availWidth;
-const height = screen.availHeight;
-    function playAudio(url) {
-      let audio = new Audio(url);
-      audio.play();
-    }
-    function launchHomepage(newTab = false) {
-      let a;
-      if (newTab) a = window.open('about:blank', '_blank', `width=${width},height=${height},top=0,left=0,resizable=yes,scrollbars=yes`);
-      else a = window.open('about:blank', '_blank');
-      let script = a.document.createElement('script');
-      script.src = 'ouchbad.js';
-      a.document.body.appendChild(script);
-      playAudio('https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/enterMusic.wav');
-      setTimeout(() => {
-        playAudio("https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/Karazhan'sDoors.wav");
-      }, 200);
-    }
-    let a = document.createElement('button');
-    a.textContent = 'lauch homepage in new tab';
-    a.style.width = '300px';
-    a.style.height = '100px';
-    a.onclick = () => launchHomepage(false);
-    document.body.appendChild(a);
-    let b = document.createElement('button');
-    b.textContent = 'lauch homepage in new window';
-    b.style.width = '300px';
-    b.style.height = '100px';
-    b.onclick = () => launchHomepage(true);
-    document.body.appendChild(b);
-    let downloadh1 = document.createElement('h1');
-    downloadh1.innerHTML = "<a href='https://sfc.mathvariables.xyz/inject' target='_blank'>Statefarm Client chromebook edition is avaliable now!</a>";
-    let discordlink = document.createElement('a');
-    discordlink.target = '_blank';
-    discordlink.href = 'https://discord.gg/MXxNtJThDJ';
-    discordlink.textContent = 'Join our discord server for more info or updates.';
-    document.body.appendChild(downloadh1);
-    document.body.appendChild(discordlink);
+        const width = screen.availWidth;
+        const height = screen.availHeight;
+
+        function playAudio(url) {
+          let audio = new Audio(url);
+          audio.play();
+        }
+        function playCompoundAudio() {
+          playAudio('https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/enterMusic.wav');
+          setTimeout(() => {
+            playAudio("https://flowaway-goldenbody.github.io/CDN-For-FlowAway-GoldenBody/Karazhan'sDoors.wav");
+          }, 200);
+        }
+        function launchHomepage(newTab = false) {
+          playCompoundAudio();
+          let a;
+          if (newTab) a = window.open('about:blank', '_blank', `width=${width},height=${height},top=0,left=0,resizable=yes,scrollbars=yes`);
+          else a = window.open('about:blank', '_blank');
+          let script = a.document.createElement('script');
+          script.src = 'ouchbad.js';
+          a.document.body.appendChild(script);
+        }
+
+        const actions = document.getElementById('actions');
+
+        let a = document.createElement('button');
+        a.type = 'button';
+        a.textContent = 'Open homepage in new tab';
+        a.className = 'action-btn primary';
+        a.onclick = () => launchHomepage(false);
+        actions.appendChild(a);
+
+        let b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = 'Open homepage in new window';
+        b.className = 'action-btn secondary';
+        b.onclick = () => launchHomepage(true);
+        actions.appendChild(b);
     </script>
-    <br><br><br><br><br><br><br><br>
 </body>
 </html>
