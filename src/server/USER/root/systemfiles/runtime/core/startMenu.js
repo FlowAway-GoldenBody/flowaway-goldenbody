@@ -41,12 +41,27 @@ const loadStartMenuConfig = window.protectedGlobals.loadStartMenuConfig = async 
 
 const saveStartMenuConfig = window.protectedGlobals.saveStartMenuConfig = async function () {
   if (!window.protectedGlobals._startMenuConfig) return;
-  const configJson = JSON.stringify(window.protectedGlobals._startMenuConfig, null, 2);
   await window.protectedGlobals.WriteFile('systemfiles/userprofile/startMenu-config.json', JSON.stringify(window.protectedGlobals._startMenuConfig), { text: true });
 }
 
-const addToRecents = window.protectedGlobals.addToRecents = function (appId) {
-  if (!window.protectedGlobals._startMenuConfig) return;
+const ensureStartMenuConfig = async function () {
+  if (!window.protectedGlobals._startMenuConfig) {
+    await loadStartMenuConfig();
+  }
+  if (!window.protectedGlobals._startMenuConfig) {
+    window.protectedGlobals._startMenuConfig = {};
+  }
+  if (!Array.isArray(window.protectedGlobals._startMenuConfig.pinnedApps)) {
+    window.protectedGlobals._startMenuConfig.pinnedApps = [];
+  }
+  if (!Array.isArray(window.protectedGlobals._startMenuConfig.recents)) {
+    window.protectedGlobals._startMenuConfig.recents = [];
+  }
+  return window.protectedGlobals._startMenuConfig;
+}
+
+const addToRecents = window.protectedGlobals.addToRecents = async function (appId) {
+  await ensureStartMenuConfig();
   const recents = window.protectedGlobals._startMenuConfig.recents || [];
   const index = recents.indexOf(appId);
   if (index > -1) recents.splice(index, 1);
@@ -55,11 +70,11 @@ const addToRecents = window.protectedGlobals.addToRecents = function (appId) {
     recents.pop();
   }
   window.protectedGlobals._startMenuConfig.recents = recents;
-  saveStartMenuConfig();
+  await saveStartMenuConfig();
 }
 
-const removeFromStartMenu = function (appId) {
-  if (!window.protectedGlobals._startMenuConfig) return;
+const removeFromStartMenu = async function (appId) {
+  await ensureStartMenuConfig();
   const pinnedApps = window.protectedGlobals._startMenuConfig.pinnedApps || [];
   const index = pinnedApps.indexOf(appId);
   if (index > -1) {
@@ -77,6 +92,40 @@ const startMenu = window.protectedGlobals.startMenu = document.createElement("di
 startMenu.id = "startMenu";
 startMenu.className = "startMenu";
 startMenu.style.zIndex = 100000; // maximum z-index to ensure it appears on top of everything
+
+const signOutSvg = `
+<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+  <path d="M16 17l5-5-5-5"/>
+  <path d="M21 12H9"/>
+</svg>`;
+
+const getBatteryIconSvg = function (level, charging) {
+  const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
+  const fillWidth = Math.max(3, Math.round((safeLevel / 100) * 12));
+  const batteryColor = charging ? '#5eead4' : 'currentColor';
+  const chargeBolt = charging ? `
+    <g transform="translate(-0.8 0)">
+      <path d="M11.1 5.2L7.2 12.6h3.1L8.2 18.8l7.1-8.1h-3.4l1.5-5.5Z" fill="currentColor" opacity="0.96"/>
+    </g>
+  ` : '';
+
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="2" y="6" width="16" height="12" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <rect x="4.2" y="8.2" width="${fillWidth}" height="7.6" rx="1.5" fill="${batteryColor}" opacity="${safeLevel > 0 ? 1 : 0.2}"/>
+      <rect x="18" y="9" width="3" height="6" rx="1" fill="currentColor"/>
+      ${chargeBolt}
+    </svg>
+  `;
+};
+
+const syncStartMenuTheme = function () {
+  const isDark = !!(window.protectedGlobals && window.protectedGlobals.data && window.protectedGlobals.data.dark);
+  startMenu.classList.toggle('dark', isDark);
+  startMenu.classList.toggle('light', !isDark);
+};
+
 startMenu.innerHTML = `
 
 <h3 style="margin:0 0 10px 0; font-size:18px;">Start</h3>
@@ -97,16 +146,17 @@ startMenu.innerHTML = `
 
     <div class="statusBar">
     <div class="statusLeft">
-        <button id="signOutBtn" style="margin-left:8px;padding:6px 8px;border-radius:6px;border:none;background:#e53e3e;color:white;font-weight:600;">Sign Out</button>
+        <button id="signOutBtn" type="button">${signOutSvg}<span>Sign Out</span></button>
     </div>
 
     <div class="statusRight">
-      <span id="batteryStatus">🔋 --%</span>
-      <span id="timeStatus">--:--</span>
+      <span id="batteryStatus" class="statusPill">${getBatteryIconSvg(0, false)} <span>--%</span></span>
+      <span id="timeStatus" class="statusPill">--:--</span>
     </div>
 </div>
 `;
 
+syncStartMenuTheme();
 document.body.appendChild(startMenu);
 
 // Load config on startup
@@ -347,10 +397,12 @@ const applyBrightnessDelta = window.protectedGlobals.applyBrightnessDelta = func
 };
 
 window.addEventListener("styleapplied", () => {
+  syncStartMenuTheme();
   updateBrightnessOverlayTheme();
   syncBrightnessOverlayControls();
 });
 window.addEventListener("brightness-state-updated", () => {
+  syncStartMenuTheme();
   syncBrightnessOverlayControls();
 });
 ensureBrightnessOverlay();
@@ -603,9 +655,9 @@ div.innerHTML = ` ${app.pngEnabled ? `<img src="data:image/[FORMAT];base64,${app
   // Context menu
   div.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-      
+
     runAppPackageContextMenu(e);
-    showAppContextMenu(e.clientX, e.clientY, app, draggable);
+    showAppContextMenu(e.clientX, e.clientY, app, draggable).catch(() => {});
   });
 
   // Click to launch
@@ -618,8 +670,9 @@ div.innerHTML = ` ${app.pngEnabled ? `<img src="data:image/[FORMAT];base64,${app
   container.appendChild(div);
 }
 
-const showAppContextMenu = function (x, y, app, canPin) {
-  // Remove existing menu
+const showAppContextMenu = async function (x, y, app, canPin) {
+  await ensureStartMenuConfig();
+
   const existing = document.querySelector('.app-context-menu');
   if (existing) existing.remove();
 
@@ -635,43 +688,45 @@ const showAppContextMenu = function (x, y, app, canPin) {
   let html = '';
 
   if (!canPin && !isPinned) {
-    html += `<button class="context-menu-item" data-action="pin">📌 Pin to Start Menu</button>`;
+    html += '<button class="context-menu-item" data-action="pin">Pin to Start Menu</button>';
   } else if (!canPin && isPinned) {
-    html += `<button class="context-menu-item danger" data-action="unpin">📌 Unpin from Start Menu</button>`;
+    html += '<button class="context-menu-item danger" data-action="unpin">Unpin from Start Menu</button>';
   }
 
   if (canPin) {
-    html += `<button class="context-menu-item danger" data-action="remove">📌 Unpin from Start Menu</button>`;
+    html += '<button class="context-menu-item danger" data-action="remove">Unpin from Start Menu</button>';
   }
 
   menu.innerHTML = html;
   document.body.appendChild(menu);
 
-  // Attach handlers
   menu.querySelectorAll('.context-menu-item').forEach(item => {
     item.addEventListener('click', async () => {
       const action = item.dataset.action;
       if (action === 'pin') {
-        pinnedApps.push(appId);
-        window.protectedGlobals._startMenuConfig.pinnedApps = pinnedApps;
-        await saveStartMenuConfig();
+        const nextPinned = [...new Set([...(window.protectedGlobals._startMenuConfig.pinnedApps || []), appId])];
+        window.protectedGlobals._startMenuConfig.pinnedApps = nextPinned;
+        saveStartMenuConfig();
+        renderPinnedAppsGrid();
         switchTab('pinned');
       } else if (action === 'unpin' || action === 'remove') {
         removeFromStartMenu(appId);
+        if (window.protectedGlobals.startMenu && window.protectedGlobals.startMenu.style.display !== 'none') {
+          switchTab('pinned');
+        }
       }
       menu.remove();
     });
   });
 
-  // Close on outside click
   setTimeout(() => {
     const closeHandler = (e) => {
       if (!menu.contains(e.target)) {
         menu.remove();
-        document.removeEventListener('click', closeHandler);
+        document.removeEventListener('pointerdown', closeHandler);
       }
     };
-    document.addEventListener('click', closeHandler);
+    document.addEventListener('pointerdown', closeHandler);
   }, 0);
 }
 
@@ -696,7 +751,8 @@ const updateTime = window.protectedGlobals.updateTime = function updateTime() {
     minute: "2-digit",
     second: "2-digit",
   });
-  document.getElementById("timeStatus").textContent = time;
+  var timeNode = document.getElementById("timeStatus");
+  if (timeNode) timeNode.textContent = time;
 }
 
 updateTime();
@@ -711,11 +767,13 @@ if (navigator.getBattery) {
   navigator.getBattery().then((battery) => {
     function updateBattery() {
       var level = Math.round(battery.level * 100);
-      var charging = battery.charging ? "⚡" : "";
+      var charging = !!battery.charging;
       window.protectedGlobals.batteryLevel = level;
       window.protectedGlobals.batteryCharging = battery.charging;
-      document.getElementById("batteryStatus").textContent =
-        `🔋 ${level}% ${charging}`;
+
+      var batteryNode = document.getElementById("batteryStatus");
+      if (!batteryNode) return;
+      batteryNode.innerHTML = `${getBatteryIconSvg(level, charging)}<span>${level}%</span>`;
     }
     window.protectedGlobals.updateBattery = updateBattery;
     setTimeout(() => {
@@ -749,7 +807,8 @@ if (navigator.getBattery) {
     );
   });
 } else {
-  document.getElementById("batteryStatus").textContent = "🔋 N/A";
+  var batteryNode = document.getElementById("batteryStatus");
+  if (batteryNode) batteryNode.innerHTML = `${getBatteryIconSvg(0, false)}<span>N/A</span>`;
 }
 
 // ----------------- TOGGLE START MENU -----------------

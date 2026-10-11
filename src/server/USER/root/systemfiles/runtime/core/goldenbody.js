@@ -7,9 +7,14 @@
   let startMenuDarkImage = await window.protectedGlobals.ReadFile("/systemfiles/runtime/helpers/startMenu-dark.png", { buffer: true, direct: true }).then(res => res = iconDataToBase64(res));
   let refreshBatteryInfo = () => {
     window.protectedGlobals.updateBattery();
-    window.protectedGlobals.statusData.batteryLevel = window.protectedGlobals.batteryLevel || NaN;
-    window.protectedGlobals.statusData.isCharging = window.protectedGlobals.batteryCharging || false;
+    const nextChargingState = !!window.protectedGlobals.batteryCharging;
+    const previousChargingState = !!window.protectedGlobals.statusData?.isCharging;
+    window.protectedGlobals.statusData.batteryLevel = Number.isFinite(window.protectedGlobals.batteryLevel) ? window.protectedGlobals.batteryLevel : (window.protectedGlobals.statusData.batteryLevel || 0);
+    window.protectedGlobals.statusData.isCharging = nextChargingState;
     window.protectedGlobals.updateStatusBar();
+    if (window.protectedGlobals.buildStatusMenu && previousChargingState !== nextChargingState) {
+      window.protectedGlobals.buildStatusMenu();
+    }
     if (!batteryInterval) return;
     setTimeout(refreshBatteryInfo, 1000 * window.protectedGlobals.timerSpeed);
   };
@@ -31,16 +36,17 @@
   var svgIcons = {
     wifi: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.94 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/></svg>',
     battery: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>',
+    charge: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="transform: translateY(3px);"><path d="M11.2 4.8L7 12.2h3.2L8.2 19.2l7.3-8.4h-3.6l1.5-6Z" fill="currentColor" opacity="0.96"/></svg>',
     brightness: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
   };
   let batteryIcons = {
     0: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="9" x2="23" y2="15"/></svg>',
     // up to 1/5 filled black, leave some margin with the icon border so it look good
-    20: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="3" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
-    40: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="6" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
-    60: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="9" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
-    80: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="12" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
-    100: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="14" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>'
+    20: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="4" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    40: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="7" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    60: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="10" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    80: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="13" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>',
+    100: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"> <rect x="1" y="6" width="18" height="12" rx="2" ry="2"/> <line x1="23" y1="9" x2="23" y2="15"/> <rect x="3.5" y="8.5" width="15" height="7" rx="1" fill="currentColor" stroke="none"/> </svg>'
   }
   function calcTop() {
     let atTop = '';
@@ -152,6 +158,7 @@
     }
 
     .status-item {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -165,6 +172,17 @@
     .status-item.small {
       width: 30px;
       height: 30px;
+    }
+    .status-item .battery-charge-overlay {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 15px;
+      height: 15px;
+      display: block;
+      pointer-events: none;
+      filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.35));
     }
     .status-item:hover {
       background-color: rgba(0, 0, 0, 0.1);
@@ -809,14 +827,6 @@
     };
   })();
 
-  // close notification panel by clicking outside
-  document.addEventListener('click', function (e) {
-    // keep notification panel open if clicking inside the status menu or the time button
-    if (!notificationPanel.contains(e.target) && !timeItem.contains(e.target) && !statusMenu.contains(e.target)) {
-      window.protectedGlobals.setNotificationPanelVisible(false);
-    }
-  }, true);
-
   // sync theme when style applied
   window.addEventListener('styleapplied', function () {
     if (notificationPanel) {
@@ -904,7 +914,7 @@
         </div>
         <div class="status-info">
           <span>Battery: ${window.protectedGlobals.statusData.batteryLevel}%</span>
-          <span>${window.protectedGlobals.statusData.isCharging ? '⚡ Charging' : ''}</span>
+          <span>${window.protectedGlobals.statusData.isCharging ? `${svgIcons.charge} Charging` : ''}</span>
         </div>
       </div>
       
@@ -1001,6 +1011,9 @@
     } else {
       batteryItem.innerHTML = batteryIcons[0];
     }
+    if (window.protectedGlobals.statusData.isCharging) {
+      batteryItem.innerHTML += '<svg class="battery-charge-overlay" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11.2 3.2L6.6 12h3.2L8 20.8l8.3-10.2h-3.7l1.6-7.4Z" fill="currentColor" stroke="rgba(255,255,255,0.9)" stroke-width="0.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.96"/></svg>';
+    }
     
     // Update time display
     function updateTime() {
@@ -1049,6 +1062,7 @@
     // keep status menu open if clicking inside the notification panel or the time button
     if (!statusMenu.contains(e.target) && !timeItem.contains(e.target) && !notificationPanel.contains(e.target)) {
       statusMenu.classList.remove('show');
+      window.protectedGlobals.setNotificationPanelVisible(false);
     }
   });
   

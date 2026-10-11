@@ -4,21 +4,24 @@
     left: 10px;
     width: 400px;
     height: 500px;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 10px;
     overflow: hidden;
     display: none;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .startMenuBody {
     position: absolute;
-    top: 88px;
+    top: 90px;
     left: 10px;
     right: 10px;
-    bottom: 74px;
+    bottom: 78px;
     overflow-y: auto;
     -ms-overflow-style: none;
     scrollbar-width: none;
+    padding-right: 2px;
 }
 
 .startMenuBody::-webkit-scrollbar {
@@ -29,6 +32,8 @@
 
 .startMenu h3 {
     margin-top: 0;
+    font-weight: 700;
+    letter-spacing: 0.02em;
 }
 
 .apps {
@@ -39,24 +44,27 @@
 .app {
     padding: 8px;
     margin: 4px 0;
-    border-radius: 4px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    border: 1px solid transparent;
 }
 
 /* dark */
 .startMenu.dark {
-    background: #1f1f1f;
-    color: white;
+    background: rgba(31, 31, 31, 0.97);
+    color: #f5f5f5;
+    border-color: rgba(255, 255, 255, 0.08);
 }
 .startMenu.dark .app {
-    background: #333;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 /* light */
 .startMenu.light {
-    background: lightgray;
-    color: black;
+    background: rgba(215, 215, 215, 0.97);
+    color: #1f1f1f;
+    border-color: rgba(15, 23, 42, 0.08);
 }
 .startMenu.light .app {
     background: #f8f4f4ff;
@@ -64,19 +72,17 @@
 
 .statusBar {
   position: absolute;
-  /* position at the bottom of the start menu */
   bottom: 8px;
   left: 8px;
   right: 8px;
-
   display: flex;
   justify-content: space-between;
   align-items: center;
-
   font-size: 15px;
   padding: 10px 12px;
-  border-radius: 6px;
-  min-height: 42px;
+  border-radius: 3px;
+  min-height: 46px;
+  backdrop-filter: blur(10px);
 }
 
 #appsGrid {
@@ -92,27 +98,83 @@
     gap: 10px;
 }
 
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.statusPill svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.startMenu.dark .statusPill {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f5f5;
+}
+
+.startMenu.light .statusPill {
+  background: rgba(15, 23, 42, 0.05);
+  color: #1f2937;
+}
+
 .statusRight span {
   font-size: 16px;
   font-weight: 600;
 }
 
 #signOutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
-  background: #e53e3e;
+  background: linear-gradient(135deg, #f87171, #dc2626);
   color: white;
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+#signOutBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.35);
+}
+
+#signOutBtn:active {
+  transform: translateY(0);
+}
+
+#signOutBtn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .startMenu.dark .statusBar {
-    background: #2a2a2a;
+    background: rgba(42, 42, 42, 0.95);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .startMenu.light .statusBar {
-    background: #e6e6e6;
+    background: rgba(230, 230, 230, 0.95);
+    box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.03);
 }
 
 /* Start Menu Tabs */
@@ -209,9 +271,9 @@
   z-index: 100001;
   background: #2a2a2a;
   color: white;
-  border-radius: 6px;
+  border-radius: 4px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-  min-width: 180px;
+  min-width: 165px;
 }
 
 .pointer-events-none {
@@ -230,7 +292,7 @@
   border: none;
   background: transparent;
   color: inherit;
-  width: 100%;
+  min-width: 165px;
   text-align: left;
   font-size: 13px;
   transition: 0.1s;

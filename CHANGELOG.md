@@ -161,3 +161,6 @@
 - Fixed some bugs.
 - Close windows via keyboard shortcut now dont require focus anymore, it closes the window at top.
 - Added setAskUserBeforeClose, setTitlebarVisibility, setTheme apis for iframe apps and some corresponding fields in entry.json if any.
+
+## V 2.5.3
+- Updated some system UI
