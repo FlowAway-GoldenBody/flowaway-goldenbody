@@ -6,18 +6,6 @@ window.protectedGlobals.apps = window.protectedGlobals.apps || [];
 
 window.protectedGlobals.setDataTitle = window.protectedGlobals.setAppDataTitle;
 
-// appUpdated - ensure single binding
-if (window.protectedGlobals.systemAPIs.onAppUpdated) {
-  window.removeEventListener(
-    "appUpdated",
-    window.protectedGlobals.systemAPIs.onAppUpdated,
-  );
-}
-window.protectedGlobals.systemAPIs.onAppUpdated = (e) => {
-  window.protectedGlobals.purgeButtons();
-};
-window.addEventListener("appUpdated", window.protectedGlobals.systemAPIs.onAppUpdated);
-
 // Ensure loadAppsFromTree runs after initial tree load
 
 window.protectedGlobals.oldLoadTree = window.protectedGlobals.loadTree;

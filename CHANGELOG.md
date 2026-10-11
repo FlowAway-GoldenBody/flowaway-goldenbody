@@ -164,3 +164,6 @@
 
 ## V 2.5.3
 - Updated some system UI
+
+## V 2.5.4
+- fixed some cursor shaping bugs.

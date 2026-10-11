@@ -855,9 +855,4 @@ window.protectedGlobals.starthandler = () => {
   };
   document.addEventListener("click", window.protectedGlobals.systemAPIs.onDocumentClick);
 }
-
-setTimeout(() => {
-  var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-  window.dispatchEvent(appUpdatedEvent);
-}, 100);
 })();

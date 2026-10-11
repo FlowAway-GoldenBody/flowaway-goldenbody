@@ -18,7 +18,7 @@ This is copied directly from the dev docs in the settings app
     <li><code>pngEnabled</code> - boolean flag to render <code>iconFile</code> as a PNG image.</li>
     <li><code>hiddenDragstrip</code> - boolean flag to hide the drag/resize strip on the app window.</li>
     <li>
-        If you don't want an element to be able to be dragged in your iframe, do <code>undraggableElement.addEventListener('pointerdown', (event) => event.stopPropagation());</code>
+        If you don't want an element to be able to be dragged in your iframe, do <code>undraggableElement.addEventListener('pointermove', (event) => event.stopPropagation());undraggableElement.addEventListener('pointerdown', (event) => event.stopPropagation());</code>
     </li>
     <li><code>hiddenTitlebar</code> - boolean flag to hide the titlebar on the app window. Only works for iframe apps.</li>
     <li><code>createShortcutUponInstallation</code> - boolean flag to create a desktop shortcut when the app is installed.</li>

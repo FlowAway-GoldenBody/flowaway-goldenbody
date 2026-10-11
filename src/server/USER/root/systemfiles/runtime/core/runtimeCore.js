@@ -102,15 +102,15 @@ window.protectedGlobals.ReadFile = async function (
       "Bearer " + window.protectedGlobals.data.authToken;
   }
 
-  const MAX_RETRIES = 5;
+  const MAX_RETRIES = 8;
   const TIMEOUT_MS = 2000;
-
+  let increment = 1;
   let response;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS * increment);
+    increment++;
     try {
       response = await fetch(window.protectedGlobals.SERVER, {
         method: "POST",
@@ -130,7 +130,7 @@ window.protectedGlobals.ReadFile = async function (
 
       if (attempt === MAX_RETRIES) {
         throw err.name === "AbortError"
-          ? new Error("Request timed out after 5 attempts.")
+          ? new Error("Request timed out after 8 attempts.")
           : err;
       }
 
@@ -255,7 +255,7 @@ window.protectedGlobals.WriteFile = async function (
   }
 
   const maxAttempts = 15;
-
+  let increment = 1;
   async function sendChunk(chunk, chunkReplace) {
     const headers = {
       ...baseHeaders,
@@ -269,9 +269,9 @@ window.protectedGlobals.WriteFile = async function (
 
       const timeout = setTimeout(
         () => controller.abort(),
-        options.retrytimeout
+        options.retrytimeout * increment
       );
-
+      increment++;
       try {
         response = await fetch(window.protectedGlobals.SERVER, {
           method: "POST",

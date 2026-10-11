@@ -1,4 +1,5 @@
 "use strict";
+let __dragstripHeight = 28;
 // disable all apis that can be used to exit fullscreen
 (() => {
 // 1. Keep a state variable and store original network APIs
@@ -781,8 +782,13 @@ window.addEventListener("pointerdown", (e) => {
 });
 
 window.addEventListener("pointermove", (e) => {
+    // if the pointer is within the dragstrip height, change the cursor to move
+    if (e.clientY <= __dragstripHeight) {
+        e.target.style.cursor = "move";
+    } else {
+        e.target.style.cursor = "default";
+    }
     if (__dragPointerId !== e.pointerId) return;
-
     window.parent.postMessage({
         pointermoveOnApp: true,
         pointerId: e.pointerId,
@@ -849,6 +855,7 @@ __goldenbodyAPI.setDragstripHeight = (options = {}) => {
             px: options.px
         }
     }, '*');
+    __dragstripHeight = Number.isFinite(options.percent) ? (window.innerHeight * options.percent) / 100 : options.px;
 };
 
 

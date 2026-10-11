@@ -43,7 +43,10 @@ window.protectedGlobals.launchApp = async function (appId, args) {
   }
   window.protectedGlobals._launchContext = { appId: String(appId || ""), args: args === undefined ? [] : Array.isArray(args) ? args : [args] };
   let result = null;
-  document.body.style.cursor = "wait";
+  // change cursor shape to wait while the app is loading
+  document.querySelectorAll('*').forEach((el) => {
+    el.style.cursor = "wait";
+  });
   try {
     if (app.requestAdminPerm) {
       result = await window[app.functionName](...window.protectedGlobals._launchContext.args);
@@ -53,8 +56,10 @@ window.protectedGlobals.launchApp = async function (appId, args) {
   } catch (err) {
     alert(err);
   }
-  document.body.style.cursor = "default";
-  // change cursor shape to wait while the app is loading
+  // change it back
+  document.querySelectorAll('*').forEach((el) => {
+    el.style.cursor = "default";
+  });
   return result;
 };
 
@@ -163,9 +168,7 @@ window.protectedGlobals.loadAppsFromTree = async function () {
 
      // reapply task buttons now that apps may be present
     window.protectedGlobals.applyTaskButtons();
-      window.protectedGlobals.purgeButtons();
-      var appUpdatedEvent = new CustomEvent("appUpdated", { detail: null });
-      window.dispatchEvent(appUpdatedEvent);
+    window.protectedGlobals.purgeButtons();
   } catch (e) {
     throw e;
   }

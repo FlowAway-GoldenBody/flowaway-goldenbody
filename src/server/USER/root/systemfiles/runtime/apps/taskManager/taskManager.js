@@ -1342,10 +1342,6 @@ window.taskManager = function (posX = 50, posY = 50) {
   killBtn.addEventListener("click", killSelectedRow);
   autoRefreshSelect.addEventListener("change", applyAutoRefreshFromUI);
 
-  window.addEventListener(scopedListenerName, "appUpdated", () => {
-    refreshSnapshot(false);
-  });
-
   window.taskManagerGlobals.allTaskManagers.push({
     rootElement: root,
     btnMax,
