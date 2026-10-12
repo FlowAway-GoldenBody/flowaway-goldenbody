@@ -103,7 +103,7 @@ window.protectedGlobals.ReadFile = async function (
   }
 
   const MAX_RETRIES = 8;
-  const TIMEOUT_MS = 2000;
+  const TIMEOUT_MS = 5000;
   let increment = 1;
   let response;
 
@@ -1221,10 +1221,9 @@ window.protectedGlobals.writeStatus = function writeStatus() {
   // return path or array of paths
   // a ui that lets the user pick a file/folder from their cloud storage
   window.protectedGlobals.pickFile = async function (options = { multiple: false, accept: "file" }) {
-    await window.protectedGlobals.onlyloadTree();
     options = Object.assign({ multiple: false, accept: "file", startPath: "/" }, options);
 
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const isDark = window.protectedGlobals.data.dark || false;
 
       // Create modal container
@@ -1240,7 +1239,7 @@ window.protectedGlobals.writeStatus = function writeStatus() {
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 100000;
         font-family: system-ui, -apple-system, sans-serif;
       `;
       modal.addEventListener("keydown", (e) => e.stopPropagation());
@@ -1650,6 +1649,12 @@ window.protectedGlobals.writeStatus = function writeStatus() {
       observer.observe(document.body, { childList: true });
 
       // Load initial folder
+      const loadingMsg = document.createElement("div");
+      loadingMsg.style.cssText = `padding: 16px; text-align: center; color: ${isDark ? "#aaa" : "#999"};`;
+      loadingMsg.textContent = "Loading...";
+      browserContainer.appendChild(loadingMsg);
+      await window.protectedGlobals.onlyloadTree();
+      loadingMsg.remove();
       loadFolder(options.startPath || "/");
     });
   };

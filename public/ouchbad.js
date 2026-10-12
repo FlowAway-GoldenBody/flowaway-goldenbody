@@ -89,9 +89,9 @@ window.protectedGlobals.firstlogin = false;
       <select id="recovery-delete-app-select" style="width:100%;padding:8px;margin:6px 0;box-sizing:border-box;display:block">
         <option value="" disabled selected>Enter recovery credentials to load non-system apps</option>
       </select>
+      <button id="recovery-delete-app" style="width:100%;margin-top:6px">Delete selected non-system app</button>
       <button id="recovery-reset-systemfiles" style="width:100%;margin-top:6px">Reset /systemfiles</button>
       <button id="recovery-reset-pathperm" style="width:100%;margin-top:6px">Reset path permissions</button>
-      <button id="recovery-delete-app" style="width:100%;margin-top:6px">Delete selected non-system app</button>
       <button id="recovery-repair-system" style="width:100%;margin-top:6px">Repair system files</button>
       <button id="recovery-jskeys" style="width:100%;margin-top:6px">Restore all JS keys</button>
       <button id="recovery-delete" style="width:100%;margin-top:6px">Delete account</button>

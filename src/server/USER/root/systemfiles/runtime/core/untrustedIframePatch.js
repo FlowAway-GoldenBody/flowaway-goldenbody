@@ -680,6 +680,11 @@ window.__goldenbodyAPI = {
         window.parent.postMessage({setAskUserBeforeClose: true, value}, '*');
     },
 
+    setDragstripVisibility: (visible) => {
+        window.__dragstripHidden__ = !visible;
+        window.parent.postMessage({setDragstripVisibility: true, visible}, '*');
+    },
+
     setTitlebarVisibility: (visible) => {
         window.parent.postMessage({setTitlebarVisibility: true, visible}, '*');
     },
@@ -783,10 +788,12 @@ window.addEventListener("pointerdown", (e) => {
 
 window.addEventListener("pointermove", (e) => {
     // if the pointer is within the dragstrip height, change the cursor to move
-    if (e.clientY <= __dragstripHeight) {
-        e.target.style.cursor = "move";
-    } else {
-        e.target.style.cursor = "default";
+    if (window.__dragstripHidden__) {
+        if (e.clientY <= __dragstripHeight) {
+            e.target.style.cursor = "move";
+        } else {
+            e.target.style.cursor = "default";
+        }
     }
     if (__dragPointerId !== e.pointerId) return;
     window.parent.postMessage({

@@ -486,7 +486,7 @@
   taskbar.style.opacity = 0.8;
   taskbar.id = "taskbar";
   taskbar.style.position = "fixed";
-  taskbar.style.zIndex = 100000; // very high z-index to ensure it stays on top of app content but below modals/menus
+  taskbar.style.zIndex = 100001; // very high z-index to ensure it stays on top of app content but below modals/menus
   taskbar.style.left = "0";
   taskbar.style.width = "100%";
   taskbar.style.display = "flex";
@@ -949,8 +949,8 @@
           window.protectedGlobals.applyStyles();
 
           // Persist to backend (optional but recommended)
-          await window.protectedGlobals.persistUserProfilePatch({ dark: !!window.protectedGlobals.data.dark });
           updateStatusBar();
+          window.protectedGlobals.persistUserProfilePatch({ dark: !!window.protectedGlobals.data.dark });
         }
         else if (toggleType === 'battery-saver') {
           window.protectedGlobals.statusData.batterySaverEnabled = !window.protectedGlobals.statusData.batterySaverEnabled;

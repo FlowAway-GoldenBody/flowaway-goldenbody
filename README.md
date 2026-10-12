@@ -340,6 +340,7 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     <li><code>setInstanceTitle(title)</code> - update the title of the current instance.</li>
     <li><code>setDragThreshold({ px })</code> - change the pointer drag threshold for the current instance.</li>
     <li><code>setDragstripHeight({ percent || px })</code> - change the titlebar/dragstrip height for the current instance.</li>
+    <li><code>api.setDragstripVisibility(visible)</code> - show or hide the dragstrip for the current instance.</li>
     <li><code>setTitlebarVisibility(visible)</code> - show or hide the titlebar for the current instance.</li>
     <li><code>message(message, toInstance)</code> - send a message to another instance or broadcast to all instances.</li>
     <li><code>messageToWorker(message)</code> - relay a message to the app worker for this instance.</li>

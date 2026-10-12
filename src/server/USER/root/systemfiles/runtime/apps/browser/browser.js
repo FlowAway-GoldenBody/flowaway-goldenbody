@@ -1902,6 +1902,7 @@ setTimeout(() => {
     // --- Top area ---
     const top = document.createElement("div");
     top.className = "sim-chrome-top";
+    top.style.cursor = 'move';
     top.style.justifyContent = "space-between";
     root.appendChild(top);
 
@@ -1916,7 +1917,6 @@ setTimeout(() => {
       topBar.style.justifyContent = "flex-end";
       topBar.style.alignItems = "center";
       topBar.style.padding = "2px";
-      topBar.style.cursor = "move";
       topBar.style.flexShrink = "0";
       topBar.style.position = "static";
       topBar.style.top = "";
@@ -4128,6 +4128,11 @@ setTimeout(() => {
                 : d === "e" || d === "w"
                   ? "ew-resize"
                   : "default";
+        if (el.style.cursor === "default") {
+          top.style.cursor = 'move';
+        } else {
+          top.style.cursor = el.style.cursor;
+        }
       });
 
       // start resize
@@ -4153,7 +4158,8 @@ setTimeout(() => {
           };
 
           document.body.style.userSelect = "none";
-          document.body.style.cursor = getCursorForDir(dir);
+          const cursor = getCursorForDir(dir);
+          document.body.style.cursor = cursor;
           el.style.willChange = "width, height, left, top";
         },
         { passive: false },

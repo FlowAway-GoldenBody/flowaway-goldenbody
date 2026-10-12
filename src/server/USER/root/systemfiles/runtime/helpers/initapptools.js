@@ -286,7 +286,7 @@ window.protectedGlobals.initAppTools = function () {
       root.appendChild(handle);
     });
   }
-  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize, hiddenDragstrip) {
+  existing.createRoot = function (appId, posX, posY, width, height, maximize, minimize) {
     var ctx = window.protectedGlobals.resolveApptoolsContext(appId);
     var root = document.createElement("div");
     root.className = "app-root app-window-root";
@@ -298,7 +298,6 @@ window.protectedGlobals.initAppTools = function () {
       root.setAttribute("data-app-id", ctx.appId);
     }
     root.style.position = "fixed";
-    root.hiddenDragstrip = !!hiddenDragstrip;
     root.style.left = Number.isFinite(Number(posX)) ? String(Number(posX)) + "px" : "70px";
     root.style.top = Number.isFinite(Number(posY)) ? String(Number(posY)) + "px" : "70px";
     root.style.width = typeof width === "number" ? String(width) + "px" : "1000px";
@@ -465,8 +464,8 @@ window.protectedGlobals.initAppTools = function () {
     var existingTop = root.querySelector(".appTopBar");
     if (existingTop) return existingTop;
 
-    var dragStrip = !root.hiddenDragstrip ? root.querySelector(".appTopDragStrip") : false;
-    if (!dragStrip && !root.hiddenDragstrip) {
+    var dragStrip = root.querySelector(".appTopDragStrip");
+    if (!dragStrip) {
       dragStrip = document.createElement("div");
       dragStrip.className = "appTopDragStrip";
       dragStrip.style.height = "28px";
@@ -674,6 +673,7 @@ window.protectedGlobals.initAppTools = function () {
       topbarElement: topbar,
       titlebar: topbar,
       titlebarElement: topbar,
+      dragstripElement: root ? root.querySelector(".appTopDragStrip") : null,
       applyTitlebarTheme,
       goldenbodyId: Number(options.goldenbodyId) || 0,
     };
@@ -843,7 +843,7 @@ window.protectedGlobals.initAppTools = function () {
     }
 
     if (!root) {
-      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height, undefined, undefined, options.hiddenDragstrip);
+      root = existing.createRoot(appId, options.posX, options.posY, options.width, options.height, undefined, undefined);
       instance.rootElement = root;
     }
     if (!topbar) {
@@ -852,6 +852,7 @@ window.protectedGlobals.initAppTools = function () {
       instance.topbarElement = topbar;
       instance.titlebar = topbar;
       instance.titlebarElement = topbar;
+      instance.dragstripElement = root.querySelector(".appTopDragStrip");
       instance.btnMax = root.querySelector(".btnMaxColor");
       // Ensure the instance gets the titlebar theme applier function
       // createTitlebar assigns to the outer `applyTitlebarTheme` variable,

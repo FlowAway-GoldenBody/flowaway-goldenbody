@@ -45,7 +45,7 @@ window.protectedGlobals.launchApp = async function (appId, args) {
   let result = null;
   // change cursor shape to wait while the app is loading
   document.querySelectorAll('*').forEach((el) => {
-    el.style.cursor = "wait";
+    if ((el.style.cursor !== "wait" && (el.style.cursor === "" || el.style.cursor === "default")) && !el.closest(".app-window-root")) el.style.cursor = "wait";
   });
   try {
     if (app.requestAdminPerm) {
@@ -58,7 +58,7 @@ window.protectedGlobals.launchApp = async function (appId, args) {
   }
   // change it back
   document.querySelectorAll('*').forEach((el) => {
-    el.style.cursor = "default";
+    if (el.style.cursor === "wait") el.style.cursor = "default";
   });
   return result;
 };
@@ -367,7 +367,7 @@ window.protectedGlobals.showUnifiedAppContextMenu = function (e, appOverride = n
     border: "1px solid #ccc",
     borderRadius: "4px",
     boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-    zIndex: 100001, // maximum z-index to ensure it appears on top
+    zIndex: 100002, // maximum z-index to ensure it appears on top
     padding: "4px 0",
     minWidth: "160px",
     fontSize: "13px",

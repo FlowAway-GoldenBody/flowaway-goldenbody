@@ -167,3 +167,8 @@
 
 ## V 2.5.4
 - fixed some cursor shaping bugs.
+
+## V 2.5.5
+- added set dragstrip visibility
+- fixed some file picker placement bugs
+- Fixed cursor change for app window when launching apps.

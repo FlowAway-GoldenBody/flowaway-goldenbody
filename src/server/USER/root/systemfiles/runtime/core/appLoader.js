@@ -210,20 +210,17 @@
     if (document.getElementById("vfs-picker-overlay")) {
       return Promise.reject(new Error("A file picker dialog is already open."));
     }
-    await window.protectedGlobals.onlyloadTree();
     let currentPath = "";
     let selectedPath = "";
     const overlay = document.createElement("div");
     overlay.id = "vfs-picker-overlay";
     overlay.addEventListener('keydown', (e) => e.stopPropagation());
-    overlay.style.cssText = `position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1000000;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,0.35);`;
+    overlay.style.cssText = `position:fixed;top:0;left:0;width:100vw;height:100%;z-index:100000;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,0.35);`;
     const panel = document.createElement("div");
-    panel.style.position = "absolute";
-    panel.style.left = "50%";
-    panel.style.top = "50%";
-    panel.style.transform = "translate(-50%, -50%)";
+    panel.style.position = "relative";
+    panel.style.margin = "auto";
     panel.style.minWidth = "400px";
-    panel.style.maxWidth = "100vw";
+    panel.style.maxWidth = "45vw";
     panel.style.maxHeight = "75vh";
     panel.style.width = "640px";
     panel.style.resize = "both";
@@ -314,7 +311,6 @@
         saveInput.style.color = theme.inputText;
         saveInput.style.borderColor = theme.border;
       }
-      renderEntries();
     };
 
     function getCurrentNode() {
@@ -590,15 +586,20 @@
       handle.style.cursor = "move";
       handle.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) return;
+
         dragging = true;
-        const rect = box.getBoundingClientRect();
+
+        const rect = panel.getBoundingClientRect();
         originLeft = rect.left;
         originTop = rect.top;
+        panel.style.position = "fixed";
+
         startX = event.clientX;
         startY = event.clientY;
-        box.style.transform = "none";
+
         document.addEventListener("pointermove", move);
         document.addEventListener("pointerup", up);
+
         event.preventDefault();
       });
       function move(event) {
@@ -617,13 +618,30 @@
     panel.focus();
     updateStyles();
     makeDraggable(titleBar, panel);
-
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       cancelButton.onclick = () => {
         cleanup();
         reject(new Error("The user aborted a request."));
       };
       actionButton.onclick = () => finishPicker(resolve, reject);
+      const loadingIndicator = document.createElement("div");
+      loadingIndicator.textContent = "Loading...";
+      loadingIndicator.style.position = "absolute";
+      loadingIndicator.style.inset = "0";
+      loadingIndicator.style.display = "flex";
+      loadingIndicator.style.alignItems = "center";
+      loadingIndicator.style.justifyContent = "center";
+      loadingIndicator.style.pointerEvents = "none";
+      loadingIndicator.style.color = window.protectedGlobals.data.dark ? "#aaa" : "#999";
+      loadingIndicator.style.fontSize = "16px";
+      loadingIndicator.style.fontWeight = "700";
+      loadingIndicator.style.background = "rgba(0,0,0,0.02)";
+      panel.appendChild(loadingIndicator);
+      try {
+        await window.protectedGlobals.onlyloadTree();
+      } catch {}
+      loadingIndicator.remove();
+      renderEntries();
     });
   }
 
@@ -652,6 +670,8 @@
       let scriptText = await window.protectedGlobals.ReadFile(folderPath + "/" + entryObj.jsFile, { text: true, direct: true });
       let untrustedIframePatch = await window.protectedGlobals.ReadFile("systemfiles/runtime/core/untrustedIframePatch.js", { text: true, direct: true });
       window[entryObj.functionName] = async function (path, verify, argObj, posX = 50, posY = 50) {
+        const defaultSystemDragstripHeight = 28;
+        let hiddenDragstrip = entryObj.hiddenDragstrip || false;
         let useRelativeXY = false;
         entryObj = getPkg();
         if (posX == 50 && posY == 50 && !entryObj.startupPos?.x && !entryObj.startupPos?.y) {
@@ -692,12 +712,13 @@
           windowMaximize = entryObj.startupPos?.maximize;
           windowMinimize = entryObj.startupPos?.minimize;
         }
-        var instance = window.protectedGlobals.apptools.api.createAppInstance({ appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize, hiddenDragstrip: !!entryObj.hiddenDragstrip });
+        var instance = window.protectedGlobals.apptools.api.createAppInstance({ appId: entryObj.id, posX, posY, width: appWidth, height: appHeight, maximize: windowMaximize, minimize: windowMinimize });
         const root = instance.rootElement;
+        if (hiddenDragstrip) instance.dragstripElement.style.display = "none";
         if (entryObj.hiddenTitlebar) instance.titlebarElement.style.display = "none";
         // Per-instance drag configuration.
         instance.dragThreshold = 15;
-        instance.dragstripHeight = 28;
+        instance.dragstripHeight = defaultSystemDragstripHeight;
 
         const dragState = {
           active: false,
@@ -728,7 +749,7 @@
         }
 
         function getDragstripHeight() {
-          return Number.isFinite(instance.dragstripHeight) ? Math.max(0, instance.dragstripHeight) : 28;
+          return Number.isFinite(instance.dragstripHeight) ? Math.max(0, instance.dragstripHeight) : defaultSystemDragstripHeight;
         }
 
         /*
@@ -957,7 +978,7 @@
         iframe.style.top = "0";
         iframe.style.left = "0";
         iframe.style.width = "100%";
-        iframe.style.height = !!entryObj.hiddenDragstrip ? "100%" : "calc(100% - 28px)";
+        iframe.style.height = !!entryObj.hiddenDragstrip ? "100%" : `calc(100% - ${defaultSystemDragstripHeight}px)`;
         iframe.style.border = "none";
         if (!window.protectedGlobals.appPerms[entryObj.id]) window.protectedGlobals.appPerms[entryObj.id] = { storage: "ask", notification: "ask", launch: "ask" };
         let instanceNum = window[entryObj.globalVarObjectString][entryObj.allAppArrayString].length;
@@ -967,7 +988,7 @@
         const launchTarget = path || null;
         let html = "";
         let loadtimes = false;
-        if (!entryObj.enableDebugging) html = `<html><head><script>window.__args = ${JSON.stringify(argObj)};const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? "true" : "false"};window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
+        if (!entryObj.enableDebugging) html = `<html><head><script>window.__args = ${JSON.stringify(argObj)};const appName = "${entryObj.id}";window.networkAllowed = ${window.protectedGlobals.statusData.wifiEnabled ? "true" : "false"};window.__path__ = ${JSON.stringify(launchTarget)};window.__dragstripHidden__ = ${hiddenDragstrip};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`;
         else html = `<html><head><script>Object.defineProperty(window, 'localStorage', { value: {} }); Object.defineProperty(window, 'sessionStorage', { value: {} });</script><script>${window.protectedGlobals.erudaText}</script><script>eruda.init();const appName = "${entryObj.id}";window.__path__ = ${JSON.stringify(launchTarget)};window.__filehandle__ = "${filehandlekey}";window.__curInstanceNum__ = ${instanceNum};window.addEventListener('contextmenu', (e) => {e.preventDefault();});</script></head><body style="margin: 0; padding: 0;"><script>${untrustedIframePatch}</script><script>${scriptText}</script></body></html>`; // some eruda compatibilities included such as predefining localstorage
         iframe.addEventListener("load", () => {
           loadtimes++;
@@ -1158,7 +1179,7 @@
               height = Math.max(0, Math.round(height));
               instance.dragstripHeight = height;
 
-              if (entryObj.hiddenDragstrip) {
+              if (hiddenDragstrip) {
                 iframe.style.top = "0";
                 iframe.style.height = "100%";
               } else {
@@ -1190,6 +1211,20 @@
           }
           if (e.data.setAskUserBeforeClose) {
             instance.askUserBeforeClose = !!e.data.value;
+            return;
+          }
+          if (e.data.setDragstripVisibility) {
+            const visible = !!e.data.visible;
+            if (visible) {
+              instance.dragstripElement.style.display = "";
+              iframe.style.height = `calc(100% - ${defaultSystemDragstripHeight}px)`;
+              hiddenDragstrip = false;
+            } else {
+              instance.dragstripElement.style.display = "none";
+              iframe.style.top = "0";
+              iframe.style.height = "100%";
+              hiddenDragstrip = true;
+            }
             return;
           }
           if (e.data.setTitlebarVisibility) {
@@ -1227,14 +1262,14 @@
             return;
           }
           if (e.data.pointerdownOnApp) {
-            if (!entryObj.hiddenDragstrip) return;
+            if (!hiddenDragstrip) return;
 
             beginPotentialDrag(e.data);
             return;
           }
 
           if (e.data.pointermoveOnApp) {
-            if (!entryObj.hiddenDragstrip) return;
+            if (!hiddenDragstrip) return;
 
             /*
              * Only the iframe needs to send movement while the pointer
@@ -1249,14 +1284,14 @@
           }
 
           if (e.data.pointerupOnApp) {
-            if (!entryObj.hiddenDragstrip) return;
+            if (!hiddenDragstrip) return;
 
             endPotentialDrag(e.data);
             return;
           }
 
           if (e.data.pointercancelOnApp) {
-            if (!entryObj.hiddenDragstrip) return;
+            if (!hiddenDragstrip) return;
 
             cancelPotentialDrag();
             return;
