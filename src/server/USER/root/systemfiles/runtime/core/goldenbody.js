@@ -77,14 +77,14 @@
       transition: all 0.2s ease;
       min-height: 40px;
       max-height: 40px;
-      min-width: 50px;
+      min-width: 60px;
       max-width: 60px;
     }
     .taskbutton.small {
       min-height: 35px;
       max-height: 35px;
       min-width: 40px;
-      max-width: 50px;
+      max-width: 48px;
     }
     .taskbutton::after {
       content: '';

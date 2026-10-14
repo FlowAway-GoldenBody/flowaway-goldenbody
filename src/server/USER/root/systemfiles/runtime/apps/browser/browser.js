@@ -406,7 +406,8 @@ setTimeout(() => {
         panel.style.transform = "translate(-50%,-50%)";
       }
     }
-  function showConfirmDialog(title, message) {
+  function showConfirmDialog(title, message, options = {}) {
+    const { confirmText = "Continue", loadingText = null, onConfirm = null } = options;
     return new Promise((resolve) => {
       document.getElementById("confirm-dialog")?.remove();
 
@@ -472,12 +473,26 @@ setTimeout(() => {
       btnCancel.onclick = () => closeConfirmDialog(false);
 
       const btnConfirm = document.createElement("button");
-      btnConfirm.textContent = "Continue";
+      btnConfirm.textContent = confirmText;
       btnConfirm.style.cssText =
         "padding:8px 16px;border-radius:6px;border:none;background:#4c8bf5;color:#fff;cursor:pointer;font-size:14px;";
       btnConfirm.onmouseenter = () => (btnConfirm.style.background = "#3a75d4");
       btnConfirm.onmouseleave = () => (btnConfirm.style.background = "#4c8bf5");
-      btnConfirm.onclick = () => closeConfirmDialog(true);
+      btnConfirm.onclick = async () => {
+        if (typeof onConfirm === "function") {
+          btnConfirm.disabled = true;
+          btnCancel.disabled = true;
+          if (loadingText) btnConfirm.textContent = loadingText;
+          try {
+            await onConfirm();
+            closeConfirmDialog(true);
+          } catch (e) {
+            closeConfirmDialog(false);
+          }
+          return;
+        }
+        closeConfirmDialog(true);
+      };
 
       btnRow.appendChild(btnCancel);
       btnRow.appendChild(btnConfirm);
@@ -585,12 +600,43 @@ setTimeout(() => {
           const btnCreate = document.createElement("button");
           btnCreate.textContent = "Create";
           btnCreate.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
-          btnCreate.onclick = () => {
+          btnCreate.onclick = async () => {
             const name = String(nameInput.value || "").trim();
             const script = String(scriptArea.value || "");
             if (!name) return window.protectedGlobals.notification && window.protectedGlobals.notification("Name required");
-            dlg.remove();
-            resolve({ name, script });
+            btnCreate.disabled = true;
+            btnCreate.textContent = "Creating...";
+            btnCreate.style.opacity = "0.8";
+            try {
+              const safeFolder = name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
+              const folderPath = basePath + "/" + safeFolder;
+              let already = false;
+              try {
+                const sub = await window.protectedGlobals.ReadFolder(folderPath).catch(() => null);
+                if (sub && Array.isArray(sub)) already = true;
+              } catch (e) { already = false; }
+              if (already) {
+                window.protectedGlobals.notification && window.protectedGlobals.notification("Folder already exists");
+                btnCreate.disabled = false;
+                btnCreate.textContent = "Create";
+                btnCreate.style.opacity = "1";
+                return;
+              }
+              await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
+              await window.protectedGlobals.WriteFile(folderPath + "/script.txt", script || "", { text: true });
+              await window.protectedGlobals.WriteFile(folderPath + "/name.txt", name, { text: true });
+              await window.protectedGlobals.WriteFile(folderPath + "/active.txt", "true", { text: true });
+              if (activatedUserscriptNames.indexOf(safeFolder) === -1) activatedUserscriptNames.push(safeFolder);
+              try { window.browserGlobals.userscripts = window.browserGlobals.userscripts || {}; window.browserGlobals.userscripts[safeFolder] = script || ""; } catch (e) {}
+              window.protectedGlobals.notification && window.protectedGlobals.notification("Created");
+              dlg.remove();
+              resolve({ name, script, created: true });
+            } catch (e) {
+              btnCreate.disabled = false;
+              btnCreate.textContent = "Create";
+              btnCreate.style.opacity = "1";
+              window.protectedGlobals.notification && window.protectedGlobals.notification("Error creating userscript");
+            }
           };
           btnRow.appendChild(btnCancel);
           btnRow.appendChild(btnCreate);
@@ -599,40 +645,30 @@ setTimeout(() => {
         });
       })();
 
-      if (data && data.name) {
-        const safeFolder = data.name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
-        const folderPath = basePath + "/" + safeFolder;
-        try {
-          // check by attempting to read; if read succeeds, folder exists
-          let already = false;
-          try {
-            const sub = await window.protectedGlobals.ReadFolder(folderPath).catch(() => null);
-            if (sub && Array.isArray(sub)) already = true;
-          } catch (e) { already = false; }
-          if (already) {
-            window.protectedGlobals.notification && window.protectedGlobals.notification("Folder already exists");
-            return;
-          }
-          await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
-          await window.protectedGlobals.WriteFile(folderPath + "/script.txt", data.script || "", { text: true });
-          await window.protectedGlobals.WriteFile(folderPath + "/name.txt", data.name, { text: true });
-          await window.protectedGlobals.WriteFile(folderPath + "/active.txt", "true", { text: true });
-          // mark as activated in memory
-          if (activatedUserscriptNames.indexOf(safeFolder) === -1) activatedUserscriptNames.push(safeFolder);
-          // keep in-memory copy immediately
-          try { window.browserGlobals.userscripts = window.browserGlobals.userscripts || {}; window.browserGlobals.userscripts[safeFolder] = data.script || ""; } catch (e) {}
-          window.protectedGlobals.notification && window.protectedGlobals.notification("Created");
-          panel.remove();
-          showUserscriptDialogue();
-        } catch (e) {
-          window.protectedGlobals.notification && window.protectedGlobals.notification("Error creating userscript");
-        }
+      if (data && data.created) {
+        panel.remove();
+        showUserscriptDialogue();
       }
     };
     panel.appendChild(addBtn);
 
     const list = document.createElement("div");
     panel.appendChild(list);
+
+    const loading = document.createElement("div");
+    loading.style.cssText = "color:#666;padding:8px 0;";
+    loading.textContent = "Loading userscripts...";
+    list.appendChild(loading);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
+    const btnClose = document.createElement("button");
+    btnClose.textContent = "Close";
+    btnClose.onclick = () => panel.remove();
+    btnRow.appendChild(btnClose);
+    panel.appendChild(btnRow);
+
+    getRoot().appendChild(panel);
 
     const basePath = "/systemfiles/runtime/apps/browser" + "/" + getCurProfileName() + "/" + "userscripts";
 
@@ -652,6 +688,7 @@ setTimeout(() => {
     }
 
     if (!entries.length) {
+      if (loading.isConnected) loading.remove();
       const empty = document.createElement("div");
       empty.style.cssText = "color:#666;padding:8px 0;";
       empty.textContent = "No userscripts found. Put script folders in " + basePath;
@@ -840,21 +877,23 @@ setTimeout(() => {
           }
         };
         delBtn.onclick = async () => {
-          const ok = await showConfirmDialog("Delete userscript", `Delete userscript '${entry}'? This cannot be undone.`);
-          if (!ok) return;
-          try {
-            await window.protectedGlobals.DeleteFile(basePath + "/" + entry);
-            // remove from activated list
-            const di = activatedUserscriptNames.indexOf(entry);
-            if (di !== -1) activatedUserscriptNames.splice(di, 1);
-            // remove from in-memory copy
-            try { if (window.browserGlobals && window.browserGlobals.userscripts) delete window.browserGlobals.userscripts[entry]; } catch (e) {}
-            window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted");
-            panel.remove();
-            showUserscriptDialogue();
-          } catch (e) {
-            window.protectedGlobals.notification && window.protectedGlobals.notification("Error deleting userscript");
-          }
+          await showConfirmDialog("Delete userscript", `Delete userscript '${entry}'? This cannot be undone.`, {
+            confirmText: "Delete",
+            loadingText: "Deleting...",
+            onConfirm: async () => {
+              try {
+                await window.protectedGlobals.DeleteFile(basePath + "/" + entry);
+                const di = activatedUserscriptNames.indexOf(entry);
+                if (di !== -1) activatedUserscriptNames.splice(di, 1);
+                try { if (window.browserGlobals && window.browserGlobals.userscripts) delete window.browserGlobals.userscripts[entry]; } catch (e) {}
+                window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted");
+                panel.remove();
+                showUserscriptDialogue();
+              } catch (e) {
+                window.protectedGlobals.notification && window.protectedGlobals.notification("Error deleting userscript");
+              }
+            },
+          });
         };
 
         toggleWrap.appendChild(editBtn);
@@ -863,17 +902,9 @@ setTimeout(() => {
 
         list.appendChild(row);
       }
+      if (loading.isConnected) loading.remove();
     }
 
-    const btnRow = document.createElement("div");
-    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
-    const btnClose = document.createElement("button");
-    btnClose.textContent = "Close";
-    btnClose.onclick = () => panel.remove();
-    btnRow.appendChild(btnClose);
-    panel.appendChild(btnRow);
-
-    getRoot().appendChild(panel);
   }
 
   async function showProfileDialogue() {
@@ -931,11 +962,56 @@ setTimeout(() => {
           const btnCreate = document.createElement("button");
           btnCreate.textContent = "Create";
           btnCreate.style.cssText = "background:#4c8bf5;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;";
-          btnCreate.onclick = () => {
+          btnCreate.onclick = async () => {
             const name = String(nameInput.value || "").trim();
             if (!name) return window.protectedGlobals.notification && window.protectedGlobals.notification("Name required");
-            dlg.remove();
-            resolve({ name });
+            btnCreate.disabled = true;
+            btnCreate.textContent = "Creating...";
+            btnCreate.style.opacity = "0.8";
+            try {
+              const safeName = name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
+              const folderPath = "/systemfiles/runtime/apps/browser" + "/" + safeName;
+              const exists = !!(window.protectedGlobals && typeof window.protectedGlobals.FolderExists === "function" && await window.protectedGlobals.FolderExists(folderPath));
+              if (exists) {
+                btnCreate.disabled = false;
+                btnCreate.textContent = "Create";
+                btnCreate.style.opacity = "1";
+                alert("Profile already exists: " + safeName);
+                return;
+              }
+              const listPath = "/systemfiles/runtime/apps/browser/profilepaths.txt";
+              try {
+                const sub = await window.protectedGlobals.ReadFolder(folderPath).catch(() => null);
+                if (!sub) {
+                  await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
+                }
+              } catch (e) {
+                try { await window.protectedGlobals.WriteFolder(folderPath).catch(() => {}); } catch (e) {}
+              }
+              const defaultProfile = window.browserGlobals && window.browserGlobals.defaultBrowserProfile ? window.browserGlobals.defaultBrowserProfile() : {};
+              const settingsPayload = JSON.stringify(defaultProfile, null, 2);
+              await window.protectedGlobals.WriteFile(folderPath + "/settings.json", settingsPayload, { text: true }).catch(() => {});
+              try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
+              await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", "{}", { text: true }).catch(() => {});
+              await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", "{}", { text: true }).catch(() => {});
+              try { await ensureDefaultUserscriptForProfile(safeName).catch(()=>{}); } catch (e) {}
+              let content = "";
+              try {
+                content = await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "") || "";
+              } catch (e) { content = ""; }
+              if (!content) content = "profile";
+              const lines = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+              if (lines.indexOf(safeName) === -1) lines.push(safeName);
+              await window.protectedGlobals.WriteFile(listPath, lines.join("\n"), { text: true });
+              window.protectedGlobals.notification && window.protectedGlobals.notification("Profile created");
+              dlg.remove();
+              resolve({ name, created: true });
+            } catch (e) {
+              btnCreate.disabled = false;
+              btnCreate.textContent = "Create";
+              btnCreate.style.opacity = "1";
+              window.protectedGlobals.notification && window.protectedGlobals.notification("Error creating profile");
+            }
           };
           btnRow.appendChild(btnCancel);
           btnRow.appendChild(btnCreate);
@@ -944,54 +1020,30 @@ setTimeout(() => {
         });
       })();
 
-      if (data && data.name) {
-        const safeName = data.name.replace(/[\\/\0]/g, "-").replace(/[^a-zA-Z0-9_\- \(\)]/g, "-");
-        const folderPath = "/systemfiles/runtime/apps/browser" + "/" + safeName;
-        const listPath = "/systemfiles/runtime/apps/browser/profilepaths.txt";
-        try {
-          // ensure the folder exists: attempt to read, create if missing
-          try {
-            const sub = await window.protectedGlobals.ReadFolder(folderPath).catch(() => null);
-            if (!sub) {
-              await window.protectedGlobals.WriteFolder(folderPath).catch(() => {});
-            }
-          } catch (e) {
-            try { await window.protectedGlobals.WriteFolder(folderPath).catch(() => {}); } catch (e) {}
-          }
-          // initialize default profile files (settings, userID, localstorage)
-          try {
-            const defaultProfile =
-              window.browserGlobals && window.browserGlobals.defaultBrowserProfile
-                ? window.browserGlobals.defaultBrowserProfile()
-                : {};
-            const settingsPayload = JSON.stringify(defaultProfile, null, 2);
-            await window.protectedGlobals.WriteFile(folderPath + "/settings.json", settingsPayload, { text: true }).catch(() => {});
-            try { await window.protectedGlobals.WriteFolder(folderPath + "/localstorage").catch(() => {}); } catch (e) {}
-            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/cookies.json", "{}", { text: true }).catch(() => {});
-            await window.protectedGlobals.WriteFile(folderPath + "/localstorage/localstorage.json", "{}", { text: true }).catch(() => {});
-            try { await ensureDefaultUserscriptForProfile(safeName).catch(()=>{}); } catch (e) {}
-          } catch (e) {}
-          // ensure profilepaths.txt exists and load content
-          let content = "";
-          try {
-            content = await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "") || "";
-          } catch (e) { content = ""; }
-          if (!content) content = "profile";
-          const lines = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-          if (lines.indexOf(safeName) === -1) lines.push(safeName);
-          await window.protectedGlobals.WriteFile(listPath, lines.join("\n"), { text: true });
-          window.protectedGlobals.notification && window.protectedGlobals.notification("Profile created");
-          panel.remove();
-          showProfileDialogue();
-        } catch (e) {
-          window.protectedGlobals.notification && window.protectedGlobals.notification("Error creating profile");
-        }
+      if (data && data.created) {
+        panel.remove();
+        showProfileDialogue();
       }
     };
     panel.appendChild(addBtn);
 
     const list = document.createElement("div");
     panel.appendChild(list);
+
+    const loading = document.createElement("div");
+    loading.style.cssText = "color:#666;padding:8px 0;";
+    loading.textContent = "Loading profiles...";
+    list.appendChild(loading);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
+    const btnClose = document.createElement("button");
+    btnClose.textContent = "Close";
+    btnClose.onclick = () => panel.remove();
+    btnRow.appendChild(btnClose);
+    panel.appendChild(btnRow);
+
+    getRoot().appendChild(panel);
 
     const listPath = "/systemfiles/runtime/apps/browser/profilepaths.txt";
     const defaultPath = "/systemfiles/runtime/apps/browser/defaultprofile.txt";
@@ -1020,6 +1072,8 @@ setTimeout(() => {
         if (defVal && typeof defVal === 'string') defVal = defVal.trim();
       } catch (e) { defVal = null; }
     } catch (e) { defVal = null; }
+
+    if (loading.isConnected) loading.remove();
 
     if (!lines.length) {
       const empty = document.createElement("div");
@@ -1128,24 +1182,27 @@ setTimeout(() => {
           deleteBtn.title = "Cannot delete current profile";
         }
         deleteBtn.onclick = async () => {
-          const ok = await showConfirmDialog("Delete profile", `Delete profile '${p}'? This will remove profile files and cannot be undone.`);
-          if (!ok) return;
-          try {
-            await window.protectedGlobals.DeleteFile("/systemfiles/runtime/apps/browser/" + p);
-            // remove from profilepaths.txt
-            try {
-              let content = await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "") || "";
-              const lines2 = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-              const idx = lines2.indexOf(p);
-              if (idx !== -1) lines2.splice(idx, 1);
-              await window.protectedGlobals.WriteFile(listPath, lines2.join("\n"), { text: true });
-            } catch (e) {}
-            window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted profile " + p);
-            panel.remove();
-            showProfileDialogue();
-          } catch (e) {
-            window.protectedGlobals.notification && window.protectedGlobals.notification("Error deleting profile");
-          }
+          await showConfirmDialog("Delete profile", `Delete profile '${p}'? This will remove profile files and cannot be undone.`, {
+            confirmText: "Delete",
+            loadingText: "Deleting...",
+            onConfirm: async () => {
+              try {
+                await window.protectedGlobals.DeleteFile("/systemfiles/runtime/apps/browser/" + p);
+                try {
+                  let content = await window.protectedGlobals.ReadFile(listPath, { text: true, direct: true }).catch(() => "") || "";
+                  const lines2 = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                  const idx = lines2.indexOf(p);
+                  if (idx !== -1) lines2.splice(idx, 1);
+                  await window.protectedGlobals.WriteFile(listPath, lines2.join("\n"), { text: true });
+                } catch (e) {}
+                window.protectedGlobals.notification && window.protectedGlobals.notification("Deleted profile " + p);
+                panel.remove();
+                showProfileDialogue();
+              } catch (e) {
+                window.protectedGlobals.notification && window.protectedGlobals.notification("Error deleting profile");
+              }
+            },
+          });
         };
 
         right.appendChild(deleteBtn);
@@ -1155,15 +1212,6 @@ setTimeout(() => {
       }
     }
 
-    const btnRow = document.createElement("div");
-    btnRow.style.cssText = "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;";
-    const btnClose = document.createElement("button");
-    btnClose.textContent = "Close";
-    btnClose.onclick = () => panel.remove();
-    btnRow.appendChild(btnClose);
-    panel.appendChild(btnRow);
-
-    getRoot().appendChild(panel);
   }
   let username = window.protectedGlobals.getCurrentUsernameForRequests();
   async function updateSiteSettings(iframe, content) {
@@ -1462,38 +1510,53 @@ setTimeout(() => {
     };
     siteDataClearBtn.onclick = async () => {
       if (activeSiteDataTab === "cookies") {
-        const shouldClearCookies = await showConfirmDialog(
+        await showConfirmDialog(
           "Clear site cookies",
           `This will remove cookies for ${website}. Continue?`,
+          {
+            confirmText: "Clear",
+            loadingText: "Clearing...",
+            onConfirm: async () => {
+              await window.browserGlobals.clearCookiesForSite(website);
+              window.protectedGlobals.notification("cookies cleared for this site");
+            },
+          },
         );
-        if (!shouldClearCookies) return;
-        await window.browserGlobals.clearCookiesForSite(website);
-        window.protectedGlobals.notification("cookies cleared for this site");
         return;
       }
 
       if (activeSiteDataTab === "localstorage") {
-        const shouldClearLocalStorage = await showConfirmDialog(
+        await showConfirmDialog(
           "Clear site localStorage",
           `This will remove localStorage for ${website}. Continue?`,
-        );
-        if (!shouldClearLocalStorage) return;
-        await window.browserGlobals.clearLocalStorageForSite(website);
-        window.protectedGlobals.notification(
-          "localstorage cleared for this site",
+          {
+            confirmText: "Clear",
+            loadingText: "Clearing...",
+            onConfirm: async () => {
+              await window.browserGlobals.clearLocalStorageForSite(website);
+              window.protectedGlobals.notification(
+                "localstorage cleared for this site",
+              );
+            },
+          },
         );
         return;
       }
       
       if (activeSiteDataTab === "indexeddb") {
-        const shouldClearIndexedDb = await showConfirmDialog(
+        await showConfirmDialog(
           "Clear site IndexedDB",
           `This will remove IndexedDB for ${website}. Continue?`,
-        );
-        if (!shouldClearIndexedDb) return;
-        await window.protectedGlobals.DeleteFolder("/systemfiles/runtime/apps/browser/" + getCurProfileName() + "/localstorage/indexedDB/" + new URL(website).hostname);
-        window.protectedGlobals.notification(
-          "indexeddb cleared for this site",
+          {
+            confirmText: "Clear",
+            loadingText: "Clearing...",
+            onConfirm: async () => {
+              await window.protectedGlobals.DeleteFolder("/systemfiles/runtime/apps/browser/" + getCurProfileName() + "/localstorage/indexedDB/" + new URL(website).hostname);
+              window.protectedGlobals.notification(
+                "indexeddb cleared for this site",
+              );
+            },
+          },
         );
         return;
       }
@@ -2609,28 +2672,32 @@ setTimeout(() => {
     }
 
     async function clearBrowsingData() {
-      const confirmClear = await showConfirmDialog(
+      await showConfirmDialog(
         "Clear site data",
         "This will reset site settings and clear your browsing data. Continue?",
-      );
-      if (!confirmClear) return;
-
-      window.browserGlobals.profile = {
-        siteSettings: [],
-        lazyloading: true,
-        siteZoom: {},
-      };
-      await window.browserGlobals.writeBrowserProfile(
-        window.browserGlobals.profile,
-        { force: true },
-      );
-      window.browserGlobals.profileState.siteSettings = [];
-      window.browserGlobals.profileState.lazyloading = true;
-      window.browserGlobals.profileState.siteZoom = {};
-      await window.browserGlobals.clearAllCookies();
-      await window.browserGlobals.clearAllLocalStorage();
-      window.protectedGlobals.notification(
-        "site data cleared! please close all browser windows!",
+        {
+          confirmText: "Clear",
+          loadingText: "Clearing...",
+          onConfirm: async () => {
+            window.browserGlobals.profile = {
+              siteSettings: [],
+              lazyloading: true,
+              siteZoom: {},
+            };
+            await window.browserGlobals.writeBrowserProfile(
+              window.browserGlobals.profile,
+              { force: true },
+            );
+            window.browserGlobals.profileState.siteSettings = [];
+            window.browserGlobals.profileState.lazyloading = true;
+            window.browserGlobals.profileState.siteZoom = {};
+            await window.browserGlobals.clearAllCookies();
+            await window.browserGlobals.clearAllLocalStorage();
+            window.protectedGlobals.notification(
+              "site data cleared! please close all browser windows!",
+            );
+          },
+        },
       );
     }
     clear.onclick = clearBrowsingData;

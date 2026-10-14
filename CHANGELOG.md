@@ -58,20 +58,20 @@
 ## V 2.1.2
 - update readme, fixed a bug in terminal where you can run app custom commands without the apps name in front, fixed a security hole where app command scripts can be from files out of their app program folder
 
-## No version increase
+## No version increase - 1
 - fixed server performance issue, various bug fixes
 - remove the iframe hook after sign out
 
 ## V 2.1.3
 - Dramatically increased the startup speed of the os, 8 sec to 1 sec.
 
-## No version increase
+## No version increase - 2
 - removed the excessive loadappsfromtrees
 
 ## V 2.2.0
 - Added cli file create/edit tool
 
-## No version increase
+## No version increase - 3
 - cmd autocomplete disabled during prompt input via workers. Ctrl+C will also remove existing text in cmd input other than killing the thread.
 - edited pastefile behavior
 - fixed some minor bugs with app update and outdated docs
@@ -81,7 +81,7 @@
 ## V 2.2.1
 - require password for app installations
 
-## No version increase
+## No version increase - 4
 - app management settings in the settings app loads faster than before now.
 - for users that have removed their app dir, the reset system app option still works now
 
@@ -91,7 +91,7 @@
 ## V 2.2.3
 - added getbounds and setbounds for windows
 
-## No version increase
+## No version increase - 5
 - removed support for svg app icons because png is enough also svg rendering is a huge mess
 - combined some tiny systemfiles together
 
@@ -145,7 +145,7 @@
 ## V 2.4.2
 - bulk update on shortcuts
 
-## No Version Increase
+## No Version Increase - 6
 - Added all member mail feature
 
 ## V 2.5.0
@@ -172,3 +172,8 @@
 - added set dragstrip visibility
 - fixed some file picker placement bugs
 - Fixed cursor change for app window when launching apps.
+
+## No version increase - 7
+- tweaked some taskbutton size
+- update tip text for alt tab from switch windows to active windows.
+- added friendly message for async browser features that just happens silently b4.

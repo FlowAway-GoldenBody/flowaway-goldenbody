@@ -312,7 +312,7 @@ var prepareWindowSwitchPreview = function () {
   });
 
   var title = document.createElement("div");
-  title.textContent = "Switch windows";
+  title.textContent = "Active Windows:";
   title.style.fontSize = "13px";
   title.style.opacity = "0.75";
   title.style.padding = "0 6px";
