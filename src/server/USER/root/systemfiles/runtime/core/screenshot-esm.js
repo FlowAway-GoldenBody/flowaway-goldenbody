@@ -11,7 +11,7 @@ function displayPreview(dataUrl) {
     img.style.width = '200px';
     img.style.height = 'auto';
     img.style.border = '2px solid #000';
-    img.style.zIndex = '9999';
+    img.style.zIndex = '100005'; // Ensure it's on top of other elements
     img.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
     
     // Append the image to the body

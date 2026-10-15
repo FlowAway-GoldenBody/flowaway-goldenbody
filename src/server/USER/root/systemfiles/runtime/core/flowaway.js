@@ -1,5 +1,34 @@
 "use strict";
 (function () {
+  const loadOverlay = document.createElement("div");
+  loadOverlay.id = "loadOverlay";
+  loadOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000; /* Ensure it's on top of other elements */
+  `;
+
+  const loadMessage = document.createElement("div");
+  loadMessage.textContent = "Loading...";
+  loadMessage.style.cssText = `
+    color: white;
+    font-size: 24px;
+    font-family: system-ui, -apple-system, sans-serif;
+  `;
+
+  loadOverlay.appendChild(loadMessage);
+  document.body.appendChild(loadOverlay);
+
+  window.protectedGlobals.removeLoadOverlay = function () {
+    loadOverlay.remove();
+  };
   try { delete window.protectedGlobals.treeData; } catch (e) { }
   window.protectedGlobals = window.protectedGlobals || {};
 

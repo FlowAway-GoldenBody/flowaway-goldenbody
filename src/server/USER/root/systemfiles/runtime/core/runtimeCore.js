@@ -868,12 +868,13 @@ document.documentElement.style.height = "100%";
 
 document.body.style.margin = "0";
 document.body.style.height = "100vh";
-window.protectedGlobals.refreshBackground = async function refreshBackground() {
-  let backgroundBuffer = await window.protectedGlobals.ReadFile("/systemfiles/background/background.png", { buffer: true, direct: true });
+window.protectedGlobals.refreshBackground = async function refreshBackground(backgroundBuffer) {
+  if (!backgroundBuffer) {
+    backgroundBuffer = await window.protectedGlobals.ReadFile("/systemfiles/background/background.png", { buffer: true, direct: true });
+  }
   if (!backgroundBuffer) {
       backgroundBuffer = await window.protectedGlobals.ReadFile("/systemfiles/background/origbackground.png", { buffer: true, direct: true });
   }
-
   if (window.protectedGlobals._desktopBackgroundObjectUrl) {
     URL.revokeObjectURL(window.protectedGlobals._desktopBackgroundObjectUrl);
     delete window.protectedGlobals._desktopBackgroundObjectUrl;
@@ -889,7 +890,7 @@ window.protectedGlobals.refreshBackground = async function refreshBackground() {
   }
 };
 window.protectedGlobals.setBodyBackground = window.protectedGlobals.refreshBackground;
-window.protectedGlobals.changeBackground = async function changeBackground() {
+window.protectedGlobals.changeBackground = async function () {
   try {
     const selectedPath = await window.protectedGlobals.pickFile({ accept: "file", startPath: "/" }).catch((e) => {
       console.error("Failed to open background picker", e);
@@ -900,7 +901,7 @@ window.protectedGlobals.changeBackground = async function changeBackground() {
       window.protectedGlobals.notification("No image selected.");
       return false;
     }
-
+    alert("Changing background...");
     const backgroundBuffer = await window.protectedGlobals.ReadFile(selectedPath, { buffer: true, direct: true });
     if (!backgroundBuffer) {
       window.protectedGlobals.notification?.("Could not read the selected image.");
@@ -909,7 +910,7 @@ window.protectedGlobals.changeBackground = async function changeBackground() {
 
     await window.protectedGlobals.DeleteFile("systemfiles/background/background.png").catch(() => {});
     await window.protectedGlobals.WriteFile("systemfiles/background/background.png", backgroundBuffer, { replace: true });
-    await window.protectedGlobals.refreshBackground();
+    await window.protectedGlobals.refreshBackground(backgroundBuffer);
     window.protectedGlobals.notification?.("Background updated.");
     return true;
   } catch (e) {
@@ -918,7 +919,7 @@ window.protectedGlobals.changeBackground = async function changeBackground() {
     return false;
   }
 };
-window.protectedGlobals.resetBackground = async function resetBackground() {
+window.protectedGlobals.resetBackground = async function () {
   try {
     await window.protectedGlobals.DeleteFile("systemfiles/background/background.png").catch(() => {});
     await window.protectedGlobals.refreshBackground();
@@ -1005,6 +1006,7 @@ window.protectedGlobals.showBackgroundContextMenu = function (x, y) {
   });
 
   addItem("Reset background", async () => {
+    alert("Resetting background...");
     await window.protectedGlobals.resetBackground();
   });
 

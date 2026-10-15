@@ -1348,11 +1348,13 @@
       async () => {
         await loadDesktopShortcuts();
         renderDesktopShortcuts();
+        window.protectedGlobals.removeLoadOverlay();
       },
       { once: true },
     );
   } else {
     await loadDesktopShortcuts();
     renderDesktopShortcuts();
+    window.protectedGlobals.removeLoadOverlay();
   }
 })();

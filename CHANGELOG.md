@@ -177,3 +177,6 @@
 - tweaked some taskbutton size
 - update tip text for alt tab from switch windows to active windows.
 - added friendly message for async browser features that just happens silently b4.
+
+## V 2.5.6
+- added loading screen on startup. combined with the last update into a new version.
