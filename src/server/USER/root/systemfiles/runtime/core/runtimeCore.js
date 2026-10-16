@@ -1,7 +1,7 @@
 "use strict";
 
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
-window.protectedGlobals.validatePath = function (path, {
+window.protectedGlobals.normalizeFsPath = function (path, {
   allowRoot = false
 } = {}) {
   if (typeof path !== "string") {
@@ -41,9 +41,6 @@ window.protectedGlobals.validatePath = function (path, {
 
 
 console.log("runtimeCore.js loaded");
-window.protectedGlobals.normalizeFsPath = function normalizeFsPath(path, options = {}) {
-  return window.protectedGlobals.validatePath(path, options);
-};
 window.protectedGlobals.WriteFolder = async function (relPath, options = {}) {
   const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath, { allowRoot: true });
   const directions = [{ path: normalizedPath, addFolder: true }, { end: true }];
@@ -57,7 +54,7 @@ window.protectedGlobals.WriteFolder = async function (relPath, options = {}) {
 };
 window.protectedGlobals.FolderExists = async function (relPath) {
   if (!relPath) throw new Error("No path");
-  const normalizedPath = String(relPath || "").trim().replace(/\\/g, "/");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath);
   const requestPath = normalizedPath === "root"
     ? ""
     : normalizedPath.replace(/^\/+/g, "").replace(/^root\//, "");
@@ -69,10 +66,8 @@ window.protectedGlobals.FolderExists = async function (relPath) {
 };
 window.protectedGlobals.FileExists = async function (relPath) {
   if (!relPath) throw new Error("No path");
-  const normalizedPath = String(relPath || "").trim().replace(/\\/g, "/");
-  const requestPath = normalizedPath === "root"
-    ? ""
-    : normalizedPath.replace(/^\/+/g, "").replace(/^root\//, "");
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath);
+  const requestPath = normalizedPath;
   const res = await window.protectedGlobals.filePost({
     saveSnapshot: true,
     directions: [{ checkFile: true, path: requestPath }],
@@ -1050,6 +1045,8 @@ window.protectedGlobals.deleteApp = async function (obj, cleanupOnly = false) {
   if (!cleanupOnly) {
     await window.protectedGlobals.DeleteFolder(`/systemfiles/runtime/apps/${obj.folderName}`);
     await window.protectedGlobals.removeShortcutsForApp(obj.id).catch(() => {});
+    delete window.protectedGlobals.appPerms[obj.id];
+    window.protectedGlobals.saveAppPermissions();
   }
   for (const element of window.protectedGlobals.apps) {
     if (element.id == obj.id) {
@@ -1058,6 +1055,18 @@ window.protectedGlobals.deleteApp = async function (obj, cleanupOnly = false) {
       } catch {
         // no instance of the app is running, so nothing to close
       }
+      if (!cleanupOnly) {
+        const pinnedIndex = window.protectedGlobals._startMenuConfig.pinnedApps.indexOf(element.id);
+        if (pinnedIndex !== -1) window.protectedGlobals._startMenuConfig.pinnedApps.splice(pinnedIndex, 1);
+        const recentIndex = window.protectedGlobals._startMenuConfig.recents.indexOf(element.id);
+        if (recentIndex !== -1) window.protectedGlobals._startMenuConfig.recents.splice(recentIndex, 1);
+        window.protectedGlobals.saveStartMenuConfig();
+      }
+      [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")].forEach(b => {
+        if (b.dataset.appId === element.id && (b.dataset.pinned !== 'true' || !cleanupOnly)) b.remove();
+      });
+      window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
+      window.protectedGlobals.saveTaskButtons();
       const knownAppIdIndex = window.protectedGlobals.knownAppStuff.knownAppId.indexOf(element.id);
       if (knownAppIdIndex !== -1) window.protectedGlobals.knownAppStuff.knownAppId.splice(knownAppIdIndex, 1);
       const knownAppGlobalsIndex = window.protectedGlobals.knownAppStuff.knownAppGlobals.indexOf(element.globalVarObjectString);
@@ -1065,16 +1074,7 @@ window.protectedGlobals.deleteApp = async function (obj, cleanupOnly = false) {
       const knownAppFuncsIndex = window.protectedGlobals.knownAppStuff.knownAppFuncs.indexOf(element.functionName);
       if (knownAppFuncsIndex !== -1) window.protectedGlobals.knownAppStuff.knownAppFuncs.splice(knownAppFuncsIndex, 1);
       window.protectedGlobals.renderAppsGrid();
-      [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")].forEach(b => {
-        if (b.dataset.appId === element.id) b.remove();
-        window.protectedGlobals.taskbuttons = [...window.protectedGlobals.taskbuttonsContainer.querySelectorAll("button")];
-      });
       window.protectedGlobals.persistUserProfilePatch({ taskbuttons: window.protectedGlobals.data.taskbuttons });
-      const pinnedIndex = window.protectedGlobals._startMenuConfig.pinnedApps.indexOf(element.id);
-      if (pinnedIndex !== -1) window.protectedGlobals._startMenuConfig.pinnedApps.splice(pinnedIndex, 1);
-      const recentIndex = window.protectedGlobals._startMenuConfig.recents.indexOf(element.id);
-      if (recentIndex !== -1) window.protectedGlobals._startMenuConfig.recents.splice(recentIndex, 1);
-      window.protectedGlobals.saveStartMenuConfig();
       delete window[element.globalVarObjectString];
       delete window[element.functionName];
       try { window.protectedGlobals.workers[element.id]?.terminate(); }

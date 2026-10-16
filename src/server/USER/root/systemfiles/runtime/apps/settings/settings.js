@@ -550,7 +550,7 @@ window.settings = function (posX = 50, posY = 50) {
     );
     return appPermsPayload;
   }
-
+  window.protectedGlobals.saveAppPermissions = saveAppPermissions;
   function setAppRowSaveButtonState(saveBtn, hasChanges) {
     if (!saveBtn) return;
     saveBtn.dataset.hasPendingChanges = hasChanges ? "true" : "false";
