@@ -190,6 +190,79 @@ window.protectedGlobals.ReadFolder = async function (relPath, options = { detail
   });
   return res.files;
 };
+window.protectedGlobals.WatchFile = function (relPath, callback, options = {}) {
+  if (typeof callback !== "function") {
+    throw new TypeError("Callback must be a function");
+  }
+
+  const normalizedPath = window.protectedGlobals.normalizeFsPath(relPath, { allowRoot: true });
+  const reconnect = () => {
+    try {
+      setTimeout(() => {
+        window.protectedGlobals.WatchFile(relPath, callback, options);
+      }, 100);
+    } catch (e) {}
+  };
+
+  const openSocket = () => {
+    const serverUrl = new URL(window.protectedGlobals.SERVER);
+    const token = window.protectedGlobals.data && window.protectedGlobals.data.authToken;
+
+    serverUrl.protocol = serverUrl.protocol === "https:" ? "wss:" : "ws:";
+    serverUrl.pathname = "/ws/fswatch";
+    serverUrl.search = new URLSearchParams({
+      username: window.protectedGlobals.getCurrentUsernameForRequests(),
+      path: normalizedPath,
+      recursive: String(!!(options && options.recursive)),
+      ...(token ? { token } : {}),
+    }).toString();
+
+    const ws = new WebSocket(serverUrl.toString());
+
+    ws.addEventListener("message", (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        callback(payload);
+      } catch (err) {
+        callback({ error: String(err), raw: event.data });
+      }
+    });
+
+    ws.addEventListener("close", async (event) => {
+      if (event.code === 1008) {
+        callback({
+          error: event.reason || "Session expired",
+          code: event.code,
+          reason: event.reason || "",
+          closed: true,
+        });
+        try {
+          await window.protectedGlobals.showSessionExpiredDialog().catch(() => false);
+        } catch (e) {}
+        reconnect();
+        return;
+      }
+
+      callback({
+        error: event.reason || `WebSocket closed (${event.code})`,
+        code: event.code,
+        reason: event.reason || "",
+        closed: true,
+      });
+    });
+
+    ws.addEventListener("error", () => {
+      callback({ error: "WebSocket connection error" });
+    });
+
+    return ws;
+  };
+
+  return openSocket();
+};
+window.protectedGlobals.WatchFolder = function (relPath, callback, options = {}) {
+  return window.protectedGlobals.WatchFile(relPath, callback, { ...options, recursive: !!options.recursive });
+};
 window.protectedGlobals.WriteFile = async function (
   relPath,
   contents,

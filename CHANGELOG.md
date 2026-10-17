@@ -180,3 +180,7 @@
 
 ## V 2.5.6
 - added loading screen on startup. combined with the last update into a new version.
+
+## V 2.6.0
+- perms/full system profile file purge after app deletion.
+- **filesystem watchers.**

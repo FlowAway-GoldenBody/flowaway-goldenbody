@@ -273,17 +273,20 @@ class RammerheadProxy extends Proxy {
      * @returns {{ route: string|RegExp, handler: (ws: WebSocket, req: http.IncomingMessage) => WebSocket, wsServer: WebSocket.Server}|null}
      */
     getWSRoute(path, doDelete = false) {
+        const normalizedPath = typeof path === 'string' ? getPathname(path) : path;
+
         for (let i = 0; i < this.websocketRoutes.length; i++) {
+            const routeEntry = this.websocketRoutes[i];
+            const route = routeEntry.route;
             if (
-                (typeof this.websocketRoutes[i].route === 'string' && this.websocketRoutes[i].route === path) ||
-                (this.websocketRoutes[i] instanceof RegExp && this.websocketRoutes[i].route.test(path))
+                (typeof route === 'string' && route === normalizedPath) ||
+                (route instanceof RegExp && route.test(normalizedPath))
             ) {
-                const route = this.websocketRoutes[i];
                 if (doDelete) {
                     this.websocketRoutes.splice(i, 1);
                     i--;
                 }
-                return route;
+                return routeEntry;
             }
         }
         return null;

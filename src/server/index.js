@@ -10,6 +10,7 @@ const RammerheadSessionFileCache = require('../classes/RammerheadSessionFileCach
 const config = require('../config');
 const setupRoutes = require('./setupRoutes');
 const setupPipeline = require('./setupPipeline');
+const { handleWatchConnection } = require('./filesystemWatcher');
 const RammerheadLogging = require('../classes/RammerheadLogging');
 const getSessionId = require('../util/getSessionId');
 const generateId = require('../util/generateId');
@@ -95,6 +96,9 @@ sessionStore.attachToProxy(proxyServer);
 
 setupPipeline(proxyServer, sessionStore);
 setupRoutes(proxyServer, sessionStore, logger);
+proxyServer.WS('/ws/fswatch', (ws, req) => {
+    handleWatchConnection(ws, req);
+});
 
 // register routes and handlers only in workers (or single-process mode)
 // special /server/* endpoints are pinned to one dedicated worker via sticky routing

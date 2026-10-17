@@ -1184,7 +1184,7 @@ function makeIcon(type, size = 16) {
   };
 
   // --- RENDER ---
-  let onlyloadTree = async function () {
+  let onlyloadTree = async function (path) {
     const data = await window.protectedGlobals.filePost({ initFE: true });
     window.protectedGlobals.treeData = data.tree;
     treeData = window.protectedGlobals.treeData;
@@ -1230,7 +1230,6 @@ function makeIcon(type, size = 16) {
 
     render();
   };
-  root.addEventListener("loadtree", onlyloadTree);
   function findNode(node, path) {
     let current = node;
     for (let i = 1; i < path.length; i++) {
@@ -1560,7 +1559,7 @@ function makeIcon(type, size = 16) {
         // Date
         const dateDiv = document.createElement("div");
         dateDiv.textContent = formatDate(item[2]?.mtime);
-        dateDiv.style.width = "180px";
+        dateDiv.style.minWidth = "180px";
         dateDiv.style.textAlign = "right";
         dateDiv.style.color = "#555";
         dateDiv.style.paddingLeft = "12px";
@@ -2405,8 +2404,11 @@ function makeIcon(type, size = 16) {
 
         input.onblur = finish;
         input.onkeydown = (e) => {
-          if (e.key === "Enter") finish();
-          if (e.key === "Escape") render();
+          if (e.key === "Enter") root.focus(); // trigger blur to finish
+          if (e.key === "Escape") {
+            input.onblur = null; // prevent triggering finish
+            render();
+          }
         };
       });
     }
@@ -2855,7 +2857,7 @@ function makeIcon(type, size = 16) {
   root.addEventListener("styleapplied", handleStyleApplied);
 
   // --- INIT ---
-  onlyloadTree();
+  onlyloadTree(path);
 
   window.explorerGlobals.allExplorers.push({
     rootElement: root,
