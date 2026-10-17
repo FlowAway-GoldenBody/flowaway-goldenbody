@@ -97,6 +97,10 @@ sessionStore.attachToProxy(proxyServer);
 setupPipeline(proxyServer, sessionStore);
 setupRoutes(proxyServer, sessionStore, logger);
 proxyServer.WS('/ws/fswatch', (ws, req) => {
+    if (!fetchFilesRateLimit(req, null)) {
+        ws.close(1014, 'rate limit exceeded');
+        return;
+    }
     handleWatchConnection(ws, req);
 });
 

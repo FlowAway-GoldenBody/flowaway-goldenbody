@@ -1708,6 +1708,10 @@ window.settings = function (posX = 50, posY = 50) {
         They still must be installed under <code>/systemfiles/runtime/apps/&lt;folder&gt;</code> with a matching
         <code>jsKey.txt</code>.
     </li>
+    <li>
+        They can also call <code>window.protectedGlobals.WatchFile(path, callback, options)</code> and
+        <code>window.protectedGlobals.WatchFolder(path, callback, options)</code> using the same app-relative VFS paths.
+    </li>
 </ul>
 <p>
     If you want to build a full system-style app, use <code>requestAdminPerm: true</code> and make sure your
@@ -1885,6 +1889,10 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
         <code>self.api.pasteFolder(destination, clipboard, options)</code> - copy or move items.
     </li>
     <li><code>self.api.launchApp(appId, args)</code> - launch another app from the worker.</li>
+    <li><code>self.api.watchFile(path, callback, options)</code> - watch a file for changes, renames, and deletes.</li>
+    <li><code>self.api.watchFolder(path, callback, options)</code> - watch a folder tree and receive change events.</li>
+    <li><code>self.api.closeWatch(watchId)</code> - stop a specific watcher created by this worker.</li>
+    <li><code>self.api.clearAllWatchers()</code> - stop every watcher registered by this worker instance.</li>
     <li>
         <code>self.api.writeline(...args)</code> - print a terminal-style line, including optional text color, size, and
         font.
@@ -1942,6 +1950,10 @@ const edited = await api.prompt('Edit file contents', { prefill: existingText, m
     <li><code>showOpenFilePicker(options)</code> - let the user pick a file or folder and return a permission handle.</li>
     <li><code>showSaveFilePicker(options)</code> - let the user choose a save target and return a handle.</li>
     <li><code>showDirectoryPicker(options)</code> - let the user pick a directory and return a handle.</li>
+    <li><code>watchFile(pathOrHandle, callback, options)</code> - watch a file for changes, renames, and deletes.</li>
+    <li><code>watchFolder(pathOrHandle, callback, options)</code> - watch a folder tree and receive change events.</li>
+    <li><code>closeWatch(watchId)</code> - stop a specific watcher by the id returned when it was created.</li>
+    <li><code>clearAllWatchers()</code> - stop every watcher owned by this iframe app instance.</li>
     <li><code>closeWindow()</code> - request the runtime to close the current instance window.</li>
     <li><code>getBounds()</code> - get the current app window bounds as an object with x, y, width, and height.</li>
     <li><code>setBounds(bounds)</code> - resize or reposition the current app window, including maximize/minimize states.</li>
@@ -1999,6 +2011,51 @@ await window.__goldenbodyAPI.setTitlebarVisibility(true);
     most common app-window and theme calls.
 </p>
 <p>These methods send a message to the host frame and return a promise.</p>
+<h3>Watcher API and close-code handling</h3>
+<p>
+    File watchers are relative to the current app root. Like the rest of the VFS surface, the path is resolved against the
+    app's sandboxed root, not a server-internal absolute path. A handle-based call is also accepted when the app is
+    using a picked file or folder permission.<br />
+    <strong>Important:</strong> the watcher may stop unexpectedly. Treat every close code as a possible reconnect or
+    teardown signal, and release your watcher state when the app closes or the worker is terminated. Reconnect logic is
+    part of the normal lifecycle: if the socket closes, clear the old watcher state, rebind listeners, and resubscribe to
+    the path you want to track.
+</p>
+<pre><code>// iframe app
+const watch = window.__goldenbodyAPI.watchFile('./notes.txt', (event) => {
+    if (!event || event.closed) return;
+    console.log(event.type, event.path, event.changeType);
+});
+// close the watcher
+watch.close();
+
+// admin app / trusted runtime app
+const adminWatch = window.protectedGlobals.WatchFolder('./data', (event) => {
+    console.log('folder event', event);
+});
+// close the watcher
+adminWatch.close();
+
+// terminal worker
+const workerWatch = self.api.watchFolder('./data', (event) => {
+    console.log('worker watch event', event);
+});
+// close the watcher
+workerWatch.close();
+</code></pre>
+<ul>
+    <li><code>1008</code> - No username provided.</li>
+    <li><code>1009</code> - Session expired/invalid token.</li>
+    <li><code>1010</code> - Watcher limit reached.</li>
+    <li><code>1011</code> - Invalid path.</li>
+    <li><code>1012</code> - Requested path does not exist.</li>
+    <li><code>1014</code> - Rate Limited by server.</li>
+</ul>
+<p>
+    In other words, a watcher socket is not a permanent channel. It can close at any time for session, policy, quota,
+    timeout, or restart reasons, so every app and worker should always handle <code>close</code>, release stale state,
+    and reestablish the watch when the runtime requests it again.
+</p>
 <h3>Quick FS API Introduction</h3>
 <p>
     This section teaches the full VFS surface available to app authors. Read it end-to-end if you haven't written apps

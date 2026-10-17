@@ -403,6 +403,15 @@ window.protectedGlobals.showConfirmDialog = (title, message, okText, cancelText)
 // cleanup
 // required functions for the system cleanup
 window.protectedGlobals.rebuildhandler = function () {
+  if (window.protectedGlobals.activeWebSockets) {
+    for (const ws of Array.from(window.protectedGlobals.activeWebSockets)) {
+      try {
+        ws.close(1000, "rebuild");
+      } catch (e) {}
+    }
+    window.protectedGlobals.activeWebSockets.clear();
+  }
+
   for (let i = 0; i < 10000; i++) {
     clearInterval(i, { nolog: true });
   }

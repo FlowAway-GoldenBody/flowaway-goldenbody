@@ -222,10 +222,28 @@ window.terminal = function (path, posX = 50, posY = 50) {
       return Number(worker && worker.__terminalWorkerPid ? worker.__terminalWorkerPid : NaN) || null;
     }
 
+    function clearTerminalWorkerWatchers() {
+      const runtime = window.protectedGlobals;
+      if (runtime && runtime.__terminalWorkerWatches) {
+        for (const watch of Array.from(runtime.__terminalWorkerWatches.values())) {
+          try {
+            if (watch && typeof watch.close === 'function') watch.close();
+          } catch (e) {}
+        }
+        runtime.__terminalWorkerWatches.clear();
+      }
+      if (terminalWorker && typeof terminalWorker.postMessage === 'function') {
+        try {
+          terminalWorker.postMessage({ type: 'api', id: 'clear-watchers-' + Date.now() + '-' + Math.random(), op: 'clearAllWatchers', __fromRuntime: true });
+        } catch (e) {}
+      }
+    }
+
     function finalizeTerminalWorker(worker, reason) {
       if (!worker) return;
       if (worker.__terminalFinalized) return;
       worker.__terminalFinalized = true;
+      clearTerminalWorkerWatchers();
       const pid = getTrackedWorkerPid(worker);
       window.protectedGlobals.killProcess(pid, reason || 'terminal-worker-exit');
       if (terminalWorker === worker) {
@@ -858,6 +876,15 @@ window.terminal = function (path, posX = 50, posY = 50) {
             });
           }
 
+          const _watchHandles = new Map();
+          const resolveWatchTarget = (value) => {
+            if (typeof value === 'string') return value;
+            if (value && typeof value === 'object') {
+              if (typeof value.path === 'string') return value.path;
+              if (typeof value.value === 'string') return value.value;
+            }
+            return '';
+          };
           self.api = {
             readFile: (path, opts) => { const id = nextId(); postMessage({type:'api', id, op:'readFile', path, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             writeFile: (path, content, opts) => { const id = nextId(); postMessage({type:'api', id, op:'writeFile', path, content, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
@@ -872,6 +899,49 @@ window.terminal = function (path, posX = 50, posY = 50) {
             pasteFile: (destination, clipboard, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFile', path: destination, clipboard, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             pasteFolder: (destination, clipboard, opts)=>{ const id = nextId(); postMessage({type:'api', id, op:'pasteFolder', path: destination, clipboard, opts}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
             launchApp: (appId, args = []) => { const id = nextId(); postMessage({type:'api', id, op:'launchApp', appId, args}); return new Promise((res, rej)=>_pending.set(id,{res,rej})); },
+            watchFile: (pathOrHandle, callback, options = {}) => {
+              const watchId = nextId();
+              const target = resolveWatchTarget(pathOrHandle);
+              const watch = {
+                id: watchId,
+                close: () => {
+                  _watchHandles.delete(watchId);
+                  postMessage({ type: 'api', id: nextId(), op: 'cancelWatch', watchId });
+                },
+              };
+              _watchHandles.set(watchId, { callback, watch });
+              postMessage({ type: 'api', id: watchId, op: 'watchFile', path: target, key: (pathOrHandle && typeof pathOrHandle === 'object' && typeof pathOrHandle.key === 'string') ? pathOrHandle.key : undefined, options });
+              return watch;
+            },
+            watchFolder: (pathOrHandle, callback, options = {}) => {
+              const watchId = nextId();
+              const target = resolveWatchTarget(pathOrHandle);
+              const watch = {
+                id: watchId,
+                close: () => {
+                  _watchHandles.delete(watchId);
+                  postMessage({ type: 'api', id: nextId(), op: 'cancelWatch', watchId });
+                },
+              };
+              _watchHandles.set(watchId, { callback, watch });
+              postMessage({ type: 'api', id: watchId, op: 'watchFolder', path: target, key: (pathOrHandle && typeof pathOrHandle === 'object' && typeof pathOrHandle.key === 'string') ? pathOrHandle.key : undefined, options });
+              return watch;
+            },
+            closeWatch: (watchId) => {
+              const handle = _watchHandles.get(watchId);
+              if (!handle) return false;
+              handle.watch.close();
+              return true;
+            },
+            clearAllWatchers: () => {
+              for (const [watchId] of Array.from(_watchHandles.keys())) {
+                const handle = _watchHandles.get(watchId);
+                if (handle && handle.watch && typeof handle.watch.close === 'function') handle.watch.close();
+              }
+              _watchHandles.clear();
+              postMessage({ type: 'api', id: nextId(), op: 'clearAllWatchers' });
+              return true;
+            },
             writeline: function (...args) {
               const id = nextId();
               const spec = normalizeLineArgs(args[0], args[1], args[2], args[3]);
@@ -921,6 +991,16 @@ window.terminal = function (path, posX = 50, posY = 50) {
               if (!pending) return;
               pending.res(d.value ?? '');
               _promptPending.delete(d.id);
+              return;
+            }
+            if (d.type === 'watchEvent') {
+              const watchEntry = _watchHandles.get(d.watchId);
+              if (!watchEntry || typeof watchEntry.callback !== 'function') return;
+              try {
+                watchEntry.callback(d.payload);
+              } catch (err) {
+                postMessage({ type: 'log', msg: 'watch callback failed: ' + String(err) });
+              }
               return;
             }
             if (d.type === 'apiResult') {
@@ -1030,109 +1110,133 @@ window.terminal = function (path, posX = 50, posY = 50) {
           const op = d.op;
           try {
             let result;
-            // enforce app-scoped access for app workers; user-created workers remain unrestricted.
-            const target = d.path || (d.payload && d.payload.path) || '';
-            // If this app's js key matches the user's main profile key, treat relative paths as absolute
-            let resolved;
-            try {
-              // Determine if this app should be treated as an admin app (verified)
-              const profileMainKey = window.protectedGlobals && window.protectedGlobals.userProfile && window.protectedGlobals.userProfile.mainKey ? String(window.protectedGlobals.userProfile.mainKey) : null;
-              let isAdminApp = false;
-              try {
-                const appsList = window.protectedGlobals && Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
-                const normalizedAppRoot = normalizeCloudPath(String(appRoot || '/'));
-                for (const a of appsList) {
-                  if (!a || !a.path) continue;
-                  try {
-                    const apath = normalizeCloudPath(String(a.path || '/'));
-                    // Require explicit admin permission AND matching jsKey to the user's mainKey
-                    if (apath === normalizedAppRoot && a.requestAdminPerm && a.verified) {
-                      isAdminApp = true;
-                      break;
-                    }
-                  } catch (e) {}
-                }
-              } catch (e) {}
+            if (op === 'watchFile' || op === 'watchFolder') {
+              const rawPath = d.path || '';
+              const target = typeof rawPath === 'string' ? rawPath : (rawPath && typeof rawPath === 'object' && typeof rawPath.path === 'string' ? rawPath.path : '');
+              const resolvedTarget = target ? resolveWorkerPath(target, appRoot) : resolveWorkerPath('', appRoot);
+              const watchWrapper = op === 'watchFile'
+                ? window.protectedGlobals.WatchFile(resolvedTarget, (payload) => {
+                    worker.postMessage({ type: 'watchEvent', watchId: id, payload, __fromRuntime: true });
+                  }, d.options || {})
+                : window.protectedGlobals.WatchFolder(resolvedTarget, (payload) => {
+                    worker.postMessage({ type: 'watchEvent', watchId: id, payload, __fromRuntime: true });
+                  }, d.options || {});
 
-              if (isAdminApp) {
-                // allow admin apps to address absolute paths even when providing relative targets
-                if (target === undefined || target === null || String(target) === '') resolved = '/';
-                else {
-                  const s = String(target);
-                  resolved = normalizeVfsPath(s.startsWith('/') ? s : '/' + s);
-                }
-              } else {
-                // non-admin default behavior
-                if (profileMainKey && String(appRoot || '').includes('/' + profileMainKey) && target && !String(target).startsWith('/')) {
-                  resolved = normalizeVfsPath('/' + String(target));
-                } else {
-                  resolved = resolveWorkerPath(target, appRoot);
-                }
+              if (!window.protectedGlobals.__terminalWorkerWatches) {
+                window.protectedGlobals.__terminalWorkerWatches = new Map();
               }
-            } catch (e) {
-              resolved = resolveWorkerPath(target, appRoot);
-            }
-            if (['readFile','writeFile','readFolder','fileExists','folderExists','deleteFile','deleteFolder','writeFolder','renameFile','renameFolder','pasteFile','pasteFolder'].includes(op)) {
-              // enforce app-scoped access for non-admin apps
-              let skipAccessCheck = false;
+              window.protectedGlobals.__terminalWorkerWatches.set(id, watchWrapper);
+              result = { watchId: id };
+            } else if (op === 'cancelWatch') {
+              const watch = window.protectedGlobals.__terminalWorkerWatches && window.protectedGlobals.__terminalWorkerWatches.get(d.watchId);
+              if (watch && typeof watch.close === 'function') watch.close();
+              if (window.protectedGlobals.__terminalWorkerWatches) {
+                window.protectedGlobals.__terminalWorkerWatches.delete(d.watchId);
+              }
+              result = { closed: true, watchId: d.watchId };
+            } else if (op === 'clearAllWatchers') {
+              if (window.protectedGlobals.__terminalWorkerWatches) {
+                for (const watch of Array.from(window.protectedGlobals.__terminalWorkerWatches.values())) {
+                  try { if (watch && typeof watch.close === 'function') watch.close(); } catch (e) {}
+                }
+                window.protectedGlobals.__terminalWorkerWatches.clear();
+              }
+              result = { cleared: true };
+            } else {
+              const target = d.path || (d.payload && d.payload.path) || '';
+              let resolved;
               try {
-                const appsList = window.protectedGlobals && Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
-                const normalizedAppRoot = normalizeCloudPath(String(appRoot || '/'));
-                for (const a of appsList) {
-                  if (!a || !a.path) continue;
-                  try {
-                    const apath = normalizeCloudPath(String(a.path || '/'));
-                    if (apath === normalizedAppRoot && a.requestAdminPerm && a.verified) {
-                      skipAccessCheck = true;
-                      break;
+                const profileMainKey = window.protectedGlobals && window.protectedGlobals.userProfile && window.protectedGlobals.userProfile.mainKey ? String(window.protectedGlobals.userProfile.mainKey) : null;
+                let isAdminApp = false;
+                try {
+                  const appsList = window.protectedGlobals && Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
+                  const normalizedAppRoot = normalizeCloudPath(String(appRoot || '/'));
+                  for (const a of appsList) {
+                    if (!a || !a.path) continue;
+                    try {
+                      const apath = normalizeCloudPath(String(a.path || '/'));
+                      if (apath === normalizedAppRoot && a.requestAdminPerm && a.verified) {
+                        isAdminApp = true;
+                        break;
+                      }
+                    } catch (e) {}
+                  }
+                } catch (e) {}
+
+                if (isAdminApp) {
+                  if (target === undefined || target === null || String(target) === '') resolved = '/';
+                  else {
+                    const s = String(target);
+                    resolved = normalizeVfsPath(s.startsWith('/') ? s : '/' + s);
+                  }
+                } else {
+                  if (profileMainKey && String(appRoot || '').includes('/' + profileMainKey) && target && !String(target).startsWith('/')) {
+                    resolved = normalizeVfsPath('/' + String(target));
+                  } else {
+                    resolved = resolveWorkerPath(target, appRoot);
+                  }
+                }
+              } catch (e) {
+                resolved = resolveWorkerPath(target, appRoot);
+              }
+              if (['readFile','writeFile','readFolder','fileExists','folderExists','deleteFile','deleteFolder','writeFolder','renameFile','renameFolder','pasteFile','pasteFolder'].includes(op)) {
+                let skipAccessCheck = false;
+                try {
+                  const appsList = window.protectedGlobals && Array.isArray(window.protectedGlobals.apps) ? window.protectedGlobals.apps : [];
+                  const normalizedAppRoot = normalizeCloudPath(String(appRoot || '/'));
+                  for (const a of appsList) {
+                    if (!a || !a.path) continue;
+                    try {
+                      const apath = normalizeCloudPath(String(a.path || '/'));
+                      if (apath === normalizedAppRoot && a.requestAdminPerm && a.verified) {
+                        skipAccessCheck = true;
+                        break;
+                      }
+                    } catch (e) {}
+                  }
+                } catch (e) {}
+
+                if (!skipAccessCheck) {
+                  const normalizedResolved = normalizeCloudPath(resolved || '');
+                  if (isUserProfilePath(normalizedResolved)) {
+                    throw new Error('Path not allowed: ' + String(target));
+                  }
+
+                  const appsRoot = '/systemfiles/runtime/apps';
+                  if (normalizedResolved === appsRoot || normalizedResolved.startsWith(appsRoot + '/')) {
+                    const root = normalizeCloudPath(String(appRoot || '/'));
+                    if (!isPathUnderRoot(normalizedResolved, root)) {
+                      throw new Error('Path not allowed: ' + String(target));
                     }
-                  } catch (e) {}
-                }
-              } catch (e) {}
+                  }
 
-              if (!skipAccessCheck) {
-                // Deny access to userprofile for non-admin apps explicitly
-                const normalizedResolved = normalizeCloudPath(resolved || '');
-                if (isUserProfilePath(normalizedResolved)) {
-                  throw new Error('Path not allowed: ' + String(target));
-                }
-
-                // Prevent non-admin apps from reading other apps' files
-                const appsRoot = '/systemfiles/runtime/apps';
-                if (normalizedResolved === appsRoot || normalizedResolved.startsWith(appsRoot + '/')) {
-                  const root = normalizeCloudPath(String(appRoot || '/'));
-                  if (!isPathUnderRoot(normalizedResolved, root)) {
+                  if (!canAccessWorkerPath(resolved, appRoot)) {
                     throw new Error('Path not allowed: ' + String(target));
                   }
                 }
-
-                // Fallback generic check
-                if (!canAccessWorkerPath(resolved, appRoot)) {
-                  throw new Error('Path not allowed: ' + String(target));
+              }
+              switch (op) {
+                case 'readFile': result = await window.protectedGlobals.ReadFile(resolved, d.opts || { text: true, direct: true }); break;
+                case 'writeFile': result = await window.protectedGlobals.WriteFile(resolved, d.content, { replace: true }); break;
+                case 'readFolder': result = await window.protectedGlobals.ReadFolder(resolved, d.opts || {}); break;
+                case 'fileExists': result = await window.protectedGlobals.FileExists(resolved); break;
+                case 'folderExists': result = await window.protectedGlobals.FolderExists(resolved); break;
+                case 'deleteFile': result = await window.protectedGlobals.DeleteFile(resolved); break;
+                case 'deleteFolder': result = await window.protectedGlobals.DeleteFolder(resolved); break;
+                case 'writeFolder': result = await window.protectedGlobals.WriteFolder(resolved); break;
+                case 'renameFile': result = await window.protectedGlobals.RenameFile(resolved, d.newName); break;
+                case 'renameFolder': result = await window.protectedGlobals.RenameFolder(resolved, d.newName); break;
+                case 'pasteFile': result = await window.protectedGlobals.PasteFile(resolved, d.clipboard); break;
+                case 'pasteFolder': result = await window.protectedGlobals.PasteFolder(resolved, d.clipboard); break;
+                case 'launchApp': {
+                  const appId = d.appId ? String(d.appId) : '';
+                  if (!appId) throw new Error('Missing appId');
+                  const args = Array.isArray(d.args) ? d.args : (d.args === undefined ? [] : [d.args]);
+                  result = await window.protectedGlobals.launchApp(appId, args);
+                  break;
                 }
+                default: throw new Error('Unknown op ' + op);
               }
-            }
-            switch (op) {
-              case 'readFile': result = await window.protectedGlobals.ReadFile(resolved, d.opts || { text: true, direct: true }); break;
-              case 'writeFile': result = await window.protectedGlobals.WriteFile(resolved, d.content, { replace: true }); break;
-              case 'readFolder': result = await window.protectedGlobals.ReadFolder(resolved, d.opts || {}); break;
-              case 'fileExists': result = await window.protectedGlobals.FileExists(resolved); break;
-              case 'folderExists': result = await window.protectedGlobals.FolderExists(resolved); break;
-              case 'deleteFile': result = await window.protectedGlobals.DeleteFile(resolved); break;
-              case 'deleteFolder': result = await window.protectedGlobals.DeleteFolder(resolved); break;
-              case 'writeFolder': result = await window.protectedGlobals.WriteFolder(resolved); break;
-              case 'renameFile': result = await window.protectedGlobals.RenameFile(resolved, d.newName); break;
-              case 'renameFolder': result = await window.protectedGlobals.RenameFolder(resolved, d.newName); break;
-              case 'pasteFile': result = await window.protectedGlobals.PasteFile(resolved, d.clipboard); break;
-              case 'pasteFolder': result = await window.protectedGlobals.PasteFolder(resolved, d.clipboard); break;
-              case 'launchApp': {
-                const appId = d.appId ? String(d.appId) : '';
-                if (!appId) throw new Error('Missing appId');
-                const args = Array.isArray(d.args) ? d.args : (d.args === undefined ? [] : [d.args]);
-                result = await window.protectedGlobals.launchApp(appId, args);
-                break;
-              }
-              default: throw new Error('Unknown op ' + op);
             }
             worker.postMessage({ type: 'apiResult', id, result, __fromRuntime: true });
           } catch (e) {

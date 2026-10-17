@@ -1,6 +1,7 @@
 "use strict";
 
 window.protectedGlobals.missingFolders = window.protectedGlobals.missingFolders || new Set();
+window.protectedGlobals.activeWebSockets = window.protectedGlobals.activeWebSockets || new Set();
 window.protectedGlobals.normalizeFsPath = function (path, {
   allowRoot = false
 } = {}) {
@@ -218,6 +219,24 @@ window.protectedGlobals.WatchFile = function (relPath, callback, options = {}) {
     }).toString();
 
     const ws = new WebSocket(serverUrl.toString());
+    window.protectedGlobals.activeWebSockets.add(ws);
+    let heartbeatTimer = null;
+
+    const startHeartbeat = () => {
+      if (heartbeatTimer) return;
+      heartbeatTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "watch",
+            event: "ping",
+            path: normalizedPath,
+            timestamp: Date.now(),
+          }));
+        }
+      }, 3000);
+    };
+
+    ws.addEventListener("open", startHeartbeat);
 
     ws.addEventListener("message", (event) => {
       try {
@@ -229,7 +248,14 @@ window.protectedGlobals.WatchFile = function (relPath, callback, options = {}) {
     });
 
     ws.addEventListener("close", async (event) => {
-      if (event.code === 1008) {
+      window.protectedGlobals.activeWebSockets.delete(ws);
+
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+
+      if (event.code === 1009) {
         callback({
           error: event.reason || "Session expired",
           code: event.code,

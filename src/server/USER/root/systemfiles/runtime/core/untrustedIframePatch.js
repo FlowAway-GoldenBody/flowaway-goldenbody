@@ -405,6 +405,29 @@ let createRequestId;
     };
 })();
 
+const __appWatchRegistry = new Map();
+const registerWatchHandle = (watch) => {
+    if (!watch || !watch.id) return watch;
+    __appWatchRegistry.set(watch.id, watch);
+    return watch;
+};
+const unregisterWatchHandle = (watchId) => {
+    const watch = __appWatchRegistry.get(watchId);
+    if (watch) __appWatchRegistry.delete(watchId);
+    return watch || null;
+};
+const closeWatchById = (watchId) => {
+    const watch = unregisterWatchHandle(watchId);
+    if (!watch || typeof watch.close !== 'function') return false;
+    watch.close();
+    return true;
+};
+const clearAllWatchers = () => {
+    for (const watchId of Array.from(__appWatchRegistry.keys())) {
+        closeWatchById(watchId);
+    }
+};
+
 const normalizePathInput = (pathOrHandle) => {
     let path = pathOrHandle;
     let key = undefined;
@@ -484,6 +507,76 @@ window.__goldenbodyAPI = {
             const handleMessage = createRequestMessageHandler(requestId, resolve, reject);
             window.addEventListener('message', handleMessage);
         });
+    },
+
+    watchFile: (pathOrHandle, callback, options = {}) => {
+        if (typeof callback !== 'function') {
+            throw new Error('Callback must be a function');
+        }
+        const { path, key } = normalizePathInput(pathOrHandle);
+        const requestId = createRequestId();
+        const listener = (event) => {
+            if (!event || !event.data || typeof event.data !== 'object') return;
+            if (event.data.requestId !== requestId) return;
+            if (!event.data.watchEvent) return;
+            if (event.data.error) {
+                callback({ error: event.data.error });
+                return;
+            }
+            callback(event.data.payload);
+        };
+        window.addEventListener('message', listener);
+        window.parent.postMessage({ watchFile: true, path, key, options, requestId }, '*');
+        const watchHandle = {
+            id: requestId,
+            close: () => {
+                window.removeEventListener('message', listener);
+                unregisterWatchHandle(requestId);
+                window.parent.postMessage({ cancelWatch: true, requestId }, '*');
+            },
+        };
+        registerWatchHandle(watchHandle);
+        return watchHandle;
+    },
+
+    watchFolder: (pathOrHandle, callback, options = {}) => {
+        if (typeof callback !== 'function') {
+            throw new Error('Callback must be a function');
+        }
+        const { path, key } = normalizePathInput(pathOrHandle);
+        const requestId = createRequestId();
+        const listener = (event) => {
+            if (!event || !event.data || typeof event.data !== 'object') return;
+            if (event.data.requestId !== requestId) return;
+            if (!event.data.watchEvent) return;
+            if (event.data.error) {
+                callback({ error: event.data.error });
+                return;
+            }
+            callback(event.data.payload);
+        };
+        window.addEventListener('message', listener);
+        window.parent.postMessage({ watchFolder: true, path, key, options, requestId }, '*');
+        const watchHandle = {
+            id: requestId,
+            close: () => {
+                window.removeEventListener('message', listener);
+                unregisterWatchHandle(requestId);
+                window.parent.postMessage({ cancelWatch: true, requestId }, '*');
+            },
+        };
+        registerWatchHandle(watchHandle);
+        return watchHandle;
+    },
+
+    closeWatch: (watchId) => {
+        if (!watchId) return false;
+        return closeWatchById(watchId);
+    },
+
+    clearAllWatchers: () => {
+        clearAllWatchers();
+        return true;
     },
 
     folderExists: async (pathOrHandle, options) => {
@@ -596,6 +689,7 @@ window.__goldenbodyAPI = {
     },
 
     closeWindow: async () => {
+        clearAllWatchers();
         let requestId = createRequestId();
         window.parent.postMessage({closeWindow: true, requestId}, '*');
         return new Promise((resolve, reject) => {

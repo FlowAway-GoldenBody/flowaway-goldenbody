@@ -221,6 +221,59 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
         return false;
     }
 
+    function toWatchPathString(value) {
+        if (typeof value === "string") return value;
+        if (value && typeof value === "object") {
+            if (typeof value.path === "string") return value.path;
+            if (typeof value.value === "string") return value.value;
+        }
+        return "";
+    }
+
+    function normalizeWatchPayload(payload, appFolderName, isPublicOrApproved) {
+        if (!payload || typeof payload !== "object") return payload;
+        const payloadPath = typeof payload.path === "string" ? payload.path : "";
+        if (!payloadPath || isPublicOrApproved) return payload;
+        const internalRoot = `systemfiles/runtime/apps/${appFolderName}`;
+        const normalizedPayloadPath = payloadPath.startsWith("/") ? payloadPath : `/${payloadPath}`;
+        const targetPath = normalizedPayloadPath === `/${internalRoot}` || normalizedPayloadPath.startsWith(`/${internalRoot}/`)
+            ? normalizedPayloadPath.slice(internalRoot.length + 1)
+            : normalizedPayloadPath;
+        payload.path = targetPath === "" ? "/" : targetPath;
+        return payload;
+    }
+
+    window.protectedGlobals.clearAppInstanceWatchers = function (instanceSource) {
+        if (!instanceSource || !window.protectedGlobals.__iframeWatchHandlesByInstance) return;
+        const instanceWatchers = window.protectedGlobals.__iframeWatchHandlesByInstance.get(instanceSource);
+        if (!instanceWatchers) return;
+        for (const requestId of Array.from(instanceWatchers.keys())) {
+            const watch = window.protectedGlobals.__iframeWatchHandles && window.protectedGlobals.__iframeWatchHandles.get(requestId);
+            if (watch && typeof watch.close === "function") {
+                watch.close();
+            }
+            if (window.protectedGlobals.__iframeWatchHandles) {
+                window.protectedGlobals.__iframeWatchHandles.delete(requestId);
+            }
+        }
+        window.protectedGlobals.__iframeWatchHandlesByInstance.delete(instanceSource);
+    };
+
+    window.protectedGlobals.clearAllWatchers = function () {
+        if (window.protectedGlobals.__iframeWatchHandles) {
+            for (const requestId of Array.from(window.protectedGlobals.__iframeWatchHandles.keys())) {
+                const watch = window.protectedGlobals.__iframeWatchHandles.get(requestId);
+                if (watch && typeof watch.close === "function") {
+                    watch.close();
+                }
+                window.protectedGlobals.__iframeWatchHandles.delete(requestId);
+            }
+        }
+        if (window.protectedGlobals.__iframeWatchHandlesByInstance) {
+            window.protectedGlobals.__iframeWatchHandlesByInstance.clear();
+        }
+    };
+
     window.protectedGlobals.setIframesPointerEvents = function (none = true) {
         document.querySelectorAll("iframe").forEach((iframe) => {
             if (none) iframe.classList.add("pointer-events-none");
@@ -336,6 +389,109 @@ async function showAppPermissionPrompt(appName, permissionType, diffmsg = false,
                 source.postMessage({ launchAppResult: true, result: launchResult, requestId: requestId }, "*");
             } catch (err) {
                 source.postMessage({ error: err.message || String(err), requestId: requestId }, "*");
+            }
+            return;
+        }
+        if (e.detail.data.watchFile) {
+            const requestId = e.detail.data.requestId;
+            const rawKey = e.detail.data.key;
+            const key = rawKey === undefined || rawKey === null || String(rawKey) === "" ? null : rawKey;
+            const keyWasProvided = !!key;
+            const watchPathValue = toWatchPathString(path);
+            const externalKeyAllowed = keyWasProvided && isExternalKeyAllowed(watchPathValue, key, appName);
+            if (keyWasProvided && !externalKeyAllowed) {
+                source.postMessage({ error: "Invalid handle for filesystem access", from: e.detail.from, requestId }, "*");
+                return;
+            }
+
+            let watchPath = watchPathValue;
+            const isPublicOrApproved = watchPath.startsWith("/__public") || watchPath.startsWith("__public") || externalKeyAllowed;
+            if (!isPublicOrApproved) {
+                watchPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + watchPath.replace(/^\/+/, "");
+            }
+
+            try {
+                const watch = window.protectedGlobals.WatchFile(watchPath, (payload) => {
+                    source.postMessage({ watchEvent: true, requestId, payload: normalizeWatchPayload(payload, e.detail.from, isPublicOrApproved) }, "*");
+                }, e.detail.data.options || {});
+
+                if (!window.protectedGlobals.__iframeWatchHandles) {
+                    window.protectedGlobals.__iframeWatchHandles = new Map();
+                }
+                if (!window.protectedGlobals.__iframeWatchHandlesByInstance) {
+                    window.protectedGlobals.__iframeWatchHandlesByInstance = new Map();
+                }
+                const instanceWatchers = window.protectedGlobals.__iframeWatchHandlesByInstance.get(source) || new Map();
+                instanceWatchers.set(requestId, watch);
+                window.protectedGlobals.__iframeWatchHandlesByInstance.set(source, instanceWatchers);
+                window.protectedGlobals.__iframeWatchHandles.set(requestId, watch);
+                source.postMessage({ watchFileResult: true, result: { requestId }, requestId }, "*");
+            } catch (err) {
+                source.postMessage({ error: err.message || String(err), requestId }, "*");
+            }
+            return;
+        }
+        if (e.detail.data.watchFolder) {
+            const requestId = e.detail.data.requestId;
+            const rawKey = e.detail.data.key;
+            const key = rawKey === undefined || rawKey === null || String(rawKey) === "" ? null : rawKey;
+            const keyWasProvided = !!key;
+            const watchPathValue = toWatchPathString(path);
+            const externalKeyAllowed = keyWasProvided && isExternalKeyAllowed(watchPathValue, key, appName);
+            if (keyWasProvided && !externalKeyAllowed) {
+                source.postMessage({ error: "Invalid handle for filesystem access", from: e.detail.from, requestId }, "*");
+                return;
+            }
+
+            let watchPath = watchPathValue;
+            const isPublicOrApproved = watchPath.startsWith("/__public") || watchPath.startsWith("__public") || externalKeyAllowed;
+            if (!isPublicOrApproved) {
+                watchPath = "systemfiles/runtime/apps/" + e.detail.from + "/" + watchPath.replace(/^\/+/, "");
+            }
+
+            try {
+                const watch = window.protectedGlobals.WatchFolder(watchPath, (payload) => {
+                    source.postMessage({ watchEvent: true, requestId, payload: normalizeWatchPayload(payload, e.detail.from, isPublicOrApproved) }, "*");
+                }, e.detail.data.options || {});
+
+                if (!window.protectedGlobals.__iframeWatchHandles) {
+                    window.protectedGlobals.__iframeWatchHandles = new Map();
+                }
+                if (!window.protectedGlobals.__iframeWatchHandlesByInstance) {
+                    window.protectedGlobals.__iframeWatchHandlesByInstance = new Map();
+                }
+                const instanceWatchers = window.protectedGlobals.__iframeWatchHandlesByInstance.get(source) || new Map();
+                instanceWatchers.set(requestId, watch);
+                window.protectedGlobals.__iframeWatchHandlesByInstance.set(source, instanceWatchers);
+                window.protectedGlobals.__iframeWatchHandles.set(requestId, watch);
+                source.postMessage({ watchFolderResult: true, result: { requestId }, requestId }, "*");
+            } catch (err) {
+                source.postMessage({ error: err.message || String(err), requestId }, "*");
+            }
+            return;
+        }
+        if (e.detail.data.cancelWatch) {
+            const requestId = e.detail.data.requestId;
+            try {
+                const watch = window.protectedGlobals.__iframeWatchHandles && window.protectedGlobals.__iframeWatchHandles.get(requestId);
+                if (watch && typeof watch.close === "function") {
+                    watch.close();
+                }
+                if (window.protectedGlobals.__iframeWatchHandles) {
+                    window.protectedGlobals.__iframeWatchHandles.delete(requestId);
+                }
+                if (window.protectedGlobals.__iframeWatchHandlesByInstance) {
+                    const instanceWatchers = window.protectedGlobals.__iframeWatchHandlesByInstance.get(source);
+                    if (instanceWatchers) {
+                        instanceWatchers.delete(requestId);
+                        if (instanceWatchers.size === 0) {
+                            window.protectedGlobals.__iframeWatchHandlesByInstance.delete(source);
+                        }
+                    }
+                }
+                source.postMessage({ cancelWatchResult: true, requestId }, "*");
+            } catch (err) {
+                source.postMessage({ error: err.message || String(err), requestId }, "*");
             }
             return;
         }
